@@ -1,0 +1,23 @@
+services:
+  frontend:
+    env_file: .env.frontend
+    image: felzab/digi:frontend
+    restart: always
+
+  backend:
+    env_file: .env.backend
+    image: felzab/digi:backend
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    restart: always
+    ports:
+      - "80:80" # HTTP access from the internet
+      - "443:443" # HHTPS access from the internet
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+      - backend
