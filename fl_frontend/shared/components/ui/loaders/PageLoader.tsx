@@ -1,4 +1,4 @@
-export default function Loading() {
+export default function PageLoader() {
   return (
     <div className="h-[200dvh] flex flex-col items-center justify-start pt-20 text-center ">
       <div className="w-25 h-25 border-8 border-dotted rounded-full animate-spin border-quaternary-light dark:border-quaternary-dark"></div>

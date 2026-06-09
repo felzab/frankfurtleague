@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, ComponentType, JSX } from "react";
+import { useState, useMemo, useEffect, ComponentType } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Fuse from "fuse.js";
 import { Input } from "@heroui/react";

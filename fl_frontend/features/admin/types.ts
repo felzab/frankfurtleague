@@ -13,18 +13,6 @@ export interface GetAdminSpieleOverviewReturn extends BaseApiReturn {
 
 export interface PatchAdminSpielDataReturn extends BaseApiReturn {}
 
-type UpdateGameDataFormData = {
-  datum: string;
-  uhrzeit: string;
-  ort: string;
-  schiedsrichter: string;
-  mietpreis: string;
-  tore_team1: string;
-  tore_team2: string;
-  name_team1: string;
-  name_team2: string;
-};
-
 export interface PatchAdminSpielDataPayload {
   datum: string;
   uhrzeit: string;

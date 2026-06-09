@@ -1,7 +1,5 @@
 import About from "@/features/meta/components/About";
-import { getAllTeams } from "@/features/teams/queries";
 import { Metadata } from "next";
-import { connection } from "next/server";
 
 export const metadata: Metadata = {
   title: "About",
@@ -14,7 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default async function AboutPage() {
-  await connection();
-  const res = await getAllTeams();
-  return <About allTeams={res.teams} />;
+  return <About />;
 }

@@ -18,10 +18,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/public/assets/icons/footer/(.*).(jpg|png|svg|webp|ico|woff2)", // Match all static assets
+        source: "/(.*\\.(?:svg|png|jpg|jpeg|webp|avif|ico))",
         headers: [
           {
-            key: "image-caching",
+            key: "Cache-Control",
             value: "public, max-age=604800, s-maxage=604800, immutable",
           },
         ],

@@ -4,6 +4,7 @@ import { ADMIN_SIDEMENU_STRUCTURE } from "./constants";
 import { getAllTeams } from "@/features/teams/queries";
 import { TeamsProvider } from "@/features/teams/components/TeamsProvider";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -11,6 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/");
   }
 
+  await connection();
   const res = await getAllTeams();
 
   return (

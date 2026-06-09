@@ -2,9 +2,10 @@ import { Accordion, Card, Separator } from "@heroui/react";
 import { Book, ChevronsDownWide, StarFill } from "@gravity-ui/icons";
 
 import { QA_QUESTIONS } from "../constants";
-import type { FLTeam } from "@/features/teams/types";
+import { getAllTeams } from "@/features/teams/queries";
+import { Suspense } from "react";
 
-export default function About({ allTeams }: { allTeams: FLTeam[] }) {
+export default function About() {
   return (
     <div className="relative flex flex-col items-center gap-y-10 py-30 lg:py-44 text-left">
       {/** Headline */}
@@ -70,18 +71,31 @@ export default function About({ allTeams }: { allTeams: FLTeam[] }) {
             <Card.Title className="text-fluid-base font-extrabold uppercase tracking-widest">Aktive Schulen der Saison</Card.Title>
           </Card.Header>
           <Card.Content className="p-6">
-            <div className="flex flex-wrap justify-center gap-2 mb-8">
-              {allTeams.map((team, i) => (
-                <span
-                  key={i}
-                  className="w-full lg:w-fit px-2 py-1 rounded-sm bg-white/30 dark:bg-white/5 border border-white/10 text-fluid-xxs text-center font-semibold uppercase ">
-                  {team.name}
-                </span>
-              ))}
-            </div>
+            <Suspense fallback={<span className="text-fluid-sm opacity-80">Teams laden</span>}>
+              <ParticipatingTeams />
+            </Suspense>
           </Card.Content>
         </Card>
       </section>
+    </div>
+  );
+}
+
+async function ParticipatingTeams() {
+  const res = await getAllTeams();
+
+  return (
+    <div className="flex flex-wrap justify-center gap-2 mb-8">
+      {res.teams.map((team, i) => {
+        if (team.name === "TBD") return;
+        return (
+          <span
+            key={i}
+            className="w-full lg:w-fit px-2 py-1 rounded-sm bg-white/30 dark:bg-white/5 border border-white/10 text-fluid-xxs text-center font-semibold uppercase ">
+            {team.name}
+          </span>
+        );
+      })}
     </div>
   );
 }

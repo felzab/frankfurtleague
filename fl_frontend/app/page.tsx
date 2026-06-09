@@ -1,5 +1,6 @@
 import SpielePreview from "@/features/spiele/components/SpielePreview";
 import Link from "next/link";
+import { Suspense } from "react";
 
 export default async function LandingPage() {
   return (
@@ -36,7 +37,9 @@ export default async function LandingPage() {
           Teams
         </Link>
       </section>
-      <SpielePreview />
+      <Suspense fallback={<span className="text-fluid-sm opacity-80"> Spiele laden...</span>}>
+        <SpielePreview />
+      </Suspense>
     </>
   );
 }

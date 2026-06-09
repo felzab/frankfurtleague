@@ -1,6 +1,6 @@
 # Stage 1: Dependencies
 # --------------------------------------------------------------------------------
-FROM node:25-alpine3.23 AS deps
+FROM node:26-alpine3.23 AS deps
 
 # Compiled binaries in c won't run without this
 RUN apk add --no-cache libc6-compat
@@ -12,7 +12,7 @@ RUN npm ci
 
 # Stage 2: Builder
 # --------------------------------------------------------------------------------
-FROM node:25-alpine3.23 AS builder
+FROM node:26-alpine3.23 AS builder
 
 # For performance, security and dependency management
 ENV NODE_ENV=production
@@ -32,7 +32,7 @@ RUN npm run build
 
 # Stage 3: Runner
 # --------------------------------------------------------------------------------
-FROM node:25-alpine3.23 AS runner
+FROM node:26-alpine3.23 AS runner
 
 WORKDIR /usr/fl_frontend
 

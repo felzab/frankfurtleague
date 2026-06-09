@@ -2,7 +2,7 @@
 import { auth } from "@/core/auth";
 import { patchAdminSpielData } from "./mutations";
 import type { PatchAdminSpielDataPayload } from "./types";
-import { revalidateTag, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
 type FormState = {
   message?: string;

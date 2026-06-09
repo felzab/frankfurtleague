@@ -1,4 +1,3 @@
-import SpielDisplayList from "@/features/spiele/components/SpielDisplayList";
 import type { FLSpiel } from "@/features/spiele/types";
 import { ChevronsDownWide } from "@gravity-ui/icons";
 import { Accordion } from "@heroui/react";

@@ -8,12 +8,10 @@ import SpielinfoModal from "./SpielinfoModal";
 export default function SpielDisplayList({
   spiele,
   today,
-  adminMode = false,
   onAdminEdit,
 }: {
   spiele: FLSpiel[];
   today: string;
-  adminMode?: boolean;
   onAdminEdit?: (spiel: FLSpiel) => void;
 }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
