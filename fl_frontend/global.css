@@ -1,0 +1,200 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* This is here, so that dark:* are applied whenever 'dark' is present earlier in the html-tree.*/
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Custom definitions */
+@theme {
+  /* Fonts */
+  --font-primary: var(--font-inter), ui-sans-serif, system-ui;
+  --font-secondary: var(--font-krub), ui-sans-serif, system-ui;
+
+  --font-sans: var(--font-inter);
+
+  /* Colors (light) */
+  --color-primary-light: #efefef; /* Off-White - Hintergrund */
+  --color-secondary-light: #cccccc; /* Hellgrau - Seitenmenü */
+  --color-tertiary-light: #e0e0e0; /* Weißgrau - Tabelle, Button-Hintergrund */
+  --color-quaternary-light: #5cadff; /* Blau - Indicator */
+  --color-quinary-light: #c0bdbd; /* Grau - 2. Button-Hintergrund */
+  --color-senary-light: #f2f2f2; /* Weiß - 3. Button-Hintergrund */
+
+  /* Colors (dark) */
+  --color-primary-dark: #141a22; /* Sehr dunkles Grau - Hintergrund*/
+  --color-secondary-dark: #000000; /* Schwarz - Seitenmenü */
+  --color-tertiary-dark: #242e3c; /* Dunkelgrau - Tabelle, Button-Hintergrund */
+  --color-quaternary-dark: #0e86ff; /* Blau - Indicator */
+  --color-quinary-dark: #364459; /* Blau-Grau - 2. Button-Hintergrund */
+  --color-senary-dark: #efefef; /* 3. Button-Hintergrund */
+
+  /* Colors (text) */
+  --color-text-white: #efefef;
+  --color-text-black: #242e3c;
+
+  /* Colors (FL-specific) */
+  --color-fl-red: #82181a;
+
+  /* Colors */
+  --color--danger: #ca0b00;
+  --color--success: #28a745;
+
+  /** Fluid text sizes */
+  --text-fluid-xxs: clamp(0.65rem, 1vw + 0.25rem, 0.725rem);
+  --text-fluid-xxs--line-height: 2;
+
+  --text-fluid-xs: clamp(0.75rem, 1vw + 0.25rem, 0.875rem);
+  --text-fluid-xs--line-height: 1.8;
+
+  --text-fluid-sm: clamp(0.85rem, 1.3vw + 0.4rem, 1rem);
+  --text-fluid-sm--line-height: 1.7;
+
+  --text-fluid-md: clamp(0.9rem, 1.5vw + 0.5rem, 1.15rem);
+  --text-fluid-md--line-height: 1.7;
+
+  --text-fluid-base: clamp(1rem, 2vw + 0.25rem, 1.25rem);
+  --text-fluid-base--line-height: 1.5;
+
+  --text-fluid-lg: clamp(1.25rem, 3vw + 0.5rem, 1.75rem);
+  --text-fluid-lg--line-height: 1.3;
+
+  --text-fluid-xl: clamp(1.5rem, 3vw + 0.75rem, 2rem);
+  --text-fluid-xl--line-height: 1.2;
+
+  --text-fluid-2xl: clamp(2rem, 4vw + 1.25rem, 3rem);
+  --text-fluid-2xl--line-height: 1.1;
+
+  --text-fluid-3xl: clamp(2.5rem, 5vw + 1.5rem, 5rem);
+  --text-fluid-3xl--line-height: 1;
+
+  /** Custom breakpoints */
+  --breakpoint-2xl: 115rem;
+  --breakpoint-3xl: 135rem;
+}
+
+@layer base {
+  html {
+    padding-right: 0 !important;
+    overflow: scroll !important;
+    scrollbar-gutter: stable !important;
+
+    @apply w-dvw text-text-black dark:text-text-white text-fluid-base font-primary whitespace-nowrap;
+  }
+
+  body {
+    @apply min-h-dvh w-full max-w-dvw relative flex flex-col items-center justify-between z-0 bg-primary-light dark:bg-primary-dark;
+  }
+
+  header {
+    @apply z-5 h-[55px] w-full bg-secondary-light dark:bg-secondary-dark;
+  }
+
+  #doc_main {
+    @apply flex-1 w-dvw max-w-dvw flex flex-col items-center justify-start z-0;
+  }
+
+  footer {
+    @apply z-10 shrink-0 h-[160px] lg:h-[220px] w-dvw border-t border-tertiary-light dark:border-tertiary-dark bg-secondary-light dark:bg-secondary-dark;
+  }
+}
+
+@layer utils {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none !important;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+    scrollbar-gutter: stable !important;
+  }
+  .dotted-bg {
+    @apply bg-[radial-gradient(rgba(60,60,60,0.3)_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(255,255,255,0.15)_1px,transparent_1px)];
+    background-size: 30px 30px; /* Abstand der Punkte */
+  }
+}
+
+@layer hero-ui {
+  .table__column {
+    @apply bg-primary-light! dark:bg-[#141a2290]! text-text-black dark:text-text-white text-fluid-xxs;
+  }
+
+  [data-slot="table"] td {
+    @apply border-b-1! border-b-gray-400! dark:border-b-gray-600!;
+  }
+
+  [data-slot="table"] tr:last-child td {
+    @apply border-b-0!;
+  }
+
+  .toast {
+    @apply bg-primary-light dark:bg-primary-dark border;
+  }
+
+  .toast--danger {
+    @apply border-1 border-danger border-solid;
+  }
+
+  .toast__description {
+    @apply text-fluid-xs text-text-black dark:text-text-white break-words text-pretty opacity-90;
+  }
+
+  .toast__action {
+    @apply text-fluid-xs;
+  }
+
+  .accordion__item:after {
+    @apply hidden!;
+  }
+}
+
+@layer soccer-field {
+  .soccer-field-base {
+    @apply relative w-full max-w-[1800px] border-[2px] border-white flex-1 h-full min-h-[130dvh] bg-green-400/60 dark:bg-green-900;
+  }
+
+  .corner-arc-base {
+    @apply absolute w-12 h-12 lg:w-18 lg:h-18 border-white/80;
+  }
+
+  .corner-arc-tl {
+    @apply top-0 left-0 border-b-[2px] border-r-[2px] xl:border-b-[4px] xl:border-r-[4px]  rounded-br-full;
+  }
+
+  .corner-arc-tr {
+    @apply top-0 right-0 border-b-[2px] border-l-[2px] xl:border-b-[4px] xl:border-l-[4px]  rounded-bl-full;
+  }
+
+  .corner-arc-bl {
+    @apply bottom-0 left-0 border-t-[2px] border-r-[2px] xl:border-t-[4px] xl:border-r-[4px]  rounded-tr-full;
+  }
+
+  .corner-arc-br {
+    @apply bottom-0 right-0 border-t-[2px] border-l-[2px] xl:border-t-[4px] xl:border-l-[4px]  rounded-tl-full;
+  }
+
+  .penalty-area-base {
+    @apply absolute  left-1/3 w-1/3 h-14 sm:h-20 xl:h-32 border-l-[2px] border-r-[2px] xl:border-l-[4px] xl:border-r-[4px] border-white/80;
+  }
+
+  .penalty-area-top {
+    @apply top-0 border-b-[2px] xl:border-b-[4px];
+  }
+
+  .penalty-area-bottom {
+    @apply bottom-0 border-t-[2px] xl:border-t-[4px];
+  }
+
+  .soccer-field-separator {
+    @apply h-[2px] bg-emerald-700/20 dark:bg-emerald-400/20;
+  }
+
+  .soccer-field-card-bg {
+    @apply bg-emerald-500/40 dark:bg-emerald-950/50;
+  }
+  .soccer-field-card-border {
+    @apply border-white/80 dark:border-white/20 hover:border-emerald-600 dark:hover:border-emerald-400 transition-all duration-300;
+  }
+}

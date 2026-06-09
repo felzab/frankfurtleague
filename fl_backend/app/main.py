@@ -1,0 +1,36 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+
+from app.api.admin.router import router as admin_router
+from app.api.spiele.router import router as spiele_router
+from app.api.system.router import router as system_router
+from app.api.teams.router import router as teams_router
+from app.core.config import backend_config
+from app.core.db import lifespan
+from app.core.exception_handlers import register_exception_handlers
+
+app = FastAPI(lifespan=lifespan)
+
+register_exception_handlers(app)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=backend_config.api_cors_allowed_origins_list,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=backend_config.api_trusted_hosts_list)
+
+
+app.include_router(admin_router)
+app.include_router(spiele_router)
+app.include_router(system_router)
+app.include_router(teams_router)
+
+
+@app.get("/")
+def root():
+    return "Hello World"

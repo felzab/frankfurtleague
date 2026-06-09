@@ -1,0 +1,25 @@
+from typing import Any
+
+from app.api.spiele.schemas import FLSpielTeamField
+from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate, CustomStrTime
+from pydantic import BaseModel, model_validator
+
+
+class UpdateGameDataCallBody(BaseModel):
+    spiel_id: CustomObjectId
+
+    team1: FLSpielTeamField
+    team2: FLSpielTeamField
+
+    datum: CustomStrDate | None
+    uhrzeit: CustomStrTime | None
+    ort: str | None
+    schiedsrichter: str | None
+    mietpreis: float
+
+    @model_validator(mode="before")
+    @classmethod
+    def empty_strings_to_none(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {k: (None if isinstance(v, str) and v.strip() == "" else v) for k, v in data.items()}
+        return data

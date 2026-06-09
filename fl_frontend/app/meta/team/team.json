@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Felix",
+    "role": "Developer",
+    "desc": "Zuständig für den Code, auf dem die Website läuft.",
+    "icon": "💻"
+  },
+  {
+    "name": "Nikolas",
+    "role": "Designer",
+    "desc": "Zuständig für Design und Kommunikation.",
+    "icon": "🎨"
+  },
+  {
+    "name": "Cornelia",
+    "role": "Designerin",
+    "desc": "Zuständig für Layout/Design",
+    "icon": "🎨"
+  },
+  {
+    "name": "Jonathan",
+    "role": "Kommunikation",
+    "desc": "Zuständig für Kommunikation mit und Kontakt zur FL.",
+    "icon": "🚀"
+  }
+]

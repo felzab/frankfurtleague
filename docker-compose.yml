@@ -1,12 +1,12 @@
 services:
   frontend:
     env_file: .env.frontend
-    image: felzab/digi:frontend
+    image: felzab/frankfurtleague:frontend
     restart: always
 
   backend:
     env_file: .env.backend
-    image: felzab/digi:backend
+    image: felzab/frankfurtleague:backend
     restart: always
 
   nginx:

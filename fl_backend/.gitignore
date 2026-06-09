@@ -1,0 +1,79 @@
+# FastAPI Production .gitignore
+
+# Security & Environment
+.env
+.env*
+.env.production
+.env.staging
+secrets/
+*.pem
+*.key
+*.crt
+ssl_certificates/
+
+# FastAPI Production
+app.log
+access.log
+error.log
+uvicorn.log
+gunicorn.log
+
+# Static files and uploads
+static/uploads/
+media/
+user_uploads/
+temp_files/
+
+# Database
+*.db
+*.sqlite3
+postgres_data/
+redis_data/
+backups/
+*.sql
+*.dump
+
+# Performance and caching
+.cache/
+redis.conf
+nginx_cache/
+
+# Process management
+*.pid
+supervisord.log
+supervisord.pid
+celery.pid
+
+# Monitoring and metrics
+prometheus_data/
+grafana_data/
+metrics/
+health_checks/
+
+# Virtual environment
+venv/
+.venv/
+ENV/
+
+# Python
+__pycache__/
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+
+# Production logs
+logs/
+*.log
+log_*.txt
+
+# Deployment artifacts
+deployment_temp/
+*.deployment
+
+# Documentation build
+docs/build/
+site/

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-docker build -t 'felzab/digi:frontend' ./digi_frontend
-docker build -t 'felzab/digi:backend' ./digi_backend
+docker build -t 'felzab/frankfurtleague:frontend' ./fl_frontend
+docker build -t 'felzab/frankfurtleague:backend' ./fl_backend
 
-docker push felzab/digi:frontend
-+docker push felzab/digi:backend
+docker push felzab/frankfurtleague:frontend
+docker push felzab/frankfurtleague:backend
