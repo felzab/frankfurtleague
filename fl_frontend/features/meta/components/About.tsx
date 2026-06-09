@@ -4,6 +4,7 @@ import { Book, ChevronsDownWide, StarFill } from "@gravity-ui/icons";
 import { QA_QUESTIONS } from "../constants";
 import { getAllTeams } from "@/features/teams/queries";
 import { Suspense } from "react";
+import { connection } from "next/server";
 
 export default function About() {
   return (
@@ -82,6 +83,7 @@ export default function About() {
 }
 
 async function ParticipatingTeams() {
+  await connection();
   const res = await getAllTeams();
 
   return (
