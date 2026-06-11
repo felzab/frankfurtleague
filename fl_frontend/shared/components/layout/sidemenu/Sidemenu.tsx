@@ -18,7 +18,7 @@ export default function Sidemenu({ structure, linkPrefix }: { structure: Sidemen
 
   return (
     <>
-      <header className="w-[95%] self-center-safe xl:hidden mt-1.5 rounded-xl sticky top-0 mb-1 flex items-center gap-3 px-3 py-2 bg-secondary-light/80 dark:bg-secondary-dark/80 backdrop-blur-md border-y border-tertiary-light dark:border-tertiary-dark shadow-sm">
+      <header className=" w-[95%] self-center-safe xl:hidden mt-1.5 rounded-xl sticky top-0 mb-1 flex items-center gap-3 px-3 py-2 bg-secondary-light/80 dark:bg-secondary-dark/80 backdrop-blur-md border-y border-tertiary-light dark:border-tertiary-dark shadow-sm">
         <button
           onClick={_toggleSidemenu}
           className="p-2 rounded-lg bg-quaternary-light/50 dark:bg-quaternary-dark/50 hover:opacity-80 transition-opacity"
@@ -45,7 +45,7 @@ export default function Sidemenu({ structure, linkPrefix }: { structure: Sidemen
 
       <aside
         className={`
-          z-6 fixed flex flex-col w-full max-w-[80%] sm:max-w-[50%] lg:max-w-[30%] xl:max-w-[380px]  min-h-full
+          z-40 fixed flex flex-col w-full max-w-[80%] sm:max-w-[50%] lg:max-w-[30%] xl:max-w-[380px]  min-h-full
           border-t-2 border-tertiary-light dark:border-tertiary-dark
           bg-secondary-light dark:bg-secondary-dark
           text-text-black dark:text-text-white
