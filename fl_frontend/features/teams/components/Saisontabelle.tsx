@@ -1,6 +1,6 @@
 "use client";
 
-import { Table } from "@heroui/react";
+import { Badge, Table } from "@heroui/react";
 import type { FLGruppen } from "../types";
 import { typedObjectEntries } from "@/shared/utils";
 
@@ -23,18 +23,21 @@ export default function Saisontabelle({ gruppenData }: { gruppenData: FLGruppen 
                 <Table.Header className="uppercase text-fluid-xxs font-semibold ">
                   <Table.Column
                     isRowHeader
-                    className=" pb-2 pt-1.5 px-2 lg:px-4 text-fluid-sm font-extrabold">
+                    className=" pb-2 pt-1.5 pl-2 lg:px-4 text-fluid-xs font-extrabold w-fit">
                     #
                   </Table.Column>
-                  <Table.Column className="px-1 lg:px-4">Team</Table.Column>
-                  <Table.Column className="px-1 lg:px-2 text-center">Spiele</Table.Column>
-                  <Table.Column className="px-1 lg:px-2 text-center">S-U-N</Table.Column>
-                  <Table.Column className="px-1 lg:px-2 text-center">Tore</Table.Column>
-                  <Table.Column className="px-1 lg:px-2 text-center">
+                  <Table.Column className="px-1 lg:px-4 lg:w-[25%]">Team</Table.Column>
+                  <Table.Column className="px-1 lg:px-2 text-center w-auto">Spiele</Table.Column>
+                  <Table.Column className="px-1 lg:px-2 text-center w-auto">S-U-N</Table.Column>
+                  <Table.Column className="px-1 lg:px-2 text-center w-auto">Tore</Table.Column>
+                  <Table.Column className="px-1 lg:px-2 text-center w-auto ">
                     <span className="hidden lg:block">Differenz</span>
                     <span className="lg:hidden">Diff.</span>
                   </Table.Column>
-                  <Table.Column className="px-1 lg:px-2 text-center font-semibold">Punkte</Table.Column>
+                  <Table.Column className="px-1 lg:px-2 text-center font-semibold">
+                    <span className="hidden lg:block">Punkte</span>
+                    <span className="lg:hidden">Pkt.</span>
+                  </Table.Column>
                 </Table.Header>
 
                 <Table.Body>
@@ -43,17 +46,37 @@ export default function Saisontabelle({ gruppenData }: { gruppenData: FLGruppen 
                       key={teamData.id}
                       className="last:border-0">
                       {/** Placement */}
-                      <Table.Cell className=" py-4 px-2 lg:px-4 font-semibold text-fluid-sm">
+                      <Table.Cell className=" py-4 pl-2 lg:px-4 font-semibold text-fluid-xs w-fit">
                         {teamData.statistik.anzahl_gespielte_spiele === 0 ? "N/A" : index + 1}
                       </Table.Cell>
 
                       {/** Team name */}
-                      <Table.Cell className="py-4 px-2 lg:px-4 text-fluid-xs ">
-                        <span className="hidden lg:block">{`${teamData.name} - ${teamData.name.substring(0, 2)}`}</span>
+                      <Table.Cell className="py-4 px-1 lg:px-4 text-fluid-xs truncate lg:min-w-[200px] overflow-visible">
+                        <Badge.Anchor className="hidden lg:block w-fit">
+                          <span className="w-fit">{`${teamData.name} - ${teamData.name.substring(0, 2)}`}</span>
+                          {teamData.is_disqualified && (
+                            <Badge
+                              size="sm"
+                              color="danger"
+                              placement="top-right"
+                              className="translate-x-6 -translate-y-2 text-fluid-xxs! p-1">
+                              DQ
+                            </Badge>
+                          )}
+                        </Badge.Anchor>
 
                         {/* Mobile: CSS-only "Tooltip" */}
-                        <div className="group relative lg:hidden inline-block w-fit h-fit">
+                        <Badge.Anchor className="group relative lg:hidden inline-block w-fit ">
                           <span className="text-fluid-sm">{teamData.name.substring(0, 2)}</span>
+                          {teamData.is_disqualified && (
+                            <Badge
+                              size="sm"
+                              color="danger"
+                              placement="top-right"
+                              className="translate-x-5 -translate-y-2 text-fluid-xxs! p-1">
+                              DQ
+                            </Badge>
+                          )}
 
                           <div
                             className="
@@ -75,7 +98,7 @@ export default function Saisontabelle({ gruppenData }: { gruppenData: FLGruppen 
                               />
                             </div>
                           </div>
-                        </div>
+                        </Badge.Anchor>
                       </Table.Cell>
 
                       {/** Games played */}

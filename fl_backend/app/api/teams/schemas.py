@@ -36,6 +36,7 @@ class FLTeam(BaseModel):
     gruppe: str
     statistik: FLTeamStatistik
     is_placeholder: bool
+    is_disqualified: bool
 
 
 class FLTeamWithSpieler(FLTeam):

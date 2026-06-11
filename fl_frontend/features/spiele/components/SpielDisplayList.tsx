@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { FLSpiel } from "../types";
+import type { FLSpiel, FLSpielWithChipData } from "../types";
 import SpielDisplay from "./SpielDisplay";
 import SpielinfoModal from "./SpielinfoModal";
+import { computeSpielPhase, computeSpielStatus } from "../utils";
 
 export default function SpielDisplayList({
   spiele,
@@ -14,23 +15,27 @@ export default function SpielDisplayList({
   today: string;
   onAdminEdit?: (spiel: FLSpiel) => void;
 }) {
-  const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
+  const spieleWithChipData: FLSpielWithChipData[] = spiele.map((spielData) => ({
+    ...spielData,
+    status: computeSpielStatus({ datum: spielData.datum, isCanceled: spielData.is_canceled, today: today }),
+    phase: computeSpielPhase(spielData.spiel_nr),
+  }));
+  const [selectedSpiel, setSelectedSpiel] = useState<FLSpielWithChipData | null>(null);
 
   return (
     <div className="contents">
-      {spiele.map((spiel) => (
+      {spieleWithChipData.map((spielData) => (
         <SpielDisplay
-          key={spiel.spiel_nr}
-          spielData={spiel}
-          onOpenInfoModal={() => setSelectedSpiel(spiel)}
-          onOpenAdminModal={() => onAdminEdit?.(spiel)}
+          key={spielData.spiel_nr}
+          spielData={spielData}
+          onOpenInfoModal={() => setSelectedSpiel(spielData)}
+          onOpenAdminModal={() => onAdminEdit?.(spielData)}
           adminMode={!!onAdminEdit}
         />
       ))}
 
       <SpielinfoModal
         spielData={selectedSpiel}
-        today={today}
         isOpen={selectedSpiel !== null}
         onClose={() => setSelectedSpiel(null)}
       />

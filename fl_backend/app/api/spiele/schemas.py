@@ -1,5 +1,6 @@
-from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate, CustomStrTime
 from pydantic import BaseModel, Field, TypeAdapter
+
+from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate, CustomStrTime
 
 
 class FLSpielTeamField(BaseModel):
@@ -25,6 +26,8 @@ class FLSpiel(BaseModel):
     spieltag_id: CustomObjectId
     spiel_nr: int
 
+    is_canceled: bool
+
 
 FLSpielListAdapter = TypeAdapter(list[FLSpiel])
 
@@ -36,6 +39,7 @@ class FLSpieltag(BaseModel):
     beginn: CustomStrDate
     ende: CustomStrDate
     anzahl_spiele: int
+    order_val: int
 
 
 class FLSpieltagWithSpiele(FLSpieltag):

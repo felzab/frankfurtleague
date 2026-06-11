@@ -27,10 +27,11 @@ export interface FLTeam {
   gruppe: 2026;
   statistik: FLTeamStatistik;
   is_placeholder: boolean;
+  is_disqualified: boolean;
 }
 
 export interface FLTeamWithSpieler extends FLTeam {
-  spieler?: FLSpieler[];
+  spieler: FLSpieler[];
 }
 
 export interface FLGruppen {

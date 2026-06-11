@@ -17,7 +17,7 @@ export default function TeamOverview({ teamData }: { teamData: FLTeamWithSpieler
       <span className="lg:hidden font-semibold text-text-black dark:text-text-white">{`Diff.: ${
         teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert
       }`}</span>
-      <span className=" font-semibold text-text-black dark:text-text-white">{`Spieler: ${teamData.spieler?.length}`}</span>
+      <span className=" font-semibold text-text-black dark:text-text-white">{`Spieler: ${teamData.spieler.length}`}</span>
     </div>
   );
 }

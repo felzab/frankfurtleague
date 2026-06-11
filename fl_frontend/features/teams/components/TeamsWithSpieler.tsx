@@ -44,7 +44,7 @@ export default function TeamsWithSpieler({ teamsData }: { teamsData: FLTeamWithS
                   </Table.Header>
 
                   <Table.Body>
-                    {teamData.spieler?.map((spielerData) => (
+                    {teamData.spieler.map((spielerData) => (
                       <Table.Row key={spielerData.id}>
                         <Table.Cell className="px-2 lg:px-4 py-3 font-medium text-fluid-xxs">
                           {`${spielerData.vorname} ${spielerData.nachname}`}

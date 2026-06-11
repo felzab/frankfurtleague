@@ -1,7 +1,13 @@
+// ---------------------------------------------------------
+// DESIGN 2: Refined Row (Improved Version 1)
+// Fixes: Proper Flexbox math. Zero text overlap. Fixed typography.
+// ---------------------------------------------------------
 "use client";
 import { Button } from "@heroui/react";
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
-import { FLSpiel } from "../types";
+import type { FLSpielWithChipData } from "../types";
+import SpielStatusChip from "./chips/SpielStatusChip";
+import SpielPhaseChip from "./chips/SpielPhaseChip";
 
 export default function SpielDisplay({
   spielData,
@@ -9,65 +15,66 @@ export default function SpielDisplay({
   onOpenAdminModal,
   adminMode,
 }: {
-  spielData: FLSpiel;
+  spielData: FLSpielWithChipData;
   onOpenInfoModal: () => void;
   onOpenAdminModal: () => void;
   adminMode: boolean;
 }) {
-  const gameFinished = spielData.ergebnis !== null;
+  const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
+  const spielUhrzeit = spielData.uhrzeit || "--:--";
+  const spielErgebnis = spielData.ergebnis ?? "- : -";
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-between w-full lg:w-[98%] max-w-[1000px] min-h-25 px-3 py-2 mb-2 rounded-4xl bg-tertiary-light dark:bg-tertiary-dark ${
-        gameFinished && "opacity-70"
+      className={`relative flex flex-col items-center justify-between gap-x-4 gap-y-6 w-full lg:w-[98%] max-w-[1000px] h-auto px-4 py-3 lg:px-5 lg:py-4 mb-2 rounded-3xl border border-divider bg-tertiary-light dark:bg-tertiary-dark ${
+        spielData.status === "vergangen" && "opacity-85"
       }`}>
-      {/** The games score (if existent) or a placeholder */}
-      <span
-        className={`absolute left-6 lg:left-12 top-[50%] -translate-y-1/2 rounded-xl text-fluid-md font-bold  ${
-          gameFinished ? "text-green-500" : "text-red-500 "
-        }`}>
-        {gameFinished ? spielData.ergebnis : "- : -"}
-      </span>
-
-      {/** Opens a modal with additional info about the game */}
-      <Button
-        onPress={onOpenInfoModal}
-        aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
-        autoFocus={false}
-        size="sm"
-        variant="secondary"
-        className="absolute right-3 top-[50%] -translate-y-1/2 rounded-xl w-fit h-fit p-2 bg-quinary-light dark:bg-quinary-dark">
-        <CircleExclamation />
-      </Button>
-
-      {/** Some basic information about the game */}
-      <div className="flex flex-col items-center justify-center w-full">
-        <div className="relative flex items-center">
-          {/** Date */}
-          <h3 className=" text-fluid-lg lg:text-fluid-base font-bold">
-            {spielData.datum !== null ? String(new Date(spielData.datum).toLocaleDateString("de-de")) : "N/A"}
-          </h3>
-          {adminMode && (
-            <Button
-              onPress={onOpenAdminModal}
-              aria-label={`Edit Spiel Nr.${spielData.spiel_nr}`}
-              autoFocus={false}
-              size="sm"
-              variant="secondary"
-              className="absolute left-[105%] rounded-xl w-fit h-fit p-2 bg-transparent">
-              <PencilToSquare className="w-[clamp(1.25rem,3vw+0.5rem,1.5rem)] h-[clamp(1.25rem,3vw+0.5rem,1.5em)]" />
-            </Button>
-          )}
+      <div className="flex flex-row items-center justify-between w-full">
+        {/* Datum/Uhrzeit */}
+        <div className="flex flex-col">
+          <span className="text-fluid-sm font-bold">{spielDatum}</span>
+          <span className="text-fluid-xs font-medium">{spielUhrzeit}</span>
         </div>
 
-        {/** Team1 vs. Team2 */}
-        <h3 className="text-fluid-xs text-center font-medium min-w-[50%]">
-          {spielData.team1.name} VS {spielData.team2.name}
-        </h3>
+        {/* Buttons */}
+        <div className="flex items-center justify-end w-full gap-x-2">
+          {adminMode && (
+            <Button
+              isIconOnly
+              onPress={onOpenAdminModal}
+              size="md"
+              variant="tertiary"
+              className="bg-quinary-light dark:bg-quinary-dark">
+              <PencilToSquare className="w-5 h-5" />
+            </Button>
+          )}
+          <Button
+            isIconOnly
+            onPress={onOpenInfoModal}
+            size="md"
+            variant="tertiary"
+            className="bg-quinary-light dark:bg-quinary-dark">
+            <CircleExclamation className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
-      {/** Kick-off time */}
-      <span className="text-fluid-xs text-center font-medium min-w-[50%]">{spielData.uhrzeit}</span>
+      {/* Spielinfos */}
+      <div className="flex items-center justify-between w-full bg-background/50 rounded-xl p-2 shadow-lg">
+        <h4 className="text-fluid-xs lg:text-fluid-md font-bold text-right flex-1 truncate ">{spielData.team1.name || "Team 1"}</h4>
+
+        <span
+          className={`w-fit px-3 lg:px-4 text-center text-fluid-base font-extrabold ${spielData.status === "vergangen" ? "text-success" : "text-danger"}`}>
+          {spielErgebnis}
+        </span>
+
+        <h4 className="text-fluid-xs lg:text-fluid-md font-bold text-left flex-1 truncate">{spielData.team2.name || "Team 2"}</h4>
+      </div>
+
+      <div className="flex flex-row items-center justify-center w-full h-fit gap-x-2">
+        <SpielStatusChip spielStatus={spielData.status} />
+        <SpielPhaseChip spielPhase={spielData.phase} />
+      </div>
     </div>
   );
 }

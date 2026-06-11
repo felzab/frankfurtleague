@@ -18,6 +18,12 @@ export interface FLSpiel {
   ergebnis: string | null;
   spieltag_id: string;
   spiel_nr: number;
+  is_canceled: boolean;
+}
+
+export interface FLSpielWithChipData extends FLSpiel {
+  status: SpielStatus;
+  phase: SpielPhase;
 }
 
 export interface FLSpieltag {
@@ -26,11 +32,18 @@ export interface FLSpieltag {
   beginn: string;
   ende: string;
   anzahl_spiele: number;
+  order_val: number;
+}
+
+export type SpielStatus = "ausstehend" | "vergangen" | "heute" | "abgesagt" | "unbekannt";
+export type SpielPhase = "gruppenphase" | "viertelfinale" | "halbfinale" | "finale";
+
+export interface FLSpieltagWithSpiele extends FLSpieltag {
   spiele: FLSpiel[];
 }
 
 export interface FLSpielplan {
-  spieltage: FLSpieltag[];
+  spieltage: FLSpieltagWithSpiele[];
 }
 
 export interface GetSpielplanReturn extends BaseApiReturn {

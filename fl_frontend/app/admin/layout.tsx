@@ -5,6 +5,7 @@ import { getAllTeams } from "@/features/teams/queries";
 import { TeamsProvider } from "@/features/teams/components/TeamsProvider";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { Suspense } from "react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -25,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         {/* Right-side content */}
         <main className="relative flex flex-col justify-start items-center w-full h-dvh p-1 bg-primary-light dark:bg-primary-dark pb-20">
-          {children}
+          <Suspense>{children}</Suspense>
         </main>
       </TeamsProvider>
     </div>

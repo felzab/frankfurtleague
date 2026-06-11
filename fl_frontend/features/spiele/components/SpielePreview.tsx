@@ -24,7 +24,7 @@ export default async function SpielePreview() {
       <div className="flex flex-col items-center w-full h-full pb-5">
         <h2 className="w-fit text-fluid-xl font-extrabold border-b-4 border-quaternary-light dark:border-quaternary-dark">Nächste Spiele</h2>
 
-        <div className="flex flex-col items-center w-full mt-2 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:place-items-center 2xl:grid-cols-3 2xl:grid-rows-2 ">
+        <div className="flex flex-col items-center gap-2 w-full mt-2 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:place-items-center 2xl:grid-cols-3 2xl:grid-rows-2 ">
           <SpielList
             spiele={gamesPreviewData.next_games}
             today={today}

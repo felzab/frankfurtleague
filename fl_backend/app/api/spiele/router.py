@@ -24,7 +24,7 @@ async def get_spielplan(
 ) -> JSONResponse:
 
     # Get all the Spieltage
-    spieltage_raw = await pull_from_db(collection=spieltage_collection, filter={})
+    spieltage_raw = await pull_from_db(collection=spieltage_collection, filter={}, sort_by=[("order_val", pymongo.ASCENDING)])
     spieltage = FLSpieltagListAdapter.validate_python(spieltage_raw)
 
     # Get all Spiele, that match one of the spieltag_ids
