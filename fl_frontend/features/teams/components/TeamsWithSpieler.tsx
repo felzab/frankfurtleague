@@ -8,7 +8,7 @@ import type { FLTeamWithSpieler } from "../types";
 
 export default function TeamsWithSpieler({ teamsData }: { teamsData: FLTeamWithSpieler[] }) {
   return (
-    <Accordion className="flex flex-col h-full w-[95%] max-w-[1550px] p-2 gap-y-2 text-text-black dark:text-text-white overflow-y-scroll scrollbar-hide">
+    <Accordion className="flex flex-col h-full w-[95%] max-w-[1550px] gap-y-2 text-text-black dark:text-text-white overflow-y-scroll scrollbar-hide lg:mt-2">
       {teamsData?.map((teamData) => (
         // One item for each team
         <Accordion.Item

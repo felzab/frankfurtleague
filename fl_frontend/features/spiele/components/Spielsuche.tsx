@@ -80,7 +80,7 @@ export default function Spielsuche({
         value={inputValue}
         placeholder="Suche nach Team, Ort, Datum..."
         className="
-        sticky w-full h-fit p-3 rounded-lg border-1 border-quaternary-light dark:border-quaternary-dark bg-primary-light dark:bg-secondary-dark
+        sticky w-full lg:w-[90%] max-w-[1200px] h-fit p-3 rounded-lg border-1 border-quaternary-light dark:border-quaternary-dark bg-primary-light dark:bg-secondary-dark
         focus-within:!ring-0 focus-within:!ring-offset-0 outline-none"
         onChange={(e) => setInputValue(e.target.value)}
       />

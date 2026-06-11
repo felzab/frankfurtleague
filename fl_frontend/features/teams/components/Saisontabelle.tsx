@@ -13,7 +13,7 @@ export default function Saisontabelle({ gruppenData }: { gruppenData: FLGruppen 
         typedObjectEntries(gruppenData).map(([group, teamsData]) => (
           <div
             key={group}
-            className="flex flex-col items-center min-h-fit w-[90%] max-w-[1550px] px-1 lg:px-4 py-1 mb-4 rounded-4xl bg-tertiary-light dark:bg-tertiary-dark">
+            className="flex flex-col items-center min-h-fit w-[95%] max-w-[1550px] px-1 lg:px-4 py-1 mb-4 rounded-4xl bg-tertiary-light dark:bg-tertiary-dark">
             <h3 className="text-fluid-2xl lg:text-fluid-2xl font-extrabold pt-5 pb-7">Gruppe-{group}</h3>
 
             <Table

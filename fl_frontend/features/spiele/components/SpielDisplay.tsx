@@ -26,7 +26,7 @@ export default function SpielDisplay({
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-between gap-x-4 gap-y-6 w-full lg:w-[98%] max-w-[1000px] h-auto px-4 py-3 lg:px-5 lg:py-4 mb-2 rounded-3xl border border-divider bg-tertiary-light dark:bg-tertiary-dark ${
+      className={`relative flex flex-col items-center justify-between gap-x-4 gap-y-6 w-full lg:w-[98%] max-w-[1000px] h-auto px-4 py-3 lg:px-5 lg:py-4 mb-2 rounded-3xl  bg-tertiary-light dark:bg-tertiary-dark ${
         spielData.status === "vergangen" && "opacity-85"
       }`}>
       <div className="flex flex-row items-center justify-between w-full">
@@ -60,7 +60,7 @@ export default function SpielDisplay({
       </div>
 
       {/* Spielinfos */}
-      <div className="flex items-center justify-between w-full bg-background/50 rounded-xl p-2 shadow-lg">
+      <div className="flex items-center justify-between w-full bg-quinary-light dark:bg-primary-dark/90 rounded-xl p-2 ">
         <h4 className="text-fluid-xs lg:text-fluid-md font-bold text-right flex-1 truncate ">{spielData.team1.name || "Team 1"}</h4>
 
         <span

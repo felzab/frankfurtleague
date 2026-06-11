@@ -7,7 +7,7 @@ export default function Spielhistorie({ spielhistorieData }: { spielhistorieData
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="w-full flex flex-col items-center pt-4 pb-20 overflow-y-scroll scrollbar-hide">
+    <div className="w-full flex flex-col items-center lg:mt-2 px-2 pb-20 overflow-y-scroll scrollbar-hide">
       <SpielDisplayList
         spiele={spielhistorieData.toSorted((a, b) => a.datum!.localeCompare(b.datum!))}
         today={today}

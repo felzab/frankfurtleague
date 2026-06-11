@@ -31,7 +31,7 @@ export default function AdminSpieleOverview({ overviewSpiele }: { overviewSpiele
   });
 
   return (
-    <Accordion className="flex flex-col h-full w-[95%] max-w-[1550px] p-2 gap-y-2 text-text-black dark:text-text-white overflow-y-scroll scrollbar-hide">
+    <Accordion className="flex flex-col h-full w-[98%] max-w-[1550px] p-2 gap-y-2 text-text-black dark:text-text-white overflow-y-scroll scrollbar-hide">
       {Object.entries(spieleCategories).map(([category, data]) => (
         <Accordion.Item key={category}>
           <Accordion.Heading>
@@ -47,7 +47,7 @@ export default function AdminSpieleOverview({ overviewSpiele }: { overviewSpiele
           </Accordion.Heading>
 
           <Accordion.Panel>
-            <Accordion.Body className="flex flex-col items-center w-full pt-4 pb-10 overflow-y-scroll scrollbar-hide">
+            <Accordion.Body className="flex flex-col items-center w-full pt-4 pb-10 overflow-y-scroll scrollbar-hide px-0">
               <AdminSpielDisplaylist
                 spiele={data.spiele}
                 today={today}

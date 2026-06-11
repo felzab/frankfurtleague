@@ -35,7 +35,7 @@ export default async function SpielePreview() {
       {/** Displays the previous 6 games */}
       <div className="flex flex-col items-center w-full h-full">
         <h2 className="w-fit text-fluid-xl font-extrabold border-b-4 border-red-400 dark:border-red-600">Vergangene Spiele</h2>
-        <div className="flex flex-col items-center w-full mt-2 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:place-items-center 2xl:grid-cols-3 2xl:grid-rows-2">
+        <div className="flex flex-col items-center gap-2 w-full mt-2 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:place-items-center 2xl:grid-cols-3 2xl:grid-rows-2 ">
           <SpielList
             spiele={gamesPreviewData.previous_games}
             today={today}

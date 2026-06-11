@@ -11,30 +11,28 @@ const CurrentSeason = "2026";
 const CurrentSeasonTimeSpan = "03.03.2026 - 08.08.2026";
 
 export default function Sidemenu({ structure, linkPrefix }: { structure: SidemenuStructure; linkPrefix: string }) {
+  const [isOpen, setIsOpen] = useState(false);
   const _toggleSidemenu = () => setIsOpen(!isOpen);
 
-  /** Gets the path, to check which sidemenu-button should be active */
   const activeView = usePathname().replace(`/${linkPrefix}/`, "");
-
-  /** Keeps track of wether the sidemenu is open or not */
-  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
-      {/** Extra row shown on mobile */}
-      <aside className="xl:hidden flex flex-row items-center justify-start gap-2 min-h-[35px] max-h-[35px] px-2 py-1 bg-senary-light dark:bg-quinary-dark border-b border-tertiary-light dark:border-senary-dark ">
-        {/* Icon to show sidemenu */}
-        <LayoutSideContentLeft
+      <header className="w-[95%] self-center-safe xl:hidden mt-1.5 rounded-xl sticky top-0 mb-1 flex items-center gap-3 px-3 py-2 bg-secondary-light/80 dark:bg-secondary-dark/80 backdrop-blur-md border-y border-tertiary-light dark:border-tertiary-dark shadow-sm">
+        <button
           onClick={_toggleSidemenu}
-          className="h-[28px] w-[45px] px-1 py-[2px] rounded-[10px] bg-quaternary-light dark:bg-quaternary-dark opacity-90"
-        />
+          className="p-2 rounded-lg bg-quaternary-light/50 dark:bg-quaternary-dark/50 hover:opacity-80 transition-opacity"
+          aria-label="Toggle Menu">
+          <LayoutSideContentLeft className="h-6 w-6 text-text-black dark:text-text-white" />
+        </button>
 
         <Separator
           orientation="vertical"
-          className="bg-tertiary-light dark:bg-senary-dark"
+          className="h-full bg-tertiary-light dark:bg-senary-dark"
         />
-        <h2 className="text-fluid-base">{activeView.toUpperCase()}</h2>
-      </aside>
+
+        <h2 className="text-fluid-lg font-semibold capitalize tracking-wide truncate">{activeView || "Dashboard"}</h2>
+      </header>
 
       {/* Backdrop: Only visible on mobile, when menu sidmenu is open */}
       <div

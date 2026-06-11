@@ -1,6 +1,6 @@
 import { auth } from "@/core/auth";
 import Sidemenu from "@/shared/components/layout/sidemenu/Sidemenu";
-import { ADMIN_SIDEMENU_STRUCTURE } from "./constants";
+import { ADMIN_SIDEMENU_STRUCTURE } from "../../features/admin/constants";
 import { getAllTeams } from "@/features/teams/queries";
 import { TeamsProvider } from "@/features/teams/components/TeamsProvider";
 import { redirect } from "next/navigation";
