@@ -6,6 +6,7 @@ import { TeamsProvider } from "@/features/teams/components/TeamsProvider";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import SaisonMetadataDisplay from "@/shared/components/layout/sidemenu/SaisonMetadataDisplay";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -22,6 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Sidemenu
           structure={ADMIN_SIDEMENU_STRUCTURE}
           linkPrefix="admin"
+          saisonMetadataDisplay={<SaisonMetadataDisplay />}
         />
 
         {/* Right-side content */}

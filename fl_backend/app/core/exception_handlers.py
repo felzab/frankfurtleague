@@ -23,6 +23,8 @@ async def base_api_exception_handler(request: Request, exc: Exception):
 
 async def pydantic_validation_exception_handler(request: Request, exc: Exception):
 
+    print(exc)
+
     if not isinstance(exc, ValidationError):
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

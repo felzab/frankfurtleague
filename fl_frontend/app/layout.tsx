@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     default: "Frankfurt-League | Die Oberstufenliga",
   },
   description:
-    "Bei der Frankfurt-Fußball-League treten Frankfurter Oberstufen gegeneinander an, um herauszufinden, welche von ihnen die Beste ist. Hier gibt's alle Infos",
+    "Bei der Frankfurt-League treten Frankfurter Oberstufen gegeneinander an, um herauszufinden, welche von ihnen die Beste ist. Hier gibt's alle Infos",
   keywords: [
     "Frankfurt-League",
     "Frankfurt-league",
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Frankfurt-League",
-    description: "Die Frankfurt-Fußball-League. Der Wettkamp der Oberstufen",
+    description: "Die Frankfurt-League. Der Wettkamp der Oberstufen",
     url: "https://frankfurtleague.de",
     siteName: "Frankfurt-League",
     images: [

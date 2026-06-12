@@ -115,7 +115,7 @@ export default function SpielPhaseChip({ spielPhase }: { spielPhase: SpielPhase 
       size="sm"
       variant="primary"
       color={colorMap[spielPhase]}
-      className="w-fit text-fluid-xxs! font-extrabold tracking-wide py-0.5 px-1.5 lg:px-2 text-text-black">
+      className="w-fit text-fluid-xxs! font-extrabold tracking-wide py-0.5 px-1.5 lg:px-2 text-text-black brightness-95">
       {iconMap[spielPhase]}
       {spielPhase.toUpperCase()}
     </Chip>

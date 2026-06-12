@@ -1,7 +1,8 @@
+"use client";
+
 import { Dropdown, Label, Separator } from "@heroui/react";
 import Link from "next/link";
 import { Session } from "next-auth";
-import { Suspense } from "react";
 
 import { CircleInfo, Bars, Eye, Persons, At, Pencil } from "@gravity-ui/icons";
 import ThemeSwitch from "../../ui/ThemeSwitch";
@@ -23,6 +24,7 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
             textValue="Saisonübersicht"
             className="w-full lg:hidden">
             <Link
+              prefetch={false}
               title="Link to page: dashboard"
               href="/dashboard"
               className="flex w-full items-center justify-between">
@@ -36,8 +38,8 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
             textValue="Verwalten"
             className="w-full lg:hidden">
             <Link
-              title="Link to page: verwalten"
               prefetch={false}
+              title="Link to page: verwalten"
               href={!session ? "/signin" : "/admin"}
               className="flex w-full items-center justify-between">
               Verwalten
@@ -97,9 +99,8 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
             shouldCloseOnSelect={false}
             className="flex w-full items-center justify-between">
             <Label className="text-text-black dark:text-text-white font-semibold text-fluid-sm">Modus</Label>
-            <Suspense>
-              <ThemeSwitch />
-            </Suspense>
+
+            <ThemeSwitch />
           </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown.Popover>

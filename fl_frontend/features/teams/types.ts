@@ -1,4 +1,5 @@
 import type { BaseApiReturn } from "@/core/api";
+import type { FLSpiel } from "../spiele/types";
 
 export interface FLSpieler {
   id: string;
@@ -21,6 +22,13 @@ export interface FLTeamStatistik {
   punkte: number;
 }
 
+export interface FLTeamAddress {
+  strasse: string;
+  hausnummer: string;
+  plz: string;
+  stadtteil: string;
+  stadt: string;
+}
 export interface FLTeam {
   id: string;
   name: string;
@@ -28,6 +36,11 @@ export interface FLTeam {
   statistik: FLTeamStatistik;
   is_placeholder: boolean;
   is_disqualified: boolean;
+  shorthand: string;
+  description: string;
+  full_name: string;
+  website_url: string;
+  address: FLTeamAddress;
 }
 
 export interface FLTeamWithSpieler extends FLTeam {
@@ -51,4 +64,9 @@ export interface GetAllTeamsWithSpielerReturn extends BaseApiReturn {
 
 export interface GetAllTeamsReturn extends BaseApiReturn {
   teams: FLTeam[];
+}
+
+export interface GetAllTeamsDetailReturn extends BaseApiReturn {
+  teams: FLTeam[];
+  spiele: FLSpiel[];
 }

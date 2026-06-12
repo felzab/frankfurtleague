@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Frankfurt-League",
     short_name: "FL",
-    description: "Die Frankfurt-Fußball-Liga ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
+    description: "Die Frankfurt-League ist die Oberstufenliga der Frankfurter Schulen. Finde heraus, welche Schule gewinnt!",
     start_url: "/",
     theme_color: "#ffffff",
     background_color: "#ffffff",

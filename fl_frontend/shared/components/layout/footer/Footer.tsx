@@ -1,5 +1,3 @@
-"use server";
-
 import Link from "next/link";
 import Image from "next/image";
 import XLogo from "./ThreadsLogo";
@@ -12,16 +10,19 @@ export default async function Footer() {
     <article className="flex flex-col items-center justify-between w-full h-full px-1">
       <aside className="flex flex-row items-center justify-evenly gap-x-6 py-2 text-text-black dark:text-text-white text-fluid-md font-secondary font-semibold">
         <Link
+          prefetch={false}
           title="Link to page: about"
           href="/meta/about">
           About
         </Link>
         <Link
+          prefetch={false}
           title="Link to page: team"
           href="/meta/team">
           Team
         </Link>
         <Link
+          prefetch={false}
           title="Link to page: kontakt"
           href="/meta/kontakt">
           Kontakt
@@ -29,6 +30,7 @@ export default async function Footer() {
       </aside>
       <aside className="flex flex-row items-center justify-evenly gap-x-12">
         <Link
+          prefetch={false}
           title="Link to threads"
           href="https://www.threads.com/@frankfurt.league"
           rel="noopener noreferrer"
@@ -36,15 +38,15 @@ export default async function Footer() {
           <XLogo />
         </Link>
         <Link
+          prefetch={false}
           title="Link to github"
           href="https://github.com/felixzabb"
           rel="noopener noreferrer"
           target="_blank">
-          <Suspense>
-            <GithubLogo />
-          </Suspense>
+          <GithubLogo />
         </Link>
         <Link
+          prefetch={false}
           title="Link to instagram"
           href="https://www.instagram.com/frankfurt.league/"
           rel="noopener noreferrer"
@@ -58,6 +60,7 @@ export default async function Footer() {
           />
         </Link>
         <Link
+          prefetch={false}
           title="Link to whatsapp"
           href="https://whatsapp.com"
           rel="noopener noreferrer"

@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export const metadata: Metadata = {
   title: "Spielsuche",
   description:
-    "Bei der Spielsuche können alle Spiele der Frankfurt-Fußball-League gefunden und eingesehen werden. Erfahre, wann und wo die Spiele deines Teams stattfinden.",
+    "Bei der Spielsuche können alle Spiele der Frankfurt-League gefunden und eingesehen werden. Erfahre, wann und wo die Spiele deines Teams stattfinden.",
   keywords: [
     "Frankfurt-League Spielsuche",
     "Frankfurt-League Suche",

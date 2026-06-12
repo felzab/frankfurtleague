@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, Asyn
 from app.core.db import (
     get_database,
     get_db_client,
+    get_saisons_collection,
     get_spiele_collection,
     get_spieler_collection,
     get_spieltage_collection,
@@ -23,3 +24,5 @@ SpielerCollection = Annotated[AsyncIOMotorCollection, Depends(get_spieler_collec
 SpieltageCollection = Annotated[AsyncIOMotorCollection, Depends(get_spieltage_collection)]
 
 TeamsCollection = Annotated[AsyncIOMotorCollection, Depends(get_teams_collection)]
+
+SaisonsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saisons_collection)]

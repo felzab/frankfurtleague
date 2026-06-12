@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export const metadata: Metadata = {
   title: "Spielplan",
   description:
-    "Im Spielplan können alle Spiele aller Spieltage der Frankfurt-Fußball-League inklusive wichtiger Infos, wie z. B. Datum, Uhrzeit, und Ort gefunden werden.",
+    "Im Spielplan können alle Spiele aller Spieltage der Frankfurt-League inklusive wichtiger Infos, wie z. B. Datum, Uhrzeit, und Ort gefunden werden.",
   keywords: [
     "Frankfurt-League Spielplan",
     "Frankfurt-League Spiele",

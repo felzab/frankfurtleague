@@ -53,7 +53,7 @@ export default function Saisontabelle({ gruppenData }: { gruppenData: FLGruppen 
                       {/** Team name */}
                       <Table.Cell className="py-4 px-1 lg:px-4 text-fluid-xs truncate lg:min-w-[200px] overflow-visible">
                         <Badge.Anchor className="hidden lg:block w-fit">
-                          <span className="w-fit">{`${teamData.name} - ${teamData.name.substring(0, 2)}`}</span>
+                          <span className="w-fit">{`${teamData.name} - ${teamData.shorthand}`}</span>
                           {teamData.is_disqualified && (
                             <Badge
                               size="sm"
@@ -67,7 +67,7 @@ export default function Saisontabelle({ gruppenData }: { gruppenData: FLGruppen 
 
                         {/* Mobile: CSS-only "Tooltip" */}
                         <Badge.Anchor className="group relative lg:hidden inline-block w-fit ">
-                          <span className="text-fluid-sm">{teamData.name.substring(0, 2)}</span>
+                          <span className="text-fluid-sm">{teamData.shorthand}</span>
                           {teamData.is_disqualified && (
                             <Badge
                               size="sm"

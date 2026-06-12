@@ -15,6 +15,9 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure = [
   },
   {
     category_name: "Teams",
-    sub_options: [{ id: "spieler", label: "Spieler" }],
+    sub_options: [
+      { id: "teams", label: "Teams" },
+      { id: "spieler", label: "Spieler" },
+    ],
   },
 ];

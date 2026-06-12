@@ -3,7 +3,7 @@
 import { Accordion, Table } from "@heroui/react";
 import { ChevronsDownWide } from "@gravity-ui/icons";
 
-import TeamOverview from "./TeamOverview";
+import TeamStatsPreview from "./TeamStatsPreview";
 import type { FLTeamWithSpieler } from "../types";
 
 export default function TeamsWithSpieler({ teamsData }: { teamsData: FLTeamWithSpieler[] }) {
@@ -26,7 +26,7 @@ export default function TeamsWithSpieler({ teamsData }: { teamsData: FLTeamWithS
           <Accordion.Panel>
             <Accordion.Body className="flex flex-col items-center px-1">
               {/** Basic information about the team */}
-              <TeamOverview teamData={teamData} />
+              <TeamStatsPreview teamData={teamData} />
 
               <Table
                 variant="secondary"

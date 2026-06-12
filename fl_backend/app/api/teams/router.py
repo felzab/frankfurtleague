@@ -3,6 +3,7 @@ from collections import defaultdict
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
+from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import (
     FLGruppen,
     FLSpielerListAdapter,
@@ -12,7 +13,7 @@ from app.api.teams.schemas import (
 )
 from app.core.config import backend_config
 from app.core.crud import pull_from_db
-from app.core.dependencies import SpielerCollection, TeamsCollection
+from app.core.dependencies import SpieleCollection, SpielerCollection, TeamsCollection
 from app.core.security import verify_access_base
 
 router = APIRouter(prefix=f"/api/v{backend_config.api_version}/teams", dependencies=[Depends(verify_access_base)])
@@ -65,3 +66,26 @@ async def get_all_teams(
         content={"acknowledged": 1, "teams": FLTeamWithSpielerListAdapter.dump_python(teams_with_spieler, mode="json")},
         status_code=status.HTTP_200_OK,
     )
+
+
+@router.get("/all_teams_detail")
+async def get_all_teams_detail(
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+) -> JSONResponse:
+
+    teams_raw = await pull_from_db(collection=teams_collection, filter={"is_placeholder": False})
+    teams = FLTeamListAdapter.validate_python(teams_raw)
+    teams_ids = [team.id for team in teams]
+
+    spiele_raw = await pull_from_db(
+        collection=spiele_collection,
+        filter={"$or": [{"team1.team_id": {"$in": teams_ids}}, {"team2.team_id": {"$in": teams_ids}}]},
+    )
+    spiele = FLSpielListAdapter.validate_python(spiele_raw)
+
+    return JSONResponse({
+        "acknowledged": 1,
+        "spiele": FLSpielListAdapter.dump_python(spiele, mode="json"),
+        "teams": FLTeamListAdapter.dump_python(teams, mode="json"),
+    })

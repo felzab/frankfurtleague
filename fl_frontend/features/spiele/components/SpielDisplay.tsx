@@ -1,7 +1,3 @@
-// ---------------------------------------------------------
-// DESIGN 2: Refined Row (Improved Version 1)
-// Fixes: Proper Flexbox math. Zero text overlap. Fixed typography.
-// ---------------------------------------------------------
 "use client";
 import { Button } from "@heroui/react";
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
@@ -41,19 +37,20 @@ export default function SpielDisplay({
           {adminMode && (
             <Button
               isIconOnly
+              aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
               onPress={onOpenAdminModal}
               size="md"
               variant="tertiary"
-              className="bg-quinary-light dark:bg-quinary-dark">
-              <PencilToSquare className="w-5 h-5" />
+              className="bg-quinary-light dark:bg-quinary-dark w-[40px] md:w-[45px] px-0">
+              <PencilToSquare className="w-5 h-5 px-0" />
             </Button>
           )}
           <Button
-            isIconOnly
+            aria-label={`Spielinfo bearbeiten Spiel Nr.${spielData.spiel_nr}`}
             onPress={onOpenInfoModal}
             size="md"
             variant="tertiary"
-            className="bg-quinary-light dark:bg-quinary-dark">
+            className="bg-quinary-light dark:bg-quinary-dark w-[40px] md:w-[45px] px-0">
             <CircleExclamation className="w-5 h-5" />
           </Button>
         </div>
@@ -61,14 +58,14 @@ export default function SpielDisplay({
 
       {/* Spielinfos */}
       <div className="flex items-center justify-between w-full bg-quinary-light dark:bg-primary-dark/90 rounded-xl p-2 ">
-        <h4 className="text-fluid-xs lg:text-fluid-md font-bold text-right flex-1 truncate ">{spielData.team1.name || "Team 1"}</h4>
+        <strong className="text-fluid-xs lg:text-fluid-md font-bold text-right flex-1 truncate ">{spielData.team1.name || "Team 1"}</strong>
 
         <span
           className={`w-fit px-3 lg:px-4 text-center text-fluid-base font-extrabold ${spielData.status === "vergangen" ? "text-success" : "text-danger"}`}>
           {spielErgebnis}
         </span>
 
-        <h4 className="text-fluid-xs lg:text-fluid-md font-bold text-left flex-1 truncate">{spielData.team2.name || "Team 2"}</h4>
+        <strong className="text-fluid-xs lg:text-fluid-md font-bold text-left flex-1 truncate">{spielData.team2.name || "Team 2"}</strong>
       </div>
 
       <div className="flex flex-row items-center justify-center w-full h-fit gap-x-2">

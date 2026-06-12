@@ -6,7 +6,7 @@ import type { GetAllSpieleReturn, GetSpielePreviewReturn, GetSpielhistorieReturn
 export const getSpielplan = async (): Promise<GetSpielplanReturn> => {
   "use cache";
 
-  cacheLife("hours");
+  cacheLife("days");
   cacheTag("spielplan");
 
   return apiClient<GetSpielplanReturn>("/spiele/spielplan");
@@ -16,7 +16,7 @@ export const getSpielplan = async (): Promise<GetSpielplanReturn> => {
 export const getSpielhistorie = async (): Promise<GetSpielhistorieReturn> => {
   "use cache";
 
-  cacheLife("hours");
+  cacheLife("days");
   cacheTag("spielhistorie");
 
   return apiClient<GetSpielhistorieReturn>("/spiele/spielhistorie");
@@ -26,7 +26,7 @@ export const getSpielhistorie = async (): Promise<GetSpielhistorieReturn> => {
 export const getAllSpiele = async (): Promise<GetAllSpieleReturn> => {
   "use cache";
 
-  cacheLife("hours");
+  cacheLife("days");
   cacheTag("all_spiele");
 
   return apiClient<GetAllSpieleReturn>("/spiele/all_spiele");

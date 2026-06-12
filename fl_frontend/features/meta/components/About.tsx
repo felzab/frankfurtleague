@@ -22,7 +22,7 @@ export default function About() {
           <h3 className="text-fluid-lg tracking-wide font-extrabold uppercase">Unser Ziel</h3>
         </div>
 
-        <p className="w-full px-6 py-4 lg:p-6 rounded-2xl text-fluid-md text-balance font-medium soccer-field-card-bg shadow-xl">
+        <p className="w-full px-6 py-4 lg:p-6 rounded-2xl text-fluid-md text-pretty font-medium soccer-field-card-bg shadow-xl">
           Unser Ziel ist simpel: Die Finanzierung unserer Abschlussfeiern und Abibälle. Anstatt Geld über herkömmliche, wenig lukrative Wege zu
           sammeln, organisieren wir einen stadtweiten Ligabetrieb im Großfeldfußball. Jedes Spiel bringt durch Ticket- und Cateringverkäufe
           direkte Einnahmen für den ausrichtenden Jahrgang. Alles wird auf dem Platz geklärt – von Schülern, für Schüler.
@@ -73,7 +73,7 @@ export default function About() {
           </Card.Header>
           <Card.Content className="p-6">
             <Suspense fallback={<span className="text-fluid-sm opacity-80">Teams laden</span>}>
-              <ParticipatingTeams />
+              <ParticipatingTeamsDisplay />
             </Suspense>
           </Card.Content>
         </Card>
@@ -82,7 +82,7 @@ export default function About() {
   );
 }
 
-async function ParticipatingTeams() {
+async function ParticipatingTeamsDisplay() {
   await connection();
   const res = await getAllTeams();
 

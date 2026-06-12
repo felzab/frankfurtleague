@@ -1,12 +1,12 @@
 import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
-import type { GetAllTeamsReturn, GetAllTeamsWithSpielerReturn, GetSaisontabelleReturn } from "./types";
+import type { GetAllTeamsDetailReturn, GetAllTeamsReturn, GetAllTeamsWithSpielerReturn, GetSaisontabelleReturn } from "./types";
 
 /** Fetches all the standings data to display the Saisontabelle */
 export const getSaisontabelle = async (): Promise<GetSaisontabelleReturn> => {
   "use cache";
 
-  cacheLife("hours");
+  cacheLife("days");
   cacheTag("saisontabelle");
 
   return apiClient<GetSaisontabelleReturn>("/teams/saisontabelle");
@@ -27,4 +27,12 @@ export const getAllTeams = async (): Promise<GetAllTeamsReturn> => {
 
   cacheTag("all_teams");
   return apiClient<GetAllTeamsReturn>("/teams/all_teams", { params: { with_spieler: false, include_placeholder: true } });
+};
+
+export const getAllTeamsDetail = async (): Promise<GetAllTeamsDetailReturn> => {
+  "use cache";
+
+  cacheLife("days");
+  cacheTag("all_teams_detail");
+  return apiClient<GetAllTeamsDetailReturn>("/teams/all_teams_detail");
 };

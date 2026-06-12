@@ -6,7 +6,7 @@ import { connection } from "next/server";
 export const metadata: Metadata = {
   title: "Spielhistorie",
   description:
-    "Die Spielhistorie enthält alle vergangenen Spiele der laufenden Saison der Frankfurt-Fußball-League. Erfahre, wie welche Spiele verliefen und ausgingen.",
+    "Die Spielhistorie enthält alle vergangenen Spiele der laufenden Saison der Frankfurt-League. Erfahre, wie welche Spiele verliefen und ausgingen.",
   keywords: [
     "Frankfurt-League Spielhistorie",
     "Frankfurt-League Historie",

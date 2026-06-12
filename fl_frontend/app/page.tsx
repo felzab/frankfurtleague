@@ -19,20 +19,23 @@ export default async function LandingPage() {
       {/** Call-to-action bar */}
       <section className="flex flex-row justify-evenly items-center w-[90%] lg:w-[80%] xl:w-[70%] h-[70px] sm:h-[80px] lg:h-[100px] p-1 -mt-8 rounded-xl bg-text-black dark:bg-text-white text-text-white text-fluid-base z-3">
         <Link
+          prefetch={false}
           title="Link to page: Spielplan"
           href="/dashboard/spielplan#top"
           className="flex items-center justify-center w-[30%] h-[45px] sm:h-[55px] lg:h-[60px] rounded-md font-bold bg-quaternary-dark">
           Spielplan
         </Link>
         <Link
+          prefetch={false}
           title="Link to page: Saisontabelle"
           href="/dashboard/saisontabelle#top"
           className="flex items-center justify-center w-[30%] h-[45px] sm:h-[55px] lg:h-[60px] px-8 rounded-md font-bold bg-red-600">
           Tabelle
         </Link>
         <Link
+          prefetch={false}
           title="Link to page: Teams"
-          href="/dashboard/spieler#top"
+          href="/dashboard/teams#top"
           className="flex items-center justify-center w-[30%] h-[45px] sm:h-[55px] lg:h-[60px] px-8 rounded-md font-bold bg-quinary-dark">
           Teams
         </Link>

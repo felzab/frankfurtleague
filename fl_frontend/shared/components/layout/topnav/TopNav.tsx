@@ -1,10 +1,19 @@
-"use server";
-
 import Link from "next/link";
-import { Separator } from "@heroui/react";
-import { Suspense } from "react";
-import TopNavLinksDropdown from "./TopNavLinksDropdown";
 import { auth } from "@/core/auth";
+import { Bars } from "@gravity-ui/icons";
+import dynamic from "next/dynamic";
+
+const TopNavLinksDropdown = dynamic(() => import("./TopNavLinksDropdown"), {
+  ssr: true,
+  loading: () => (
+    <Bars
+      aria-label="Loading menu"
+      height={32}
+      width={32}
+      className="opacity-50"
+    />
+  ),
+});
 
 export default async function TopNav() {
   const session = await auth();
@@ -14,6 +23,7 @@ export default async function TopNav() {
       <div className="flex flex-row justify-start items-center min-w-[50%] h-full ">
         <h2>
           <Link
+            prefetch={false}
             title="Link to homepage"
             className="pl-2 max-w-[44%] text-fluid-lg font-bold tracking-tighter"
             href="/">
@@ -26,6 +36,7 @@ export default async function TopNav() {
         {/** Shown for everything bigger than mobile */}
         <div className="hidden lg:flex flex-row justify-between items-center gap-x-2 pr-2 w-fit h-full text-text-black dark:text-text-white">
           <Link
+            prefetch={false}
             title="Link to page: dashboard"
             className="text-text-black dark:text-text-white text-fluid-sm font-semibold rounded-3xl hover:bg-[#ECECEC] dark:hover:bg-[#26282b] px-2 py-1"
             href="/dashboard">
@@ -40,17 +51,11 @@ export default async function TopNav() {
             Verwalten
           </Link>
 
-          <Separator
-            orientation="vertical"
-            className="h-[80%] w-[2px] mt-0.5 bg-text-black dark:bg-text-white"
-          />
+          <div className="h-full w-[2px] bg-text-black dark:bg-text-white" />
         </div>
 
-        {/** Shown for mobile */}
         <div className="flex items-center mr-2">
-          <Suspense>
-            <TopNavLinksDropdown session={session} />
-          </Suspense>
+          <TopNavLinksDropdown session={session} />
         </div>
       </div>
     </nav>

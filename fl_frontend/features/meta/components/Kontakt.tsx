@@ -51,7 +51,7 @@ export default function Kontakt() {
           <h3 className="text-fluid-lg tracking-wide font-extrabold uppercase">Wir sind für alles offen</h3>
         </div>
 
-        <p className="w-full px-6 py-4 lg:p-6 rounded-2xl text-fluid-md text-balance font-medium soccer-field-card-bg shadow-xl">
+        <p className="w-full px-6 py-4 lg:p-6 rounded-2xl text-fluid-md text-pretty font-medium soccer-field-card-bg shadow-xl">
           Fragen, Verbesserungsvorschläge oder Anregungen zur Liga? Kontaktiere uns gern über einen der folgenden Wege.
         </p>
       </section>

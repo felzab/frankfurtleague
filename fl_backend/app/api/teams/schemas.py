@@ -1,7 +1,8 @@
 from collections import defaultdict
 
-from app.shared.schemas.custom_types import CustomObjectId
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
+
+from app.shared.schemas.custom_types import CustomObjectId
 
 
 class FLSpieler(BaseModel):
@@ -29,6 +30,14 @@ class FLTeamStatistik(BaseModel):
     punkte: int
 
 
+class FLTeamAddress(BaseModel):
+    strasse: str
+    hausnummer: str
+    plz: str = Field(min_length=5, max_length=5)
+    stadtteil: str
+    stadt: str
+
+
 class FLTeam(BaseModel):
     id: CustomObjectId = Field(alias="_id")  # So the _id field can be accesed through
 
@@ -37,6 +46,11 @@ class FLTeam(BaseModel):
     statistik: FLTeamStatistik
     is_placeholder: bool
     is_disqualified: bool
+    shorthand: str = Field(min_length=2, max_length=2)
+    description: str
+    full_name: str
+    website_url: str
+    address: FLTeamAddress
 
 
 class FLTeamWithSpieler(FLTeam):

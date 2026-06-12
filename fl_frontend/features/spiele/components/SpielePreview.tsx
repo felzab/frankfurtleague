@@ -1,7 +1,10 @@
-"use server";
 import { connection } from "next/server";
 import { getSpielePreview } from "../queries";
-import SpielList from "./SpielDisplayList";
+import dynamic from "next/dynamic";
+
+const SpielList = dynamic(() => import("./SpielDisplayList"), {
+  ssr: true,
+});
 
 export default async function SpielePreview() {
   await connection();

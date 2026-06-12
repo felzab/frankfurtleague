@@ -2,11 +2,12 @@ import { DASHBOARD_SIDEMENU_STRUCTURE } from "@/features/dashboard/constants";
 import Sidemenu from "@/shared/components/layout/sidemenu/Sidemenu";
 import { Metadata } from "next";
 import { Suspense } from "react";
+import SaisonMetadataDisplay from "@/shared/components/layout/sidemenu/SaisonMetadataDisplay";
 
 export const metadata: Metadata = {
   title: { default: "Saisonübersicht", template: "%s | Frankfurt-League" },
   description:
-    "Bei der Frankfurt-Fußball-League Saisonübersicht können alle wichtigen Informationen zu der laufenden Saison, wie z. B. der Spielplan etc. eingesehen werden.",
+    "Bei der Frankfurt-League Saisonübersicht können alle wichtigen Informationen zu der laufenden Saison, wie z. B. der Spielplan etc. eingesehen werden.",
   keywords: [
     "Frankfurt-League Dashboard",
     "Frankfurt-League Saisonübersicht",
@@ -24,6 +25,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <Sidemenu
         structure={DASHBOARD_SIDEMENU_STRUCTURE}
         linkPrefix="dashboard"
+        saisonMetadataDisplay={<SaisonMetadataDisplay />}
       />
 
       {/* Right-side content */}

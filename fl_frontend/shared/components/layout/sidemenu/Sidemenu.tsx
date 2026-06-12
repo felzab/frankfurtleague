@@ -2,15 +2,20 @@
 
 import SidemenuLink from "./SidemenuLink";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import React, { Suspense, useState } from "react";
 import { Separator } from "@heroui/react";
 import { LayoutSideContentLeft } from "@gravity-ui/icons";
 import type { SidemenuStructure } from "@/shared/types";
 
-const CurrentSeason = "2026";
-const CurrentSeasonTimeSpan = "03.03.2026 - 08.08.2026";
-
-export default function Sidemenu({ structure, linkPrefix }: { structure: SidemenuStructure; linkPrefix: string }) {
+export default function Sidemenu({
+  structure,
+  linkPrefix,
+  saisonMetadataDisplay,
+}: {
+  structure: SidemenuStructure;
+  linkPrefix: string;
+  saisonMetadataDisplay: React.ReactNode;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const _toggleSidemenu = () => setIsOpen(!isOpen);
 
@@ -53,10 +58,7 @@ export default function Sidemenu({ structure, linkPrefix }: { structure: Sidemen
           xl:translate-x-0 xl:static xl:inset-auto xl:z-0
 
           `}>
-        <div className="py-2 px-4">
-          <h1 className="h-fit text-lg/6 font-secondary font-bold ">{`Saison ${CurrentSeason}`}</h1>
-          <p className="text-fluid-xxs font-secondary pl-[2px]">{CurrentSeasonTimeSpan}</p>
-        </div>
+        <Suspense fallback={<span className="text-fluid-xs opacity-80 h-[80px]"> Daten laden...</span>}>{saisonMetadataDisplay}</Suspense>
 
         <div className="flex flex-col gap-6 p-4">
           {structure.map((group) => (
