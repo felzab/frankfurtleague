@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Table } from "@heroui/react";
+import { Button, Table, Chip, Avatar } from "@heroui/react";
 import type { FLSpieler } from "../../types";
 import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 import { useRouter } from "next/navigation";
@@ -17,39 +17,85 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
         }}
         className="bg-quaternary-light dark:bg-quaternary-dark size-fit text-fluid-xs mb-4 brightness-95 px-2 lg:px-3 py-1 ">
         <ArrowUturnCwLeft className="w-[16px]! h-[16px]!" />
-        Zurück zur Übersicht
+        Zurück
       </Button>
-      <h3 className="text-fluid-xl p-2 font-extrabold">{teamName}-Spieler</h3>
 
-      <Table
-        variant="secondary"
-        className=" w-full h-fit xl:p-2">
-        <Table.Content aria-label={`Tabelle: Spieler ${teamName}`}>
-          <Table.Header className="uppercase text-fluid-sm font-semibold">
-            <Table.Column
-              isRowHeader
-              className="px-2 lg:px-4">
-              Name
-            </Table.Column>
-            <Table.Column className="px-2 lg:px-4">#</Table.Column>
-            <Table.Column className="px-2 lg:px-4">Position</Table.Column>
-            <Table.Column className="px-3 lg:px-4 text-right">Stufe</Table.Column>
-          </Table.Header>
+      <div className="flex flex-row items-center justify-start gap-x-2 min-[360px]:gap-x-6 p-2">
+        <h3 className="text-fluid-xl font-extrabold">{teamName}-Spieler</h3>
+        <Chip
+          size="md"
+          variant="soft"
+          color="success"
+          className=" lg:mt-1.5">
+          {teamSpieler.length} Spieler
+        </Chip>
+      </div>
 
-          <Table.Body>
-            {teamSpieler.map((spielerData) => (
-              <Table.Row key={spielerData.id}>
-                <Table.Cell className="px-2 lg:px-4 py-3 font-medium text-fluid-xxs">
-                  {`${spielerData.vorname} ${spielerData.nachname}`}
-                </Table.Cell>
-                <Table.Cell className="px-2 lg:px-4 py-3 text-fluid-xxs">{spielerData.nummer}</Table.Cell>
-                <Table.Cell className="px-2 lg:px-4 py-3 text-fluid-xxs">{spielerData.position}</Table.Cell>
-                <Table.Cell className="px-3 lg:px-4 py-3 text-right text-fluid-xs">{spielerData.stufe}</Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Content>
-      </Table>
+      <div className="w-full max-w-[1550px] overflow-x-auto pb-4">
+        <Table
+          variant="secondary"
+          className="min-w-full h-fit xl:p-2">
+          <Table.Content aria-label={`Tabelle: Spieler ${teamName}`}>
+            <Table.Header className="uppercase text-fluid-sm font-semibold text-default-400">
+              <Table.Column
+                isRowHeader
+                className="pl-1.5 sm:pl-4 pr-1 sm:pr-2">
+                Name
+              </Table.Column>
+              <Table.Column className="px-1 sm:px-4 text-center w-1 whitespace-nowrap">#</Table.Column>
+              <Table.Column className="px-1 sm:px-4 text-center w-1 whitespace-nowrap">Stufe</Table.Column>
+              <Table.Column className="pl-1 sm:pl-2 pr-2 min-[360px]:pr-1.5 sm:pr-4 text-right w-[1%] whitespace-nowrap">Position</Table.Column>
+            </Table.Header>
+
+            <Table.Body>
+              {teamSpieler.map((spielerData) => (
+                <Table.Row key={spielerData.id}>
+                  {/* NAME */}
+                  <Table.Cell className="px-1 sm:px-4 py-2 sm:py-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Avatar
+                        size="sm"
+                        color="accent"
+                        variant="soft"
+                        className="hidden sm:flex shrink-0">
+                        <Avatar.Fallback>
+                          {spielerData.vorname.charAt(0).toUpperCase()}
+                          {spielerData.nachname.charAt(0).toUpperCase()}
+                        </Avatar.Fallback>
+                      </Avatar>
+                      {/* Added line-clamp-1 so extremely long names truncate instead of breaking the table width */}
+                      <span className="font-semibold text-fluid-xs line-clamp-1">{`${spielerData.vorname} ${spielerData.nachname}`}</span>
+                    </div>
+                  </Table.Cell>
+
+                  {/* NUMMMER */}
+                  <Table.Cell className="px-1 sm:px-4 py-2 sm:py-3 text-center w-1 whitespace-nowrap">
+                    <span className="font-mono  text-fluid-xs">{spielerData.nummer || "-"}</span>
+                  </Table.Cell>
+
+                  {/* STUFE */}
+                  <Table.Cell className="px-1 sm:px-4 py-2 sm:py-3 text-center w-1 whitespace-nowrap">
+                    <span className="text-fluid-xs font-medium">{spielerData.stufe}</span>
+                  </Table.Cell>
+
+                  {/* POSITION */}
+                  <Table.Cell className="px-1 sm:px-4 py-2 sm:py-3 w-1 whitespace-nowrap">
+                    <div className="flex justify-end">
+                      <Chip
+                        size="sm"
+                        variant="soft"
+                        color="accent"
+                        className="capitalize text-fluid-xxs font-medium">
+                        {spielerData.position}
+                      </Chip>
+                    </div>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Content>
+        </Table>
+      </div>
     </div>
   );
 }

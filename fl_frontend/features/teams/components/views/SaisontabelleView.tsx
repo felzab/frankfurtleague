@@ -3,6 +3,7 @@
 import { Badge, Table } from "@heroui/react";
 import type { FLGruppen } from "../../types";
 import { typedObjectEntries } from "@/shared/utils";
+import TeamPopoverMenu from "../TeamPopoverMenu";
 
 export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
   return (
@@ -52,53 +53,24 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
 
                       {/** Team name */}
                       <Table.Cell className="py-4 px-1 lg:px-4 text-fluid-xs truncate lg:min-w-[200px] overflow-visible">
-                        <Badge.Anchor className="hidden lg:block w-fit">
-                          <span className="w-fit">{`${teamData.name} - ${teamData.shorthand}`}</span>
+                        <TeamPopoverMenu
+                          teamName={teamData.name}
+                          teamId={teamData.id}
+                          teamIsDisqualified={teamData.is_disqualified}>
+                          {/** Desktop view */}
+                          <span className="hidden lg:block w-fit text-fluid-xs font-medium">{`${teamData.name} - ${teamData.shorthand}`}</span>
+                          {/** Mobile view */}
+                          <span className="block lg:hidden text-fluid-sm font-medium">{teamData.shorthand}</span>
                           {teamData.is_disqualified && (
                             <Badge
                               size="sm"
                               color="danger"
                               placement="top-right"
-                              className="translate-x-6 -translate-y-2 text-fluid-xxs! p-1">
+                              className="translate-x-5 lg:translate-x-6 -translate-y-2 text-fluid-xxs! p-1">
                               DQ
                             </Badge>
                           )}
-                        </Badge.Anchor>
-
-                        {/* Mobile: CSS-only "Tooltip" */}
-                        <Badge.Anchor className="group relative lg:hidden inline-block w-fit ">
-                          <span className="text-fluid-sm">{teamData.shorthand}</span>
-                          {teamData.is_disqualified && (
-                            <Badge
-                              size="sm"
-                              color="danger"
-                              placement="top-right"
-                              className="translate-x-5 -translate-y-2 text-fluid-xxs! p-1">
-                              DQ
-                            </Badge>
-                          )}
-
-                          <div
-                            className="
-                              absolute bottom-full left-0 mb-3 z-5 pointer-events-none
-
-                              opacity-0 transition-opacity duration-500 delay-500 ease-out
-                              group-active:opacity-100 group-active:duration-0 group-active:delay-0
-                            ">
-                            {/* The Bubble */}
-                            <div className="relative bg-tertiary-dark dark:bg-primary-light  text-text-white dark:text-text-black text-fluid-base font-semibold py-2 px-3 shadow-md rounded-full rounded-bl-none whitespace-nowrap">
-                              {teamData.name}
-
-                              {/* The Tail */}
-                              <div
-                                className="absolute top-[98%] left-0 w-3 h-3 bg-tertiary-dark dark:bg-primary-light"
-                                style={{
-                                  clipPath: "polygon(0 0, 0 100%, 100% 0)",
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </Badge.Anchor>
+                        </TeamPopoverMenu>
                       </Table.Cell>
 
                       {/** Games played */}

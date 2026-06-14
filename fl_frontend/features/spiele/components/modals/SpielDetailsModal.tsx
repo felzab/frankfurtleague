@@ -4,23 +4,25 @@ import { Modal, Separator } from "@heroui/react";
 
 import { CircleInfo } from "@gravity-ui/icons";
 import Link from "next/link";
-import type { FLSpielWithChipData } from "../../types";
+import type { FLSpiel } from "../../types";
 import SpielStatusChip from "../ui/SpielStatusChip";
-import SpielPhaseChip from "../ui/SpielPhaseChip";
+import SaisonPhaseChip from "../ui/SaisonPhaseChip";
+import { useServerConfig } from "@/core/providers/ServerConfigProvider";
+import { computeSpielStatus } from "../../utils";
 
-export default function SpielDetailsModal({
-  spielData,
-  isOpen,
-  onClose,
-}: {
-  spielData: FLSpielWithChipData | null;
-  isOpen: boolean;
-  onClose: () => void;
-}) {
+export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spielData: FLSpiel | null; isOpen: boolean; onClose: () => void }) {
+  const { today } = useServerConfig();
+
   // This breaks the closing animation of the modal, but is definetly the better way
   if (spielData === null) {
     return;
   }
+
+  const spielStatus = computeSpielStatus({
+    datum: spielData.datum,
+    isCanceled: spielData.is_canceled,
+    today,
+  });
 
   const spielDatum = spielData.datum && new Date(spielData.datum).toLocaleDateString("de-de");
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${spielData.ort && encodeURIComponent(spielData.ort)}`;
@@ -40,8 +42,8 @@ export default function SpielDetailsModal({
               </Modal.Icon>
             </div>
             <div className="flex flex-row items-center justify-start w-fullt h-fit gap-x-2">
-              <SpielStatusChip spielStatus={spielData.status} />
-              <SpielPhaseChip spielPhase={spielData.phase} />
+              <SpielStatusChip spielStatus={spielStatus} />
+              <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
             </div>
           </Modal.Header>
           <Modal.Body className="text-text-black dark:text-text-white">

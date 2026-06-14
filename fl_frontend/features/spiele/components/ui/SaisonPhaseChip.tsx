@@ -1,7 +1,7 @@
 import { Chip } from "@heroui/react";
-import type { SpielPhase } from "../../types";
+import type { FLSaisonPhase } from "../../types";
 
-export default function SpielPhaseChip({ spielPhase }: { spielPhase: SpielPhase }) {
+export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {
   const colorMap = {
     gruppenphase: "warning",
     viertelfinale: "danger",
@@ -114,10 +114,10 @@ export default function SpielPhaseChip({ spielPhase }: { spielPhase: SpielPhase 
     <Chip
       size="sm"
       variant="primary"
-      color={colorMap[spielPhase]}
+      color={colorMap[saisonPhase]}
       className="w-fit text-fluid-xxs! font-extrabold tracking-wide py-0.5 px-1.5 lg:px-2 text-text-black brightness-95">
-      {iconMap[spielPhase]}
-      {spielPhase.toUpperCase()}
+      {iconMap[saisonPhase]}
+      {saisonPhase.toUpperCase()}
     </Chip>
   );
 }

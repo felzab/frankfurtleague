@@ -7,7 +7,9 @@ export default async function TeamDetailsPage({ params }: { params: Promise<{ te
   await connection();
 
   const resolvedParams = await params;
-  const res = await getTeamDetailsById(resolvedParams.team_id);
+  const res = await getTeamDetailsById(resolvedParams.team_id).catch(() => {
+    return null;
+  });
 
   if (!res || !res.acknowledged) {
     notFound();

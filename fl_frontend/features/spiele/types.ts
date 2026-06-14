@@ -1,9 +1,10 @@
 import type { BaseApiReturn } from "@/core/api";
 
 export interface FLSpielTeamField {
-  team_id: string | null;
+  team_id: string;
   name: string;
   tore: number | null;
+  shorthand: string;
 }
 
 export interface FLSpiel {
@@ -19,12 +20,14 @@ export interface FLSpiel {
   spieltag_id: string;
   spiel_nr: number;
   is_canceled: boolean;
+  saison_phase: FLSaisonPhase;
 }
 
 export interface FLSpielWithChipData extends FLSpiel {
-  status: SpielStatus;
-  phase: SpielPhase;
+  status: FLSpielStatus;
 }
+export type FLSpielStatus = "ausstehend" | "vergangen" | "heute" | "abgesagt" | "unbekannt";
+export type FLSaisonPhase = "gruppenphase" | "viertelfinale" | "halbfinale" | "finale";
 
 export interface FLSpieltag {
   id: string;
@@ -33,10 +36,8 @@ export interface FLSpieltag {
   ende: string;
   anzahl_spiele: number;
   order_val: number;
+  saison_phase: FLSaisonPhase;
 }
-
-export type SpielStatus = "ausstehend" | "vergangen" | "heute" | "abgesagt" | "unbekannt";
-export type SpielPhase = "gruppenphase" | "viertelfinale" | "halbfinale" | "finale";
 
 export interface FLSpieltagWithSpiele extends FLSpieltag {
   spiele: FLSpiel[];
@@ -61,4 +62,8 @@ export interface GetAllSpieleReturn extends BaseApiReturn {
 export interface GetRecentAndUpcomingSpieleReturn extends BaseApiReturn {
   recent_spiele: FLSpiel[];
   upcoming_spiele: FLSpiel[];
+}
+
+export interface GetPlayoffsSpieleReturn extends BaseApiReturn {
+  playoffs_spieltage: FLSpieltagWithSpiele[];
 }

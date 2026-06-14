@@ -1,15 +1,9 @@
 "use client";
 
-import { useServerConfig } from "@/core/providers/ServerConfigProvider";
 import type { FLSpiel } from "../types";
-import { computeSpielPhase, computeSpielStatus } from "../utils";
-import SpielPhaseChip from "./ui/SpielPhaseChip";
+import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 
 export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) {
-  const { today } = useServerConfig();
-  const status = computeSpielStatus({ datum: spielData.datum, isCanceled: spielData.is_canceled, today: today });
-  const phase = computeSpielPhase(spielData.spiel_nr);
-
   const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
   const spielUhrzeit = spielData.uhrzeit || "--:--";
   const spielErgebnis = spielData.ergebnis ?? "-:-";
@@ -25,7 +19,7 @@ export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) 
           <span className="w-full">{spielUhrzeit}</span>
         </div>
 
-        <SpielPhaseChip spielPhase={phase} />
+        <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
       </div>
 
       {/* Bottom Row: Teams and Score */}
@@ -33,7 +27,7 @@ export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) 
         <strong className="w-fit text-fluid-sm lg:text-fluid-md font-bold truncate ">{spielData.team1.name || "Team 1"}</strong>
 
         <span
-          className={`w-fit px-1 lg:px-4 text-center text-fluid-base font-extrabold ${status === "vergangen" ? "text-success" : "text-danger"}`}>
+          className={`w-fit px-1 lg:px-4 text-center text-fluid-base font-extrabold ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
           {spielErgebnis}
         </span>
 

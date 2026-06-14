@@ -91,7 +91,7 @@ async def get_games_preview(
     # Fetches upcoming 6 games
     upcoming_games_raw = await pull_from_db(
         collection=spiele_collection,
-        filter={"datum": {"$gt": today}},
+        filter={"datum": {"$gte": today}},
         sort_by=[("datum", pymongo.ASCENDING), ("spiel_nr", pymongo.ASCENDING)],
         limit=amount,
     )
@@ -111,6 +111,40 @@ async def get_games_preview(
             "acknowledged": 1,
             "recent_spiele": FLSpielListAdapter.dump_python(recent_games, mode="json"),
             "upcoming_spiele": FLSpielListAdapter.dump_python(upcoming_games, mode="json"),
+        },
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@router.get("/playoffs_spiele")
+async def get_playoffs_spiele(
+    request: Request, spieltage_collection: SpieltageCollection, spiele_collection: SpieleCollection
+) -> JSONResponse:
+
+    spieltage_raw = await pull_from_db(
+        collection=spieltage_collection,
+        filter={"saison_phase": {"$ne": "gruppenphase"}},
+        sort_by=[("order_val", pymongo.ASCENDING)],
+    )
+    spieltage = FLSpieltagListAdapter.validate_python(spieltage_raw)
+
+    spiele_raw = await pull_from_db(
+        collection=spiele_collection,
+        filter={"spieltag_id": {"$in": [spieltag.id for spieltag in spieltage]}},
+    )
+    spiele = FLSpielListAdapter.validate_python(spiele_raw)
+
+    spieltage_with_spiele = [
+        FLSpieltagWithSpiele(
+            **spieltag.model_dump(by_alias=True), spiele=[spiel for spiel in spiele if spiel.spieltag_id == spieltag.id]
+        )
+        for spieltag in spieltage
+    ]
+
+    return JSONResponse(
+        content={
+            "acknowledged": 1,
+            "playoffs_spieltage": FLSpieltagWithSpieleListAdapter.dump_python(spieltage_with_spiele, mode="json"),
         },
         status_code=status.HTTP_200_OK,
     )

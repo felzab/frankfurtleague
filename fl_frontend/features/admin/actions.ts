@@ -14,6 +14,8 @@ export async function patchAdminSpielDataAction(
   spiel_id: string,
   id_team1: string,
   id_team2: string,
+  shorthand_team1: string,
+  shorthand_team2: string,
   prevState: FormState,
   formData: FormData,
 ): Promise<FormState> {
@@ -41,11 +43,13 @@ export async function patchAdminSpielDataAction(
       team_id: id_team1,
       name: formData.get("name_team1")?.toString() || "",
       tore: !tore1Str ? null : Number(tore1Str),
+      shorthand: shorthand_team1,
     },
     team2: {
       team_id: id_team2,
       name: formData.get("name_team2")?.toString() || "",
       tore: !tore2Str ? null : Number(tore2Str),
+      shorthand: shorthand_team2,
     },
   };
 

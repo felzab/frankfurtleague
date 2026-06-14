@@ -8,12 +8,7 @@ export const metadata: Metadata = {
   title: { default: "Saisonübersicht", template: "%s | Frankfurt-League" },
   description:
     "Bei der Frankfurt-League Saisonübersicht können alle wichtigen Informationen zu der laufenden Saison, wie z. B. der Spielplan etc. eingesehen werden.",
-  keywords: [
-    "Frankfurt-League Dashboard",
-    "Frankfurt-League Saisonübersicht",
-    "Frankfurt-League Dashboard",
-    "Frankfurt-League Saisonübersicht",
-  ],
+  keywords: ["Frankfurt-League Dashboard", "Frankfurt-League Saisonübersicht"],
   alternates: {
     canonical: "https://frankfurtleague.de/dashboard",
   },
@@ -29,7 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       />
 
       {/* Right-side content */}
-      <main className="relative flex flex-col justify-start items-center w-full min-h-dvh h-auto p-1 bg-primary-light dark:bg-primary-dark pb-20">
+      <main className="relative flex flex-col justify-start items-center min-w-0 w-full min-h-dvh h-auto p-1 bg-primary-light dark:bg-primary-dark pb-20">
         <Suspense>{children}</Suspense>
       </main>
     </div>

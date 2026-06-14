@@ -1,6 +1,12 @@
 import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
-import type { GetAllSpieleReturn, GetRecentAndUpcomingSpieleReturn, GetSpielhistorieReturn, GetSpielplanReturn } from "./types";
+import type {
+  GetAllSpieleReturn,
+  GetPlayoffsSpieleReturn,
+  GetRecentAndUpcomingSpieleReturn,
+  GetSpielhistorieReturn,
+  GetSpielplanReturn,
+} from "./types";
 
 /** Fetches all the game-days and their respective games to display the Spielplan*/
 export const getSpielplan = async (): Promise<GetSpielplanReturn> => {
@@ -40,4 +46,13 @@ export const getRecentAndUpcomingSpiele = async (amount: number = 6): Promise<Ge
   cacheTag("recent_and_upcoming_spiele");
 
   return apiClient<GetRecentAndUpcomingSpieleReturn>("/spiele/recent_and_upcoming_spiele", { params: { amount: amount } });
+};
+
+export const getPlayoffsSpiele = async (): Promise<GetPlayoffsSpieleReturn> => {
+  "use cache";
+
+  cacheLife("hours");
+  cacheTag("playoffs_spiele");
+
+  return apiClient<GetPlayoffsSpieleReturn>("/spiele/playoffs_spiele");
 };

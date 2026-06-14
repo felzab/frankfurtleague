@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 
 function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: string }) {
   // Map results to valid semantic colors
-  const getBadgeColor = (result: "W" | "L" | "D" | "U") => {
+  const getBadgeColor = (result: "W" | "L" | "D" | "?") => {
     switch (result) {
       case "W":
         return "bg-success text-white ring-success/30";
@@ -31,10 +31,10 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
       {sortByDate({ arr: spiele, key: "datum" }).map((spielData) => {
         const teamIdx = teamId === spielData.team1.team_id ? 0 : 1;
         const splitErgebnis = spielData.ergebnis && spielData.ergebnis.split(":");
-        let result: "W" | "L" | "D" | "U";
+        let result: "W" | "L" | "D" | "?";
 
         if (!spielData.ergebnis || !splitErgebnis) {
-          result = "U";
+          result = "?";
         } else if (splitErgebnis[0] === splitErgebnis[1]) {
           result = "D";
         } else if (Number(splitErgebnis[teamIdx]) > Number(splitErgebnis[teamIdx === 0 ? 1 : 0])) {
@@ -74,7 +74,7 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
         }}
         className="bg-quaternary-light dark:bg-quaternary-dark size-fit text-fluid-xs -mb-5 brightness-95 px-2 lg:px-3 py-1 ">
         <ArrowUturnCwLeft className="w-[16px]! h-[16px]!" />
-        Zurück zur Übersicht
+        Zurück
       </Button>
 
       {/* Header Info */}

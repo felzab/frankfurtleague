@@ -1,12 +1,17 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, TypeAdapter
 
 from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate, CustomStrTime
+
+FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
 
 
 class FLSpielTeamField(BaseModel):
     team_id: CustomObjectId
     name: str
     tore: int | None
+    shorthand: str = Field(min_length=2, max_length=2)
 
 
 class FLSpiel(BaseModel):
@@ -27,6 +32,7 @@ class FLSpiel(BaseModel):
     spiel_nr: int
 
     is_canceled: bool
+    saison_phase: FLSaisonPhase
 
 
 FLSpielListAdapter = TypeAdapter(list[FLSpiel])
@@ -40,6 +46,7 @@ class FLSpieltag(BaseModel):
     ende: CustomStrDate
     anzahl_spiele: int
     order_val: int
+    saison_phase: FLSaisonPhase
 
 
 class FLSpieltagWithSpiele(FLSpieltag):

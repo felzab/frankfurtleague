@@ -18,6 +18,7 @@ from app.api.teams.schemas import (
 from app.core.config import backend_config
 from app.core.crud import pull_from_db
 from app.core.dependencies import SpieleCollection, SpielerCollection, TeamsCollection
+from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_base
 
 router = APIRouter(prefix=f"/api/v{backend_config.api_version}/teams", dependencies=[Depends(verify_access_base)])
@@ -94,7 +95,10 @@ async def get_all_teams_compact(
 async def get_team_detail_by_id(
     spiele_collection: SpieleCollection, teams_collection: TeamsCollection, team_id: str = Query()
 ) -> JSONResponse:
-    team_details_raw = await pull_from_db(collection=teams_collection, filter={"_id": ObjectId(team_id)})
+    team_details_raw = await pull_from_db(collection=teams_collection, filter=(query_filter := {"_id": ObjectId(team_id)}))
+    if len(team_details_raw) == 0:
+        raise DocumentNotFoundException(filter=query_filter, error_code="DB-COMMON-1")
+
     team_details = FLTeam.model_validate(team_details_raw[0])
 
     team_spiele_raw = await pull_from_db(
@@ -116,9 +120,12 @@ async def get_team_spieler_by_id(
 ) -> JSONResponse:
     team_compact_raw = await pull_from_db(
         collection=teams_collection,
-        filter={"_id": ObjectId(team_id)},
+        filter=(query_filter := {"_id": ObjectId(team_id)}),
         projection=["_id", "name", "address", "statistik", "shorthand"],
     )
+    if len(team_compact_raw) == 0:
+        raise DocumentNotFoundException(filter=query_filter, error_code="DB-COMMON-1")
+
     team_compact = FLTeamCompact.model_validate(team_compact_raw[0])
 
     team_spieler_raw = await pull_from_db(

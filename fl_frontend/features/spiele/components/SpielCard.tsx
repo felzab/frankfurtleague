@@ -1,27 +1,37 @@
 "use client";
 import { Button } from "@heroui/react";
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
-import type { FLSpielWithChipData } from "../types";
+import type { FLSpiel } from "../types";
 import SpielStatusChip from "./ui/SpielStatusChip";
-import SpielPhaseChip from "./ui/SpielPhaseChip";
+import { useServerConfig } from "@/core/providers/ServerConfigProvider";
+import { computeSpielStatus } from "../utils";
+import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 
 export default function SpielCard({
   spielData,
   onOpenInfoModal,
   onOpenAdminModal,
 }: {
-  spielData: FLSpielWithChipData;
+  spielData: FLSpiel;
   onOpenInfoModal: () => void;
   onOpenAdminModal?: () => void;
 }) {
+  const { today } = useServerConfig();
+
   const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
   const spielUhrzeit = spielData.uhrzeit || "--:--";
   const spielErgebnis = spielData.ergebnis ?? "- : -";
 
+  const spielStatus = computeSpielStatus({
+    datum: spielData.datum,
+    isCanceled: spielData.is_canceled,
+    today,
+  });
+
   return (
     <div
       className={`relative flex flex-col items-center justify-between gap-x-4 gap-y-6 w-full lg:w-[98%] max-w-[1000px] h-auto px-4 py-3 lg:px-5 lg:py-4 mb-2 rounded-3xl  bg-tertiary-light dark:bg-tertiary-dark ${
-        spielData.status === "vergangen" && "opacity-85"
+        spielStatus === "vergangen" && "opacity-85"
       }`}>
       <div className="flex flex-row items-center justify-between w-full">
         {/* Datum/Uhrzeit */}
@@ -67,8 +77,8 @@ export default function SpielCard({
       </div>
 
       <div className="flex flex-row items-center justify-center w-full h-fit gap-x-2">
-        <SpielStatusChip spielStatus={spielData.status} />
-        <SpielPhaseChip spielPhase={spielData.phase} />
+        <SpielStatusChip spielStatus={spielStatus} />
+        <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
       </div>
     </div>
   );

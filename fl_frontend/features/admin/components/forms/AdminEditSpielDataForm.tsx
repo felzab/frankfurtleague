@@ -41,10 +41,15 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
   const resolvedIdTeam1 = teams.find((t) => t.name === nameTeam1)?.id || "";
   const resolvedIdTeam2 = teams.find((t) => t.name === nameTeam2)?.id || "";
 
+  const resolvedShorthandTeam1 = teams.find((t) => t.name === nameTeam1)?.shorthand || "";
+  const resolvedShorthandTeam2 = teams.find((t) => t.name === nameTeam2)?.shorthand || "";
+
   const [state, formAction, isPending] = useActionState(async (prevState: any, formData: FormData) => {
     const idTeam1 = formData.get("resolved_id_team1") as string;
     const idTeam2 = formData.get("resolved_id_team2") as string;
-    return patchAdminSpielDataAction(spielData.id, idTeam1, idTeam2, prevState, formData);
+    const shorthandTeam1 = formData.get("resolved_shorthand_team1") as string;
+    const shorthandTeam2 = formData.get("resolved_shorthand_team2") as string;
+    return patchAdminSpielDataAction(spielData.id, idTeam1, idTeam2, shorthandTeam1, shorthandTeam2, prevState, formData);
   }, null);
 
   /** Trigger toast based on server-action response */
@@ -76,6 +81,8 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
     }
     formData.append("resolved_id_team1", resolvedIdTeam1);
     formData.append("resolved_id_team2", resolvedIdTeam2);
+    formData.append("resolved_shorthand_team1", resolvedShorthandTeam1);
+    formData.append("resolved_shorthand_team2", resolvedShorthandTeam2);
     formAction(formData);
   };
 

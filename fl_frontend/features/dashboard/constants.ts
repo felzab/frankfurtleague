@@ -5,8 +5,9 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure = [
     category_name: "Spiele",
     sub_options: [
       { id: "spielsuche", label: "Spielsuche" },
-      { id: "spielplan", label: "Spielplan" },
       { id: "spielhistorie", label: "Spielhistorie" },
+      { id: "spielplan", label: "Spielplan" },
+      { id: "playoffs", label: "Finalrunden" },
     ],
   },
   {
