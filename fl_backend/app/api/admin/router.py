@@ -67,7 +67,7 @@ async def patch_game_data(
                 filter={"_id": update_game_data.spiel_id},
                 update={
                     "$set": {
-                        **update_game_data.model_dump(exclude={"spiel_id"}),
+                        **update_game_data.model_dump(exclude={"spiel_id"}, context={"keep_oid": True}),
                         "ergebnis": updated_ergebnis_field,
                     }
                 },

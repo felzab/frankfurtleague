@@ -58,7 +58,7 @@ export interface GetAllSpieleReturn extends BaseApiReturn {
   all_spiele: FLSpiel[];
 }
 
-export interface GetSpielePreviewReturn extends BaseApiReturn {
-  previous_games: FLSpiel[];
-  next_games: FLSpiel[];
+export interface GetRecentAndUpcomingSpieleReturn extends BaseApiReturn {
+  recent_spiele: FLSpiel[];
+  upcoming_spiele: FLSpiel[];
 }

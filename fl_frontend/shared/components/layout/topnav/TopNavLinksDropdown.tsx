@@ -43,7 +43,7 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
               href={!session ? "/signin" : "/admin"}
               className="flex w-full items-center justify-between">
               Verwalten
-              <Pencil className="size-3.5" />
+              <Pencil className="size-3.5 lg:size-4.5" />
             </Link>
           </Dropdown.Item>
 
@@ -56,10 +56,10 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
             <Link
               title="Link to page: about"
               prefetch={false}
-              href="/meta/about"
+              href="/about"
               className="flex w-full items-center justify-between">
               About
-              <CircleInfo className="size-3.5" />
+              <CircleInfo className="size-3.5 lg:size-4.5" />
             </Link>
           </Dropdown.Item>
 
@@ -70,10 +70,10 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
             <Link
               title="Link to page: team"
               prefetch={false}
-              href="/meta/team"
+              href="/team"
               className="flex w-full items-center justify-between">
               Team
-              <Persons className="size-3.5" />
+              <Persons className="size-3.5 lg:size-4.5" />
             </Link>
           </Dropdown.Item>
 
@@ -84,10 +84,10 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
             <Link
               title="Link to page: kontakt"
               prefetch={false}
-              href="/meta/kontakt"
+              href="/kontakt"
               className="flex w-full items-center justify-between">
               Kontakt
-              <At className="size-3.5" />
+              <At className="size-3.5 lg:size-4.5" />
             </Link>
           </Dropdown.Item>
 

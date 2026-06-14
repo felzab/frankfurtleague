@@ -31,9 +31,9 @@ export class APIBadStatusError extends Error {
 
 export class APINetworkError extends Error {
   public url: string;
-  public errorDetails: object;
+  public errorDetails: { message: string; cause: unknown };
 
-  constructor({ message, url, errorDetails }: { message: string; url: string; errorDetails: object }) {
+  constructor({ message, url, errorDetails }: { message: string; url: string; errorDetails: { message: string; cause: unknown } }) {
     super(message);
 
     Object.setPrototypeOf(this, APINetworkError.prototype);

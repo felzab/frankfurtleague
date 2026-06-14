@@ -13,7 +13,7 @@ export const frontend_config = createEnv({
 
     // Auth
     AUTH_URL: z.url(),
-    AUTH_TRUST_HOST: z.url(),
+    AUTH_TRUST_HOST: z.union([z.literal("true"), z.url()]),
     AUTH_SECRET: z.string(),
     AUTH_RESEND_KEY: z.string(),
 
@@ -25,7 +25,7 @@ export const frontend_config = createEnv({
     // For admin login
     ALLOWED_ADMIN_EMAILS: z
       .string()
-      .transform((str) => str.split(",").map((s) => s.trim()))
+      .transform((str) => str.split(",").map((s) => s.trim().toLowerCase()))
       .pipe(z.array(z.email())),
   },
 

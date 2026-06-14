@@ -22,7 +22,7 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
     value: "@frankfurt.league",
     action: "https://instagram.com/frankfurt.league",
   },
-  { id: "treads", name: "Threads", value: "@frankfurt.league", action: "https://www.threads.com/@frankfurt.league" },
+  { id: "threads", name: "Threads", value: "@frankfurt.league", action: "https://www.threads.com/@frankfurt.league" },
   {
     id: "whatsapp",
     name: "WhatsApp",

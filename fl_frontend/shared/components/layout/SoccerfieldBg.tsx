@@ -1,4 +1,4 @@
-export default function SoccerfieldBg({ children }: { children: React.ReactNode }) {
+export default async function SoccerfieldBg({ children }: { children: React.ReactNode }) {
   return (
     <div className="soccer-field-base dotted-bg">
       {/* Corners */}

@@ -53,12 +53,22 @@ class FLTeam(BaseModel):
     address: FLTeamAddress
 
 
+class FLTeamCompact(BaseModel):
+    id: CustomObjectId = Field(alias="_id")  # So the _id field can be accesed through
+
+    name: str
+    statistik: FLTeamStatistik
+    shorthand: str = Field(min_length=2, max_length=2)
+    address: FLTeamAddress
+
+
 class FLTeamWithSpieler(FLTeam):
     spieler: list[FLSpieler]
 
 
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
 FLTeamWithSpielerListAdapter = TypeAdapter(list[FLTeamWithSpieler])
+FLTeamCompactListAdapter = TypeAdapter(list[FLTeamCompact])
 
 
 class FLGruppen(BaseModel):

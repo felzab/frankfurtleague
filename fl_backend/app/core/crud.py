@@ -8,7 +8,7 @@ from pymongo.results import UpdateResult
 async def pull_from_db(
     collection: AsyncIOMotorCollection,
     filter: Mapping[str, Any],
-    projection: Mapping[str, Any] | None = None,
+    projection: Mapping[str, Any] | list[str] | None = None,
     sort_by: Sequence[tuple[str, int]] | None = None,
     limit: int = 1024,
 ) -> list[Mapping[str, Any]]:

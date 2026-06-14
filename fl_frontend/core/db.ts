@@ -2,12 +2,6 @@
 import { MongoClient, ServerApiVersion } from "mongodb";
 import { frontend_config } from "./config";
 
-if (!frontend_config.MONGODB_URI) {
-  throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
-}
-
-const uri = frontend_config.MONGODB_URI;
-
 const options = {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -26,11 +20,11 @@ if (process.env.NODE_ENV === "development") {
   };
 
   if (!globalWithMongo._mongoClient) {
-    globalWithMongo._mongoClient = new MongoClient(uri, options);
+    globalWithMongo._mongoClient = new MongoClient(frontend_config.MONGODB_URI, options);
   }
   client = globalWithMongo._mongoClient;
 } else {
-  client = new MongoClient(uri, options); // production mode
+  client = new MongoClient(frontend_config.MONGODB_URI, options); // production mode
 }
 
 export default client;

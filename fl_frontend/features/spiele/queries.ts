@@ -1,6 +1,6 @@
 import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
-import type { GetAllSpieleReturn, GetSpielePreviewReturn, GetSpielhistorieReturn, GetSpielplanReturn } from "./types";
+import type { GetAllSpieleReturn, GetRecentAndUpcomingSpieleReturn, GetSpielhistorieReturn, GetSpielplanReturn } from "./types";
 
 /** Fetches all the game-days and their respective games to display the Spielplan*/
 export const getSpielplan = async (): Promise<GetSpielplanReturn> => {
@@ -33,11 +33,11 @@ export const getAllSpiele = async (): Promise<GetAllSpieleReturn> => {
 };
 
 /** Fetches upcoming games to display in an overview */
-export const getSpielePreview = async (): Promise<GetSpielePreviewReturn> => {
+export const getRecentAndUpcomingSpiele = async (amount: number = 6): Promise<GetRecentAndUpcomingSpieleReturn> => {
   "use cache";
 
   cacheLife("hours");
-  cacheTag("spiele_preview");
+  cacheTag("recent_and_upcoming_spiele");
 
-  return apiClient<GetSpielePreviewReturn>("/spiele/spiele_preview");
+  return apiClient<GetRecentAndUpcomingSpieleReturn>("/spiele/recent_and_upcoming_spiele", { params: { amount: amount } });
 };

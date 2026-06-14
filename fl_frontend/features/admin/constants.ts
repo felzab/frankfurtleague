@@ -1,4 +1,4 @@
-import type { SidemenuStructure } from "@/shared/types";
+import type { SidemenuStructure } from "@/shared/types/sharedTypes";
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure = [
   {

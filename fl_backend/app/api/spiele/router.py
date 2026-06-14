@@ -1,7 +1,7 @@
 import datetime
 
 import pymongo
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from app.api.spiele.schemas import (
@@ -81,34 +81,36 @@ async def get_spiele(request: Request, spiele_collection: SpieleCollection) -> J
     )
 
 
-@router.get("/spiele_preview")
-async def get_games_preview(request: Request, spiele_collection: SpieleCollection) -> JSONResponse:
+@router.get("/recent_and_upcoming_spiele")
+async def get_games_preview(
+    request: Request, spiele_collection: SpieleCollection, amount: int = Query(default=6)
+) -> JSONResponse:
 
     today = datetime.datetime.now().strftime("%Y-%m-%d")
 
-    # Fetches next 6 games
-    next_games_raw = await pull_from_db(
+    # Fetches upcoming 6 games
+    upcoming_games_raw = await pull_from_db(
         collection=spiele_collection,
         filter={"datum": {"$gt": today}},
         sort_by=[("datum", pymongo.ASCENDING), ("spiel_nr", pymongo.ASCENDING)],
-        limit=6,
+        limit=amount,
     )
-    next_games = FLSpielListAdapter.validate_python(next_games_raw)
+    upcoming_games = FLSpielListAdapter.validate_python(upcoming_games_raw)
 
-    # Fetches previous 6 games
-    previous_games_raw = await pull_from_db(
+    # Fetches recent 6 games
+    recent_games_raw = await pull_from_db(
         collection=spiele_collection,
         filter={"datum": {"$lt": today}},
         sort_by=[("datum", pymongo.DESCENDING), ("spiel_nr", pymongo.ASCENDING)],
-        limit=6,
+        limit=amount,
     )
-    previous_games = FLSpielListAdapter.validate_python(previous_games_raw)
+    recent_games = FLSpielListAdapter.validate_python(recent_games_raw)
 
     return JSONResponse(
         content={
             "acknowledged": 1,
-            "previous_games": FLSpielListAdapter.dump_python(previous_games, mode="json"),
-            "next_games": FLSpielListAdapter.dump_python(next_games, mode="json"),
+            "recent_spiele": FLSpielListAdapter.dump_python(recent_games, mode="json"),
+            "upcoming_spiele": FLSpielListAdapter.dump_python(upcoming_games, mode="json"),
         },
         status_code=status.HTTP_200_OK,
     )

@@ -43,6 +43,14 @@ export interface FLTeam {
   address: FLTeamAddress;
 }
 
+export interface FLTeamCompact {
+  id: string;
+  name: string;
+  statistik: FLTeamStatistik;
+  shorthand: string;
+  address: FLTeamAddress;
+}
+
 export interface FLTeamWithSpieler extends FLTeam {
   spieler: FLSpieler[];
 }
@@ -66,7 +74,16 @@ export interface GetAllTeamsReturn extends BaseApiReturn {
   teams: FLTeam[];
 }
 
-export interface GetAllTeamsDetailReturn extends BaseApiReturn {
-  teams: FLTeam[];
-  spiele: FLSpiel[];
+export interface GetAllTeamsCompactReturn extends BaseApiReturn {
+  teams_compact: FLTeamCompact[];
+}
+
+export interface GetTeamDetailsByIdReturn extends BaseApiReturn {
+  team_details: FLTeam;
+  team_spiele: FLSpiel[];
+}
+
+export interface GetTeamSpielerById extends BaseApiReturn {
+  team_compact: FLTeamCompact;
+  team_spieler: FLSpieler[];
 }

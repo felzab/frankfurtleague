@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
@@ -7,6 +8,9 @@ from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import (
     FLGruppen,
     FLSpielerListAdapter,
+    FLTeam,
+    FLTeamCompact,
+    FLTeamCompactListAdapter,
     FLTeamListAdapter,
     FLTeamWithSpieler,
     FLTeamWithSpielerListAdapter,
@@ -68,24 +72,63 @@ async def get_all_teams(
     )
 
 
-@router.get("/all_teams_detail")
-async def get_all_teams_detail(
-    spiele_collection: SpieleCollection,
+@router.get("/all_teams_compact")
+async def get_all_teams_compact(
     teams_collection: TeamsCollection,
 ) -> JSONResponse:
 
-    teams_raw = await pull_from_db(collection=teams_collection, filter={"is_placeholder": False})
-    teams = FLTeamListAdapter.validate_python(teams_raw)
-    teams_ids = [team.id for team in teams]
-
-    spiele_raw = await pull_from_db(
-        collection=spiele_collection,
-        filter={"$or": [{"team1.team_id": {"$in": teams_ids}}, {"team2.team_id": {"$in": teams_ids}}]},
+    teams_raw = await pull_from_db(
+        collection=teams_collection,
+        filter={"is_placeholder": False},
+        projection=["_id", "name", "address", "statistik", "shorthand"],
     )
-    spiele = FLSpielListAdapter.validate_python(spiele_raw)
+    teams = FLTeamCompactListAdapter.validate_python(teams_raw)
 
     return JSONResponse({
         "acknowledged": 1,
-        "spiele": FLSpielListAdapter.dump_python(spiele, mode="json"),
-        "teams": FLTeamListAdapter.dump_python(teams, mode="json"),
+        "teams_compact": FLTeamCompactListAdapter.dump_python(teams, mode="json"),
+    })
+
+
+@router.get("/team_details_by_id")
+async def get_team_detail_by_id(
+    spiele_collection: SpieleCollection, teams_collection: TeamsCollection, team_id: str = Query()
+) -> JSONResponse:
+    team_details_raw = await pull_from_db(collection=teams_collection, filter={"_id": ObjectId(team_id)})
+    team_details = FLTeam.model_validate(team_details_raw[0])
+
+    team_spiele_raw = await pull_from_db(
+        collection=spiele_collection,
+        filter={"$or": [{"team1.team_id": team_details.id}, {"team2.team_id": team_details.id}]},
+    )
+    team_spiele = FLSpielListAdapter.validate_python(team_spiele_raw)
+
+    return JSONResponse({
+        "acknowledged": 1,
+        "team_spiele": FLSpielListAdapter.dump_python(team_spiele, mode="json"),
+        "team_details": team_details.model_dump(mode="json"),
+    })
+
+
+@router.get("/team_spieler_by_id")
+async def get_team_spieler_by_id(
+    spieler_collection: SpielerCollection, teams_collection: TeamsCollection, team_id: str = Query()
+) -> JSONResponse:
+    team_compact_raw = await pull_from_db(
+        collection=teams_collection,
+        filter={"_id": ObjectId(team_id)},
+        projection=["_id", "name", "address", "statistik", "shorthand"],
+    )
+    team_compact = FLTeamCompact.model_validate(team_compact_raw[0])
+
+    team_spieler_raw = await pull_from_db(
+        collection=spieler_collection,
+        filter={"team_id": team_compact.id},
+    )
+    team_spieler = FLSpielerListAdapter.validate_python(team_spieler_raw)
+
+    return JSONResponse({
+        "acknowledged": 1,
+        "team_spieler": FLSpielerListAdapter.dump_python(team_spieler, mode="json"),
+        "team_compact": team_compact.model_dump(mode="json"),
     })

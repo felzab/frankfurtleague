@@ -6,6 +6,11 @@ import { frontend_config } from "./config";
 
 const MONGO_DB_NAME = "authjs";
 
+function isUserAdmin(email?: string | null) {
+  if (!email || !frontend_config.ALLOWED_ADMIN_EMAILS) return false;
+  return frontend_config.ALLOWED_ADMIN_EMAILS.includes(email);
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: MongoDBAdapter(client, { databaseName: MONGO_DB_NAME }),
   providers: [
@@ -15,25 +20,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async signIn({ user }) {
-      const userEmail = user?.email?.toLowerCase();
-
-      if (frontend_config.ALLOWED_ADMIN_EMAILS && userEmail && frontend_config.ALLOWED_ADMIN_EMAILS.includes(userEmail)) {
-        return true;
-      }
-
-      return false;
+      return isUserAdmin(user?.email);
     },
     async session({ session, user }) {
       // With a DB adapter, 'user' is the record from MongoDB
-      const userEmail = user?.email?.toLowerCase();
-
-      // Dynamically verify role against the server environment variables
-      if (frontend_config.ALLOWED_ADMIN_EMAILS && userEmail && frontend_config.ALLOWED_ADMIN_EMAILS.includes(userEmail)) {
-        session.user.role = "admin";
-      } else {
-        session.user.role = "user";
-      }
-
+      session.user.role = isUserAdmin(user?.email) ? "admin" : "user";
       return session;
     },
   },

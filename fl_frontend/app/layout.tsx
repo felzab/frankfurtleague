@@ -1,11 +1,10 @@
-import "../global.css";
+import "./globals.css";
 import { Suspense } from "react";
-import Loading from "./loading";
 import type { Metadata } from "next";
 import { Inter, Krub } from "next/font/google";
-import Provider from "@/core/provider";
 import TopNav from "@/shared/components/layout/topnav/TopNav";
-import Footer from "@/shared/components/layout/footer/Footer";
+import Footer from "@/shared/components/layout/Footer";
+import RootProviders from "@/core/providers/RootProviders";
 
 /** Fonts */
 const inter = Inter({
@@ -72,21 +71,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       className={`${inter.variable} ${krub.variable}`}>
       <body>
-        <Provider>
+        <RootProviders>
           <header id="top">
             <Suspense>
               <TopNav />
             </Suspense>
           </header>
 
-          <main id="doc_main">
-            <Suspense fallback={<Loading />}>{children}</Suspense>
-          </main>
+          <main id="doc_main">{children}</main>
 
           <footer>
             <Footer />
           </footer>
-        </Provider>
+        </RootProviders>
       </body>
     </html>
   );

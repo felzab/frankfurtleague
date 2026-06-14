@@ -1,6 +1,6 @@
 # Stage 1: Builder
 # --------------------------------------------------------------------------------
-FROM python:3.14-alpine3.23 AS builder
+FROM python:3.14.6-alpine AS builder
 
 # Prevent Python from writing .pyc files to disk
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Stage 2: Runner
 # --------------------------------------------------------------------------------
-FROM python:3.14-alpine3.23 AS runner
+FROM python:3.14.6-alpine AS runner
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

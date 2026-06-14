@@ -3,9 +3,9 @@
 import SidemenuLink from "./SidemenuLink";
 import { usePathname } from "next/navigation";
 import React, { Suspense, useState } from "react";
-import { Separator } from "@heroui/react";
+import { Button, Separator } from "@heroui/react";
 import { LayoutSideContentLeft } from "@gravity-ui/icons";
-import type { SidemenuStructure } from "@/shared/types";
+import type { SidemenuStructure } from "@/shared/types/sharedTypes";
 
 export default function Sidemenu({
   structure,
@@ -16,27 +16,40 @@ export default function Sidemenu({
   linkPrefix: string;
   saisonMetadataDisplay: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const _toggleSidemenu = () => setIsOpen(!isOpen);
 
-  const activeView = usePathname().replace(`/${linkPrefix}/`, "");
+  const _toggleSidemenu = () => setIsOpen(!isOpen);
+  const _checkIsActive = (itemId: string) => {
+    const targetPath = `${linkPrefix}/${itemId}`;
+    return pathname === targetPath || pathname.startsWith(`${targetPath}/`); // requires trailing slash to prevent false positives like /spieler matching /spielerverwaltung
+  };
+
+  // 1. Get the path after the prefix (e.g., "teams/123/edit")
+  // 2. Extract just the very first word (e.g., "teams")
+  const baseSegment = pathname.replace(`${linkPrefix}/`, "").split("/")[0];
+  // 3. Flatten the nested structure and find the label
+  const activeOption = structure.flatMap((group) => group.sub_options).find((option) => option.id === baseSegment);
+  // 4. Fallback if the route doesn't match anything in the menu
+  const displayTitle = activeOption ? activeOption.label : "Dashboard";
 
   return (
     <>
       <header className=" w-[95%] self-center-safe xl:hidden mt-1.5 rounded-xl sticky top-0 mb-1 flex items-center gap-3 px-3 py-2 bg-secondary-light/80 dark:bg-secondary-dark/80 backdrop-blur-md border-y border-tertiary-light dark:border-tertiary-dark shadow-sm">
-        <button
+        <Button
+          isIconOnly
           onClick={_toggleSidemenu}
           className="p-2 rounded-lg bg-quaternary-light/50 dark:bg-quaternary-dark/50 hover:opacity-80 transition-opacity"
           aria-label="Toggle Menu">
           <LayoutSideContentLeft className="h-6 w-6 text-text-black dark:text-text-white" />
-        </button>
+        </Button>
 
         <Separator
           orientation="vertical"
           className="h-full bg-tertiary-light dark:bg-senary-dark"
         />
 
-        <h2 className="text-fluid-lg font-semibold capitalize tracking-wide truncate">{activeView || "Dashboard"}</h2>
+        <h2 className="text-fluid-lg font-semibold capitalize tracking-wide truncate">{displayTitle}</h2>
       </header>
 
       {/* Backdrop: Only visible on mobile, when menu sidmenu is open */}
@@ -75,7 +88,7 @@ export default function Sidemenu({
                       key={sub_option.id}
                       itemId={sub_option.id}
                       itemLabel={sub_option.label}
-                      isActive={activeView === sub_option.id}
+                      isActive={_checkIsActive(sub_option.id)}
                       linkPrefix={linkPrefix}
                     />
                   );

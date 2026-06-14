@@ -54,7 +54,7 @@ export const getErrorDetails = (error: unknown): { message: string; cause: unkno
   };
 };
 
-/** Boilerplate function which handles fetch reponses */
+/** Boilerplate function which handles fetch responses */
 export const handleFetchResponse = async <T>(res: Response): Promise<T> => {
   if (res.ok) {
     if (res.status === 204 || res.headers.get("content-length") === "0") return {} as T;
