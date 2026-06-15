@@ -1,4 +1,4 @@
-import type { BaseApiReturn } from "@/core/api";
+import type { BaseAPIResponse } from "@/core/api";
 
 export interface KontaktChannel {
   id: string;
@@ -36,6 +36,6 @@ export interface FlSaison {
   rules: FlSaisonRules;
 }
 
-export interface getCurrentSaisonMetadataReturn extends BaseApiReturn {
+export interface getCurrentSaisonMetadataReturn extends BaseAPIResponse {
   saison_metadata: FlSaison;
 }

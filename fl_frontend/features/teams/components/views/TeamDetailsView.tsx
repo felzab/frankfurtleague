@@ -7,8 +7,8 @@ import type { FLSpiel } from "@/features/spiele/types";
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
 import Link from "next/link";
-import { formatAddress } from "@/shared/utils";
-import { sortByDate } from "@/shared/utils";
+import { formatAddress } from "@/shared/utils/utils";
+import { sortByDate } from "@/shared/utils/utils";
 import { useRouter } from "next/navigation";
 
 function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: string }) {

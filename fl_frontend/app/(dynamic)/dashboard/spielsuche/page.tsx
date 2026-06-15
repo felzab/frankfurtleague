@@ -1,6 +1,6 @@
 import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 import SpielsucheView from "@/features/spiele/components/views/SpielsucheView";
-import { getAllSpiele } from "@/features/spiele/queries";
+import { getSpiele } from "@/features/spiele/queries";
 import { Metadata } from "next";
 import { connection } from "next/server";
 
@@ -23,11 +23,11 @@ export const metadata: Metadata = {
 
 export default async function SpielsuchePage() {
   await connection();
-  const res = await getAllSpiele();
+  const spieleRes = await getSpiele();
 
   return (
     <SpielsucheView
-      spiele={res.all_spiele}
+      spiele={spieleRes.spiele}
       ListComponent={SpielCardsList}
     />
   );

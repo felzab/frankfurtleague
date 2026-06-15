@@ -1,5 +1,5 @@
 import SaisontabelleView from "@/features/teams/components/views/SaisontabelleView";
-import { getSaisontabelle } from "@/features/teams/queries";
+import { getSaisontabelle, getTeams } from "@/features/teams/queries";
 import { Metadata } from "next";
 import { connection } from "next/server";
 
@@ -15,7 +15,11 @@ export const metadata: Metadata = {
 
 export default async function SaisontabellePage() {
   await connection();
-  const res = await getSaisontabelle();
+  const teamsRes = await getTeams({ in_gruppen: true });
 
-  return <SaisontabelleView gruppenData={res.gruppen} />;
+  if (teamsRes.format !== "grouped") {
+    throw new Error("Expected grouped teams response, got a flat list.");
+  }
+
+  return <SaisontabelleView gruppenData={teamsRes.gruppen} />;
 }

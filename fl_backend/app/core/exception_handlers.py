@@ -8,7 +8,6 @@ from app.core.exceptions import BaseAPIException
 
 
 async def base_api_exception_handler(request: Request, exc: Exception):
-
     if not isinstance(exc, BaseAPIException):
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -26,7 +25,7 @@ async def pydantic_validation_exception_handler(request: Request, exc: Exception
 
     if not isinstance(exc, ValidationError):
         return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"acknowledged": 0, "message": "Unknown internal server error in pydantic_validation_exception_handler"},
         )
 
@@ -37,7 +36,6 @@ async def pydantic_validation_exception_handler(request: Request, exc: Exception
 
 
 async def motor_db_exception_handler(request: Request, exc: Exception):
-
     if not isinstance(exc, PyMongoError):
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -51,7 +49,6 @@ async def motor_db_exception_handler(request: Request, exc: Exception):
 
 
 async def invalid_bson_oid_exception_handler(request: Request, exc: Exception):
-
     if not isinstance(exc, InvalidId):
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

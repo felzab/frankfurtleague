@@ -1,4 +1,4 @@
-import type { BaseApiReturn } from "@/core/api";
+import type { BaseAPIResponse } from "@/core/api";
 import type { FLSpiel, FLSpielTeamField } from "../spiele/types";
 
 export interface AdminSpieleOverview {
@@ -7,11 +7,11 @@ export interface AdminSpieleOverview {
   spiele_ohne_ort: FLSpiel[];
 }
 
-export interface GetAdminSpieleOverviewReturn extends BaseApiReturn {
+export interface GetAdminSpieleOverviewReturn extends BaseAPIResponse {
   spiele_overview: FLSpiel[];
 }
 
-export interface PatchAdminSpielDataReturn extends BaseApiReturn {}
+export interface PatchAdminSpielDataReturn extends BaseAPIResponse {}
 
 export interface PatchAdminSpielDataPayload {
   datum: string;

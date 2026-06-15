@@ -1,10 +1,10 @@
 import { connection } from "next/server";
-import { getLeagueTodayString } from "@/shared/utils";
+import { getGermanDateStr } from "@/shared/utils/utils";
 import ServerConfigProvider from "@/core/providers/ServerConfigProvider";
 
 export default async function DynamicLayout({ children }: { children: React.ReactNode }) {
   await connection();
-  const today = getLeagueTodayString();
+  const today = getGermanDateStr();
 
   return <ServerConfigProvider serverConfig={{ today }}>{children}</ServerConfigProvider>;
 }

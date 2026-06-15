@@ -21,6 +21,22 @@ async def pull_from_db(
     return await cursor.limit(limit).to_list(length=limit)
 
 
+async def pull_many_from_db(
+    collection: AsyncIOMotorCollection,
+    db_filter: Mapping[str, Any],
+    limit: int = 1024,
+    sort_by: Sequence[tuple[str, int]] | None = None,
+    projection: Mapping[str, Any] | list[str] | None = None,
+) -> list[Mapping[str, Any]]:
+
+    cursor = collection.find(filter=db_filter, projection=projection or {})
+
+    if sort_by is not None:
+        cursor = cursor.sort(sort_by)
+
+    return await cursor.limit(limit).to_list(length=limit)
+
+
 async def patch_many_in_db(
     collection: AsyncIOMotorCollection,
     filter: Mapping[str, Any],

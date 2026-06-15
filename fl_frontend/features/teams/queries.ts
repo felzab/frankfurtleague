@@ -7,7 +7,28 @@ import type {
   GetSaisontabelleReturn,
   GetAllTeamsCompactReturn,
   GetTeamSpielerById,
+  FLTeamsFilterParams,
+  FLTeamsResponse,
 } from "./types";
+
+export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
+  "use cache";
+
+  const tags: string[] = ["teams"];
+  if (filters.saison_id) tags.push(`teams:saison_id:${filters.saison_id}`);
+  if (filters.gruppe) tags.push(`teams:gruppe:${filters.gruppe}`);
+
+  // Check '!== undefined' because 'false' is a valid filter value
+  if (filters.is_placeholder !== undefined) tags.push(`teams:is_placeholder:${filters.is_placeholder}`);
+  if (filters.is_disqualified !== undefined) tags.push(`teams:is_disqualified:${filters.is_disqualified}`);
+  if (filters.in_gruppen !== undefined) tags.push(`teams:in_gruppen:${filters.in_gruppen}`);
+  cacheTag(...tags);
+  cacheLife("days");
+
+  return apiClient<FLTeamsResponse>("/teams", {
+    params: filters as Record<string, string | number | boolean>,
+  });
+}
 
 /** Fetches all the standings data to display the Saisontabelle */
 export const getSaisontabelle = async (): Promise<GetSaisontabelleReturn> => {

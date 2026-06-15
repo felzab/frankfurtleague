@@ -5,6 +5,8 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.api.admin.router import router as admin_router
 from app.api.meta.router import router as meta_router
 from app.api.spiele.router import router as spiele_router
+from app.api.spieler.router import router as spieler_router
+from app.api.spieltage.router import router as spieltage_router
 from app.api.system.router import router as system_router
 from app.api.teams.router import router as teams_router
 from app.core.config import backend_config
@@ -31,6 +33,8 @@ app.include_router(spiele_router)
 app.include_router(system_router)
 app.include_router(teams_router)
 app.include_router(meta_router)
+app.include_router(spieltage_router)
+app.include_router(spieler_router)
 
 
 @app.get("/")

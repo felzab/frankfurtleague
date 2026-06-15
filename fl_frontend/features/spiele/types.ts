@@ -1,4 +1,6 @@
-import type { BaseApiReturn } from "@/core/api";
+import type { BaseAPIResponse } from "@/core/api";
+
+export type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";
 
 export interface FLSpielTeamField {
   team_id: string;
@@ -47,23 +49,37 @@ export interface FLSpielplan {
   spieltage: FLSpieltagWithSpiele[];
 }
 
-export interface GetSpielplanReturn extends BaseApiReturn {
+export interface GetSpielplanReturn extends BaseAPIResponse {
   spielplan: FLSpielplan;
 }
 
-export interface GetSpielhistorieReturn extends BaseApiReturn {
+export interface GetSpielhistorieReturn extends BaseAPIResponse {
   spielhistorie: FLSpiel[];
 }
 
-export interface GetAllSpieleReturn extends BaseApiReturn {
+export interface GetAllSpieleReturn extends BaseAPIResponse {
   all_spiele: FLSpiel[];
 }
 
-export interface GetRecentAndUpcomingSpieleReturn extends BaseApiReturn {
+export interface GetRecentAndUpcomingSpieleReturn extends BaseAPIResponse {
   recent_spiele: FLSpiel[];
   upcoming_spiele: FLSpiel[];
 }
 
-export interface GetPlayoffsSpieleReturn extends BaseApiReturn {
+export interface GetPlayoffsSpieleReturn extends BaseAPIResponse {
   playoffs_spieltage: FLSpieltagWithSpiele[];
+}
+
+export interface FLSpieleFilterParams {
+  saison_id?: string;
+  saison_phase?: "playoffs" | FLSaisonPhase;
+  spiel_status?: FLSpielStatus;
+  team_id?: string;
+
+  limit?: number;
+  sort_by?: FLSpieleSortingOptions;
+  order?: "asc" | "desc";
+}
+export interface FLSpieleListResponse extends BaseAPIResponse {
+  spiele: FLSpiel[];
 }

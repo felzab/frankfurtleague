@@ -2,7 +2,7 @@ import { Accordion, Card, Separator } from "@heroui/react";
 import { Book, ChevronsDownWide, StarFill } from "@gravity-ui/icons";
 
 import { QA_QUESTIONS } from "../../constants";
-import { getAllTeams } from "@/features/teams/queries";
+import { getAllTeams, getTeams } from "@/features/teams/queries";
 import { Suspense } from "react";
 import { connection } from "next/server";
 
@@ -84,17 +84,20 @@ export default function AboutView() {
 
 async function ParticipatingTeamsDisplay() {
   await connection();
-  const res = await getAllTeams();
+  const teamsRes = await getTeams({ compact: true, is_placeholder: false });
+
+  if (teamsRes.format !== "compact") {
+    throw new Error("Expected grouped teams response, got a flat list.");
+  }
 
   return (
     <div className="flex flex-wrap justify-center gap-2 mb-8">
-      {res.teams.map((team, i) => {
-        if (team.name === "TBD") return;
+      {teamsRes.teams.map((teamData, i) => {
         return (
           <span
             key={i}
             className="w-full lg:w-fit px-2 py-1 rounded-sm bg-white/30 dark:bg-white/5 border border-white/10 text-fluid-xxs text-center font-semibold uppercase ">
-            {team.name}
+            {teamData.name}
           </span>
         );
       })}

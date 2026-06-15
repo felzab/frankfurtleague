@@ -21,7 +21,7 @@ export function sortByDate<T>({ arr, key }: { arr: T[]; key: keyof T }): T[] {
   });
 }
 
-export const getLeagueTodayString = (): string => {
+export const getGermanDateStr = (): string => {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Berlin",
     year: "numeric",
@@ -38,3 +38,30 @@ export const getLeagueTodayString = (): string => {
 
   return `${year}-${month}-${day}`;
 };
+
+export function joinCollections<L, R>({
+  left,
+  right,
+  leftIdKey,
+  rightIdKey,
+  targetKey,
+}: {
+  left: L[];
+  right: R[];
+  leftIdKey: keyof L;
+  rightIdKey: keyof R;
+  targetKey: string;
+}) {
+  const map = new Map<any, R[]>();
+
+  for (const item of right) {
+    const key = item[rightIdKey];
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(item);
+  }
+
+  return left.map((item) => ({
+    ...item,
+    [targetKey]: map.get(item[leftIdKey] as any) || [],
+  }));
+}

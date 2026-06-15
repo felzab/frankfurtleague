@@ -1,7 +1,7 @@
 import { frontend_config } from "./config";
 import { APIBadStatusError, APINetworkError } from "./errors";
 
-export interface BaseApiReturn {
+export interface BaseAPIResponse {
   acknowledged: 0 | 1;
   errors?: string[];
   specific_error?: string;
@@ -92,6 +92,7 @@ export const apiClient = async <T>(endpoint: string, options: FetchOptions = {})
   const { authType = "base", params, ...customOptions } = options;
   const headers = { ...getFetchHeaders(authType), ...customOptions.headers };
 
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${BASE_FETCH_URL}${endpoint}`);
 
   if (params) {

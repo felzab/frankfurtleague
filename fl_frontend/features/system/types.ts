@@ -1,12 +1,12 @@
-import type { BaseApiReturn } from "@/core/api";
+import type { BaseAPIResponse } from "@/core/api";
 
-export interface CheckIsLiveReturn extends BaseApiReturn {
+export interface CheckIsLiveReturn extends BaseAPIResponse {
   status: string;
 }
 
-export interface CheckIsReadyReturn extends BaseApiReturn {
+export interface CheckIsReadyReturn extends BaseAPIResponse {
   status: string;
 }
-export interface GetSystemInfoReturn extends BaseApiReturn {
+export interface GetSystemInfoReturn extends BaseAPIResponse {
   api_version: number;
 }

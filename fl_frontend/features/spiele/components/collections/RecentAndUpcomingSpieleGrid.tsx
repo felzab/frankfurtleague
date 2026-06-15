@@ -1,14 +1,15 @@
 import { connection } from "next/server";
-import { getRecentAndUpcomingSpiele } from "../../queries";
+import { getSpiele } from "../../queries";
 import SpielCardsList from "./SpielCardsList";
 
 export default async function RecentAndUpcomingSpieleGrid() {
   await connection();
-  const res = await getRecentAndUpcomingSpiele().catch(() => {
-    return null;
-  });
+  const [upcomingSpieleRes, recentSpieleRes] = await Promise.all([
+    getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(() => null),
+    getSpiele({ spiel_status: "vergangen", limit: 6 }),
+  ]);
 
-  if (!res) {
+  if (!upcomingSpieleRes || !recentSpieleRes) {
     return (
       <p className="text-fluid-base whitespace-normal text-center pt-10 italic">Nächste/Vergangene Spiele konnten nicht geladen werden.</p>
     );
@@ -22,7 +23,7 @@ export default async function RecentAndUpcomingSpieleGrid() {
         <h2 className="w-fit text-fluid-xl font-extrabold border-b-4 border-quaternary-light dark:border-quaternary-dark">Nächste Spiele</h2>
 
         <div className="flex flex-col items-center gap-2 w-full mt-2 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:place-items-center 2xl:grid-cols-3 2xl:grid-rows-2 ">
-          <SpielCardsList spiele={res.upcoming_spiele} />
+          <SpielCardsList spiele={upcomingSpieleRes.spiele} />
         </div>
       </div>
 
@@ -30,7 +31,7 @@ export default async function RecentAndUpcomingSpieleGrid() {
       <div className="flex flex-col items-center w-full h-full">
         <h2 className="w-fit text-fluid-xl font-extrabold border-b-4 border-red-400 dark:border-red-600">Vergangene Spiele</h2>
         <div className="flex flex-col items-center gap-2 w-full mt-2 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:place-items-center 2xl:grid-cols-3 2xl:grid-rows-2 ">
-          <SpielCardsList spiele={res.recent_spiele} />
+          <SpielCardsList spiele={recentSpieleRes.spiele} />
         </div>
       </div>
     </section>

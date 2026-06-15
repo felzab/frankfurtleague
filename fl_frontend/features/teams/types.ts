@@ -1,5 +1,7 @@
-import type { BaseApiReturn } from "@/core/api";
+import type { BaseAPIResponse } from "@/core/api";
 import type { FLSpiel } from "../spiele/types";
+
+export type FLTeamsSortingOptions = "name";
 
 export interface FLSpieler {
   id: string;
@@ -62,28 +64,59 @@ export interface FLGruppen {
   D: FLTeam[];
 }
 
-export interface GetSaisontabelleReturn extends BaseApiReturn {
+export interface GetSaisontabelleReturn extends BaseAPIResponse {
   gruppen: FLGruppen;
 }
 
-export interface GetAllTeamsWithSpielerReturn extends BaseApiReturn {
+export interface GetAllTeamsWithSpielerReturn extends BaseAPIResponse {
   teams: FLTeamWithSpieler[];
 }
 
-export interface GetAllTeamsReturn extends BaseApiReturn {
+export interface GetAllTeamsReturn extends BaseAPIResponse {
   teams: FLTeam[];
 }
 
-export interface GetAllTeamsCompactReturn extends BaseApiReturn {
+export interface GetAllTeamsCompactReturn extends BaseAPIResponse {
   teams_compact: FLTeamCompact[];
 }
 
-export interface GetTeamDetailsByIdReturn extends BaseApiReturn {
+export interface GetTeamDetailsByIdReturn extends BaseAPIResponse {
   team_details: FLTeam;
   team_spiele: FLSpiel[];
 }
 
-export interface GetTeamSpielerById extends BaseApiReturn {
+export interface GetTeamSpielerById extends BaseAPIResponse {
   team_compact: FLTeamCompact;
   team_spieler: FLSpieler[];
 }
+
+export interface FLTeamsFilterParams {
+  team_id?: string;
+  saison_id?: string;
+  gruppe?: string;
+  is_placeholder?: boolean;
+  is_disqualified?: boolean;
+  in_gruppen?: boolean;
+  compact?: boolean;
+
+  limit?: number;
+  sort_by?: FLTeamsSortingOptions;
+  order?: "asc" | "desc";
+}
+
+export interface FLTeamsListResponse extends BaseAPIResponse {
+  format: "list";
+  teams: FLTeam[];
+}
+
+export interface FLTeamsCompactListResponse extends BaseAPIResponse {
+  format: "compact";
+  teams: FLTeamCompact[];
+}
+
+export interface FLTeamsGruppenResponse extends BaseAPIResponse {
+  format: "grouped";
+  gruppen: FLGruppen;
+}
+
+export type FLTeamsResponse = FLTeamsListResponse | FLTeamsGruppenResponse | FLTeamsCompactListResponse;

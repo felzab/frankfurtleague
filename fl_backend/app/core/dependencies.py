@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
@@ -26,3 +28,15 @@ SpieltageCollection = Annotated[AsyncIOMotorCollection, Depends(get_spieltage_co
 TeamsCollection = Annotated[AsyncIOMotorCollection, Depends(get_teams_collection)]
 
 SaisonsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saisons_collection)]
+
+
+def get_germany_now() -> datetime:
+    return datetime.now(ZoneInfo("Europe/Berlin"))
+
+
+def get_german_date_str(germany_now: datetime = Depends(get_germany_now)) -> str:
+    return germany_now.strftime("%Y-%m-%d")  # YYYY-MM-DD
+
+
+def get_german_time_str(germany_now: datetime = Depends(get_germany_now)) -> str:
+    return germany_now.strftime("%H:%M:%S")  # HH:MM:SS

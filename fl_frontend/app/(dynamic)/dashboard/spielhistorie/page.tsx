@@ -1,5 +1,5 @@
 import SpielhistorieView from "@/features/spiele/components/views/SpielhistorieView";
-import { getSpielhistorie } from "@/features/spiele/queries";
+import { getSpiele, getSpielhistorie } from "@/features/spiele/queries";
 import { Metadata } from "next";
 import { connection } from "next/server";
 
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 
 export default async function SpielhistoriePage() {
   await connection();
-  const res = await getSpielhistorie();
+  const spieleRes = await getSpiele({ spiel_status: "vergangen" });
 
-  return <SpielhistorieView spielhistorieData={res.spielhistorie} />;
+  return <SpielhistorieView spielhistorieData={spieleRes.spiele} />;
 }

@@ -13,7 +13,7 @@ class FlSaisonRules(BaseModel):
 
 
 class FlSaison(BaseModel):
-    id: str = Field(alias="_id")
+    id: str = Field(validation_alias="_id", serialization_alias="id")
 
     start_date: CustomStrDate
     end_date: CustomStrDate

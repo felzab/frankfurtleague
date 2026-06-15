@@ -1,24 +1,32 @@
+import { getSpiele } from "@/features/spiele/queries";
 import TeamDetailsView from "@/features/teams/components/views/TeamDetailsView";
-import { getTeamDetailsById } from "@/features/teams/queries";
+import { getTeamDetailsById, getTeams } from "@/features/teams/queries";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 export default async function TeamDetailsPage({ params }: { params: Promise<{ team_id: string }> }) {
   await connection();
+  const { team_id } = await params;
 
-  const resolvedParams = await params;
-  const res = await getTeamDetailsById(resolvedParams.team_id).catch(() => {
-    return null;
-  });
+  const [teamsRes, spieleRes] = await Promise.all([getTeams({ team_id: team_id }).catch(() => null), getSpiele({ team_id: team_id })]);
 
-  if (!res || !res.acknowledged) {
+  if (!teamsRes || teamsRes.format !== "list") {
+    notFound();
+  }
+
+  if (teamsRes.format !== "list") {
+    throw new Error("Expected list teams response, got other");
+  }
+
+  const teamData = teamsRes.teams[0];
+  if (!teamData) {
     notFound();
   }
 
   return (
     <TeamDetailsView
-      teamData={res.team_details}
-      teamSpiele={res.team_spiele}
+      teamData={teamData}
+      teamSpiele={spieleRes.spiele}
     />
   );
 }

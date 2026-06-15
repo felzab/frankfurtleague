@@ -3,8 +3,10 @@ from typing import Literal
 from pydantic import BaseModel, Field, TypeAdapter
 
 from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate, CustomStrTime
+from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
+FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
 
 
 class FLSpielTeamField(BaseModel):
@@ -15,7 +17,7 @@ class FLSpielTeamField(BaseModel):
 
 
 class FLSpiel(BaseModel):
-    id: CustomObjectId = Field(alias="_id")  # So the _id field can be accesed through id
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through id
 
     team1: FLSpielTeamField
     team2: FLSpielTeamField
@@ -39,7 +41,7 @@ FLSpielListAdapter = TypeAdapter(list[FLSpiel])
 
 
 class FLSpieltag(BaseModel):
-    id: CustomObjectId = Field(alias="_id")  # So the _id field can be accesed through
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
     name: str
 
     beginn: CustomStrDate
@@ -59,3 +61,18 @@ FLSpieltagWithSpieleListAdapter = TypeAdapter(list[FLSpieltagWithSpiele])
 
 class FLSpielplan(BaseModel):
     spieltage: list[FLSpieltagWithSpiele]
+
+
+class FLSpieleFilterParams(BaseModel):
+    saison_id: str | None = None
+    saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
+    spiel_status: FLSpielStatus | None = None
+    team_id: CustomObjectId | None = None
+
+    limit: int = Field(1024, ge=1, le=1024)
+    sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = "datum"
+    order: Literal["asc", "desc"] = "asc"
+
+
+class FLSpieleListResponse(BaseAPIResponse):
+    spiele: list[FLSpiel]

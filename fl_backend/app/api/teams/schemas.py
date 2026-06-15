@@ -1,33 +1,23 @@
 from collections import defaultdict
+from typing import Annotated, Literal, Mapping, Union
 
-from pydantic import BaseModel, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
+from app.api.spieler.schemas import FLSpieler
 from app.shared.schemas.custom_types import CustomObjectId
+from app.shared.schemas.responses import BaseAPIResponse
 
-
-class FLSpieler(BaseModel):
-    id: CustomObjectId = Field(alias="_id")  # So the _id field can be accesed through
-
-    vorname: str | None
-    nachname: str | None
-    stufe: str | None
-    nummer: str | None
-    position: str | None
-    nachgetragen: bool = False
-    team_id: CustomObjectId
-
-
-FLSpielerListAdapter = TypeAdapter(list[FLSpieler])
+FLGruppenNames = Literal["A", "B", "C", "D"]
 
 
 class FLTeamStatistik(BaseModel):
-    anzahl_gespielte_spiele: int
-    siege: int
-    niederlagen: int
-    unentschieden: int
-    tore_geschossen: int
-    tore_kassiert: int
-    punkte: int
+    anzahl_gespielte_spiele: int = 0
+    siege: int = 0
+    niederlagen: int = 0
+    unentschieden: int = 0
+    tore_geschossen: int = 0
+    tore_kassiert: int = 0
+    punkte: int = 0
 
 
 class FLTeamAddress(BaseModel):
@@ -39,7 +29,7 @@ class FLTeamAddress(BaseModel):
 
 
 class FLTeam(BaseModel):
-    id: CustomObjectId = Field(alias="_id")  # So the _id field can be accesed through
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
 
     name: str
     gruppe: str
@@ -54,7 +44,7 @@ class FLTeam(BaseModel):
 
 
 class FLTeamCompact(BaseModel):
-    id: CustomObjectId = Field(alias="_id")  # So the _id field can be accesed through
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
 
     name: str
     statistik: FLTeamStatistik
@@ -71,36 +61,53 @@ FLTeamWithSpielerListAdapter = TypeAdapter(list[FLTeamWithSpieler])
 FLTeamCompactListAdapter = TypeAdapter(list[FLTeamCompact])
 
 
-class FLGruppen(BaseModel):
-    A: list[FLTeam]
-    B: list[FLTeam]
-    C: list[FLTeam]
-    D: list[FLTeam]
-
+class FLGruppen(RootModel[Mapping[str, list[FLTeam]]]):
     @classmethod
     def from_teams(cls, teams: list[FLTeam]):
         grouped = defaultdict(list)
         for team in teams:
-            # We enforce the logic here, explicitly
-            group_key = team.gruppe.upper()
-            if group_key in cls.model_fields:
-                grouped[group_key].append(team)
+            group_key = team.gruppe.upper() if team.gruppe else "UNKNOWN"
+            grouped[group_key].append(team)
 
-        # We instantiate the class with the dictionary we just built
-        return cls(**grouped)
+        # Sort each list inside the dict
+        for group_name in grouped:
+            grouped[group_name].sort(
+                key=lambda team: (team.statistik.punkte, (team.statistik.tore_geschossen - team.statistik.tore_kassiert)),
+                reverse=True,
+            )
+        return cls(grouped)
 
-    # Sort teams primarily by points and secondarily by goal-difference
-    @model_validator(mode="after")
-    def sort_all_groups(self) -> "FLGruppen":
-        for field_name in self.__class__.model_fields:
-            value = getattr(self, field_name)
 
-            if isinstance(value, list):
-                value.sort(
-                    key=lambda team: (
-                        (team.statistik.punkte),
-                        (team.statistik.tore_geschossen - team.statistik.tore_kassiert),
-                    ),
-                    reverse=True,
-                )
-        return self
+class FLTeamsFilterParams(BaseModel):
+    team_id: CustomObjectId | None = None
+    saison_id: str | None = None
+    gruppe: FLGruppenNames | None = None
+    is_placeholder: bool = False  # Exclude placeholders by default
+    is_disqualified: bool | None = None
+    in_gruppen: bool | None = None
+    compact: bool | None = None
+
+    limit: int = Field(1024, ge=1, le=1024)
+    sort_by: Literal["name"] = "name"
+    order: Literal["asc", "desc"] = "asc"
+
+
+class FLTeamsListResponse(BaseAPIResponse):
+    format: Literal["list"] = "list"
+    teams: list[FLTeam]
+
+
+class FLTeamsCompactListResponse(BaseAPIResponse):
+    format: Literal["compact"] = "compact"
+    teams: list[FLTeamCompact]
+
+
+class FLTeamsGruppenResponse(BaseAPIResponse):
+    format: Literal["grouped"] = "grouped"
+    gruppen: FLGruppen
+
+
+# Pydantic uses the 'format' field to decide which model to validate against
+FLTeamsResponse = Annotated[
+    Union[FLTeamsListResponse, FLTeamsGruppenResponse, FLTeamsCompactListResponse], Field(discriminator="format")
+]

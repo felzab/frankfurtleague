@@ -1,5 +1,5 @@
 import { TeamSelectionView } from "@/features/teams/components/views/TeamSelectionView";
-import { getAllTeamsCompact } from "@/features/teams/queries";
+import { getAllTeamsCompact, getTeams } from "@/features/teams/queries";
 import { Metadata } from "next";
 import { connection } from "next/server";
 
@@ -15,11 +15,15 @@ export const metadata: Metadata = {
 
 export default async function TeamSpielerPage() {
   await connection();
-  const res = await getAllTeamsCompact();
+  const teamRes = await getTeams({ compact: true });
+
+  if (teamRes.format !== "compact") {
+    throw new Error("Expected grouped teams response, got a flat list.");
+  }
 
   return (
     <TeamSelectionView
-      teams={res.teams_compact}
+      teams={teamRes.teams}
       title="Spieler der Frankfurt-League"
       description="Wähle ein Team aus, um den aktuellen Kader zu sehen."
       urlPrefix="/dashboard/spieler"

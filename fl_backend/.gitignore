@@ -56,8 +56,10 @@ venv/
 ENV/
 
 # Python
+**/__pycache__
 __pycache__/
 __pycache__
+**/.*_cache
 *.py[cod]
 *$py.class
 *.so
