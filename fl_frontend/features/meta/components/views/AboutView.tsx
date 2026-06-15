@@ -2,7 +2,7 @@ import { Accordion, Card, Separator } from "@heroui/react";
 import { Book, ChevronsDownWide, StarFill } from "@gravity-ui/icons";
 
 import { QA_QUESTIONS } from "../../constants";
-import { getAllTeams, getTeams } from "@/features/teams/queries";
+import { getTeams } from "@/features/teams/queries";
 import { Suspense } from "react";
 import { connection } from "next/server";
 

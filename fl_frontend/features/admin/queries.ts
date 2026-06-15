@@ -1,6 +1,6 @@
 import { apiClient } from "@/core/api";
-import type { GetAdminSpieleOverviewReturn } from "./types";
+import type { FLSpieleListResponse } from "../spiele/types";
 
-export const getAdminSpieleOverview = async (): Promise<GetAdminSpieleOverviewReturn> => {
-  return apiClient<GetAdminSpieleOverviewReturn>("/admin/spiele_overview", { authType: "admin" });
+export const getAdminSpieleActionRequired = async (): Promise<FLSpieleListResponse> => {
+  return apiClient<FLSpieleListResponse>("/admin/action_required", { authType: "admin" });
 };

@@ -1,8 +1,8 @@
 import { DASHBOARD_SIDEMENU_STRUCTURE } from "@/features/dashboard/constants";
+import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import Sidemenu from "@/shared/components/layout/sidemenu/Sidemenu";
 import { Metadata } from "next";
 import { Suspense } from "react";
-import SaisonMetadataDisplay from "@/shared/components/layout/sidemenu/SaisonMetadataDisplay";
 
 export const metadata: Metadata = {
   title: { default: "Saisonübersicht", template: "%s | Frankfurt-League" },

@@ -15,9 +15,11 @@ def build_spieler_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
 
 
 def build_spieler_filter(filters: FLSpielerFilterParams) -> dict[str, Any]:
-    query = filters.model_dump(include={"saison_id", "is_nachgetragen", "stufe"}, exclude_none=True)
-
-    if filters.team_id is not None:
-        query["team_id"] = filters.team_id
+    query = filters.model_dump(
+        include={"saison_id", "is_nachgetragen", "stufe", "team_id"},
+        exclude_none=True,
+        by_alias=True,
+        context={"keep_oid": True},
+    )
 
     return query

@@ -25,9 +25,9 @@ import { parseDate, parseTime } from "@internationalized/date";
 import { useActionState, useEffect, useState } from "react";
 import { patchAdminSpielDataAction } from "../../actions";
 import { useTeams } from "@/features/teams/components/providers/TeamsProvider";
+import type { FormState } from "@/shared/types/sharedTypes";
 
 export default function AdminEditSpielDataForm({ spielData, onClose }: { spielData: FLSpiel; onClose: () => void }) {
-  console.log(spielData);
   const teams = useTeams();
   const { contains } = useFilter({ sensitivity: "base" });
 
@@ -37,54 +37,42 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
   const [nameTeam2, setNameTeam2] = useState<Key | null>(spielData.team2.name);
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(false);
 
-  // Resolving IDs dynamically from selected names
   const resolvedIdTeam1 = teams.find((t) => t.name === nameTeam1)?.id || "";
   const resolvedIdTeam2 = teams.find((t) => t.name === nameTeam2)?.id || "";
-
   const resolvedShorthandTeam1 = teams.find((t) => t.name === nameTeam1)?.shorthand || "";
   const resolvedShorthandTeam2 = teams.find((t) => t.name === nameTeam2)?.shorthand || "";
 
-  const [state, formAction, isPending] = useActionState(async (prevState: any, formData: FormData) => {
-    const idTeam1 = formData.get("resolved_id_team1") as string;
-    const idTeam2 = formData.get("resolved_id_team2") as string;
-    const shorthandTeam1 = formData.get("resolved_shorthand_team1") as string;
-    const shorthandTeam2 = formData.get("resolved_shorthand_team2") as string;
-    return patchAdminSpielDataAction(spielData.id, idTeam1, idTeam2, shorthandTeam1, shorthandTeam2, prevState, formData);
+  const [state, formAction, isPending] = useActionState(async (prevState: FormState, formData: FormData) => {
+    // Quick validation
+    if (!nameTeam1 || !resolvedIdTeam1) {
+      toast.danger("Ungültiger Name für Team1", { description: "Bitte wähle ein gültiges Team aus der Liste." });
+      return prevState;
+    }
+    if (!nameTeam2 || !resolvedIdTeam2) {
+      toast.danger("Ungültiger Name für Team2", { description: "Bitte wähle ein gültiges Team aus der Liste." });
+      return prevState;
+    }
+    return patchAdminSpielDataAction(prevState, {
+      spielId: spielData.id,
+      team1Id: resolvedIdTeam1,
+      team2Id: resolvedIdTeam2,
+      team1Name: nameTeam1.toString(),
+      team2Name: nameTeam2.toString(),
+      team1Shorthand: resolvedShorthandTeam1,
+      team2Shorthand: resolvedShorthandTeam2,
+      formData: formData,
+    });
   }, null);
 
-  /** Trigger toast based on server-action response */
+  // To show the action state
   useEffect(() => {
     if (state?.success) {
       toast.success(state.message || "Die Spiel-Daten wurden aktualisiert.");
-      setErgebnisCanBeEdited(false);
-
-      // Close modal
       onClose();
     } else if (state?.error) {
-      toast.danger(state.error || "Fehler beim speichern");
+      toast.danger(state.error || "Fehler beim Speichern");
     }
-  }, [state]);
-
-  const handleClientSideSubmit = (formData: FormData) => {
-    if (!nameTeam1 || nameTeam1 === "" || resolvedIdTeam1 === "") {
-      toast.danger("Ungültiger Name für Team1", {
-        description: "Bitte wähle einen gültigen Namen für Team 1 aus der Liste.",
-      });
-      return;
-    }
-
-    if (!nameTeam2 || nameTeam2 === "" || resolvedIdTeam2 === "") {
-      toast.danger("Ungültiger Name für Team2", {
-        description: "Bitte wähle einen gültigen Namen für Team 2 aus der Liste.",
-      });
-      return;
-    }
-    formData.append("resolved_id_team1", resolvedIdTeam1);
-    formData.append("resolved_id_team2", resolvedIdTeam2);
-    formData.append("resolved_shorthand_team1", resolvedShorthandTeam1);
-    formData.append("resolved_shorthand_team2", resolvedShorthandTeam2);
-    formAction(formData);
-  };
+  }, [state, onClose]);
 
   const handleErgebnisCanBeEditedToggle = (isSelected: boolean) => {
     setErgebnisCanBeEdited(isSelected);
@@ -93,15 +81,10 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       setToreTeam2(spielData.team2.tore ?? NaN);
     }
   };
-
-  const handleToreChange = (val: number, setter: (v: number) => void) => {
-    setter(Number.isNaN(val) ? NaN : val);
-  };
-
   return (
     <Form
       className="flex flex-col gap-y-6 min-h-full"
-      action={handleClientSideSubmit}>
+      action={formAction}>
       {/** Spieldatum */}
       <DatePicker
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
@@ -283,6 +266,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
 
       <Separator />
 
+      {/** Switch to enter Ergebnis */}
       <div className="flex flex-col gap-y-2 w-[80%]">
         <Switch
           autoFocus={false}
@@ -306,7 +290,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         minValue={0}
         name="tore_team1"
         value={toreTeam1}
-        onChange={(val) => handleToreChange(val, setToreTeam1)}
+        onChange={(val) => setToreTeam1(Number.isNaN(val) ? NaN : val)}
         className={`${!ergebnisCanBeEdited ? "opacity-65" : ""}`}>
         <Label>Team 1: Tore</Label>
         <NumberField.Group>
@@ -323,7 +307,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         minValue={0}
         name="tore_team2"
         value={toreTeam2}
-        onChange={(val) => handleToreChange(val, setToreTeam2)}
+        onChange={(val) => setToreTeam2(Number.isNaN(val) ? NaN : val)}
         className={`${!ergebnisCanBeEdited ? "opacity-65" : ""}`}>
         <Label>Team 2: Tore</Label>
         <NumberField.Group>
@@ -334,6 +318,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         <Description>Anzahl der Tore von Team 2</Description>
       </NumberField>
 
+      {/** Ergebniskontrolle */}
       <div className="flex flex-col items-center w-full h-fit ">
         <h4 className="w-full h-fit text-fluid-base text-green-400 font-extrabold">Kontrolle:</h4>
 
@@ -365,6 +350,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
           className="rounded-xl text-fluid-base font-bold p-4"
           variant="secondary"
           type="button"
+          onPress={onClose}
           isDisabled={isPending}>
           Abbrechen
         </Button>

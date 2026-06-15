@@ -3,7 +3,7 @@ import { ChevronsDownWide } from "@gravity-ui/icons";
 import { Accordion } from "@heroui/react";
 import AdminSpielCardList from "../collections/AdminSpielCardsList";
 
-export default function AdminSpieleOverview({ overviewSpiele }: { overviewSpiele: FLSpiel[] }) {
+export default function AdminSpieleActionRequiredview({ overviewSpiele }: { overviewSpiele: FLSpiel[] }) {
   /** Created here for later use in comparing the date of a game to today */
   const today = new Date().toISOString().split("T")[0];
 

@@ -1,6 +1,6 @@
 import { getSpieler } from "@/features/spieler/queries";
 import TeamSpielerView from "@/features/teams/components/views/TeamSpielerView";
-import { getTeams, getTeamSpielerById } from "@/features/teams/queries";
+import { getTeams } from "@/features/teams/queries";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 

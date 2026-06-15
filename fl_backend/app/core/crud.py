@@ -4,6 +4,8 @@ from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollectio
 from pymongo import ReturnDocument
 from pymongo.results import UpdateResult
 
+from app.core.exceptions import DocumentNotFoundException
+
 
 async def pull_from_db(
     collection: AsyncIOMotorCollection,
@@ -19,6 +21,19 @@ async def pull_from_db(
         cursor = cursor.sort(sort_by)
 
     return await cursor.limit(limit).to_list(length=limit)
+
+
+async def pull_one_from_db(
+    collection: AsyncIOMotorCollection,
+    db_filter: Mapping[str, Any],
+    projection: Mapping[str, Any] | list[str] | None = None,
+) -> Mapping[str, Any]:
+
+    doc = await collection.find_one(filter=db_filter, projection=projection or {})
+    if doc is None:
+        raise DocumentNotFoundException(filter=db_filter, error_code="DB-COMMON-1")
+
+    return doc
 
 
 async def pull_many_from_db(

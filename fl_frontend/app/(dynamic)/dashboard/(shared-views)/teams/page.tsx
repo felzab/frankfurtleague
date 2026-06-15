@@ -1,5 +1,5 @@
 import { TeamSelectionView } from "@/features/teams/components/views/TeamSelectionView";
-import { getAllTeamsCompact, getTeams } from "@/features/teams/queries";
+import { getTeams } from "@/features/teams/queries";
 import { Metadata } from "next";
 import { connection } from "next/server";
 

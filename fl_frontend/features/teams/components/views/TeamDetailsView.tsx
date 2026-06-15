@@ -69,7 +69,7 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
     <div className="flex flex-col gap-y-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-400 ">
       {/* Back Navigation Button */}
       <Button
-        onClick={() => {
+        onPress={() => {
           router.back();
         }}
         className="bg-quaternary-light dark:bg-quaternary-dark size-fit text-fluid-xs -mb-5 brightness-95 px-2 lg:px-3 py-1 ">

@@ -79,7 +79,7 @@ class FLGruppen(RootModel[Mapping[str, list[FLTeam]]]):
 
 
 class FLTeamsFilterParams(BaseModel):
-    team_id: CustomObjectId | None = None
+    team_id: CustomObjectId | None = Field(default=None, validation_alias="team_id", serialization_alias="_id")
     saison_id: str | None = None
     gruppe: FLGruppenNames | None = None
     is_placeholder: bool = False  # Exclude placeholders by default
@@ -88,8 +88,8 @@ class FLTeamsFilterParams(BaseModel):
     compact: bool | None = None
 
     limit: int = Field(1024, ge=1, le=1024)
-    sort_by: Literal["name"] = "name"
-    order: Literal["asc", "desc"] = "asc"
+    sort_by: Literal["name"] = Field(default="name")
+    order: Literal["asc", "desc"] = Field(default="asc")
 
 
 class FLTeamsListResponse(BaseAPIResponse):

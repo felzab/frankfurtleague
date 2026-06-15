@@ -10,9 +10,11 @@ def build_teams_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
 
 
 def build_teams_filter(filters: FLTeamsFilterParams) -> dict[str, Any]:
-    query = filters.model_dump(include={"saison_id", "gruppe", "is_placeholder", "is_qualified"}, exclude_none=True)
-
-    if filters.team_id is not None:
-        query["_id"] = filters.team_id
+    query = filters.model_dump(
+        include={"saison_id", "gruppe", "is_placeholder", "is_qualified", "team_id"},
+        exclude_none=True,
+        by_alias=True,
+        context={"keep_oid": True},
+    )
 
     return query

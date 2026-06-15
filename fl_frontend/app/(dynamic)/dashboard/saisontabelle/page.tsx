@@ -1,5 +1,5 @@
 import SaisontabelleView from "@/features/teams/components/views/SaisontabelleView";
-import { getSaisontabelle, getTeams } from "@/features/teams/queries";
+import { getTeams } from "@/features/teams/queries";
 import { Metadata } from "next";
 import { connection } from "next/server";
 

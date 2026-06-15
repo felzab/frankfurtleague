@@ -8,7 +8,6 @@ import { connection } from "next/server";
 export default async function Page() {
   await connection();
   const [spieltageRes, spieleRes] = await Promise.all([getSpieltage({ saison_phase: "playoffs" }), getSpiele({ saison_phase: "playoffs" })]);
-  const res = await getSpiele({ saison_phase: "playoffs" });
   return (
     <PlayoffsView
       playoffsSpieltage={

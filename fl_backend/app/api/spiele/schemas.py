@@ -70,8 +70,8 @@ class FLSpieleFilterParams(BaseModel):
     team_id: CustomObjectId | None = None
 
     limit: int = Field(1024, ge=1, le=1024)
-    sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = "datum"
-    order: Literal["asc", "desc"] = "asc"
+    sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(default="datum")
+    order: Literal["asc", "desc"] = Field(default="asc")
 
 
 class FLSpieleListResponse(BaseAPIResponse):

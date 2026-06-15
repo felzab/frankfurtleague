@@ -1,12 +1,12 @@
 import { auth } from "@/core/auth";
 import Sidemenu from "@/shared/components/layout/sidemenu/Sidemenu";
-import { getAllTeamsCompact } from "@/features/teams/queries";
 import { TeamsProvider } from "@/features/teams/components/providers/TeamsProvider";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import SaisonMetadataDisplay from "@/shared/components/layout/sidemenu/SaisonMetadataDisplay";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants";
+import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
+import { getTeams } from "@/features/teams/queries";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -15,11 +15,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   await connection();
-  const res = await getAllTeamsCompact();
+  const teamsRes = await getTeams({ compact: true });
+
+  if (teamsRes.format !== "compact") {
+    throw new Error("Expected grouped teams response, got a flat list.");
+  }
 
   return (
     <div className="relative flex flex-col xl:flex-row h-full w-full">
-      <TeamsProvider teams={res.teams_compact}>
+      <TeamsProvider teams={teamsRes.teams}>
         <Sidemenu
           structure={ADMIN_SIDEMENU_STRUCTURE}
           linkPrefix="/admin"

@@ -93,7 +93,7 @@ export const apiClient = async <T>(endpoint: string, options: FetchOptions = {})
   const headers = { ...getFetchHeaders(authType), ...customOptions.headers };
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const urlObj = new URL(`${BASE_FETCH_URL}${endpoint}`);
+  const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

@@ -1,4 +1,5 @@
-import type { FLSaisonPhase, FLSpiel } from "../spiele/types";
+import type { FLSaisonPhase } from "../saisons/types";
+import type { FLSpiel } from "../spiele/types";
 
 export type FLSpieltageSortingOptions = "beginn" | "ende" | "anzahl_spiele" | "order_val";
 

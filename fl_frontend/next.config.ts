@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/admin",
-        destination: "/admin/overview#top",
+        destination: "/admin/action_required#top",
         permanent: true, // HTTP 301
       },
     ];

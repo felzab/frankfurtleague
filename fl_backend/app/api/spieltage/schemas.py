@@ -26,8 +26,8 @@ class FLSpieltageFilterParams(BaseModel):
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
 
     limit: int = Field(1024, ge=1, le=1024)
-    sort_by: Literal["beginn", "ende", "anzahl_spiele", "order_val"] = "order_val"
-    order: Literal["asc", "desc"] = "asc"
+    sort_by: Literal["beginn", "ende", "anzahl_spiele", "order_val"] = Field(default="order_val")
+    order: Literal["asc", "desc"] = Field(default="asc")
 
 
 class FLSpieltageListResponse(BaseAPIResponse):

@@ -38,7 +38,7 @@ export default function Sidemenu({
       <header className=" w-[95%] self-center-safe xl:hidden mt-1.5 rounded-xl sticky top-0 mb-1 flex items-center gap-3 px-3 py-2 bg-secondary-light/80 dark:bg-secondary-dark/80 backdrop-blur-md border-y border-tertiary-light dark:border-tertiary-dark shadow-sm">
         <Button
           isIconOnly
-          onClick={_toggleSidemenu}
+          onPress={_toggleSidemenu}
           className="p-2 rounded-lg bg-quaternary-light/50 dark:bg-quaternary-dark/50 hover:opacity-80 transition-opacity"
           aria-label="Toggle Menu">
           <LayoutSideContentLeft className="h-6 w-6 text-text-black dark:text-text-white" />

@@ -9,3 +9,9 @@ export interface SidemenuStructureEntry {
 }
 
 export type SidemenuStructure = SidemenuStructureEntry[];
+
+export type FormState = {
+  message?: string;
+  success: boolean;
+  error?: string;
+} | null;

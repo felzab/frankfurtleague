@@ -39,7 +39,9 @@ export const getGermanDateStr = (): string => {
   return `${year}-${month}-${day}`;
 };
 
-export function joinCollections<L, R>({
+// Necessary!
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function joinCollections<L extends Record<string, any>, R extends Record<string, any>, K extends keyof L, J extends keyof R>({
   left,
   right,
   leftIdKey,
@@ -48,20 +50,28 @@ export function joinCollections<L, R>({
 }: {
   left: L[];
   right: R[];
-  leftIdKey: keyof L;
-  rightIdKey: keyof R;
+  leftIdKey: K;
+  rightIdKey: J;
   targetKey: string;
 }) {
-  const map = new Map<any, R[]>();
+  // We constrain the ID type to be a valid Map key (string | number | symbol)
+  type IdType = L[K] & (string | number | symbol);
+
+  const map = new Map<IdType, R[]>();
 
   for (const item of right) {
-    const key = item[rightIdKey];
-    if (!map.has(key)) map.set(key, []);
+    // We cast to IdType because we are certain of the relationship
+    const key = item[rightIdKey] as IdType;
+
+    if (!map.has(key)) {
+      map.set(key, []);
+    }
     map.get(key)!.push(item);
   }
 
   return left.map((item) => ({
     ...item,
-    [targetKey]: map.get(item[leftIdKey] as any) || [],
+    // Safely retrieve using the explicit IdType
+    [targetKey]: map.get(item[leftIdKey] as IdType) || [],
   }));
 }

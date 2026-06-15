@@ -5,7 +5,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure = [
     category_name: "Spiele",
     sub_options: [
       {
-        id: "overview",
+        id: "action_required",
         label: "Übersicht",
       },
       {

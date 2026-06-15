@@ -11,7 +11,7 @@ router = APIRouter(prefix=f"/api/v{backend_config.api_version}/spieler", depende
 
 
 @router.get("", response_model=FLSpielerListResponse)
-async def get_spiele(
+async def get_spieler(
     spieler_collection: SpielerCollection, filters: FLSpielerFilterParams = Depends()
 ) -> FLSpielerListResponse:
 

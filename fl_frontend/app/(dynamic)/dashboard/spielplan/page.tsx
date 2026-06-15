@@ -1,8 +1,7 @@
 import SpielplanView from "@/features/spiele/components/views/SpielplanView";
 import { getSpiele } from "@/features/spiele/queries";
-import type { FLSpiel } from "@/features/spiele/types";
 import { getSpieltage } from "@/features/spieltage/queries";
-import { FLSpieltagWithSpiele } from "@/features/spieltage/types";
+import type { FLSpieltagWithSpiele } from "@/features/spieltage/types";
 import { joinCollections } from "@/shared/utils/utils";
 import { Metadata } from "next";
 import { connection } from "next/server";

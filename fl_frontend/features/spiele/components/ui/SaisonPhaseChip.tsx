@@ -1,5 +1,5 @@
+import type { FLSaisonPhase } from "@/features/saisons/types";
 import { Chip } from "@heroui/react";
-import type { FLSaisonPhase } from "../../types";
 
 export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {
   const colorMap = {

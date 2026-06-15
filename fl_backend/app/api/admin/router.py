@@ -1,30 +1,29 @@
-import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Request, status
+from fastapi import APIRouter, Body, Depends, status
 from fastapi.responses import JSONResponse
 
 from app.api.admin.schemas import UpdateGameDataCallBody
 from app.api.admin.services import get_stats_contribution, update_team_statistik
-from app.api.spiele.schemas import FLSpiel, FLSpielListAdapter
+from app.api.spiele.schemas import FLSpiel, FLSpieleListResponse, FLSpielListAdapter
 from app.core.config import backend_config
-from app.core.crud import patch_one_in_db, pull_from_db
-from app.core.dependencies import DBClient, SpieleCollection, TeamsCollection
+from app.core.crud import patch_one_in_db, pull_many_from_db
+from app.core.dependencies import DBClient, SpieleCollection, TeamsCollection, get_german_date_str
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_admin
 
 router = APIRouter(prefix=f"/api/v{backend_config.api_version}/admin", dependencies=[Depends(verify_access_admin)])
 
 
-@router.get("/spiele_overview")
-async def get_spiele_overview(request: Request, spiele_collection: SpieleCollection) -> JSONResponse:
-
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+@router.get("/action_required", response_model=FLSpieleListResponse)
+async def get_spiele_action_required(
+    spiele_collection: SpieleCollection, today: str = Depends(get_german_date_str)
+) -> FLSpieleListResponse:
 
     # Fetch all games with either a missing attribute or games which have a date in the past but don't have a final score
-    spiele_raw = await pull_from_db(
+    spiele_raw = await pull_many_from_db(
         collection=spiele_collection,
-        filter={
+        db_filter={
             "$or": [
                 {"datum": None},
                 {"uhrzeit": None},
@@ -36,13 +35,7 @@ async def get_spiele_overview(request: Request, spiele_collection: SpieleCollect
     )
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
-    return JSONResponse(
-        content={
-            "acknowledged": 1,
-            "spiele_overview": FLSpielListAdapter.dump_python(spiele, mode="json"),
-        },
-        status_code=status.HTTP_200_OK,
-    )
+    return FLSpieleListResponse(spiele=spiele)
 
 
 @router.patch("/update_spiel_data")

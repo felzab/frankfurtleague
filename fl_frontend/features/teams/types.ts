@@ -1,5 +1,4 @@
 import type { BaseAPIResponse } from "@/core/api";
-import type { FLSpiel } from "../spiele/types";
 
 export type FLTeamsSortingOptions = "name";
 
@@ -62,32 +61,6 @@ export interface FLGruppen {
   B: FLTeam[];
   C: FLTeam[];
   D: FLTeam[];
-}
-
-export interface GetSaisontabelleReturn extends BaseAPIResponse {
-  gruppen: FLGruppen;
-}
-
-export interface GetAllTeamsWithSpielerReturn extends BaseAPIResponse {
-  teams: FLTeamWithSpieler[];
-}
-
-export interface GetAllTeamsReturn extends BaseAPIResponse {
-  teams: FLTeam[];
-}
-
-export interface GetAllTeamsCompactReturn extends BaseAPIResponse {
-  teams_compact: FLTeamCompact[];
-}
-
-export interface GetTeamDetailsByIdReturn extends BaseAPIResponse {
-  team_details: FLTeam;
-  team_spiele: FLSpiel[];
-}
-
-export interface GetTeamSpielerById extends BaseAPIResponse {
-  team_compact: FLTeamCompact;
-  team_spieler: FLSpieler[];
 }
 
 export interface FLTeamsFilterParams {

@@ -1,6 +1,6 @@
 import { getSpiele } from "@/features/spiele/queries";
 import TeamDetailsView from "@/features/teams/components/views/TeamDetailsView";
-import { getTeamDetailsById, getTeams } from "@/features/teams/queries";
+import { getTeams } from "@/features/teams/queries";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
