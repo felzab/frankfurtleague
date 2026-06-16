@@ -27,6 +27,9 @@ export const frontend_config = createEnv({
       .string()
       .transform((str) => str.split(",").map((s) => s.trim().toLowerCase()))
       .pipe(z.array(z.email())),
+
+    // logging
+    LOG_FORMAT: z.string(),
   },
 
   // Must start with NEXT_PUBLIC_
@@ -50,5 +53,7 @@ export const frontend_config = createEnv({
     INTERNAL_API_KEY_ADMIN: process.env.INTERNAL_API_KEY_ADMIN,
 
     ALLOWED_ADMIN_EMAILS: process.env.ALLOWED_ADMIN_EMAILS,
+
+    LOG_FORMAT: process.env.LOG_FORMAT,
   },
 });

@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  logging: {
+    fetches: {
+      fullUrl: false, // Prevents giant URLs in the terminal
+    },
+  },
   experimental: {
     optimizePackageImports: ["@heroui/react", "framer-motion", "@gravity-ui/icons", "@heroui/styles"],
   },

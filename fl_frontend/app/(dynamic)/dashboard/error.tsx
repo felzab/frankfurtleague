@@ -40,8 +40,12 @@ export default function SoccerError({ error, reset }: { error: Error & { digest?
           <h3 className="text-fluid-lg tracking-tighter font-bold uppercase italic">
             VAR Entscheidung: <span className="text-red-500">Rote Karte</span>
           </h3>
-          <p className="text-fluid-sm font-normal px-2 whitespace-normal">
-            Ein unerwarteter Fehler ist aufgetreten, bitte versuchen Sie es erneut. <span className="italic">digest: {error.digest}</span>
+          <p className="text-fluid-sm whitespace-normal">
+            Spielunterbrechung!
+            <br />
+            Ein unerwarteter Fehler is aufgetreten.
+            <br />
+            <i>(Digest: {error.digest})</i>
           </p>
         </div>
 

@@ -12,6 +12,10 @@ from app.api.teams.router import router as teams_router
 from app.core.config import backend_config
 from app.core.db import lifespan
 from app.core.exception_handlers import register_exception_handlers
+from app.core.logging import setup_custom_logger
+from app.core.middlewares import CorrelationIdMiddleware
+
+setup_custom_logger()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -26,7 +30,7 @@ app.add_middleware(
 )
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=backend_config.api_trusted_hosts_list)
-
+app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(admin_router)
 app.include_router(spiele_router)

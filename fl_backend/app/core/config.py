@@ -1,5 +1,9 @@
+from typing import Literal
+
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "Critical"]
 
 
 class BackendConfig(BaseSettings):
@@ -27,6 +31,13 @@ class BackendConfig(BaseSettings):
     internal_api_key_base: SecretStr = Field(description="Base internal API-key")
     internal_api_key_system: SecretStr = Field(description="Internal API-key for the system router")
     internal_api_key_admin: SecretStr = Field(description="Internal API-key for the admin router")
+
+    # Logging
+    log_level_app: LogLevel = Field(default="INFO", description="The minimal level a log has to reach to be processed")
+    log_level_db: LogLevel = Field(
+        default="WARNING", description="The minimal level a database related log has to reach to be processed"
+    )
+    log_format: Literal["console", "json"] = Field(default="console", description="The default log format")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

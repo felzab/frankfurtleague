@@ -1,15 +1,7 @@
-from collections import defaultdict
+from fastapi import APIRouter, Depends
 
-from bson import ObjectId
-from fastapi import APIRouter, Depends, Query, Request, status
-from fastapi.responses import JSONResponse
-
-from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.spieler.schemas import FLSpielerListAdapter
 from app.api.teams.schemas import (
     FLGruppen,
-    FLTeam,
-    FLTeamCompact,
     FLTeamCompactListAdapter,
     FLTeamListAdapter,
     FLTeamsCompactListResponse,
@@ -17,14 +9,11 @@ from app.api.teams.schemas import (
     FLTeamsGruppenResponse,
     FLTeamsListResponse,
     FLTeamsResponse,
-    FLTeamWithSpieler,
-    FLTeamWithSpielerListAdapter,
 )
 from app.api.teams.services import build_teams_filter, build_teams_sort
 from app.core.config import backend_config
-from app.core.crud import pull_from_db, pull_many_from_db
-from app.core.dependencies import SpieleCollection, SpielerCollection, TeamsCollection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.crud import pull_many_from_db
+from app.core.dependencies import TeamsCollection
 from app.core.security import verify_access_base
 
 router = APIRouter(prefix=f"/api/v{backend_config.api_version}/teams", dependencies=[Depends(verify_access_base)])
@@ -52,120 +41,3 @@ async def get_teams(teams_collection: TeamsCollection, filters: FLTeamsFilterPar
         return FLTeamsGruppenResponse(gruppen=FLGruppen.from_teams(teams=teams))
 
     return FLTeamsListResponse(teams=teams)
-
-
-@router.get("/saisontabelle")
-async def get_saisontabelle(request: Request, teams_collection: TeamsCollection) -> JSONResponse:
-
-    teams_raw = await pull_from_db(collection=teams_collection, filter={"is_placeholder": False})
-    teams = FLTeamListAdapter.validate_python(teams_raw)
-
-    gruppen = FLGruppen.from_teams(teams=teams)
-
-    return JSONResponse(content={"acknowledged": 1, "gruppen": gruppen.model_dump(mode="json")})
-
-
-@router.get("/all_teams")
-async def get_all_teams(
-    spieler_collection: SpielerCollection,
-    teams_collection: TeamsCollection,
-    with_spieler: bool = Query(default=False),
-    include_placeholder: bool = Query(default=False),
-) -> JSONResponse:
-
-    teams_raw = await pull_from_db(collection=teams_collection, filter={} if include_placeholder else {"is_placeholder": False})
-    teams = FLTeamListAdapter.validate_python(teams_raw)
-
-    # Return here, if players were not requested
-    if not with_spieler:
-        return JSONResponse(
-            content={"acknowledged": 1, "teams": FLTeamListAdapter.dump_python(teams, mode="json")},
-            status_code=status.HTTP_200_OK,
-        )
-
-    alle_spieler_raw = await pull_from_db(
-        collection=spieler_collection,
-        filter={"team_id": {"$in": [team.id for team in teams]}},
-    )
-    alle_spieler = FLSpielerListAdapter.validate_python(alle_spieler_raw)
-
-    # Group teams and players
-    alle_spieler_map = defaultdict(list)
-    for spieler in alle_spieler:
-        alle_spieler_map[spieler.team_id].append(spieler)
-
-    teams_with_spieler = [
-        FLTeamWithSpieler(**team.model_dump(by_alias=True), spieler=alle_spieler_map.get(team.id, [])) for team in teams
-    ]
-    return JSONResponse(
-        content={"acknowledged": 1, "teams": FLTeamWithSpielerListAdapter.dump_python(teams_with_spieler, mode="json")},
-        status_code=status.HTTP_200_OK,
-    )
-
-
-@router.get("/all_teams_compact")
-async def get_all_teams_compact(
-    teams_collection: TeamsCollection,
-) -> JSONResponse:
-
-    teams_raw = await pull_from_db(
-        collection=teams_collection,
-        filter={"is_placeholder": False},
-        projection=["_id", "name", "address", "statistik", "shorthand"],
-    )
-    teams = FLTeamCompactListAdapter.validate_python(teams_raw)
-
-    return JSONResponse({
-        "acknowledged": 1,
-        "teams_compact": FLTeamCompactListAdapter.dump_python(teams, mode="json"),
-    })
-
-
-@router.get("/team_details_by_id")
-async def get_team_detail_by_id(
-    spiele_collection: SpieleCollection, teams_collection: TeamsCollection, team_id: str = Query()
-) -> JSONResponse:
-    team_details_raw = await pull_from_db(collection=teams_collection, filter=(query_filter := {"_id": ObjectId(team_id)}))
-    if len(team_details_raw) == 0:
-        raise DocumentNotFoundException(filter=query_filter, error_code="DB-COMMON-1")
-
-    team_details = FLTeam.model_validate(team_details_raw[0])
-
-    team_spiele_raw = await pull_from_db(
-        collection=spiele_collection,
-        filter={"$or": [{"team1.team_id": team_details.id}, {"team2.team_id": team_details.id}]},
-    )
-    team_spiele = FLSpielListAdapter.validate_python(team_spiele_raw)
-
-    return JSONResponse({
-        "acknowledged": 1,
-        "team_spiele": FLSpielListAdapter.dump_python(team_spiele, mode="json"),
-        "team_details": team_details.model_dump(mode="json"),
-    })
-
-
-@router.get("/team_spieler_by_id")
-async def get_team_spieler_by_id(
-    spieler_collection: SpielerCollection, teams_collection: TeamsCollection, team_id: str = Query()
-) -> JSONResponse:
-    team_compact_raw = await pull_from_db(
-        collection=teams_collection,
-        filter=(query_filter := {"_id": ObjectId(team_id)}),
-        projection=["_id", "name", "address", "statistik", "shorthand"],
-    )
-    if len(team_compact_raw) == 0:
-        raise DocumentNotFoundException(filter=query_filter, error_code="DB-COMMON-1")
-
-    team_compact = FLTeamCompact.model_validate(team_compact_raw[0])
-
-    team_spieler_raw = await pull_from_db(
-        collection=spieler_collection,
-        filter={"team_id": team_compact.id},
-    )
-    team_spieler = FLSpielerListAdapter.validate_python(team_spieler_raw)
-
-    return JSONResponse({
-        "acknowledged": 1,
-        "team_spieler": FLSpielerListAdapter.dump_python(team_spieler, mode="json"),
-        "team_compact": team_compact.model_dump(mode="json"),
-    })

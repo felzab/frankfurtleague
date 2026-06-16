@@ -2,7 +2,7 @@ import type { KontaktChannel, TeamMember } from "./types";
 
 export const TEAM_MEMBERS: TeamMember[] = [
   { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga" },
-  { id: 1, name: "Lucy", role: "Vorstand", desc: "Ligaleitung & Orga" },
+  { id: 1, name: "Maria-Lucia", role: "Vorstand", desc: "Ligaleitung & Orga" },
   { id: 1, name: "Felix", role: "Development", desc: "Website & Infrastruktur" },
   { id: 1, name: "Nikolas", role: "Design", desc: "Design & Kommunikation" },
   { id: 1, name: "Cornelia", role: "Design", desc: "Layout & Design" },

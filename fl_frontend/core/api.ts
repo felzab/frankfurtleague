@@ -1,10 +1,10 @@
 import { frontend_config } from "./config";
 import { APIBadStatusError, APINetworkError } from "./errors";
+import { logger } from "./logging";
 
 export interface BaseAPIResponse {
   acknowledged: 0 | 1;
-  errors?: string[];
-  specific_error?: string;
+  trace_id: string;
 }
 
 export interface APIExceptionReturn {
@@ -16,6 +16,7 @@ export interface APIExceptionReturn {
 
 export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin";
+  timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined | null>; // Allow these types
 }
 
@@ -43,22 +44,18 @@ export const getFetchHeaders = (type: "base" | "system" | "admin" = "base"): Rec
   return headers;
 };
 
-/** Standardizes runtime exception parsing safely across standard structures */
-export const getErrorDetails = (error: unknown): { message: string; cause: unknown } => {
-  if (error instanceof Error) {
-    return { message: error.message, cause: error.cause };
-  }
-  return {
-    message: "An unrecognized error occurred.",
-    cause: error,
-  };
-};
-
 /** Boilerplate function which handles fetch responses */
-export const handleFetchResponse = async <T>(res: Response): Promise<T> => {
+export const handleFetchResponse = async <T>({ res, traceId, endpoint }: { res: Response; traceId: string; endpoint: string }): Promise<T> => {
   if (res.ok) {
     if (res.status === 204 || res.headers.get("content-length") === "0") return {} as T;
     return res.json() as Promise<T>;
+  }
+
+  const isServerError = res.status >= 500;
+  if (isServerError) {
+    logger.error("Backend API Crash", undefined, { traceId, endpoint, status: res.status });
+  } else {
+    logger.warn("Backend API Rejected Request", { traceId, endpoint, status: res.status });
   }
 
   const isJson = res.headers.get("content-type")?.includes("application/json");
@@ -68,29 +65,24 @@ export const handleFetchResponse = async <T>(res: Response): Promise<T> => {
       message: "Infrastructure routing failure.",
       url: res.url,
       statusCode: res.status,
-      errorMessage: await res.text(),
+      traceId: traceId,
     });
-  }
-
-  let errorPayload: Partial<APIExceptionReturn> = {};
-  try {
-    errorPayload = await res.json();
-  } catch {
-    errorPayload = { error_message: "Failed to parse API error response." };
   }
 
   throw new APIBadStatusError({
     message: "API returned a bad status.",
     url: res.url,
     statusCode: res.status,
-    errorCode: errorPayload.error_code || "UNKNOWN_ERROR",
-    errorMessage: errorPayload.error_message || "UNKNOWN_MESSAGE",
+    traceId: traceId,
   });
 };
 
 export const apiClient = async <T>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
-  const { authType = "base", params, ...customOptions } = options;
-  const headers = { ...getFetchHeaders(authType), ...customOptions.headers };
+  // Id for this fetch call
+  const traceId = `req_${crypto.randomUUID().substring(0, 8)}`;
+
+  const { authType = "base", timeoutMs = 15000, params, ...customOptions } = options;
+  const headers = { "X-Correlation-ID": traceId, ...getFetchHeaders(authType), ...customOptions.headers };
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);
@@ -104,16 +96,26 @@ export const apiClient = async <T>(endpoint: string, options: FetchOptions = {})
     });
   }
 
+  // AbortController for Timeouts (Critical Best Practice)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   let res: Response;
   try {
-    res = await fetch(urlObj, { ...customOptions, headers });
+    res = await fetch(urlObj, { ...customOptions, headers, signal: controller.signal });
+    clearTimeout(timeoutId);
   } catch (error) {
+    clearTimeout(timeoutId);
+
+    const isTimeout = error instanceof Error && error.name === "AbortError";
+    logger.error(isTimeout ? "TIMEOUT" : "CRASH", undefined, { traceId, endpoint });
+
     throw new APINetworkError({
       message: "Network request failed. Please check your connection.",
       url: urlObj.toString(),
-      errorDetails: getErrorDetails(error),
+      traceId: traceId,
     });
   }
 
-  return handleFetchResponse<T>(res);
+  return handleFetchResponse<T>({ res: res, traceId: traceId, endpoint: endpoint });
 };

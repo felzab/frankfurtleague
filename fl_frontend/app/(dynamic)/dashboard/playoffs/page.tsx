@@ -3,7 +3,18 @@ import { getSpiele } from "@/features/spiele/queries";
 import type { FLSpieltagWithSpiele } from "@/features/spiele/types";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { joinCollections } from "@/shared/utils/utils";
+import { Metadata } from "next";
 import { connection } from "next/server";
+
+export const metadata: Metadata = {
+  title: "Finalrunden",
+  description:
+    "Die Finalrunden-Übersicht gibt Auskunft über die letzten KO Runden der Frankfurt-League. Finde heraus, wer um die Meisterschaft spielt.",
+  keywords: ["Frankfurt-League Playoffs", "Frankfurt-League Finalrunden", "Frankfurt-League Finale", "Playoffs", "Finalrunden"],
+  alternates: {
+    canonical: "https://frankfurtleague.de/dashboard/playoffs",
+  },
+};
 
 export default async function Page() {
   await connection();
