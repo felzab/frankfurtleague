@@ -28,27 +28,46 @@ import { patchAdminSpielDataAction } from "../../actions";
 import { useTeams } from "@/features/teams/components/providers/TeamsProvider";
 import type { FormState } from "@/shared/types/sharedTypes";
 
+const TBD_TEAM_SHORTHAND = "TB";
+
 export default function AdminEditSpielDataForm({ spielData, onClose }: { spielData: FLSpiel; onClose: () => void }) {
   const teams = useTeams();
   const { contains } = useFilter({ sensitivity: "base" });
 
+  const isTeam1TBD = spielData.team1.shorthand === TBD_TEAM_SHORTHAND;
+  const isTeam2TBD = spielData.team2.shorthand === TBD_TEAM_SHORTHAND;
+
   const [toreTeam1, setToreTeam1] = useState(spielData.team1.tore ?? NaN);
   const [toreTeam2, setToreTeam2] = useState(spielData.team2.tore ?? NaN);
-  const [nameTeam1, setNameTeam1] = useState<Key | null>(spielData.team1.name);
-  const [nameTeam2, setNameTeam2] = useState<Key | null>(spielData.team2.name);
+  const [nameTeam1, setNameTeam1] = useState<Key | null>(isTeam1TBD ? "TBD" : spielData.team1.name);
+  const [nameTeam2, setNameTeam2] = useState<Key | null>(isTeam2TBD ? "TBD" : spielData.team2.name);
+  const [tbdNameTeam1, setTbdNameTeam1] = useState(isTeam1TBD ? spielData.team1.name : "");
+  const [tbdNameTeam2, setTbdNameTeam2] = useState(isTeam2TBD ? spielData.team2.name : "");
+
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(false);
   const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
 
   const resolvedTeam1 = teams.find((t) => t.name === nameTeam1);
   const resolvedTeam2 = teams.find((t) => t.name === nameTeam2);
 
+  const finalNameTeam1 = nameTeam1 === "TBD" ? tbdNameTeam1 : (resolvedTeam1?.name ?? "");
+  const finalNameTeam2 = nameTeam2 === "TBD" ? tbdNameTeam2 : (resolvedTeam2?.name ?? "");
+
   const [state, formAction, isPending] = useActionState(async (prevState: FormState, formData: FormData) => {
     if (!nameTeam1 || !resolvedTeam1?.id) {
       toast.danger("Ungültiger Name für Team1", { description: "Bitte wähle ein gültiges Team aus der Liste." });
       return prevState;
     }
+    if (nameTeam1 === "TBD" && tbdNameTeam1.trim() === "") {
+      toast.danger("Fehlende TBD-Beschreibung", { description: "Bitte gib an, wer das TBD Team 1 ist (z.B. Sieger 26.)." });
+      return prevState;
+    }
     if (!nameTeam2 || !resolvedTeam2?.id) {
       toast.danger("Ungültiger Name für Team2", { description: "Bitte wähle ein gültiges Team aus der Liste." });
+      return prevState;
+    }
+    if (nameTeam2 === "TBD" && tbdNameTeam2.trim() === "") {
+      toast.danger("Fehlende TBD-Beschreibung", { description: "Bitte gib an, wer das TBD Team 2 ist (z.B. Sieger 26.)." });
       return prevState;
     }
     return patchAdminSpielDataAction(prevState, formData);
@@ -89,7 +108,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       <input
         type="hidden"
         name="team1Name"
-        value={resolvedTeam1?.name ?? ""}
+        value={finalNameTeam1}
       />
       <input
         type="hidden"
@@ -104,7 +123,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       <input
         type="hidden"
         name="team2Name"
-        value={resolvedTeam2?.name ?? ""}
+        value={finalNameTeam2}
       />
       <input
         type="hidden"
@@ -228,96 +247,129 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         <Description>Der Mietpreis für das Feld</Description>
       </NumberField>
 
+      <Separator />
+
       {/** Team 1 */}
-      <Autocomplete
-        isRequired
-        name="nameTeam1UI"
-        className="w-[256px]"
-        placeholder="Name Team1"
-        selectionMode="single"
-        value={nameTeam1}
-        onChange={setNameTeam1}
-        disabledKeys={nameTeam2 !== null && nameTeam2 !== "TBD" ? [nameTeam2] : []}>
-        <Label>Team 1</Label>
-        <Autocomplete.Trigger>
-          <Autocomplete.Value />
-          <Autocomplete.ClearButton />
-          <Autocomplete.Indicator />
-        </Autocomplete.Trigger>
-        <Autocomplete.Popover>
-          <Autocomplete.Filter filter={contains}>
-            <SearchField
+      <div className="flex flex-col gap-y-4 size-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
+        <Autocomplete
+          isRequired
+          name="nameTeam1UI"
+          className="w-[256px]"
+          placeholder="Name Team1"
+          selectionMode="single"
+          value={nameTeam1}
+          onChange={setNameTeam1}
+          disabledKeys={nameTeam2 !== null && nameTeam2 !== "TBD" ? [nameTeam2] : []}>
+          <Label>Team 1</Label>
+          <Autocomplete.Trigger>
+            <Autocomplete.Value />
+            <Autocomplete.ClearButton />
+            <Autocomplete.Indicator />
+          </Autocomplete.Trigger>
+          <Autocomplete.Popover>
+            <Autocomplete.Filter filter={contains}>
+              <SearchField
+                autoFocus
+                name="nameTeam1UI_search"
+                variant="secondary"
+                aria-label="Name Team1 suchen">
+                <SearchField.Group>
+                  <SearchField.SearchIcon />
+                  <SearchField.Input placeholder="Team finden..." />
+                  <SearchField.ClearButton />
+                </SearchField.Group>
+              </SearchField>
+              <ListBox>
+                {teams.map((item) => (
+                  <ListBox.Item
+                    key={item.name}
+                    id={item.name}
+                    textValue={item.name}>
+                    {item.name}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Autocomplete.Filter>
+          </Autocomplete.Popover>
+          {nameTeam1 !== "TBD" && <Description>Suche das erste Team aus</Description>}
+        </Autocomplete>
+        {nameTeam1 === "TBD" && (
+          <TextField
+            isRequired
+            className="w-full"
+            value={tbdNameTeam1}
+            onChange={setTbdNameTeam1}>
+            <Label className="text-quaternary-light dark:text-quaternary-dark">TBD Beschreibung</Label>
+            <Input
+              placeholder="z.B. Sieger 26."
               autoFocus
-              name="nameTeam1UI_search"
-              variant="secondary"
-              aria-label="Name Team1 suchen">
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="Team finden..." />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-            <ListBox>
-              {teams.map((item) => (
-                <ListBox.Item
-                  key={item.name}
-                  id={item.name}
-                  textValue={item.name}>
-                  {item.name}
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Autocomplete.Filter>
-        </Autocomplete.Popover>
-        <Description>Suche das erste Team aus</Description>
-      </Autocomplete>
+            />
+            <Description>Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.</Description>
+          </TextField>
+        )}
+      </div>
 
       {/** Team 2 */}
-      <Autocomplete
-        isRequired
-        name="nameTeam2UI"
-        className="w-[256px]"
-        placeholder="Name Team2"
-        selectionMode="single"
-        value={nameTeam2}
-        onChange={setNameTeam2}
-        disabledKeys={nameTeam1 !== null && nameTeam1 !== "TBD" ? [nameTeam1] : []}>
-        <Label>Team 2</Label>
-        <Autocomplete.Trigger>
-          <Autocomplete.Value />
-          <Autocomplete.ClearButton />
-          <Autocomplete.Indicator />
-        </Autocomplete.Trigger>
-        <Autocomplete.Popover>
-          <Autocomplete.Filter filter={contains}>
-            <SearchField
+      <div className="flex flex-col gap-y-4 w-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
+        <Autocomplete
+          isRequired
+          name="nameTeam2UI"
+          className="w-[256px]"
+          placeholder="Name Team2"
+          selectionMode="single"
+          value={nameTeam2}
+          onChange={setNameTeam2}
+          disabledKeys={nameTeam1 !== null && nameTeam1 !== "TBD" ? [nameTeam1] : []}>
+          <Label>Team 2</Label>
+          <Autocomplete.Trigger>
+            <Autocomplete.Value />
+            <Autocomplete.ClearButton />
+            <Autocomplete.Indicator />
+          </Autocomplete.Trigger>
+          <Autocomplete.Popover>
+            <Autocomplete.Filter filter={contains}>
+              <SearchField
+                autoFocus
+                name="nameTeam2UI_search"
+                variant="secondary"
+                aria-label="Name Team2 suchen">
+                <SearchField.Group>
+                  <SearchField.SearchIcon />
+                  <SearchField.Input placeholder="Team finden..." />
+                  <SearchField.ClearButton />
+                </SearchField.Group>
+              </SearchField>
+              <ListBox>
+                {teams.map((item) => (
+                  <ListBox.Item
+                    key={item.name}
+                    id={item.name}
+                    textValue={item.name}>
+                    {item.name}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Autocomplete.Filter>
+          </Autocomplete.Popover>
+          {nameTeam1 !== "TBD" && <Description>Suche das zweite Team aus</Description>}
+        </Autocomplete>
+        {nameTeam2 === "TBD" && (
+          <TextField
+            isRequired
+            className="w-full"
+            value={tbdNameTeam2}
+            onChange={setTbdNameTeam2}>
+            <Label className="text-quaternary-light dark:text-quaternary-dark">TBD Beschreibung</Label>
+            <Input
+              placeholder="z.B. Sieger 26."
               autoFocus
-              name="nameTeam2UI_search"
-              variant="secondary"
-              aria-label="Name Team2 suchen">
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="Team finden..." />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-            <ListBox>
-              {teams.map((item) => (
-                <ListBox.Item
-                  key={item.name}
-                  id={item.name}
-                  textValue={item.name}>
-                  {item.name}
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Autocomplete.Filter>
-        </Autocomplete.Popover>
-        <Description>Suche das zweite Team aus</Description>
-      </Autocomplete>
-
+            />
+            <Description>Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.</Description>
+          </TextField>
+        )}
+      </div>
       <Separator />
 
       {/** Switch to enter Ergebnis */}

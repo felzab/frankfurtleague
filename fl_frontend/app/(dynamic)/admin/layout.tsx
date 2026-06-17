@@ -15,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   await connection();
-  const teamsRes = await getTeams({ compact: true });
+  const teamsRes = await getTeams({ compact: true, include_placeholders: true });
 
   if (teamsRes.format !== "compact") {
     throw new Error("Expected grouped teams response, got a flat list.");

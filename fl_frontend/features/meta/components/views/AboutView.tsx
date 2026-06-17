@@ -84,7 +84,7 @@ export default function AboutView() {
 
 async function ParticipatingTeamsDisplay() {
   await connection();
-  const teamsRes = await getTeams({ compact: true, is_placeholder: false });
+  const teamsRes = await getTeams({ compact: true });
 
   if (teamsRes.format !== "compact") {
     throw new Error("Expected grouped teams response, got a flat list.");

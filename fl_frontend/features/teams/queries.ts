@@ -10,7 +10,7 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
   if (filters.gruppe) tags.push(`teams:gruppe:${filters.gruppe}`);
 
   // Check '!== undefined' because 'false' is a valid filter value
-  if (filters.is_placeholder !== undefined) tags.push(`teams:is_placeholder:${filters.is_placeholder}`);
+  if (filters.include_placeholders !== undefined) tags.push(`teams:include_placeholders:${filters.include_placeholders}`);
   if (filters.is_disqualified !== undefined) tags.push(`teams:is_disqualified:${filters.is_disqualified}`);
   if (filters.in_gruppen !== undefined) tags.push(`teams:in_gruppen:${filters.in_gruppen}`);
   cacheTag(...tags);
