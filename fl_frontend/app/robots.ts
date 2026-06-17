@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/dashboard/admin/"],
+        disallow: ["/api/", "/admin/"],
       },
       ...aiBots.map((bot) => ({
         userAgent: bot,

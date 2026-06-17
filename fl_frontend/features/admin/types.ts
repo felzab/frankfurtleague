@@ -9,4 +9,5 @@ export interface PatchAdminSpielDataPayload {
   team1: FLSpielTeamField;
   team2: FLSpielTeamField;
   spiel_id: string;
+  is_canceled: boolean;
 }

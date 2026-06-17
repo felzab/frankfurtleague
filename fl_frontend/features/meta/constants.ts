@@ -1,12 +1,16 @@
 import type { KontaktChannel, TeamMember } from "./types";
 
 export const TEAM_MEMBERS: TeamMember[] = [
-  { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga" },
-  { id: 1, name: "Maria-Lucia", role: "Vorstand", desc: "Ligaleitung & Orga" },
-  { id: 1, name: "Felix", role: "Development", desc: "Website & Infrastruktur" },
-  { id: 1, name: "Nikolas", role: "Design", desc: "Design & Kommunikation" },
-  { id: 1, name: "Cornelia", role: "Design", desc: "Layout & Design" },
-  { id: 1, name: "Jonathan", role: "Kommunikation", desc: "Kommunikation & Orga" },
+  { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
+  { id: 2, name: "Maria-Lucia", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
+  { id: 3, name: "Matin", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 4, name: "Mana", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 5, name: "Nick", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 6, name: "Vincent", role: "Organisation", desc: "Orga & Verwaltung", tag: "orga" },
+  { id: 7, name: "Felix", role: "Development", desc: "Website & Infrastruktur", tag: "web" },
+  { id: 8, name: "Nikolas", role: "Design", desc: "Design & Kommunikation", tag: "web" },
+  { id: 9, name: "Cornelia", role: "Design", desc: "Layout & Design", tag: "web" },
+  { id: 10, name: "Jonathan", role: "Kommunikation", desc: "Kommunikation & Orga", tag: "web" },
 ];
 
 export const KONTAKT_CHANNELS: KontaktChannel[] = [

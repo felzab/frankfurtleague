@@ -25,6 +25,7 @@ async def get_spiele_action_required(
         collection=spiele_collection,
         db_filter={
             "$or": [
+                {"is_canceled": True},
                 {"datum": None},
                 {"uhrzeit": None},
                 {"ort": None},

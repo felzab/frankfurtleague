@@ -1,11 +1,13 @@
+"use client";
+
 import type { FLSpiel } from "@/features/spiele/types";
 import { ChevronsDownWide } from "@gravity-ui/icons";
 import { Accordion } from "@heroui/react";
 import AdminSpielCardList from "../collections/AdminSpielCardsList";
+import { useServerConfig } from "@/core/providers/ServerConfigProvider";
 
-export default function AdminSpieleActionRequiredview({ overviewSpiele }: { overviewSpiele: FLSpiel[] }) {
-  /** Created here for later use in comparing the date of a game to today */
-  const today = new Date().toISOString().split("T")[0];
+export default function AdminSpieleActionRequiredView({ overviewSpiele }: { overviewSpiele: FLSpiel[] }) {
+  const { today } = useServerConfig();
 
   const spieleCategories: { [key: string]: { name: string; desc: string; spiele: FLSpiel[] } } = {
     ergebnis_pending: {
@@ -17,9 +19,15 @@ export default function AdminSpieleActionRequiredview({ overviewSpiele }: { over
     uhrzeit_missing: { name: "Fehlende Uhrzeit", desc: "Spiele ohne eingetragene Uhrzeit", spiele: [] },
     ort_missing: { name: "Fehlender Ort", desc: "Spiele ohne eingetragenen Ort", spiele: [] },
     schiedsrichter_missing: { name: "Fehlender Schiedsrichter", desc: "Spiele ohne eingetragenen Schiedsrichter", spiele: [] },
+    is_canceled: { name: "Abgesagt", desc: "Abgesagte Spiele", spiele: [] },
   };
 
   overviewSpiele.forEach((spiel) => {
+    if (spiel.is_canceled) {
+      spieleCategories.is_canceled.spiele.push(spiel);
+      return;
+    }
+
     if (spiel.datum === null) spieleCategories.datum_missing.spiele.push(spiel);
     if (spiel.uhrzeit === null) spieleCategories.uhrzeit_missing.spiele.push(spiel);
     if (spiel.ort === null) spieleCategories.ort_missing.spiele.push(spiel);

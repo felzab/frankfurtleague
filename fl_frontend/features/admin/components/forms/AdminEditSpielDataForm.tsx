@@ -1,4 +1,5 @@
 "use client";
+
 import type { FLSpiel } from "@/features/spiele/types";
 import {
   Autocomplete,
@@ -36,41 +37,30 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
   const [nameTeam1, setNameTeam1] = useState<Key | null>(spielData.team1.name);
   const [nameTeam2, setNameTeam2] = useState<Key | null>(spielData.team2.name);
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(false);
+  const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
 
-  const resolvedIdTeam1 = teams.find((t) => t.name === nameTeam1)?.id || "";
-  const resolvedIdTeam2 = teams.find((t) => t.name === nameTeam2)?.id || "";
-  const resolvedShorthandTeam1 = teams.find((t) => t.name === nameTeam1)?.shorthand || "";
-  const resolvedShorthandTeam2 = teams.find((t) => t.name === nameTeam2)?.shorthand || "";
+  const resolvedTeam1 = teams.find((t) => t.name === nameTeam1);
+  const resolvedTeam2 = teams.find((t) => t.name === nameTeam2);
 
   const [state, formAction, isPending] = useActionState(async (prevState: FormState, formData: FormData) => {
-    // Quick validation
-    if (!nameTeam1 || !resolvedIdTeam1) {
+    if (!nameTeam1 || !resolvedTeam1?.id) {
       toast.danger("Ungültiger Name für Team1", { description: "Bitte wähle ein gültiges Team aus der Liste." });
       return prevState;
     }
-    if (!nameTeam2 || !resolvedIdTeam2) {
+    if (!nameTeam2 || !resolvedTeam2?.id) {
       toast.danger("Ungültiger Name für Team2", { description: "Bitte wähle ein gültiges Team aus der Liste." });
       return prevState;
     }
-    return patchAdminSpielDataAction(prevState, {
-      spielId: spielData.id,
-      team1Id: resolvedIdTeam1,
-      team2Id: resolvedIdTeam2,
-      team1Name: nameTeam1.toString(),
-      team2Name: nameTeam2.toString(),
-      team1Shorthand: resolvedShorthandTeam1,
-      team2Shorthand: resolvedShorthandTeam2,
-      formData: formData,
-    });
+    return patchAdminSpielDataAction(prevState, formData);
   }, null);
 
   // To show the action state
   useEffect(() => {
     if (state?.success) {
-      toast.success(state.message || "Die Spiel-Daten wurden aktualisiert.");
+      toast.success(state.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
       onClose();
     } else if (state?.error) {
-      toast.danger(state.error || "Fehler beim Speichern");
+      toast.danger(state.error || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 });
     }
   }, [state, onClose]);
 
@@ -85,6 +75,70 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
     <Form
       className="flex flex-col gap-y-6 min-h-full"
       action={formAction}>
+      {/** Hidden fields */}
+      <input
+        type="hidden"
+        name="spielId"
+        value={spielData.id}
+      />
+      <input
+        type="hidden"
+        name="team1Id"
+        value={resolvedTeam1?.id ?? ""}
+      />
+      <input
+        type="hidden"
+        name="team1Name"
+        value={resolvedTeam1?.name ?? ""}
+      />
+      <input
+        type="hidden"
+        name="team1Shorthand"
+        value={resolvedTeam1?.shorthand ?? ""}
+      />
+      <input
+        type="hidden"
+        name="team2Id"
+        value={resolvedTeam2?.id ?? ""}
+      />
+      <input
+        type="hidden"
+        name="team2Name"
+        value={resolvedTeam2?.name ?? ""}
+      />
+      <input
+        type="hidden"
+        name="team2Shorthand"
+        value={resolvedTeam2?.shorthand ?? ""}
+      />
+      <input
+        type="hidden"
+        name="is_canceled"
+        value={spielIsCanceled ? "true" : "false"}
+      />
+
+      <Separator />
+
+      {/** Switch to cancel Spiel */}
+      <Switch
+        aria-label="Spiel absagen switch"
+        autoFocus={false}
+        isSelected={spielIsCanceled}
+        onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
+        <Switch.Content className="flex flex-row items-center justify-between w-full h-fit text-fluid-sm">
+          Spiel absagen
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+        </Switch.Content>
+        <Description className="px-0 text-fluid-xxs whitespace-normal leading-normal font-light">
+          Wird dieser Schalter umgelegt, so wird das Spiel als abgesagt eingetragen. Dies kann zurückgesetzt werden, indem der Schalter zurück
+          umgelegt wird.
+        </Description>
+      </Switch>
+
+      <Separator />
+
       {/** Spieldatum */}
       <DatePicker
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
@@ -177,7 +231,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       {/** Team 1 */}
       <Autocomplete
         isRequired
-        name="name_team1"
+        name="nameTeam1UI"
         className="w-[256px]"
         placeholder="Name Team1"
         selectionMode="single"
@@ -194,7 +248,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
           <Autocomplete.Filter filter={contains}>
             <SearchField
               autoFocus
-              name="name_team1_search"
+              name="nameTeam1UI_search"
               variant="secondary"
               aria-label="Name Team1 suchen">
               <SearchField.Group>
@@ -222,7 +276,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       {/** Team 2 */}
       <Autocomplete
         isRequired
-        name="name_team2"
+        name="nameTeam2UI"
         className="w-[256px]"
         placeholder="Name Team2"
         selectionMode="single"
@@ -239,7 +293,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
           <Autocomplete.Filter filter={contains}>
             <SearchField
               autoFocus
-              name="name_team2_search"
+              name="nameTeam2UI_search"
               variant="secondary"
               aria-label="Name Team2 suchen">
               <SearchField.Group>
@@ -267,22 +321,22 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       <Separator />
 
       {/** Switch to enter Ergebnis */}
-      <div className="flex flex-col gap-y-2 w-[80%]">
-        <Switch
-          autoFocus={false}
-          isSelected={ergebnisCanBeEdited}
-          onChange={handleErgebnisCanBeEditedToggle}>
+      <Switch
+        aria-label="Ergebnis eintragen switch"
+        autoFocus={false}
+        isSelected={ergebnisCanBeEdited}
+        onChange={handleErgebnisCanBeEditedToggle}>
+        <Switch.Content className="flex flex-row items-center justify-between w-full h-fit text-fluid-sm">
+          Spielergebnis eintragen
           <Switch.Control>
             <Switch.Thumb />
           </Switch.Control>
-          <Switch.Content>
-            <Label className="text-fluid-sm">Spielergebnis eintragen</Label>
-          </Switch.Content>
-        </Switch>
-        <p className="text-fluid-xxs whitespace-normal leading-normal font-light">
-          Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis zurückgesetzt
-        </p>
-      </div>
+        </Switch.Content>
+        <Description className="px-0 text-fluid-xxs whitespace-normal leading-normal font-light">
+          Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis
+          zurückgesetzt.
+        </Description>
+      </Switch>
 
       {/** Tore Team 1 */}
       <NumberField

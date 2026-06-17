@@ -6,7 +6,7 @@ export default async function RecentAndUpcomingSpieleGrid() {
   await connection();
   const [upcomingSpieleRes, recentSpieleRes] = await Promise.all([
     getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(() => null),
-    getSpiele({ spiel_status: "vergangen", limit: 6 }),
+    getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(() => null),
   ]);
 
   if (!upcomingSpieleRes || !recentSpieleRes) {

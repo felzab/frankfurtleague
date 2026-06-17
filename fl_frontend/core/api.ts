@@ -1,6 +1,8 @@
 import { frontend_config } from "./config";
 import { APIBadStatusError, APINetworkError } from "./errors";
-import { logger } from "./logging";
+
+const BASE_FETCH_AUTH_TYPE = "base";
+const BASE_FETCH_TIMEOUT_MS = 15000;
 
 export interface BaseAPIResponse {
   acknowledged: 0 | 1;
@@ -51,13 +53,6 @@ export const handleFetchResponse = async <T>({ res, traceId, endpoint }: { res: 
     return res.json() as Promise<T>;
   }
 
-  const isServerError = res.status >= 500;
-  if (isServerError) {
-    logger.error("Backend API Crash", undefined, { traceId, endpoint, status: res.status });
-  } else {
-    logger.warn("Backend API Rejected Request", { traceId, endpoint, status: res.status });
-  }
-
   const isJson = res.headers.get("content-type")?.includes("application/json");
 
   if (!isJson) {
@@ -65,6 +60,7 @@ export const handleFetchResponse = async <T>({ res, traceId, endpoint }: { res: 
       message: "Infrastructure routing failure.",
       url: res.url,
       statusCode: res.status,
+      endpoint: endpoint,
       traceId: traceId,
     });
   }
@@ -73,15 +69,15 @@ export const handleFetchResponse = async <T>({ res, traceId, endpoint }: { res: 
     message: "API returned a bad status.",
     url: res.url,
     statusCode: res.status,
+    endpoint: endpoint,
     traceId: traceId,
   });
 };
 
 export const apiClient = async <T>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
-  // Id for this fetch call
-  const traceId = `req_${crypto.randomUUID().substring(0, 8)}`;
+  const traceId = `req_${crypto.randomUUID().substring(0, 8)}`; // Id for this fetch call
 
-  const { authType = "base", timeoutMs = 15000, params, ...customOptions } = options;
+  const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, ...customOptions } = options;
   const headers = { "X-Correlation-ID": traceId, ...getFetchHeaders(authType), ...customOptions.headers };
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
@@ -96,7 +92,6 @@ export const apiClient = async <T>(endpoint: string, options: FetchOptions = {})
     });
   }
 
-  // AbortController for Timeouts (Critical Best Practice)
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -108,12 +103,12 @@ export const apiClient = async <T>(endpoint: string, options: FetchOptions = {})
     clearTimeout(timeoutId);
 
     const isTimeout = error instanceof Error && error.name === "AbortError";
-    logger.error(isTimeout ? "TIMEOUT" : "CRASH", undefined, { traceId, endpoint });
-
     throw new APINetworkError({
       message: "Network request failed. Please check your connection.",
+      isTimeout: isTimeout,
       url: urlObj.toString(),
       traceId: traceId,
+      originalError: error,
     });
   }
 

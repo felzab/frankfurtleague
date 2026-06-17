@@ -98,16 +98,15 @@ def setup_custom_logger():
         "root": {"handlers": ["console"], "level": backend_config.log_level_app},
         "loggers": {
             FL_LOGGER_NAME: {
-                "handlers": ["console"],
                 "level": backend_config.log_level_app,
-                "propagate": False,  # This stops the double-printing!
+                "propagate": True,  # This stops the double-printing!
             },
-            "motor": {"level": backend_config.log_level_db, "handlers": ["console"]},
-            "pymongo": {"level": backend_config.log_level_db, "handlers": ["console"]},
-            "uvicorn": {"level": "INFO", "handlers": ["console"]},
-            "uvicorn.access": {"level": "INFO", "handlers": ["console"]},  # Incoming requests
-            "uvicorn.error": {"level": "INFO", "handlers": ["console"]},  # Startup/Shutdown
-            "watchfiles": {"level": "WARNING", "handlers": ["console"]},  # File reloader
+            "motor": {"level": backend_config.log_level_db, "propagate": True},
+            "pymongo": {"level": backend_config.log_level_db, "propagate": True},
+            "uvicorn": {"level": "INFO", "propagate": True},
+            "uvicorn.access": {"level": "INFO", "propagate": True},  # Incoming requests
+            "uvicorn.error": {"level": "INFO", "propagate": True},  # Startup/Shutdown
+            "watchfiles": {"level": "WARNING", "propagate": True},  # File reloader
         },
     }
     logging.config.dictConfig(logging_config)

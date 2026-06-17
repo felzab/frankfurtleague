@@ -10,6 +10,7 @@ export interface TeamMember {
   name: string;
   role: string;
   desc: string;
+  tag: "orga" | "web" | "vorstand";
 }
 
 export interface QA_QUESTION {

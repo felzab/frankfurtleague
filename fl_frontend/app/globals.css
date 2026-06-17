@@ -128,7 +128,7 @@
   }
 
   .toast {
-    @apply bg-primary-light dark:bg-primary-dark border;
+    @apply bg-primary-light dark:bg-primary-dark border whitespace-normal;
   }
 
   .toast--danger {
@@ -136,7 +136,7 @@
   }
 
   .toast__description {
-    @apply text-fluid-xs text-text-black dark:text-text-white break-words text-pretty opacity-90;
+    @apply text-fluid-xs text-text-black dark:text-text-white opacity-90;
   }
 
   .toast__action {

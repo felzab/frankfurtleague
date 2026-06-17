@@ -1,12 +1,14 @@
 from typing import Any
 
+from pydantic import BaseModel, model_validator
+
 from app.api.spiele.schemas import FLSpielTeamField
 from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate, CustomStrTime
-from pydantic import BaseModel, model_validator
 
 
 class UpdateGameDataCallBody(BaseModel):
     spiel_id: CustomObjectId
+    is_canceled: bool
 
     team1: FLSpielTeamField
     team2: FLSpielTeamField

@@ -1,19 +1,36 @@
 import { frontend_config } from "./config";
 
+export interface LogMeta extends Record<string, unknown> {
+  traceId?: string;
+  error?: unknown;
+  url?: string;
+  endpoint?: string;
+  isTimeout?: boolean;
+}
+
 export const logger = {
-  info: (message: string, meta?: Record<string, any>) => log("INFO", message, meta),
-  warn: (message: string, meta?: Record<string, any>) => log("WARN", message, meta),
-  error: (message: string, error?: unknown, meta?: Record<string, any>) => log("ERROR", message, { error, ...meta }),
+  info: (message: string, meta?: LogMeta) => log("INFO", message, meta),
+  warn: (message: string, meta?: LogMeta) => log("WARN", message, meta),
+  error: (message: string, error?: unknown, meta?: LogMeta) => log("ERROR", message, { error, ...meta }),
 };
 
-function log(level: "INFO" | "WARN" | "ERROR", message: string, meta?: Record<string, any>) {
-  // If we are in production and requested JSON, format it exactly like FastAPI!
+function log(level: "INFO" | "WARN" | "ERROR", message: string, meta?: LogMeta) {
+  // Production
   if (frontend_config.LOG_FORMAT === "json") {
+    const formattedMeta = { ...meta };
+    if (meta?.error instanceof Error) {
+      formattedMeta.error = {
+        message: meta.error.message,
+        stack: meta.error.stack,
+        name: meta.error.name,
+      };
+    }
+
     const jsonLog = JSON.stringify({
       level,
       message,
       timestamp: new Date().toISOString(),
-      ...meta,
+      ...formattedMeta,
     });
 
     if (level === "ERROR") console.error(jsonLog);
@@ -23,7 +40,7 @@ function log(level: "INFO" | "WARN" | "ERROR", message: string, meta?: Record<st
     return;
   }
 
-  // Otherwise, use a beautiful, colorful local console format
+  // Developement
   const color = level === "ERROR" ? "\x1b[31m" : level === "WARN" ? "\x1b[33m" : "\x1b[34m";
   const reset = "\x1b[0m";
 
