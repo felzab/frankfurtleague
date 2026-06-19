@@ -11,17 +11,34 @@ export interface FLSpielTeamField {
   shorthand: string;
 }
 
+export interface FLSpielOrtField {
+  spielort_id: string;
+  name: string;
+  maps_link: string;
+  mietpreis: number;
+}
+
+export interface FLSpielSchiedsrichterField {
+  schiedsrichter_id: string;
+  name: string;
+  payment: number;
+}
+
 export interface FLSpiel {
   id: string;
+  spieltag_id: string;
+
   team1: FLSpielTeamField;
   team2: FLSpielTeamField;
+
   datum: string | null;
   uhrzeit: string | null;
-  ort: string | null;
-  schiedsrichter: string | null;
-  mietpreis: number;
+
+  ort: FLSpielOrtField | null;
+  schiedsrichter: FLSpielSchiedsrichterField | null;
+
   ergebnis: string | null;
-  spieltag_id: string;
+
   spiel_nr: number;
   is_canceled: boolean;
   saison_phase: FLSaisonPhase;

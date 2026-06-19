@@ -29,16 +29,20 @@ export async function patchAdminSpielDataAction(prevState: FormState, formData: 
   // ?.toString() guarantees we get a string or undefined. It ignores Files.
   const tore1Str = formData.get("tore_team1")?.toString();
   const tore2Str = formData.get("tore_team2")?.toString();
-  const mietpreisStr = formData.get("mietpreis")?.toString();
+
+  const ortString = formData.get("ort_payload")?.toString();
+  const schiedsrichterString = formData.get("schiedsrichter_payload")?.toString();
+
+  const ortPayload = ortString ? JSON.parse(ortString) : null;
+  const schiedsrichterPayload = schiedsrichterString ? JSON.parse(schiedsrichterString) : null;
 
   const updateDict: PatchAdminSpielDataPayload = {
     spiel_id: spielId,
     is_canceled: formData.get("is_canceled") === "true",
     datum: formData.get("datum")?.toString() || "",
     uhrzeit: formData.get("uhrzeit")?.toString() || "",
-    ort: formData.get("ort")?.toString() || "",
-    schiedsrichter: formData.get("schiedsrichter")?.toString() || "",
-    mietpreis: !mietpreisStr || isNaN(Number(mietpreisStr)) ? 0 : Number(mietpreisStr),
+    ort: ortPayload,
+    schiedsrichter: schiedsrichterPayload,
     team1: {
       team_id: team1Id,
       name: team1Name ?? "",

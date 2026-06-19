@@ -16,6 +16,19 @@ class FLSpielTeamField(BaseModel):
     shorthand: str = Field(min_length=2, max_length=2)
 
 
+class FLSpielOrtField(BaseModel):
+    spielort_id: CustomObjectId
+    name: str
+    maps_link: str
+    mietpreis: float = 0
+
+
+class FLSpielSchiedsrichterField(BaseModel):
+    schiedsrichter_id: CustomObjectId
+    name: str
+    payment: int
+
+
 class FLSpiel(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through id
 
@@ -24,10 +37,9 @@ class FLSpiel(BaseModel):
 
     datum: CustomStrDate | None
     uhrzeit: CustomStrTime | None
-    ort: str | None
 
-    schiedsrichter: str | None
-    mietpreis: float = 0
+    ort: FLSpielOrtField | None
+    schiedsrichter: FLSpielSchiedsrichterField | None
 
     ergebnis: str | None
     spieltag_id: CustomObjectId

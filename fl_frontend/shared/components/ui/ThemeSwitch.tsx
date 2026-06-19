@@ -29,25 +29,27 @@ export default function ThemeSwitch() {
       aria-label="Modus switch"
       isSelected={theme === "light"}
       onChange={_toggleTheme}>
-      <Switch.Control className="ring-0 outline-none">
-        <Switch.Thumb>
-          <Switch.Icon>
-            {resolvedTheme === "dark" ? (
-              <Moon
-                height={12}
-                width={12}
-                name=""
-              />
-            ) : (
-              <Sun
-                strokeWidth={2}
-                height={12}
-                width={12}
-              />
-            )}
-          </Switch.Icon>
-        </Switch.Thumb>
-      </Switch.Control>
+      <Switch.Content>
+        <Switch.Control className="ring-0 outline-none">
+          <Switch.Thumb>
+            <Switch.Icon>
+              {resolvedTheme === "dark" ? (
+                <Moon
+                  height={12}
+                  width={12}
+                  name=""
+                />
+              ) : (
+                <Sun
+                  strokeWidth={2}
+                  height={12}
+                  width={12}
+                />
+              )}
+            </Switch.Icon>
+          </Switch.Thumb>
+        </Switch.Control>
+      </Switch.Content>
     </Switch>
   );
 }

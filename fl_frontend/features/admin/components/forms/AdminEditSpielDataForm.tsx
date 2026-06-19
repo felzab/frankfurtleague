@@ -25,13 +25,13 @@ import {
 import { parseDate, parseTime } from "@internationalized/date";
 import { useActionState, useEffect, useState } from "react";
 import { patchAdminSpielDataAction } from "../../actions";
-import { useTeams } from "@/features/teams/components/providers/TeamsProvider";
 import type { FormState } from "@/shared/types/sharedTypes";
+import { useAdmin } from "../providers/AdminContextProvider";
 
 const TBD_TEAM_SHORTHAND = "TB";
 
 export default function AdminEditSpielDataForm({ spielData, onClose }: { spielData: FLSpiel; onClose: () => void }) {
-  const teams = useTeams();
+  const adminData = useAdmin();
   const { contains } = useFilter({ sensitivity: "base" });
 
   const isTeam1TBD = spielData.team1.shorthand === TBD_TEAM_SHORTHAND;
@@ -47,11 +47,49 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(false);
   const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
 
-  const resolvedTeam1 = teams.find((t) => t.name === nameTeam1);
-  const resolvedTeam2 = teams.find((t) => t.name === nameTeam2);
+  const [selectedOrtId, setSelectedOrtId] = useState<Key | null>(spielData.ort?.spielort_id ?? null);
+  const [ortMietpreis, setOrtMietpreis] = useState<number>(spielData.ort?.mietpreis ?? 0);
+  const [selectedSchiedsrichterId, setSelectedSchiedsrichterId] = useState<Key | null>(spielData.schiedsrichter?.schiedsrichter_id ?? null);
+  const [schiedsrichterPayment, setSchiedsrichterPayment] = useState<number>(spielData.schiedsrichter?.payment ?? 0);
 
+  const resolvedTeam1 = adminData.teams.find((t) => t.name === nameTeam1);
+  const resolvedTeam2 = adminData.teams.find((t) => t.name === nameTeam2);
   const finalNameTeam1 = nameTeam1 === "TBD" ? tbdNameTeam1 : (resolvedTeam1?.name ?? "");
   const finalNameTeam2 = nameTeam2 === "TBD" ? tbdNameTeam2 : (resolvedTeam2?.name ?? "");
+
+  const resolvedOrt = adminData.spielorte.find((o) => o.id === selectedOrtId);
+  const resolvedSchiedsrichter = adminData.schiedsrichter.find((s) => s.id === selectedSchiedsrichterId);
+
+  const handleOrtSelection = (key: Key | null) => {
+    console.log("Ort", key);
+    setSelectedOrtId(key);
+    if (key) {
+      const ort = adminData.spielorte.find((o) => o.id === key);
+      if (ort) setOrtMietpreis(ort.default_mietpreis ?? 0);
+    } else {
+      console.log("here");
+      setOrtMietpreis(0);
+    }
+  };
+
+  const handleSchiedsrichterSelection = (key: Key | null) => {
+    console.log("Schiri", key);
+    setSelectedSchiedsrichterId(key);
+    if (key) {
+      const schiri = adminData.schiedsrichter.find((s) => s.id === key);
+      if (schiri) setSchiedsrichterPayment(schiri.default_payment ?? 0);
+    } else {
+      setSchiedsrichterPayment(0);
+    }
+  };
+
+  const handleErgebnisCanBeEditedToggle = (isSelected: boolean) => {
+    setErgebnisCanBeEdited(isSelected);
+    if (!isSelected) {
+      setToreTeam1(spielData.team1.tore ?? NaN);
+      setToreTeam2(spielData.team2.tore ?? NaN);
+    }
+  };
 
   const [state, formAction, isPending] = useActionState(async (prevState: FormState, formData: FormData) => {
     if (!nameTeam1 || !resolvedTeam1?.id) {
@@ -83,13 +121,6 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
     }
   }, [state, onClose]);
 
-  const handleErgebnisCanBeEditedToggle = (isSelected: boolean) => {
-    setErgebnisCanBeEdited(isSelected);
-    if (!isSelected) {
-      setToreTeam1(spielData.team1.tore ?? NaN);
-      setToreTeam2(spielData.team2.tore ?? NaN);
-    }
-  };
   return (
     <Form
       className="flex flex-col gap-y-6 min-h-full"
@@ -136,6 +167,35 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         value={spielIsCanceled ? "true" : "false"}
       />
 
+      <input
+        type="hidden"
+        name="ort_payload"
+        value={
+          resolvedOrt
+            ? JSON.stringify({
+                spielort_id: resolvedOrt.id,
+                name: resolvedOrt.name,
+                maps_link: resolvedOrt.maps_link ?? "",
+                mietpreis: ortMietpreis, // Uses the dynamic state so edits are captured!
+              })
+            : ""
+        }
+      />
+
+      <input
+        type="hidden"
+        name="schiedsrichter_payload"
+        value={
+          resolvedSchiedsrichter
+            ? JSON.stringify({
+                schiedsrichter_id: resolvedSchiedsrichter.id,
+                name: resolvedSchiedsrichter.name,
+                payment: schiedsrichterPayment,
+              })
+            : ""
+        }
+      />
+
       <Separator />
 
       {/** Switch to cancel Spiel */}
@@ -158,103 +218,195 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
 
       <Separator />
 
-      {/** Spieldatum */}
-      <DatePicker
-        defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
-        name="datum"
-        className="w-full">
-        <Label>Spieldatum</Label>
-        <DateField.Group fullWidth>
-          <DateField.Input>{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
-          <DateField.Suffix>
-            <DatePicker.Trigger>
-              <DatePicker.TriggerIndicator />
-            </DatePicker.Trigger>
-          </DateField.Suffix>
-        </DateField.Group>
-        <Description>Wähle das Datum aus, an dem das Spiel stattfindet</Description>
-        <DatePicker.Popover>
-          <Calendar aria-label="Event date">
-            <Calendar.Header className="bg-transparent">
-              <Calendar.YearPickerTrigger>
-                <Calendar.YearPickerTriggerHeading />
-                <Calendar.YearPickerTriggerIndicator />
-              </Calendar.YearPickerTrigger>
-              <Calendar.NavButton slot="previous" />
-              <Calendar.NavButton slot="next" />
-            </Calendar.Header>
-            <Calendar.Grid>
-              <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
-              <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-            </Calendar.Grid>
-            <Calendar.YearPickerGrid>
-              <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
-            </Calendar.YearPickerGrid>
-          </Calendar>
-        </DatePicker.Popover>
-      </DatePicker>
+      <div className="flex flex-col gap-y-4 w-full h-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
+        {/** Spieldatum */}
+        <DatePicker
+          defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
+          name="datum"
+          className="w-full">
+          <Label>Spieldatum</Label>
+          <DateField.Group fullWidth>
+            <DateField.Input>{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
+            <DateField.Suffix>
+              <DatePicker.Trigger>
+                <DatePicker.TriggerIndicator />
+              </DatePicker.Trigger>
+            </DateField.Suffix>
+          </DateField.Group>
+          <Description>Wähle das Datum aus, an dem das Spiel stattfindet</Description>
+          <DatePicker.Popover>
+            <Calendar aria-label="Event date">
+              <Calendar.Header className="bg-transparent">
+                <Calendar.YearPickerTrigger>
+                  <Calendar.YearPickerTriggerHeading />
+                  <Calendar.YearPickerTriggerIndicator />
+                </Calendar.YearPickerTrigger>
+                <Calendar.NavButton slot="previous" />
+                <Calendar.NavButton slot="next" />
+              </Calendar.Header>
+              <Calendar.Grid>
+                <Calendar.GridHeader>{(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}</Calendar.GridHeader>
+                <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
+              </Calendar.Grid>
+              <Calendar.YearPickerGrid>
+                <Calendar.YearPickerGridBody>{({ year }) => <Calendar.YearPickerCell year={year} />}</Calendar.YearPickerGridBody>
+              </Calendar.YearPickerGrid>
+            </Calendar>
+          </DatePicker.Popover>
+        </DatePicker>
 
-      {/** Uhrzeit */}
-      <TimeField
-        className="w-[256px]"
-        name="uhrzeit"
-        hourCycle={24}
-        defaultValue={spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null}>
-        <Label>Uhrzeit</Label>
-        <TimeField.Group>
-          <TimeField.Input>{(segment) => <TimeField.Segment segment={segment} />}</TimeField.Input>
-        </TimeField.Group>
-        <Description>Die Uhrzeit des Anpfiffs</Description>
-      </TimeField>
+        {/** Uhrzeit */}
+        <TimeField
+          className="w-[256px]"
+          name="uhrzeit"
+          hourCycle={24}
+          defaultValue={spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null}>
+          <Label>Uhrzeit</Label>
+          <TimeField.Group>
+            <TimeField.Input>{(segment) => <TimeField.Segment segment={segment} />}</TimeField.Input>
+          </TimeField.Group>
+          <Description>Die Uhrzeit des Anpfiffs</Description>
+        </TimeField>
+      </div>
 
-      {/** Ort */}
-      <TextField
-        className="w-full"
-        name="ort"
-        defaultValue={spielData.ort ?? ""}>
-        <Label>Ort</Label>
-        <Input placeholder="Veranstaltungsort..." />
-        <Description>Der Ort, an dem das Spiel ausgetragen wird</Description>
-      </TextField>
+      {/** Spielort */}
+      <div className="flex flex-col gap-y-4 w-full h-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
+        <Autocomplete
+          name="spielOrtUI"
+          className="w-full"
+          placeholder="Spielort"
+          selectionMode="single"
+          value={selectedOrtId}
+          onChange={handleOrtSelection}>
+          <Label>Spielort</Label>
+          <Autocomplete.Trigger>
+            <Autocomplete.Value />
+            <Autocomplete.ClearButton type="button" />
+            <Autocomplete.Indicator />
+          </Autocomplete.Trigger>
+          <Autocomplete.Popover>
+            <Autocomplete.Filter filter={contains}>
+              <SearchField
+                name="spielOrtUI_search"
+                variant="secondary"
+                aria-label="Spielort suchen">
+                <SearchField.Group>
+                  <SearchField.SearchIcon />
+                  <SearchField.Input placeholder="Spielort finden..." />
+                  <SearchField.ClearButton />
+                </SearchField.Group>
+              </SearchField>
+              <ListBox>
+                {adminData.spielorte.map((item) => (
+                  <ListBox.Item
+                    key={item.id}
+                    id={item.id}
+                    textValue={item.name}>
+                    {item.name}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Autocomplete.Filter>
+          </Autocomplete.Popover>
+          <Description>Der Ort, an dem das Spiel ausgetragen wird</Description>
+        </Autocomplete>
+
+        {/** Mietpreis */}
+        <NumberField
+          minValue={0}
+          name="spielortMietpreisUI"
+          value={ortMietpreis}
+          onChange={setOrtMietpreis}
+          step={5}
+          formatOptions={{
+            currency: "EUR",
+            currencySign: "accounting",
+            style: "currency",
+          }}>
+          <Label>Mietpreis</Label>
+          <NumberField.Group>
+            <NumberField.DecrementButton />
+            <NumberField.Input className="w-full" />
+            <NumberField.IncrementButton />
+          </NumberField.Group>
+          <Description>Der Mietpreis für den Spielort</Description>
+        </NumberField>
+      </div>
 
       {/** Schiedsrichter */}
-      <TextField
-        className="w-full"
-        name="schiedsrichter"
-        defaultValue={spielData.schiedsrichter ?? ""}>
-        <Label>Schiedsrichter</Label>
-        <Input placeholder="Name..." />
-        <Description>Der Schiedsrichter des Spiels</Description>
-      </TextField>
+      <div className="flex flex-col gap-y-4 w-full h-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
+        <Autocomplete
+          name="schiedsrichterUI"
+          className="w-full"
+          placeholder="Schiedsrichter"
+          selectionMode="single"
+          value={selectedSchiedsrichterId}
+          onChange={handleSchiedsrichterSelection}>
+          <Label>Schiedsrichter</Label>
+          <Autocomplete.Trigger>
+            <Autocomplete.Value />
+            <Autocomplete.ClearButton type="button" />
+            <Autocomplete.Indicator />
+          </Autocomplete.Trigger>
+          <Autocomplete.Popover>
+            <Autocomplete.Filter filter={contains}>
+              <SearchField
+                name="schiedsrichterUI_search"
+                variant="secondary"
+                aria-label="Schiedsrichter suchen">
+                <SearchField.Group>
+                  <SearchField.SearchIcon />
+                  <SearchField.Input placeholder="Schiedsrichter finden..." />
+                  <SearchField.ClearButton />
+                </SearchField.Group>
+              </SearchField>
+              <ListBox>
+                {adminData.schiedsrichter.map((item) => (
+                  <ListBox.Item
+                    key={item.id}
+                    id={item.id}
+                    textValue={item.name}>
+                    {item.name}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Autocomplete.Filter>
+          </Autocomplete.Popover>
+          <Description>Der Schiedsrichter des Spiels</Description>
+        </Autocomplete>
 
-      {/** Mietpreis */}
-      <NumberField
-        minValue={0}
-        name="mietpreis"
-        defaultValue={spielData.mietpreis}
-        step={5}
-        formatOptions={{
-          currency: "EUR",
-          currencySign: "accounting",
-          style: "currency",
-        }}>
-        <Label>Mietpreis</Label>
-        <NumberField.Group>
-          <NumberField.DecrementButton />
-          <NumberField.Input className="w-[120px]" />
-          <NumberField.IncrementButton />
-        </NumberField.Group>
-        <Description>Der Mietpreis für das Feld</Description>
-      </NumberField>
+        {/** Schiedsrichter Entschädigung */}
+        <NumberField
+          minValue={0}
+          name="schiedsrichterPaymentUI"
+          value={schiedsrichterPayment}
+          onChange={setSchiedsrichterPayment}
+          step={5}
+          formatOptions={{
+            currency: "EUR",
+            currencySign: "accounting",
+            style: "currency",
+          }}>
+          <Label>Entschädigung</Label>
+          <NumberField.Group>
+            <NumberField.DecrementButton />
+            <NumberField.Input className="w-full" />
+            <NumberField.IncrementButton />
+          </NumberField.Group>
+          <Description>Die Entschädigung für den Schiedsrichter</Description>
+        </NumberField>
+      </div>
 
       <Separator />
 
       {/** Team 1 */}
-      <div className="flex flex-col gap-y-4 size-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
+      <div className="flex flex-col gap-y-4 w-full h-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
         <Autocomplete
           isRequired
           name="nameTeam1UI"
-          className="w-[256px]"
+          className="w-full"
           placeholder="Name Team1"
           selectionMode="single"
           value={nameTeam1}
@@ -263,13 +415,12 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
           <Label>Team 1</Label>
           <Autocomplete.Trigger>
             <Autocomplete.Value />
-            <Autocomplete.ClearButton />
+            <Autocomplete.ClearButton type="button" />
             <Autocomplete.Indicator />
           </Autocomplete.Trigger>
           <Autocomplete.Popover>
             <Autocomplete.Filter filter={contains}>
               <SearchField
-                autoFocus
                 name="nameTeam1UI_search"
                 variant="secondary"
                 aria-label="Name Team1 suchen">
@@ -280,7 +431,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
                 </SearchField.Group>
               </SearchField>
               <ListBox>
-                {teams.map((item) => (
+                {adminData.teams.map((item) => (
                   <ListBox.Item
                     key={item.name}
                     id={item.name}
@@ -301,21 +452,18 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
             value={tbdNameTeam1}
             onChange={setTbdNameTeam1}>
             <Label className="text-quaternary-light dark:text-quaternary-dark">TBD Beschreibung</Label>
-            <Input
-              placeholder="z.B. Sieger 26."
-              autoFocus
-            />
+            <Input placeholder="z.B. Sieger 26." />
             <Description>Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.</Description>
           </TextField>
         )}
       </div>
 
       {/** Team 2 */}
-      <div className="flex flex-col gap-y-4 w-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
+      <div className="flex flex-col gap-y-4 w-full h-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
         <Autocomplete
           isRequired
           name="nameTeam2UI"
-          className="w-[256px]"
+          className="w-full"
           placeholder="Name Team2"
           selectionMode="single"
           value={nameTeam2}
@@ -324,13 +472,12 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
           <Label>Team 2</Label>
           <Autocomplete.Trigger>
             <Autocomplete.Value />
-            <Autocomplete.ClearButton />
+            <Autocomplete.ClearButton type="button" />
             <Autocomplete.Indicator />
           </Autocomplete.Trigger>
           <Autocomplete.Popover>
             <Autocomplete.Filter filter={contains}>
               <SearchField
-                autoFocus
                 name="nameTeam2UI_search"
                 variant="secondary"
                 aria-label="Name Team2 suchen">
@@ -341,7 +488,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
                 </SearchField.Group>
               </SearchField>
               <ListBox>
-                {teams.map((item) => (
+                {adminData.teams.map((item) => (
                   <ListBox.Item
                     key={item.name}
                     id={item.name}
@@ -362,10 +509,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
             value={tbdNameTeam2}
             onChange={setTbdNameTeam2}>
             <Label className="text-quaternary-light dark:text-quaternary-dark">TBD Beschreibung</Label>
-            <Input
-              placeholder="z.B. Sieger 26."
-              autoFocus
-            />
+            <Input placeholder="z.B. Sieger 26." />
             <Description>Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.</Description>
           </TextField>
         )}
@@ -444,6 +588,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
 
       <Separator />
 
+      {/** Form buttons */}
       <div className="flex flex-row items-center justify-evenly w-full h-fit">
         <Button
           className="rounded-xl text-fluid-base font-bold p-4"

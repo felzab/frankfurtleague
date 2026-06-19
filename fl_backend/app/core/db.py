@@ -63,3 +63,11 @@ async def get_teams_collection(db: AsyncIOMotorDatabase = Depends(get_database))
 
 async def get_saisons_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
     return db.saisons
+
+
+async def get_spielorte_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+    return db.spielorte
+
+
+async def get_schiedsrichter_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+    return db.schiedsrichter

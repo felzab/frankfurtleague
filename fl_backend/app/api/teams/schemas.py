@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Mapping, Union
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
 from app.api.spieler.schemas import FLSpieler
+from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom_types import CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -20,14 +21,6 @@ class FLTeamStatistik(BaseModel):
     punkte: int = 0
 
 
-class FLTeamAddress(BaseModel):
-    strasse: str
-    hausnummer: str
-    plz: str = Field(min_length=5, max_length=5)
-    stadtteil: str
-    stadt: str
-
-
 class FLTeam(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
 
@@ -40,7 +33,7 @@ class FLTeam(BaseModel):
     description: str
     full_name: str
     website_url: str
-    address: FLTeamAddress
+    address: FLAddress
 
 
 class FLTeamCompact(BaseModel):
@@ -49,7 +42,7 @@ class FLTeamCompact(BaseModel):
     name: str
     statistik: FLTeamStatistik
     shorthand: str = Field(min_length=2, max_length=2)
-    address: FLTeamAddress
+    address: FLAddress
 
 
 class FLTeamWithSpieler(FLTeam):

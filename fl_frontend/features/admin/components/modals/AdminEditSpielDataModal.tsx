@@ -25,7 +25,7 @@ export default function AdminEditSpielDataModal({
           <Modal.Header className="shrink-0">
             <Modal.Heading className="text-fluid-base font-extrabold tracking-tight pb-5">Spielinformationen bearbeiten</Modal.Heading>
           </Modal.Header>
-          <Modal.Body className="flex-1 text-text-black dark:text-text-white overflow-y-scroll scrollbar-hide">
+          <Modal.Body className="flex-1 text-text-black dark:text-text-white overflow-y-scroll scrollbar-hide p-0">
             <AdminEditSpielDataForm
               spielData={spielData}
               onClose={onClose}

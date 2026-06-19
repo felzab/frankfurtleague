@@ -23,7 +23,7 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
     : null;
 
   const spielDatum = spielData?.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : null;
-  const mapUrl = spielData?.ort ? `https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(spielData.ort)}` : "";
+  const mapUrl = spielData?.ort ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spielData.ort.maps_link)}` : "";
 
   return (
     <Modal.Backdrop
@@ -79,7 +79,7 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-semibold text-quaternary-light dark:text-quaternary-dark hover:underline">
-                        {spielData.ort}
+                        {spielData.ort.name}
                       </Link>
                     ) : (
                       <p className="font-semibold text-zinc-900 dark:text-zinc-100">/</p>
@@ -88,7 +88,7 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
                   {/** Schiedsrichter */}
                   <div>
                     <h4 className="text-zinc-500">Schiedsrichter</h4>
-                    <p className="font-semibold text-zinc-900 dark:text-zinc-100">{spielData.schiedsrichter ?? "/"}</p>
+                    <p className="font-semibold text-zinc-900 dark:text-zinc-100">{spielData.schiedsrichter?.name ?? "/"}</p>
                   </div>
                 </div>
               </Modal.Body>

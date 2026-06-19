@@ -1,4 +1,5 @@
 import type { BaseAPIResponse } from "@/core/api";
+import type { FLAddress } from "@/shared/types/sharedTypes";
 
 export type FLTeamsSortingOptions = "name";
 
@@ -23,13 +24,6 @@ export interface FLTeamStatistik {
   punkte: number;
 }
 
-export interface FLTeamAddress {
-  strasse: string;
-  hausnummer: string;
-  plz: string;
-  stadtteil: string;
-  stadt: string;
-}
 export interface FLTeam {
   id: string;
   name: string;
@@ -41,7 +35,7 @@ export interface FLTeam {
   description: string;
   full_name: string;
   website_url: string;
-  address: FLTeamAddress;
+  address: FLAddress;
 }
 
 export interface FLTeamCompact {
@@ -49,7 +43,7 @@ export interface FLTeamCompact {
   name: string;
   statistik: FLTeamStatistik;
   shorthand: string;
-  address: FLTeamAddress;
+  address: FLAddress;
 }
 
 export interface FLTeamWithSpieler extends FLTeam {
