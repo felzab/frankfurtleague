@@ -1,8 +1,8 @@
 "use client";
 
 import { Tabs } from "@heroui/react";
-import type { FLSpielplan } from "../../types";
 import SpielCardsList from "../collections/SpielCardsList";
+import type { FLSpielplan } from "@/features/spieltage/schemas";
 
 export default function SpielplanView({ spielplanData }: { spielplanData: FLSpielplan }) {
   return (

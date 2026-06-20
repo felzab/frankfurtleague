@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { FLSpiel } from "../../types";
 import SpielCard from "../SpielCard";
 import SpielDetailsModal from "../modals/SpielDetailsModal";
+import type { FLSpiel } from "../../schemas";
 
 export default function SpielCardsList({ spiele, onAdminEdit }: { spiele: FLSpiel[]; onAdminEdit?: (spiel: FLSpiel) => void }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);

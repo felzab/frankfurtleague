@@ -58,6 +58,6 @@ def parse_string_to_oid(v: str) -> ObjectId:
 CustomRouteObjectId = Annotated[str, AfterValidator(parse_string_to_oid)]
 
 
-CustomStrDate = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True)]
+CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True)]
 
-CustomStrTime = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]
+CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]

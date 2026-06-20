@@ -1,4 +1,4 @@
-import type { SidemenuStructure } from "@/shared/types/sharedTypes";
+import type { SidemenuStructure } from "@/shared/types";
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure = [
   {
@@ -15,3 +15,5 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure = [
     ],
   },
 ];
+
+export const TBD_TEAM_SHORTHAND = "??";

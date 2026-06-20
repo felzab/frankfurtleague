@@ -2,14 +2,14 @@
 
 import { Button, Card } from "@heroui/react";
 import { ArrowUturnCwLeft } from "@gravity-ui/icons";
-import type { FLTeam } from "../../types";
-import type { FLSpiel } from "@/features/spiele/types";
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
 import Link from "next/link";
 import { formatAddress } from "@/shared/utils/utils";
 import { sortByDate } from "@/shared/utils/utils";
 import { useRouter } from "next/navigation";
+import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLTeam } from "../../schemas";
 
 function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: string }) {
   // Map results to valid semantic colors

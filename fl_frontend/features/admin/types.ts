@@ -1,12 +1,9 @@
-import type { FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamField } from "../spiele/types";
+import type { FLSchiedsrichter } from "../schiedsrichter/schemas";
+import type { FLSpielort } from "../spielorte/schemas";
+import type { FLTeam } from "../teams/schemas";
 
-export interface PatchAdminSpielDataPayload {
-  datum: string;
-  uhrzeit: string;
-  ort: FLSpielOrtField;
-  schiedsrichter: FLSpielSchiedsrichterField;
-  team1: FLSpielTeamField;
-  team2: FLSpielTeamField;
-  spiel_id: string;
-  is_canceled: boolean;
+export interface AdminContext {
+  spielorte: FLSpielort[];
+  schiedsrichter: FLSchiedsrichter[];
+  teams: FLTeam[];
 }

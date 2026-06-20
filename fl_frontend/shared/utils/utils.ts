@@ -1,4 +1,4 @@
-import type { FLAddress } from "../types/sharedTypes";
+import type { FLAddress } from "../schemas";
 
 export function typedObjectEntries<T extends object>(obj: T) {
   return Object.entries(obj) as Array<[keyof T, T[keyof T]]>;

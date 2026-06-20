@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Fuse from "fuse.js";
 import { Input } from "@heroui/react";
-import type { FLSpiel } from "../../types";
+import type { FLSpiel } from "../../schemas";
 
 export default function SpielsucheView({
   spiele,

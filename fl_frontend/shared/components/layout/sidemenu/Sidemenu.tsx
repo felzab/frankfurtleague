@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import React, { Suspense, useState } from "react";
 import { Button, Separator } from "@heroui/react";
 import { LayoutSideContentLeft } from "@gravity-ui/icons";
-import type { SidemenuStructure } from "@/shared/types/sharedTypes";
+import type { SidemenuStructure } from "@/shared/types";
 
 export default function Sidemenu({
   structure,

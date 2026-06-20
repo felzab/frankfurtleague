@@ -1,6 +1,7 @@
 import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
-import type { FLSpielorteFilterParams, FLSpielorteListResponse } from "./types";
+import type { FLSpielorteFilterParams } from "./types";
+import { type FLSpielorteListResponse, FLSpielorteListResponseSchema } from "./schemas";
 
 export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promise<FLSpielorteListResponse> {
   "use cache";
@@ -9,7 +10,7 @@ export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promi
   cacheTag(...tags);
   cacheLife("days");
 
-  return apiClient<FLSpielorteListResponse>("/spielorte", {
+  return apiClient<FLSpielorteListResponse>("/spielorte", FLSpielorteListResponseSchema, {
     params: filters as Record<string, string | number | boolean>,
   });
 }

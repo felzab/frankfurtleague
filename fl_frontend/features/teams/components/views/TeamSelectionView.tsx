@@ -1,5 +1,5 @@
+import type { FLTeamCompact } from "../../schemas";
 import TeamsGrid from "../collections/TeamsGrid";
-import type { FLTeamCompact } from "../../types";
 
 export function TeamSelectionView({
   title,

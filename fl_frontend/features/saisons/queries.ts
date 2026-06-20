@@ -1,8 +1,9 @@
 import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
-import type { FLSaisonsFilterParams, FLSaisonsListResponse, FLSaisonsSingleResponse } from "./types";
+import { type FLSaisonListResponse, FLSaisonListResponseSchema, type FLSaisonsSingleResponse, FLSaisonsSingleResponseSchema } from "./schemas";
+import type { FLSaisonsFilterParams } from "./types";
 
-export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonsListResponse> {
+export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonListResponse> {
   "use cache";
 
   const tags: string[] = ["saisons"];
@@ -12,7 +13,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
   cacheTag(...tags);
   cacheLife("days");
 
-  return apiClient<FLSaisonsListResponse>("/saisons", {
+  return apiClient<FLSaisonListResponse>("/saisons", FLSaisonListResponseSchema, {
     params: filters as Record<string, string | number | boolean>,
   });
 }
@@ -23,5 +24,5 @@ export async function getCurrentSeason(): Promise<FLSaisonsSingleResponse> {
   cacheTag("saisons", "saisons:current");
   cacheLife("days");
 
-  return apiClient<FLSaisonsSingleResponse>("/saisons/current");
+  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema);
 }

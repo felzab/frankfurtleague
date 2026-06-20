@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import BaseModel, model_validator
 
 from app.api.spiele.schemas import FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamField
-from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate, CustomStrTime
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString
 
 
 class UpdateGameDataCallBody(BaseModel):
@@ -13,8 +13,8 @@ class UpdateGameDataCallBody(BaseModel):
     team1: FLSpielTeamField
     team2: FLSpielTeamField
 
-    datum: CustomStrDate | None
-    uhrzeit: CustomStrTime | None
+    datum: CustomDateString | None
+    uhrzeit: CustomTimeString | None
     ort: FLSpielOrtField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
 

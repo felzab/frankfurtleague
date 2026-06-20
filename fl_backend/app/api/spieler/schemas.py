@@ -2,7 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from app.shared.schemas.custom_types import CustomObjectId
+from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.responses import BaseAPIResponse
 
 FLSpielerSortOptions = Literal["vorname", "nachname", "stufe", "nummer", "position"]
 
@@ -33,5 +34,5 @@ class FLSpielerFilterParams(BaseModel):
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
-class FLSpielerListResponse(BaseModel):
+class FLSpielerListResponse(BaseAPIResponse):
     spieler: list[FLSpieler]

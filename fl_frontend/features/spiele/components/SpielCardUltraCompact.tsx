@@ -1,8 +1,8 @@
 "use client";
 
 import { Card } from "@heroui/react";
-import type { FLSpiel } from "../types";
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import type { FLSpiel } from "../schemas";
 
 export default function SpielCardUltraCompact({ spielData, onClick }: { spielData: FLSpiel; onClick: () => void }) {
   const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";

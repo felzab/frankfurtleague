@@ -1,6 +1,7 @@
 import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
-import type { FLSpielerFilterParams, FLSpielerListResponse } from "./types";
+import { type FLSpielerListResponse, FLSpielerListResponseSchema } from "./schemas";
+import type { FLSpielerFilterParams } from "./types";
 
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
   "use cache";
@@ -15,7 +16,7 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
   cacheTag(...tags);
   cacheLife("days");
 
-  return apiClient<FLSpielerListResponse>("/spieler", {
+  return apiClient<FLSpielerListResponse>("/spieler", FLSpielerListResponseSchema, {
     params: filters as Record<string, string | number | boolean>,
   });
 }

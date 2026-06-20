@@ -15,16 +15,3 @@ export type FormState = {
   success: boolean;
   error?: string;
 } | null;
-
-export interface FLAddress {
-  strasse: string;
-  hausnummer: string;
-  plz: string;
-  stadtteil: string;
-  stadt: string;
-}
-
-export interface FLKontakt {
-  telefon: string | null;
-  email: string | null;
-}

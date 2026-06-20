@@ -1,4 +1,4 @@
-import type { FLSpielStatus } from "./types";
+import type { FLSpielStatus } from "./schemas";
 
 export const computeSpielStatus = ({
   datum,

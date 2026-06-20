@@ -1,6 +1,6 @@
 "use client";
 
-import type { FLSpiel } from "../types";
+import type { FLSpiel } from "../schemas";
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 
 export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) {

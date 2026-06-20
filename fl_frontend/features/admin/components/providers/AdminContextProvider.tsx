@@ -1,18 +1,12 @@
 "use client";
 
 import { createContext, useContext, ReactNode } from "react";
-import type { FLTeam } from "@/features/teams/types";
-import { FLSpielort } from "@/features/spielorte/types";
-import { FLSchiedsrichter } from "@/features/schiedsrichter/types";
+import type { AdminContext } from "../../types";
+import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLTeam } from "@/features/teams/schemas";
 
-const AdminContext = createContext<
-  | {
-      spielorte: FLSpielort[];
-      schiedsrichter: FLSchiedsrichter[];
-      teams: FLTeam[];
-    }
-  | undefined
->(undefined);
+const AdminContext = createContext<AdminContext | undefined>(undefined);
 
 export function useAdmin() {
   const context = useContext(AdminContext);

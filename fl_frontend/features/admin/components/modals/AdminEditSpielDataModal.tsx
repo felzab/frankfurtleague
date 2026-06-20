@@ -1,8 +1,8 @@
 "use client";
 
-import type { FLSpiel } from "@/features/spiele/types";
 import { Modal } from "@heroui/react";
-import AdminEditSpielDataForm from "../forms/AdminEditSpielDataForm";
+import AdminEditSpielDataForm from "../forms/AdminEditSpielDataForm/AdminEditSpielDataForm";
+import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function AdminEditSpielDataModal({
   spielData,

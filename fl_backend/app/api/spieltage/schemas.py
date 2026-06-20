@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, TypeAdapter
 
 from app.api.spiele.schemas import FLSaisonPhase
-from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate
+from app.shared.schemas.custom import CustomDateString, CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -11,8 +11,8 @@ class FLSpieltag(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
     name: str
 
-    beginn: CustomStrDate
-    ende: CustomStrDate
+    beginn: CustomDateString
+    ende: CustomDateString
     anzahl_spiele: int
     order_val: int
     saison_phase: FLSaisonPhase

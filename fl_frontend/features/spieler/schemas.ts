@@ -1,0 +1,20 @@
+import { BaseAPIResponseSchema } from "@/core/api";
+import { CustomObjectIdStringSchema } from "@/shared/schemas";
+import z from "zod";
+
+export const FLSpielerSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  vorname: z.string(),
+  nachname: z.string(),
+  stufe: z.string(),
+  nummer: z.string(),
+  position: z.string(),
+  nachgetragen: z.boolean(),
+  team_id: CustomObjectIdStringSchema,
+});
+export type FLSpieler = z.infer<typeof FLSpielerSchema>;
+
+export const FLSpielerListResponseSchema = BaseAPIResponseSchema.extend({
+  spieler: z.array(FLSpielerSchema),
+});
+export type FLSpielerListResponse = z.infer<typeof FLSpielerListResponseSchema>;

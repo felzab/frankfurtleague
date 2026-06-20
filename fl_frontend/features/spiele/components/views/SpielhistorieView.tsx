@@ -1,6 +1,6 @@
 "use client";
 
-import type { FLSpiel } from "../../types";
+import type { FLSpiel } from "../../schemas";
 import SpielCardsList from "../collections/SpielCardsList";
 
 export default function SpielhistorieView({ spielhistorieData }: { spielhistorieData: FLSpiel[] }) {

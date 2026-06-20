@@ -1,28 +1,19 @@
+import z from "zod";
 import { frontend_config } from "./config";
-import { APIBadStatusError, APINetworkError } from "./errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
 
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
+export const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;
 
-export interface BaseAPIResponse {
-  acknowledged: 0 | 1;
-  trace_id: string;
-}
-
-export interface APIExceptionReturn {
-  status_code: number;
-  error_code?: string;
-  error_message?: string;
-  detail?: string;
-}
+export const BaseAPIResponseSchema = z.object({ acknowledged: z.union([z.literal(0), z.literal(1)]), trace_id: z.string().optional() });
+export type BaseAPIResponse = z.infer<typeof BaseAPIResponseSchema>;
 
 export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin";
   timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined | null>; // Allow these types
 }
-
-export const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;
 
 export const getFetchHeaders = (type: "base" | "system" | "admin" = "base"): Record<string, string> => {
   const headers: Record<string, string> = {
@@ -47,10 +38,18 @@ export const getFetchHeaders = (type: "base" | "system" | "admin" = "base"): Rec
 };
 
 /** Boilerplate function which handles fetch responses */
-export const handleFetchResponse = async <T>({ res, traceId, endpoint }: { res: Response; traceId: string; endpoint: string }): Promise<T> => {
+export const handleFetchResponse = async ({
+  res,
+  traceId,
+  endpoint,
+}: {
+  res: Response;
+  traceId: string;
+  endpoint: string;
+}): Promise<unknown> => {
   if (res.ok) {
-    if (res.status === 204 || res.headers.get("content-length") === "0") return {} as T;
-    return res.json() as Promise<T>;
+    if (res.status === 204 || res.headers.get("content-length") === "0") return null;
+    return res.json();
   }
 
   const isJson = res.headers.get("content-type")?.includes("application/json");
@@ -74,7 +73,7 @@ export const handleFetchResponse = async <T>({ res, traceId, endpoint }: { res: 
   });
 };
 
-export const apiClient = async <T>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
+export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
   const traceId = `req_${crypto.randomUUID().substring(0, 8)}`; // Id for this fetch call
 
   const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, ...customOptions } = options;
@@ -112,5 +111,19 @@ export const apiClient = async <T>(endpoint: string, options: FetchOptions = {})
     });
   }
 
-  return handleFetchResponse<T>({ res: res, traceId: traceId, endpoint: endpoint });
+  const rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
+
+  const validated = schema.safeParse(rawData);
+  if (!validated.success) {
+    throw new APIMalformedDataError({
+      message: "API returned malformed data.",
+      url: res.url,
+      statusCode: res.status,
+      endpoint: endpoint,
+      traceId: traceId,
+      zodIssues: z.treeifyError(validated.error),
+    });
+  }
+
+  return validated.data;
 };

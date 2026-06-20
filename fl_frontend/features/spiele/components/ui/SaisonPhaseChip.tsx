@@ -1,4 +1,4 @@
-import type { FLSaisonPhase } from "@/features/saisons/types";
+import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import { Chip } from "@heroui/react";
 
 export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {

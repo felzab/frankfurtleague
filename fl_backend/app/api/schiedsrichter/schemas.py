@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from app.shared.schemas.custom_types import CustomObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.kontakt import FLKontakt
 from app.shared.schemas.responses import BaseAPIResponse
 

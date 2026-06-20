@@ -1,9 +1,9 @@
 "use client";
 
 import { Badge, Table } from "@heroui/react";
-import type { FLGruppen } from "../../types";
 import { typedObjectEntries } from "@/shared/utils/utils";
 import TeamPopoverMenu from "../TeamPopoverMenu";
+import type { FLGruppen } from "../../schemas";
 
 export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
   return (

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { FLTeamCompact } from "../../types";
 import TeamCard from "../TeamCard";
+import type { FLTeamCompact } from "../../schemas";
 export default function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]; urlPrefix: string }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

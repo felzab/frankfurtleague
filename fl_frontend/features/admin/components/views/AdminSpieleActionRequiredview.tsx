@@ -1,10 +1,10 @@
 "use client";
 
-import type { FLSpiel } from "@/features/spiele/types";
 import { ChevronsDownWide } from "@gravity-ui/icons";
 import { Accordion } from "@heroui/react";
 import AdminSpielCardList from "../collections/AdminSpielCardsList";
 import { useServerConfig } from "@/core/providers/ServerConfigProvider";
+import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function AdminSpieleActionRequiredView({ overviewSpiele }: { overviewSpiele: FLSpiel[] }) {
   const { today } = useServerConfig();

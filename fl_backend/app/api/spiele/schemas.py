@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from app.shared.schemas.custom_types import CustomObjectId, CustomStrDate, CustomStrTime
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
@@ -35,8 +35,8 @@ class FLSpiel(BaseModel):
     team1: FLSpielTeamField
     team2: FLSpielTeamField
 
-    datum: CustomStrDate | None
-    uhrzeit: CustomStrTime | None
+    datum: CustomDateString | None
+    uhrzeit: CustomTimeString | None
 
     ort: FLSpielOrtField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
@@ -56,8 +56,8 @@ class FLSpieltag(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
     name: str
 
-    beginn: CustomStrDate
-    ende: CustomStrDate
+    beginn: CustomDateString
+    ende: CustomDateString
     anzahl_spiele: int
     order_val: int
     saison_phase: FLSaisonPhase

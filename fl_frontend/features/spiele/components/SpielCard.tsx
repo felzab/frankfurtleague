@@ -1,11 +1,11 @@
 "use client";
 import { Button } from "@heroui/react";
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
-import type { FLSpiel } from "../types";
 import SpielStatusChip from "./ui/SpielStatusChip";
 import { useServerConfig } from "@/core/providers/ServerConfigProvider";
 import { computeSpielStatus } from "../utils";
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
+import type { FLSpiel } from "../schemas";
 
 export default function SpielCard({
   spielData,

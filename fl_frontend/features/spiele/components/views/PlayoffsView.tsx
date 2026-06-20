@@ -1,6 +1,7 @@
 "use client";
 
-import type { FLSpiel, FLSpieltagWithSpiele } from "../../types";
+import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
+import type { FLSpiel } from "../../schemas";
 import SpielDetailsModal from "../modals/SpielDetailsModal";
 import SpielCardUltraCompact from "../SpielCardUltraCompact";
 import { useState } from "react";

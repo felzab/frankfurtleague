@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from app.shared.schemas.custom_types import CustomStrDate
+from app.shared.schemas.custom import CustomDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonStatus = Literal["past", "active", "future"]
@@ -17,8 +17,8 @@ class FLSaisonRules(BaseModel):
 class FLSaison(BaseModel):
     id: str = Field(validation_alias="_id", serialization_alias="id")
 
-    start_date: CustomStrDate
-    end_date: CustomStrDate
+    start_date: CustomDateString
+    end_date: CustomDateString
     status: FLSaisonStatus
     rules: FLSaisonRules
 

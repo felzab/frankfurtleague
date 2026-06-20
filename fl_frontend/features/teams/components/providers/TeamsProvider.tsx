@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, ReactNode } from "react";
-import type { FLTeamCompact } from "@/features/teams/types";
+import type { FLTeamCompact } from "../../schemas";
 
 const TeamsContext = createContext<FLTeamCompact[] | undefined>(undefined);
 

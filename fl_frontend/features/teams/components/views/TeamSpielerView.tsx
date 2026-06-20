@@ -1,9 +1,9 @@
 "use client";
 
 import { Button, Table, Chip, Avatar } from "@heroui/react";
-import type { FLSpieler } from "../../types";
 import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 import { useRouter } from "next/navigation";
+import type { FLSpieler } from "@/features/spieler/schemas";
 
 export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpieler[] }) {
   const router = useRouter();

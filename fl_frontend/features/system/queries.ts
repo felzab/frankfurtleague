@@ -1,6 +1,13 @@
 import { cacheLife, cacheTag } from "next/cache";
-import type { CheckIsLiveReturn, CheckIsReadyReturn, GetSystemInfoReturn } from "./types";
 import { apiClient } from "@/core/api";
+import {
+  type CheckIsLiveReturn,
+  CheckIsLiveReturnSchema,
+  type CheckIsReadyReturn,
+  CheckIsReadyReturnSchema,
+  type GetSystemInfoReturn,
+  GetSystemInfoReturnSchema,
+} from "./schemas";
 
 export const checkIsLive = async (): Promise<CheckIsLiveReturn> => {
   "use cache";
@@ -8,7 +15,7 @@ export const checkIsLive = async (): Promise<CheckIsLiveReturn> => {
   cacheLife("minutes");
   cacheTag("system", "system:is_live");
 
-  return apiClient<CheckIsLiveReturn>("/system/is_live", { authType: "system" });
+  return apiClient<CheckIsLiveReturn>("/system/is_live", CheckIsLiveReturnSchema, { authType: "system" });
 };
 
 export const checkIsReady = async (): Promise<CheckIsReadyReturn> => {
@@ -16,7 +23,7 @@ export const checkIsReady = async (): Promise<CheckIsReadyReturn> => {
 
   cacheLife("minutes");
   cacheTag("system", "system:is_ready");
-  return apiClient<CheckIsReadyReturn>("/system/is_ready", { authType: "system" });
+  return apiClient<CheckIsReadyReturn>("/system/is_ready", CheckIsReadyReturnSchema, { authType: "system" });
 };
 
 export const getSystemInfo = async (): Promise<GetSystemInfoReturn> => {
@@ -24,5 +31,5 @@ export const getSystemInfo = async (): Promise<GetSystemInfoReturn> => {
 
   cacheLife("minutes");
   cacheTag("system", "system:info");
-  return apiClient<GetSystemInfoReturn>("/system/meta", { authType: "system" });
+  return apiClient<GetSystemInfoReturn>("/system/meta", GetSystemInfoReturnSchema, { authType: "system" });
 };

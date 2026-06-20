@@ -4,11 +4,11 @@ import { Modal, Separator } from "@heroui/react";
 
 import { CircleInfo } from "@gravity-ui/icons";
 import Link from "next/link";
-import type { FLSpiel, FLSpielStatus } from "../../types";
 import SpielStatusChip from "../ui/SpielStatusChip";
 import SaisonPhaseChip from "../ui/SaisonPhaseChip";
 import { useServerConfig } from "@/core/providers/ServerConfigProvider";
 import { computeSpielStatus } from "../../utils";
+import type { FLSpiel, FLSpielStatus } from "../../schemas";
 
 export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spielData: FLSpiel | null; isOpen: boolean; onClose: () => void }) {
   const { today } = useServerConfig();

@@ -1,5 +1,5 @@
 import { Card, Chip } from "@heroui/react";
-import type { FLTeamCompact } from "../types";
+import type { FLTeamCompact } from "../schemas";
 
 export default function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
   return (

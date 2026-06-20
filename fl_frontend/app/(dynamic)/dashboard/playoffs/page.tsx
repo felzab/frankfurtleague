@@ -1,7 +1,7 @@
 import PlayoffsView from "@/features/spiele/components/views/PlayoffsView";
 import { getSpiele } from "@/features/spiele/queries";
-import type { FLSpieltagWithSpiele } from "@/features/spiele/types";
 import { getSpieltage } from "@/features/spieltage/queries";
+import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/utils";
 import { Metadata } from "next";
 import { connection } from "next/server";

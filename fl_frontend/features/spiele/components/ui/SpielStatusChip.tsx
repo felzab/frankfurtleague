@@ -1,6 +1,6 @@
 import { Chip } from "@heroui/react";
 import { CircleCheckFill, CircleQuestion, Clock, XmarkShapeFill, Calendar } from "@gravity-ui/icons";
-import type { FLSpielStatus } from "../../types";
+import type { FLSpielStatus } from "../../schemas";
 
 export default function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus }) {
   const colorMap = {

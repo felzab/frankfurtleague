@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
 from app.api.spieler.schemas import FLSpieler
 from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.custom_types import CustomObjectId
+from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLGruppenNames = Literal["A", "B", "C", "D"]

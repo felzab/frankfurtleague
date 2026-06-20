@@ -1,70 +1,7 @@
-import type { BaseAPIResponse } from "@/core/api";
-import { FLSaisonPhase } from "../saisons/types";
+import type { FLSaisonPhase } from "../saisons/schemas";
+import type { FLSpielStatus } from "./schemas";
 
 export type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";
-export type FLSpielStatus = "ausstehend" | "vergangen" | "heute" | "abgesagt" | "unbekannt";
-
-export interface FLSpielTeamField {
-  team_id: string;
-  name: string;
-  tore: number | null;
-  shorthand: string;
-}
-
-export interface FLSpielOrtField {
-  spielort_id: string;
-  name: string;
-  maps_link: string;
-  mietpreis: number;
-}
-
-export interface FLSpielSchiedsrichterField {
-  schiedsrichter_id: string;
-  name: string;
-  payment: number;
-}
-
-export interface FLSpiel {
-  id: string;
-  spieltag_id: string;
-
-  team1: FLSpielTeamField;
-  team2: FLSpielTeamField;
-
-  datum: string | null;
-  uhrzeit: string | null;
-
-  ort: FLSpielOrtField | null;
-  schiedsrichter: FLSpielSchiedsrichterField | null;
-
-  ergebnis: string | null;
-
-  spiel_nr: number;
-  is_canceled: boolean;
-  saison_phase: FLSaisonPhase;
-}
-
-export interface FLSpielWithChipData extends FLSpiel {
-  status: FLSpielStatus;
-}
-
-export interface FLSpieltag {
-  id: string;
-  name: string;
-  beginn: string;
-  ende: string;
-  anzahl_spiele: number;
-  order_val: number;
-  saison_phase: FLSaisonPhase;
-}
-
-export interface FLSpieltagWithSpiele extends FLSpieltag {
-  spiele: FLSpiel[];
-}
-
-export interface FLSpielplan {
-  spieltage: FLSpieltagWithSpiele[];
-}
 
 export interface FLSpieleFilterParams {
   saison_id?: string;
@@ -75,7 +12,4 @@ export interface FLSpieleFilterParams {
   limit?: number;
   sort_by?: FLSpieleSortingOptions;
   order?: "asc" | "desc";
-}
-export interface FLSpieleListResponse extends BaseAPIResponse {
-  spiele: FLSpiel[];
 }
