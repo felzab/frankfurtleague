@@ -7,7 +7,7 @@ x-logging: &default-logging
 
 services:
   frontend:
-    env_file: .env.frontend
+    env_file: ./fl_frontend/.env
     image: felzab/frankfurtleague:frontend
     restart: unless-stopped
     networks:
@@ -32,7 +32,7 @@ services:
           memory: '512M'
 
   backend:
-    env_file: .env.backend
+    env_file: ./fl_backend/.env
     image: felzab/frankfurtleague:backend
     restart: unless-stopped
     networks:
