@@ -1,9 +1,13 @@
 "use client";
 
 import { ChevronsDownWide } from "@gravity-ui/icons";
-import { Accordion } from "@heroui/react";
-import AdminSpielCardList from "../collections/AdminSpielCardsList";
+
 import { useServerConfig } from "@/core/providers/ServerConfigProvider";
+
+import { Accordion } from "@heroui/react";
+
+import AdminSpielCardList from "../collections/AdminSpielCardsList";
+
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function AdminSpieleActionRequiredView({ overviewSpiele }: { overviewSpiele: FLSpiel[] }) {
@@ -39,14 +43,14 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele }: { over
   });
 
   return (
-    <Accordion className="flex flex-col h-full w-[98%] max-w-[1550px] p-2 gap-y-2 text-text-black dark:text-text-white overflow-y-scroll scrollbar-hide">
+    <Accordion className="text-text-black dark:text-text-white scrollbar-hide flex h-full w-[98%] max-w-[1550px] flex-col gap-y-2 overflow-y-scroll p-2">
       {Object.entries(spieleCategories).map(([category, data]) => (
         <Accordion.Item key={category}>
           <Accordion.Heading>
-            <Accordion.Trigger className="w-full px-3 py-4 rounded-2xl bg-primary-light dark:bg-primary-dark border-2 border-quaternary-light dark:border-quaternary-dark">
+            <Accordion.Trigger className="bg-primary-light dark:bg-primary-dark border-quaternary-light dark:border-quaternary-dark w-full rounded-2xl border-2 px-3 py-4">
               <div className="flex flex-col gap-0">
                 <span className="text-fluid-lg font-bold tracking-tighter">{data.name}</span>
-                <span className="text-fluid-xxs font-normal tracking-tighter text-muted/80 whitespace-normal leading-normal">{data.desc}</span>
+                <span className="text-fluid-xxs text-muted/80 leading-normal font-normal tracking-tighter whitespace-normal">{data.desc}</span>
               </div>
               <Accordion.Indicator>
                 <ChevronsDownWide />
@@ -55,7 +59,7 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele }: { over
           </Accordion.Heading>
 
           <Accordion.Panel>
-            <Accordion.Body className="flex flex-col items-center w-full pt-4 pb-10 overflow-y-scroll scrollbar-hide px-0">
+            <Accordion.Body className="scrollbar-hide flex w-full flex-col items-center overflow-y-scroll px-0 pt-4 pb-10">
               <AdminSpielCardList spiele={data.spiele} />
 
               {data.spiele.length === 0 && <span className="text-fluid-base"> Alles passt!</span>}

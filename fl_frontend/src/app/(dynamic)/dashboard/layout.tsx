@@ -1,8 +1,10 @@
+import { Suspense } from "react";
+
 import { DASHBOARD_SIDEMENU_STRUCTURE } from "@/features/dashboard/constants";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import Sidemenu from "@/shared/components/layout/sidemenu/Sidemenu";
-import { Metadata } from "next";
-import { Suspense } from "react";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: { default: "Saisonübersicht", template: "%s | Frankfurt-League" },
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex flex-col xl:flex xl:flex-row h-full w-full">
+    <div className="relative flex h-full w-full flex-col xl:flex xl:flex-row">
       <Sidemenu
         structure={DASHBOARD_SIDEMENU_STRUCTURE}
         linkPrefix="/dashboard"
@@ -24,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       />
 
       {/* Right-side content */}
-      <main className="relative flex flex-col justify-start items-center min-w-0 w-full min-h-dvh h-auto p-1 bg-primary-light dark:bg-primary-dark pb-20">
+      <main className="bg-primary-light dark:bg-primary-dark relative flex h-auto min-h-dvh w-full min-w-0 flex-col items-center justify-start p-1 pb-20">
         <Suspense>{children}</Suspense>
       </main>
     </div>

@@ -1,5 +1,6 @@
-import { BaseAPIResponseSchema } from "@/core/api";
 import z from "zod";
+
+import { BaseAPIResponseSchema } from "@/core/api";
 
 export const CheckIsLiveReturnSchema = BaseAPIResponseSchema.extend({
   status: z.literal("ok"),

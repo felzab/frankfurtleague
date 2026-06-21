@@ -1,5 +1,6 @@
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import { Chip } from "@heroui/react";
+
+import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
 export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {
   const colorMap = {
@@ -115,7 +116,7 @@ export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaison
       size="sm"
       variant="primary"
       color={colorMap[saisonPhase]}
-      className="w-fit text-fluid-xxs! font-extrabold tracking-wide py-0.5 px-1.5 lg:px-2 text-text-black brightness-95">
+      className="text-fluid-xxs! text-text-black w-fit px-1.5 py-0.5 font-extrabold tracking-wide brightness-95 lg:px-2">
       {iconMap[saisonPhase]}
       {saisonPhase.toUpperCase()}
     </Chip>

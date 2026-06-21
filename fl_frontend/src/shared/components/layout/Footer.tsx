@@ -1,12 +1,13 @@
-import Link from "next/link";
-import Image from "next/image";
 import { Suspense } from "react";
+import Image from "next/image";
+import Link from "next/link";
+
 import ServerIsLife from "@/features/system/components/ServerIsLive";
 
 export default async function Footer() {
   return (
-    <article className="flex flex-col items-center justify-between w-full h-full px-1">
-      <aside className="flex flex-row items-center justify-evenly gap-x-6 py-2 text-text-black dark:text-text-white text-fluid-md font-secondary font-semibold">
+    <article className="flex h-full w-full flex-col items-center justify-between px-1">
+      <aside className="text-text-black dark:text-text-white text-fluid-md font-secondary flex flex-row items-center justify-evenly gap-x-6 py-2 font-semibold">
         <Link
           prefetch={false}
           title="Link to page: about"
@@ -39,7 +40,7 @@ export default async function Footer() {
             width={38}
             height={38}
             title="Threads (X) logo link"
-            className="w-[38px] h-[38px] block dark:hidden"
+            className="block h-[38px] w-[38px] dark:hidden"
           />
           <Image
             src={"/icons/footer/threads/threads_logo_white.svg"}
@@ -47,7 +48,7 @@ export default async function Footer() {
             width={38}
             height={38}
             title="Threads (X) logo link"
-            className="w-[38px] h-[38px] hidden dark:block"
+            className="hidden h-[38px] w-[38px] dark:block"
           />
         </Link>
         <Link
@@ -62,7 +63,7 @@ export default async function Footer() {
             width={38}
             height={38}
             title="Github logo link"
-            className="w-[38px] h-[38px] block dark:hidden"
+            className="block h-[38px] w-[38px] dark:hidden"
           />
           <Image
             src={"/icons/footer/github/github_logo_white.svg"}
@@ -70,7 +71,7 @@ export default async function Footer() {
             width={38}
             height={38}
             title="Github logo link"
-            className="w-[38px] h-[38px] hidden dark:block"
+            className="hidden h-[38px] w-[38px] dark:block"
           />
         </Link>
         <Link
@@ -102,7 +103,7 @@ export default async function Footer() {
           />
         </Link>
       </aside>
-      <aside className="flex flex-row items-end justify-between w-full text-fluid-xxs">
+      <aside className="text-fluid-xxs flex w-full flex-row items-end justify-between">
         <h3 className="text-left">{`© Frankfurtleague All rights reserved.`}</h3>
         <Suspense fallback={<span className="text-gray-400 opacity-80">Checking...</span>}>
           <ServerIsLife />

@@ -1,6 +1,10 @@
-import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
-import { type FLSaisonListResponse, FLSaisonListResponseSchema, type FLSaisonsSingleResponse, FLSaisonsSingleResponseSchema } from "./schemas";
+
+import { apiClient } from "@/core/api";
+
+import { FLSaisonListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
+
+import type { FLSaisonListResponse, FLSaisonsSingleResponse } from "./schemas";
 import type { FLSaisonsFilterParams } from "./types";
 
 export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonListResponse> {

@@ -1,11 +1,14 @@
 "use client";
 
-import { Dropdown, Label, Separator } from "@heroui/react";
 import Link from "next/link";
-import { Session } from "next-auth";
 
-import { CircleInfo, Bars, Eye, Persons, At, Pencil } from "@gravity-ui/icons";
+import { At, Bars, CircleInfo, Eye, Pencil, Persons } from "@gravity-ui/icons";
+
+import { Dropdown, Label, Separator } from "@heroui/react";
+
 import ThemeSwitch from "../../ui/ThemeSwitch";
+
+import type { Session } from "next-auth";
 
 export default function TopNavLinksDropdown({ session }: { session: Session | null }) {
   return (
@@ -17,7 +20,7 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
           width={32}></Bars>
       </Dropdown.Trigger>
       <Dropdown.Popover className="w-full lg:w-fit">
-        <Dropdown.Menu className="text-text-black dark:text-text-white font-semibold text-fluid-sm">
+        <Dropdown.Menu className="text-text-black dark:text-text-white text-fluid-sm font-semibold">
           {/** Primary links, only shown in this dropdown on mobile */}
           <Dropdown.Item
             id="dashboard"
@@ -29,7 +32,7 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
               href="/dashboard"
               className="flex w-full items-center justify-between">
               Saisonübersicht
-              <Eye className="w-[16px] h-[16px]" />
+              <Eye className="h-[16px] w-[16px]" />
             </Link>
           </Dropdown.Item>
 
@@ -98,7 +101,7 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
             textValue="Theme-switch"
             shouldCloseOnSelect={false}
             className="flex w-full items-center justify-between">
-            <Label className="text-text-black dark:text-text-white font-semibold text-fluid-sm">Modus</Label>
+            <Label className="text-text-black dark:text-text-white text-fluid-sm font-semibold">Modus</Label>
 
             <ThemeSwitch />
           </Dropdown.Item>

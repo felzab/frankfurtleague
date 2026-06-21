@@ -1,8 +1,10 @@
 "use server";
 
-import { signIn } from "@/core/auth";
-import { AuthError } from "next-auth";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
+
+import { AuthError } from "next-auth";
+
+import { signIn } from "@/core/auth";
 
 type FormState =
   | {

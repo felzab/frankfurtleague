@@ -1,5 +1,6 @@
-import type { FLTeamCompact } from "../../schemas";
 import TeamsGrid from "../collections/TeamsGrid";
+
+import type { FLTeamCompact } from "../../schemas";
 
 export function TeamSelectionView({
   title,
@@ -14,9 +15,9 @@ export function TeamSelectionView({
 }) {
   return (
     <>
-      <div className="flex flex-col mb-8 gap-y-2 p-2">
+      <div className="mb-8 flex flex-col gap-y-2 p-2">
         <h3 className="text-fluid-lg lg:text-fluid-xl font-extrabold tracking-tight">{title}</h3>
-        <p className="text-fluid-xs whitespace-normal w-[80%]">{description}</p>
+        <p className="text-fluid-xs w-[80%] whitespace-normal">{description}</p>
       </div>
 
       <TeamsGrid

@@ -1,6 +1,7 @@
-import { BaseAPIResponseSchema } from "@/core/api";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import z from "zod";
+
+import { BaseAPIResponseSchema } from "@/core/api";
 
 export const FLSpielerSchema = z.object({
   id: CustomObjectIdStringSchema,

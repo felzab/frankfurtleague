@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import SpielCard from "../SpielCard";
+
 import SpielDetailsModal from "../modals/SpielDetailsModal";
+import SpielCard from "../SpielCard";
+
 import type { FLSpiel } from "../../schemas";
 
 export default function SpielCardsList({ spiele, onAdminEdit }: { spiele: FLSpiel[]; onAdminEdit?: (spiel: FLSpiel) => void }) {

@@ -1,5 +1,7 @@
+import { Calendar, CircleCheckFill, CircleQuestion, Clock, XmarkShapeFill } from "@gravity-ui/icons";
+
 import { Chip } from "@heroui/react";
-import { CircleCheckFill, CircleQuestion, Clock, XmarkShapeFill, Calendar } from "@gravity-ui/icons";
+
 import type { FLSpielStatus } from "../../schemas";
 
 export default function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus }) {
@@ -24,7 +26,7 @@ export default function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielS
       size="sm"
       variant="primary"
       color={colorMap[spielStatus]}
-      className="w-fit text-fluid-xxs! font-extrabold tracking-wide py-0.5 px-1.5 lg:px-2 text-text-black brightness-95">
+      className="text-fluid-xxs! text-text-black w-fit px-1.5 py-0.5 font-extrabold tracking-wide brightness-95 lg:px-2">
       {iconMap[spielStatus]}
       {spielStatus.toUpperCase()}
     </Chip>

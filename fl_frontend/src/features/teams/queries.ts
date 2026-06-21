@@ -1,7 +1,11 @@
-import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
+
+import { apiClient } from "@/core/api";
+
+import { FLTeamsResponseSchema } from "./schemas";
+
+import type { FLTeamsResponse } from "./schemas";
 import type { FLTeamsFilterParams } from "./types";
-import { FLTeamsResponseSchema, type FLTeamsResponse } from "./schemas";
 
 export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
   "use cache";

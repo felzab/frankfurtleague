@@ -1,13 +1,10 @@
 import { cacheLife, cacheTag } from "next/cache";
+
 import { apiClient } from "@/core/api";
-import {
-  type CheckIsLiveReturn,
-  CheckIsLiveReturnSchema,
-  type CheckIsReadyReturn,
-  CheckIsReadyReturnSchema,
-  type GetSystemInfoReturn,
-  GetSystemInfoReturnSchema,
-} from "./schemas";
+
+import { CheckIsLiveReturnSchema, CheckIsReadyReturnSchema, GetSystemInfoReturnSchema } from "./schemas";
+
+import type { CheckIsLiveReturn, CheckIsReadyReturn, GetSystemInfoReturn } from "./schemas";
 
 export const checkIsLive = async (): Promise<CheckIsLiveReturn> => {
   "use cache";

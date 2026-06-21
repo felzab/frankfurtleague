@@ -1,10 +1,14 @@
 import "./globals.css";
+
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { Inter, Krub } from "next/font/google";
-import TopNav from "@/shared/components/layout/topnav/TopNav";
+
 import Footer from "@/shared/components/layout/Footer";
+import TopNav from "@/shared/components/layout/topnav/TopNav";
+
 import RootProviders from "@/core/providers/RootProviders";
+
+import type { Metadata } from "next";
 
 /** Fonts */
 const inter = Inter({

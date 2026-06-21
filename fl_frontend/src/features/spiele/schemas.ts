@@ -1,7 +1,9 @@
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 import z from "zod";
-import { FLSaisonPhaseSchema } from "../saisons/schemas";
+
 import { BaseAPIResponseSchema } from "@/core/api";
+
+import { FLSaisonPhaseSchema } from "../saisons/schemas";
 
 export const FLSpielStatusSchema = z.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"], { error: "FLSpielStatus is invalid" });
 export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;

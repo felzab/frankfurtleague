@@ -1,14 +1,17 @@
 "use client";
 
-import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
 import { useActionState, useEffect, useState } from "react";
+
+import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
+
 import { patchAdminSpielDataAction } from "../../../actions";
 import { useAdmin } from "../../providers/AdminContextProvider";
 import FormDateTimeSection from "./FormDateTimeSection";
-import FormSpielortSection from "./FormSpielortSection";
-import FormSchiedsrichterSection from "./FormSchiedsrichterSection";
-import type { FLSpiel, FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamField } from "@/features/spiele/schemas";
 import FormMatchupSection from "./FormMatchupSection";
+import FormSchiedsrichterSection from "./FormSchiedsrichterSection";
+import FormSpielortSection from "./FormSpielortSection";
+
+import type { FLSpiel, FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamField } from "@/features/spiele/schemas";
 
 export default function AdminEditSpielDataForm({ spielData, onClose }: { spielData: FLSpiel; onClose: () => void }) {
   const adminData = useAdmin();
@@ -51,7 +54,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
 
   return (
     <Form
-      className="flex flex-col gap-y-6 min-h-full"
+      className="flex min-h-full flex-col gap-y-6"
       action={handleFormSubmit}>
       <Separator className="bg-quinary-light dark:bg-quinary-dark" />
 
@@ -62,13 +65,13 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         autoFocus={false}
         isSelected={spielIsCanceled}
         onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
-        <Switch.Content className="flex flex-row items-center justify-between w-full h-fit text-fluid-sm text-red-500">
+        <Switch.Content className="text-fluid-sm flex h-fit w-full flex-row items-center justify-between text-red-500">
           Spiel absagen
           <Switch.Control className={`${spielIsCanceled ? "bg-red-500" : ""}`}>
             <Switch.Thumb />
           </Switch.Control>
         </Switch.Content>
-        <Description className="px-0 text-fluid-xxs whitespace-normal leading-normal font-light">
+        <Description className="text-fluid-xxs px-0 leading-normal font-light whitespace-normal">
           Wird dieser Schalter umgelegt, so wird das Spiel als abgesagt eingetragen. Dies kann zurückgesetzt werden, indem der Schalter zurück
           umgelegt wird.
         </Description>
@@ -109,16 +112,16 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       <Separator className="bg-quinary-light dark:bg-quinary-dark" />
 
       {/** Buttons */}
-      <div className="flex flex-row items-center justify-evenly w-full h-fit">
+      <div className="flex h-fit w-full flex-row items-center justify-evenly">
         <Button
-          className="rounded-xl text-fluid-base font-bold p-4"
+          className="text-fluid-base rounded-xl p-4 font-bold"
           variant="primary"
           type="submit"
           isPending={isPending}>
           Speichern
         </Button>
         <Button
-          className="rounded-xl text-fluid-base font-bold p-4"
+          className="text-fluid-base rounded-xl p-4 font-bold"
           variant="secondary"
           type="button"
           onPress={onClose}

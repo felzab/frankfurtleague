@@ -1,10 +1,12 @@
-import type { FLSpiel } from "@/features/spiele/schemas";
-import { Calendar, DateField, DatePicker, Description, Label, TimeField } from "@heroui/react";
 import { parseDate, parseTime } from "@internationalized/date";
+
+import { Calendar, DateField, DatePicker, Description, Label, TimeField } from "@heroui/react";
+
+import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
   return (
-    <div className="flex flex-col gap-y-4 w-full h-fit p-3 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border border-zinc-200 dark:border-zinc-700/50">
+    <div className="flex h-fit w-full flex-col gap-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700/50 dark:bg-zinc-800/30">
       {/** Spieldatum */}
       <DatePicker
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}

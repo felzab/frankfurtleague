@@ -1,7 +1,9 @@
+import { connection } from "next/server";
+
 import SpielhistorieView from "@/features/spiele/components/views/SpielhistorieView";
 import { getSpiele } from "@/features/spiele/queries";
-import { Metadata } from "next";
-import { connection } from "next/server";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Spielhistorie",

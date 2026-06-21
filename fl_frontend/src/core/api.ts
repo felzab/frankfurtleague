@@ -1,4 +1,5 @@
 import z from "zod";
+
 import { frontend_config } from "./config";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
 

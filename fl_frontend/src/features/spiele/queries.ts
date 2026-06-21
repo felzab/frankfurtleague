@@ -1,6 +1,10 @@
-import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
-import { FLSpieleListResponseSchema, type FLSpieleListResponse } from "./schemas";
+
+import { apiClient } from "@/core/api";
+
+import { FLSpieleListResponseSchema } from "./schemas";
+
+import type { FLSpieleListResponse } from "./schemas";
 import type { FLSpieleFilterParams } from "./types";
 
 export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {

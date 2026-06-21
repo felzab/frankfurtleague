@@ -1,8 +1,12 @@
-import type { FLSpielTeamField } from "@/features/spiele/schemas";
-import { Description, Label, NumberField, Switch } from "@heroui/react";
 import { useState } from "react";
-import { FormTeamPicker } from "./FormTeamPicker";
+
 import { TBD_TEAM_SHORTHAND } from "@/features/admin/constants";
+
+import { Description, Label, NumberField, Switch } from "@heroui/react";
+
+import { FormTeamPicker } from "./FormTeamPicker";
+
+import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
 export default function FormMatchupSection({
@@ -73,13 +77,13 @@ export default function FormMatchupSection({
         autoFocus={false}
         isSelected={ergebnisCanBeEdited}
         onChange={handleErgebnisCanBeEditedToggle}>
-        <Switch.Content className="flex flex-row items-center justify-between w-full h-fit text-fluid-sm">
+        <Switch.Content className="text-fluid-sm flex h-fit w-full flex-row items-center justify-between">
           Spielergebnis eintragen
           <Switch.Control>
             <Switch.Thumb />
           </Switch.Control>
         </Switch.Content>
-        <Description className="px-0 text-fluid-xxs whitespace-normal leading-normal font-light">
+        <Description className="text-fluid-xxs px-0 leading-normal font-light whitespace-normal">
           Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis
           zurückgesetzt.
         </Description>
@@ -118,16 +122,16 @@ export default function FormMatchupSection({
       </NumberField>
 
       {/** Ergebniskontrolle */}
-      <div className="flex flex-col items-center w-full h-fit ">
-        <h4 className="w-full h-fit text-fluid-base text-green-400 font-extrabold">Kontrolle:</h4>
+      <div className="flex h-fit w-full flex-col items-center">
+        <h4 className="text-fluid-base h-fit w-full font-extrabold text-green-400">Kontrolle:</h4>
 
-        <p className="w-full h-fit text-fluid-xs">
+        <p className="text-fluid-xs h-fit w-full">
           {`Ergebnis: ${team1Name ?? "Team1"}: ${isNaN(team1Tore) ? "/" : team1Tore} --- ${isNaN(team2Tore) ? "/" : team2Tore} :${team2Name ?? "Team2"}`}
         </p>
         {isNaN(team1Tore) || isNaN(team2Tore) ? (
-          <p className="w-full h-fit text-fluid-xs font-bold">/</p>
+          <p className="text-fluid-xs h-fit w-full font-bold">/</p>
         ) : (
-          <p className="w-full h-fit text-fluid-xs font-bold">
+          <p className="text-fluid-xs h-fit w-full font-bold">
             {team1Tore === team2Tore && "Unentschieden"}
             {team1Tore > team2Tore && `Sieg für ${team1Name}`}
             {team2Tore > team1Tore && `Sieg für ${team2Name}`}

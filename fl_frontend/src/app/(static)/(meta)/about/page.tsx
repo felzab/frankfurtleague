@@ -1,5 +1,6 @@
 import AboutView from "@/features/meta/components/views/AboutView";
-import { Metadata } from "next";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "About",

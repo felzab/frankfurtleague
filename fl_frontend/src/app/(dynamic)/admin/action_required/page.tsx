@@ -1,6 +1,7 @@
+import { connection } from "next/server";
+
 import AdminSpieleActionRequiredView from "@/features/admin/components/views/AdminSpieleActionRequiredView";
 import { getAdminSpieleActionRequired } from "@/features/admin/queries";
-import { connection } from "next/server";
 
 export default async function adminOverviewPage() {
   await connection();

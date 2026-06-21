@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 import dynamic from "next/dynamic";
+
+import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
+
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 const AdminEditSpielDataModal = dynamic(() => import("../modals/AdminEditSpielDataModal"), { ssr: false });

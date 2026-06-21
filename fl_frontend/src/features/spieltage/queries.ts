@@ -1,7 +1,11 @@
-import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
+
+import { apiClient } from "@/core/api";
+
+import { FLSpieltageListResponseSchema } from "./schemas";
+
+import type { FLSpieltageListResponse } from "./schemas";
 import type { FLSpieltageFilterParams } from "./types";
-import { type FLSpieltageListResponse, FLSpieltageListResponseSchema } from "./schemas";
 
 export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
   "use cache";

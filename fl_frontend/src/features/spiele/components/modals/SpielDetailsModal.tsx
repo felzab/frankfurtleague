@@ -1,13 +1,17 @@
 "use client";
 
-import { Modal, Separator } from "@heroui/react";
+import Link from "next/link";
 
 import { CircleInfo } from "@gravity-ui/icons";
-import Link from "next/link";
-import SpielStatusChip from "../ui/SpielStatusChip";
-import SaisonPhaseChip from "../ui/SaisonPhaseChip";
+
 import { useServerConfig } from "@/core/providers/ServerConfigProvider";
+
+import { Modal, Separator } from "@heroui/react";
+
 import { computeSpielStatus } from "../../utils";
+import SaisonPhaseChip from "../ui/SaisonPhaseChip";
+import SpielStatusChip from "../ui/SpielStatusChip";
+
 import type { FLSpiel, FLSpielStatus } from "../../schemas";
 
 export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spielData: FLSpiel | null; isOpen: boolean; onClose: () => void }) {
@@ -37,29 +41,29 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
           {spielData && (
             <>
               <Modal.Header className="gap-y-2 pb-4">
-                <div className="flex flex-row w-full justify-start items-center gap-x-2">
+                <div className="flex w-full flex-row items-center justify-start gap-x-2">
                   <Modal.Heading className={`text-fluid-xl font-extrabold`}>{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
                   <Modal.Icon className="size-6">
                     <CircleInfo className="size-full" />
                   </Modal.Icon>
                 </div>
-                <div className="flex flex-row items-center justify-start w-fullt h-fit gap-x-2">
+                <div className="w-fullt flex h-fit flex-row items-center justify-start gap-x-2">
                   <SpielStatusChip spielStatus={spielStatus as FLSpielStatus} />
                   <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
                 </div>
               </Modal.Header>
               <Modal.Body className="text-text-black dark:text-text-white">
                 {/* Teams area */}
-                <div className="flex flex-col items-center justify-center h-fit py-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
-                  <span className="text-fluid-xl font-bold ">{spielData.team1.name}</span>
-                  <span className="text-fluid-sm text-zinc-500 my-1">vs</span>
-                  <span className="text-fluid-xl font-bold ">{spielData.team2.name}</span>
+                <div className="flex h-fit flex-col items-center justify-center rounded-xl bg-zinc-50 py-4 dark:bg-zinc-800/50">
+                  <span className="text-fluid-xl font-bold">{spielData.team1.name}</span>
+                  <span className="text-fluid-sm my-1 text-zinc-500">vs</span>
+                  <span className="text-fluid-xl font-bold">{spielData.team2.name}</span>
                 </div>
 
                 <Separator className="my-4 h-[2px]" />
 
                 {/* Details Grid */}
-                <div className="grid grid-cols-2 gap-4 text-fluid-sm whitespace-normal">
+                <div className="text-fluid-sm grid grid-cols-2 gap-4 whitespace-normal">
                   {/** Datum */}
                   <div>
                     <h4 className="text-zinc-500">Datum</h4>
@@ -78,7 +82,7 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
                         href={mapUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-semibold text-quaternary-light dark:text-quaternary-dark hover:underline">
+                        className="text-quaternary-light dark:text-quaternary-dark font-semibold hover:underline">
                         {spielData.ort.name}
                       </Link>
                     ) : (

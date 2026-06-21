@@ -1,8 +1,10 @@
+import { connection } from "next/server";
+
 import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 import SpielsucheView from "@/features/spiele/components/views/SpielsucheView";
 import { getSpiele } from "@/features/spiele/queries";
-import { Metadata } from "next";
-import { connection } from "next/server";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Spielsuche",

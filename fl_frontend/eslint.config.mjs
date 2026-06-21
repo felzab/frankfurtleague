@@ -1,39 +1,27 @@
-import { defineConfig, globalIgnores } from "eslint/config";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
-import tailwind from "eslint-plugin-tailwindcss";
+import { defineConfig, globalIgnores } from "eslint/config";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  ...tailwind.configs["flat/recommended"],
   {
     plugins: {
-      tailwindcss: tailwind,
+      "@typescript-eslint": tsPlugin,
     },
     rules: {
       "react/no-unescaped-entities": "off",
-      "@next/next/no-page-custom-font": "off",
-
-      // Tailwind specific tweaks
-      "tailwindcss/classnames-order": "off",
-      "tailwindcss/no-custom-classname": "off", // Essential for Hero UI v3 custom data attributes
-    },
-    settings: {
-      tailwindcss: {
-        config: false,
-      },
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        {
+          prefer: "type-imports",
+          fixStyle: "separate-type-imports",
+        },
+      ],
     },
   },
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-    "node_modules/",
-  ]),
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/"]),
 ]);
 
 export default eslintConfig;

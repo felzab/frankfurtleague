@@ -1,5 +1,6 @@
 import { CustomObjectIdStringSchema, FLAddressSchema } from "@/shared/schemas";
 import z from "zod";
+
 import { FLSpielerSchema } from "../spieler/schemas";
 
 export const FLTeamStatistikSchema = z.object({

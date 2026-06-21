@@ -1,8 +1,10 @@
 "use client";
 
-import { Badge, Popover, Separator } from "@heroui/react";
 import Link from "next/link";
+
 import { CircleInfo, Persons } from "@gravity-ui/icons";
+
+import { Badge, Popover, Separator } from "@heroui/react";
 
 export default function TeamPopoverMenu({
   teamName,
@@ -22,7 +24,7 @@ export default function TeamPopoverMenu({
       onPointerDown={(e) => e.stopPropagation()}>
       <Popover>
         <Popover.Trigger>
-          <button className="relative flex items-center w-fit text-left cursor-pointer outline-none hover:opacity-70 transition-opacity">
+          <button className="relative flex w-fit cursor-pointer items-center text-left transition-opacity outline-none hover:opacity-70">
             <Badge.Anchor className="w-fit">{children}</Badge.Anchor>
           </button>
         </Popover.Trigger>
@@ -32,27 +34,27 @@ export default function TeamPopoverMenu({
           offset={10}>
           <Popover.Dialog>
             <Popover.Arrow />
-            <Popover.Heading className="flex flex-row justify-between w-full text-fluid-base font-bold">
+            <Popover.Heading className="text-fluid-base flex w-full flex-row justify-between font-bold">
               {teamName}
               {teamIsDisqualified && <span className="text-danger">DQ</span>}
             </Popover.Heading>
             <Separator
               orientation="horizontal"
-              className=" bg-text-black dark:bg-text-white brightness-75 mt-2"
+              className="bg-text-black dark:bg-text-white mt-2 brightness-75"
             />
             {/* Links / Actions */}
-            <div className="flex flex-col items-center size-full gap-y-3 text-fluid-sm pt-3 pr-2">
+            <div className="text-fluid-sm flex size-full flex-col items-center gap-y-3 pt-3 pr-2">
               <Link
                 prefetch={false}
                 href={`/dashboard/teams/${teamId}`}
-                className="flex flex-row items-center gap-x-2 w-full font-semibold">
+                className="flex w-full flex-row items-center gap-x-2 font-semibold">
                 <CircleInfo /> <span className="text-quaternary-light dark:text-quaternary-dark">Team-Details</span>
               </Link>
 
               <Link
                 prefetch={false}
                 href={`/dashboard/spieler/${teamId}`}
-                className="flex flex-row items-center gap-x-2 w-full font-semibold ">
+                className="flex w-full flex-row items-center gap-x-2 font-semibold">
                 <Persons /> <span className="text-quaternary-light dark:text-quaternary-dark">Spieler / Kader</span>
               </Link>
             </div>

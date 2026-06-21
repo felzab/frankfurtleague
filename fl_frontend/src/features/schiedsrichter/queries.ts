@@ -1,7 +1,11 @@
-import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
+
+import { apiClient } from "@/core/api";
+
+import { FLSchiedsrichterListResponseSchema } from "./schemas";
+
+import type { FLSchiedsrichterListResponse } from "./schemas";
 import type { FLSchiedsrichterFilterParams } from "./types";
-import { FLSchiedsrichterListResponseSchema, type FLSchiedsrichterListResponse } from "./schemas";
 
 export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = {}): Promise<FLSchiedsrichterListResponse> {
   "use cache";

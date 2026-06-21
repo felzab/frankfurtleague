@@ -1,7 +1,8 @@
 "use client";
 
-import { Toast } from "@heroui/react";
 import { ThemeProvider } from "next-themes";
+
+import { Toast } from "@heroui/react";
 
 interface AppProvidersProps {
   children: React.ReactNode;

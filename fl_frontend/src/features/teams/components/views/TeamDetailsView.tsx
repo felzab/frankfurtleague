@@ -1,13 +1,15 @@
 "use client";
 
-import { Button, Card } from "@heroui/react";
-import { ArrowUturnCwLeft } from "@gravity-ui/icons";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
-import Link from "next/link";
-import { formatAddress } from "@/shared/utils/utils";
-import { sortByDate } from "@/shared/utils/utils";
-import { useRouter } from "next/navigation";
+import { formatAddress, sortByDate } from "@/shared/utils/utils";
+import { ArrowUturnCwLeft } from "@gravity-ui/icons";
+
+import { Button, Card } from "@heroui/react";
+
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLTeam } from "../../schemas";
 
@@ -27,7 +29,7 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
   };
 
   return (
-    <div className="relative border-l-2 border-dashed border-primary-light dark:border-quinary-dark ml-2">
+    <div className="border-primary-light dark:border-quinary-dark relative ml-2 border-l-2 border-dashed">
       {sortByDate({ arr: spiele, key: "datum" }).map((spielData) => {
         const teamIdx = teamId === spielData.team1.team_id ? 0 : 1;
         const splitErgebnis = spielData.ergebnis && spielData.ergebnis.split(":");
@@ -46,9 +48,9 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
         return (
           <div
             key={spielData.id}
-            className="mb-8 pl-6 relative">
+            className="relative mb-8 pl-6">
             <div
-              className={`absolute left-[-11px] top-1 size-[20px] rounded-full ring-4 ${getBadgeColor(result)} flex items-center justify-center text-[10px] font-bold`}>
+              className={`absolute top-1 left-[-11px] size-[20px] rounded-full ring-4 ${getBadgeColor(result)} flex items-center justify-center text-[10px] font-bold`}>
               {result}
             </div>
 
@@ -66,19 +68,19 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
   const formattedTeamAddress = formatAddress(teamData.address);
   const teamMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formattedTeamAddress)}`;
   return (
-    <div className="flex flex-col gap-y-8 w-full animate-in fade-in slide-in-from-bottom-4 duration-400 ">
+    <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-y-8 duration-400">
       {/* Back Navigation Button */}
       <Button
         onPress={() => {
           router.back();
         }}
-        className="bg-quaternary-light dark:bg-quaternary-dark size-fit text-fluid-xs -mb-5 brightness-95 px-2 lg:px-3 py-1 ">
-        <ArrowUturnCwLeft className="w-[16px]! h-[16px]!" />
+        className="bg-quaternary-light dark:bg-quaternary-dark text-fluid-xs -mb-5 size-fit px-2 py-1 brightness-95 lg:px-3">
+        <ArrowUturnCwLeft className="h-[16px]! w-[16px]!" />
         Zurück
       </Button>
 
       {/* Header Info */}
-      <div className="flex flex-col gap-y-0.5 w-full h-fit">
+      <div className="flex h-fit w-full flex-col gap-y-0.5">
         <h3 className="text-fluid-xl lg:text-fluid-xl font-extrabold tracking-tight">{teamData.name}</h3>
         {/* Offizieller Schulname */}
         {teamData.full_name && <p className="text-fluid-sm font-semibold">{teamData.full_name}</p>}
@@ -88,7 +90,7 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
           rel="noopener noreferrer"
           prefetch={false}
           href={teamData.website_url}
-          className="text-fluid-xs font-semibold text-quaternary-light dark:text-quaternary-dark hover:underline">
+          className="text-fluid-xs text-quaternary-light dark:text-quaternary-dark font-semibold hover:underline">
           🌐Zur Schul-Website
         </Link>
 
@@ -96,15 +98,15 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
           href={teamMapUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-fluid-xs truncate font-semibold text-quaternary-light dark:text-quaternary-dark hover:underline">
+          className="text-fluid-xs text-quaternary-light dark:text-quaternary-dark truncate font-semibold hover:underline">
           📍{formattedTeamAddress}
         </Link>
         <ExpandableDescription text={teamData.description} />
       </div>
 
       {/* Saison Stats - Using variant="secondary" for the inner-panel look */}
-      <h4 className="text-fluid-lg font-bold -mb-2">Saisonstatistik</h4>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <h4 className="text-fluid-lg -mb-2 font-bold">Saisonstatistik</h4>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {[
           { label: "Spiele", value: teamData.statistik.anzahl_gespielte_spiele },
           {
@@ -117,27 +119,27 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
           <Card
             key={i}
             variant="secondary"
-            className="shadow-none border-none">
-            <Card.Content className="text-center py-4">
-              <p className="text-xs text-default-500 uppercase tracking-wider mb-1">{stat.label}</p>
-              <p className="text-xl font-bold font-secondary">{stat.value}</p>
+            className="border-none shadow-none">
+            <Card.Content className="py-4 text-center">
+              <p className="text-default-500 mb-1 text-xs tracking-wider uppercase">{stat.label}</p>
+              <p className="font-secondary text-xl font-bold">{stat.value}</p>
             </Card.Content>
           </Card>
         ))}
         <Card
           key={5}
           variant="secondary"
-          className=" hidden lg:block shadow-none border-none">
-          <Card.Content className="text-center py-4">
-            <p className="text-xs text-default-500 uppercase tracking-wider mb-1">Punkte</p>
-            <p className="text-xl font-bold font-secondary">{teamData.statistik.punkte}</p>
+          className="hidden border-none shadow-none lg:block">
+          <Card.Content className="py-4 text-center">
+            <p className="text-default-500 mb-1 text-xs tracking-wider uppercase">Punkte</p>
+            <p className="font-secondary text-xl font-bold">{teamData.statistik.punkte}</p>
           </Card.Content>
         </Card>
       </div>
 
       {/* Games Timeline */}
       <div className="mt-4 size-full">
-        <h5 className="text-fluid-lg font-bold mb-6">Saisonspiele</h5>
+        <h5 className="text-fluid-lg mb-6 font-bold">Saisonspiele</h5>
         <SaisonSpieleTimeline
           spiele={teamSpiele}
           teamId={teamData.id}

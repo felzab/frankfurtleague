@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+
 import { checkIsLive } from "../queries";
 
 export default async function ServerIsLive() {
@@ -9,7 +10,7 @@ export default async function ServerIsLive() {
   });
 
   return (
-    <span className={`text-right text-fluid-xxs opacity-80 ${ping?.acknowledged ? "text-green-500" : "text-red-500"}`}>
+    <span className={`text-fluid-xxs text-right opacity-80 ${ping?.acknowledged ? "text-green-500" : "text-red-500"}`}>
       {`Server status: ${ping?.acknowledged ? "online" : "oFLine"}`}
     </span>
   );

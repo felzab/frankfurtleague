@@ -1,22 +1,23 @@
 import { Card, Chip } from "@heroui/react";
+
 import type { FLTeamCompact } from "../schemas";
 
 export default function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
   return (
     <Card
       variant="default"
-      className="flex flex-col items-start size-full border-1 hover:border-emerald-500/50 transition-all hover:scale-[1.02] shadow-lg hover:shadow-xl text-left">
-      <Card.Header className="flex flex-row items-center justify-between w-full h-fit pb-4">
+      className="flex size-full flex-col items-start border-1 text-left shadow-lg transition-all hover:scale-[1.02] hover:border-emerald-500/50 hover:shadow-xl">
+      <Card.Header className="flex h-fit w-full flex-row items-center justify-between pb-4">
         <div>
           <Card.Title className="text-fluid-base font-bold">{teamData.name}</Card.Title>
           <Card.Description className="text-fluid-xxs font-medium">{teamData.address.stadtteil}</Card.Description>
         </div>
-        <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-bold shrink-0">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
           {teamData.shorthand}
         </div>
       </Card.Header>
-      <Card.Content className="pt-0 mt-4">
-        <div className="flex flex-row gap-x-2 items-center">
+      <Card.Content className="mt-4 pt-0">
+        <div className="flex flex-row items-center gap-x-2">
           <Chip
             size="sm"
             variant="soft"

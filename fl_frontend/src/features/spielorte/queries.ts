@@ -1,7 +1,11 @@
-import { apiClient } from "@/core/api";
 import { cacheLife, cacheTag } from "next/cache";
+
+import { apiClient } from "@/core/api";
+
+import { FLSpielorteListResponseSchema } from "./schemas";
+
+import type { FLSpielorteListResponse } from "./schemas";
 import type { FLSpielorteFilterParams } from "./types";
-import { type FLSpielorteListResponse, FLSpielorteListResponseSchema } from "./schemas";
 
 export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promise<FLSpielorteListResponse> {
   "use cache";

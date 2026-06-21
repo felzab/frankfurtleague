@@ -1,7 +1,9 @@
 "use client";
 
 import { Modal } from "@heroui/react";
+
 import AdminEditSpielDataForm from "../forms/AdminEditSpielDataForm/AdminEditSpielDataForm";
+
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function AdminEditSpielDataModal({
@@ -20,12 +22,12 @@ export default function AdminEditSpielDataModal({
       onOpenChange={onClose}
       variant="blur">
       <Modal.Container placement="top">
-        <Modal.Dialog className="flex flex-col max-h-[90dvh] bg-primary-light dark:bg-primary-dark">
+        <Modal.Dialog className="bg-primary-light dark:bg-primary-dark flex max-h-[90dvh] flex-col">
           <Modal.CloseTrigger /> {/* Optional: Close button */}
           <Modal.Header className="shrink-0">
-            <Modal.Heading className="text-fluid-base font-extrabold tracking-tight pb-5">Spielinformationen bearbeiten</Modal.Heading>
+            <Modal.Heading className="text-fluid-base pb-5 font-extrabold tracking-tight">Spielinformationen bearbeiten</Modal.Heading>
           </Modal.Header>
-          <Modal.Body className="flex-1 text-text-black dark:text-text-white overflow-y-scroll scrollbar-hide p-0">
+          <Modal.Body className="text-text-black dark:text-text-white scrollbar-hide flex-1 overflow-y-scroll p-0">
             <AdminEditSpielDataForm
               spielData={spielData}
               onClose={onClose}

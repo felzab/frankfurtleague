@@ -1,8 +1,9 @@
-import NextAuth from "next-auth";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
+import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
-import client from "./db";
+
 import { frontend_config } from "./config";
+import client from "./db";
 
 const MONGO_DB_NAME = "authjs";
 

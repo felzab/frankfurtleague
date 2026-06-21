@@ -1,7 +1,9 @@
+import { connection } from "next/server";
+
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { getTeams } from "@/features/teams/queries";
-import { connection } from "next/server";
+
 import { AdminProvider } from "./AdminContextProvider";
 
 export default async function AdminContextWrapper({ children }: { children: React.ReactNode }) {

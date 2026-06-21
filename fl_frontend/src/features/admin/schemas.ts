@@ -1,5 +1,6 @@
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 import { z } from "zod";
+
 import { FLSpielOrtFieldSchema, FLSpielSchiedsrichterFieldSchema, FLSpielTeamFieldSchema } from "../spiele/schemas";
 
 export const AdminPatchSpielDataPayloadSchema = z.object({

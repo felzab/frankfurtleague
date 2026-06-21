@@ -1,10 +1,15 @@
 "use client";
-import { Button } from "@heroui/react";
+
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
-import SpielStatusChip from "./ui/SpielStatusChip";
+
 import { useServerConfig } from "@/core/providers/ServerConfigProvider";
+
+import { Button } from "@heroui/react";
+
 import { computeSpielStatus } from "../utils";
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
+import SpielStatusChip from "./ui/SpielStatusChip";
+
 import type { FLSpiel } from "../schemas";
 
 export default function SpielCard({
@@ -30,10 +35,10 @@ export default function SpielCard({
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-between gap-x-4 gap-y-6 w-full lg:w-[98%] max-w-[1000px] h-auto px-4 py-3 lg:px-5 lg:py-4 mb-2 rounded-3xl  bg-tertiary-light dark:bg-tertiary-dark ${
+      className={`bg-tertiary-light dark:bg-tertiary-dark relative mb-2 flex h-auto w-full max-w-[1000px] flex-col items-center justify-between gap-x-4 gap-y-6 rounded-3xl px-4 py-3 lg:w-[98%] lg:px-5 lg:py-4 ${
         spielStatus === "vergangen" && "opacity-85"
       }`}>
-      <div className="flex flex-row items-center justify-between w-full">
+      <div className="flex w-full flex-row items-center justify-between">
         {/* Datum/Uhrzeit */}
         <div className="flex flex-col">
           <span className="text-fluid-sm font-bold">{spielDatum}</span>
@@ -41,7 +46,7 @@ export default function SpielCard({
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center justify-end w-full gap-x-2">
+        <div className="flex w-full items-center justify-end gap-x-2">
           {onOpenAdminModal && (
             <Button
               isIconOnly
@@ -49,8 +54,8 @@ export default function SpielCard({
               onPress={onOpenAdminModal}
               size="md"
               variant="tertiary"
-              className="bg-quinary-light dark:bg-quinary-dark w-[40px] md:w-[45px] px-0">
-              <PencilToSquare className="w-5 h-5 px-0" />
+              className="bg-quinary-light dark:bg-quinary-dark w-[40px] px-0 md:w-[45px]">
+              <PencilToSquare className="h-5 w-5 px-0" />
             </Button>
           )}
           <Button
@@ -58,25 +63,25 @@ export default function SpielCard({
             onPress={onOpenInfoModal}
             size="md"
             variant="tertiary"
-            className="bg-quinary-light dark:bg-quinary-dark w-[40px] md:w-[45px] px-0">
-            <CircleExclamation className="w-5 h-5" />
+            className="bg-quinary-light dark:bg-quinary-dark w-[40px] px-0 md:w-[45px]">
+            <CircleExclamation className="h-5 w-5" />
           </Button>
         </div>
       </div>
 
       {/* Spielinfos */}
-      <div className="flex items-center justify-between w-full bg-quinary-light dark:bg-primary-dark/90 rounded-xl p-2 ">
-        <strong className="text-fluid-xs lg:text-fluid-md font-bold text-right flex-1 truncate ">{spielData.team1.name || "Team 1"}</strong>
+      <div className="bg-quinary-light dark:bg-primary-dark/90 flex w-full items-center justify-between rounded-xl p-2">
+        <strong className="text-fluid-xs lg:text-fluid-md flex-1 truncate text-right font-bold">{spielData.team1.name || "Team 1"}</strong>
 
         <span
-          className={`w-fit px-3 lg:px-4 text-center text-fluid-base font-extrabold ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
+          className={`text-fluid-base w-fit px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
           {spielErgebnis}
         </span>
 
-        <strong className="text-fluid-xs lg:text-fluid-md font-bold text-left flex-1 truncate">{spielData.team2.name || "Team 2"}</strong>
+        <strong className="text-fluid-xs lg:text-fluid-md flex-1 truncate text-left font-bold">{spielData.team2.name || "Team 2"}</strong>
       </div>
 
-      <div className="flex flex-row items-center justify-center w-full h-fit gap-x-2">
+      <div className="flex h-fit w-full flex-row items-center justify-center gap-x-2">
         <SpielStatusChip spielStatus={spielStatus} />
         <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
       </div>

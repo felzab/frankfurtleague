@@ -1,8 +1,9 @@
+import { notFound } from "next/navigation";
+import { connection } from "next/server";
+
 import { getSpiele } from "@/features/spiele/queries";
 import TeamDetailsView from "@/features/teams/components/views/TeamDetailsView";
 import { getTeams } from "@/features/teams/queries";
-import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 export default async function TeamDetailsPage({ params }: { params: Promise<{ team_id: string }> }) {
   await connection();

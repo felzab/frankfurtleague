@@ -1,7 +1,9 @@
+import { connection } from "next/server";
+
 import { TeamSelectionView } from "@/features/teams/components/views/TeamSelectionView";
 import { getTeams } from "@/features/teams/queries";
-import { Metadata } from "next";
-import { connection } from "next/server";
+
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Spieler",

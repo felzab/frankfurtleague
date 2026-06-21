@@ -1,7 +1,8 @@
 "use client";
 
-import type { FLSpiel } from "../schemas";
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
+
+import type { FLSpiel } from "../schemas";
 
 export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) {
   const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
@@ -9,11 +10,11 @@ export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) 
   const spielErgebnis = spielData.ergebnis ?? "-:-";
 
   return (
-    <div className="w-full flex flex-col gap-y-4 lg:flex-row p-3 justify-between items-center rounded-2xl transition-all duration-200 text-left bg-primary-light dark:bg-primary-dark">
+    <div className="bg-primary-light dark:bg-primary-dark flex w-full flex-col items-center justify-between gap-y-4 rounded-2xl p-3 text-left transition-all duration-200 lg:flex-row">
       {/* Metadata */}
-      <div className="flex flex-col items-left gap-y-1 gap-x-4 w-full h-fit text-fluid-sm lg:flex-row">
+      <div className="items-left text-fluid-sm flex h-fit w-full flex-col gap-x-4 gap-y-1 lg:flex-row">
         {/** Time/Date */}
-        <div className="flex flex-row items-center justify-evenly gap-x-2 w-fit h-full lg:flex-col lg:items-left font-bold ">
+        <div className="lg:items-left flex h-full w-fit flex-row items-center justify-evenly gap-x-2 font-bold lg:flex-col">
           <span className="w-full">{spielDatum}</span>
           <span className="lg:hidden">-</span>
           <span className="w-full">{spielUhrzeit}</span>
@@ -23,15 +24,15 @@ export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) 
       </div>
 
       {/* Bottom Row: Teams and Score */}
-      <div className="flex flex-row items-center justify-center lg:justify-end w-full gap-2">
-        <strong className="w-fit text-fluid-sm lg:text-fluid-md font-bold truncate ">{spielData.team1.name || "Team 1"}</strong>
+      <div className="flex w-full flex-row items-center justify-center gap-2 lg:justify-end">
+        <strong className="text-fluid-sm lg:text-fluid-md w-fit truncate font-bold">{spielData.team1.name || "Team 1"}</strong>
 
         <span
-          className={`w-fit px-1 lg:px-4 text-center text-fluid-base font-extrabold ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
+          className={`text-fluid-base w-fit px-1 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
           {spielErgebnis}
         </span>
 
-        <strong className="w-fit text-fluid-sm lg:text-fluid-md font-bold  truncate">{spielData.team2.name || "Team 2"}</strong>
+        <strong className="text-fluid-sm lg:text-fluid-md w-fit truncate font-bold">{spielData.team2.name || "Team 2"}</strong>
       </div>
     </div>
   );

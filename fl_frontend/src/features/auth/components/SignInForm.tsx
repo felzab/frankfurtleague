@@ -1,9 +1,11 @@
 "use client";
 
-import { Tabs, Input, Button, Form, TextField, Label, FieldError, toast } from "@heroui/react";
-
 import { useActionState, useEffect } from "react";
+
 import { Ban } from "@gravity-ui/icons";
+
+import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
+
 import { handleSignIn } from "../actions";
 
 export default function SignInForm() {
@@ -26,30 +28,30 @@ export default function SignInForm() {
   }, [state]);
 
   return (
-    <div className="relative flex-1 flex flex-col items-center justify-center w-full h-full">
-      <div className=" h-fit w-fit lg:min-w-[500px] p-10 m-3 rounded-3xl bg-secondary-light dark:bg-secondary-dark/50 border-1 border-white/10 shadow-lg">
-        <div className="flex flex-col items-center w-full h-full gap-y-2 pb-5">
+    <div className="relative flex h-full w-full flex-1 flex-col items-center justify-center">
+      <div className="bg-secondary-light dark:bg-secondary-dark/50 m-3 h-fit w-fit rounded-3xl border-1 border-white/10 p-10 shadow-lg lg:min-w-[500px]">
+        <div className="flex h-full w-full flex-col items-center gap-y-2 pb-5">
           <span className="text-5xl">⚽</span>
           <h2 className="text-fluid-xl font-bold tracking-tight text-green-500">Einloggen</h2>
-          <p className=" text-fluid-base italic ">Verwalte oder sehe Daten ein</p>
+          <p className="text-fluid-base italic">Verwalte oder sehe Daten ein</p>
         </div>
 
         <Tabs
           defaultSelectedKey="Admin"
-          className="w-full -h-fit">
+          className="-h-fit w-full">
           <Tabs.ListContainer className="rounded-xl p-1">
             <Tabs.List
               aria-label="Rolle auswählen"
               className="flex w-full">
               <Tabs.Tab
                 id="Admin"
-                className="min-h-[30px] lg:min-h-[45px] py-2 text-fluid-base font-semibold tracking-wide">
+                className="text-fluid-base min-h-[30px] py-2 font-semibold tracking-wide lg:min-h-[45px]">
                 Admin
                 <Tabs.Indicator />
               </Tabs.Tab>
               <Tabs.Tab
                 id="Spieler"
-                className="min-h-[30px] lg:min-h-[45px] py-2 text-fluid-base font-semibold tracking-wide">
+                className="text-fluid-base min-h-[30px] py-2 font-semibold tracking-wide lg:min-h-[45px]">
                 Spieler
                 <Tabs.Indicator />
               </Tabs.Tab>
@@ -60,9 +62,9 @@ export default function SignInForm() {
           <Tabs.Panel id="Admin">
             <Form
               action={formAction}
-              className="flex flex-col items-center justify-start gap-3 h-fit">
+              className="flex h-fit flex-col items-center justify-start gap-3">
               <TextField
-                className="w-full min-h-[110px]"
+                className="min-h-[110px] w-full"
                 isRequired
                 name="email"
                 type="email"
@@ -87,7 +89,7 @@ export default function SignInForm() {
               <Button
                 type="submit"
                 variant="primary"
-                className="w-full rounded-xl py-3 font-semibold text-fluid-base bg-green-500 hover:bg-green-400">
+                className="text-fluid-base w-full rounded-xl bg-green-500 py-3 font-semibold hover:bg-green-400">
                 Link senden
               </Button>
             </Form>
@@ -95,9 +97,9 @@ export default function SignInForm() {
 
           {/* Spieler Form */}
           <Tabs.Panel id="Spieler">
-            <Form className="flex flex-col items-center justify-start gap-3 h-fit">
+            <Form className="flex h-fit flex-col items-center justify-start gap-3">
               <TextField
-                className="w-full min-h-[110px]"
+                className="min-h-[110px] w-full"
                 isRequired
                 name="email"
                 type="email"
@@ -119,7 +121,7 @@ export default function SignInForm() {
                 isDisabled
                 type="submit"
                 variant="primary"
-                className="w-full rounded-xl py-3 font-semibold text-fluid-base bg-green-500 hover:bg-green-400">
+                className="text-fluid-base w-full rounded-xl bg-green-500 py-3 font-semibold hover:bg-green-400">
                 Link senden
               </Button>
             </Form>

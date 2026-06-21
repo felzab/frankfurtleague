@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
 import Fuse from "fuse.js";
+
 import { Input } from "@heroui/react";
+
 import type { FLSpiel } from "../../schemas";
 
 export default function SpielsucheView({
@@ -64,21 +67,19 @@ export default function SpielsucheView({
   }, [spielQuery, spiele, fuse]);
 
   return (
-    <div className="relative flex flex-col items-center justify-start w-full h-full px-2 py-1">
+    <div className="relative flex h-full w-full flex-col items-center justify-start px-2 py-1">
       <Input
         type="text"
         value={inputValue}
         placeholder="Suche nach Team, Ort, Datum..."
-        className="
-        sticky w-full lg:w-[90%] max-w-[1200px] h-fit p-3 rounded-lg border-1 border-quaternary-light dark:border-quaternary-dark bg-primary-light dark:bg-secondary-dark
-        focus-within:!ring-0 focus-within:!ring-offset-0 outline-none"
+        className="border-quaternary-light dark:border-quaternary-dark bg-primary-light dark:bg-secondary-dark sticky h-fit w-full max-w-[1200px] rounded-lg border-1 p-3 outline-none focus-within:!ring-0 focus-within:!ring-offset-0 lg:w-[90%]"
         onChange={(e) => setInputValue(e.target.value)}
       />
 
-      <div className="flex flex-col items-center justify-start w-full min-h-full pt-4 overflow-y-scroll scrollbar-hide">
-        {inputValue === "" ? <p className="text-center ">Noch keine Eingabe...</p> : <ListComponent spiele={filteredResults} />}
+      <div className="scrollbar-hide flex min-h-full w-full flex-col items-center justify-start overflow-y-scroll pt-4">
+        {inputValue === "" ? <p className="text-center">Noch keine Eingabe...</p> : <ListComponent spiele={filteredResults} />}
 
-        {filteredResults.length === 0 && <p className="text-center ">Keine Ergebnisse für "{spielQuery}"</p>}
+        {filteredResults.length === 0 && <p className="text-center">Keine Ergebnisse für "{spielQuery}"</p>}
       </div>
     </div>
   );
