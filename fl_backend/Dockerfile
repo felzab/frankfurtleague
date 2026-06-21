@@ -1,58 +1,53 @@
-# Stage 1: Builder
-# --------------------------------------------------------------------------------
-FROM python:3.14-alpine AS builder
+# Stage 1: Base -> Setup OS deps and package manager
+FROM python:3.14-alpine AS base
+
+# Install tini for proper PID 1 signal routing -> allows graceful shutdown
+RUN apk add --no-cache tini
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Prevent Python from writing .pyc files to disk
-ENV UV_COMPILE_BYTECODE=1
-# Force uv to copy files instead of hardlinking. Required when moving .venv across Docker stages.
-ENV UV_LINK_MODE=copy
 # Prevent Python from buffering stdout and stderr
 ENV PYTHONUNBUFFERED=1
+# Precompile Python bytecode during uv sync -> Faster container startup time
+ENV UV_COMPILE_BYTECODE=1
+# Force copy mode -> Prevents broken symlinks when moving .venv across stages
+ENV UV_LINK_MODE=copy
 
-WORKDIR /usr/build
+WORKDIR /app
 
-# Install build dependencies for C-extensions if needed
+# Stage 2: Builder -> Compile app
+FROM base AS builder
+
+# Install Alpine C-extension build dependencies
 RUN apk add --no-cache gcc musl-dev libffi-dev
 
+# Copy dependency manifests first -> Maximize Docker layer caching
 COPY pyproject.toml uv.lock ./
 
+# Install dependencies into .venv
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-install-project --no-dev
 
-# Copy application source code
 COPY . .
 
-# Run sync again to install the project itself into the .venv. Uses cache.
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+# Install the project itself into the existing .venv
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
-# Stage 2: Runner
-# --------------------------------------------------------------------------------
-FROM python:3.14-alpine AS runner
-
-# Prevent Python from writing .pyc files to disk
-ENV PYTHONDONTWRITEBYTECODE=1
-# Prevent Python from buffering stdout and stderr
-ENV PYTHONUNBUFFERED=1
-
-ENV PATH="/usr/build/.venv/bin:$PATH"
-
-WORKDIR /usr/fl_backend
-
+# Stage 3: Runner -> Runtime environment
+FROM base AS runner
 
 # Create a new user-group 'fl_api' and new user 'fl_api_user' with minimal permissions for safety
-RUN addgroup -S fl_api && \
-    adduser -S fl_api_user -G fl_api -h /usr/fl_backend -s /sbin/nologin
+RUN addgroup -S fl_api && adduser -S fl_api_user -G fl_api -h /usr/fl_backend -s /sbin/nologin
 
-# Copy the isolated .venv folder from builder instead of the global /install prefix. Maintain user permissions.
-COPY --from=builder --chown=fl_api_user:fl_api /usr/build/.venv /usr/build/.venv
+# Prepend virtual environment binaries to PATH -> Bypasses needing to activate .venv
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Set the correct permission for application code
+# Copy compiled .venv from builder. Assign correct ownership.
+COPY --from=builder --chown=fl_api_user:fl_api /app/.venv ./.venv
+
+# Copy application code. Exclude local configs via .dockerignore in practice.
 COPY --chown=fl_api_user:fl_api . .
 
 USER fl_api_user
-
 EXPOSE 8000
 
-CMD ["fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["tini", "--", "fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]

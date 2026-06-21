@@ -11,19 +11,20 @@ export const BaseAPIResponseSchema = z.object({ acknowledged: z.union([z.literal
 export type BaseAPIResponse = z.infer<typeof BaseAPIResponseSchema>;
 
 export interface FetchOptions extends RequestInit {
-  authType?: "base" | "system" | "admin";
+  authType?: "base" | "system" | "admin" | "none";
   timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined | null>; // Allow these types
 }
 
-export const getFetchHeaders = (type: "base" | "system" | "admin" = "base"): Record<string, string> => {
+export const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): Record<string, string> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   switch (type) {
+    case "none":
+      break;
     case "system":
-      // Pull strictly from validated environment configurations
       headers["Authorization"] = `Bearer ${frontend_config.INTERNAL_API_KEY_SYSTEM}`;
       break;
     case "admin":

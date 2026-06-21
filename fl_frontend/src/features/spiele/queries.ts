@@ -15,7 +15,7 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
   if (filters.spiel_status) tags.push(`spiele:status:${filters.spiel_status}`);
   if (filters.saison_id) tags.push(`spiele:saison_id:${filters.saison_id}`);
   cacheTag(...tags);
-  cacheLife("days");
+  cacheLife("hours");
 
   return apiClient("/spiele", FLSpieleListResponseSchema, {
     params: filters as Record<string, string | number | boolean>,

@@ -1,69 +1,65 @@
+# Stage 1: Base -> Setup OS deps and package manager
+FROM node:26-alpine3.24 AS base
 ARG PNPM_VERSION=11.8.0
 
+# Alpine requires libc6-compat for native C binaries (e.g., SWC, image optimization)
+# Install tini for proper PID 1 signal routing -> allows graceful shutdown
+RUN apk add --no-cache libc6-compat tini
+RUN npm install -g pnpm@${PNPM_VERSION}
 
-# Stage 1: Deps & Builder
-# --------------------------------------------------------------------------------
-FROM node:26-alpine3.24 AS builder
-ARG PNPM_VERSION
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+# Disable NextJS telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
+# Required by pnpm to bypass interactive prompts in Docker
+ENV CI=true
+
+# Stage 2: Deps -> Isolate dependency resolution
+FROM base AS deps
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
+
+# Stage 3: Builder -> Compile app
+FROM base AS builder
+WORKDIR /app
+
+# To prevent zod .env validation
+ENV SKIP_ENV_VALIDATION=true
+# To prevent crashes
+ENV MONGODB_URI=mongodb://localhost:27017/placeholder
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
+    pnpm run build
+
+# Stage 4: Runner -> Runtime environment
+FROM base AS runner
+WORKDIR /app
 
 # For performance, security and dependency management
 ENV NODE_ENV=production
-# So that the build does not crash (placeholder/dummy)
-ENV MONGODB_URI=mongodb://localhost:27017/placeholder
-# So that zod does not throw an error
-ENV SKIP_ENV_VALIDATION=true
-# Disables nextjs telemetry
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV CI=true
-
-# Compiled binaries in c won't run without this
-RUN apk add --no-cache libc6-compat
-WORKDIR /usr/fl_frontend
-
-# Install PNPM globally
-RUN npm install -g pnpm@${PNPM_VERSION}
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-
-COPY pnpm-lock.yaml ./
-# Fetch dependencies into the BuildKit cache
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
-
-# Copy package configs and install offline
-COPY package.json pnpm-workspace.yaml* ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
-
-COPY . .
-
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    --mount=type=cache,id=next-cache,target=/usr/fl_frontend/.next/cache \
-    pnpm run build
-
-# Stage 2: Runner
-# --------------------------------------------------------------------------------
-FROM node:26-alpine3.24 AS runner
-
-WORKDIR /usr/fl_frontend
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 # Create a new user-group 'nodejs' and new user 'nextjs' with minimal permissions for safety
 RUN addgroup -S --gid 1001 nodejs && \
-    adduser -S --uid 1001 nextjs -G nodejs -h /usr/fl_frontend -s /sbin/nologin
+    adduser -S --uid 1001 nextjs -G nodejs -s /sbin/nologin
 
 # Set the correct permission for prerender cache
 RUN mkdir .next && chown nextjs:nodejs .next
 
-# Extract only the things you need to run the application
-COPY --from=builder --chown=nextjs:nodejs /usr/fl_frontend/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /usr/fl_frontend/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /usr/fl_frontend/public ./public
+# public remains root-owned. Security best practice -> prevents app from writing to public folder.
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
-
 EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+
+CMD ["tini", "--", "node", "server.js"]

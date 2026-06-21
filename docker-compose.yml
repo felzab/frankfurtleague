@@ -13,6 +13,23 @@ services:
     networks:
       - frankfurtleague-net
     logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/favicon.ico"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: '2G'
+        reservations:
+          memory: '512M'
 
   backend:
     env_file: .env.backend
@@ -21,6 +38,23 @@ services:
     networks:
       - frankfurtleague-net
     logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8000/api/v0/system/is_live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: '512M'
+        reservations:
+          memory: '128M'
 
   nginx:
     image: nginx:alpine
@@ -35,8 +69,18 @@ services:
       - frankfurtleague-net
     logging: *default-logging
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: '256M'
+        reservations:
+          memory: '64M'
+
 
 networks:
   frankfurtleague-net:

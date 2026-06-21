@@ -12,7 +12,7 @@ export const checkIsLive = async (): Promise<CheckIsLiveReturn> => {
   cacheLife("minutes");
   cacheTag("system", "system:is_live");
 
-  return apiClient<CheckIsLiveReturn>("/system/is_live", CheckIsLiveReturnSchema, { authType: "system" });
+  return apiClient<CheckIsLiveReturn>("/system/is_live", CheckIsLiveReturnSchema, { authType: "none" });
 };
 
 export const checkIsReady = async (): Promise<CheckIsReadyReturn> => {
