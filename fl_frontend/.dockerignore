@@ -13,6 +13,7 @@
 
 .env
 .env.\*
+.env.*
 .git
 
 _.auth

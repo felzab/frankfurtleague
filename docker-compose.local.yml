@@ -4,21 +4,25 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
-
 services:
   frontend:
-    env_file: .env.frontend
+    build:
+      context: ./fl_frontend
+      dockerfile: Dockerfile
+    env_file: ./fl_frontend/.env
     environment:
-    - API_URL=http://127.0.0.1
-    image: felzab/frankfurtleague:frontend
+      - API_URL=http://backend:8000
+      - AUTH_URL=http://127.0.0.1
     restart: unless-stopped
     networks:
       - frankfurtleague-net
     logging: *default-logging
 
   backend:
-    env_file: .env.backend
-    image: felzab/frankfurtleague:backend
+    build:
+      context: ./fl_backend
+      dockerfile: Dockerfile
+    env_file: ./fl_backend/.env
     restart: unless-stopped
     networks:
       - frankfurtleague-net
@@ -28,17 +32,16 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "80:80" # HTTP access from the internet
-      - "443:443" # HHTPS access from the internet
+      - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./certs:/etc/nginx/certs:ro
+      - ./nginx.local.conf:/etc/nginx/conf.d/default.conf:ro  # Local config file nginx.local.conf
     networks:
       - frankfurtleague-net
     logging: *default-logging
     depends_on:
       - frontend
       - backend
+
 
 networks:
   frankfurtleague-net:

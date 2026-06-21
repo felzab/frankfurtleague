@@ -1,0 +1,6 @@
+# Enforce Linux line endings for all text files
+* text=auto eol=lf
+
+# Keep Windows line endings only for Windows-specific scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf

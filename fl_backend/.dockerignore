@@ -49,6 +49,7 @@
 
 .env
 .env.\*
+.env.*
 
 _.auth
 _.authz
