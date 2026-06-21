@@ -8,8 +8,6 @@ x-logging: &default-logging
 services:
   frontend:
     env_file: .env.frontend
-    environment:
-    - API_URL=http://127.0.0.1
     image: felzab/frankfurtleague:frontend
     restart: unless-stopped
     networks:
