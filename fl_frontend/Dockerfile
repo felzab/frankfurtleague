@@ -1,19 +1,10 @@
-# Stage 1: Dependencies
-# --------------------------------------------------------------------------------
-FROM node:26-alpine3.24 AS deps
+ARG PNPM_VERSION=11.8.0
 
-# Compiled binaries in c won't run without this
-RUN apk add --no-cache libc6-compat
 
-WORKDIR /usr/deps
-
-COPY package.json package-lock.json* ./
-RUN npm install -g npm@11.17.0
-RUN npm ci
-
-# Stage 2: Builder
+# Stage 1: Deps & Builder
 # --------------------------------------------------------------------------------
 FROM node:26-alpine3.24 AS builder
+ARG PNPM_VERSION
 
 # For performance, security and dependency management
 ENV NODE_ENV=production
@@ -21,24 +12,41 @@ ENV NODE_ENV=production
 ENV MONGODB_URI=mongodb://localhost:27017/placeholder
 # So that zod does not throw an error
 ENV SKIP_ENV_VALIDATION=true
+# Disables nextjs telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV CI=true
 
-WORKDIR /usr/build
+# Compiled binaries in c won't run without this
+RUN apk add --no-cache libc6-compat
+WORKDIR /usr/fl_frontend
 
-COPY --from=deps /usr/deps/node_modules ./node_modules
+# Install PNPM globally
+RUN npm install -g pnpm@${PNPM_VERSION}
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+COPY pnpm-lock.yaml ./
+# Fetch dependencies into the BuildKit cache
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
+
+# Copy package configs and install offline
+COPY package.json pnpm-workspace.yaml* ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
+
 COPY . .
 
-# Disable nextjs telemetry
-RUN npx next telemetry disable
-RUN npm run build
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    --mount=type=cache,id=next-cache,target=/usr/fl_frontend/.next/cache \
+    pnpm run build
 
-# Stage 3: Runner
+# Stage 2: Runner
 # --------------------------------------------------------------------------------
 FROM node:26-alpine3.24 AS runner
 
 WORKDIR /usr/fl_frontend
 
-# For performance, security and dependency management
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create a new user-group 'nodejs' and new user 'nextjs' with minimal permissions for safety
 RUN addgroup -S --gid 1001 nodejs && \
@@ -48,14 +56,13 @@ RUN addgroup -S --gid 1001 nodejs && \
 RUN mkdir .next && chown nextjs:nodejs .next
 
 # Extract only the things you need to run the application
-COPY --from=builder --chown=nextjs:nodejs /usr/build/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /usr/build/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /usr/build/public ./public
+COPY --from=builder --chown=nextjs:nodejs /usr/fl_frontend/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /usr/fl_frontend/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /usr/fl_frontend/public ./public
 
 USER nextjs
 
 EXPOSE 3000
-
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 

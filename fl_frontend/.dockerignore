@@ -80,7 +80,7 @@ tokens._
 .yarnrc.yml
 npm-debug.log_
 pnpm-debug.log\*
-pnpm-workspace.yaml
+# pnpm-workspace.yaml
 yarn-error.log
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••

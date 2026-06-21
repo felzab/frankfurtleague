@@ -2,6 +2,11 @@
   "name": "fl_frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=26",
+    "pnpm": ">=11.8.0"
+  },
+  "packageManager": "pnpm@11.8.0",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev --turbo",
     "build": "next build",

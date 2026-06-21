@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { auth } from "@/core/auth";
 import { Bars } from "@gravity-ui/icons";
 import dynamic from "next/dynamic";
+import { auth } from "@/core/auth";
 
 const TopNavLinksDropdown = dynamic(() => import("./TopNavLinksDropdown"), {
   ssr: true,
