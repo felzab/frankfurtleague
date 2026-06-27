@@ -9,7 +9,7 @@ import { Button, Separator } from "@heroui/react";
 
 import SidemenuLink from "./SidemenuLink";
 
-import type { SidemenuStructure } from "@/shared/types";
+import type { SidemenuStructure } from "@/shared/types/types";
 
 export default function Sidemenu({
   structure,

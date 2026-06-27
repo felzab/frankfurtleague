@@ -1,8 +1,7 @@
 "use client";
 
+import { useToday } from "@/shared/hooks/useToday";
 import { ChevronsDownWide } from "@gravity-ui/icons";
-
-import { useServerConfig } from "@/core/providers/ServerConfigProvider";
 
 import { Accordion } from "@heroui/react";
 
@@ -11,7 +10,7 @@ import AdminSpielCardList from "../collections/AdminSpielCardsList";
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function AdminSpieleActionRequiredView({ overviewSpiele }: { overviewSpiele: FLSpiel[] }) {
-  const { today } = useServerConfig();
+  const today = useToday();
 
   const spieleCategories: { [key: string]: { name: string; desc: string; spiele: FLSpiel[] } } = {
     ergebnis_pending: {

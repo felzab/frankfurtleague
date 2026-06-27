@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { auth } from "./core/auth";
 
 export default auth((req) => {
@@ -7,7 +8,8 @@ export default auth((req) => {
   // Not logged in -> Send to sign in
   if (!isLoggedIn) {
     const loginUrl = new URL("/signin", req.nextUrl);
-    loginUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
+    const fullUrl = req.nextUrl.pathname + req.nextUrl.search;
+    loginUrl.searchParams.set("callbackUrl", fullUrl);
     return NextResponse.redirect(loginUrl);
   }
 

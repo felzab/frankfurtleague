@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 
+import { useToday } from "@/shared/hooks/useToday";
 import { CircleInfo } from "@gravity-ui/icons";
-
-import { useServerConfig } from "@/core/providers/ServerConfigProvider";
 
 import { Modal, Separator } from "@heroui/react";
 
@@ -15,7 +14,7 @@ import SpielStatusChip from "../ui/SpielStatusChip";
 import type { FLSpiel, FLSpielStatus } from "../../schemas";
 
 export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spielData: FLSpiel | null; isOpen: boolean; onClose: () => void }) {
-  const { today } = useServerConfig();
+  const today = useToday();
 
   // Safely compute values outside render tree
   const spielStatus = spielData

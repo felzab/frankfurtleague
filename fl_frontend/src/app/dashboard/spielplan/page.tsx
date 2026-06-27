@@ -4,7 +4,7 @@ import SpielplanView from "@/features/spiele/components/views/SpielplanView";
 import { getSpiele } from "@/features/spiele/queries";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { FLSpielplanSchema } from "@/features/spieltage/schemas";
-import { joinCollections } from "@/shared/utils/utils";
+import { joinCollections } from "@/shared/utils/data";
 
 import type { Metadata } from "next";
 

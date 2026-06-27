@@ -1,4 +1,4 @@
-import type { SidemenuStructure } from "@/shared/types";
+import type { SidemenuStructure } from "@/shared/types/types";
 
 export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure = [
   {

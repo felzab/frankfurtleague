@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
-import { formatAddress, sortByDate } from "@/shared/utils/utils";
+import { sortByDate } from "@/shared/utils/date";
+import { formatAddress } from "@/shared/utils/format";
 import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";

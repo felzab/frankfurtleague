@@ -6,7 +6,7 @@
     "node": ">=26",
     "pnpm": ">=11.8.0"
   },
-  "packageManager": "pnpm@11.8.0",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev --turbo",
     "build": "next build",
@@ -21,7 +21,7 @@
     "@heroui/styles": "^3.2.1",
     "@internationalized/date": "^3.12.2",
     "@t3-oss/env-nextjs": "^0.13.11",
-    "framer-motion": "^12.40.0",
+    "framer-motion": "^12.42.0",
     "fuse.js": "^7.4.2",
     "mongodb": "^6.21.0",
     "next": "^16.2.9",
@@ -33,17 +33,17 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@gravity-ui/icons": "^2.18.0",
+    "@gravity-ui/icons": "^2.19.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
     "@tailwindcss/postcss": "^4.3.1",
     "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.9",
-    "prettier": "3.8.4",
+    "prettier": "3.9.0",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3"

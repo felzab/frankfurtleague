@@ -1,8 +1,7 @@
 "use client";
 
+import { useToday } from "@/shared/hooks/useToday";
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
-
-import { useServerConfig } from "@/core/providers/ServerConfigProvider";
 
 import { Button } from "@heroui/react";
 
@@ -21,7 +20,7 @@ export default function SpielCard({
   onOpenInfoModal: () => void;
   onOpenAdminModal?: () => void;
 }) {
-  const { today } = useServerConfig();
+  const today = useToday();
 
   const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
   const spielUhrzeit = spielData.uhrzeit || "--:--";

@@ -7,7 +7,7 @@ import { auth } from "@/core/auth";
 import { patchAdminSpielData } from "./mutations";
 import { AdminPatchSpielDataPayloadSchema } from "./schemas";
 
-import type { FormState } from "@/shared/types";
+import type { FormState } from "@/shared/types/types";
 
 export async function patchAdminSpielDataAction(prevState: FormState, rawPayload: unknown): Promise<FormState> {
   const session = await auth();
