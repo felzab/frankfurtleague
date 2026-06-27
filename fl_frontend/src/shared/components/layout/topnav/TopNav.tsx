@@ -3,8 +3,6 @@ import Link from "next/link";
 
 import { Bars } from "@gravity-ui/icons";
 
-import { auth } from "@/core/auth";
-
 const TopNavLinksDropdown = dynamic(() => import("./TopNavLinksDropdown"), {
   ssr: true,
   loading: () => (
@@ -18,8 +16,6 @@ const TopNavLinksDropdown = dynamic(() => import("./TopNavLinksDropdown"), {
 });
 
 export default async function TopNav() {
-  const session = await auth();
-
   return (
     <nav className="flex h-full w-full flex-row items-center justify-between p-2">
       <div className="flex h-full min-w-[50%] flex-row items-center justify-start">
@@ -49,7 +45,7 @@ export default async function TopNav() {
             title="Link to page: verwalten"
             prefetch={false}
             className="text-text-black dark:text-text-white text-fluid-sm rounded-3xl px-2 py-1 font-semibold hover:bg-[#ECECEC] dark:hover:bg-[#26282b]"
-            href={!session ? "/signin" : "/admin"}>
+            href="/admin">
             Verwalten
           </Link>
 
@@ -57,7 +53,7 @@ export default async function TopNav() {
         </div>
 
         <div className="mr-2 flex items-center">
-          <TopNavLinksDropdown session={session} />
+          <TopNavLinksDropdown />
         </div>
       </div>
     </nav>

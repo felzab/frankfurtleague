@@ -8,9 +8,7 @@ import { Dropdown, Label, Separator } from "@heroui/react";
 
 import ThemeSwitch from "../../ui/ThemeSwitch";
 
-import type { Session } from "next-auth";
-
-export default function TopNavLinksDropdown({ session }: { session: Session | null }) {
+export default function TopNavLinksDropdown() {
   return (
     <Dropdown>
       <Dropdown.Trigger>
@@ -43,7 +41,7 @@ export default function TopNavLinksDropdown({ session }: { session: Session | nu
             <Link
               prefetch={false}
               title="Link to page: verwalten"
-              href={!session ? "/signin" : "/admin"}
+              href="/admin"
               className="flex w-full items-center justify-between">
               Verwalten
               <Pencil className="size-3.5 lg:size-4.5" />
