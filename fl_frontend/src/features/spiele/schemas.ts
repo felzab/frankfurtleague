@@ -60,6 +60,7 @@ export const FLSpieltagSchema = z.object({
   anzahl_spiele: z.int().nonnegative(),
   order_val: z.int().nonnegative(),
   saison_phase: FLSaisonPhaseSchema,
+  saison_id: z.string().length(4),
 });
 
 export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({

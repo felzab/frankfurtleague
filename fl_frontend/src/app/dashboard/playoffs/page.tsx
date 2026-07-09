@@ -1,11 +1,13 @@
 import { connection } from "next/server";
 
+import { resolveSaisonId } from "@/features/saisons/resolvers";
 import PlayoffsView from "@/features/spiele/components/views/PlayoffsView";
 import { getSpiele } from "@/features/spiele/queries";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { joinCollections } from "@/shared/utils/data";
 
 import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
+import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -18,9 +20,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function Page() {
+export default async function Page(props: NextPageProps) {
   await connection();
-  const [spieltageRes, spieleRes] = await Promise.all([getSpieltage({ saison_phase: "playoffs" }), getSpiele({ saison_phase: "playoffs" })]);
+  const specifiedSaisonId = await resolveSaisonId(props.searchParams);
+
+  const [spieltageRes, spieleRes] = await Promise.all([
+    getSpieltage({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
+    getSpiele({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
+  ]);
   return (
     <PlayoffsView
       playoffsSpieltage={

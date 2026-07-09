@@ -70,4 +70,26 @@ async def patch_one_in_db(
     return_document: bool = ReturnDocument.BEFORE,
 ) -> Mapping[str, Any] | None:
 
-    return await collection.find_one_and_update(filter=filter, update=update, session=session, return_document=return_document)
+    return await collection.find_one_and_update(
+        filter=filter, update=update, session=session, return_document=return_document
+    )
+
+
+async def aggregate_many_from_db(
+    collection: AsyncIOMotorCollection,
+    pipeline: Sequence[Mapping[str, Any]],
+    session: AsyncIOMotorClientSession | None = None,
+    length: int = 1024,
+) -> list[Mapping[str, Any]]:
+    """
+    Executes a MongoDB aggregation pipeline to retrieve multiple documents.
+
+    Note: Sorting and limiting should generally be handled as `$sort` and `$limit`
+    stages within the pipeline itself. The `length` parameter serves as a safety
+    cap for the Motor cursor iteration.
+    """
+    cursor = collection.aggregate(pipeline, session=session)
+
+    # Passing length=None instructs Motor to fetch all documents yielded by the pipeline.
+    # If your pipeline lacks a $limit stage, you can enforce a driver-level cap here.
+    return await cursor.to_list(length=length)

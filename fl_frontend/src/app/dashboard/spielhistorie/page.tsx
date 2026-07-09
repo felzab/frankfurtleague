@@ -1,8 +1,10 @@
 import { connection } from "next/server";
 
+import { resolveSaisonId } from "@/features/saisons/resolvers";
 import SpielhistorieView from "@/features/spiele/components/views/SpielhistorieView";
 import { getSpiele } from "@/features/spiele/queries";
 
+import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -23,9 +25,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function SpielhistoriePage() {
+export default async function SpielhistoriePage(props: NextPageProps) {
   await connection();
-  const spieleRes = await getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc" });
+  const specifiedSaisonId = await resolveSaisonId(props.searchParams);
+
+  const spieleRes = await getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", saison_id: specifiedSaisonId });
 
   return <SpielhistorieView spielhistorieData={spieleRes.spiele} />;
 }

@@ -1,7 +1,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
+from motor.motor_asyncio import (
+    AsyncIOMotorClient,
+    AsyncIOMotorCollection,
+    AsyncIOMotorDatabase,
+)
 
 from app.core.config import backend_config
 from app.core.exceptions import DatabaseUnavailableException
@@ -45,29 +49,43 @@ async def get_database(request: Request) -> AsyncIOMotorDatabase:
     return request.app.state.db_client[backend_config.db_base_name]
 
 
-async def get_spiele_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+async def get_spiele_collection(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> AsyncIOMotorCollection:
     return db.spiele
 
 
-async def get_spieler_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+async def get_spieler_collection(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> AsyncIOMotorCollection:
     return db.spieler
 
 
-async def get_spieltage_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+async def get_spieltage_collection(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> AsyncIOMotorCollection:
     return db.spieltage
 
 
-async def get_teams_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+async def get_teams_collection(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> AsyncIOMotorCollection:
     return db.teams
 
 
-async def get_saisons_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+async def get_saisons_collection(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> AsyncIOMotorCollection:
     return db.saisons
 
 
-async def get_spielorte_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+async def get_spielorte_collection(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> AsyncIOMotorCollection:
     return db.spielorte
 
 
-async def get_schiedsrichter_collection(db: AsyncIOMotorDatabase = Depends(get_database)) -> AsyncIOMotorCollection:
+async def get_schiedsrichter_collection(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> AsyncIOMotorCollection:
     return db.schiedsrichter

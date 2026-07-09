@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Suspense, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { LayoutSideContentLeft } from "@gravity-ui/icons";
 
@@ -20,8 +20,19 @@ export default function Sidemenu({
   linkPrefix: string;
   saisonMetadataDisplay: React.ReactNode;
 }) {
+  const searchParams = useSearchParams();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+
+  // 1. SELECTIVE EXTRACTION: Only grab the parameters that are truly global
+  const globalSaisonId = searchParams.get("saison_id");
+
+  // 2. Build a clean, isolated query string just for the sidebar links
+  const globalQuery = new URLSearchParams();
+  if (globalSaisonId) {
+    globalQuery.set("saison_id", globalSaisonId);
+  }
+  const queryString = globalQuery.toString();
 
   const _toggleSidemenu = () => setIsOpen(!isOpen);
   const _checkIsActive = (itemId: string) => {
@@ -75,6 +86,8 @@ export default function Sidemenu({
               {/* Actual selectable options */}
               <div className="flex flex-col gap-2">
                 {group.sub_options.map((sub_option) => {
+                  const targetPath = `${linkPrefix}/${sub_option.id}`;
+                  const finalHref = queryString ? `${targetPath}?${queryString}` : targetPath;
                   return (
                     <SidemenuLink
                       toggleSidemenu={_toggleSidemenu}
@@ -82,7 +95,7 @@ export default function Sidemenu({
                       itemId={sub_option.id}
                       itemLabel={sub_option.label}
                       isActive={_checkIsActive(sub_option.id)}
-                      linkPrefix={linkPrefix}
+                      href={finalHref}
                     />
                   );
                 })}

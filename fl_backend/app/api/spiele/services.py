@@ -33,6 +33,9 @@ def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, 
             query["is_canceled"] = True
 
     if filters.team_id is not None:
-        query["$or"] = [{"team1.team_id": filters.team_id}, {"team2.team_id": filters.team_id}]
+        query["$or"] = [
+            {"team1.team_id": filters.team_id},
+            {"team2.team_id": filters.team_id},
+        ]
 
     return query

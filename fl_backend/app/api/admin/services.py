@@ -6,7 +6,9 @@ from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollectio
 
 
 # Helper function for update_spiel_data to calculate a game's exact contribution to a team's statistic
-def get_stats_contribution(tore_self: int | None, tore_opponent: int | None) -> FLTeamStatistik:
+def get_stats_contribution(
+    tore_self: int | None, tore_opponent: int | None
+) -> FLTeamStatistik:
     if tore_self is None or tore_opponent is None:
         return FLTeamStatistik(
             anzahl_gespielte_spiele=0,
@@ -56,7 +58,11 @@ async def update_team_statistik(
 
     def _build_increment_dict(contrib_dict: FLTeamStatistik, multiplier: int = 1):
         # Creates the $inc payload, ignoring fields that are 0 to save DB work
-        return {f"statistik.{k}": v * multiplier for k, v in contrib_dict.model_dump().items() if (v * multiplier) != 0}
+        return {
+            f"statistik.{k}": v * multiplier
+            for k, v in contrib_dict.model_dump().items()
+            if (v * multiplier) != 0
+        }
 
     # Case A: The team in this slot stayed the same
     if old_team_id == new_team_id:
@@ -64,10 +70,14 @@ async def update_team_statistik(
             anzahl_gespielte_spiele=new_team_contribution.anzahl_gespielte_spiele
             - old_team_contribution.anzahl_gespielte_spiele,
             siege=new_team_contribution.siege - old_team_contribution.siege,
-            niederlagen=new_team_contribution.niederlagen - old_team_contribution.niederlagen,
-            unentschieden=new_team_contribution.unentschieden - old_team_contribution.unentschieden,
-            tore_geschossen=new_team_contribution.tore_geschossen - old_team_contribution.tore_geschossen,
-            tore_kassiert=new_team_contribution.tore_kassiert - old_team_contribution.tore_kassiert,
+            niederlagen=new_team_contribution.niederlagen
+            - old_team_contribution.niederlagen,
+            unentschieden=new_team_contribution.unentschieden
+            - old_team_contribution.unentschieden,
+            tore_geschossen=new_team_contribution.tore_geschossen
+            - old_team_contribution.tore_geschossen,
+            tore_kassiert=new_team_contribution.tore_kassiert
+            - old_team_contribution.tore_kassiert,
             punkte=new_team_contribution.punkte - old_team_contribution.punkte,
         )
 
@@ -78,7 +88,9 @@ async def update_team_statistik(
             session=session,
         )
         if patch_team_data_operation is None:
-            raise DocumentNotFoundException(filter={"_id": old_team_id}, error_code="DB-COMMON-001")
+            raise DocumentNotFoundException(
+                filter={"_id": old_team_id}, error_code="DB-COMMON-001"
+            )
 
     # Case B: The team in this slot changed
     else:
@@ -92,14 +104,20 @@ async def update_team_statistik(
             session=session,
         )
         if old_team_revert is None:
-            raise DocumentNotFoundException(filter={"_id": old_team_id}, error_code="DB-COMMON-001")
+            raise DocumentNotFoundException(
+                filter={"_id": old_team_id}, error_code="DB-COMMON-001"
+            )
 
         # Apply the changes to the new team
         new_team_apply = await patch_one_in_db(
             collection=teams_collection,
             filter={"_id": new_team_id},  # has to be new_team_id
-            update={"$inc": _build_increment_dict(new_team_contribution)},  # Has to be new_team_contribution!
+            update={
+                "$inc": _build_increment_dict(new_team_contribution)
+            },  # Has to be new_team_contribution!
             session=session,
         )
         if new_team_apply is None:
-            raise DocumentNotFoundException(filter={"_id": new_team_id}, error_code="DB-COMMON-001")
+            raise DocumentNotFoundException(
+                filter={"_id": new_team_id}, error_code="DB-COMMON-001"
+            )

@@ -1,9 +1,11 @@
 import { connection } from "next/server";
 
+import { resolveSaisonId } from "@/features/saisons/resolvers";
 import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 import SpielsucheView from "@/features/spiele/components/views/SpielsucheView";
 import { getSpiele } from "@/features/spiele/queries";
 
+import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -23,9 +25,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function SpielsuchePage() {
+export default async function SpielsuchePage(props: NextPageProps) {
   await connection();
-  const spieleRes = await getSpiele();
+  const specifiedSaisonId = await resolveSaisonId(props.searchParams);
+
+  const spieleRes = await getSpiele({ saison_id: specifiedSaisonId });
 
   return (
     <SpielsucheView

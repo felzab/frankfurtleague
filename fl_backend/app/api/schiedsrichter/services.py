@@ -9,7 +9,9 @@ def build_schiedsrichter_sort(sort_by: str, order: str) -> list[tuple[str, int]]
     return [(sort_by, direction)]
 
 
-def build_schiedsrichter_filter(filters: FLSchiedsrichterFilterParams) -> dict[str, Any]:
+def build_schiedsrichter_filter(
+    filters: FLSchiedsrichterFilterParams,
+) -> dict[str, Any]:
     query = filters.model_dump(
         include={"default_payment"},
         exclude_none=True,

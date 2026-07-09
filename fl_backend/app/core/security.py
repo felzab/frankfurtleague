@@ -11,7 +11,9 @@ from app.core.exceptions import RequestAuthorizationException
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def get_token(credentials: HTTPAuthorizationCredentials = Security(bearer_scheme)) -> str:
+def get_token(
+    credentials: HTTPAuthorizationCredentials = Security(bearer_scheme),
+) -> str:
     if credentials is None:
         raise RequestAuthorizationException(error_code="REQ-AUTH-001")
 
@@ -31,11 +33,14 @@ def verify_api_key(expected_key: str, error_code: str) -> Callable:
 
 # Dependencies used in Routers
 verify_access_base = verify_api_key(
-    expected_key=backend_config.internal_api_key_base.get_secret_value(), error_code="REQ-AUTH-002"
+    expected_key=backend_config.internal_api_key_base.get_secret_value(),
+    error_code="REQ-AUTH-002",
 )
 verify_access_system = verify_api_key(
-    expected_key=backend_config.internal_api_key_system.get_secret_value(), error_code="REQ-AUTH-003"
+    expected_key=backend_config.internal_api_key_system.get_secret_value(),
+    error_code="REQ-AUTH-003",
 )
 verify_access_admin = verify_api_key(
-    expected_key=backend_config.internal_api_key_admin.get_secret_value(), error_code="REQ-AUTH-004"
+    expected_key=backend_config.internal_api_key_admin.get_secret_value(),
+    error_code="REQ-AUTH-004",
 )

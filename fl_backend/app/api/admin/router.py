@@ -8,11 +8,19 @@ from app.api.admin.services import get_stats_contribution, update_team_statistik
 from app.api.spiele.schemas import FLSpiel, FLSpieleListResponse, FLSpielListAdapter
 from app.core.config import backend_config
 from app.core.crud import patch_one_in_db, pull_many_from_db
-from app.core.dependencies import DBClient, SpieleCollection, TeamsCollection, get_german_date_str
+from app.core.dependencies import (
+    DBClient,
+    SpieleCollection,
+    TeamsCollection,
+    get_german_date_str,
+)
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_admin
 
-router = APIRouter(prefix=f"/api/v{backend_config.api_version}/admin", dependencies=[Depends(verify_access_admin)])
+router = APIRouter(
+    prefix=f"/api/v{backend_config.api_version}/admin",
+    dependencies=[Depends(verify_access_admin)],
+)
 
 
 @router.get("/action_required", response_model=FLSpieleListResponse)
@@ -49,7 +57,8 @@ async def patch_game_data(
 
     updated_ergebnis_field = (
         f"{update_game_data.team1.tore}:{update_game_data.team2.tore}"
-        if update_game_data.team1.tore is not None and update_game_data.team2.tore is not None
+        if update_game_data.team1.tore is not None
+        and update_game_data.team2.tore is not None
         else None
     )
 
@@ -61,23 +70,36 @@ async def patch_game_data(
                 filter={"_id": update_game_data.spiel_id},
                 update={
                     "$set": {
-                        **update_game_data.model_dump(exclude={"spiel_id"}, context={"keep_oid": True}),
+                        **update_game_data.model_dump(
+                            exclude={"spiel_id"}, context={"keep_oid": True}
+                        ),
                         "ergebnis": updated_ergebnis_field,
                     }
                 },
                 session=session,
             )
             if old_game_data_raw is None:
-                raise DocumentNotFoundException(filter={"_id": update_game_data.spiel_id}, error_code="DB-COMMON-001")
+                raise DocumentNotFoundException(
+                    filter={"_id": update_game_data.spiel_id},
+                    error_code="DB-COMMON-001",
+                )
 
             old_game_data = FLSpiel(**old_game_data_raw)
 
             # Get the contributions to the statistics for the new and old spiel state
-            old_contribution_team1 = get_stats_contribution(old_game_data.team1.tore, old_game_data.team2.tore)
-            old_contribution_team2 = get_stats_contribution(old_game_data.team2.tore, old_game_data.team1.tore)
+            old_contribution_team1 = get_stats_contribution(
+                old_game_data.team1.tore, old_game_data.team2.tore
+            )
+            old_contribution_team2 = get_stats_contribution(
+                old_game_data.team2.tore, old_game_data.team1.tore
+            )
 
-            new_contribution_team1 = get_stats_contribution(update_game_data.team1.tore, update_game_data.team2.tore)
-            new_contribution_team2 = get_stats_contribution(update_game_data.team2.tore, update_game_data.team1.tore)
+            new_contribution_team1 = get_stats_contribution(
+                update_game_data.team1.tore, update_game_data.team2.tore
+            )
+            new_contribution_team2 = get_stats_contribution(
+                update_game_data.team2.tore, update_game_data.team1.tore
+            )
 
             # Update Team1
             await update_team_statistik(

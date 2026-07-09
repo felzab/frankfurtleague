@@ -30,7 +30,7 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
     fl_logger.warning(f"Pydantic validation failed: {exc.errors() or NO_DATA_TEXT}")
 
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={"trace_id": get_trace_id()},
     )
 
@@ -39,7 +39,7 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
     fl_logger.warning(f"Payload validation failed: {exc.errors() or NO_DATA_TEXT}")
 
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={"trace_id": get_trace_id()},
     )
 

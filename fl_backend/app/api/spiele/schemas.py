@@ -30,7 +30,9 @@ class FLSpielSchiedsrichterField(BaseModel):
 
 
 class FLSpiel(BaseModel):
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through id
+    id: CustomObjectId = Field(
+        validation_alias="_id", serialization_alias="id"
+    )  # So the _id field can be accesed through id
 
     team1: FLSpielTeamField
     team2: FLSpielTeamField
@@ -47,13 +49,16 @@ class FLSpiel(BaseModel):
 
     is_canceled: bool
     saison_phase: FLSaisonPhase
+    saison_id: str = Field(min_length=4, max_length=4)
 
 
 FLSpielListAdapter = TypeAdapter(list[FLSpiel])
 
 
 class FLSpieltag(BaseModel):
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
+    id: CustomObjectId = Field(
+        validation_alias="_id", serialization_alias="id"
+    )  # So the _id field can be accesed through
     name: str
 
     beginn: CustomDateString
@@ -82,7 +87,9 @@ class FLSpieleFilterParams(BaseModel):
     team_id: CustomObjectId | None = None
 
     limit: int = Field(1024, ge=1, le=1024)
-    sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(default="datum")
+    sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(
+        default="datum"
+    )
     order: Literal["asc", "desc"] = Field(default="asc")
 
 

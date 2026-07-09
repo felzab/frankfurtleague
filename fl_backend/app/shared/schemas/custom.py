@@ -2,7 +2,12 @@ from typing import Annotated, Any
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from pydantic import AfterValidator, GetCoreSchemaHandler, SerializationInfo, StringConstraints
+from pydantic import (
+    AfterValidator,
+    GetCoreSchemaHandler,
+    SerializationInfo,
+    StringConstraints,
+)
 from pydantic_core import CoreSchema, core_schema
 
 # Regex for YYYY-MM-DD (e.g., 2026-06-08)
@@ -16,7 +21,9 @@ TIME_REGEX = r"^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
 
 class CustomObjectIdAnnotation:
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> CoreSchema:
 
         def validate_str_to_oid(v: str) -> ObjectId:
             try:
@@ -31,17 +38,25 @@ class CustomObjectIdAnnotation:
 
         return core_schema.json_or_python_schema(
             json_schema=core_schema.str_schema(),
-            python_schema=core_schema.union_schema([
-                # If it's already an ObjectId, allow it
-                core_schema.is_instance_schema(ObjectId),
-                # If it's a string, validate it as an ObjectId
-                core_schema.chain_schema([
-                    core_schema.str_schema(),
-                    core_schema.no_info_plain_validator_function(validate_str_to_oid),
-                ]),
-            ]),
+            python_schema=core_schema.union_schema(
+                [
+                    # If it's already an ObjectId, allow it
+                    core_schema.is_instance_schema(ObjectId),
+                    # If it's a string, validate it as an ObjectId
+                    core_schema.chain_schema(
+                        [
+                            core_schema.str_schema(),
+                            core_schema.no_info_plain_validator_function(
+                                validate_str_to_oid
+                            ),
+                        ]
+                    ),
+                ]
+            ),
             # How to serialize it to JSON
-            serialization=core_schema.plain_serializer_function_ser_schema(serialize_oid, info_arg=True),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                serialize_oid, info_arg=True
+            ),
         )
 
 

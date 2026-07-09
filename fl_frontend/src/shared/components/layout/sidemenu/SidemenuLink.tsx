@@ -5,13 +5,13 @@ export default function SidemenuLink({
   itemLabel,
   isActive,
   toggleSidemenu,
-  linkPrefix,
+  href,
 }: {
   itemId: string;
   itemLabel: string;
   isActive: boolean;
   toggleSidemenu: () => void;
-  linkPrefix: string;
+  href: string;
 }) {
   return (
     <Link
@@ -21,7 +21,7 @@ export default function SidemenuLink({
       className={`text-text-black dark:text-text-white text-fluid-base lg:text-fluid-sm font-secondary flex h-[36px] w-full items-center justify-center rounded-[36px] text-center font-semibold tracking-wide sm:h-[42px] lg:h-[48px] lg:px-2 ${
         isActive ? "bg-quaternary-light dark:bg-quaternary-dark" : "bg-tertiary-light dark:bg-tertiary-dark"
       }`}
-      href={`${linkPrefix}/${itemId}#top`}>
+      href={href + "#top"}>
       {itemLabel /* Option name */}
     </Link>
   );

@@ -27,9 +27,11 @@ FLSaisonsListAdapter = TypeAdapter(list[FLSaison])
 
 
 class FLSaisonsFilterOptions(BaseModel):
-    saison_id: str = Field(validation_alias="saison_id", serialization_alias="_id")
+    saison_id: str | None = Field(
+        default=None, validation_alias="saison_id", serialization_alias="_id"
+    )
 
-    status: FLSaisonStatus
+    status: FLSaisonStatus | None = None
 
     limit: int = Field(1024, ge=1, le=1024)
     sort_by: FLSaisonsSortOptions = Field(default="_id")

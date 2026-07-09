@@ -3,7 +3,11 @@ from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
+from motor.motor_asyncio import (
+    AsyncIOMotorClient,
+    AsyncIOMotorCollection,
+    AsyncIOMotorDatabase,
+)
 
 from app.core.db import (
     get_database,
@@ -25,15 +29,21 @@ SpieleCollection = Annotated[AsyncIOMotorCollection, Depends(get_spiele_collecti
 
 SpielerCollection = Annotated[AsyncIOMotorCollection, Depends(get_spieler_collection)]
 
-SpieltageCollection = Annotated[AsyncIOMotorCollection, Depends(get_spieltage_collection)]
+SpieltageCollection = Annotated[
+    AsyncIOMotorCollection, Depends(get_spieltage_collection)
+]
 
 TeamsCollection = Annotated[AsyncIOMotorCollection, Depends(get_teams_collection)]
 
 SaisonsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saisons_collection)]
 
-SpielorteCollection = Annotated[AsyncIOMotorCollection, Depends(get_spielorte_collection)]
+SpielorteCollection = Annotated[
+    AsyncIOMotorCollection, Depends(get_spielorte_collection)
+]
 
-SchiedsrichterCollection = Annotated[AsyncIOMotorCollection, Depends(get_schiedsrichter_collection)]
+SchiedsrichterCollection = Annotated[
+    AsyncIOMotorCollection, Depends(get_schiedsrichter_collection)
+]
 
 
 def get_germany_now() -> datetime:

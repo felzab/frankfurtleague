@@ -1,8 +1,10 @@
 import { connection } from "next/server";
 
+import { resolveSaisonId } from "@/features/saisons/resolvers";
 import SaisontabelleView from "@/features/teams/components/views/SaisontabelleView";
 import { getTeams } from "@/features/teams/queries";
 
+import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -15,9 +17,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function SaisontabellePage() {
+export default async function SaisontabellePage(props: NextPageProps) {
   await connection();
-  const teamsRes = await getTeams({ in_gruppen: true });
+  const specifiedSaisonId = await resolveSaisonId(props.searchParams);
+
+  const teamsRes = await getTeams({ in_gruppen: true, saison_id: specifiedSaisonId });
 
   if (teamsRes.format !== "grouped") {
     throw new Error("Expected grouped teams response, got a flat list.");

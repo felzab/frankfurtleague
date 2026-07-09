@@ -13,6 +13,7 @@ export const FLSpieltagSchema = z.object({
   anzahl_spiele: z.int().positive(),
   order_val: z.int().nonnegative(),
   saison_phase: FLSaisonPhaseSchema,
+  saison_id: z.string().length(4),
 });
 export type FLSpieltag = z.infer<typeof FLSpieltagSchema>;
 

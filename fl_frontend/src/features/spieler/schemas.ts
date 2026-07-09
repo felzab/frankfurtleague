@@ -8,9 +8,9 @@ export const FLSpielerSchema = z.object({
   vorname: z.string(),
   nachname: z.string(),
   stufe: z.string(),
-  nummer: z.string(),
+  nummer: z.string().nullable(),
   position: z.string(),
-  nachgetragen: z.boolean(),
+  is_nachgetragen: z.boolean(),
   team_id: CustomObjectIdStringSchema,
 });
 export type FLSpieler = z.infer<typeof FLSpielerSchema>;

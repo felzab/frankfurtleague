@@ -1,11 +1,13 @@
 import { connection } from "next/server";
 
+import { resolveSaisonId } from "@/features/saisons/resolvers";
 import SpielplanView from "@/features/spiele/components/views/SpielplanView";
 import { getSpiele } from "@/features/spiele/queries";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { FLSpielplanSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";
 
+import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -25,9 +27,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function SpielplanPage() {
+export default async function SpielplanPage(props: NextPageProps) {
   await connection();
-  const [spieltageRes, spieleRes] = await Promise.all([getSpieltage(), getSpiele()]);
+  const specifiedSaisonId = await resolveSaisonId(props.searchParams);
+
+  const [spieltageRes, spieleRes] = await Promise.all([
+    getSpieltage({ saison_id: specifiedSaisonId }),
+    getSpiele({ saison_id: specifiedSaisonId }),
+  ]);
   const spielplan = FLSpielplanSchema.parse({
     spieltage: joinCollections({
       left: spieltageRes.spieltage,

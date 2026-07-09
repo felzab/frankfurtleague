@@ -20,6 +20,7 @@ export const FLSaisonSchema = z.object({
   status: FLSaisonStatusSchema,
   rules: FLSaisonRulesSchema,
 });
+export type FLSaison = z.infer<typeof FLSaisonSchema>;
 
 export const FLSaisonListResponseSchema = z.object({
   format: z.literal("list"),
