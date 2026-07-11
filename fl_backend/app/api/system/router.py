@@ -15,22 +15,16 @@ router = APIRouter(prefix=f"/api/v{backend_config.api_version}/system")
 
 @router.get("/is_live")
 async def check_is_live(request: Request) -> JSONResponse:
-    return JSONResponse(
-        content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK
-    )
+    return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
 
 
 @router.get("/is_ready", dependencies=[Depends(verify_access_system)])
-async def check_is_ready(
-    request: Request, db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]
-):
+async def check_is_ready(request: Request, db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]):
     try:
         await db.command("ping")
-        return JSONResponse(
-            content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK
-        )
-    except Exception:
-        raise DatabaseUnavailableException(error_code="DB-CONN-002")
+        return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
+    except Exception as unknown_error:
+        raise DatabaseUnavailableException(error_code="DB-CONN-002") from unknown_error
 
 
 @router.get("/info", dependencies=[Depends(verify_access_system)])

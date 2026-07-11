@@ -12,9 +12,7 @@ class BaseAPIException(HTTPException):
         headers: Optional[dict[str, str]] = None,
     ):
         self.error_detail = {"error_code": error_code, "message": message}
-        super().__init__(
-            status_code=status_code, detail=self.error_detail, headers=headers
-        )
+        super().__init__(status_code=status_code, detail=self.error_detail, headers=headers)
 
 
 class RequestAuthorizationException(BaseAPIException):

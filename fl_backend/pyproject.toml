@@ -52,3 +52,24 @@ dependencies = [
     "watchfiles>=1.2.0",
     "websockets>=16.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.21",
+]
+
+[tool.ruff]
+line-length = 144
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort (alphabetizes your imports!)
+    "B",  # flake8-bugbear
+]
+ignore = ["B008"]
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

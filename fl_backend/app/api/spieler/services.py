@@ -37,9 +37,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
         {
             "$lookup": {
                 "from": SAISON_SPECIFIC_SPIELER_DATA_DB_NAME,
-                "let": {
-                    "base_spieler_id": "$_id"
-                },  # Pass the base player's _id into the sub-pipeline
+                "let": {"base_spieler_id": "$_id"},  # Pass the base player's _id into the sub-pipeline
                 "pipeline": lookup_pipeline,
                 "as": AS_NAME,
             }

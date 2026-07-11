@@ -36,9 +36,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams) -> list[Mapping[str, Any]]
         context={"keep_oid": True},
     )
 
-    lookup_pipeline: list[Mapping[str, Any]] = [
-        {"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}}
-    ]
+    lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}}]
 
     if lookup_filters:
         lookup_pipeline.append({"$match": lookup_filters})
@@ -94,9 +92,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams) -> list[Mapping[str, Any]]
     # ==========================================
     # STAGE 4: SORTING & LIMITING
     # ==========================================
-    pipeline.append(
-        {"$sort": {filters.sort_by: 1 if filters.order == "asc" else -1, "name": 1}}
-    )
+    pipeline.append({"$sort": {filters.sort_by: 1 if filters.order == "asc" else -1, "name": 1}})
 
     if getattr(filters, "limit", None) is not None:
         pipeline.append({"$limit": filters.limit})

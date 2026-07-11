@@ -1,1 +1,1 @@
-export { onRequestError as onRequestError } from "@/core/instrumentation";
+export { onRequestError as onRequestError } from "./src/core/instrumentation";

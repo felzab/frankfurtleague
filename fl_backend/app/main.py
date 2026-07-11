@@ -31,9 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(
-    TrustedHostMiddleware, allowed_hosts=backend_config.api_trusted_hosts_list
-)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=backend_config.api_trusted_hosts_list)
 app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(admin_router)

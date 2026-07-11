@@ -8,9 +8,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 
 class FLSpieltag(BaseModel):
-    id: CustomObjectId = Field(
-        validation_alias="_id", serialization_alias="id"
-    )  # So the _id field can be accesed through
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
     name: str
 
     beginn: CustomDateString
@@ -29,9 +27,7 @@ class FLSpieltageFilterParams(BaseModel):
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
 
     limit: int = Field(1024, ge=1, le=1024)
-    sort_by: Literal["beginn", "ende", "anzahl_spiele", "order_val"] = Field(
-        default="order_val"
-    )
+    sort_by: Literal["beginn", "ende", "anzahl_spiele", "order_val"] = Field(default="order_val")
     order: Literal["asc", "desc"] = Field(default="asc")
 
 

@@ -62,10 +62,7 @@ class LevelAwareFormatter(logging.Formatter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Pre-compile the formatters once in memory
-        self._formatters = {
-            level: logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S")
-            for level, fmt in self.FORMATS.items()
-        }
+        self._formatters = {level: logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S") for level, fmt in self.FORMATS.items()}
 
     def format(self, record: logging.LogRecord) -> str:
         formatter = self._formatters.get(record.levelno, self._formatters[logging.INFO])
@@ -73,9 +70,7 @@ class LevelAwareFormatter(logging.Formatter):
 
 
 def setup_custom_logger():
-    selected_formatter = (
-        "level_aware" if backend_config.log_format == "console" else "json_formatter"
-    )
+    selected_formatter = "level_aware" if backend_config.log_format == "console" else "json_formatter"
     logging_config = {
         "version": 1,
         "disable_existing_loggers": False,

@@ -9,9 +9,7 @@ FLSpielerSortOptions = Literal["vorname", "nachname", "stufe", "nummer", "positi
 
 
 class FLSpieler(BaseModel):
-    id: CustomObjectId = Field(
-        validation_alias="_id", serialization_alias="id"
-    )  # So the _id field can be accesed through
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
 
     vorname: str | None
     nachname: str | None

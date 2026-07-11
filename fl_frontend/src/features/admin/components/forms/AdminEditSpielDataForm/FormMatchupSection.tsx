@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/admin/constants";
 
-import { Description, Label, NumberField, Switch } from "@heroui/react";
+import { Description, Label, NumberField, Separator, Switch } from "@heroui/react";
 
 import { FormTeamPicker } from "./FormTeamPicker";
 
@@ -70,6 +70,8 @@ export default function FormMatchupSection({
         onTeamChange={onTeam2Change}
         disabledTeamId={team1Payload?.shorthand === TBD_TEAM_SHORTHAND ? null : team1Payload?.team_id}
       />
+
+      <Separator className="bg-quinary-light dark:bg-quinary-dark" />
 
       {/** Switch to enter Ergebnis */}
       <Switch

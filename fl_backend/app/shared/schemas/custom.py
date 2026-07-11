@@ -21,15 +21,13 @@ TIME_REGEX = r"^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
 
 class CustomObjectIdAnnotation:
     @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
-    ) -> CoreSchema:
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
 
         def validate_str_to_oid(v: str) -> ObjectId:
             try:
                 return ObjectId(v)
-            except InvalidId:
-                raise ValueError("Invalid ObjectId")
+            except InvalidId as invalid_id_error:
+                raise ValueError("Invalid ObjectId") from invalid_id_error
 
         def serialize_oid(v: ObjectId, info: SerializationInfo) -> Any:
             if info.context and info.context.get("keep_oid"):
@@ -46,17 +44,13 @@ class CustomObjectIdAnnotation:
                     core_schema.chain_schema(
                         [
                             core_schema.str_schema(),
-                            core_schema.no_info_plain_validator_function(
-                                validate_str_to_oid
-                            ),
+                            core_schema.no_info_plain_validator_function(validate_str_to_oid),
                         ]
                     ),
                 ]
             ),
             # How to serialize it to JSON
-            serialization=core_schema.plain_serializer_function_ser_schema(
-                serialize_oid, info_arg=True
-            ),
+            serialization=core_schema.plain_serializer_function_ser_schema(serialize_oid, info_arg=True),
         )
 
 
@@ -66,8 +60,8 @@ CustomObjectId = Annotated[ObjectId, CustomObjectIdAnnotation]
 def parse_string_to_oid(v: str) -> ObjectId:
     try:
         return ObjectId(v)
-    except InvalidId:
-        raise ValueError("Invalid ObjectId format")
+    except InvalidId as invalid_id_error:
+        raise ValueError("Invalid ObjectId format") from invalid_id_error
 
 
 CustomRouteObjectId = Annotated[str, AfterValidator(parse_string_to_oid)]

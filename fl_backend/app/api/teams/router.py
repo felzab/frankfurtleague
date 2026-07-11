@@ -23,9 +23,7 @@ router = APIRouter(
 
 
 @router.get("", response_model=FLTeamsResponse)
-async def get_teams(
-    teams_collection: TeamsCollection, filters: FLTeamsFilterParams = Depends()
-) -> FLTeamsResponse:
+async def get_teams(teams_collection: TeamsCollection, filters: FLTeamsFilterParams = Depends()) -> FLTeamsResponse:
 
     pipeline = build_team_pipeline(filters=filters)
 
@@ -33,12 +31,9 @@ async def get_teams(
         collection=teams_collection,
         pipeline=pipeline,
     )
-    print(teams_raw)
 
     if filters.compact:
-        return FLTeamsCompactListResponse(
-            teams=FLTeamCompactListAdapter.validate_python(teams_raw)
-        )
+        return FLTeamsCompactListResponse(teams=FLTeamCompactListAdapter.validate_python(teams_raw))
 
     teams = FLTeamListAdapter.validate_python(teams_raw)
     if filters.in_gruppen:

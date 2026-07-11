@@ -20,9 +20,7 @@ router = APIRouter(
 
 
 @router.get("", response_model=FLSaisonsListResponse)
-async def get_saisons(
-    saisons_collection: SaisonsCollection, filters: FLSaisonsFilterOptions = Depends()
-) -> FLSaisonsListResponse:
+async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterOptions = Depends()) -> FLSaisonsListResponse:
 
     db_filter = build_saisons_filter(filters=filters)
     db_sort = build_saisons_sort(sort_by=filters.sort_by, order=filters.order)

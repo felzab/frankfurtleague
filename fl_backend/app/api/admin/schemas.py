@@ -26,8 +26,5 @@ class UpdateGameDataCallBody(BaseModel):
     @classmethod
     def empty_strings_to_none(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            return {
-                k: (None if isinstance(v, str) and v.strip() == "" else v)
-                for k, v in data.items()
-            }
+            return {k: (None if isinstance(v, str) and v.strip() == "" else v) for k, v in data.items()}
         return data

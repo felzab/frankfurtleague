@@ -27,9 +27,7 @@ FLSaisonsListAdapter = TypeAdapter(list[FLSaison])
 
 
 class FLSaisonsFilterOptions(BaseModel):
-    saison_id: str | None = Field(
-        default=None, validation_alias="saison_id", serialization_alias="_id"
-    )
+    saison_id: str | None = Field(default=None, validation_alias="saison_id", serialization_alias="_id")
 
     status: FLSaisonStatus | None = None
 

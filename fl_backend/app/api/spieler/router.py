@@ -18,14 +18,10 @@ router = APIRouter(
 
 
 @router.get("", response_model=FLSpielerListResponse)
-async def get_spieler(
-    spieler_collection: SpielerCollection, filters: FLSpielerFilterParams = Depends()
-) -> FLSpielerListResponse:
+async def get_spieler(spieler_collection: SpielerCollection, filters: FLSpielerFilterParams = Depends()) -> FLSpielerListResponse:
 
     pipeline = build_spieler_pipeline(filters=filters)
-    spieler_raw = await aggregate_many_from_db(
-        collection=spieler_collection, pipeline=pipeline
-    )
+    spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)
 
     spieler = FLSpielerListAdapter.validate_python(spieler_raw)
     return FLSpielerListResponse(spieler=spieler)

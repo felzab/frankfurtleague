@@ -22,9 +22,7 @@ class FLTeamStatistik(BaseModel):
 
 
 class FLTeam(BaseModel):
-    id: CustomObjectId = Field(
-        validation_alias="_id", serialization_alias="id"
-    )  # So the _id field can be accesed through
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
 
     name: str
     gruppe: str
@@ -39,9 +37,7 @@ class FLTeam(BaseModel):
 
 
 class FLTeamCompact(BaseModel):
-    id: CustomObjectId = Field(
-        validation_alias="_id", serialization_alias="id"
-    )  # So the _id field can be accesed through
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
 
     name: str
     statistik: FLTeamStatistik
@@ -79,9 +75,7 @@ class FLGruppen(RootModel[Mapping[str, list[FLTeam]]]):
 
 
 class FLTeamsFilterParams(BaseModel):
-    team_id: CustomObjectId | None = Field(
-        default=None, validation_alias="team_id", serialization_alias="_id"
-    )
+    team_id: CustomObjectId | None = Field(default=None, validation_alias="team_id", serialization_alias="_id")
     saison_id: str | None = None
     gruppe: FLGruppenNames | None = None
     is_disqualified: bool | None = None

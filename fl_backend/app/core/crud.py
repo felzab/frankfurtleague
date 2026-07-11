@@ -2,25 +2,9 @@ from typing import Any, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 from pymongo import ReturnDocument
-from pymongo.results import UpdateResult
+from pymongo.results import InsertOneResult, UpdateResult
 
 from app.core.exceptions import DocumentNotFoundException
-
-
-async def pull_from_db(
-    collection: AsyncIOMotorCollection,
-    filter: Mapping[str, Any],
-    projection: Mapping[str, Any] | list[str] | None = None,
-    sort_by: Sequence[tuple[str, int]] | None = None,
-    limit: int = 1024,
-) -> list[Mapping[str, Any]]:
-
-    cursor = collection.find(filter=filter, projection=projection or {})
-
-    if sort_by is not None:
-        cursor = cursor.sort(sort_by)
-
-    return await cursor.limit(limit).to_list(length=limit)
 
 
 async def pull_one_from_db(
@@ -70,9 +54,15 @@ async def patch_one_in_db(
     return_document: bool = ReturnDocument.BEFORE,
 ) -> Mapping[str, Any] | None:
 
-    return await collection.find_one_and_update(
-        filter=filter, update=update, session=session, return_document=return_document
-    )
+    return await collection.find_one_and_update(filter=filter, update=update, session=session, return_document=return_document)
+
+
+async def post_one_to_db(
+    collection: AsyncIOMotorCollection,
+    document: Mapping[str, Any],
+    session: AsyncIOMotorClientSession | None = None,
+) -> InsertOneResult:
+    return await collection.insert_one(document=document, session=session)
 
 
 async def aggregate_many_from_db(
