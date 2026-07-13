@@ -1,8 +1,13 @@
 # Stage 1: Base -> Setup OS deps and package manager
-FROM python:3.14-alpine AS base
+FROM python:3.14-slim AS base
 
+# Update indexes, patch OS vulnerabilities, install tini, and clean cache in a single layer
 # Install tini for proper PID 1 signal routing -> allows graceful shutdown
-RUN apk add --no-cache tini
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends tini && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -17,9 +22,6 @@ WORKDIR /app
 
 # Stage 2: Builder -> Compile app
 FROM base AS builder
-
-# Install Alpine C-extension build dependencies
-RUN apk add --no-cache gcc musl-dev libffi-dev
 
 # Copy dependency manifests first -> Maximize Docker layer caching
 COPY pyproject.toml uv.lock ./
@@ -36,7 +38,7 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 FROM base AS runner
 
 # Create a new user-group 'fl_api' and new user 'fl_api_user' with minimal permissions for safety
-RUN addgroup -S fl_api && adduser -S fl_api_user -G fl_api -h /usr/fl_backend -s /sbin/nologin
+RUN addgroup --system fl_api && adduser --system --group fl_api_user --home /usr/fl_backend --shell /usr/sbin/nologin
 
 # Prepend virtual environment binaries to PATH -> Bypasses needing to activate .venv
 ENV PATH="/app/.venv/bin:$PATH"

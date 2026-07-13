@@ -1,9 +1,11 @@
-# docker-compose.local.yml
 x-logging: &default-logging
   driver: "json-file"
   options:
     max-size: "10m"
     max-file: "3"
+
+volumes:
+  next_static:
 
 services:
   frontend:
@@ -16,6 +18,8 @@ services:
       - API_URL=http://backend:8000
       - AUTH_URL=http://localhost:3000
     restart: unless-stopped
+    volumes:
+      - next_static:/app/.next/static
     networks:
       - frankfurtleague-net
     logging: *default-logging
@@ -44,7 +48,7 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8000/api/v0/system/is_live"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -57,6 +61,7 @@ services:
       - "3000:80"
     volumes:
       - ./nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
+      - next_static:/app/.next/static:ro # Nginx reads directly
     networks:
       - frankfurtleague-net
     logging: *default-logging
