@@ -69,6 +69,7 @@ export default function SignInForm() {
               <TextField
                 className="flex w-full flex-col gap-y-2"
                 isRequired
+                autoFocus={false}
                 name="email"
                 type="email"
                 aria-label="email-input"
@@ -86,6 +87,7 @@ export default function SignInForm() {
                   required
                   aria-label="email"
                   disabled={isPending}
+                  autoFocus={false}
                 />
                 <FieldError className="text-fluid-xxs mt-1 font-bold text-red-400" />
               </TextField>
@@ -104,6 +106,7 @@ export default function SignInForm() {
           <Tabs.Panel id="Spieler">
             <Form className="flex flex-col gap-y-5">
               <TextField
+                autoFocus={false}
                 className="flex w-full flex-col gap-y-2"
                 isRequired
                 name="email"
@@ -117,6 +120,7 @@ export default function SignInForm() {
                 }}>
                 <Label className="text-fluid-xs text-foreground-muted font-bold tracking-wider uppercase">Email-Adresse</Label>
                 <Input
+                  autoFocus={false}
                   className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 text-fluid-xs sm:text-fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
                   placeholder="coming soon..."
                   disabled

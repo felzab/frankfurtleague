@@ -111,22 +111,19 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
 
       <Separator className="bg-border" />
 
-      {/** Buttons */}
-      <div className="flex h-fit w-full flex-row items-center justify-end gap-3 pt-2">
+      {/* Buttons */}
+      <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3">
         <Button
-          className="text-fluid-sm rounded-xl px-5 py-3 font-bold"
-          variant="secondary"
           type="button"
-          onPress={onClose}
-          isDisabled={isPending}>
+          isDisabled={isPending}
+          className="text-fluid-sm border-border text-foreground-muted hover:bg-surface-muted hover:text-foreground rounded-xl border bg-transparent px-6 py-3 font-bold transition-all active:scale-95">
           Abbrechen
         </Button>
         <Button
-          className="text-fluid-sm rounded-xl px-5 py-3 font-bold"
-          variant="primary"
           type="submit"
-          isPending={isPending}>
-          Speichern
+          isDisabled={isPending}
+          className="text-fluid-sm bg-brand text-foreground shadow-brand/25 rounded-xl px-6 py-3 font-bold tracking-wide shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
+          {isPending ? "Speichert..." : "Speichern"}
         </Button>
       </div>
     </Form>

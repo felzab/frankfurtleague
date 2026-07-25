@@ -135,14 +135,14 @@ export default function FormSpielortSection({
             <Button
               type="button"
               variant="secondary"
-              className="rounded-xl px-4 py-2 font-bold"
+              className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-[1.02]"
               onPress={() => setIsCreatingInline(false)}>
               Abbrechen
             </Button>
             <Button
               type="button"
               variant="primary"
-              className="rounded-xl px-4 py-2 font-bold"
+              className="text-fluid-sm bg-brand text-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]"
               onPress={handleCreateSubmit}>
               <Check width={16} /> Speichern
             </Button>
@@ -187,10 +187,9 @@ export default function FormSpielortSection({
                       <p className="text-fluid-xs text-foreground-muted">Dieser Spielort existiert noch nicht.</p>
                       <Button
                         type="button"
-                        size="sm"
                         variant="primary"
                         onPress={() => setIsCreatingInline(true)}
-                        className="rounded-xl font-bold">
+                        className="text-fluid-sm bg-brand text-foreground shadow-brand/25 rounded-xl px-6 py-3 font-bold tracking-wide shadow-lg transition-all duration-200 hover:opacity-90">
                         <Plus width={16} /> Jetzt anlegen
                       </Button>
                     </div>

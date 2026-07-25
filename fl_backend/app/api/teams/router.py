@@ -32,8 +32,6 @@ async def get_teams(teams_collection: TeamsCollection, filters: FLTeamsFilterPar
         pipeline=pipeline,
     )
 
-    print(teams_raw)
-
     if filters.compact:
         return FLTeamsCompactListResponse(teams=FLTeamCompactListAdapter.validate_python(teams_raw))
 
