@@ -6,4 +6,4 @@ docker pull felzab/frankfurtleague:frontend && docker pull felzab/frankfurtleagu
 
 docker compose down
 
-docker compose up -d --force-recreate
+docker compose -f "docker-compose.yml" up -d --force-recreate
