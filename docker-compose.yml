@@ -4,16 +4,12 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
-volumes:
-  next_static:
 
 services:
   frontend:
     env_file: ./fl_frontend/.env
     image: felzab/frankfurtleague:frontend
     restart: unless-stopped
-    volumes:
-      - next_static:/app/.next/static
     networks:
       - frankfurtleague-net
     logging: *default-logging

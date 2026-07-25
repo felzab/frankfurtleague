@@ -4,8 +4,6 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
-volumes:
-  next_static:
 
 services:
   frontend:
@@ -18,8 +16,6 @@ services:
       - API_URL=http://backend:8000
       - AUTH_URL=http://localhost:3000
     restart: unless-stopped
-    volumes:
-      - next_static:/app/.next/static
     networks:
       - frankfurtleague-net
     logging: *default-logging
