@@ -31,7 +31,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams) -> list[Mapping[str, Any]]
     # ==========================================
     # Use Pydantic's model_dump with your specific includes for the season data
     lookup_filters = filters.model_dump(
-        include={"saison_id", "gruppe", "is_qualified"},
+        include={"saison_id", "gruppe", "is_disqualified"},
         exclude_none=True,
         context={"keep_oid": True},
     )
@@ -71,6 +71,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams) -> list[Mapping[str, Any]]
         "shorthand": 1,
         "address": 1,
         "statistik": f"${AS_NAME}.statistik",
+        "is_disqualified": f"${AS_NAME}.is_disqualified",
     }
 
     # Memory optimization: Only project heavy string fields if NOT compact
@@ -83,7 +84,6 @@ def build_team_pipeline(filters: FLTeamsFilterParams) -> list[Mapping[str, Any]]
                 "website_url": 1,
                 "saison_id": f"${AS_NAME}.saison_id",
                 "gruppe": f"${AS_NAME}.gruppe",
-                "is_disqualified": f"${AS_NAME}.is_disqualified",
             }
         )
 

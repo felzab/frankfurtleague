@@ -78,7 +78,7 @@ export default function FormSpielortSection({
   const showStickyFooter = searchQuery.trim() === "" ? spielorte.length > 0 : spielorte.some((ort) => contains(ort.name, searchQuery));
 
   return (
-    <div className="flex h-fit w-full flex-col gap-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700/50 dark:bg-zinc-800/30">
+    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-4 shadow-sm">
       {isCreatingInline ? (
         <div
           className="animate-appearance-in flex flex-col gap-4"
@@ -89,8 +89,8 @@ export default function FormSpielortSection({
               handleCreateSubmit();
             }
           }}>
-          <div className="border-default-200 flex items-center justify-between border-b pb-2">
-            <h4 className="text-sm font-semibold">Neuen Spielort anlegen</h4>
+          <div className="border-border flex items-center justify-between border-b pb-2">
+            <h4 className="text-fluid-sm text-foreground font-bold">Neuen Spielort anlegen</h4>
             <Button
               type="button"
               variant="ghost"
@@ -101,11 +101,12 @@ export default function FormSpielortSection({
           </div>
 
           <TextField isRequired>
-            <Label>Name</Label>
+            <Label className="text-fluid-xs text-foreground font-bold">Name</Label>
             <Input
               placeholder="z.B. Sportpark Nord"
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
             />
           </TextField>
 
@@ -115,7 +116,6 @@ export default function FormSpielortSection({
             onChange={(newAddress) => setDraft({ ...draft, address: newAddress })}
           />
 
-          {/* v3.2.2 NumberField: Must use Compound Components (Group, DecrementButton, Input, IncrementButton) */}
           <NumberField
             minValue={0}
             isRequired
@@ -123,10 +123,10 @@ export default function FormSpielortSection({
             value={draft.default_mietpreis}
             onChange={(val) => setDraft({ ...draft, default_mietpreis: val === undefined || isNaN(val) ? 0 : val })}
             formatOptions={{ style: "currency", currency: "EUR" }}>
-            <Label>Standard Mietpreis</Label>
-            <NumberField.Group>
+            <Label className="text-fluid-xs text-foreground font-bold">Standard Mietpreis</Label>
+            <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
               <NumberField.DecrementButton />
-              <NumberField.Input className="w-full" />
+              <NumberField.Input className="text-fluid-sm w-full" />
               <NumberField.IncrementButton />
             </NumberField.Group>
           </NumberField>
@@ -135,12 +135,14 @@ export default function FormSpielortSection({
             <Button
               type="button"
               variant="secondary"
+              className="rounded-xl px-4 py-2 font-bold"
               onPress={() => setIsCreatingInline(false)}>
               Abbrechen
             </Button>
             <Button
               type="button"
               variant="primary"
+              className="rounded-xl px-4 py-2 font-bold"
               onPress={handleCreateSubmit}>
               <Check width={16} /> Speichern
             </Button>
@@ -155,45 +157,51 @@ export default function FormSpielortSection({
             selectionMode="single"
             value={ortPayload?.spielort_id ?? null}
             onChange={handleOrtChange}>
-            <Label>Spielort</Label>
-            <Autocomplete.Trigger>
-              <Autocomplete.Value />
+            <Label className="text-fluid-xs text-foreground font-bold">Spielort</Label>
+            <Autocomplete.Trigger className="border-border bg-surface text-foreground rounded-lg border px-3 py-2">
+              <Autocomplete.Value className="text-fluid-sm" />
               <Autocomplete.ClearButton type="button" />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
-            <Autocomplete.Popover>
+            <Autocomplete.Popover className="bg-surface border-border rounded-xl border shadow-lg">
               <Autocomplete.Filter filter={contains}>
                 <SearchField
                   name="spielOrtUI_search"
                   variant="secondary"
                   aria-label="Spielort suchen"
                   value={searchQuery}
-                  onChange={setSearchQuery}>
-                  <SearchField.Group>
+                  onChange={setSearchQuery}
+                  className="p-2">
+                  <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5">
                     <SearchField.SearchIcon />
-                    <SearchField.Input placeholder="Spielort finden..." />
+                    <SearchField.Input
+                      placeholder="Spielort finden..."
+                      className="bg-transparent outline-none"
+                    />
                     <SearchField.ClearButton />
                   </SearchField.Group>
                 </SearchField>
                 <ListBox
                   renderEmptyState={() => (
                     <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
-                      <p className="text-default-500 text-sm">Dieser Spielort existiert noch nicht.</p>
+                      <p className="text-fluid-xs text-foreground-muted">Dieser Spielort existiert noch nicht.</p>
                       <Button
                         type="button"
                         size="sm"
                         variant="primary"
                         onPress={() => setIsCreatingInline(true)}
-                        className="font-semibold">
+                        className="rounded-xl font-bold">
                         <Plus width={16} /> Jetzt anlegen
                       </Button>
                     </div>
-                  )}>
+                  )}
+                  className="p-1">
                   {spielorte.map((item) => (
                     <ListBox.Item
                       key={item.id}
                       id={item.id}
-                      textValue={item.name}>
+                      textValue={item.name}
+                      className="text-fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
                       {item.name}
                       <ListBox.ItemIndicator />
                     </ListBox.Item>
@@ -202,18 +210,18 @@ export default function FormSpielortSection({
               </Autocomplete.Filter>
 
               {showStickyFooter && (
-                <div className="bg-default-50 border-default-200 dark:bg-default-100 border-t p-2">
+                <div className="bg-muted border-border border-t p-2">
                   <Button
                     type="button"
                     variant="secondary"
-                    className="text-primary w-full justify-start font-medium"
+                    className="text-brand w-full justify-start font-bold"
                     onPress={() => setIsCreatingInline(true)}>
                     <Plus width={18} /> Neuen Spielort anlegen
                   </Button>
                 </div>
               )}
             </Autocomplete.Popover>
-            <Description>Der Ort, an dem das Spiel ausgetragen wird</Description>
+            <Description className="text-fluid-xxs text-foreground-muted">Der Ort, an dem das Spiel ausgetragen wird</Description>
           </Autocomplete>
 
           {/** Mietpreis */}
@@ -228,13 +236,13 @@ export default function FormSpielortSection({
               currencySign: "accounting",
               style: "currency",
             }}>
-            <Label>Mietpreis</Label>
-            <NumberField.Group>
+            <Label className="text-fluid-xs text-foreground font-bold">Mietpreis</Label>
+            <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
               <NumberField.DecrementButton />
-              <NumberField.Input className="w-full" />
+              <NumberField.Input className="text-fluid-sm w-full py-0" />
               <NumberField.IncrementButton />
             </NumberField.Group>
-            <Description>Der Mietpreis für den Spielort</Description>
+            <Description className="text-fluid-xxs text-foreground-muted">Der Mietpreis für den Spielort</Description>
           </NumberField>
         </>
       )}

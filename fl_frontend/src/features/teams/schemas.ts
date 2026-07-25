@@ -38,6 +38,7 @@ export const FLTeamCompactSchema = z.object({
   statistik: FLTeamStatistikSchema,
   shorthand: z.string().length(2),
   address: FLAddressSchema,
+  is_disqualified: z.boolean(),
 });
 export type FLTeamCompact = z.infer<typeof FLTeamCompactSchema>;
 

@@ -16,7 +16,6 @@ const formatter = new Intl.DateTimeFormat("en-US", {
   day: "2-digit",
 });
 export const getGermanTodayStr = (): string => {
-  // Returns an array of objects like: [{ type: "year", value: "2026" }, ...]
   const parts = formatter.formatToParts(new Date());
 
   const year = parts.find((p) => p.type === "year")?.value ?? "1970";

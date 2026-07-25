@@ -18,77 +18,84 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
         onClick={() => {
           router.back();
         }}
-        className="bg-quaternary-light dark:bg-quaternary-dark text-fluid-xs mb-4 size-fit px-2 py-1 brightness-95 lg:px-3">
-        <ArrowUturnCwLeft className="h-[16px]! w-[16px]!" />
-        Zurück
+        className="bg-surface border-border text-foreground hover:bg-muted text-fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+        <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
+        <span>Zurück</span>
       </Button>
 
-      <div className="flex flex-row items-center justify-start gap-x-2 p-2 min-[360px]:gap-x-6">
-        <h3 className="text-fluid-xl font-extrabold">{teamName}-Spieler</h3>
-        <Chip
-          size="md"
-          variant="soft"
-          color="success"
-          className="lg:mt-1.5">
-          {teamSpieler.length} Spieler
-        </Chip>
+      {/* Header Container */}
+      <div className="bg-surface border-border mb-2 flex w-full flex-col items-center rounded-2xl border p-4 shadow-sm sm:p-6">
+        <div className="flex w-full flex-row items-center justify-between">
+          <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h3>
+          <Chip
+            size="sm"
+            variant="soft"
+            color="success"
+            className="font-bold">
+            {teamSpieler.length} Spieler
+          </Chip>
+        </div>
       </div>
 
-      <div className="w-full max-w-[1550px] overflow-x-auto pb-4">
+      {/* Table Container */}
+      <div className="bg-surface border-border w-full overflow-x-auto rounded-2xl border p-4 shadow-sm sm:p-6">
         <Table
           variant="secondary"
-          className="h-fit min-w-full xl:p-2">
+          className="h-fit w-full text-left">
           <Table.Content aria-label={`Tabelle: Spieler ${teamName}`}>
-            <Table.Header className="text-fluid-sm text-default-400 font-semibold uppercase">
+            <Table.Header className="text-fluid-xxs text-foreground-muted font-semibold uppercase">
               <Table.Column
                 isRowHeader
-                className="pr-1 pl-1.5 sm:pr-2 sm:pl-4">
+                className="text-fluid-xs pt-1.5 pb-2 pl-2 font-extrabold lg:px-4">
                 Name
               </Table.Column>
-              <Table.Column className="w-1 px-1 text-center whitespace-nowrap sm:px-4">#</Table.Column>
-              <Table.Column className="w-1 px-1 text-center whitespace-nowrap sm:px-4">Stufe</Table.Column>
-              <Table.Column className="w-[1%] pr-2 pl-1 text-right whitespace-nowrap min-[360px]:pr-1.5 sm:pr-4 sm:pl-2">Position</Table.Column>
+              <Table.Column className="w-1 px-1 text-center whitespace-nowrap lg:px-4">#</Table.Column>
+              <Table.Column className="w-1 px-1 text-center whitespace-nowrap lg:px-4">Stufe</Table.Column>
+              <Table.Column className="w-1 pr-2 pl-1 text-right whitespace-nowrap lg:px-4">Position</Table.Column>
             </Table.Header>
 
             <Table.Body>
               {teamSpieler.map((spielerData) => (
-                <Table.Row key={spielerData.id}>
+                <Table.Row
+                  key={spielerData.id}
+                  className="border-border border-b last:border-0">
                   {/* NAME */}
-                  <Table.Cell className="px-1 py-2 sm:px-4 sm:py-3">
-                    <div className="flex items-center gap-2 sm:gap-3">
+                  <Table.Cell className="px-1 py-4 lg:px-4">
+                    <div className="flex items-center gap-x-3">
                       <Avatar
                         size="sm"
                         color="accent"
                         variant="soft"
                         className="hidden shrink-0 sm:flex">
-                        <Avatar.Fallback>
+                        <Avatar.Fallback className="font-bold">
                           {spielerData.vorname.charAt(0).toUpperCase()}
                           {spielerData.nachname.charAt(0).toUpperCase()}
                         </Avatar.Fallback>
                       </Avatar>
-                      {/* Added line-clamp-1 so extremely long names truncate instead of breaking the table width */}
-                      <span className="text-fluid-xs line-clamp-1 font-semibold">{`${spielerData.vorname} ${spielerData.nachname}`}</span>
+                      <span className="text-fluid-xs text-foreground line-clamp-1 font-bold">
+                        {`${spielerData.vorname} ${spielerData.nachname}`}
+                      </span>
                     </div>
                   </Table.Cell>
 
-                  {/* NUMMMER */}
-                  <Table.Cell className="w-1 px-1 py-2 text-center whitespace-nowrap sm:px-4 sm:py-3">
-                    <span className="text-fluid-xs font-mono">{spielerData.nummer || "-"}</span>
+                  {/* NUMMER */}
+                  <Table.Cell className="text-fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-mono font-medium lg:px-4">
+                    {spielerData.nummer || "-"}
                   </Table.Cell>
 
                   {/* STUFE */}
-                  <Table.Cell className="w-1 px-1 py-2 text-center whitespace-nowrap sm:px-4 sm:py-3">
-                    <span className="text-fluid-xs font-medium">{spielerData.stufe}</span>
+                  <Table.Cell className="text-fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-medium lg:px-4">
+                    {spielerData.stufe}
                   </Table.Cell>
 
                   {/* POSITION */}
-                  <Table.Cell className="w-1 px-1 py-2 whitespace-nowrap sm:px-4 sm:py-3">
+                  <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
                     <div className="flex justify-end">
                       <Chip
                         size="sm"
                         variant="soft"
                         color="accent"
-                        className="text-fluid-xxs font-medium capitalize">
+                        className="text-fluid-xxs font-semibold capitalize">
                         {spielerData.position}
                       </Chip>
                     </div>

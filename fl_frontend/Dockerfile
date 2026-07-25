@@ -1,6 +1,6 @@
 # Stage 1: Base -> Setup OS deps and package manager
 FROM node:26-alpine3.24 AS base
-ARG PNPM_VERSION=11.10.0
+ARG PNPM_VERSION=11.17.0
 
 # Alpine requires libc6-compat for native C binaries (e.g., SWC, image optimization)
 # Install tini for proper PID 1 signal routing -> allows graceful shutdown

@@ -3,58 +3,54 @@ import Link from "next/link";
 
 import { Bars } from "@gravity-ui/icons";
 
+import { FLLogo } from "../../ui/FLLogo";
+
 const TopNavLinksDropdown = dynamic(() => import("./TopNavLinksDropdown"), {
   ssr: true,
   loading: () => (
     <Bars
       aria-label="Loading menu"
-      height={32}
-      width={32}
-      className="opacity-50"
+      className="text-foreground-muted size-8 opacity-50"
     />
   ),
 });
 
 export default async function TopNav() {
   return (
-    <nav className="flex h-full w-full flex-row items-center justify-between p-2">
-      <div className="flex h-full min-w-[50%] flex-row items-center justify-start">
-        <h2>
-          <Link
-            prefetch={false}
-            title="Link to homepage"
-            className="text-fluid-lg max-w-[44%] pl-2 font-bold tracking-tighter"
-            href="/">
-            Frankfurt-League
-          </Link>
-        </h2>
-      </div>
+    <nav className="flex h-[var(--navbar-height)] w-full items-center justify-between px-4 sm:px-6">
+      {/* Brand Logo Area */}
+      <Link
+        href="/"
+        title="Homepage"
+        className="text-fluid-lg text-foreground flex items-center gap-2 font-bold tracking-tighter transition-opacity hover:opacity-80">
+        <FLLogo />
+        Frankfurt-League
+      </Link>
 
-      <div className="flex h-full w-fit flex-row items-center justify-end">
-        {/** Shown for everything bigger than mobile */}
-        <div className="text-text-black dark:text-text-white hidden h-full w-fit flex-row items-center justify-between gap-x-2 pr-2 lg:flex">
+      {/* Navigation Links Area */}
+      <div className="flex items-center gap-2 sm:gap-4">
+        {/* Desktop Links (Hidden on Mobile) */}
+        <div className="hidden items-center gap-1 lg:flex">
           <Link
-            prefetch={false}
-            title="Link to page: dashboard"
-            className="text-text-black dark:text-text-white text-fluid-sm rounded-3xl px-2 py-1 font-semibold hover:bg-[#ECECEC] dark:hover:bg-[#26282b]"
-            href="/dashboard">
+            href="/dashboard"
+            className="text-fluid-sm text-foreground hover:bg-muted focus-visible:ring-action rounded-full px-4 py-1.5 font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none">
             Saisonübersicht
           </Link>
 
           <Link
-            title="Link to page: verwalten"
-            prefetch={false}
-            className="text-text-black dark:text-text-white text-fluid-sm rounded-3xl px-2 py-1 font-semibold hover:bg-[#ECECEC] dark:hover:bg-[#26282b]"
-            href="/admin">
+            href="/admin"
+            className="text-fluid-sm text-foreground hover:bg-muted focus-visible:ring-action rounded-full px-4 py-1.5 font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none">
             Verwalten
           </Link>
 
-          <div className="bg-text-black dark:bg-text-white h-full w-[2px]" />
+          {/* Semantic Divider instead of an empty hardcoded div (We use this div instead of a HeroUI Separator because of performance)*/}
+          <div
+            className="bg-border ml-2 h-8 w-px"
+            aria-hidden="true"
+          />
         </div>
 
-        <div className="mr-2 flex items-center">
-          <TopNavLinksDropdown />
-        </div>
+        <TopNavLinksDropdown />
       </div>
     </nav>
   );

@@ -1,21 +1,16 @@
 import { Suspense } from "react";
 
+import AdminSidemenu from "@/features/admin/components/AdminSidemenu";
 import AdminContextWrapper from "@/features/admin/components/providers/AdminContextWrapper";
-import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
-import Sidemenu from "@/shared/components/layout/sidemenu/Sidemenu";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex h-full w-full flex-col xl:flex-row">
-      <Sidemenu
-        structure={ADMIN_SIDEMENU_STRUCTURE}
-        linkPrefix="/admin"
-        saisonMetadataDisplay={<SaisonMetadataDisplay />}
-      />
+    <div className="relative flex h-dvh w-full flex-col xl:flex-row">
+      <AdminSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
-      <main className="bg-primary-light dark:bg-primary-dark relative flex h-dvh w-full flex-col items-center justify-start p-1 pb-20">
-        <Suspense fallback={<span className="text-fluid-xs h-[80px] opacity-80"> Daten laden...</span>}>
+      <main className="bg-background relative flex flex-1 flex-col overflow-y-scroll">
+        <Suspense>
           <AdminContextWrapper>{children}</AdminContextWrapper>
         </Suspense>
       </main>

@@ -3,19 +3,18 @@ import { Chip } from "@heroui/react";
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
 export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {
-  const colorMap = {
-    gruppenphase: "warning",
-    viertelfinale: "danger",
-    halbfinale: "accent",
-    finale: "success",
+  const tailwindColors = {
+    gruppenphase: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+    viertelfinale: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
+    halbfinale: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
+    finale: "bg-rose-500/15 text-rose-700 dark:text-rose-400",
   } as const;
 
   const iconMap = {
     gruppenphase: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="1.25em"
-        height="1.25em"
+        className="size-3.5"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -55,8 +54,7 @@ export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaison
     viertelfinale: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="1.25em"
-        height="1.25em"
+        className="size-3.5"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -74,8 +72,7 @@ export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaison
     halbfinale: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="1.25em"
-        height="1.25em"
+        className="size-3.5"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -94,8 +91,7 @@ export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaison
     finale: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="1.25em"
-        height="1.25em"
+        className="size-3.5"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -114,11 +110,11 @@ export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaison
   return (
     <Chip
       size="sm"
-      variant="primary"
-      color={colorMap[saisonPhase]}
-      className="text-fluid-xxs! text-text-black w-fit px-1.5 py-0.5 font-extrabold tracking-wide brightness-95 lg:px-2">
-      {iconMap[saisonPhase]}
-      {saisonPhase.toUpperCase()}
+      className={`border-none px-1.5 py-0.5 ${tailwindColors[saisonPhase]}`}>
+      <div className="text-fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
+        {iconMap[saisonPhase]}
+        {saisonPhase}
+      </div>
     </Chip>
   );
 }

@@ -1,126 +1,167 @@
-@layer theme, base, components, utilities, soccer-field;
-
 @import "tailwindcss";
 @import "@heroui/styles";
 
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* Custom definitions */
+@layer base {
+  :root,
+  [data-theme="light"] {
+    /* Structure */
+    --bg-base: #ffffff;
+    --bg-surface: #f5f5f5;
+    --bg-muted: #e5e5e5;
+    --fg-base: #0a0a0a;
+    --fg-muted: #525252;
+    --border-base: #d4d4d4;
+
+    /* Accents & Feedback */
+    --accent-brand: #82181a;
+    --accent-action: #059669;
+    --accent-warn: #eab308;
+    --accent-danger: #dc2626;
+    --accent-success: #16a34a;
+    --accent-info: #2563eb;
+  }
+
+  [data-theme="dark"] {
+    /* Structure */
+    --bg-base: #030303;
+    --bg-surface: #121212;
+    --bg-muted: #262626;
+    --fg-base: #ffffff;
+    --fg-muted: #a3a3a3;
+    --border-base: #333333;
+
+    /* Accents & Feedback */
+    --accent-brand: #82181a;
+    --accent-action: #10b981;
+    --accent-warn: #fde047;
+    --accent-danger: #ef4444;
+    --accent-success: #22c55e;
+    --accent-info: #3b82f6;
+  }
+}
+
+/*
+Possible shimmer animation for landing page
+
+@keyframes continuousFlowWave {
+  0% {
+    background-position: -160vw -80vh;
+  }
+  100% {
+    background-position: 120vw 120vh;
+  }
+}
+
+@utility brand-shimmer {
+  background-image: linear-gradient(
+    135deg,
+    transparent 30%,
+    color-mix(in srgb, var(--brand, #dc2626) 6%, transparent) 38%,
+    color-mix(in srgb, var(--brand, #dc2626) 18%, transparent) 48%,
+    color-mix(in srgb, var(--brand, #dc2626) 24%, transparent) 50%,
+    color-mix(in srgb, var(--brand, #dc2626) 18%, transparent) 52%,
+    color-mix(in srgb, var(--brand, #dc2626) 6%, transparent) 62%,
+    transparent 70%
+  );
+  background-size: 200vw 200vh;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  animation: continuousFlowWave 10s linear infinite;
+}
+  */
+
 @theme {
   /* Fonts */
   --font-primary: var(--font-inter), ui-sans-serif, system-ui;
   --font-secondary: var(--font-krub), ui-sans-serif, system-ui;
-
   --font-sans: var(--font-inter);
 
-  /* Colors (light) */
-  --color-primary-light: #efefef; /* Off-White - Hintergrund */
-  --color-secondary-light: #cccccc; /* Hellgrau - Seitenmenü */
-  --color-tertiary-light: #e0e0e0; /* Weißgrau - Tabelle, Button-Hintergrund */
-  --color-quaternary-light: #5cadff; /* Blau - Indicator */
-  --color-quinary-light: #c0bdbd; /* Grau - 2. Button-Hintergrund */
-  --color-senary-light: #f2f2f2; /* Weiß - 3. Button-Hintergrund */
-
-  /* Colors (dark) */
-  --color-primary-dark: #141a22; /* Sehr dunkles Grau - Hintergrund*/
-  --color-secondary-dark: #000000; /* Schwarz - Seitenmenü */
-  --color-tertiary-dark: #242e3c; /* Dunkelgrau - Tabelle, Button-Hintergrund */
-  --color-quaternary-dark: #0e86ff; /* Blau - Indicator */
-  --color-quinary-dark: #364459; /* Blau-Grau - 2. Button-Hintergrund */
-  --color-senary-dark: #efefef; /* 3. Button-Hintergrund */
-
-  /* Colors (text) */
-  --color-text-white: #efefef;
-  --color-text-black: #242e3c;
-
-  /* Colors (FL-specific) */
-  --color-fl-red: #82181a;
-
   /* Colors */
-  --color--danger: #ca0b00;
-  --color--success: #28a745;
+  --color-background: var(--bg-base);
+  --color-surface: var(--bg-surface);
+  --color-muted: var(--bg-muted);
+  --color-foreground: var(--fg-base);
+  --color-foreground-muted: var(--fg-muted);
+  --color-border: var(--border-base);
+
+  --color-brand: var(--accent-brand);
+  --color-action: var(--accent-action);
+  --color-warn: var(--accent-warn);
+  --color-danger: var(--accent-danger);
+  --color-success: var(--accent-success);
+  --color-info: var(--accent-info);
 
   /** Fluid text sizes */
-  --text-fluid-xxs: clamp(0.65rem, 1vw + 0.25rem, 0.725rem);
-  --text-fluid-xxs--line-height: 2;
+  /* 10px to 12px */
+  --text-fluid-xxs: clamp(0.625rem, 0.58rem + 0.2vw, 0.75rem);
+  --text-fluid-xxs--line-height: 1.6;
 
-  --text-fluid-xs: clamp(0.75rem, 1vw + 0.25rem, 0.875rem);
-  --text-fluid-xs--line-height: 1.8;
+  /* 12px to 14px */
+  --text-fluid-xs: clamp(0.75rem, 0.71rem + 0.2vw, 0.875rem);
+  --text-fluid-xs--line-height: 1.5;
 
-  --text-fluid-sm: clamp(0.85rem, 1.3vw + 0.4rem, 1rem);
-  --text-fluid-sm--line-height: 1.7;
+  /* 14px to 16px */
+  --text-fluid-sm: clamp(0.875rem, 0.83rem + 0.2vw, 1rem);
+  --text-fluid-sm--line-height: 1.5;
 
-  --text-fluid-md: clamp(0.9rem, 1.5vw + 0.5rem, 1.15rem);
-  --text-fluid-md--line-height: 1.7;
-
-  --text-fluid-base: clamp(1rem, 2vw + 0.25rem, 1.25rem);
+  /* 16px to 18px (The Anchor) */
+  --text-fluid-base: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
   --text-fluid-base--line-height: 1.5;
 
-  --text-fluid-lg: clamp(1.25rem, 3vw + 0.5rem, 1.75rem);
-  --text-fluid-lg--line-height: 1.3;
+  /* 18px to 20px */
+  --text-fluid-lg: clamp(1.125rem, 1.08rem + 0.2vw, 1.25rem);
+  --text-fluid-lg--line-height: 1.4;
 
-  --text-fluid-xl: clamp(1.5rem, 3vw + 0.75rem, 2rem);
-  --text-fluid-xl--line-height: 1.2;
+  /* 20px to 24px */
+  --text-fluid-xl: clamp(1.25rem, 1.16rem + 0.4vw, 1.5rem);
+  --text-fluid-xl--line-height: 1.4;
 
-  --text-fluid-2xl: clamp(2rem, 4vw + 1.25rem, 3rem);
-  --text-fluid-2xl--line-height: 1.1;
+  /* 24px to 32px */
+  --text-fluid-2xl: clamp(1.5rem, 1.33rem + 0.8vw, 2rem);
+  --text-fluid-2xl--line-height: 1.3;
 
-  --text-fluid-3xl: clamp(2.5rem, 5vw + 1.5rem, 5rem);
-  --text-fluid-3xl--line-height: 1;
+  /* 30px to 42px */
+  --text-fluid-3xl: clamp(1.875rem, 1.53rem + 1.7vw, 2.625rem);
+  --text-fluid-3xl--line-height: 1.2;
 
-  /** Custom breakpoints */
+  /* 36px to 56px */
+  --text-fluid-4xl: clamp(2.25rem, 1.73rem + 2.6vw, 3.5rem);
+  --text-fluid-4xl--line-height: 1.1;
+
+  /* Custom breakpoints */
   --breakpoint-2xl: 115rem;
   --breakpoint-3xl: 135rem;
+
+  /* Custom sizes */
+  --navbar-height: 54px;
 }
 
-@layer base {
-  html {
-    padding-right: 0 !important;
-    overflow: scroll !important;
-    scrollbar-gutter: stable !important;
-
-    @apply text-text-black dark:text-text-white text-fluid-base font-primary w-dvw whitespace-nowrap;
-  }
-
-  body {
-    @apply bg-primary-light dark:bg-primary-dark relative z-0 flex min-h-dvh w-full max-w-dvw flex-col items-center justify-between;
-  }
-
-  header {
-    @apply bg-secondary-light dark:bg-secondary-dark z-5 h-[55px] w-full;
-  }
-
-  #doc_main {
-    @apply z-0 flex w-dvw max-w-dvw flex-1 flex-col items-center justify-start;
-  }
-
-  footer {
-    @apply border-tertiary-light dark:border-tertiary-dark bg-secondary-light dark:bg-secondary-dark z-10 h-[160px] w-dvw shrink-0 border-t lg:h-[220px];
-  }
-}
-
-@layer utilities {
-  .scrollbar-hide::-webkit-scrollbar {
+/* Hides the scrollbar */
+@utility scrollbar-hide {
+  &::-webkit-scrollbar {
     display: none !important;
   }
-  .scrollbar-hide {
-    -ms-overflow-style: none !important;
-    scrollbar-width: none !important;
-    scrollbar-gutter: stable !important;
-  }
-  .dotted-bg {
-    @apply bg-[radial-gradient(rgba(60,60,60,0.3)_1px,transparent_1px)] dark:bg-[radial-gradient(rgba(255,255,255,0.15)_1px,transparent_1px)];
-    background-size: 30px 30px; /* Abstand der Punkte */
-  }
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+  scrollbar-gutter: stable !important;
+}
+
+/* Makes a dotted background */
+@utility dotted-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px) !important;
+  background-size: 32px 32px !important;
 }
 
 @layer components {
+  /* UI Overrides */
   .table__column {
-    @apply bg-primary-light! text-text-black dark:text-text-white text-fluid-xxs dark:bg-[#141a2290]!;
+    @apply bg-background/90! text-foreground text-fluid-xxs;
   }
 
   [data-slot="table"] td {
-    @apply border-b-1! border-b-gray-400! dark:border-b-gray-600!;
+    @apply border-b-border! border-b-1!;
   }
 
   [data-slot="table"] tr:last-child td {
@@ -128,7 +169,7 @@
   }
 
   .toast {
-    @apply bg-primary-light dark:bg-primary-dark border whitespace-normal;
+    @apply bg-surface border-border border whitespace-normal;
   }
 
   .toast--danger {
@@ -136,7 +177,7 @@
   }
 
   .toast__description {
-    @apply text-fluid-xs text-text-black dark:text-text-white opacity-90;
+    @apply text-fluid-xs text-foreground-muted opacity-90;
   }
 
   .toast__action {
@@ -146,53 +187,53 @@
   .accordion__item:after {
     @apply hidden!;
   }
-}
 
-@layer soccer-field {
+  /* Soccer Field Graphics - Balanced Professional Middle Ground */
   .soccer-field-base {
-    @apply relative h-full min-h-[130dvh] w-full max-w-[1800px] flex-1 border-[2px] border-white bg-green-400/60 dark:bg-green-900;
+    @apply relative h-full min-h-[120dvh] w-full max-w-[1500px] flex-1 overflow-hidden border-[3px] border-white/85 bg-emerald-700 shadow-2xl dark:bg-[#0b3820];
   }
 
   .corner-arc-base {
-    @apply absolute h-12 w-12 border-white/80 lg:h-18 lg:w-18;
+    @apply absolute h-14 w-14 border-white/85 lg:h-20 lg:w-20;
   }
 
   .corner-arc-tl {
-    @apply top-0 left-0 rounded-br-full border-r-[2px] border-b-[2px] xl:border-r-[4px] xl:border-b-[4px];
+    @apply top-0 left-0 rounded-br-full border-r-[3px] border-b-[3px] xl:border-r-[4px] xl:border-b-[4px];
   }
 
   .corner-arc-tr {
-    @apply top-0 right-0 rounded-bl-full border-b-[2px] border-l-[2px] xl:border-b-[4px] xl:border-l-[4px];
+    @apply top-0 right-0 rounded-bl-full border-b-[3px] border-l-[3px] xl:border-b-[4px] xl:border-l-[4px];
   }
 
   .corner-arc-bl {
-    @apply bottom-0 left-0 rounded-tr-full border-t-[2px] border-r-[2px] xl:border-t-[4px] xl:border-r-[4px];
+    @apply bottom-0 left-0 rounded-tr-full border-t-[3px] border-r-[3px] xl:border-t-[4px] xl:border-r-[4px];
   }
 
   .corner-arc-br {
-    @apply right-0 bottom-0 rounded-tl-full border-t-[2px] border-l-[2px] xl:border-t-[4px] xl:border-l-[4px];
+    @apply right-0 bottom-0 rounded-tl-full border-t-[3px] border-l-[3px] xl:border-t-[4px] xl:border-l-[4px];
   }
 
   .penalty-area-base {
-    @apply absolute left-1/3 h-14 w-1/3 border-r-[2px] border-l-[2px] border-white/80 sm:h-20 xl:h-32 xl:border-r-[4px] xl:border-l-[4px];
+    @apply absolute left-1/3 h-16 w-1/3 border-r-[3px] border-l-[3px] border-white/85 sm:h-24 xl:h-36 xl:border-r-[4px] xl:border-l-[4px];
   }
 
   .penalty-area-top {
-    @apply top-0 border-b-[2px] xl:border-b-[4px];
+    @apply top-0 border-b-[3px] xl:border-b-[4px];
   }
 
   .penalty-area-bottom {
-    @apply bottom-0 border-t-[2px] xl:border-t-[4px];
+    @apply bottom-0 border-t-[3px] xl:border-t-[4px];
   }
 
   .soccer-field-separator {
-    @apply h-[2px] bg-emerald-700/20 dark:bg-emerald-400/20;
+    @apply my-4 h-[2px] w-full bg-white/25;
   }
 
   .soccer-field-card-bg {
-    @apply bg-emerald-500/40 dark:bg-emerald-950/50;
+    @apply bg-emerald-800/90 backdrop-blur-md dark:bg-[#124529]/90;
   }
+
   .soccer-field-card-border {
-    @apply border-white/80 transition-all duration-300 hover:border-emerald-600 dark:border-white/20 dark:hover:border-emerald-400;
+    @apply border-white/40 dark:border-white/20;
   }
 }

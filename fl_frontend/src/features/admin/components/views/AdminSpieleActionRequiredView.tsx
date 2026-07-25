@@ -5,7 +5,7 @@ import { ChevronsDownWide } from "@gravity-ui/icons";
 
 import { Accordion } from "@heroui/react";
 
-import AdminSpielCardList from "../collections/AdminSpielCardsList";
+import AdminSpielCardsList from "../collections/AdminSpielCardsList";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 
@@ -42,30 +42,56 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele }: { over
   });
 
   return (
-    <Accordion className="text-text-black dark:text-text-white scrollbar-hide flex h-full w-[98%] max-w-[1550px] flex-col gap-y-2 overflow-y-scroll p-2">
-      {Object.entries(spieleCategories).map(([category, data]) => (
-        <Accordion.Item key={category}>
-          <Accordion.Heading>
-            <Accordion.Trigger className="bg-primary-light dark:bg-primary-dark border-quaternary-light dark:border-quaternary-dark w-full rounded-2xl border-2 px-3 py-4">
-              <div className="flex flex-col gap-0">
-                <span className="text-fluid-lg font-bold tracking-tighter">{data.name}</span>
-                <span className="text-fluid-xxs text-muted/80 leading-normal font-normal tracking-tighter whitespace-normal">{data.desc}</span>
-              </div>
-              <Accordion.Indicator>
-                <ChevronsDownWide />
-              </Accordion.Indicator>
-            </Accordion.Trigger>
-          </Accordion.Heading>
+    <div className="relative flex w-full flex-1 flex-col items-center px-4 pt-6 pb-12 sm:px-8">
+      <Accordion className="text-foreground flex w-full max-w-[1400px] flex-col gap-y-4">
+        {Object.entries(spieleCategories).map(([category, data]) => {
+          const hasItems = data.spiele.length > 0;
 
-          <Accordion.Panel>
-            <Accordion.Body className="scrollbar-hide flex w-full flex-col items-center overflow-y-scroll px-0 pt-4 pb-10">
-              <AdminSpielCardList spiele={data.spiele} />
+          return (
+            <Accordion.Item
+              key={category}
+              /* Removed overflow-hidden so nothing gets clipped */
+              className="bg-surface border-border rounded-2xl border shadow-sm transition-all">
+              <Accordion.Heading>
+                <Accordion.Trigger className="hover:bg-muted/80 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors outline-none">
+                  <div className="flex flex-col gap-y-1">
+                    <div className="flex items-center gap-x-3">
+                      <span className="text-fluid-base text-foreground font-extrabold tracking-tight">{data.name}</span>
+                      <span
+                        className={`inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 text-xs font-extrabold shadow-sm ${
+                          hasItems ? "bg-danger dark:bg-danger/90 text-white" : "bg-success dark:bg-success/90 text-white"
+                        }`}>
+                        {data.spiele.length}
+                      </span>
+                    </div>
+                    <span className="text-fluid-xxs text-foreground-muted font-medium">{data.desc}</span>
+                  </div>
+                  <Accordion.Indicator className="text-foreground-muted transition-transform duration-200">
+                    <ChevronsDownWide
+                      width={18}
+                      height={18}
+                    />
+                  </Accordion.Indicator>
+                </Accordion.Trigger>
+              </Accordion.Heading>
 
-              {data.spiele.length === 0 && <span className="text-fluid-base"> Alles passt!</span>}
-            </Accordion.Body>
-          </Accordion.Panel>
-        </Accordion.Item>
-      ))}
-    </Accordion>
+              <Accordion.Panel>
+                <Accordion.Body className="border-border flex w-full flex-col items-center border-t px-6 py-6">
+                  {hasItems ? (
+                    <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                      <AdminSpielCardsList spiele={data.spiele} />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <p className="text-fluid-sm text-success font-bold">Keine Spiele in dieser Kategorie!</p>
+                    </div>
+                  )}
+                </Accordion.Body>
+              </Accordion.Panel>
+            </Accordion.Item>
+          );
+        })}
+      </Accordion>
+    </div>
   );
 }

@@ -1,6 +1,5 @@
 allowBuilds:
   sharp: true
   unrs-resolver: true
-minimumReleaseAgeExclude:
-  - eslint-plugin-tailwindcss@4.0.3
-  - prettier@3.9.0
+overrides:
+  "@auth/core": "0.41.3"

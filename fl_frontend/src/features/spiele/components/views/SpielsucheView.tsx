@@ -23,11 +23,15 @@ export default function SpielsucheView({
   const spielQuery = searchParams.get("q") || "";
   const [inputValue, setInputValue] = useState(spielQuery);
 
-  // 1. Debouncing-Logic
+  // Sync local input if URL changes externally (e.g., browser back/forward buttons)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInputValue(spielQuery);
+  }, [spielQuery]);
+
+  // 1. Debouncing-Logic (Updates URL lazily after 300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Guard-clause, so that the component is not rerendered constantly
-      const spielQuery = searchParams.get("q") || "";
       if (spielQuery === inputValue) return;
 
       const params = new URLSearchParams(searchParams);
@@ -36,20 +40,20 @@ export default function SpielsucheView({
       } else {
         params.delete("q");
       }
-      // Update URL without reloading the page
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, 300); // Wait 300ms
+    }, 300);
 
-    return () => clearTimeout(timer); // Clean up, in case the user starts typing again
-  }, [inputValue, router, pathname, searchParams]);
+    return () => clearTimeout(timer);
+  }, [inputValue, router, pathname, searchParams, spielQuery]);
 
-  const processedSpiele = spiele.map((s) => ({
-    ...s,
-    // Changes the date format to DD.MM.YYYY
-    searchable_datum: s.datum ? s.datum.split("-").reverse().join(".") : null,
-  }));
+  const processedSpiele = useMemo(() => {
+    return spiele.map((s) => ({
+      ...s,
+      searchable_datum: s.datum ? s.datum.split("-").reverse().join(".") : null,
+    }));
+  }, [spiele]);
 
-  // 2. Fuse.js configuration:
+  // 2. Fuse.js configuration
   const fuse = useMemo(() => {
     return new Fuse(processedSpiele, {
       keys: ["team1.name", "team2.name", "ort", "searchable_datum", "spiel_nr"],
@@ -60,26 +64,37 @@ export default function SpielsucheView({
     });
   }, [processedSpiele]);
 
-  // 3. Filtering:
+  // 3. Filtering driven strictly by spielQuery (the URL source of truth)
   const filteredResults = useMemo(() => {
-    if (!spielQuery) return spiele;
+    if (!spielQuery) return [];
     return fuse.search(spielQuery).map((result) => result.item);
-  }, [spielQuery, spiele, fuse]);
+  }, [spielQuery, fuse]);
 
   return (
-    <div className="relative flex h-full w-full flex-col items-center justify-start px-2 py-1">
-      <Input
-        type="text"
-        value={inputValue}
-        placeholder="Suche nach Team, Ort, Datum..."
-        className="border-quaternary-light dark:border-quaternary-dark bg-primary-light dark:bg-secondary-dark sticky h-fit w-full max-w-[1200px] rounded-lg border-1 p-3 outline-none focus-within:!ring-0 focus-within:!ring-offset-0 lg:w-[90%]"
-        onChange={(e) => setInputValue(e.target.value)}
-      />
+    <div className="relative flex w-full flex-1 flex-col items-center">
+      {/** Search Bar */}
+      <div className="bg-background sticky top-0 z-20 flex w-full justify-center px-4 py-4 sm:px-8 lg:py-8">
+        <Input
+          type="text"
+          value={inputValue}
+          placeholder="Suche nach Team, Ort, Datum..."
+          variant="secondary"
+          className="border-border bg-surface text-foreground placeholder:text-foreground-muted hover:border-foreground/30 focus-visible:border-brand text-fluid-sm h-14 w-full max-w-[1200px] rounded-xl border px-4 font-bold shadow-sm transition-all outline-none lg:w-[90%]"
+          onChange={(e) => setInputValue(e.target.value)}
+        />
+      </div>
 
-      <div className="scrollbar-hide flex min-h-full w-full flex-col items-center justify-start overflow-y-scroll pt-4">
-        {inputValue === "" ? <p className="text-center">Noch keine Eingabe...</p> : <ListComponent spiele={filteredResults} />}
-
-        {filteredResults.length === 0 && <p className="text-center">Keine Ergebnisse für "{spielQuery}"</p>}
+      {/* Results Area */}
+      <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
+        {spielQuery === "" ? (
+          <p className="text-fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Noch keine Eingabe...</p>
+        ) : filteredResults.length === 0 ? (
+          <p className="text-fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Keine Ergebnisse für "{spielQuery}"</p>
+        ) : (
+          <div className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-[1400px] grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
+            <ListComponent spiele={filteredResults} />
+          </div>
+        )}
       </div>
     </div>
   );

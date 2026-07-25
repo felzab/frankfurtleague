@@ -1,10 +1,6 @@
 import "./globals.css";
 
-import { Suspense } from "react";
 import { Inter, Krub } from "next/font/google";
-
-import Footer from "@/shared/components/layout/Footer";
-import TopNav from "@/shared/components/layout/topnav/TopNav";
 
 import RootProviders from "@/core/providers/RootProviders";
 
@@ -12,7 +8,6 @@ import type { Metadata } from "next";
 
 /** Fonts */
 const inter = Inter({
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
@@ -70,24 +65,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
-      id="doc_html"
       lang="de"
       suppressHydrationWarning
       className={`${inter.variable} ${krub.variable}`}>
-      <body>
-        <RootProviders>
-          <header id="top">
-            <Suspense>
-              <TopNav />
-            </Suspense>
-          </header>
-
-          <main id="doc_main">{children}</main>
-
-          <footer>
-            <Footer />
-          </footer>
-        </RootProviders>
+      <body className="bg-background text-foreground font-primary text-fluid-base relative flex min-h-dvh w-full scrollbar-gutter-stable! flex-col antialiased">
+        <RootProviders>{children}</RootProviders>
       </body>
     </html>
   );

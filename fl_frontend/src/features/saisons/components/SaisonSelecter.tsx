@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { ListBox, Select } from "@heroui/react";
+import { Description, ListBox, Select } from "@heroui/react";
 
 import type { Key } from "@heroui/react";
 import type { FLSaison } from "../schemas";
@@ -12,22 +12,21 @@ export default function SaisonSelector({ seasons, currentSeason }: { seasons: FL
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // 1. Determine active season from URL or fallback to current
+  // Determine active season from URL or fallback to current
   const activeSaisonId = searchParams.get("saison_id") || currentSeason.id;
-
-  // 2. Find the active season data for the timespan display
   const activeSaisonData = seasons.find((s) => s.id === activeSaisonId) || currentSeason;
-  const timespan = `${new Date(activeSaisonData.start_date).toLocaleDateString("de-DE")} - ${new Date(activeSaisonData.end_date).toLocaleDateString("de-DE")}`;
 
-  // 3. HeroUI v3 strict onChange handler (receives Key | null for single selection)
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("de-DE");
+  };
+  const timespan = `${formatDate(activeSaisonData.start_date)} - ${formatDate(activeSaisonData.end_date)}`;
+
   const handleSelectionChange = (key: Key | null) => {
-    // Prevent clearing the selection entirely
     if (!key) return;
 
     const selectedId = key.toString();
     const params = new URLSearchParams(searchParams.toString());
 
-    // Clean URL logic: Only set the parameter if they pick a historical season
     if (selectedId && selectedId !== currentSeason.id) {
       params.set("saison_id", selectedId);
     } else {
@@ -38,32 +37,37 @@ export default function SaisonSelector({ seasons, currentSeason }: { seasons: FL
   };
 
   return (
-    <div className="flex h-[80px] flex-col items-start justify-start px-4 py-2">
+    <div className="w-full">
       <Select
         aria-label="Saison auswählen"
         value={activeSaisonId}
         onChange={handleSelectionChange}
-        className="font-secondary w-full font-bold">
-        <Select.Trigger className="hover:bg-default-100 border-none bg-transparent px-0 shadow-none">
-          <Select.Value className="font-secondary text-lg/6 font-bold" />
-          <Select.Indicator />
+        className="w-full">
+        {/* Sleek, single-layer trigger with interactive border states */}
+        <Select.Trigger className="border-border/60 bg-surface/50 hover:bg-surface hover:border-border data-[open=true]:border-brand data-[open=true]:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-all">
+          <div className="flex flex-col items-start gap-0.5 text-left">
+            <Select.Value className="text-fluid-lg! text-foreground font-black tracking-tight" />
+            <Description className="text-fluid-xxs text-foreground-muted font-bold tracking-wider uppercase">{timespan}</Description>
+          </div>
+
+          <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
         </Select.Trigger>
 
-        <Select.Popover>
+        {/* Crisp popover matching the trigger's border radius */}
+        <Select.Popover className="bg-surface border-border mt-2 rounded-xl border p-1.5 shadow-lg">
           <ListBox aria-label="Verfügbare Saisons">
             {seasons.map((saison) => (
               <ListBox.Item
                 key={saison.id}
                 id={saison.id}
-                textValue={`Saison ${saison.id}`}>
+                textValue={`Saison ${saison.id}`}
+                className="text-foreground-muted hover:bg-muted/50 hover:text-brand text-fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-100">
                 Saison {saison.id}
               </ListBox.Item>
             ))}
           </ListBox>
         </Select.Popover>
       </Select>
-
-      <p className="text-fluid-xxs font-secondary -mt-[10px]">{timespan}</p>
     </div>
   );
 }

@@ -12,26 +12,38 @@ export default async function RecentAndUpcomingSpieleGrid() {
 
   if (!upcomingSpieleRes || !recentSpieleRes) {
     return (
-      <p className="text-fluid-base pt-10 text-center whitespace-normal italic">Nächste/Vergangene Spiele konnten nicht geladen werden.</p>
+      <div className="border-border bg-surface flex w-full flex-col items-center justify-center rounded-2xl border p-10 shadow-sm">
+        <span className="text-fluid-base text-foreground-muted italic">Spieldaten konnten nicht geladen werden.</span>
+      </div>
     );
   }
 
   return (
-    /** Small preview of upcoming matches etc. */
-    <section className="mt-5 flex h-fit min-h-[600px] w-[90%] flex-col items-center pb-20 lg:w-[95%]">
-      {/** Displays upcoming 6 games */}
-      <div className="flex h-full w-full flex-col items-center pb-5">
-        <h2 className="text-fluid-xl border-quaternary-light dark:border-quaternary-dark w-fit border-b-4 font-extrabold">Nächste Spiele</h2>
+    <section className="flex w-full flex-col gap-14 pb-10">
+      {/* UPCOMING GAMES SECTION */}
+      <div className="flex w-full flex-col">
+        {/* Section Header */}
+        <div className="mb-6 flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchdays</span>
+          </div>
+          <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">Nächste Begegnungen</h2>
+        </div>
 
-        <div className="mt-2 flex w-full flex-col items-center gap-2 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:place-items-center 2xl:grid-cols-3 2xl:grid-rows-2">
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <SpielCardsList spiele={upcomingSpieleRes.spiele} />
         </div>
       </div>
 
-      {/** Displays recent 6 games */}
-      <div className="flex h-full w-full flex-col items-center">
-        <h2 className="text-fluid-xl w-fit border-b-4 border-red-400 font-extrabold dark:border-red-600">Vergangene Spiele</h2>
-        <div className="mt-2 flex w-full flex-col items-center gap-2 lg:grid lg:grid-cols-2 lg:grid-rows-3 lg:place-items-center 2xl:grid-cols-3 2xl:grid-rows-2">
+      {/* RECENT GAMES SECTION */}
+      <div className="flex w-full flex-col">
+        {/* Section Header */}
+        <div className="mb-6 flex flex-col gap-1">
+          <span className="text-fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase">Rückblick</span>
+          <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">Vergangene Spiele</h2>
+        </div>
+
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <SpielCardsList spiele={recentSpieleRes.spiele} />
         </div>
       </div>

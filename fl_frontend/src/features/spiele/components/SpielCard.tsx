@@ -34,14 +34,14 @@ export default function SpielCard({
 
   return (
     <div
-      className={`bg-tertiary-light dark:bg-tertiary-dark relative mb-2 flex h-auto w-full max-w-[1000px] flex-col items-center justify-between gap-x-4 gap-y-6 rounded-3xl px-4 py-3 lg:w-[98%] lg:px-5 lg:py-4 ${
-        spielStatus === "vergangen" && "opacity-85"
+      className={`border-border bg-surface relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 rounded-2xl border px-4 py-3 shadow-xs transition-shadow hover:shadow-sm lg:px-5 lg:py-4 ${
+        spielStatus === "vergangen" ? "opacity-90" : ""
       }`}>
       <div className="flex w-full flex-row items-center justify-between">
         {/* Datum/Uhrzeit */}
         <div className="flex flex-col">
-          <span className="text-fluid-sm font-bold">{spielDatum}</span>
-          <span className="text-fluid-xs font-medium">{spielUhrzeit}</span>
+          <span className="text-fluid-sm text-foreground font-bold">{spielDatum}</span>
+          <span className="text-fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
         </div>
 
         {/* Buttons */}
@@ -53,31 +53,36 @@ export default function SpielCard({
               onPress={onOpenAdminModal}
               size="md"
               variant="tertiary"
-              className="bg-quinary-light dark:bg-quinary-dark w-[40px] px-0 md:w-[45px]">
-              <PencilToSquare className="h-5 w-5 px-0" />
+              className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 md:h-[38px] md:w-[38px]">
+              <PencilToSquare className="m-0 size-5" />
             </Button>
           )}
           <Button
+            isIconOnly
             aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
             onPress={onOpenInfoModal}
             size="md"
             variant="tertiary"
-            className="bg-quinary-light dark:bg-quinary-dark w-[40px] px-0 md:w-[45px]">
-            <CircleExclamation className="h-5 w-5" />
+            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 md:h-[38px] md:w-[38px]">
+            <CircleExclamation className="m-0 size-5" />
           </Button>
         </div>
       </div>
 
       {/* Spielinfos */}
-      <div className="bg-quinary-light dark:bg-primary-dark/90 flex w-full items-center justify-between rounded-xl p-2">
-        <strong className="text-fluid-xs lg:text-fluid-md flex-1 truncate text-right font-bold">{spielData.team1.name || "Team 1"}</strong>
+      <div className="bg-muted flex w-full items-center justify-between rounded-xl p-2">
+        <strong className="text-fluid-xs lg:text-fluid-md text-foreground flex-1 truncate text-right font-bold">
+          {spielData.team1.name || "Team 1"}
+        </strong>
 
         <span
           className={`text-fluid-base w-fit px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
           {spielErgebnis}
         </span>
 
-        <strong className="text-fluid-xs lg:text-fluid-md flex-1 truncate text-left font-bold">{spielData.team2.name || "Team 2"}</strong>
+        <strong className="text-fluid-xs lg:text-fluid-md text-foreground flex-1 truncate text-left font-bold">
+          {spielData.team2.name || "Team 2"}
+        </strong>
       </div>
 
       <div className="flex h-fit w-full flex-row items-center justify-center gap-x-2">

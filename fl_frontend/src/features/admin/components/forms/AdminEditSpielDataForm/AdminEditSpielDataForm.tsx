@@ -54,9 +54,9 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
 
   return (
     <Form
-      className="flex min-h-full flex-col gap-y-6"
+      className="flex min-h-full flex-col gap-y-6 pt-2 pb-6"
       action={handleFormSubmit}>
-      <Separator className="bg-quinary-light dark:bg-quinary-dark" />
+      <Separator className="bg-border" />
 
       {/** Cancel Spiel */}
       <Switch
@@ -65,19 +65,19 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         autoFocus={false}
         isSelected={spielIsCanceled}
         onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
-        <Switch.Content className="text-fluid-sm flex h-fit w-full flex-row items-center justify-between text-red-500">
+        <Switch.Content className="text-fluid-sm text-danger flex h-fit w-full flex-row items-center justify-between font-bold">
           Spiel absagen
-          <Switch.Control className={`${spielIsCanceled ? "bg-red-500" : ""}`}>
+          <Switch.Control className={`${spielIsCanceled ? "bg-danger" : ""}`}>
             <Switch.Thumb />
           </Switch.Control>
         </Switch.Content>
-        <Description className="text-fluid-xxs px-0 leading-normal font-light whitespace-normal">
+        <Description className="text-fluid-xxs text-foreground-muted px-0 leading-normal font-medium whitespace-normal">
           Wird dieser Schalter umgelegt, so wird das Spiel als abgesagt eingetragen. Dies kann zurückgesetzt werden, indem der Schalter zurück
           umgelegt wird.
         </Description>
       </Switch>
 
-      <Separator className="bg-quinary-light dark:bg-quinary-dark" />
+      <Separator className="bg-border" />
 
       {/** Datum/uhrzeit */}
       <FormDateTimeSection spielData={spielData} />
@@ -96,7 +96,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         onSchiedsrichterChange={setSchiedsrichterPayload}
       />
 
-      <Separator className="bg-quinary-light dark:bg-quinary-dark" />
+      <Separator className="bg-border" />
 
       {/** Team1 vs. Team2 */}
       <FormMatchupSection
@@ -109,24 +109,24 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
         team2InitialData={spielData.team2}
       />
 
-      <Separator className="bg-quinary-light dark:bg-quinary-dark" />
+      <Separator className="bg-border" />
 
       {/** Buttons */}
-      <div className="flex h-fit w-full flex-row items-center justify-evenly">
+      <div className="flex h-fit w-full flex-row items-center justify-end gap-3 pt-2">
         <Button
-          className="text-fluid-base rounded-xl p-4 font-bold"
-          variant="primary"
-          type="submit"
-          isPending={isPending}>
-          Speichern
-        </Button>
-        <Button
-          className="text-fluid-base rounded-xl p-4 font-bold"
+          className="text-fluid-sm rounded-xl px-5 py-3 font-bold"
           variant="secondary"
           type="button"
           onPress={onClose}
           isDisabled={isPending}>
           Abbrechen
+        </Button>
+        <Button
+          className="text-fluid-sm rounded-xl px-5 py-3 font-bold"
+          variant="primary"
+          type="submit"
+          isPending={isPending}>
+          Speichern
         </Button>
       </div>
     </Form>

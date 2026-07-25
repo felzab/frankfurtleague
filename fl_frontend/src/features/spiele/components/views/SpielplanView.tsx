@@ -8,32 +8,36 @@ import type { FLSpielplan } from "@/features/spieltage/schemas";
 
 export default function SpielplanView({ spielplanData }: { spielplanData: FLSpielplan }) {
   return (
-    <Tabs className="relative flex h-full w-full items-center justify-start lg:mt-2">
-      {/** Container for the list of tabs, that can be selected. Is sticky!! */}
-      <Tabs.ListContainer className="bg-tertiary-light dark:bg-tertiary-dark scrollbar-hide sticky z-20 flex max-h-[40px] min-h-[40px] max-w-[95%] items-center overflow-x-scroll rounded-2xl px-1 py-[2px] sm:max-h-[50px] sm:min-h-[50px] lg:px-0">
-        <Tabs.List
-          className={"scrollbar-hide flex min-h-fit w-full flex-row items-center justify-between gap-x-1 overflow-x-auto bg-transparent"}>
-          {/** Tab options */
-          spielplanData?.spieltage.map((spieltagData) => {
+    // Updated to flex-1 and flex-col so it handles height naturally without jumping
+    <Tabs className="relative flex w-full flex-1 flex-col items-center">
+      <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
+        {/* The width boundaries for mobile vs desktop */}
+        <Tabs.List className="scrollbar-hide border-border bg-surface flex w-full max-w-full flex-row items-center gap-1 overflow-x-auto rounded-xl border p-1.5 shadow-sm lg:w-[90%] lg:max-w-[1200px]">
+          {/** Tab options */}
+          {spielplanData?.spieltage.map((spieltagData) => {
             return (
               <Tabs.Tab
                 key={spieltagData.id}
                 id={spieltagData.id}
-                className={"text-text-black bg-senary-light dark:bg-senary-dark max-h-11"}>
+                /* shrink-0 removed! whitespace-nowrap handles the sizing naturally. */
+                className="text-foreground-muted data-[selected=true]:text-foreground text-fluid-sm hover:text-foreground-muted flex h-11 items-center px-5 font-bold whitespace-nowrap transition-colors hover:opacity-100 md:px-6">
                 {spieltagData.name}
-                <Tabs.Indicator className={"bg-quaternary-light dark:bg-quaternary-dark"} />
+                <Tabs.Indicator className="bg-brand rounded-lg shadow-sm" />
               </Tabs.Tab>
             );
           })}
         </Tabs.List>
       </Tabs.ListContainer>
-      {/** A panel is generated for each game-day */
-      spielplanData?.spieltage.map((spieltagData) => (
+
+      {/** A panel is generated for each game-day */}
+      {spielplanData?.spieltage.map((spieltagData) => (
         <Tabs.Panel
           key={spieltagData.id}
           id={spieltagData.id}
-          className="scrollbar-hide flex w-full flex-col items-center gap-y-1.5 overflow-y-scroll pt-2 pb-10">
-          <SpielCardsList spiele={spieltagData.spiele.sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)} />
+          /* Removed overflow-y-scroll for native scrolling. Applied the responsive Grid directly to the panel. */
+          className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-[1400px] grid-cols-1 gap-5 px-4 pt-0 pb-4 duration-400 outline-none sm:grid-cols-2 sm:px-8 xl:grid-cols-3">
+          {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
+          <SpielCardsList spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)} />
         </Tabs.Panel>
       ))}
     </Tabs>

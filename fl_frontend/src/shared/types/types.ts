@@ -1,6 +1,7 @@
 export interface SidemenuStructureSubOption {
   id: string;
   label: string;
+  iconName: string;
 }
 
 export interface SidemenuStructureEntry {

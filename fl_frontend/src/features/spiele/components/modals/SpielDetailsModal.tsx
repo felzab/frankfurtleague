@@ -16,7 +16,6 @@ import type { FLSpiel, FLSpielStatus } from "../../schemas";
 export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spielData: FLSpiel | null; isOpen: boolean; onClose: () => void }) {
   const today = useToday();
 
-  // Safely compute values outside render tree
   const spielStatus = spielData
     ? computeSpielStatus({
         datum: spielData.datum,
@@ -36,62 +35,62 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
       <Modal.Container placement="top">
         <Modal.Dialog
           aria-label="Spieldetails-Dialog"
-          className="bg-primary-light dark:bg-primary-dark p-6">
+          className="border-border bg-surface rounded-2xl border p-6 shadow-sm">
           {spielData && (
             <>
               <Modal.Header className="gap-y-2 pb-4">
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">
-                  <Modal.Heading className={`text-fluid-xl font-extrabold`}>{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
-                  <Modal.Icon className="size-6">
+                  <Modal.Heading className="text-fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
+                  <Modal.Icon className="text-foreground-muted size-5 lg:size-6">
                     <CircleInfo className="size-full" />
                   </Modal.Icon>
                 </div>
-                <div className="w-fullt flex h-fit flex-row items-center justify-start gap-x-2">
+                <div className="flex h-fit w-full flex-row items-center justify-start gap-x-2">
                   <SpielStatusChip spielStatus={spielStatus as FLSpielStatus} />
                   <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
                 </div>
               </Modal.Header>
-              <Modal.Body className="text-text-black dark:text-text-white">
-                {/* Teams area */}
-                <div className="flex h-fit flex-col items-center justify-center rounded-xl bg-zinc-50 py-4 dark:bg-zinc-800/50">
+              <Modal.Body className="text-foreground">
+                {/* Teams area (Updated to mirror the inner score box of the SpielCard) */}
+                <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
                   <span className="text-fluid-xl font-bold">{spielData.team1.name}</span>
-                  <span className="text-fluid-sm my-1 text-zinc-500">vs</span>
+                  <span className="text-fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
                   <span className="text-fluid-xl font-bold">{spielData.team2.name}</span>
                 </div>
 
-                <Separator className="my-4 h-[2px]" />
+                <Separator className="bg-border my-4 h-[2px]" />
 
                 {/* Details Grid */}
                 <div className="text-fluid-sm grid grid-cols-2 gap-4 whitespace-normal">
                   {/** Datum */}
                   <div>
-                    <h4 className="text-zinc-500">Datum</h4>
-                    <p className="font-semibold text-zinc-900 dark:text-zinc-100">{spielDatum ?? "/"}</p>
+                    <h4 className="text-foreground-muted font-semibold">Datum</h4>
+                    <p className="text-foreground font-bold">{spielDatum ?? "/"}</p>
                   </div>
                   {/** Uhrzeit */}
                   <div>
-                    <h4 className="text-zinc-500">Uhrzeit</h4>
-                    <p className="font-semibold text-zinc-900 dark:text-zinc-100">{spielData.uhrzeit ?? "/"}</p>
+                    <h4 className="text-foreground-muted font-semibold">Uhrzeit</h4>
+                    <p className="text-foreground font-bold">{spielData.uhrzeit ?? "/"}</p>
                   </div>
                   {/** Ort */}
                   <div>
-                    <h4 className="text-zinc-500">Ort</h4>
+                    <h4 className="text-foreground-muted font-semibold">Ort</h4>
                     {spielData.ort ? (
                       <Link
                         href={mapUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-quaternary-light dark:text-quaternary-dark font-semibold hover:underline">
+                        className="text-brand hover:text-brand/80 font-bold transition-colors hover:underline">
                         {spielData.ort.name}
                       </Link>
                     ) : (
-                      <p className="font-semibold text-zinc-900 dark:text-zinc-100">/</p>
+                      <p className="text-foreground font-bold">/</p>
                     )}
                   </div>
                   {/** Schiedsrichter */}
                   <div>
-                    <h4 className="text-zinc-500">Schiedsrichter</h4>
-                    <p className="font-semibold text-zinc-900 dark:text-zinc-100">{spielData.schiedsrichter?.name ?? "/"}</p>
+                    <h4 className="text-foreground-muted font-semibold">Schiedsrichter</h4>
+                    <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? "/"}</p>
                   </div>
                 </div>
               </Modal.Body>

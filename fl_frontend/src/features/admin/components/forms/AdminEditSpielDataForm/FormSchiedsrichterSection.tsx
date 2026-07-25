@@ -41,7 +41,7 @@ export default function FormSchiedsrichterSection({
   };
 
   return (
-    <div className="flex h-fit w-full flex-col gap-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700/50 dark:bg-zinc-800/30">
+    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-4 shadow-sm">
       <Autocomplete
         name="schiedsrichterUI"
         className="w-full"
@@ -49,31 +49,35 @@ export default function FormSchiedsrichterSection({
         selectionMode="single"
         value={schiedsrichterPayload?.schiedsrichter_id ?? null}
         onChange={handleSchiedsrichterChange}>
-        <Label>Schiedsrichter</Label>
-        <Autocomplete.Trigger>
-          <Autocomplete.Value />
+        <Label className="text-fluid-xs text-foreground font-bold">Schiedsrichter</Label>
+        <Autocomplete.Trigger className="border-border bg-surface text-foreground rounded-lg border px-3 py-2">
+          <Autocomplete.Value className="text-fluid-sm" />
           <Autocomplete.ClearButton type="button" />
           <Autocomplete.Indicator />
         </Autocomplete.Trigger>
-        <Autocomplete.Popover>
+        <Autocomplete.Popover className="bg-surface border-border rounded-xl border shadow-lg">
           <Autocomplete.Filter filter={contains}>
             <SearchField
               name="schiedsrichterUI_search"
               variant="secondary"
-              aria-label="Schiedsrichter suchen">
-              <SearchField.Group>
+              aria-label="Schiedsrichter suchen"
+              className="p-2">
+              <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5">
                 <SearchField.SearchIcon />
-                <SearchField.Input placeholder="Schiedsrichter finden..." />
-
+                <SearchField.Input
+                  placeholder="Schiedsrichter finden..."
+                  className="bg-transparent outline-none"
+                />
                 <SearchField.ClearButton />
               </SearchField.Group>
             </SearchField>
-            <ListBox>
+            <ListBox className="p-1">
               {schiedsrichter.map((item) => (
                 <ListBox.Item
                   key={item.id}
                   id={item.id}
-                  textValue={item.name}>
+                  textValue={item.name}
+                  className="text-fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
                   {item.name}
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
@@ -81,7 +85,7 @@ export default function FormSchiedsrichterSection({
             </ListBox>
           </Autocomplete.Filter>
         </Autocomplete.Popover>
-        <Description>Der Schiedsrichter des Spiels</Description>
+        <Description className="text-fluid-xxs text-foreground-muted">Der Schiedsrichter des Spiels</Description>
       </Autocomplete>
 
       {/** Schiedsrichter Entschädigung */}
@@ -96,13 +100,13 @@ export default function FormSchiedsrichterSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <Label>Entschädigung</Label>
-        <NumberField.Group>
+        <Label className="text-fluid-xs text-foreground font-bold">Entschädigung</Label>
+        <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
-          <NumberField.Input className="w-full" />
+          <NumberField.Input className="text-fluid-sm w-full py-0" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description>Die Entschädigung für den Schiedsrichter</Description>
+        <Description className="text-fluid-xxs text-foreground-muted">Die Entschädigung für den Schiedsrichter</Description>
       </NumberField>
     </div>
   );

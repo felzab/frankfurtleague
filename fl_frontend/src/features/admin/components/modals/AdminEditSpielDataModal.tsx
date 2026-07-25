@@ -15,19 +15,22 @@ export default function AdminEditSpielDataModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  if (!spielData) return;
+  if (!spielData) return null;
+
   return (
     <Modal.Backdrop
       isOpen={isOpen}
       onOpenChange={onClose}
       variant="blur">
       <Modal.Container placement="top">
-        <Modal.Dialog className="bg-primary-light dark:bg-primary-dark flex max-h-[90dvh] flex-col px-5">
-          <Modal.CloseTrigger /> {/* Optional: Close button */}
-          <Modal.Header className="shrink-0">
-            <Modal.Heading className="text-fluid-base pb-3 font-extrabold tracking-tight">Spielinformationen bearbeiten</Modal.Heading>
+        <Modal.Dialog className="bg-background border-border text-foreground flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-2xl border p-4 shadow-2xl outline-none">
+          <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
+
+          <Modal.Header className="shrink-0 pb-4">
+            <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Spielinformationen bearbeiten</Modal.Heading>
           </Modal.Header>
-          <Modal.Body className="text-text-black dark:text-text-white scrollbar-hide flex-1 overflow-y-scroll p-0">
+
+          <Modal.Body className="scrollbar-hide text-foreground flex-1 overflow-y-auto px-0">
             <AdminEditSpielDataForm
               spielData={spielData}
               onClose={onClose}

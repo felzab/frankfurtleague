@@ -11,20 +11,20 @@ import type { FLGruppen } from "../../schemas";
 export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
   return (
     /** Container for all the groups */
-    <div className="scrollbar-hide mt-4 flex h-full w-full flex-col items-center overflow-y-scroll pb-20">
+    <div className="relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8">
       {
         /** One Table generated for each group */
         typedObjectEntries(gruppenData).map(([group, teamsData]) => (
           <div
             key={group}
-            className="bg-tertiary-light dark:bg-tertiary-dark mb-4 flex min-h-fit w-[95%] max-w-[1550px] flex-col items-center rounded-4xl px-1 py-1 lg:px-4">
-            <h3 className="text-fluid-2xl lg:text-fluid-2xl pt-5 pb-7 font-extrabold">Gruppe-{group}</h3>
+            className="bg-surface border-border mb-6 flex w-full max-w-[1400px] flex-col items-center rounded-2xl border p-3 shadow-sm sm:p-6">
+            <h3 className="text-fluid-xl text-foreground pb-6 font-extrabold tracking-wide uppercase">Gruppe {group}</h3>
 
             <Table
               variant="secondary"
               className="h-fit w-full text-left">
               <Table.Content aria-label={`Tabelle: Gruppe ${group}`}>
-                <Table.Header className="text-fluid-xxs font-semibold uppercase">
+                <Table.Header className="text-fluid-xxs text-foreground-muted font-semibold uppercase">
                   <Table.Column
                     isRowHeader
                     className="text-fluid-xs w-fit pt-1.5 pb-2 pl-2 font-extrabold lg:px-4">
@@ -48,9 +48,9 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
                   {teamsData.map((teamData, index) => (
                     <Table.Row
                       key={teamData.id}
-                      className="last:border-0">
+                      className="border-border border-b last:border-0">
                       {/** Placement */}
-                      <Table.Cell className="text-fluid-xs w-fit py-4 pl-2 font-semibold lg:px-4">
+                      <Table.Cell className="text-fluid-xs w-fit py-4 pl-2 font-bold lg:px-4">
                         {teamData.statistik.anzahl_gespielte_spiele === 0 ? "N/A" : index + 1}
                       </Table.Cell>
 
@@ -61,9 +61,13 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
                           teamId={teamData.id}
                           teamIsDisqualified={teamData.is_disqualified}>
                           {/** Desktop view */}
-                          <span className="text-fluid-xs hidden w-fit font-medium lg:block">{`${teamData.name} - ${teamData.shorthand}`}</span>
+                          <span className="text-fluid-xs text-foreground hover:text-brand hidden w-fit font-medium transition-colors lg:block">
+                            {`${teamData.name} - ${teamData.shorthand}`}
+                          </span>
                           {/** Mobile view */}
-                          <span className="text-fluid-sm block font-medium lg:hidden">{teamData.shorthand}</span>
+                          <span className="text-fluid-sm text-foreground hover:text-brand block font-medium transition-colors lg:hidden">
+                            {teamData.shorthand}
+                          </span>
                           {teamData.is_disqualified && (
                             <Badge
                               size="sm"
@@ -77,25 +81,35 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
                       </Table.Cell>
 
                       {/** Games played */}
-                      <Table.Cell className="px-1 py-4 text-center lg:px-2">{teamData.statistik.anzahl_gespielte_spiele}</Table.Cell>
+                      <Table.Cell className="text-foreground-muted px-1 py-4 text-center font-medium lg:px-2">
+                        {teamData.statistik.anzahl_gespielte_spiele}
+                      </Table.Cell>
 
                       {/** Wins-Draws-Losses */}
-                      <Table.Cell className="text-fluid-xs px-1 py-4 text-center lg:px-2">
-                        <span className="text-green-600">{teamData.statistik.siege}</span>-
-                        <span className="text-yellow-400">{teamData.statistik.unentschieden}</span>-
-                        <span className="text-red-600">{teamData.statistik.niederlagen}</span>
+                      <Table.Cell className="text-fluid-xs px-1 py-4 text-center font-medium lg:px-2">
+                        <span className="text-success font-semibold">{teamData.statistik.siege}</span>-
+                        <span className="text-warning font-semibold">{teamData.statistik.unentschieden}</span>-
+                        <span className="text-danger font-semibold">{teamData.statistik.niederlagen}</span>
                       </Table.Cell>
 
                       {/** Goals for */}
-                      <Table.Cell className="text-fluid-xs px-1 py-4 text-center lg:px-2">{teamData.statistik.tore_geschossen}</Table.Cell>
+                      <Table.Cell className="text-fluid-xs text-foreground-muted px-1 py-4 text-center font-medium lg:px-2">
+                        {teamData.statistik.tore_geschossen}
+                      </Table.Cell>
 
                       {/** Goal difference */}
-                      <Table.Cell className={"text-fluid-xs px-1 py-4 text-center lg:px-2"}>
-                        {teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}
+                      <Table.Cell className="text-fluid-xs px-1 py-4 text-center font-bold lg:px-2">
+                        {teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert > 0 ? (
+                          <span className="text-success">+{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
+                        ) : (
+                          <span className="text-danger">{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
+                        )}
                       </Table.Cell>
 
                       {/** Points */}
-                      <Table.Cell className="text-fluid-sm px-1 py-4 text-center font-bold lg:px-2">{teamData.statistik.punkte}</Table.Cell>
+                      <Table.Cell className="text-fluid-sm text-foreground px-1 py-4 text-center font-extrabold lg:px-2">
+                        {teamData.statistik.punkte}
+                      </Table.Cell>
                     </Table.Row>
                   ))}
                 </Table.Body>

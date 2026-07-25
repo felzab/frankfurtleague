@@ -57,7 +57,7 @@ export function FormTeamPicker({
   };
 
   return (
-    <div className="flex h-fit w-full flex-col gap-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700/50 dark:bg-zinc-800/30">
+    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-3 shadow-sm lg:p-4">
       <Autocomplete
         isRequired
         name={`${label}UI`}
@@ -67,38 +67,43 @@ export function FormTeamPicker({
         value={teamPayload?.team_id ?? null}
         onChange={handleTeamSelection}
         disabledKeys={disabledTeamId ? [disabledTeamId] : []}>
-        <Label>{label}</Label>
-        <Autocomplete.Trigger>
-          <Autocomplete.Value />
+        <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
+        <Autocomplete.Trigger className="border-border bg-surface text-foreground rounded-lg border px-3 py-2">
+          <Autocomplete.Value className="text-fluid-sm" />
           <Autocomplete.ClearButton type="button" />
           <Autocomplete.Indicator />
         </Autocomplete.Trigger>
 
-        <Autocomplete.Popover>
+        <Autocomplete.Popover className="bg-surface border-border rounded-xl border shadow-lg">
           <Autocomplete.Filter filter={contains}>
             <SearchField
               variant="secondary"
-              aria-label={`${label} suchen`}>
-              <SearchField.Group>
+              aria-label={`${label} suchen`}
+              className="p-2">
+              <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5">
                 <SearchField.SearchIcon />
-                <SearchField.Input placeholder="Team finden..." />
+                <SearchField.Input
+                  placeholder="Team finden..."
+                  className="bg-transparent outline-none"
+                />
                 <SearchField.ClearButton />
               </SearchField.Group>
             </SearchField>
 
-            <ListBox>
+            <ListBox className="p-1">
               {teams.map((item) => (
                 <ListBox.Item
                   key={item.id}
                   id={item.id}
-                  textValue={item.name}>
+                  textValue={item.name}
+                  className="text-fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
                   {item.name}
                 </ListBox.Item>
               ))}
             </ListBox>
           </Autocomplete.Filter>
         </Autocomplete.Popover>
-        {!teamIsTbd && <Description>{`Suche ${label} aus`}</Description>}
+        {!teamIsTbd && <Description className="text-fluid-xxs text-foreground-muted">{`Suche ${label} aus`}</Description>}
       </Autocomplete>
 
       {/* Conditionally render TBD Input based on the parent payload's shorthand */}
@@ -108,9 +113,14 @@ export function FormTeamPicker({
           className="w-full"
           value={tbdTeamName}
           onChange={handleTbdTeamNameChange}>
-          <Label className="text-quaternary-light dark:text-quaternary-dark">TBD Beschreibung</Label>
-          <Input placeholder="z.B. Sieger 26." />
-          <Description>Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.</Description>
+          <Label className="text-fluid-xs text-foreground font-bold">TBD Beschreibung</Label>
+          <Input
+            placeholder="z.B. Sieger 26."
+            className="border-border bg-surface text-foreground text-fluid-sm rounded-lg border px-3 py-2"
+          />
+          <Description className="text-fluid-xxs text-foreground-muted">
+            Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.
+          </Description>
         </TextField>
       )}
     </div>

@@ -15,7 +15,8 @@ export default function PlayoffBracketView({ playoffsSpieltage }: { playoffsSpie
   if (!playoffsSpieltage || playoffsSpieltage.length === 0) return null;
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full min-w-0 flex-col items-center duration-400">
+    // FIX: Added flex-1 and pb-12 so it respects the same native scrolling flow as the other pages
+    <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12 duration-400">
       {/* Viewport scroller */}
       <div className="scrollbar-hide w-full snap-x snap-mandatory overflow-x-auto px-4 md:px-8">
         {/* Tree track */}
@@ -25,8 +26,10 @@ export default function PlayoffBracketView({ playoffsSpieltage }: { playoffsSpie
             <div
               key={playoffsSpieltag.id}
               className="flex w-[85vw] max-w-[380px] shrink-0 snap-center flex-col items-center md:w-[42vw] lg:w-[28vw]">
-              {/* Round Header */}
-              <h4 className="text-fluid-base bg-quaternary-light dark:bg-quaternary-dark my-4 w-fit rounded-2xl px-6 py-1.5 font-extrabold tracking-wide uppercase shadow-lg">
+              {/* Round Header
+                  FIX: Swapped quaternary colors for the sleek surface/border combination
+              */}
+              <h4 className="bg-surface border-border text-foreground text-fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
                 {playoffsSpieltag.name}
               </h4>
 
@@ -44,35 +47,26 @@ export default function PlayoffBracketView({ playoffsSpieltage }: { playoffsSpie
                     <div
                       key={spielData.id}
                       className="relative flex w-full flex-1 flex-col justify-center py-3">
-                      {/* --- UNBREAKABLE CSS BRACKET BRIDGES ---
-                          Track (horizontal) gap is gap-8 (32px).
-                          Outbound line reaches right w-4 (16px).
-                          Inbound line reaches left w-4 (16px).
-                          16px + 16px = 32px. Perfect connection, regardless of screen size!
-                      */}
+                      {/* --- UNBREAKABLE CSS BRACKET BRIDGES --- */}
 
-                      {/* A. Inbound Line */}
-                      {!isFirstRound && (
-                        <div className="bg-quaternary-light dark:bg-quaternary-dark absolute top-[calc(50%-1px)] -left-4 h-[2px] w-4" />
-                      )}
+                      {/* A. Inbound Line (FIX: Replaced quaternary with bg-border) */}
+                      {!isFirstRound && <div className="bg-border absolute top-[calc(50%-1px)] -left-4 h-[2px] w-4" />}
 
                       {/* B. Outbound Bracket Lines */}
                       {!isLastRound && (
                         <>
-                          {/* Top Game */}
+                          {/* Top Game (FIX: Replaced quaternary with border-border) */}
                           {isTopNode && hasPartner && (
-                            <div className="border-quaternary-light dark:border-quaternary-dark absolute top-[calc(50%-1px)] -right-4 h-[calc(50%+1px)] w-4 rounded-tr-xl border-t-2 border-r-2" />
+                            <div className="border-border absolute top-[calc(50%-1px)] -right-4 h-[calc(50%+1px)] w-4 rounded-tr-xl border-t-2 border-r-2" />
                           )}
 
                           {/* Bottom Game */}
                           {isBottomNode && (
-                            <div className="border-quaternary-light dark:border-quaternary-dark absolute -right-4 bottom-[calc(50%-1px)] h-[calc(50%+1px)] w-4 rounded-br-xl border-r-2 border-b-2" />
+                            <div className="border-border absolute -right-4 bottom-[calc(50%-1px)] h-[calc(50%+1px)] w-4 rounded-br-xl border-r-2 border-b-2" />
                           )}
 
                           {/* Bye (Straight line) */}
-                          {isTopNode && !hasPartner && (
-                            <div className="bg-quaternary-light dark:bg-quaternary-dark absolute top-[calc(50%-1px)] -right-4 h-[2px] w-4" />
-                          )}
+                          {isTopNode && !hasPartner && <div className="bg-border absolute top-[calc(50%-1px)] -right-4 h-[2px] w-4" />}
                         </>
                       )}
 

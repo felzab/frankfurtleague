@@ -6,24 +6,28 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
   return (
-    <div className="flex h-fit w-full flex-col gap-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700/50 dark:bg-zinc-800/30">
+    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-4 shadow-sm">
       {/** Spieldatum */}
       <DatePicker
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
         name="datum"
         className="w-full">
-        <Label>Spieldatum</Label>
-        <DateField.Group fullWidth>
-          <DateField.Input>{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
+        <Label className="text-fluid-xs text-foreground font-bold">Spieldatum</Label>
+        <DateField.Group
+          fullWidth
+          className="border-border bg-surface text-foreground rounded-lg border">
+          <DateField.Input className="text-fluid-sm">{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
           <DateField.Suffix>
             <DatePicker.Trigger>
               <DatePicker.TriggerIndicator />
             </DatePicker.Trigger>
           </DateField.Suffix>
         </DateField.Group>
-        <Description>Wähle das Datum aus, an dem das Spiel stattfindet</Description>
-        <DatePicker.Popover>
-          <Calendar aria-label="Event date">
+        <Description className="text-fluid-xxs text-foreground-muted">Wähle das Datum aus, an dem das Spiel stattfindet</Description>
+        <DatePicker.Popover className="p-2">
+          <Calendar
+            aria-label="Event date"
+            className="bg-surface border-border text-foreground rounded-xl border p-3 shadow-lg">
             <Calendar.Header className="bg-transparent">
               <Calendar.YearPickerTrigger>
                 <Calendar.YearPickerTriggerHeading />
@@ -45,15 +49,15 @@ export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel 
 
       {/** Uhrzeit */}
       <TimeField
-        className="w-[256px]"
+        className="w-full sm:w-[256px]"
         name="uhrzeit"
         hourCycle={24}
         defaultValue={spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null}>
-        <Label>Uhrzeit</Label>
-        <TimeField.Group>
-          <TimeField.Input>{(segment) => <TimeField.Segment segment={segment} />}</TimeField.Input>
+        <Label className="text-fluid-xs text-foreground font-bold">Uhrzeit</Label>
+        <TimeField.Group className="border-border bg-surface text-foreground rounded-lg border">
+          <TimeField.Input className="text-fluid-sm">{(segment) => <TimeField.Segment segment={segment} />}</TimeField.Input>
         </TimeField.Group>
-        <Description>Die Uhrzeit des Anpfiffs</Description>
+        <Description className="text-fluid-xxs text-foreground-muted">Die Uhrzeit des Anpfiffs</Description>
       </TimeField>
     </div>
   );

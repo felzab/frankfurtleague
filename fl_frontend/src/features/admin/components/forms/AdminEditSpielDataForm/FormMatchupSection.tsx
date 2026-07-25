@@ -52,7 +52,7 @@ export default function FormMatchupSection({
   const team2Tore = team2Payload?.tore ?? NaN;
 
   return (
-    <>
+    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-6 rounded-xl border p-2 shadow-sm lg:p-4">
       {/** Team 1 */}
       <FormTeamPicker
         label="Team1"
@@ -71,7 +71,7 @@ export default function FormMatchupSection({
         disabledTeamId={team1Payload?.shorthand === TBD_TEAM_SHORTHAND ? null : team1Payload?.team_id}
       />
 
-      <Separator className="bg-quinary-light dark:bg-quinary-dark" />
+      <Separator className="bg-border" />
 
       {/** Switch to enter Ergebnis */}
       <Switch
@@ -79,13 +79,13 @@ export default function FormMatchupSection({
         autoFocus={false}
         isSelected={ergebnisCanBeEdited}
         onChange={handleErgebnisCanBeEditedToggle}>
-        <Switch.Content className="text-fluid-sm flex h-fit w-full flex-row items-center justify-between">
+        <Switch.Content className="text-fluid-sm text-foreground flex h-fit w-full flex-row items-center justify-between font-bold">
           Spielergebnis eintragen
           <Switch.Control>
             <Switch.Thumb />
           </Switch.Control>
         </Switch.Content>
-        <Description className="text-fluid-xxs px-0 leading-normal font-light whitespace-normal">
+        <Description className="text-fluid-xxs text-foreground-muted px-0 leading-normal font-medium whitespace-normal">
           Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis
           zurückgesetzt.
         </Description>
@@ -97,14 +97,14 @@ export default function FormMatchupSection({
         minValue={0}
         value={team1Tore}
         onChange={hanldeToreTeam1Change}
-        className={`${!ergebnisCanBeEdited ? "opacity-65" : ""}`}>
-        <Label>Team 1: Tore</Label>
-        <NumberField.Group>
+        className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
+        <Label className="text-fluid-xs text-foreground font-bold">Team 1: Tore</Label>
+        <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
           <NumberField.Input className="w-[120px]" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description>Anzahl der Tore von Team 1</Description>
+        <Description className="text-fluid-xxs text-foreground-muted">Anzahl der Tore von Team 1</Description>
       </NumberField>
 
       {/** Tore Team 2 */}
@@ -113,33 +113,47 @@ export default function FormMatchupSection({
         minValue={0}
         value={team2Tore}
         onChange={hanldeToreTeam2Change}
-        className={`${!ergebnisCanBeEdited ? "opacity-65" : ""}`}>
-        <Label>Team 2: Tore</Label>
-        <NumberField.Group>
+        className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
+        <Label className="text-fluid-xs text-foreground font-bold">Team 2: Tore</Label>
+        <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
           <NumberField.Input className="w-[120px]" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description>Anzahl der Tore von Team 2</Description>
+        <Description className="text-fluid-xxs text-foreground-muted">Anzahl der Tore von Team 2</Description>
       </NumberField>
 
       {/** Ergebniskontrolle */}
-      <div className="flex h-fit w-full flex-col items-center">
-        <h4 className="text-fluid-base h-fit w-full font-extrabold text-green-400">Kontrolle:</h4>
+      <div className="bg-surface border-border flex h-fit w-full flex-col items-center gap-y-2 rounded-xl border p-4 text-center shadow-sm">
+        <h4 className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Ergebniskontrolle</h4>
 
-        <p className="text-fluid-xs h-fit w-full">
-          {`Ergebnis: ${team1Name ?? "Team1"}: ${isNaN(team1Tore) ? "/" : team1Tore} --- ${isNaN(team2Tore) ? "/" : team2Tore} :${team2Name ?? "Team2"}`}
-        </p>
+        <div className="flex w-full items-center justify-center gap-x-3 py-1">
+          <span
+            className={`text-fluid-sm max-w-[120px] truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground/80"}`}>
+            {team1Name}
+          </span>
+
+          <span
+            className={`bg-muted border-border text-fluid-base rounded-lg border px-3 py-1 font-mono font-extrabold shadow-sm ${isNaN(team1Tore) || isNaN(team2Tore) ? "text-danger" : "text-success"}`}>
+            {isNaN(team1Tore) ? "-" : team1Tore} : {isNaN(team2Tore) ? "-" : team2Tore}
+          </span>
+
+          <span
+            className={`text-fluid-sm max-w-[120px] truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground/80"}`}>
+            {team2Name}
+          </span>
+        </div>
+
         {isNaN(team1Tore) || isNaN(team2Tore) ? (
-          <p className="text-fluid-xs h-fit w-full font-bold">/</p>
+          <p className="text-fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
         ) : (
-          <p className="text-fluid-xs h-fit w-full font-bold">
+          <p className="text-fluid-xs text-brand font-extrabold tracking-wide">
             {team1Tore === team2Tore && "Unentschieden"}
             {team1Tore > team2Tore && `Sieg für ${team1Name}`}
             {team2Tore > team1Tore && `Sieg für ${team2Name}`}
           </p>
         )}
       </div>
-    </>
+    </div>
   );
 }

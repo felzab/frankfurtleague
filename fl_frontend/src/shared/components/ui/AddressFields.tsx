@@ -11,54 +11,59 @@ export default function AddressFields({ value, onChange }: { value: FLAddress; o
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <TextField
           isRequired
           className="w-2/3">
-          <Label>Straße</Label>
+          <Label className="text-fluid-xs text-foreground font-bold">Straße</Label>
           <Input
             value={value.strasse}
             onChange={(e) => updateField("strasse", e.target.value)}
+            className="border-border bg-surface text-fluid-sm text-foreground focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
           />
         </TextField>
         <TextField
           isRequired
           className="w-1/3">
-          <Label>Nr.</Label>
+          <Label className="text-fluid-xs text-foreground font-bold">Nr.</Label>
           <Input
             value={value.hausnummer}
             onChange={(e) => updateField("hausnummer", e.target.value)}
+            className="border-border bg-surface text-fluid-sm text-foreground focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
           />
         </TextField>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <TextField
           isRequired
           className="w-1/3">
-          <Label>PLZ</Label>
+          <Label className="text-fluid-xs text-foreground font-bold">PLZ</Label>
           <Input
             value={value.plz}
             onChange={(e) => updateField("plz", e.target.value)}
+            className="border-border bg-surface text-fluid-sm text-foreground focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
           />
         </TextField>
         <TextField
           isRequired
           className="w-2/3">
-          <Label>Stadt</Label>
+          <Label className="text-fluid-xs text-foreground font-bold">Stadt</Label>
           <Input
             value={value.stadt}
             onChange={(e) => updateField("stadt", e.target.value)}
+            className="border-border bg-surface text-foreground text-fluid-sm focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
           />
         </TextField>
       </div>
 
       <TextField isRequired>
-        <Label>Stadtteil</Label>
+        <Label className="text-fluid-xs text-foreground font-bold">Stadtteil</Label>
         <Input
           placeholder="z.B. Nordend"
           value={value.stadtteil}
           onChange={(e) => updateField("stadtteil", e.target.value)}
+          className="border-border bg-surface text-fluid-sm text-foreground focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
         />
       </TextField>
     </div>

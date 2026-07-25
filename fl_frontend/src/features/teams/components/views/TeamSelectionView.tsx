@@ -14,16 +14,16 @@ export function TeamSelectionView({
   teams: FLTeamCompact[];
 }) {
   return (
-    <>
-      <div className="mb-8 flex flex-col gap-y-2 p-2">
-        <h3 className="text-fluid-lg lg:text-fluid-xl font-extrabold tracking-tight">{title}</h3>
-        <p className="text-fluid-xs w-[80%] whitespace-normal">{description}</p>
+    <div className="relative flex w-full flex-1 flex-col items-center">
+      <div className="mb-8 flex w-full max-w-[1400px] flex-col gap-y-2">
+        <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{title}</h3>
+        <p className="text-fluid-sm text-foreground-muted max-w-2xl font-medium whitespace-normal">{description}</p>
       </div>
 
       <TeamsGrid
         urlPrefix={urlPrefix}
         teams={teams}
       />
-    </>
+    </div>
   );
 }

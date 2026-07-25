@@ -43,6 +43,7 @@ class FLTeamCompact(BaseModel):
     statistik: FLTeamStatistik
     shorthand: str = Field(min_length=2, max_length=2)
     address: FLAddress
+    is_disqualified: bool
 
 
 class FLTeamWithSpieler(FLTeam):

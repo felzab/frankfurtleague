@@ -14,13 +14,13 @@ export default function SignInForm() {
   // Watch for the server action state changes
   useEffect(() => {
     if (state?.message) {
-      toast.danger("SigIn Failed", {
+      toast.danger("SignIn Failed", {
         actionProps: {
           children: "Schließen",
           onPress: () => toast.clear(),
           variant: "danger",
         },
-        description: "Ihre Email-Addresse ist keinem Admin zugeordnet!",
+        description: "Ihre Email-Adresse ist keinem Admin zugeordnet!",
         indicator: <Ban />,
         timeout: 6000,
       });
@@ -28,32 +28,35 @@ export default function SignInForm() {
   }, [state]);
 
   return (
-    <div className="relative flex h-full w-full flex-1 flex-col items-center justify-center">
-      <div className="bg-secondary-light dark:bg-secondary-dark/50 m-3 h-fit w-fit rounded-3xl border-1 border-white/10 p-10 shadow-lg lg:min-w-[500px]">
-        <div className="flex h-full w-full flex-col items-center gap-y-2 pb-5">
-          <span className="text-5xl">⚽</span>
-          <h2 className="text-fluid-xl font-bold tracking-tight text-green-500">Einloggen</h2>
-          <p className="text-fluid-base italic">Verwalte oder sehe Daten ein</p>
+    <div className="flex min-h-[calc(100vh-var(--navbar-height))] w-full flex-1 items-center justify-center px-4 py-8">
+      <div className="border-border bg-surface/95 w-full max-w-[460px] rounded-3xl border p-8 shadow-2xl backdrop-blur-xl sm:p-10">
+        {/* Header */}
+        <div className="flex flex-col items-center pb-6 text-center">
+          <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
+          <h2 className="text-fluid-2xl sm:text-fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h2>
+          <p className="text-fluid-sm sm:text-fluid-sm text-foreground-muted mt-1 font-medium">Verwalte oder sehe Daten ein</p>
         </div>
+
+        <div className="border-border mb-8 h-[1px] w-full" />
 
         <Tabs
           defaultSelectedKey="Admin"
-          className="-h-fit w-full">
-          <Tabs.ListContainer className="rounded-xl p-1">
+          className="w-full">
+          <Tabs.ListContainer className="border-border bg-surface-muted mb-6 rounded-xl border p-1">
             <Tabs.List
               aria-label="Rolle auswählen"
-              className="flex w-full">
+              className="flex w-full gap-1">
               <Tabs.Tab
                 id="Admin"
-                className="text-fluid-base min-h-[30px] py-2 font-semibold tracking-wide lg:min-h-[45px]">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
                 Admin
-                <Tabs.Indicator />
+                <Tabs.Indicator className="bg-brand/80" />
               </Tabs.Tab>
               <Tabs.Tab
                 id="Spieler"
-                className="text-fluid-base min-h-[30px] py-2 font-semibold tracking-wide lg:min-h-[45px]">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
                 Spieler
-                <Tabs.Indicator />
+                <Tabs.Indicator className="bg-brand/80" />
               </Tabs.Tab>
             </Tabs.List>
           </Tabs.ListContainer>
@@ -62,9 +65,9 @@ export default function SignInForm() {
           <Tabs.Panel id="Admin">
             <Form
               action={formAction}
-              className="flex h-fit flex-col items-center justify-start gap-3">
+              className="flex flex-col gap-y-5">
               <TextField
-                className="min-h-[110px] w-full"
+                className="flex w-full flex-col gap-y-2"
                 isRequired
                 name="email"
                 type="email"
@@ -75,31 +78,33 @@ export default function SignInForm() {
                   }
                   return null;
                 }}>
-                <Label>Email</Label>
+                <Label className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
                 <Input
-                  className="w-full"
-                  placeholder="bsp@bsp.com"
+                  className="border-border bg-surface text-foreground placeholder:text-foreground-muted focus-visible:border-brand text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-all outline-none"
+                  placeholder="name@beispiel.de"
                   type="email"
                   required
                   aria-label="email"
                   disabled={isPending}
                 />
-                <FieldError />
+                <FieldError className="text-fluid-xxs mt-1 font-bold text-red-400" />
               </TextField>
+
               <Button
                 type="submit"
                 variant="primary"
-                className="text-fluid-base w-full rounded-xl bg-green-500 py-3 font-semibold hover:bg-green-400">
-                Link senden
+                isDisabled={isPending}
+                className="text-fluid-xs sm:text-fluid-sm bg-brand text-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
+                {isPending ? "Wird gesendet..." : "Link senden"}
               </Button>
             </Form>
           </Tabs.Panel>
 
           {/* Spieler Form */}
           <Tabs.Panel id="Spieler">
-            <Form className="flex h-fit flex-col items-center justify-start gap-3">
+            <Form className="flex flex-col gap-y-5">
               <TextField
-                className="min-h-[110px] w-full"
+                className="flex w-full flex-col gap-y-2"
                 isRequired
                 name="email"
                 type="email"
@@ -110,18 +115,20 @@ export default function SignInForm() {
                   }
                   return null;
                 }}>
-                <Label>Email</Label>
+                <Label className="text-fluid-xs text-foreground-muted font-bold tracking-wider uppercase">Email-Adresse</Label>
                 <Input
+                  className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 text-fluid-xs sm:text-fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
                   placeholder="coming soon..."
                   disabled
                 />
                 <FieldError />
               </TextField>
+
               <Button
                 isDisabled
                 type="submit"
                 variant="primary"
-                className="text-fluid-base w-full rounded-xl bg-green-500 py-3 font-semibold hover:bg-green-400">
+                className="text-fluid-xs sm:text-fluid-sm border-border bg-surface text-foreground-muted/50 flex w-full cursor-not-allowed items-center justify-center rounded-xl border py-3.5 font-bold uppercase">
                 Link senden
               </Button>
             </Form>

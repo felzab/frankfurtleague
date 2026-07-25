@@ -6,7 +6,7 @@ import type { FLSpiel } from "../../schemas";
 
 export default function SpielhistorieView({ spielhistorieData }: { spielhistorieData: FLSpiel[] }) {
   return (
-    <div className="scrollbar-hide flex w-full flex-col items-center overflow-y-scroll px-2 pb-20 lg:mt-2">
+    <div className="animate-in fade-in slide-in-from-bottom-4 mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-5 px-4 pt-6 pb-12 duration-400 sm:grid-cols-2 sm:px-8 xl:grid-cols-3">
       <SpielCardsList spiele={spielhistorieData} />
     </div>
   );

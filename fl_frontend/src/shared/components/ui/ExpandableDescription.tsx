@@ -7,29 +7,27 @@ export default function ExpandableDescription({ text }: { text: string }) {
 
   if (!text) return null;
 
-  // Wenn der Text kurz genug ist, rendern wir ihn einfach ganz normal ohne Button
   if (text.length < 120) {
-    return <p className="text-fluid-xs mt-4 text-pretty">{text}</p>;
+    return <p className="text-fluid-xs text-foreground mt-2 font-medium text-pretty">{text}</p>;
   }
 
   return (
     <div
-      className="mt-4"
+      className="mt-2"
       onClick={() => {
         if (isExpanded) {
           setIsExpanded(false);
         }
       }}>
-      <p
-        // line-clamp-3 schneidet nach 3 Zeilen ab und fügt "..." hinzu.
-        className={`text-fluid-xs text-pretty transition-all ${!isExpanded ? "line-clamp-4" : ""}`}>
+      <p className={`text-fluid-xs text-pretty transition-all ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
         {text}
       </p>
 
-      {/* HeroUI Link als Button, damit die Styles konsistent bleiben */}
       <button
-        className="text-fluid-xs mt-1 cursor-pointer border-none bg-transparent p-0 font-bold text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
-        onClick={() => setIsExpanded(!isExpanded)}>
+        className="text-fluid-xs text-success focus-visible:ring-brand mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+        onClick={() => {
+          setIsExpanded(!isExpanded);
+        }}>
         {isExpanded ? "Weniger anzeigen" : "Weiterlesen..."}
       </button>
     </div>

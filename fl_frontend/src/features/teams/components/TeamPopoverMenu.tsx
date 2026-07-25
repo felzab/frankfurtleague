@@ -32,30 +32,45 @@ export default function TeamPopoverMenu({
         <Popover.Content
           placement="right"
           offset={10}>
-          <Popover.Dialog>
-            <Popover.Arrow />
-            <Popover.Heading className="text-fluid-base flex w-full flex-row justify-between font-bold">
-              {teamName}
-              {teamIsDisqualified && <span className="text-danger">DQ</span>}
+          <Popover.Dialog className="bg-surface border-border text-foreground rounded-xl border p-4 shadow-lg outline-none">
+            <Popover.Arrow className="fill-surface" />
+
+            <Popover.Heading className="text-fluid-base flex w-full flex-row items-center justify-between font-bold">
+              <span className="truncate pr-2">{teamName}</span>
+              {teamIsDisqualified && (
+                <span className="bg-danger/10 text-danger rounded-md px-2 py-0.5 text-xs font-extrabold uppercase">DQ</span>
+              )}
             </Popover.Heading>
+
             <Separator
               orientation="horizontal"
-              className="bg-text-black dark:bg-text-white mt-2 brightness-75"
+              className="bg-border my-3 h-[1px] w-full"
             />
+
             {/* Links / Actions */}
-            <div className="text-fluid-sm flex size-full flex-col items-center gap-y-3 pt-3 pr-2">
+            <div className="text-fluid-sm flex size-full flex-col gap-y-1">
               <Link
                 prefetch={false}
                 href={`/dashboard/teams/${teamId}`}
-                className="flex w-full flex-row items-center gap-x-2 font-semibold">
-                <CircleInfo /> <span className="text-quaternary-light dark:text-quaternary-dark">Team-Details</span>
+                className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                <CircleInfo
+                  className="text-brand shrink-0"
+                  width={18}
+                  height={18}
+                />
+                <span>Team-Details</span>
               </Link>
 
               <Link
                 prefetch={false}
                 href={`/dashboard/spieler/${teamId}`}
-                className="flex w-full flex-row items-center gap-x-2 font-semibold">
-                <Persons /> <span className="text-quaternary-light dark:text-quaternary-dark">Spieler / Kader</span>
+                className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                <Persons
+                  className="text-brand shrink-0"
+                  width={18}
+                  height={18}
+                />
+                <span>Kader</span>
               </Link>
             </div>
           </Popover.Dialog>
