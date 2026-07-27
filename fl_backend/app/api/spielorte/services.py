@@ -11,7 +11,7 @@ def build_spielorte_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
 
 def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
     query = filters.model_dump(
-        include={},
+        include={"is_inactive"},
         exclude_none=True,
         by_alias=True,
         context={"keep_oid": True},

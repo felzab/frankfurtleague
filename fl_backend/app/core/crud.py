@@ -36,16 +36,6 @@ async def pull_many_from_db(
     return await cursor.limit(limit).to_list(length=limit)
 
 
-async def patch_many_in_db(
-    collection: AsyncIOMotorCollection,
-    filter: Mapping[str, Any],
-    update: Mapping[str, Any],
-    session: AsyncIOMotorClientSession | None = None,
-) -> UpdateResult:
-
-    return await collection.update_many(filter=filter, update=update, session=session)
-
-
 async def patch_one_in_db(
     collection: AsyncIOMotorCollection,
     filter: Mapping[str, Any],
@@ -55,6 +45,16 @@ async def patch_one_in_db(
 ) -> Mapping[str, Any] | None:
 
     return await collection.find_one_and_update(filter=filter, update=update, session=session, return_document=return_document)
+
+
+async def patch_many_in_db(
+    collection: AsyncIOMotorCollection,
+    filter: Mapping[str, Any],
+    update: Mapping[str, Any],
+    session: AsyncIOMotorClientSession | None = None,
+) -> UpdateResult:
+
+    return await collection.update_many(filter=filter, update=update, session=session)
 
 
 async def post_one_to_db(

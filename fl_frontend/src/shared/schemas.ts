@@ -9,11 +9,14 @@ export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 
 });
 
 export const FLAddressSchema = z.object({
-  strasse: z.string(),
-  hausnummer: z.string(),
-  plz: z.string().length(5),
+  strasse: z.string().nonempty(),
+  hausnummer: z
+    .string()
+    .regex(/^[\d\-abcABC]+$/, "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.")
+    .or(z.literal("")),
+  plz: z.string().regex(/^\d{5}$/, "Die PLZ muss genau 5 Ziffern haben."),
   stadtteil: z.string(),
-  stadt: z.string(),
+  stadt: z.string().nonempty(),
 });
 export type FLAddress = z.infer<typeof FLAddressSchema>;
 

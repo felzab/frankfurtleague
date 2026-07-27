@@ -2,20 +2,12 @@
 
 import { Modal } from "@heroui/react";
 
-import AdminEditSpielDataForm from "../forms/AdminEditSpielDataForm/AdminEditSpielDataForm";
+import AdminEditSpielortForm from "../forms/AdminEditSpielortForm/AdminEditSpielortForm";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpielort } from "@/features/spielorte/schemas";
 
-export default function AdminEditSpielDataModal({
-  spielData,
-  isOpen,
-  onClose,
-}: {
-  spielData: FLSpiel | null;
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  if (!spielData) return null;
+export function AdminEditSpielortModal({ ortData, isOpen, onClose }: { ortData: FLSpielort | null; isOpen: boolean; onClose: () => void }) {
+  if (!ortData) return null;
 
   return (
     <Modal.Backdrop
@@ -27,13 +19,13 @@ export default function AdminEditSpielDataModal({
           <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
 
           <Modal.Header className="shrink-0 pb-4">
-            <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Spielinformationen bearbeiten</Modal.Heading>
+            <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Spielort bearbeiten</Modal.Heading>
           </Modal.Header>
 
           <Modal.Body className="scrollbar-hide text-foreground flex-1 overflow-y-auto px-0">
-            <AdminEditSpielDataForm
-              key={spielData.id}
-              spielData={spielData}
+            <AdminEditSpielortForm
+              key={ortData.id}
+              ortData={ortData}
               onClose={onClose}
             />
           </Modal.Body>

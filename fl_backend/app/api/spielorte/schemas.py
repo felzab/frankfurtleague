@@ -1,4 +1,5 @@
 from typing import Literal
+from xmlrpc.client import boolean
 
 from pydantic import BaseModel, Field, TypeAdapter
 
@@ -7,10 +8,21 @@ from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
 
-class FLNewSpielortPayload(BaseModel):
+class FLPatchSpielortPayload(BaseModel):
+    id: CustomObjectId
     address: FLAddress
     name: str
     default_mietpreis: int
+
+
+class FLPostSpielortPayload(BaseModel):
+    address: FLAddress
+    name: str
+    default_mietpreis: int
+
+
+class FLDeleteSpielortPayload(BaseModel):
+    id: CustomObjectId
 
 
 class FLSpielort(BaseModel):
@@ -19,14 +31,17 @@ class FLSpielort(BaseModel):
     name: str
     maps_link: str
     default_mietpreis: int
+    is_inactive: bool
 
 
 FLSpielorteListAdapter = TypeAdapter(list[FLSpielort])
 
 
 class FLSpielorteFilterParams(BaseModel):
+    is_inactive: boolean | None = False  # Exclude incactive Spielorte by default
+
     limit: int = Field(1024, ge=1, le=1024)
-    sort_by: Literal["name"] = Field(default="name")
+    sort_by: Literal["name",] = Field(default="name")
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
@@ -36,3 +51,11 @@ class FLSpielorteListResponse(BaseAPIResponse):
 
 class FLPostSpielortResponse(BaseAPIResponse):
     created_id: CustomObjectId
+
+
+class FLPatchSpielortResponse(BaseAPIResponse):
+    updated_document: FLSpielort
+
+
+class FLDeleteSpielortResponse(BaseAPIResponse):
+    updated_document: FLSpielort

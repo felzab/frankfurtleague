@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { TBD_TEAM_SHORTHAND } from "@/features/admin/constants";
 import { CircleInfo, Persons } from "@gravity-ui/icons";
 
 import { Badge, Popover, Separator } from "@heroui/react";
@@ -9,14 +10,17 @@ import { Badge, Popover, Separator } from "@heroui/react";
 export default function TeamPopoverMenu({
   teamName,
   teamId,
+  teamShorthand,
   teamIsDisqualified,
   children,
 }: {
   teamName: string;
   teamId: string;
+  teamShorthand: string;
   teamIsDisqualified?: boolean;
   children: React.ReactNode;
 }) {
+  const isTbdTeam = teamShorthand === TBD_TEAM_SHORTHAND;
   return (
     <div
       className="contents"
@@ -47,31 +51,59 @@ export default function TeamPopoverMenu({
               className="bg-border my-3 h-[1px] w-full"
             />
 
-            {/* Links / Actions */}
+            {/* Links */}
             <div className="text-fluid-sm flex size-full flex-col gap-y-1">
-              <Link
-                prefetch={false}
-                href={`/dashboard/teams/${teamId}`}
-                className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
-                <CircleInfo
-                  className="text-brand shrink-0"
-                  width={18}
-                  height={18}
-                />
-                <span>Team-Details</span>
-              </Link>
+              {/* TEAM-DETAILS */}
+              {isTbdTeam ? (
+                <span
+                  aria-disabled="true"
+                  className="text-foreground-muted flex w-full cursor-not-allowed flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold opacity-50">
+                  <CircleInfo
+                    className="text-brand shrink-0"
+                    width={18}
+                    height={18}
+                  />
+                  <span>Team-Details</span>
+                </span>
+              ) : (
+                <Link
+                  prefetch={false}
+                  href={`/dashboard/teams/${teamId}`}
+                  className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                  <CircleInfo
+                    className="text-brand shrink-0"
+                    width={18}
+                    height={18}
+                  />
+                  <span>Team-Details</span>
+                </Link>
+              )}
 
-              <Link
-                prefetch={false}
-                href={`/dashboard/spieler/${teamId}`}
-                className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
-                <Persons
-                  className="text-brand shrink-0"
-                  width={18}
-                  height={18}
-                />
-                <span>Kader</span>
-              </Link>
+              {/* KADER */}
+              {isTbdTeam ? (
+                <span
+                  aria-disabled="true"
+                  className="text-foreground-muted flex w-full cursor-not-allowed flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold opacity-50">
+                  <Persons
+                    className="text-brand shrink-0"
+                    width={18}
+                    height={18}
+                  />
+                  <span>Kader</span>
+                </span>
+              ) : (
+                <Link
+                  prefetch={false}
+                  href={`/dashboard/spieler/${teamId}`}
+                  className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                  <Persons
+                    className="text-brand shrink-0"
+                    width={18}
+                    height={18}
+                  />
+                  <span>Kader</span>
+                </Link>
+              )}
             </div>
           </Popover.Dialog>
         </Popover.Content>

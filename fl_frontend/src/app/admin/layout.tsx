@@ -9,7 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="relative flex h-dvh w-full flex-col xl:flex-row">
       <AdminSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
-      <main className="bg-background relative flex flex-1 flex-col overflow-y-scroll">
+      <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">
         <Suspense>
           <AdminContextWrapper>{children}</AdminContextWrapper>
         </Suspense>

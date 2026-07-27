@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { Magnifier } from "@gravity-ui/icons";
 import Fuse from "fuse.js";
 
 import { Input } from "@heroui/react";
@@ -56,7 +57,7 @@ export default function SpielsucheView({
   // 2. Fuse.js configuration
   const fuse = useMemo(() => {
     return new Fuse(processedSpiele, {
-      keys: ["team1.name", "team2.name", "ort", "searchable_datum", "spiel_nr"],
+      keys: ["team1.name", "team2.name", "ort.name", "ort.maps_link", "searchable_datum", "spiel_nr"],
       threshold: 0.4,
       distance: 100,
       ignoreLocation: true,
@@ -74,14 +75,23 @@ export default function SpielsucheView({
     <div className="relative flex w-full flex-1 flex-col items-center">
       {/** Search Bar */}
       <div className="bg-background sticky top-0 z-20 flex w-full justify-center px-4 py-4 sm:px-8 lg:py-8">
-        <Input
-          type="text"
-          value={inputValue}
-          placeholder="Suche nach Team, Ort, Datum..."
-          variant="secondary"
-          className="border-border bg-surface text-foreground placeholder:text-foreground-muted hover:border-foreground/30 focus-visible:border-brand text-fluid-sm h-14 w-full max-w-[1200px] rounded-xl border px-4 font-bold shadow-sm transition-all outline-none lg:w-[90%]"
-          onChange={(e) => setInputValue(e.target.value)}
-        />
+        {/* The Visual Search Bar Wrapper */}
+        <div className="bg-surface border-border focus-within:border-brand flex h-12 w-full max-w-[1200px] items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors lg:h-15">
+          <Magnifier
+            className="text-foreground-muted shrink-0"
+            width={20}
+            height={20}
+          />
+
+          <Input
+            type="text"
+            value={inputValue}
+            placeholder="Suche nach Team, Ort, Datum..."
+            variant="secondary"
+            className="text-fluid-sm placeholder:text-foreground-muted/70 w-full border-none bg-transparent font-bold outline-none focus-visible:ring-0"
+            onChange={(e) => setInputValue(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Results Area */}

@@ -117,6 +117,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   const validated = schema.safeParse(rawData);
   if (!validated.success) {
+    console.log(z.treeifyError(validated.error));
     throw new APIMalformedDataError({
       message: "API returned malformed data.",
       url: res.url,

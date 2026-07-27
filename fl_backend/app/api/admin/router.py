@@ -2,13 +2,22 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, status
 from fastapi.responses import JSONResponse
+from pymongo import ReturnDocument
 
 from app.api.admin.services import get_stats_contribution, update_team_statistik
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLPostSchiedsrichterResponse
 from app.api.spiele.schemas import FLSpiel, FLSpieleListResponse, FLSpielListAdapter, PatchSpielDataPayload
-from app.api.spielorte.schemas import FLNewSpielortPayload, FLPostSpielortResponse
+from app.api.spielorte.schemas import (
+    FLDeleteSpielortPayload,
+    FLDeleteSpielortResponse,
+    FLPatchSpielortPayload,
+    FLPatchSpielortResponse,
+    FLPostSpielortPayload,
+    FLPostSpielortResponse,
+    FLSpielort,
+)
 from app.core.config import backend_config
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import (
     DBClient,
     SchiedsrichterCollection,
@@ -118,7 +127,7 @@ async def patch_spiel_data(
 
 @router.post("/post_spielort", response_model=FLPostSpielortResponse)
 async def post_spielort(
-    spielort_data: Annotated[FLNewSpielortPayload, Body()],
+    spielort_data: Annotated[FLPostSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
 ) -> FLPostSpielortResponse:
 
@@ -126,13 +135,65 @@ async def post_spielort(
 
     post_operation = await post_one_to_db(
         collection=spielorte_collection,
-        document={**spielort_data.model_dump(mode="json"), "maps_link": maps_link},
+        document={**spielort_data.model_dump(mode="json"), "maps_link": maps_link, "is_inactive": False},
     )
 
     return FLPostSpielortResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
     )
+
+
+@router.patch("/patch_spielort", response_model=FLPatchSpielortResponse)
+async def patch_spielort(
+    spielort_data: Annotated[FLPatchSpielortPayload, Body()], spielorte_collection: SpielorteCollection, spiele_collection: SpieleCollection
+) -> FLPatchSpielortResponse:
+    maps_link = f"{spielort_data.name}, {spielort_data.address.to_string}, Deutschland"
+
+    updated_document_raw = await patch_one_in_db(
+        collection=spielorte_collection,
+        filter={"_id": spielort_data.id},
+        update={"$set": {**spielort_data.model_dump(mode="json", exclude={"id"}), "maps_link": maps_link}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if updated_document_raw is None:
+        raise DocumentNotFoundException(
+            filter={"_id": spielort_data.id},
+            error_code="DB-COMMON-001",
+        )
+    updated_document = FLSpielort(**updated_document_raw)
+
+    # Fan-out the update to all Games that use this Spielort
+    await patch_many_in_db(
+        collection=spiele_collection,
+        filter={"ort.spielort_id": updated_document.id},
+        update={"$set": {"ort.maps_link": updated_document.maps_link, "ort.name": updated_document.name}},
+    )
+
+    return FLPatchSpielortResponse(updated_document=updated_document)
+
+
+# This is a soft delete
+@router.delete("/delete_spielort", response_model=FLDeleteSpielortResponse)
+async def delete_spielort(
+    spielort_data: Annotated[FLDeleteSpielortPayload, Body()],
+    spielorte_collection: SpielorteCollection,
+) -> FLDeleteSpielortResponse:
+
+    updated_document_raw = await patch_one_in_db(
+        collection=spielorte_collection,
+        filter={"_id": spielort_data.id},
+        update={"$set": {"is_inactive": True}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if updated_document_raw is None:
+        raise DocumentNotFoundException(
+            filter={"_id": spielort_data.id},
+            error_code="DB-COMMON-001",
+        )
+    updated_document = FLSpielort(**updated_document_raw)
+
+    return FLDeleteSpielortResponse(updated_document=updated_document)
 
 
 @router.post("/post_schiedsrichter", response_model=FLPostSchiedsrichterResponse)

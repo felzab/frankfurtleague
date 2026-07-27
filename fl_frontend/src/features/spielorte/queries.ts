@@ -11,6 +11,7 @@ export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promi
   "use cache";
 
   const tags: string[] = ["spielorte"];
+  if (filters.is_inactive !== undefined) tags.push(`spielorte:is_inactive:${filters.is_inactive}`);
   cacheTag(...tags);
   cacheLife("days");
 

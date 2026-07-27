@@ -28,7 +28,8 @@ export default function SpielCardUltraCompact({ spielData, onClick }: { spielDat
         <div className="bg-background border-border flex w-fit flex-row items-center gap-x-3 rounded-lg border px-4 py-1.5 shadow-sm">
           <TeamPopoverMenu
             teamName={spielData.team1.name}
-            teamId={spielData.team1.team_id}>
+            teamId={spielData.team1.team_id}
+            teamShorthand={spielData.team1.shorthand}>
             <strong className="text-fluid-base text-foreground w-fit">{spielData.team1.shorthand}</strong>
           </TeamPopoverMenu>
 
@@ -36,7 +37,8 @@ export default function SpielCardUltraCompact({ spielData, onClick }: { spielDat
 
           <TeamPopoverMenu
             teamName={spielData.team2.name}
-            teamId={spielData.team2.team_id}>
+            teamId={spielData.team2.team_id}
+            teamShorthand={spielData.team2.shorthand}>
             <strong className="text-fluid-base text-foreground w-fit">{spielData.team2.shorthand}</strong>
           </TeamPopoverMenu>
         </div>

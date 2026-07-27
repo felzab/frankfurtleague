@@ -20,7 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="relative flex h-dvh w-full flex-col xl:flex-row">
       <DashboardSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
-      <main className="bg-background relative flex flex-1 flex-col overflow-y-scroll">
+      <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">
         <Suspense>{children}</Suspense>
       </main>
     </div>

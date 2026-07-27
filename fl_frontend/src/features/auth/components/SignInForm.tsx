@@ -11,7 +11,6 @@ import { handleSignIn } from "../actions";
 export default function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
-  // Watch for the server action state changes
   useEffect(() => {
     if (state?.message) {
       toast.danger("SignIn Failed", {

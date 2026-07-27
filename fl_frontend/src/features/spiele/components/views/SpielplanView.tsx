@@ -34,7 +34,6 @@ export default function SpielplanView({ spielplanData }: { spielplanData: FLSpie
         <Tabs.Panel
           key={spieltagData.id}
           id={spieltagData.id}
-          /* Removed overflow-y-scroll for native scrolling. Applied the responsive Grid directly to the panel. */
           className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-[1400px] grid-cols-1 gap-5 px-4 pt-0 pb-4 duration-400 outline-none sm:grid-cols-2 sm:px-8 xl:grid-cols-3">
           {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
           <SpielCardsList spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)} />

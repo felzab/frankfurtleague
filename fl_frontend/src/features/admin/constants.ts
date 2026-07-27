@@ -8,6 +8,15 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure = [
       { id: "spielsuche", label: "Spielsuche", iconName: "Magnifier" },
     ],
   },
+
+  {
+    category_name: "Infrastruktur",
+    sub_options: [{ id: "spielorte", label: "Spielorte", iconName: "MapPin" }],
+  },
+  {
+    category_name: "Beteiligte",
+    sub_options: [{ id: "schiedsrichter", label: "Schiedsrichter", iconName: "Person" }],
+  },
 ];
 
 export const TBD_TEAM_SHORTHAND = "??";

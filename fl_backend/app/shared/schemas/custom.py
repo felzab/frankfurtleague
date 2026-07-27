@@ -37,15 +37,19 @@ class CustomObjectIdAnnotation:
 
         return core_schema.json_or_python_schema(
             json_schema=core_schema.str_schema(),
-            python_schema=core_schema.union_schema([
-                # If it's already an ObjectId, allow it
-                core_schema.is_instance_schema(ObjectId),
-                # If it's a string, validate it as an ObjectId
-                core_schema.chain_schema([
-                    core_schema.str_schema(),
-                    core_schema.no_info_plain_validator_function(validate_str_to_oid),
-                ]),
-            ]),
+            python_schema=core_schema.union_schema(
+                [
+                    # If it's already an ObjectId, allow it
+                    core_schema.is_instance_schema(ObjectId),
+                    # If it's a string, validate it as an ObjectId
+                    core_schema.chain_schema(
+                        [
+                            core_schema.str_schema(),
+                            core_schema.no_info_plain_validator_function(validate_str_to_oid),
+                        ]
+                    ),
+                ]
+            ),
             # How to serialize it to JSON
             serialization=core_schema.plain_serializer_function_ser_schema(serialize_oid, info_arg=True),
         )

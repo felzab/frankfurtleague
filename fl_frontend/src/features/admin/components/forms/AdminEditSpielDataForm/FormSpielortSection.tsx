@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { postSpielortAction } from "@/features/spielorte/actions";
-import AddressFields from "@/shared/components/ui/AddressFields";
+import SpielortFormFields from "@/features/spielorte/components/forms/SpielortFormFields";
 import { Check, Plus, Xmark } from "@gravity-ui/icons";
 
-import { Autocomplete, Button, Description, Input, Label, ListBox, NumberField, SearchField, TextField, toast, useFilter } from "@heroui/react";
+import { Autocomplete, Button, Description, Label, ListBox, NumberField, SearchField, toast, useFilter } from "@heroui/react";
 
 import type { FLSpielOrtField } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
@@ -21,6 +21,8 @@ export default function FormSpielortSection({
   onOrtChange: (payload: FLSpielOrtField | null) => void;
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
+
+  const [isPending, startTransition] = useTransition();
 
   const [isCreatingInline, setIsCreatingInline] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,33 +62,42 @@ export default function FormSpielortSection({
     }
   };
 
-  const handleCreateSubmit = async () => {
-    const res = await postSpielortAction({ name: draft.name, default_mietpreis: draft.default_mietpreis, address: draft.address });
+  const handleCreateSubmit = () => {
+    startTransition(async () => {
+      const res = await postSpielortAction({
+        name: draft.name,
+        default_mietpreis: draft.default_mietpreis,
+        address: draft.address,
+      });
 
-    if (!res.success || !res.created_id) {
-      toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
-      return;
-    }
+      if (!res.success || !res.created_id) {
+        toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+        return;
+      }
 
-    setIsCreatingInline(false);
-    setSearchQuery("");
-    setDraft({ name: "", address: { strasse: "", hausnummer: "", plz: "", stadt: "Frankfurt am Main", stadtteil: "" }, default_mietpreis: 0 });
+      setIsCreatingInline(false);
+      setSearchQuery("");
+      setDraft({
+        name: "",
+        address: { strasse: "", hausnummer: "", plz: "", stadt: "Frankfurt am Main", stadtteil: "" },
+        default_mietpreis: 0,
+      });
 
-    toast.success(res.message || "Spielort erfolgreich angelegt");
+      toast.success(res.message || "Spielort erfolgreich angelegt");
+    });
   };
 
   const showStickyFooter = searchQuery.trim() === "" ? spielorte.length > 0 : spielorte.some((ort) => contains(ort.name, searchQuery));
 
   return (
-    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-4 shadow-sm">
+    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-3 shadow-sm lg:p-4">
       {isCreatingInline ? (
         <div
-          className="animate-appearance-in flex flex-col gap-4"
+          className="animate-appearance-in flex w-full flex-col gap-4 px-2"
           onKeyDownCapture={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               e.stopPropagation();
-              handleCreateSubmit();
             }
           }}>
           <div className="border-border flex items-center justify-between border-b pb-2">
@@ -96,45 +107,23 @@ export default function FormSpielortSection({
               variant="ghost"
               className="h-8 w-8 min-w-8 px-0"
               onPress={() => setIsCreatingInline(false)}>
-              <Xmark width={16} />
+              <Xmark
+                width={16}
+                height={16}
+              />
             </Button>
           </div>
 
-          <TextField isRequired>
-            <Label className="text-fluid-xs text-foreground font-bold">Name</Label>
-            <Input
-              placeholder="z.B. Sportpark Nord"
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
-            />
-          </TextField>
-
-          {/* THE REUSABLE COMPONENT */}
-          <AddressFields
-            value={draft.address}
-            onChange={(newAddress) => setDraft({ ...draft, address: newAddress })}
+          <SpielortFormFields
+            draft={draft}
+            onChange={setDraft}
           />
-
-          <NumberField
-            minValue={0}
-            isRequired
-            step={5}
-            value={draft.default_mietpreis}
-            onChange={(val) => setDraft({ ...draft, default_mietpreis: val === undefined || isNaN(val) ? 0 : val })}
-            formatOptions={{ style: "currency", currency: "EUR" }}>
-            <Label className="text-fluid-xs text-foreground font-bold">Standard Mietpreis</Label>
-            <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
-              <NumberField.DecrementButton />
-              <NumberField.Input className="text-fluid-sm w-full" />
-              <NumberField.IncrementButton />
-            </NumberField.Group>
-          </NumberField>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="secondary"
+              isDisabled={isPending}
               className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-[1.02]"
               onPress={() => setIsCreatingInline(false)}>
               Abbrechen
@@ -142,9 +131,15 @@ export default function FormSpielortSection({
             <Button
               type="button"
               variant="primary"
+              isDisabled={isPending}
               className="text-fluid-sm bg-brand text-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]"
               onPress={handleCreateSubmit}>
-              <Check width={16} /> Speichern
+              <Check
+                className="m-0"
+                width={20}
+                height={20}
+              />
+              {isPending ? "Speichert..." : "Speichern"}
             </Button>
           </div>
         </div>

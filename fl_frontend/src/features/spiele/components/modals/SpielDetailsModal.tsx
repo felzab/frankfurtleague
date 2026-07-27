@@ -52,12 +52,13 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
                 </div>
               </Modal.Header>
               <Modal.Body className="text-foreground">
-                {/* Teams area (Updated to mirror the inner score box of the SpielCard) */}
+                {/* Teams area  */}
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
                   {/** I just pass teamIsDisqualified=false because it's not included in the game data */}
                   <TeamPopoverMenu
                     teamName={spielData.team1.name}
                     teamId={spielData.team1.team_id}
+                    teamShorthand={spielData.team1.shorthand}
                     teamIsDisqualified={false}>
                     <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team1.name}</span>
                   </TeamPopoverMenu>
@@ -66,6 +67,8 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
                   <TeamPopoverMenu
                     teamName={spielData.team2.name}
                     teamId={spielData.team2.team_id}
+                    teamShorthand={spielData.team2.shorthand}
+
                     teamIsDisqualified={false}>
                     <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team2.name}</span>
                   </TeamPopoverMenu>
