@@ -1,5 +1,5 @@
-import { Suspense } from "react";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import RecentAndUpcomingSpieleGrid from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
 
@@ -7,7 +7,7 @@ export default async function LandingPage() {
   return (
     <>
       {/** Content section */}
-      <section className="flex w-full max-w-[1400px] flex-col gap-5 px-3 pt-2 pb-6 sm:px-6 sm:pt-4 lg:px-8 lg:pt-8">
+      <section className="flex w-full max-w-[1400px] flex-col gap-5 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
         {/* HERO HUB GRID */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
           {/* Primary Hero Box */}
