@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
 import { useToday } from "@/shared/hooks/useToday";
 import { CircleInfo } from "@gravity-ui/icons";
 
@@ -53,9 +54,21 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
               <Modal.Body className="text-foreground">
                 {/* Teams area (Updated to mirror the inner score box of the SpielCard) */}
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
-                  <span className="text-fluid-xl font-bold">{spielData.team1.name}</span>
+                  {/** I just pass teamIsDisqualified=false because it's not included in the game data */}
+                  <TeamPopoverMenu
+                    teamName={spielData.team1.name}
+                    teamId={spielData.team1.team_id}
+                    teamIsDisqualified={false}>
+                    <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team1.name}</span>
+                  </TeamPopoverMenu>
+
                   <span className="text-fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
-                  <span className="text-fluid-xl font-bold">{spielData.team2.name}</span>
+                  <TeamPopoverMenu
+                    teamName={spielData.team2.name}
+                    teamId={spielData.team2.team_id}
+                    teamIsDisqualified={false}>
+                    <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team2.name}</span>
+                  </TeamPopoverMenu>
                 </div>
 
                 <Separator className="bg-border my-4 h-[2px]" />

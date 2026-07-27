@@ -5,6 +5,8 @@ import Link from "next/link";
 import ServerIsLife from "@/features/system/components/ServerIsLive";
 import { FLLogo } from "@/shared/components/ui/FLLogo";
 
+import { FooterCopyrightString } from "./FooterCopyrightString";
+
 export default async function Footer() {
   return (
     <footer className="mx-auto flex h-full w-full max-w-[1400px] flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
@@ -140,8 +142,7 @@ export default async function Footer() {
 
       {/* Bottom Status & Copyright Bar */}
       <div className="flex flex-col items-center justify-between gap-4 pt-6 text-center sm:flex-row sm:text-left">
-        <p className="text-fluid-xxs text-foreground-muted">{`© 2026 Frankfurt-League. All rights reserved.`}</p>
-
+        <FooterCopyrightString />
         <Suspense fallback={<span className="text-fluid-xxs text-foreground-muted opacity-80">Checking status...</span>}>
           <ServerIsLife />
         </Suspense>

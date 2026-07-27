@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import Footer from "@/shared/components/layout/Footer";
+import Footer from "@/shared/components/layout/footer/Footer";
 import TopNav from "@/shared/components/layout/topnav/TopNav";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {

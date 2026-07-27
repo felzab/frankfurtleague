@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 
+from app.shared.schemas.custom import CustomOptionalString
+
 
 class FLKontakt(BaseModel):
-    telefon: str | None
-    email: str | None
+    telefon: CustomOptionalString
+    email: CustomOptionalString

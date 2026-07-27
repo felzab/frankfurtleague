@@ -3,12 +3,12 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/api";
 
-export const FLNewSpielortPayloadSchema = z.object({
+export const FLPostSpielortPayloadSchema = z.object({
   name: z.string().nonempty(),
   default_mietpreis: z.int().nonnegative(),
   address: FLAddressSchema,
 });
-export type FLNewSpielortPayload = z.infer<typeof FLNewSpielortPayloadSchema>;
+export type FLPostSpielortPayload = z.infer<typeof FLPostSpielortPayloadSchema>;
 
 export const FLSpielortSchema = z.object({
   id: CustomObjectIdStringSchema,

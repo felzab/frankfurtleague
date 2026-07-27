@@ -229,6 +229,9 @@ export default function FormSpielortSection({
             name="spielortMietpreisUI"
             value={ortPayload?.mietpreis ?? NaN}
             onChange={handleMietpreisChange}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.preventDefault();
+            }}
             step={5}
             formatOptions={{
               currency: "EUR",

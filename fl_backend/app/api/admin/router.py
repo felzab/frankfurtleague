@@ -3,14 +3,15 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, status
 from fastapi.responses import JSONResponse
 
-from app.api.admin.schemas import UpdateGameDataCallBody
 from app.api.admin.services import get_stats_contribution, update_team_statistik
-from app.api.spiele.schemas import FLSpiel, FLSpieleListResponse, FLSpielListAdapter
+from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLPostSchiedsrichterResponse
+from app.api.spiele.schemas import FLSpiel, FLSpieleListResponse, FLSpielListAdapter, PatchSpielDataPayload
 from app.api.spielorte.schemas import FLNewSpielortPayload, FLPostSpielortResponse
 from app.core.config import backend_config
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import (
     DBClient,
+    SchiedsrichterCollection,
     SpieleCollection,
     SpielorteCollection,
     TeamsCollection,
@@ -48,17 +49,15 @@ async def get_spiele_action_required(spiele_collection: SpieleCollection, today:
 
 
 @router.patch("/update_spiel_data")
-async def patch_game_data(
-    update_game_data: Annotated[UpdateGameDataCallBody, Body()],
+async def patch_spiel_data(
+    spiel_data: Annotated[PatchSpielDataPayload, Body()],
     db: DBClient,
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
 ) -> JSONResponse:
 
     updated_ergebnis_field = (
-        f"{update_game_data.team1.tore}:{update_game_data.team2.tore}"
-        if update_game_data.team1.tore is not None and update_game_data.team2.tore is not None
-        else None
+        f"{spiel_data.team1.tore}:{spiel_data.team2.tore}" if spiel_data.team1.tore is not None and spiel_data.team2.tore is not None else None
     )
 
     async with await db.start_session() as session:
@@ -66,10 +65,10 @@ async def patch_game_data(
             # Update the spiel data
             old_game_data_raw = await patch_one_in_db(
                 collection=spiele_collection,
-                filter={"_id": update_game_data.spiel_id},
+                filter={"_id": spiel_data.spiel_id},
                 update={
                     "$set": {
-                        **update_game_data.model_dump(exclude={"spiel_id"}, context={"keep_oid": True}),
+                        **spiel_data.model_dump(exclude={"spiel_id"}, context={"keep_oid": True}),
                         "ergebnis": updated_ergebnis_field,
                     }
                 },
@@ -77,7 +76,7 @@ async def patch_game_data(
             )
             if old_game_data_raw is None:
                 raise DocumentNotFoundException(
-                    filter={"_id": update_game_data.spiel_id},
+                    filter={"_id": spiel_data.spiel_id},
                     error_code="DB-COMMON-001",
                 )
 
@@ -87,14 +86,14 @@ async def patch_game_data(
             old_contribution_team1 = get_stats_contribution(old_game_data.team1.tore, old_game_data.team2.tore)
             old_contribution_team2 = get_stats_contribution(old_game_data.team2.tore, old_game_data.team1.tore)
 
-            new_contribution_team1 = get_stats_contribution(update_game_data.team1.tore, update_game_data.team2.tore)
-            new_contribution_team2 = get_stats_contribution(update_game_data.team2.tore, update_game_data.team1.tore)
+            new_contribution_team1 = get_stats_contribution(spiel_data.team1.tore, spiel_data.team2.tore)
+            new_contribution_team2 = get_stats_contribution(spiel_data.team2.tore, spiel_data.team1.tore)
 
             # Update Team1
             await update_team_statistik(
                 teams_collection=teams_collection,
                 old_team_id=old_game_data.team1.team_id,
-                new_team_id=update_game_data.team1.team_id,
+                new_team_id=spiel_data.team1.team_id,
                 old_team_contribution=old_contribution_team1,
                 new_team_contribution=new_contribution_team1,
                 session=session,
@@ -103,7 +102,7 @@ async def patch_game_data(
             await update_team_statistik(
                 teams_collection=teams_collection,
                 old_team_id=old_game_data.team2.team_id,
-                new_team_id=update_game_data.team2.team_id,
+                new_team_id=spiel_data.team2.team_id,
                 old_team_contribution=old_contribution_team2,
                 new_team_contribution=new_contribution_team2,
                 session=session,
@@ -131,6 +130,23 @@ async def post_spielort(
     )
 
     return FLPostSpielortResponse(
+        acknowledged=1 if post_operation.acknowledged else 0,
+        created_id=post_operation.inserted_id,
+    )
+
+
+@router.post("/post_schiedsrichter", response_model=FLPostSchiedsrichterResponse)
+async def post_schiedsrichter(
+    schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
+    schiedsrichter_collection: SchiedsrichterCollection,
+) -> FLPostSchiedsrichterResponse:
+
+    post_operation = await post_one_to_db(
+        collection=schiedsrichter_collection,
+        document=schiedsrichter_data.model_dump(mode="json"),
+    )
+
+    return FLPostSchiedsrichterResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
     )

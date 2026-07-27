@@ -11,7 +11,12 @@ export default function KontaktView() {
   const getIcon = (id: string) => {
     switch (id) {
       case "email":
-        return <Envelope className="size-7 sm:size-8 lg:size-9" />;
+        return (
+          <Envelope
+            width={32}
+            height={32}
+          />
+        );
       case "instagram":
         return (
           <Image
@@ -19,7 +24,6 @@ export default function KontaktView() {
             alt="Instagram logo link"
             width={32}
             height={32}
-            className="size-8 sm:size-9"
             title="Instagram by Pixel Icons"
           />
         );
@@ -32,7 +36,7 @@ export default function KontaktView() {
               width={32}
               height={32}
               title="Threads logo link"
-              className="block size-8 sm:size-9 dark:hidden"
+              className="block dark:hidden"
             />
             <Image
               src={"/icons/footer/threads/threads_logo_white.svg"}
@@ -40,7 +44,7 @@ export default function KontaktView() {
               width={32}
               height={32}
               title="Threads logo link"
-              className="hidden size-8 sm:size-9 dark:block"
+              className="hidden dark:block"
             />
           </>
         );
@@ -51,7 +55,6 @@ export default function KontaktView() {
             alt="Whatsapp logo link"
             width={32}
             height={32}
-            className="size-8 sm:size-9"
             title="Whatsapp by Icon Mafia"
           />
         );
@@ -67,7 +70,7 @@ export default function KontaktView() {
         <h2 className="text-fluid-2xl sm:text-fluid-2xl lg:text-fluid-3xl font-black tracking-tight text-white uppercase drop-shadow-md">
           Frankfurt-League Kontakt
         </h2>
-        <p className="text-fluid-sm sm:text-fluid-sm mt-2 font-medium text-white/80">Wir haben immer ein offenes Ohr für dein Anliegen.</p>
+        <p className="text-fluid-sm sm:text-fluid-sm mt-2 font-medium text-white/80">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
       </div>
 
       <div className="soccer-field-separator w-full" />
@@ -82,7 +85,7 @@ export default function KontaktView() {
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-5 shadow-xl sm:p-6 lg:p-8">
           <p className="text-fluid-xs sm:text-fluid-sm leading-relaxed font-medium text-pretty text-white/95">
             Fragen, Verbesserungsvorschläge oder Anregungen zur Liga? Kontaktiere uns gern über einen der folgenden Wege. Wir melden uns
-            schnellstmöglich bei dir!
+            schnellstmöglich bei Dir!
           </p>
         </div>
       </section>

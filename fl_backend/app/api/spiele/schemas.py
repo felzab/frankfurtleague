@@ -1,12 +1,32 @@
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString, CustomOptionalTimeString, CustomTimeString
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
 FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
+
+
+class PatchSpielDataPayload(BaseModel):
+    spiel_id: CustomObjectId
+    is_canceled: bool
+
+    team1: FLSpielTeamField
+    team2: FLSpielTeamField
+
+    datum: CustomOptionalDateString
+    uhrzeit: CustomOptionalTimeString
+    ort: FLSpielOrtField | None
+    schiedsrichter: FLSpielSchiedsrichterField | None
+
+    @model_validator(mode="before")
+    @classmethod
+    def empty_strings_to_none(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {k: (None if isinstance(v, str) and v.strip() == "" else v) for k, v in data.items()}
+        return data
 
 
 class FLSpielTeamField(BaseModel):

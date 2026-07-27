@@ -4,6 +4,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from pydantic import (
     AfterValidator,
+    BeforeValidator,
     GetCoreSchemaHandler,
     SerializationInfo,
     StringConstraints,
@@ -36,19 +37,15 @@ class CustomObjectIdAnnotation:
 
         return core_schema.json_or_python_schema(
             json_schema=core_schema.str_schema(),
-            python_schema=core_schema.union_schema(
-                [
-                    # If it's already an ObjectId, allow it
-                    core_schema.is_instance_schema(ObjectId),
-                    # If it's a string, validate it as an ObjectId
-                    core_schema.chain_schema(
-                        [
-                            core_schema.str_schema(),
-                            core_schema.no_info_plain_validator_function(validate_str_to_oid),
-                        ]
-                    ),
-                ]
-            ),
+            python_schema=core_schema.union_schema([
+                # If it's already an ObjectId, allow it
+                core_schema.is_instance_schema(ObjectId),
+                # If it's a string, validate it as an ObjectId
+                core_schema.chain_schema([
+                    core_schema.str_schema(),
+                    core_schema.no_info_plain_validator_function(validate_str_to_oid),
+                ]),
+            ]),
             # How to serialize it to JSON
             serialization=core_schema.plain_serializer_function_ser_schema(serialize_oid, info_arg=True),
         )
@@ -67,6 +64,17 @@ def parse_string_to_oid(v: str) -> ObjectId:
 CustomRouteObjectId = Annotated[str, AfterValidator(parse_string_to_oid)]
 
 
-CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True)]
+def parse_empty_string_to_none(value: Any) -> Any:
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    return value
 
+
+CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
+
+
+CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True)]
 CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]
+
+CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none)]
+CustomOptionalTimeString = Annotated[CustomTimeString | None, BeforeValidator(parse_empty_string_to_none)]

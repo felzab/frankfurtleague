@@ -2,9 +2,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
-from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.custom import CustomObjectId, CustomOptionalString
 from app.shared.schemas.kontakt import FLKontakt
 from app.shared.schemas.responses import BaseAPIResponse
+
+
+class FLPostSchiedsrichterPayload(BaseModel):
+    kontakt: FLKontakt
+    name: str
+    schule: CustomOptionalString
+    default_payment: int
 
 
 class FLSchiedsrichter(BaseModel):
@@ -28,3 +35,7 @@ class FLSchiedsrichterFilterParams(BaseModel):
 
 class FLSchiedsrichterListResponse(BaseAPIResponse):
     schiedsrichter: list[FLSchiedsrichter]
+
+
+class FLPostSchiedsrichterResponse(BaseAPIResponse):
+    created_id: CustomObjectId

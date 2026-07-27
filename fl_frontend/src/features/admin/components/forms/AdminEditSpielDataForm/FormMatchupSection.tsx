@@ -52,7 +52,14 @@ export default function FormMatchupSection({
   const team2Tore = team2Payload?.tore ?? NaN;
 
   return (
-    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-6 rounded-xl border p-2 shadow-sm lg:p-4">
+    <div
+      className="bg-surface border-border flex h-fit w-full flex-col gap-y-6 rounded-xl border p-2 shadow-sm lg:p-4"
+      onKeyDownCapture={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}>
       {/** Team 1 */}
       <FormTeamPicker
         label="Team1"

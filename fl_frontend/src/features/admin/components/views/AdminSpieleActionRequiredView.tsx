@@ -76,7 +76,7 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele }: { over
               </Accordion.Heading>
 
               <Accordion.Panel>
-                <Accordion.Body className="border-border flex w-full flex-col items-center border-t px-6 py-6">
+                <Accordion.Body className="border-border flex w-full flex-col items-center border-t px-2 py-6 lg:px-6">
                   {hasItems ? (
                     <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                       <AdminSpielCardsList spiele={data.spiele} />

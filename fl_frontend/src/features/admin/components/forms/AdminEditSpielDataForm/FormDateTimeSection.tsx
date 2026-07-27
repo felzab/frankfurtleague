@@ -6,7 +6,14 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
   return (
-    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-4 shadow-sm">
+    <div
+      className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-4 shadow-sm"
+      onKeyDownCapture={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}>
       {/** Spieldatum */}
       <DatePicker
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}

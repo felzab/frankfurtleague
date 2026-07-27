@@ -19,6 +19,6 @@ export type FLAddress = z.infer<typeof FLAddressSchema>;
 
 export const FLKontaktSchema = z.object({
   telefon: z.string().nullable(),
-  email: z.email().nullable(),
+  email: z.email().or(z.string().trim().length(0)).nullable(),
 });
 export type FLKontakt = z.infer<typeof FLKontaktSchema>;
