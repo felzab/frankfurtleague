@@ -9,18 +9,19 @@ const spieltage = [
   { id: "st3", nr: 3 },
 ];
 
-const spiele = [
-  { id: "s1", spieltag_id: "st1" },
-  { id: "s2", spieltag_id: "st1" },
-  { id: "s3", spieltag_id: "st2" },
-];
+// Named rather than indexed off the array, so no test needs a non-null assertion to
+// reference one — those would become load-bearing under Wave 4's noUncheckedIndexedAccess.
+const spielA = { id: "s1", spieltag_id: "st1" };
+const spielB = { id: "s2", spieltag_id: "st1" };
+const spielC = { id: "s3", spieltag_id: "st2" };
+const spiele = [spielA, spielB, spielC];
 
 describe("joinCollections", () => {
   it("groups right rows under the named target key", () => {
     const result = joinCollections({ left: spieltage, right: spiele, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
 
-    assert.deepEqual(result[0]?.spiele, [spiele[0], spiele[1]]);
-    assert.deepEqual(result[1]?.spiele, [spiele[2]]);
+    assert.deepEqual(result[0]?.spiele, [spielA, spielB]);
+    assert.deepEqual(result[1]?.spiele, [spielC]);
   });
 
   // A Spieltag with no matches must still render, so an unmatched left row gets [] and not undefined.
@@ -38,9 +39,9 @@ describe("joinCollections", () => {
   });
 
   it("preserves right order within a group", () => {
-    const reversed = [spiele[1]!, spiele[0]!];
+    const reversed = [spielB, spielA];
     const result = joinCollections({ left: spieltage, right: reversed, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
-    assert.deepEqual(result[0]?.spiele, [spiele[1], spiele[0]]);
+    assert.deepEqual(result[0]?.spiele, [spielB, spielA]);
   });
 
   it("does not mutate the left rows", () => {

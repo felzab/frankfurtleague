@@ -1,8 +1,8 @@
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { Bars } from "@gravity-ui/icons";
 
-import { Suspense } from "react";
 import { FLLogo } from "../../ui/FLLogo";
 import TopNavLinksDropdown from "./TopNavLinksDropdown";
 

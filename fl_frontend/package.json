@@ -13,6 +13,8 @@
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "verify": "pnpm exec tsc --noEmit && pnpm exec eslint . && pnpm format:check && pnpm build && pnpm test",
     "typecheck": "tsc --noEmit",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test",
     "audit:prod": "pnpm audit --prod --audit-level high"
