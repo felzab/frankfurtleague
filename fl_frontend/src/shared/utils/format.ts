@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- known violation, removed by ledger row R2-2.2 (Wave 4)
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLAddress } from "../schemas";
 

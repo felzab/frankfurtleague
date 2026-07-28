@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
+// eslint-disable-next-line no-restricted-imports -- known violation, removed by ledger row R2-2.1 (Wave 4)
 import ServerIsLife from "@/features/system/components/ServerIsLive";
 import { FLLogo } from "@/shared/components/ui/FLLogo";
 
