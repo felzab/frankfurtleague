@@ -1,5 +1,3 @@
-"use server";
-
 import { connection } from "next/server";
 
 import { AdminSchiedsrichterView } from "@/features/schiedsrichter/components/views/AdminSchiedsrichterView";

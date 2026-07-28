@@ -1,5 +1,3 @@
-"use server";
-
 import { connection } from "next/server";
 
 import AdminSpielCardsList from "@/features/admin/components/collections/AdminSpielCardsList";

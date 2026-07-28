@@ -12,7 +12,7 @@ export default function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
   useEffect(() => {
-    if (state?.message) {
+    if (!state?.success || state?.error !== undefined) {
       toast.danger("SignIn Failed", {
         actionProps: {
           children: "Schließen",

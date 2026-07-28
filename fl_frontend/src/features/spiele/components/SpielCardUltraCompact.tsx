@@ -6,14 +6,14 @@ import { Card } from "@heroui/react";
 
 import type { FLSpiel } from "../schemas";
 
-export default function SpielCardUltraCompact({ spielData, onClick }: { spielData: FLSpiel; onClick: () => void }) {
+export default function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpiel; onPress: () => void }) {
   const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
   const spielUhrzeit = spielData.uhrzeit || "--:--";
   const spielErgebnis = spielData.ergebnis ?? "-:-";
 
   return (
     <Card
-      onClick={onClick}
+      onClick={onPress}
       /* FIX: Applied standard card styling (surface, border, hover states) to match the other components */
       className="bg-surface border-border text-foreground hover:border-foreground/30 w-full cursor-pointer rounded-xl border shadow-sm transition-all hover:scale-[1.02]">
       <Card.Content className="flex flex-row items-center justify-between p-3">

@@ -74,7 +74,7 @@ export default function PlayoffBracketView({ playoffsSpieltage }: { playoffsSpie
                       <div className="relative z-10 w-full">
                         <SpielCardUltraCompact
                           spielData={spielData}
-                          onClick={() => {
+                          onPress={() => {
                             setSelectedSpiel(spielData);
                           }}
                         />

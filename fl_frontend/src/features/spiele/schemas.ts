@@ -52,17 +52,6 @@ export const FLSpielSchema = z.object({
 });
 export type FLSpiel = z.infer<typeof FLSpielSchema>;
 
-export const FLSpieltagSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  name: z.string().nonempty(),
-  beginn: CustomDateStringSchema,
-  ende: CustomDateStringSchema,
-  anzahl_spiele: z.int().nonnegative(),
-  order_val: z.int().nonnegative(),
-  saison_phase: FLSaisonPhaseSchema,
-  saison_id: z.string().length(4),
-});
-
 export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
   spiele: z.array(FLSpielSchema),
 });

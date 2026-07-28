@@ -1,5 +1,3 @@
-"use server";
-
 import { connection } from "next/server";
 
 import { AdminSpielorteView } from "@/features/spielorte/components/views/AdminSpielorteView";

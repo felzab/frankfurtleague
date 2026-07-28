@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
     },
   },
   experimental: {
-    optimizePackageImports: ["@heroui/react", "framer-motion", "@gravity-ui/icons", "@heroui/styles"],
+    optimizePackageImports: ["@heroui/react", "@gravity-ui/icons", "@heroui/styles"],
   },
   output: "standalone",
   cacheComponents: true,

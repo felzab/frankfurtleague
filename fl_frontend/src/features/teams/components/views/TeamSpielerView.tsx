@@ -15,7 +15,7 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
     <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col duration-400">
       {/* Back Navigation Button */}
       <Button
-        onClick={() => {
+        onPress={() => {
           router.back();
         }}
         className="bg-surface border-border text-foreground hover:bg-muted text-fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">

@@ -1,19 +1,10 @@
-import dynamic from "next/dynamic";
 import Link from "next/link";
 
 import { Bars } from "@gravity-ui/icons";
 
+import { Suspense } from "react";
 import { FLLogo } from "../../ui/FLLogo";
-
-const TopNavLinksDropdown = dynamic(() => import("./TopNavLinksDropdown"), {
-  ssr: true,
-  loading: () => (
-    <Bars
-      aria-label="Loading menu"
-      className="text-foreground-muted size-8 opacity-50"
-    />
-  ),
-});
+import TopNavLinksDropdown from "./TopNavLinksDropdown";
 
 export default async function TopNav() {
   return (
@@ -49,8 +40,15 @@ export default async function TopNav() {
             aria-hidden="true"
           />
         </div>
-
-        <TopNavLinksDropdown />
+        <Suspense
+          fallback={
+            <Bars
+              aria-label="Loading menu"
+              className="text-foreground-muted size-8 opacity-50"
+            />
+          }>
+          <TopNavLinksDropdown />
+        </Suspense>
       </div>
     </nav>
   );

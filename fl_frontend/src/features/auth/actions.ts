@@ -1,19 +1,12 @@
 "use server";
-
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { unstable_rethrow } from "next/navigation";
 
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/core/auth";
+import type { FormState } from "@/shared/types/types";
 
-type FormState =
-  | {
-      message?: string;
-      success?: boolean;
-    }
-  | undefined;
-
-export async function handleSignIn(prevState: FormState, formData: FormData): Promise<FormState> {
+export async function handleSignIn(prevState: FormState | undefined, formData: FormData): Promise<FormState> {
   const email = formData.get("email") as string;
 
   try {
@@ -23,14 +16,13 @@ export async function handleSignIn(prevState: FormState, formData: FormData): Pr
     return { success: true };
   } catch (error) {
     // 1. Rethrow Next.js redirects IMMEDIATELY
-    if (isRedirectError(error)) {
-      throw error;
-    }
+    unstable_rethrow(error);
 
     // 2. Handle Auth.js errors
     if (error instanceof AuthError) {
       return {
-        message: "Access Denied. Your email is not authorized to access the Admin Portal.",
+        success: false,
+        error: "Access Denied. Your email is not authorized to access the Admin Portal.",
       };
     }
 
