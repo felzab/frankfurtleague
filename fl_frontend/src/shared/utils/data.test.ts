@@ -58,9 +58,21 @@ describe("joinCollections", () => {
   });
 
   it("handles empty inputs", () => {
-    const noLeft = joinCollections({ left: [] as typeof spieltage, right: spiele, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
+    const noLeft = joinCollections({
+      left: [] as typeof spieltage,
+      right: spiele,
+      leftIdKey: "id",
+      rightIdKey: "spieltag_id",
+      targetKey: "spiele",
+    });
     assert.deepEqual(noLeft, []);
-    const noRight = joinCollections({ left: spieltage, right: [] as typeof spiele, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "spiele" });
+    const noRight = joinCollections({
+      left: spieltage,
+      right: [] as typeof spiele,
+      leftIdKey: "id",
+      rightIdKey: "spieltag_id",
+      targetKey: "spiele",
+    });
     assert.deepEqual(
       noRight.map((x) => x.spiele),
       [[], [], []],

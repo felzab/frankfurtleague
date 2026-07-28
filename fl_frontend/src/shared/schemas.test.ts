@@ -25,21 +25,13 @@ describe("FLAddressSchema", () => {
 
   it("accepts hausnummer as digits, hyphens and a/b/c, or empty", () => {
     for (const hausnummer of ["12", "12a", "12-14", "12B", "", "1-3c"]) {
-      assert.equal(
-        FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success,
-        true,
-        `expected "${hausnummer}" to be accepted`,
-      );
+      assert.equal(FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success, true, `expected "${hausnummer}" to be accepted`);
     }
   });
 
   it("rejects hausnummer with other letters or spaces", () => {
     for (const hausnummer of ["12d", "12 a", "Nr. 12"]) {
-      assert.equal(
-        FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success,
-        false,
-        `expected "${hausnummer}" to be rejected`,
-      );
+      assert.equal(FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success, false, `expected "${hausnummer}" to be rejected`);
     }
   });
 
