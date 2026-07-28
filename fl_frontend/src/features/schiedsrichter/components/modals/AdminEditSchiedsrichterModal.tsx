@@ -2,12 +2,20 @@
 
 import { Modal } from "@heroui/react";
 
-import AdminEditSpielortForm from "../forms/AdminEditSpielortForm/AdminEditSpielortForm";
+import AdminEditSchiedsrichterForm from "../forms/AdminEditSchiedsrichterForm";
 
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 
-export function AdminEditSpielortModal({ ortData, isOpen, onClose }: { ortData: FLSpielort | null; isOpen: boolean; onClose: () => void }) {
-  if (!ortData) return null;
+export function AdminEditSchiedsrichterModal({
+  schiedsrichterData,
+  isOpen,
+  onClose,
+}: {
+  schiedsrichterData: FLSchiedsrichter | null;
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  if (!schiedsrichterData) return null;
 
   return (
     <Modal.Backdrop
@@ -19,13 +27,13 @@ export function AdminEditSpielortModal({ ortData, isOpen, onClose }: { ortData: 
           <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
 
           <Modal.Header className="shrink-0 pb-4">
-            <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Spielort bearbeiten</Modal.Heading>
+            <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Schiedsrichter bearbeiten</Modal.Heading>
           </Modal.Header>
 
           <Modal.Body className="scrollbar-hide text-foreground flex-1 overflow-y-auto px-0">
-            <AdminEditSpielortForm
-              key={ortData.id}
-              ortData={ortData}
+            <AdminEditSchiedsrichterForm
+              key={schiedsrichterData.id}
+              schiedsrichterData={schiedsrichterData}
               onClose={onClose}
             />
           </Modal.Body>

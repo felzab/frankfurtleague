@@ -57,8 +57,8 @@ export default function SpielsucheView({
   // 2. Fuse.js configuration
   const fuse = useMemo(() => {
     return new Fuse(processedSpiele, {
-      keys: ["team1.name", "team2.name", "ort.name", "ort.maps_link", "searchable_datum", "spiel_nr"],
-      threshold: 0.4,
+      keys: ["team1.name", "team2.name", "ort.name", "ort.maps_link", "searchable_datum", "spiel_nr", "schiedsrichter.name"],
+      threshold: 0.3,
       distance: 100,
       ignoreLocation: true,
       minMatchCharLength: 1,

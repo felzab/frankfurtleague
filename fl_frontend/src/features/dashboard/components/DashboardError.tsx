@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRotateRight } from "@gravity-ui/icons";
+
 import { Button } from "@heroui/react";
 
 export default function DashboardError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {

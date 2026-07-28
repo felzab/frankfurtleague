@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { Check, Plus, Xmark } from "@gravity-ui/icons";
 
-import { Autocomplete, Button, Description, Input, Label, ListBox, NumberField, SearchField, TextField, toast, useFilter } from "@heroui/react";
+import { Autocomplete, Button, Description, Label, ListBox, NumberField, SearchField, toast, useFilter } from "@heroui/react";
 
+import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpielSchiedsrichterField } from "@/features/spiele/schemas";
 import type { FLKontakt } from "@/shared/schemas";
@@ -20,6 +21,8 @@ export default function FormSchiedsrichterSection({
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterField | null) => void;
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
+
+  const [isPending, startTransition] = useTransition();
 
   const [isCreatingInline, setIsCreatingInline] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,38 +62,40 @@ export default function FormSchiedsrichterSection({
     }
   };
 
-  const handleCreateSubmit = async () => {
-    const res = await postSchiedsrichterAction({
-      name: draft.name,
-      schule: draft.schule,
-      kontakt: draft.kontakt,
-      default_payment: draft.default_payment,
+  const handleCreateSubmit = () => {
+    startTransition(async () => {
+      const res = await postSchiedsrichterAction({
+        name: draft.name,
+        schule: draft.schule,
+        kontakt: draft.kontakt,
+        default_payment: draft.default_payment,
+      });
+
+      if (!res.success || !res.created_id) {
+        toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+        return;
+      }
+
+      setIsCreatingInline(false);
+      setSearchQuery("");
+      setDraft({
+        name: "",
+        schule: "",
+        kontakt: { telefon: "", email: "" },
+        default_payment: 0,
+      });
+
+      toast.success(res.message || "Schiedsrichter erfolgreich angelegt");
     });
-
-    if (!res.success || !res.created_id) {
-      toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
-      return;
-    }
-
-    setIsCreatingInline(false);
-    setSearchQuery("");
-    setDraft({
-      name: "",
-      schule: "",
-      kontakt: { telefon: "", email: "" },
-      default_payment: 0,
-    });
-
-    toast.success(res.message || "Schiedsrichter erfolgreich angelegt");
   };
 
   const showStickyFooter = searchQuery.trim() === "" ? schiedsrichter.length > 0 : schiedsrichter.some((s) => contains(s.name, searchQuery));
 
   return (
-    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-4 shadow-sm">
+    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-3 shadow-sm lg:p-4">
       {isCreatingInline ? (
         <div
-          className="animate-appearance-in flex flex-col gap-4"
+          className="animate-appearance-in flex flex-col gap-4 px-2"
           onKeyDownCapture={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -105,73 +110,23 @@ export default function FormSchiedsrichterSection({
               variant="ghost"
               className="h-8 w-8 min-w-8 px-0"
               onPress={() => setIsCreatingInline(false)}>
-              <Xmark width={16} />
+              <Xmark
+                width={16}
+                height={16}
+              />
             </Button>
           </div>
 
-          <TextField isRequired>
-            <Label className="text-fluid-xs text-foreground font-bold">Name</Label>
-            <Input
-              placeholder="z.B. Max Mustermann"
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
-            />
-          </TextField>
-
-          <TextField>
-            <Label className="text-fluid-xs text-foreground font-bold">Schule</Label>
-            <Input
-              placeholder="z.B. Goethe-Gymnasium"
-              value={draft.schule}
-              onChange={(e) => setDraft({ ...draft, schule: e.target.value })}
-              className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
-            />
-          </TextField>
-
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <TextField className="flex-1">
-              <Label className="text-fluid-xs text-foreground font-bold">Email</Label>
-              <Input
-                type="email"
-                placeholder="name@beispiel.de"
-                value={draft.kontakt.email ?? ""}
-                onChange={(e) => setDraft({ ...draft, kontakt: { ...draft.kontakt, email: e.target.value } })}
-                className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
-              />
-            </TextField>
-
-            <TextField className="flex-1">
-              <Label className="text-fluid-xs text-foreground font-bold">Telefon</Label>
-              <Input
-                type="tel"
-                placeholder="z.B. +49 123 456789"
-                value={draft.kontakt.telefon ?? ""}
-                onChange={(e) => setDraft({ ...draft, kontakt: { ...draft.kontakt, telefon: e.target.value } })}
-                className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
-              />
-            </TextField>
-          </div>
-
-          <NumberField
-            minValue={0}
-            isRequired
-            step={5}
-            value={draft.default_payment}
-            onChange={(val) => setDraft({ ...draft, default_payment: val === undefined || isNaN(val) ? 0 : val })}
-            formatOptions={{ style: "currency", currency: "EUR" }}>
-            <Label className="text-fluid-xs text-foreground font-bold">Standard Entschädigung</Label>
-            <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
-              <NumberField.DecrementButton />
-              <NumberField.Input className="text-fluid-sm w-full py-0" />
-              <NumberField.IncrementButton />
-            </NumberField.Group>
-          </NumberField>
+          <SchiedsrichterFormFields
+            draft={draft}
+            onChange={setDraft}
+          />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="secondary"
+              isDisabled={isPending}
               className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-[1.02]"
               onPress={() => setIsCreatingInline(false)}>
               Abbrechen
@@ -179,9 +134,15 @@ export default function FormSchiedsrichterSection({
             <Button
               type="button"
               variant="primary"
+              isDisabled={isPending}
               className="text-fluid-sm bg-brand text-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]"
               onPress={handleCreateSubmit}>
-              <Check width={16} /> Speichern
+              <Check
+                className="m-0"
+                width={20}
+                height={20}
+              />
+              {isPending ? "Speichert..." : "Speichern"}
             </Button>
           </div>
         </div>

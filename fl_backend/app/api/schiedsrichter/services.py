@@ -13,7 +13,7 @@ def build_schiedsrichter_filter(
     filters: FLSchiedsrichterFilterParams,
 ) -> dict[str, Any]:
     query = filters.model_dump(
-        include={"default_payment"},
+        include={"default_payment", "is_inactive"},
         exclude_none=True,
         by_alias=True,
         context={"keep_oid": True},

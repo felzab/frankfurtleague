@@ -14,12 +14,25 @@ class FLPostSchiedsrichterPayload(BaseModel):
     default_payment: int
 
 
+class FLPatchSchiedsrichterPayload(BaseModel):
+    id: CustomObjectId
+    kontakt: FLKontakt
+    name: str
+    schule: CustomOptionalString
+    default_payment: int
+
+
+class FLDeleteSchiedsrichterPayload(BaseModel):
+    id: CustomObjectId
+
+
 class FLSchiedsrichter(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
     name: str
     schule: str | None
     default_payment: int
     kontakt: FLKontakt
+    is_inactive: bool
 
 
 FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
@@ -27,6 +40,7 @@ FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
 
 class FLSchiedsrichterFilterParams(BaseModel):
     default_payment: int | None = None
+    is_inactive: bool | None = False  # Exclude incactive Schiedsrichter by default
 
     limit: int = Field(1024, ge=1, le=1024)
     sort_by: Literal["name", "default_payment"] = Field(default="name")
@@ -39,3 +53,11 @@ class FLSchiedsrichterListResponse(BaseAPIResponse):
 
 class FLPostSchiedsrichterResponse(BaseAPIResponse):
     created_id: CustomObjectId
+
+
+class FLPatchSchiedsrichterResponse(BaseAPIResponse):
+    updated_document: FLSchiedsrichter
+
+
+class FLDeleteSchiedsrichterResponse(BaseAPIResponse):
+    updated_document: FLSchiedsrichter

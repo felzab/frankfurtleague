@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const PHONE_REGEX = new RegExp(/^([+]?[\s0-9\-().]{3,20})$/);
+
 export const CustomDateStringSchema = z.iso.date({ error: "DateString has to be of the form: YYYY-MM-DD" });
 
 export const CustomTimeStringSchema = z.iso.time({ error: "TimeString has to be of the form: HH:MM:SS" });
@@ -21,7 +23,7 @@ export const FLAddressSchema = z.object({
 export type FLAddress = z.infer<typeof FLAddressSchema>;
 
 export const FLKontaktSchema = z.object({
-  telefon: z.string().nullable(),
+  telefon: z.string().regex(PHONE_REGEX, "Ungültige Telefonnummer").or(z.string().trim().length(0)).nullable(),
   email: z.email().or(z.string().trim().length(0)).nullable(),
 });
 export type FLKontakt = z.infer<typeof FLKontaktSchema>;

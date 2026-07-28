@@ -16,7 +16,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
   return (
     <>
       <TextField isRequired>
-        <Label className="text-fluid-sm xt-foreground font-bold">Name</Label>
+        <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"
           value={draft.name}

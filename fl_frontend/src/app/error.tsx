@@ -1,7 +1,8 @@
 "use client";
 
-import Error from "@/shared/components/ui/Error";
 import { useEffect } from "react";
+
+import Error from "@/shared/components/ui/Error";
 
 export default function ErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {

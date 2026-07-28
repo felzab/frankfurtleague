@@ -1,7 +1,8 @@
 "use client";
 
-import { Button } from "@heroui/react";
 import Link from "next/link";
+
+import { Button } from "@heroui/react";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (

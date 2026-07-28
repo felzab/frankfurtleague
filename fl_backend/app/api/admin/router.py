@@ -5,7 +5,15 @@ from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
 
 from app.api.admin.services import get_stats_contribution, update_team_statistik
-from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLPostSchiedsrichterResponse
+from app.api.schiedsrichter.schemas import (
+    FLDeleteSchiedsrichterPayload,
+    FLDeleteSchiedsrichterResponse,
+    FLPatchSchiedsrichterPayload,
+    FLPatchSchiedsrichterResponse,
+    FLPostSchiedsrichterPayload,
+    FLPostSchiedsrichterResponse,
+    FLSchiedsrichter,
+)
 from app.api.spiele.schemas import FLSpiel, FLSpieleListResponse, FLSpielListAdapter, PatchSpielDataPayload
 from app.api.spielorte.schemas import (
     FLDeleteSpielortPayload,
@@ -204,10 +212,63 @@ async def post_schiedsrichter(
 
     post_operation = await post_one_to_db(
         collection=schiedsrichter_collection,
-        document=schiedsrichter_data.model_dump(mode="json"),
+        document={**schiedsrichter_data.model_dump(mode="json"), "is_inactive": False},
     )
 
     return FLPostSchiedsrichterResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
         created_id=post_operation.inserted_id,
     )
+
+
+@router.patch("/patch_schiedsrichter", response_model=FLPatchSchiedsrichterResponse)
+async def patch_schiedsrichter(
+    schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
+    schiedsrichter_collection: SchiedsrichterCollection,
+    spiele_collection: SpieleCollection,
+) -> FLPatchSchiedsrichterResponse:
+
+    updated_document_raw = await patch_one_in_db(
+        collection=schiedsrichter_collection,
+        filter={"_id": schiedsrichter_data.id},
+        update={"$set": {**schiedsrichter_data.model_dump(mode="json", exclude={"id"})}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if updated_document_raw is None:
+        raise DocumentNotFoundException(
+            filter={"_id": schiedsrichter_data.id},
+            error_code="DB-COMMON-001",
+        )
+    updated_document = FLSchiedsrichter(**updated_document_raw)
+
+    # Fan-out the update to all Games that use this Spielort
+    await patch_many_in_db(
+        collection=spiele_collection,
+        filter={"schiedsrichter.schiedsrichter_id": updated_document.id},
+        update={"$set": {"schiedsrichter.name": updated_document.name}},
+    )
+
+    return FLPatchSchiedsrichterResponse(updated_document=updated_document)
+
+
+# This is a soft delete
+@router.delete("/delete_schiedsrichter", response_model=FLDeleteSchiedsrichterResponse)
+async def delete_schiedsrichter(
+    schiedsrichter_data: Annotated[FLDeleteSchiedsrichterPayload, Body()],
+    schiedsrichter_collection: SchiedsrichterCollection,
+) -> FLDeleteSchiedsrichterResponse:
+
+    updated_document_raw = await patch_one_in_db(
+        collection=schiedsrichter_collection,
+        filter={"_id": schiedsrichter_data.id},
+        update={"$set": {"is_inactive": True}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if updated_document_raw is None:
+        raise DocumentNotFoundException(
+            filter={"_id": schiedsrichter_data.id},
+            error_code="DB-COMMON-001",
+        )
+    updated_document = FLSchiedsrichter(**updated_document_raw)
+
+    return FLDeleteSchiedsrichterResponse(updated_document=updated_document)

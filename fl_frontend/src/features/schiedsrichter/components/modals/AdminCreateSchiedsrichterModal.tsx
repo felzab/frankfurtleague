@@ -4,9 +4,9 @@ import { Plus } from "@gravity-ui/icons";
 
 import { Button, Modal, useOverlayState } from "@heroui/react";
 
-import AdminCreateSpielortForm from "../forms/AdminCreateSpielortForm/AdminCreateSpielortForm";
+import AdminCreateSchiedsrichterForm from "../forms/AdminCreateSchiedsrichterForm";
 
-export function AdminCreateSpielortModal() {
+export function AdminCreateSchiedsrichterModal() {
   const modalState = useOverlayState();
 
   return (
@@ -18,7 +18,7 @@ export function AdminCreateSpielortModal() {
           width={18}
           height={18}
         />
-        Neuen Spielort anlegen
+        Neuen Schiedsrichter anlegen
       </Button>
 
       <Modal.Backdrop
@@ -33,11 +33,11 @@ export function AdminCreateSpielortModal() {
             />
 
             <Modal.Header className="shrink-0 pb-4">
-              <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Spielort anlegen</Modal.Heading>
+              <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Schiedsrichter anlegen</Modal.Heading>
             </Modal.Header>
 
             <Modal.Body className="scrollbar-hide text-foreground flex-1 overflow-y-auto px-0">
-              <AdminCreateSpielortForm onClose={modalState.close} />
+              <AdminCreateSchiedsrichterForm onClose={modalState.close} />
             </Modal.Body>
           </Modal.Dialog>
         </Modal.Container>

@@ -1,8 +1,9 @@
 "use client";
 
-import DashboardError from "@/features/dashboard/components/DashboardError";
-import { useRouter } from "next/navigation";
 import { startTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+import DashboardError from "@/features/dashboard/components/DashboardError";
 
 export default function DashboardErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
