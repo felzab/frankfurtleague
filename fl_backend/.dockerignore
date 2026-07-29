@@ -48,7 +48,6 @@
 **/secrets/
 
 .env
-.env.\*
 .env.*
 
 _.auth
@@ -98,7 +97,7 @@ tokens._
 **/.pyre/
 **/.pytype/
 **/.venv/
-**/**pycache**/
+**/__pycache__/
 **/assets/node_modules/
 **/develop-eggs/
 **/downloads/

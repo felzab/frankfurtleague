@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.3",
+    "@gravity-ui/icons": "^2.21.0",
     "@heroui/react": "^3.2.2",
     "@heroui/styles": "^3.2.2",
     "@internationalized/date": "^3.12.2",
@@ -36,7 +37,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@gravity-ui/icons": "^2.21.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.1.1",
