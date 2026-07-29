@@ -80,7 +80,6 @@ Possible shimmer animation for landing page
 @theme {
   /* Fonts */
   --font-primary: var(--font-inter), ui-sans-serif, system-ui;
-  --font-secondary: var(--font-krub), ui-sans-serif, system-ui;
   --font-sans: var(--font-inter);
 
   /* Colors */
