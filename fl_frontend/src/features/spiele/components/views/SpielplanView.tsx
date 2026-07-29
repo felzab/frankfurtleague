@@ -6,7 +6,7 @@ import SpielCardsList from "../collections/SpielCardsList";
 
 import type { FLSpielplan } from "@/features/spieltage/schemas";
 
-export default function SpielplanView({ spielplanData }: { spielplanData: FLSpielplan }) {
+export default function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
   return (
     // Updated to flex-1 and flex-col so it handles height naturally without jumping
     <Tabs className="relative flex w-full flex-1 flex-col items-center">
@@ -36,7 +36,10 @@ export default function SpielplanView({ spielplanData }: { spielplanData: FLSpie
           id={spieltagData.id}
           className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-[1400px] grid-cols-1 gap-5 px-4 pt-0 pb-4 duration-400 outline-none sm:grid-cols-2 sm:px-8 xl:grid-cols-3">
           {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
-          <SpielCardsList spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)} />
+          <SpielCardsList
+            spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}
+            today={today}
+          />
         </Tabs.Panel>
       ))}
     </Tabs>

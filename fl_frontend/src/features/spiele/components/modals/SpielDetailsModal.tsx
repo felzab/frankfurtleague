@@ -3,7 +3,6 @@
 import Link from "next/link";
 
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
-import { useToday } from "@/shared/hooks/useToday";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { CircleInfo } from "@gravity-ui/icons";
 
@@ -15,8 +14,17 @@ import SpielStatusChip from "../ui/SpielStatusChip";
 
 import type { FLSpiel, FLSpielStatus } from "../../schemas";
 
-export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spielData: FLSpiel | null; isOpen: boolean; onClose: () => void }) {
-  const today = useToday();
+export default function SpielDetailsModal({
+  spielData,
+  isOpen,
+  onClose,
+  today,
+}: {
+  spielData: FLSpiel | null;
+  isOpen: boolean;
+  onClose: () => void;
+  today: string;
+}) {
 
   const spielStatus = spielData
     ? computeSpielStatus({

@@ -4,6 +4,7 @@ import { resolveSaisonId } from "@/features/saisons/resolvers";
 import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 import SpielsucheView from "@/features/spiele/components/views/SpielsucheView";
 import { getSpiele } from "@/features/spiele/queries";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -34,6 +35,7 @@ export default async function SpielsuchePage(props: NextPageProps) {
   return (
     <SpielsucheView
       spiele={spieleRes.spiele}
+      today={getGermanTodayStr()}
       ListComponent={SpielCardsList}
     />
   );

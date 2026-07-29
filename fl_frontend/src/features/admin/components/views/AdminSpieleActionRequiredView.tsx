@@ -1,6 +1,5 @@
 "use client";
 
-import { useToday } from "@/shared/hooks/useToday";
 import { ChevronsDownWide } from "@gravity-ui/icons";
 
 import { Accordion } from "@heroui/react";
@@ -9,8 +8,7 @@ import AdminSpielCardsList from "../collections/AdminSpielCardsList";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 
-export default function AdminSpieleActionRequiredView({ overviewSpiele }: { overviewSpiele: FLSpiel[] }) {
-  const today = useToday();
+export default function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overviewSpiele: FLSpiel[]; today: string }) {
 
   const spieleCategories: { [key: string]: { name: string; desc: string; spiele: FLSpiel[] } } = {
     ergebnis_pending: {
@@ -79,7 +77,10 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele }: { over
                 <Accordion.Body className="border-border flex w-full flex-col items-center border-t px-2 py-6 lg:px-6">
                   {hasItems ? (
                     <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                      <AdminSpielCardsList spiele={data.spiele} />
+                      <AdminSpielCardsList
+                        spiele={data.spiele}
+                        today={today}
+                      />
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-center">

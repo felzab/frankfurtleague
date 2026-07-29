@@ -1,6 +1,5 @@
 "use client";
 
-import { useToday } from "@/shared/hooks/useToday";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
@@ -16,12 +15,13 @@ export default function SpielCard({
   spielData,
   onOpenInfoModal,
   onOpenAdminModal,
+  today,
 }: {
   spielData: FLSpiel;
   onOpenInfoModal: () => void;
   onOpenAdminModal?: () => void;
+  today: string;
 }) {
-  const today = useToday();
 
   const spielDatum = formatSpielDatum(spielData.datum);
   const spielUhrzeit = spielData.uhrzeit || "--:--";

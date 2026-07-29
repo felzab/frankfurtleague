@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
@@ -32,7 +32,7 @@ class PatchSpielDataPayload(BaseModel):
 class FLSpielTeamField(BaseModel):
     team_id: CustomObjectId
     name: str
-    tore: int | None
+    tore: Annotated[int, Field(ge=0)] | None
     shorthand: str = Field(min_length=2, max_length=2)
 
 

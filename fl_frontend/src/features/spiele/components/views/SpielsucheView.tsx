@@ -12,10 +12,12 @@ import type { FLSpiel } from "../../schemas";
 
 export default function SpielsucheView({
   spiele,
+  today,
   ListComponent,
 }: {
   spiele: FLSpiel[];
-  ListComponent: React.ComponentType<{ spiele: FLSpiel[] }>;
+  today: string;
+  ListComponent: React.ComponentType<{ spiele: FLSpiel[]; today: string }>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -102,7 +104,10 @@ export default function SpielsucheView({
           <p className="text-fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Keine Ergebnisse für "{spielQuery}"</p>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-[1400px] grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
-            <ListComponent spiele={filteredResults} />
+            <ListComponent
+              spiele={filteredResults}
+              today={today}
+            />
           </div>
         )}
       </div>

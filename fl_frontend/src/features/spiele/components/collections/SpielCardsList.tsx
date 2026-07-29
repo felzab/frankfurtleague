@@ -7,7 +7,15 @@ import SpielCard from "../SpielCard";
 
 import type { FLSpiel } from "../../schemas";
 
-export default function SpielCardsList({ spiele, onAdminEdit }: { spiele: FLSpiel[]; onAdminEdit?: (spiel: FLSpiel) => void }) {
+export default function SpielCardsList({
+  spiele,
+  today,
+  onAdminEdit,
+}: {
+  spiele: FLSpiel[];
+  today: string;
+  onAdminEdit?: (spiel: FLSpiel) => void;
+}) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
   return (
@@ -16,6 +24,7 @@ export default function SpielCardsList({ spiele, onAdminEdit }: { spiele: FLSpie
         <SpielCard
           key={spielData.spiel_nr}
           spielData={spielData}
+          today={today}
           onOpenInfoModal={() => setSelectedSpiel(spielData)}
           onOpenAdminModal={onAdminEdit ? () => onAdminEdit(spielData) : undefined}
         />
@@ -23,6 +32,7 @@ export default function SpielCardsList({ spiele, onAdminEdit }: { spiele: FLSpie
 
       <SpielDetailsModal
         spielData={selectedSpiel}
+        today={today}
         isOpen={selectedSpiel !== null}
         onClose={() => setSelectedSpiel(null)}
       />
