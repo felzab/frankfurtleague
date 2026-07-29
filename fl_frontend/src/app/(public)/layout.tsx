@@ -7,7 +7,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   return (
     <>
       <header className="bg-surface border-border z-10 h-[55px] w-full border-b">
-        <Suspense>
+        {/* Sized to the header, not the page: this boundary wraps TopNav, not children. */}
+        <Suspense fallback={<div className="bg-muted/40 h-full w-full animate-pulse" />}>
           <TopNav />
         </Suspense>
       </header>
