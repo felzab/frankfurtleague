@@ -28,13 +28,18 @@ case "$RESOURCE" in
     ;;
 esac
 
-docker compose exec -T frontend sh -c "
-  wget -q -O - --server-response \
-    --method=POST \
-    --header='Content-Type: application/json' \
-    --header=\"Authorization: Bearer \$INTERNAL_API_KEY_SYSTEM\" \
-    --body-data='{\"resource\":\"$RESOURCE\"}' \
-    http://127.0.0.1:3000/api/revalidate 2>&1 | grep -E 'HTTP/'
-"
-
-echo "Revalidated: $RESOURCE"
+# node, not wget: the image is node:alpine, whose busybox wget has no --method and no way to set a
+# request body on anything but --post-data. There is no curl either. node is guaranteed present.
+docker compose exec -T frontend node -e '
+  const [resource] = process.argv.slice(1);
+  const res = await fetch("http://127.0.0.1:3000/api/revalidate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.INTERNAL_API_KEY_SYSTEM}` },
+    body: JSON.stringify({ resource }),
+  });
+  if (res.status !== 204) {
+    console.error(`Revalidation failed for ${resource}: HTTP ${res.status}`);
+    process.exit(1);
+  }
+  console.log(`Revalidated: ${resource}`);
+' "$RESOURCE"
