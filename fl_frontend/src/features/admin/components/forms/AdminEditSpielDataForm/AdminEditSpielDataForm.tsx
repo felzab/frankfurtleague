@@ -117,7 +117,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
           type="button"
           onPress={onClose}
           isDisabled={isPending}
-          className="text-fluid-sm border-border text-foreground-muted hover:bg-surface-muted hover:text-foreground rounded-xl border bg-transparent px-6 py-3 font-bold transition-all active:scale-95">
+          className="text-fluid-sm border-border text-foreground-muted hover:bg-muted hover:text-foreground rounded-xl border bg-transparent px-6 py-3 font-bold transition-all active:scale-95">
           Abbrechen
         </Button>
         <Button

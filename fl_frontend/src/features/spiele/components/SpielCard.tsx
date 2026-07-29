@@ -71,7 +71,7 @@ export default function SpielCard({
 
       {/* Spielinfos */}
       <div className="bg-muted flex w-full items-center justify-between rounded-xl p-2">
-        <strong className="text-fluid-xs lg:text-fluid-md text-foreground flex-1 truncate text-right font-bold">
+        <strong className="text-fluid-xs lg:text-fluid-sm text-foreground flex-1 truncate text-right font-bold">
           {spielData.team1.name || "Team 1"}
         </strong>
 
@@ -80,7 +80,7 @@ export default function SpielCard({
           {spielErgebnis}
         </span>
 
-        <strong className="text-fluid-xs lg:text-fluid-md text-foreground flex-1 truncate text-left font-bold">
+        <strong className="text-fluid-xs lg:text-fluid-sm text-foreground flex-1 truncate text-left font-bold">
           {spielData.team2.name || "Team 2"}
         </strong>
       </div>

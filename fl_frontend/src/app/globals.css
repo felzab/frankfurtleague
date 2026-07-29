@@ -88,7 +88,9 @@ Possible shimmer animation for landing page
 
   --color-brand: var(--accent-brand);
   --color-action: var(--accent-action);
-  --color-warn: var(--accent-warn);
+  /* Spelled `warning`, not `warn`: the utility sites all say `warning`, and this shadows
+     HeroUI's own --color-warning rather than competing with it. */
+  --color-warning: var(--accent-warn);
   --color-danger: var(--accent-danger);
   --color-success: var(--accent-success);
   --color-info: var(--accent-info);

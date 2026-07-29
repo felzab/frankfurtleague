@@ -12,18 +12,28 @@ export default function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
   useEffect(() => {
-    if (!state?.success || state?.error !== undefined) {
-      toast.danger("SignIn Failed", {
-        actionProps: {
-          children: "Schließen",
-          onPress: () => toast.clear(),
-          variant: "danger",
-        },
-        description: "Ihre Email-Adresse ist keinem Admin zugeordnet!",
-        indicator: <Ban />,
+    // `undefined`/`null` means the action has not run yet -- only react to a settled result.
+    // Testing `!state?.success` instead fired this on mount, before the user typed.
+    if (!state) return;
+
+    if (state.success) {
+      toast.success("Link gesendet", {
+        description: "Prüfe dein E-Mail-Postfach und folge dem Anmeldelink.",
         timeout: 6000,
       });
+      return;
     }
+
+    toast.danger("Anmeldung fehlgeschlagen", {
+      actionProps: {
+        children: "Schließen",
+        onPress: () => toast.clear(),
+        variant: "danger",
+      },
+      description: state.error ?? "Diese E-Mail-Adresse ist keinem Admin zugeordnet.",
+      indicator: <Ban />,
+      timeout: 6000,
+    });
   }, [state]);
 
   return (
@@ -41,7 +51,7 @@ export default function SignInForm() {
         <Tabs
           defaultSelectedKey="Admin"
           className="w-full">
-          <Tabs.ListContainer className="border-border bg-surface-muted mb-6 rounded-xl border p-1">
+          <Tabs.ListContainer className="border-border bg-muted mb-6 rounded-xl border p-1">
             <Tabs.List
               aria-label="Rolle auswählen"
               className="flex w-full gap-1">
