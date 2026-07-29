@@ -15,13 +15,10 @@ export async function register() {
   // Runs in every runtime; the config module is Node-only.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  try {
-    await import("./src/core/config");
-  } catch (error) {
-    // Raw console, deliberately: src/core/logging.ts reads config.ts, so it is unavailable exactly
-    // when this fires. config.ts's onValidationError has already reduced the message to variable
-    // names -- do not widen this to print the error object or the environment.
-    console.error(error instanceof Error ? error.message : "Invalid environment variables");
-    process.exit(1);
-  }
+  // Letting this throw *is* the gate. Next rethrows from register() inside prepareImpl(), so the
+  // server never finishes starting and the container exits non-zero. Do not catch it and call
+  // process.exit instead: this module is also compiled for the Edge runtime, which has no
+  // process.exit, and the reference alone fails that bundle.
+  // config.ts's onValidationError has already reduced the message to variable names, never values.
+  await import("./src/core/config");
 }
