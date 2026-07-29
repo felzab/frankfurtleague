@@ -1,9 +1,11 @@
 "use server";
+
 import { unstable_rethrow } from "next/navigation";
 
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/core/auth";
+
 import type { FormState } from "@/shared/types/types";
 
 export async function handleSignIn(prevState: FormState | undefined, formData: FormData): Promise<FormState> {

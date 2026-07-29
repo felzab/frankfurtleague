@@ -1,11 +1,11 @@
 import { useState, useTransition } from "react";
 
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
 import { Check, Plus, Xmark } from "@gravity-ui/icons";
 
 import { Autocomplete, Button, Description, Label, ListBox, NumberField, SearchField, toast, useFilter } from "@heroui/react";
 
-import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpielSchiedsrichterField } from "@/features/spiele/schemas";
 import type { FLKontakt } from "@/shared/schemas";
