@@ -28,7 +28,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Absolute path of the script that sourced this file, resolved BEFORE the cd below.
 # --help reads a script's own header back, and a relative path stops resolving once we cd.
 # BASH_SOURCE[1] is the sourcing script; [0] is this file.
-_caller="${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}"
+# The ${x-default} form (no colon) survives `set -u` even when the array element does not exist.
+_caller="${BASH_SOURCE[1]-${BASH_SOURCE[0]-$0}}"
 SELF="$(cd "$(dirname "$_caller")" && pwd)/$(basename "$_caller")"
 unset _caller
 
@@ -67,10 +68,27 @@ usage() {
   exit 0
 }
 
-# Print the failing line number if a script dies unexpectedly. Without this, `set -e` exits silently
-# and you are left guessing which command failed.
-trap 'rc=$?; [[ $rc -ne 0 ]] && printf "%s  ✗ %s aborted at %s line %s (exit %s)\n" \
-      "$C_RED" "$C_RESET" "${BASH_SOURCE[0]##*/}" "$LINENO" "$rc" >&2; exit $rc' ERR
+# Report exactly what failed when a script dies unexpectedly.
+#
+# `set -e` otherwise exits in complete silence, leaving you to guess. The three values are passed in
+# at the moment the trap FIRES, which is what makes them accurate:
+#   $?            the exit status
+#   $LINENO       the failing line. It MUST be passed as an argument — referencing it inside the trap
+#                 body reports where the trap was defined, which is this file, not your script.
+#   $BASH_COMMAND the text of the command that failed, which is usually all you need to see.
+on_error() {
+  local rc="$1" line="$2" cmd="$3"
+  printf '
+%s  ✗ %s %s failed
+' "$C_RED" "$C_RESET" "${SELF##*/}" >&2
+  printf '       line %s:  %s
+' "$line" "$cmd" >&2
+  printf '       exit status %s
+
+' "$rc" >&2
+  exit "$rc"
+}
+trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
 # --- Guards ----------------------------------------------------------------------------------------
 
@@ -144,9 +162,17 @@ wait_healthy() {
 
 # Reads the commit an image was built from, out of the image's own OCI label. This is how the server
 # can answer "what is actually running?" without trusting a tag name that may have been moved.
-image_revision() {
-  docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$1" 2>/dev/null || echo "unknown"
+# `docker image inspect` SUCCEEDS and prints an empty line when the label is absent, so a trailing
+# `|| echo unknown` never fires. An empty field in a status report reads as a broken report, so say
+# what an empty value actually means: the image predates the labelling added in publish.sh.
+_image_label() {
+  local image="$1" label="$2" value=""
+  value="$(docker image inspect --format "{{index .Config.Labels \"${label}\"}}" "$image" 2>/dev/null)" || true
+  if [[ -z "$value" || "$value" == "<no value>" ]]; then
+    printf 'unlabelled (image predates publish.sh OCI labels)'
+  else
+    printf '%s' "$value"
+  fi
 }
-image_created() {
-  docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.created"}}' "$1" 2>/dev/null || echo "unknown"
-}
+image_revision() { _image_label "$1" "org.opencontainers.image.revision"; }
+image_created()  { _image_label "$1" "org.opencontainers.image.created";  }
