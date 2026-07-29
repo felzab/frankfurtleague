@@ -45,9 +45,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     updateAge: 60 * 60, // refresh the DB row at most hourly
   },
 
-  // Explicit rather than inherited from AUTH_URL's protocol, so a change to @auth/core's cookie
+  // Explicit rather than inherited from @auth/core's own derivation, so a change to its cookie
   // defaults cannot silently drop the flag. config.ts already refuses a non-loopback http:// value.
-  useSecureCookies: new URL(frontend_config.AUTH_URL).protocol === "https:",
+  // Deliberately a string test and not `new URL(...)`: this is evaluated at module scope, and the
+  // Docker builder stage has no AUTH_URL at all (SKIP_ENV_VALIDATION=true, no .env), so
+  // constructing a URL here throws and fails `docker compose build`. See CLAUDE.md §9 A1.
+  useSecureCookies: (frontend_config.AUTH_URL ?? "").toLowerCase().startsWith("https://"),
 
   logger: {
     error(error) {
