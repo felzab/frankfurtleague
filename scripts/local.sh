@@ -51,8 +51,8 @@ if (( DOWN )); then
   step "Stopping the local stack"; docker compose -f "$COMPOSE" down; ok "stopped"; exit 0
 fi
 
-require_env_file "fl_frontend/.env"
-require_env_file "fl_backend/.env"
+require_file "fl_frontend/.env" "The frontend container reads it via env_file. Copy it from your password manager."
+require_file "fl_backend/.env"  "The backend container reads it via env_file."
 
 # A running `next dev` holds .next open and makes the build fail with EBUSY on Windows.
 if tasklist 2>/dev/null | grep -qi "node.exe"; then

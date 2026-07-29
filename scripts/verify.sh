@@ -4,10 +4,11 @@
 # TARGET PLATFORM: Windows (your development machine).
 #
 # WHAT IT RUNS, cheapest-to-fail first:
-#   1. pnpm verify   — types, lint, formatting, next build, unit tests (audit ledger Part 4)
-#   2. pnpm audit:prod — runtime dependency advisories only
-#   3. docker build  — BOTH images, which pnpm verify does not cover
-#   4. an image check — is instrumentation.js actually inside the frontend image?
+#   1. selfcheck.sh  — the scripts themselves (instant)
+#   2. pnpm verify   — types, lint, formatting, next build, unit tests (audit ledger Part 4)
+#   3. pnpm audit:prod — runtime dependency advisories only
+#   4. docker build  — BOTH images, which pnpm verify does not cover
+#   5. an image check — is instrumentation.js actually inside the frontend image?
 #
 # WHY STEPS 3 AND 4 EXIST:
 #   `pnpm verify` has been green while the image was broken. Twice.
@@ -35,6 +36,11 @@ for arg in "${@:-}"; do
 done
 
 require_platform windows
+
+# Runs first because it is instant and because a broken script would make everything below it
+# unreliable. See selfcheck.sh for the class of bug bash -n cannot see.
+step "scripts/ self-check"
+bash scripts/selfcheck.sh >/dev/null 2>&1 && ok "scripts are internally consistent"   || die "scripts/selfcheck.sh failed. Run it directly to see why: ./scripts/selfcheck.sh"
 
 step "pnpm verify  (tsc, eslint, prettier, next build, node --test)"
 ( cd fl_frontend && pnpm verify ) || die "pnpm verify failed. Fix that before looking at anything else."

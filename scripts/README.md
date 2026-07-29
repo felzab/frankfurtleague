@@ -133,6 +133,21 @@ those defects are visible before a deploy.
 **prod** pulls published images and never builds. A server that builds is a server that can fail a
 build — at the worst moment, with the site down and no known-good image to fall back to.
 
+## Changing anything in `scripts/`? Run the self-check
+
+```bash
+./scripts/selfcheck.sh
+```
+
+`bash -n` checks **syntax only** — it cannot see that a script calls a function that does not exist,
+because that only surfaces at run time. Exactly that shipped once: a helper in `_lib.sh` was renamed
+from `require_env_file` to `require_file`, `deploy.sh` was updated, `local.sh` was not, and every
+syntax check passed. It failed the first time a human ran it.
+
+`selfcheck.sh` closes that gap. It verifies every helper each script calls is defined, that `--help`
+works from an unrelated directory, that unknown options are rejected without needing Docker, and that
+each script declares its target platform. `verify.sh` runs it first, so it cannot be forgotten.
+
 ## Every script supports `--help`
 
 It prints the script's own header comment, so the documentation cannot drift away from the behaviour.
