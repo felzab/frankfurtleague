@@ -16,9 +16,12 @@ export default function SignInForm() {
     // Testing `!state?.success` instead fired this on mount, before the user typed.
     if (!state) return;
 
+    // The success branch deliberately cannot confirm that an email was sent: the action returns the
+    // same result for an allowlisted and a non-allowlisted address, so saying "Link gesendet" here
+    // would re-open the enumeration oracle the action closes. Only a malformed address fails now.
     if (state.success) {
-      toast.success("Link gesendet", {
-        description: "Prüfe dein E-Mail-Postfach und folge dem Anmeldelink.",
+      toast.success("Anmeldelink angefordert", {
+        description: state.message ?? "Prüfe dein E-Mail-Postfach und folge dem Anmeldelink.",
         timeout: 6000,
       });
       return;
@@ -30,7 +33,7 @@ export default function SignInForm() {
         onPress: () => toast.clear(),
         variant: "danger",
       },
-      description: state.error ?? "Diese E-Mail-Adresse ist keinem Admin zugeordnet.",
+      description: state.error ?? "Bitte gebe eine valide Email ein.",
       indicator: <Ban />,
       timeout: 6000,
     });

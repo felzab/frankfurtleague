@@ -3,29 +3,57 @@
 import { unstable_rethrow } from "next/navigation";
 
 import { AuthError } from "next-auth";
+import { z } from "zod";
 
 import { signIn } from "@/core/auth";
 
 import type { FormState } from "@/shared/types/types";
 
+const SignInPayloadSchema = z.object({
+  email: z.email("Bitte gebe eine valide Email ein."),
+});
+
+// Deliberately identical whether or not the address is on the admin allowlist. This action is
+// public and unauthenticated, so a distinguishable "not authorized" response is a membership oracle
+// for ALLOWED_ADMIN_EMAILS -- and the address is the only thing an attacker needs to enumerate.
+const NEUTRAL_RESULT: FormState = {
+  success: true,
+  message: "Falls diese Adresse freigegeben ist, wurde ein Anmeldelink verschickt.",
+};
+
+// Floor, not a delay: the allowlisted path does real work (Resend round-trip) while the rejected
+// path returns almost immediately, and that difference alone re-opens the oracle.
+const MIN_RESPONSE_MS = 700;
+
+async function settleAfterFloor<T>(startedAt: number, result: T): Promise<T> {
+  const remaining = MIN_RESPONSE_MS - (Date.now() - startedAt);
+  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+  return result;
+}
+
 export async function handleSignIn(prevState: FormState | undefined, formData: FormData): Promise<FormState> {
-  const email = formData.get("email") as string;
+  const startedAt = Date.now();
+
+  // formData.get() returns string | File | null; the previous `as string` cast asserted past all
+  // three. This is the only server action reachable without a session.
+  const validated = SignInPayloadSchema.safeParse({ email: formData.get("email") });
+  if (!validated.success) {
+    return settleAfterFloor(startedAt, { success: false, error: "Bitte gebe eine valide Email ein." });
+  }
 
   try {
     // Attempt sign in with Auth.js
-    await signIn("resend", { email, redirectTo: "/admin" });
+    await signIn("resend", { email: validated.data.email, redirectTo: "/admin" });
 
-    return { success: true };
+    return settleAfterFloor(startedAt, NEUTRAL_RESULT);
   } catch (error) {
     // 1. Rethrow Next.js redirects IMMEDIATELY
     unstable_rethrow(error);
 
-    // 2. Handle Auth.js errors
+    // 2. Handle Auth.js errors -- including AccessDenied from the allowlist check, which must not
+    //    be distinguishable from success. See NEUTRAL_RESULT above.
     if (error instanceof AuthError) {
-      return {
-        success: false,
-        error: "Zugriff verweigert. Diese E-Mail-Adresse ist nicht für das Admin-Portal freigegeben.",
-      };
+      return settleAfterFloor(startedAt, NEUTRAL_RESULT);
     }
 
     // 3. Fallback for unexpected errors
