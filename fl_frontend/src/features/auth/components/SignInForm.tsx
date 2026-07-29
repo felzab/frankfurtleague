@@ -12,18 +12,28 @@ export default function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
   useEffect(() => {
-    if (!state?.success || state?.error !== undefined) {
-      toast.danger("SignIn Failed", {
-        actionProps: {
-          children: "Schließen",
-          onPress: () => toast.clear(),
-          variant: "danger",
-        },
-        description: "Ihre Email-Adresse ist keinem Admin zugeordnet!",
-        indicator: <Ban />,
+    // `undefined`/`null` means the action has not run yet -- only react to a settled result.
+    // Testing `!state?.success` instead fired this on mount, before the user typed.
+    if (!state) return;
+
+    if (state.success) {
+      toast.success("Link gesendet", {
+        description: "Prüfe dein E-Mail-Postfach und folge dem Anmeldelink.",
         timeout: 6000,
       });
+      return;
     }
+
+    toast.danger("Anmeldung fehlgeschlagen", {
+      actionProps: {
+        children: "Schließen",
+        onPress: () => toast.clear(),
+        variant: "danger",
+      },
+      description: state.error ?? "Diese E-Mail-Adresse ist keinem Admin zugeordnet.",
+      indicator: <Ban />,
+      timeout: 6000,
+    });
   }, [state]);
 
   return (
@@ -41,21 +51,21 @@ export default function SignInForm() {
         <Tabs
           defaultSelectedKey="Admin"
           className="w-full">
-          <Tabs.ListContainer className="border-border bg-surface-muted mb-6 rounded-xl border p-1">
+          <Tabs.ListContainer className="border-border bg-muted mb-6 rounded-xl border p-1">
             <Tabs.List
               aria-label="Rolle auswählen"
               className="flex w-full gap-1">
               <Tabs.Tab
                 id="Admin"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
                 Admin
-                <Tabs.Indicator className="bg-brand/80" />
+                <Tabs.Indicator className="bg-brand-solid/80" />
               </Tabs.Tab>
               <Tabs.Tab
                 id="Spieler"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
                 Spieler
-                <Tabs.Indicator className="bg-brand/80" />
+                <Tabs.Indicator className="bg-brand-solid/80" />
               </Tabs.Tab>
             </Tabs.List>
           </Tabs.ListContainer>
@@ -95,7 +105,7 @@ export default function SignInForm() {
                 type="submit"
                 variant="primary"
                 isDisabled={isPending}
-                className="text-fluid-xs sm:text-fluid-sm bg-brand text-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
+                className="text-fluid-xs sm:text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
                 {isPending ? "Wird gesendet..." : "Link senden"}
               </Button>
             </Form>

@@ -8,7 +8,7 @@ import SpielCardUltraCompact from "../SpielCardUltraCompact";
 import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
 import type { FLSpiel } from "../../schemas";
 
-export default function PlayoffBracketView({ playoffsSpieltage }: { playoffsSpieltage: FLSpieltagWithSpiele[] }) {
+export default function PlayoffBracketView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
   // 1. The Single Modal State
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
@@ -90,6 +90,7 @@ export default function PlayoffBracketView({ playoffsSpieltage }: { playoffsSpie
 
       <SpielDetailsModal
         spielData={selectedSpiel}
+        today={today}
         isOpen={selectedSpiel !== null}
         onClose={() => setSelectedSpiel(null)}
       />

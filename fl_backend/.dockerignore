@@ -40,27 +40,26 @@
 
 # and other secrets that must not be included in Docker images
 
-**/config/credentials.\*
-**/config/secrets.\*
+**/config/credentials.*
+**/config/secrets.*
 **/keys/
 **/passwords/
 **/private/
 **/secrets/
 
 .env
-.env.\*
 .env.*
 
-_.auth
-_.authz
-_.password
-_.secret
-_.secrets
-_.token
-*\_tokens
-*password\*
+*.auth
+*.authz
+*.password
+*.secret
+*.secrets
+*.token
+*_tokens
+*password*
 
-apikeys._
+apikeys.*
 appsettings.Development.json
 appsettings.Local.json
 appsettings.Staging.json
@@ -72,7 +71,7 @@ dbconfig.xml
 secrets.json
 secrets.yaml
 secrets.yml
-tokens._
+tokens.*
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
@@ -84,7 +83,7 @@ tokens._
 **/.out/
 **/.output/
 **/dist/
-\*\*/sdist/
+**/sdist/
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
@@ -98,7 +97,7 @@ tokens._
 **/.pyre/
 **/.pytype/
 **/.venv/
-**/**pycache**/
+**/__pycache__/
 **/assets/node_modules/
 **/develop-eggs/
 **/downloads/
@@ -106,12 +105,12 @@ tokens._
 **/instance/
 **/parts/
 **/share/python-wheels/
-\*\*/wheels/
+**/wheels/
 
 .installed.cfg
 .Python
 
-\*.egg
+*.egg
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
@@ -128,10 +127,10 @@ tokens._
 **/temp/
 **/tmp/
 
-_.cache
-_.log
-_.temp
-_.tmp
+*.cache
+*.log
+*.temp
+*.tmp
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
@@ -148,7 +147,7 @@ _.tmp
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-\*\*/.bzr/
+**/.bzr/
 
 **/.cvs/
 **/.git/
@@ -159,29 +158,33 @@ _.tmp
 **/media/
 **/migrations/
 **/static/
-**/staticfiles/ \*_/uploads/
-.\__
-!\*/migrations/**init**.py
-!alembic/versions/**init**.py
+**/staticfiles/
+**/uploads/
 
-_$py.class
-_.bak
-_.db
-_.old
-_.orig
-_.py[cod]
-_.save
-_.sqlite
-_.sqlite3
-_.swo
-_.swp
-_.test.db
-_.test.sqlite
-_.test.sqlite3
+*$py.class
+*.bak
+*.db
+*.old
+*.orig
+*.py[cod]
+*.save
+*.sqlite
+*.sqlite3
+*.swo
+*.swp
+*.test.db
+*.test.sqlite
+*.test.sqlite3
 
-_/migrations/_.py
+*/migrations/*.py
 alembic.ini
-alembic/versions/\*.py
+alembic/versions/*.py
+
+# Last match wins in Docker's matcher, so these negations must sit AFTER the two rules
+# above that would otherwise re-exclude them. Package markers are needed for the
+# migration packages to remain importable inside the image.
+!*/migrations/__init__.py
+!alembic/versions/__init__.py
 db.sqlite3
 db.sqlite3-journal
 fastapi.log

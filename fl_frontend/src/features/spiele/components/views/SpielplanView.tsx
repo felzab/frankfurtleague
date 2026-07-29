@@ -6,7 +6,7 @@ import SpielCardsList from "../collections/SpielCardsList";
 
 import type { FLSpielplan } from "@/features/spieltage/schemas";
 
-export default function SpielplanView({ spielplanData }: { spielplanData: FLSpielplan }) {
+export default function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
   return (
     // Updated to flex-1 and flex-col so it handles height naturally without jumping
     <Tabs className="relative flex w-full flex-1 flex-col items-center">
@@ -20,9 +20,9 @@ export default function SpielplanView({ spielplanData }: { spielplanData: FLSpie
                 key={spieltagData.id}
                 id={spieltagData.id}
                 /* shrink-0 removed! whitespace-nowrap handles the sizing naturally. */
-                className="text-foreground-muted data-[selected=true]:text-foreground text-fluid-sm hover:text-foreground-muted flex h-11 items-center px-5 font-bold whitespace-nowrap transition-colors hover:opacity-100 md:px-6">
+                className="text-foreground-muted data-[selected=true]:text-brand-solid-foreground text-fluid-sm hover:text-foreground-muted flex h-11 items-center px-5 font-bold whitespace-nowrap transition-colors hover:opacity-100 md:px-6">
                 {spieltagData.name}
-                <Tabs.Indicator className="bg-brand rounded-lg shadow-sm" />
+                <Tabs.Indicator className="bg-brand-solid rounded-lg shadow-sm" />
               </Tabs.Tab>
             );
           })}
@@ -36,7 +36,10 @@ export default function SpielplanView({ spielplanData }: { spielplanData: FLSpie
           id={spieltagData.id}
           className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-[1400px] grid-cols-1 gap-5 px-4 pt-0 pb-4 duration-400 outline-none sm:grid-cols-2 sm:px-8 xl:grid-cols-3">
           {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
-          <SpielCardsList spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)} />
+          <SpielCardsList
+            spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}
+            today={today}
+          />
         </Tabs.Panel>
       ))}
     </Tabs>

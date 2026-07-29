@@ -1,5 +1,7 @@
 "use client";
 
+import { formatSpielDatum } from "@/shared/utils/format";
+
 import { Card } from "@heroui/react";
 
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
@@ -7,7 +9,7 @@ import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 import type { FLSpiel } from "../schemas";
 
 export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) {
-  const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
+  const spielDatum = formatSpielDatum(spielData.datum);
   const spielUhrzeit = spielData.uhrzeit || "--:--";
   const spielErgebnis = spielData.ergebnis ?? "-:-";
 

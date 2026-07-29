@@ -6,7 +6,30 @@ import { getSpiele } from "@/features/spiele/queries";
 import TeamDetailsView from "@/features/teams/components/views/TeamDetailsView";
 import { getTeams } from "@/features/teams/queries";
 
+import { APIBadStatusError } from "@/core/errors";
+
 import type { NextPageProps } from "@/shared/types/types";
+import type { Metadata } from "next";
+
+export async function generateMetadata(props: NextPageProps): Promise<Metadata> {
+  // connection() for the same reason the page has one: the Docker builder stage has no reachable
+  // FastAPI, so an unguarded getTeams() here would fail `docker compose build` (CLAUDE.md §9 A1/A6).
+  await connection();
+  const { team_id } = (await props.params) as { team_id: string };
+
+  // getTeams is "use cache", so this duplicates no round-trip with the page render below.
+  const teamsRes = await getTeams({ team_id: team_id, saison_id: await resolveSaisonId(props.searchParams) }).catch(() => null);
+  const teamData = teamsRes?.format === "list" ? teamsRes.teams[0] : undefined;
+
+  if (!teamData) return { title: "Team nicht gefunden" };
+
+  return {
+    // Becomes "<name> | Frankfurt-League" via dashboard/layout.tsx's title template.
+    title: teamData.name,
+    description: `Teamdaten, Statistiken und Saisonspiele von ${teamData.full_name || teamData.name} in der Frankfurt-League.`,
+    alternates: { canonical: `https://frankfurtleague.de/dashboard/teams/${team_id}` },
+  };
+}
 
 export default async function TeamDetailsPage(props: NextPageProps) {
   await connection();
@@ -14,7 +37,13 @@ export default async function TeamDetailsPage(props: NextPageProps) {
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   const [teamsRes, spieleRes] = await Promise.all([
-    getTeams({ team_id: team_id, saison_id: specifiedSaisonId }).catch(() => null),
+    getTeams({ team_id: team_id, saison_id: specifiedSaisonId }).catch((error) => {
+      // Only a genuine 404 means "no such team". Swallowing everything here turned a backend
+      // outage into a 404 -- and because notFound() is not an error, onRequestError never fired,
+      // so the outage was never logged.
+      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+      throw error;
+    }),
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
 

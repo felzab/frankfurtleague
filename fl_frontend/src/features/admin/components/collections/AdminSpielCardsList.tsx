@@ -9,13 +9,14 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 
 const AdminEditSpielDataModal = dynamic(() => import("../modals/AdminEditSpielDataModal"), { ssr: false });
 
-export default function AdminSpielCardsList({ spiele }: { spiele: FLSpiel[] }) {
+export default function AdminSpielCardsList({ spiele, today }: { spiele: FLSpiel[]; today: string }) {
   const [selectedAdminSpiel, setSelectedAdminSpiel] = useState<FLSpiel | null>(null);
 
   return (
     <div className="contents">
       <SpielCardsList
         spiele={spiele}
+        today={today}
         onAdminEdit={(spiel) => setSelectedAdminSpiel(spiel)}
       />
 

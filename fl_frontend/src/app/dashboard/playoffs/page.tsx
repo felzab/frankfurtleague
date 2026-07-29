@@ -5,6 +5,7 @@ import PlayoffsView from "@/features/spiele/components/views/PlayoffsView";
 import { getSpiele } from "@/features/spiele/queries";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { joinCollections } from "@/shared/utils/data";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
 import type { NextPageProps } from "@/shared/types/types";
@@ -30,6 +31,7 @@ export default async function Page(props: NextPageProps) {
   ]);
   return (
     <PlayoffsView
+      today={getGermanTodayStr()}
       playoffsSpieltage={
         joinCollections({
           left: spieltageRes.spieltage,

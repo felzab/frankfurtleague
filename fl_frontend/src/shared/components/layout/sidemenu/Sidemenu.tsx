@@ -76,7 +76,7 @@ export default function Sidemenu({
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="bg-brand flex h-7 w-7 items-center justify-center rounded text-[10px] font-bold text-white shadow-sm">
+              className="bg-brand-solid text-brand-solid-foreground flex h-7 w-7 items-center justify-center rounded text-[10px] font-bold shadow-sm">
               <FLLogo />
             </Link>
             <span className="text-fluid-sm truncate font-semibold">Frankfurt-League</span>

@@ -95,8 +95,8 @@ export function AdminDeleteSchiedsrichterModal({
                     Bist du dir wirklich sicher?
                   </div>
                   <p className="text-fluid-sm text-foreground-muted leading-relaxed">
-                    Diese Aktion kann <strong className="text-foreground">nicht</strong> rückgängig gemacht werden. Alle verknüpften Spiele
-                    könnten beeinträchtigt werden.
+                    Diese Aktion kann <strong className="text-foreground">nicht</strong> rückgängig gemacht werden. Bereits eingetragene Spiele
+                    behalten den hier hinterlegten Schiedsrichter — er steht künftig nur nicht mehr zur Auswahl.
                   </p>
                 </div>
               )}

@@ -2,6 +2,8 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { formatSpielDatum } from "@/shared/utils/format";
+
 import { Description, ListBox, Select } from "@heroui/react";
 
 import type { Key } from "@heroui/react";
@@ -16,10 +18,7 @@ export default function SaisonSelector({ seasons, currentSeason }: { seasons: FL
   const activeSaisonId = searchParams.get("saison_id") || currentSeason.id;
   const activeSaisonData = seasons.find((s) => s.id === activeSaisonId) || currentSeason;
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("de-DE");
-  };
-  const timespan = `${formatDate(activeSaisonData.start_date)} - ${formatDate(activeSaisonData.end_date)}`;
+  const timespan = `${formatSpielDatum(activeSaisonData.start_date)} - ${formatSpielDatum(activeSaisonData.end_date)}`;
 
   const handleSelectionChange = (key: Key | null) => {
     if (!key) return;

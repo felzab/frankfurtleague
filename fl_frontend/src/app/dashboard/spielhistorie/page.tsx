@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import SpielhistorieView from "@/features/spiele/components/views/SpielhistorieView";
 import { getSpiele } from "@/features/spiele/queries";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -31,5 +32,10 @@ export default async function SpielhistoriePage(props: NextPageProps) {
 
   const spieleRes = await getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", saison_id: specifiedSaisonId });
 
-  return <SpielhistorieView spielhistorieData={spieleRes.spiele} />;
+  return (
+    <SpielhistorieView
+      spielhistorieData={spieleRes.spiele}
+      today={getGermanTodayStr()}
+    />
+  );
 }

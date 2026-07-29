@@ -117,13 +117,13 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
           type="button"
           onPress={onClose}
           isDisabled={isPending}
-          className="text-fluid-sm border-border text-foreground-muted hover:bg-surface-muted hover:text-foreground rounded-xl border bg-transparent px-6 py-3 font-bold transition-all active:scale-95">
+          className="text-fluid-sm border-border text-foreground-muted hover:bg-muted hover:text-foreground rounded-xl border bg-transparent px-6 py-3 font-bold transition-all active:scale-95">
           Abbrechen
         </Button>
         <Button
           type="submit"
           isDisabled={isPending}
-          className="text-fluid-sm bg-brand text-foreground shadow-brand/25 rounded-xl px-6 py-3 font-bold tracking-wide shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
+          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 rounded-xl px-6 py-3 font-bold tracking-wide shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
           {isPending ? "Speichert..." : "Speichern"}
         </Button>
       </div>

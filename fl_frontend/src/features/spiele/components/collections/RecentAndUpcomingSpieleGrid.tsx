@@ -1,5 +1,7 @@
 import { connection } from "next/server";
 
+import { getGermanTodayStr } from "@/shared/utils/date";
+
 import { getSpiele } from "../../queries";
 import SpielCardsList from "./SpielCardsList";
 
@@ -9,6 +11,9 @@ export default async function RecentAndUpcomingSpieleGrid() {
     getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(() => null),
     getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(() => null),
   ]);
+
+  // Safe to read the clock here: connection() above already made this component dynamic.
+  const today = getGermanTodayStr();
 
   if (!upcomingSpieleRes || !recentSpieleRes) {
     return (
@@ -31,7 +36,10 @@ export default async function RecentAndUpcomingSpieleGrid() {
         </div>
 
         <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <SpielCardsList spiele={upcomingSpieleRes.spiele} />
+          <SpielCardsList
+            spiele={upcomingSpieleRes.spiele}
+            today={today}
+          />
         </div>
       </div>
 
@@ -44,7 +52,10 @@ export default async function RecentAndUpcomingSpieleGrid() {
         </div>
 
         <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <SpielCardsList spiele={recentSpieleRes.spiele} />
+          <SpielCardsList
+            spiele={recentSpieleRes.spiele}
+            today={today}
+          />
         </div>
       </div>
     </section>

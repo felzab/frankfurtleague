@@ -4,28 +4,27 @@
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-**/config/credentials.\*
-**/config/secrets.\*
+**/config/credentials.*
+**/config/secrets.*
 **/keys/
 **/passwords/
 **/private/
 **/secrets/
 
 .env
-.env.\*
 .env.*
 .git
 
-_.auth
-_.authz
-_.password
-_.secret
-_.secrets
-_.token
-*\_tokens
-*password\*
+*.auth
+*.authz
+*.password
+*.secret
+*.secrets
+*.token
+*_tokens
+*password*
 
-apikeys._
+apikeys.*
 appsettings.Development.json
 appsettings.Local.json
 appsettings.Staging.json
@@ -37,7 +36,7 @@ dbconfig.xml
 secrets.json
 secrets.yaml
 secrets.yml
-tokens._
+tokens.*
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
@@ -51,8 +50,8 @@ tokens._
 **/.nuxt/
 **/.output/
 **/.svelte-kit/
-**/\_build/
-**/\_site/
+**/_build/
+**/_site/
 **/dist/
 **/out/
 **/public/static/chunks/
@@ -72,15 +71,15 @@ tokens._
 **/.pnpm/
 **/.yarn/
 **/bower_components/
-\*\*/node_modules/
+**/node_modules/
 
 .npmignore
 .npmrc
-.npmrc._
+.npmrc.*
 .yarnrc
 .yarnrc.yml
-npm-debug.log_
-pnpm-debug.log\*
+npm-debug.log*
+pnpm-debug.log*
 # pnpm-workspace.yaml
 yarn-error.log
 
@@ -103,9 +102,9 @@ yarn-error.log
 **/temp/
 **/tmp/
 
-_.log
-_.pid
-\*.sock
+*.log
+*.pid
+*.sock
 
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
@@ -123,10 +122,10 @@ _.pid
 **/coverage/
 **/coverage_html/
 **/test-reports/
-\*\*/test-results/
+**/test-results/
 
 .coverage
-.coverage.\*
+.coverage.*
 junit.xml
 test-results.xml
 
@@ -170,16 +169,16 @@ test-results.xml
 **/.webpack/
 **/.wrangler/
 **/allure-results/
-**/bazel-\*
+**/bazel-*
 **/bazel-bin/
 **/bazel-out/
 **/bazel-testlogs/
 **/buck-out/
-**/config/development._
-\*\*/config/local._
-**/config/production.\*
-**/config/staging._
-\*\*/config/test._
+**/config/development.*
+**/config/local.*
+**/config/production.*
+**/config/staging.*
+**/config/test.*
 **/cypress/screenshots/
 **/cypress/videos/
 **/dist-newstyle/
@@ -188,26 +187,26 @@ test-results.xml
 **/migrations/local/
 **/pkg/
 **/playwright-report/
-**/public/\_next/
+**/public/_next/
 **/seeds/local/
-**/settings/development.\*
-**/settings/local._
-\*\*/settings/production._
-**/settings/staging.\*
-**/settings/test.\*
+**/settings/development.*
+**/settings/local.*
+**/settings/production.*
+**/settings/staging.*
+**/settings/test.*
 
 .cypress
-.eslintrc.local._
-.prettierrc.local._
-.stylelintrc.local.\*
+.eslintrc.local.*
+.prettierrc.local.*
+.stylelintrc.local.*
 
-database.local._
-db.local._
-docker-compose.dev._
-docker-compose.local._
-docker-compose.override._
-docker-compose.test._
-next.config.local._
-redis.local._
-vite.config.local._
-webpack.config.local._
+database.local.*
+db.local.*
+docker-compose.dev.*
+docker-compose.local.*
+docker-compose.override.*
+docker-compose.test.*
+next.config.local.*
+redis.local.*
+vite.config.local.*
+webpack.config.local.*

@@ -6,6 +6,7 @@ import { getSpiele } from "@/features/spiele/queries";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { FLSpielplanSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -45,5 +46,10 @@ export default async function SpielplanPage(props: NextPageProps) {
     }),
   });
 
-  return <SpielplanView spielplanData={spielplan} />;
+  return (
+    <SpielplanView
+      spielplanData={spielplan}
+      today={getGermanTodayStr()}
+    />
+  );
 }

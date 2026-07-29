@@ -87,8 +87,8 @@ export function AdminDeleteSpielortModal({ ortData, isOpen, onClose }: { ortData
                     Bist du dir wirklich sicher?
                   </div>
                   <p className="text-fluid-sm text-foreground-muted leading-relaxed">
-                    Diese Aktion kann <strong className="text-foreground">nicht</strong> rückgängig gemacht werden. Alle verknüpften Spiele
-                    könnten beeinträchtigt werden.
+                    Diese Aktion kann <strong className="text-foreground">nicht</strong> rückgängig gemacht werden. Bereits eingetragene Spiele
+                    behalten den hier hinterlegten Ort samt Maps-Link — er steht künftig nur nicht mehr zur Auswahl.
                   </p>
                 </div>
               )}

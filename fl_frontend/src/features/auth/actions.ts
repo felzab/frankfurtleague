@@ -24,7 +24,7 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
     if (error instanceof AuthError) {
       return {
         success: false,
-        error: "Access Denied. Your email is not authorized to access the Admin Portal.",
+        error: "Zugriff verweigert. Diese E-Mail-Adresse ist nicht für das Admin-Portal freigegeben.",
       };
     }
 

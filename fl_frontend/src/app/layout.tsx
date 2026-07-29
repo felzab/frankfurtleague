@@ -1,6 +1,6 @@
 import "./globals.css";
 
-import { Inter, Krub } from "next/font/google";
+import { Inter } from "next/font/google";
 
 import RootProviders from "@/core/providers/RootProviders";
 
@@ -11,13 +11,6 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
-});
-
-const krub = Krub({
-  weight: ["300", "400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-krub",
 });
 
 /** Metadata */
@@ -67,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="de"
       suppressHydrationWarning
-      className={`${inter.variable} ${krub.variable}`}>
+      className={inter.variable}>
       <body className="bg-background text-foreground font-primary text-fluid-base relative flex min-h-dvh w-full scrollbar-gutter-stable! flex-col antialiased">
         <RootProviders>{children}</RootProviders>
       </body>

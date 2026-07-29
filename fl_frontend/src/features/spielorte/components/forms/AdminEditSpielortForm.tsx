@@ -57,7 +57,7 @@ export default function AdminEditSpielortForm({ ortData, onClose }: { ortData: F
           type="submit"
           variant="primary"
           isDisabled={isPending}
-          className="text-fluid-sm bg-brand text-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]">
+          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]">
           <Check
             className="m-0"
             width={20}
