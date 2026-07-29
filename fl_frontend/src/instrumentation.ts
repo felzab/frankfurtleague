@@ -1,0 +1,38 @@
+export { onRequestError as onRequestError } from "./core/instrumentation";
+
+/**
+ * Startup environment gate (R3b §S10.3).
+ *
+ * `SKIP_ENV_VALIDATION=true` is set in the Docker builder stage only, so the runner does validate --
+ * but only on the first import of `config.ts`, which is whichever request first needs it. The
+ * container's healthcheck hits `/favicon.ico` and never touches config, so a truncated API key or a
+ * typo'd admin email produced a green build, a green image and a healthy-looking container that
+ * 500s on real traffic.
+ *
+ * **Three things had to be true for this to work, and each was measured against a built image.**
+ * They are recorded because every one of them fails silently:
+ *
+ *  1. This file must live in `src/`, not the repo root. Both locations compile, but only `src/`
+ *     is traced into `output: "standalone"` -- from the root, `.next/server/instrumentation.js`
+ *     is built and then simply not copied, so `register()` never runs in the container. That also
+ *     silently disabled `onRequestError` above, i.e. all server error logging in production.
+ *  2. The runtime guard must exclude Edge rather than require Node. `NEXT_RUNTIME` is **unset**
+ *     in the standalone server, so `!== "nodejs"` returned early and validated nothing.
+ *  3. The container does **not** exit on failure, and trying to force that is not worth it. Next
+ *     reports `Failed to prepare server` and keeps the process alive. What it does not do is
+ *     serve: every route, `/favicon.ico` included, returns 500. Measured end to end -- the Compose
+ *     healthcheck therefore fails, the frontend never becomes `service_healthy`, and nginx (which
+ *     `depends_on` it) never starts. The stack fails closed with the variable name in the log
+ *     within a second of boot, which is what R3b §S10.3 actually asked for.
+ *
+ * A `try/catch` here would not help: the failure happens while Next loads this module, before
+ * `register()` is entered.
+ */
+export async function register() {
+  // Skip only the Edge runtime, where the Node-only config module cannot load. See note 2 above.
+  if (process.env.NEXT_RUNTIME === "edge") return;
+
+  // Importing it *is* the gate. config.ts's onValidationError has already reduced the message to
+  // variable NAMES, never values -- verified against a built image, including for a truncated key.
+  await import("./core/config");
+}
