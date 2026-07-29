@@ -27,7 +27,9 @@ export const FLTeamSchema = z.object({
   shorthand: z.string().length(2),
   description: z.string(),
   full_name: z.string().nonempty(),
-  website_url: z.url(),
+  // z.url() alone validates parseability, not scheme -- it accepts javascript:/data:/vbscript:.
+  // This value is rendered straight into an href on a public page, so the scheme must be allowlisted here.
+  website_url: z.url({ protocol: /^https?$/, hostname: z.regexes.domain }),
   address: FLAddressSchema,
 });
 export type FLTeam = z.infer<typeof FLTeamSchema>;

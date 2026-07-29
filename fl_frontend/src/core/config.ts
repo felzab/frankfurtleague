@@ -13,6 +13,9 @@ export const frontend_config = createEnv({
 
     // Auth
     AUTH_URL: z.url(),
+    // Prefer the canonical URL over the literal "true": "true" tells Auth.js to trust the forwarded
+    // Host, which nginx passes through unvalidated. Harmless while AUTH_URL below is mandatory --
+    // Auth.js derives its base URL from that -- but the URL branch removes the dependency entirely.
     AUTH_TRUST_HOST: z.union([z.literal("true"), z.url()]),
     AUTH_SECRET: z.string(),
     AUTH_RESEND_KEY: z.string(),
