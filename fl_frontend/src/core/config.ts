@@ -21,7 +21,7 @@ export const frontend_config = createEnv({
       return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
     }, "AUTH_URL must use https:// unless it points at localhost"),
     // Prefer the canonical URL over the literal "true": "true" tells Auth.js to trust the forwarded
-    // Host, which nginx passes through unvalidated. Harmless while AUTH_URL below is mandatory --
+    // Host, which nginx passes through unvalidated. Harmless while AUTH_URL above is mandatory --
     // Auth.js derives its base URL from that -- but the URL branch removes the dependency entirely.
     AUTH_TRUST_HOST: z.union([z.literal("true"), z.url()]),
     AUTH_SECRET: z.string(),
