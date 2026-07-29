@@ -22,9 +22,12 @@ export const frontend_config = createEnv({
       const { protocol, hostname } = new URL(raw);
       return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
     }, "AUTH_URL must use https:// unless it points at localhost"),
-    // Prefer the canonical URL over the literal "true": "true" tells Auth.js to trust the forwarded
-    // Host, which nginx passes through unvalidated. Harmless while AUTH_URL above is mandatory --
-    // Auth.js derives its base URL from that -- but the URL branch removes the dependency entirely.
+    // Inert, and kept only so existing deployments do not fail this schema. @auth/core derives
+    // trustHost as `!!(AUTH_URL ?? AUTH_TRUST_HOST ?? ...)` (lib/utils/env.js:40) -- AUTH_URL comes
+    // first in that chain and is mandatory above, so trustHost is always true and this value is
+    // never read. The URL branch is not "safer than true": both are merely truthy.
+    // What actually stops a forged Host header is AUTH_URL being mandatory (Auth.js derives its base
+    // URL from it) plus the catch-all default_server block in nginx.conf. See R3b-S9.3 / NEW-S3.
     AUTH_TRUST_HOST: z.union([z.literal("true"), z.url()]),
     AUTH_SECRET: z.string(),
     AUTH_RESEND_KEY: z.string(),
