@@ -22,13 +22,13 @@ export const frontend_config = createEnv({
       const { protocol, hostname } = new URL(raw);
       return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
     }, "AUTH_URL must use https:// unless it points at localhost"),
-    // Inert, and kept only so existing deployments do not fail this schema. @auth/core derives
-    // trustHost as `!!(AUTH_URL ?? AUTH_TRUST_HOST ?? ...)` (lib/utils/env.js:40) -- AUTH_URL comes
-    // first in that chain and is mandatory above, so trustHost is always true and this value is
-    // never read. The URL branch is not "safer than true": both are merely truthy.
-    // What actually stops a forged Host header is AUTH_URL being mandatory (Auth.js derives its base
-    // URL from it) plus the catch-all default_server block in nginx.conf. See R3b-S9.3 / NEW-S3.
-    AUTH_TRUST_HOST: z.union([z.literal("true"), z.url()]),
+    // AUTH_TRUST_HOST is deliberately NOT declared here. @auth/core derives
+    // `trustHost = !!(AUTH_URL ?? AUTH_TRUST_HOST ?? ...)` (lib/utils/env.js:40): AUTH_URL is first
+    // in that chain and is mandatory above, so the variable is never read and cannot affect
+    // anything. Requiring it only meant every deployment had to supply a value for nothing.
+    // Setting it in the environment stays harmless. What actually stops a forged Host header is
+    // AUTH_URL being mandatory and https-pinned, plus the catch-all default_server block in
+    // nginx.conf. See ledger R3b-S9.3 / NEW-S3.
     AUTH_SECRET: z.string(),
     AUTH_RESEND_KEY: z.string(),
 
@@ -67,7 +67,6 @@ export const frontend_config = createEnv({
     MONGODB_URI: process.env.MONGODB_URI,
 
     AUTH_URL: process.env.AUTH_URL,
-    AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST,
     AUTH_SECRET: process.env.AUTH_SECRET,
     AUTH_RESEND_KEY: process.env.AUTH_RESEND_KEY,
 

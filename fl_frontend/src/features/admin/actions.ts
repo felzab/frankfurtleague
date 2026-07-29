@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 
-import { requireAdmin } from "@/core/auth";
+import { getAdminSession } from "@/core/auth";
 
 import { patchAdminSpielData } from "./mutations";
 import { AdminPatchSpielDataPayloadSchema } from "./schemas";
@@ -10,7 +10,7 @@ import { AdminPatchSpielDataPayloadSchema } from "./schemas";
 import type { FormState } from "@/shared/types/types";
 
 export async function patchAdminSpielDataAction(prevState: FormState, rawPayload: unknown): Promise<FormState> {
-  if (!(await requireAdmin())) {
+  if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
 

@@ -73,10 +73,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
  * The single definition of the admin policy. Returns the session when the caller is an admin, and
  * `null` when it is not -- the caller decides whether that means `redirect()` or a refused action.
  *
+ * Named `get...`, not `require...`, on purpose: it neither throws nor redirects, so
+ * `await getAdminSession();` on its own line guards nothing. **The return value must be checked.**
+ *
  * The test was previously written out at eight sites (seven server actions plus the proxy), so a
  * change of policy meant eight edits and missing one of them was invisible.
  */
-export async function requireAdmin(): Promise<Session | null> {
+export async function getAdminSession(): Promise<Session | null> {
   const session = await auth();
   return session?.user?.role === "admin" ? session : null;
 }

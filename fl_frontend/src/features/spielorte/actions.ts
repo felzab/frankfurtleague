@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 
-import { requireAdmin } from "@/core/auth";
+import { getAdminSession } from "@/core/auth";
 
 import { deleteSpielort, patchSpielort, postSpielort } from "./mutations";
 import { FLDeleteSpielortPayloadSchema, FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema } from "./schemas";
@@ -12,7 +12,7 @@ import type { FLDeleteSpielortPayload, FLPatchSpielortPayload, FLPostSpielortPay
 export async function postSpielortAction(
   rawPayload: FLPostSpielortPayload,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string }> {
-  if (!(await requireAdmin())) {
+  if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
 
@@ -38,7 +38,7 @@ export async function postSpielortAction(
 export async function patchSpielortAction(
   rawPayload: FLPatchSpielortPayload,
 ): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string }> {
-  if (!(await requireAdmin())) {
+  if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
 
@@ -70,7 +70,7 @@ export async function patchSpielortAction(
 export async function deleteSpielortAction(
   rawPayload: FLDeleteSpielortPayload,
 ): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string }> {
-  if (!(await requireAdmin())) {
+  if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
 

@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 
-import { requireAdmin } from "@/core/auth";
+import { getAdminSession } from "@/core/auth";
 
 import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter } from "./mutations";
 import { FLDeleteSchiedsrichterPayloadSchema, FLPatchSchiedsrichterPayloadSchema, FLPostSchiedsrichterPayloadSchema } from "./schemas";
@@ -12,7 +12,7 @@ import type { FLDeleteSchiedsrichterPayload, FLPatchSchiedsrichterPayload, FLPos
 export async function postSchiedsrichterAction(
   rawPayload: FLPostSchiedsrichterPayload,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string }> {
-  if (!(await requireAdmin())) {
+  if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
 
@@ -42,7 +42,7 @@ export async function postSchiedsrichterAction(
 export async function patchSchiedsrichterAction(
   rawPayload: FLPatchSchiedsrichterPayload,
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string }> {
-  if (!(await requireAdmin())) {
+  if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
 
@@ -74,7 +74,7 @@ export async function patchSchiedsrichterAction(
 export async function deleteSchiedsrichterAction(
   rawPayload: FLDeleteSchiedsrichterPayload,
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string }> {
-  if (!(await requireAdmin())) {
+  if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
 
