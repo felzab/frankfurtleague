@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { FLAddressSchema, FLKontaktSchema } from "./schemas.ts";
+import { z } from "zod";
+
+import { ExternalUrlSchema, FLAddressSchema, FLKontaktSchema } from "./schemas.ts";
 
 const validAddress = {
   strasse: "Hanauer Landstraße",
@@ -71,5 +73,27 @@ describe("FLKontaktSchema", () => {
 
   it("rejects a missing field outright", () => {
     assert.equal(FLKontaktSchema.safeParse({ telefon: null }).success, false);
+  });
+});
+
+describe("ExternalUrlSchema", () => {
+  // The whole reason this schema exists: bare z.url() accepts every one of these.
+  it("rejects the script-bearing schemes that z.url() lets through", () => {
+    for (const url of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<script>1</script>", "vbscript:x", "file:///etc/passwd"]) {
+      assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
+      assert.equal(z.url().safeParse(url).success, true, `z.url() no longer accepts "${url}" — this test can be simplified`);
+    }
+  });
+
+  it("accepts ordinary http and https links", () => {
+    for (const url of ["https://www.carl-schurz-schule.de", "http://example.de", "https://a.b.example.de/pfad?q=1#top"]) {
+      assert.equal(ExternalUrlSchema.safeParse(url).success, true, `expected "${url}" to be accepted`);
+    }
+  });
+
+  it("rejects a hostname that is not a domain", () => {
+    for (const url of ["https://ok", "https://localhost", "https://127.0.0.1"]) {
+      assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
+    }
   });
 });

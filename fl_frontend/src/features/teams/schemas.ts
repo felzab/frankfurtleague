@@ -1,4 +1,4 @@
-import { CustomObjectIdStringSchema, FLAddressSchema } from "@/shared/schemas";
+import { CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
 import z from "zod";
 
 import { FLSpielerSchema } from "../spieler/schemas";
@@ -27,9 +27,8 @@ export const FLTeamSchema = z.object({
   shorthand: z.string().length(2),
   description: z.string(),
   full_name: z.string().nonempty(),
-  // z.url() alone validates parseability, not scheme -- it accepts javascript:/data:/vbscript:.
-  // This value is rendered straight into an href on a public page, so the scheme must be allowlisted here.
-  website_url: z.url({ protocol: /^https?$/, hostname: z.regexes.domain }),
+  // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
+  website_url: ExternalUrlSchema,
   address: FLAddressSchema,
 });
 export type FLTeam = z.infer<typeof FLTeamSchema>;
