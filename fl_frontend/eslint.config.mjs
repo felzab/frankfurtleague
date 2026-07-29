@@ -15,6 +15,12 @@ const eslintConfig = defineConfig([
   {
     rules: {
       "react/no-unescaped-entities": "off",
+      // The targeted half of the Posture B decision (ledger R3b-S9.1b). The enforced CSP keeps
+      // 'unsafe-inline' on script-src, so it does not mitigate script injection -- this does, at
+      // the only place injection could realistically enter this codebase. Measured at 0 existing
+      // violations, so it lands as `error` directly. If you ever genuinely need raw HTML, that is
+      // the moment to reconsider a nonce-based CSP, not the moment to disable this rule.
+      "react/no-danger": "error",
       "@typescript-eslint/consistent-type-imports": [
         "error",
         {
