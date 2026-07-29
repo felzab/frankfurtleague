@@ -1,0 +1,6 @@
+
+# Docker Desktop on Windows creates these when a bind-mount path is mangled by
+# Git Bash MSYS path conversion (":" separators become ";C:\..."). Empty and useless.
+# Prevent them by running docker/compose from PowerShell, per CLAUDE.md §5.
+*;C
+*;C/
