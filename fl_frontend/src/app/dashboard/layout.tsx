@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 
 import DashboardSidemenu from "@/features/dashboard/components/DashboardSidemenu";
-import PageLoader from "@/shared/components/ui/PageLoader";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
+import PageLoader from "@/shared/components/ui/PageLoader";
 
 import type { Metadata } from "next";
 

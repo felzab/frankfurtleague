@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { APIBadStatusError } from "@/core/errors";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpieler } from "@/features/spieler/queries";
 import TeamSpielerView from "@/features/teams/components/views/TeamSpielerView";
 import { getTeams } from "@/features/teams/queries";
+
+import { APIBadStatusError } from "@/core/errors";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";

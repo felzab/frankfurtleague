@@ -25,7 +25,6 @@ export default function SpielDetailsModal({
   onClose: () => void;
   today: string;
 }) {
-
   const spielStatus = spielData
     ? computeSpielStatus({
         datum: spielData.datum,

@@ -9,7 +9,6 @@ import AdminSpielCardsList from "../collections/AdminSpielCardsList";
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overviewSpiele: FLSpiel[]; today: string }) {
-
   const spieleCategories: { [key: string]: { name: string; desc: string; spiele: FLSpiel[] } } = {
     ergebnis_pending: {
       name: "Ergebnis ausstehend",

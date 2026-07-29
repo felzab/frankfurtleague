@@ -22,7 +22,6 @@ export default function SpielCard({
   onOpenAdminModal?: () => void;
   today: string;
 }) {
-
   const spielDatum = formatSpielDatum(spielData.datum);
   const spielUhrzeit = spielData.uhrzeit || "--:--";
   const spielErgebnis = spielData.ergebnis ?? "- : -";
