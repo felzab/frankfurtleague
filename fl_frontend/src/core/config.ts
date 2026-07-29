@@ -49,6 +49,14 @@ export const frontend_config = createEnv({
 
   skipValidation: process.env.SKIP_ENV_VALIDATION === "true",
 
+  // Names only. The default handler prints the whole issue array, which is fine today but is one
+  // schema change away from echoing a rejected value into a container log. Cannot use
+  // src/core/logging.ts here -- it reads this module, so it is unavailable while this is failing.
+  onValidationError: (issues) => {
+    const names = [...new Set(issues.map((issue) => String(issue.path?.[0] ?? "<unknown>")))].sort();
+    throw new Error(`Invalid environment variables: ${names.join(", ")}`);
+  },
+
   runtimeEnv: {
     API_URL: process.env.API_URL,
     API_VERSION: process.env.API_VERSION,
