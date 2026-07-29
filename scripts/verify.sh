@@ -1,23 +1,40 @@
 #!/usr/bin/env bash
-# Target platform: Windows (dev machine). The complete pre-merge gate.
 #
-# `pnpm verify` is Part 4 of the audit ledger and covers types, lint, format, build and tests.
-# It does NOT cover the Docker image build, and that gap has bitten twice:
-#   - a module-scope read of AUTH_URL that only fails in the builder stage (no .env there);
-#   - instrumentation.ts at the repo root, which compiles and is then dropped from the image,
-#     silently disabling the env gate AND all production error logging.
-# Both passed `pnpm verify`. So this script runs both, in the order that fails cheapest first.
+# scripts/verify.sh — the complete pre-merge gate.
+# TARGET PLATFORM: Windows (your development machine).
 #
-# Usage:
-#   ./scripts/verify.sh          # pnpm verify, then the image build
-#   ./scripts/verify.sh --quick  # pnpm verify only (skip the ~4 min image build)
+# WHAT IT RUNS, cheapest-to-fail first:
+#   1. pnpm verify   — types, lint, formatting, next build, unit tests (audit ledger Part 4)
+#   2. pnpm audit:prod — runtime dependency advisories only
+#   3. docker build  — BOTH images, which pnpm verify does not cover
+#   4. an image check — is instrumentation.js actually inside the frontend image?
+#
+# WHY STEPS 3 AND 4 EXIST:
+#   `pnpm verify` has been green while the image was broken. Twice.
+#     - a module-scope read of AUTH_URL failed only in the builder stage, where there is no .env;
+#     - instrumentation.ts at the repo root compiled, passed every test, and was then dropped from
+#       output:"standalone" — silently disabling the startup env gate AND all production error
+#       logging. Step 4 is a one-command check for exactly that.
+#
+# USAGE:
+#   ./scripts/verify.sh           everything (the image build takes a few minutes)
+#   ./scripts/verify.sh --quick   skip the image build — NOT sufficient before a merge if you
+#                                 touched src/core/config.ts, src/core/auth.ts or src/instrumentation.ts
+#   ./scripts/verify.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
-require_platform windows
 
 QUICK=0
-[[ "${1:-}" == "--quick" ]] && QUICK=1
-[[ -n "${1:-}" && "${1:-}" != "--quick" ]] && die "Unknown option: $1"
+for arg in "${@:-}"; do
+  case "$arg" in
+    --quick)   QUICK=1 ;;
+    --help|-h) usage ;;
+    "")        ;;
+    *)         die "Unknown option: ${arg}. Try --help." ;;
+  esac
+done
+
+require_platform windows
 
 step "pnpm verify  (tsc, eslint, prettier, next build, node --test)"
 ( cd fl_frontend && pnpm verify ) || die "pnpm verify failed. Fix that before looking at anything else."

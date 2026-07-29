@@ -1,66 +1,133 @@
 #!/usr/bin/env bash
-# Target platform: Linux (production server). Pulls published images and restarts the stack.
 #
-# Replaces restart_server.sh, which ran `docker compose down` and then `up` — a window where the site
-# was simply gone — and never checked whether what came back was healthy. Since Wave 3 the frontend
-# refuses to serve at all on a bad environment variable, so "it restarted" and "it works" are now
-# genuinely different statements.
+# scripts/deploy.sh — put a published version live, or report what is live.
+# TARGET PLATFORM: Linux (the production server).
 #
-# This script NEVER builds. A server that builds is a server that can fail a build.
+# THIS SCRIPT NEVER BUILDS. It only pulls images that publish.sh already built and tested on your
+# development machine. A server that builds is a server that can fail a build — at the worst moment,
+# with the site down and no known-good image to fall back to.
 #
-# Usage:
-#   ./scripts/deploy.sh                  # deploy the current :frontend / :backend tags
-#   ./scripts/deploy.sh sha-1a2b3c4      # deploy (or roll back to) a specific published tag
+# WHAT IT DOES:
+#   1. checks the files nginx mounts actually exist (a missing one makes nginx fail to start)
+#   2. pulls the requested images
+#   3. records which image is currently live, so a failure has somewhere to go back to
+#   4. recreates the containers IN PLACE — no `docker compose down`, so the outage is seconds
+#   5. waits for both services to report healthy
+#   6. on success, prints the live security headers; on failure, prints the rollback command
+#
+# USAGE:
+#   ./scripts/deploy.sh                    deploy the current :frontend / :backend tags
+#   ./scripts/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
+#   ./scripts/deploy.sh --status           report what is running right now, change nothing
+#   ./scripts/deploy.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
-require_platform linux
-require_docker
 
 COMPOSE="docker-compose.yml"
-PIN="${1:-}"
+PIN=""; STATUS_ONLY=0
 
-require_env_file "fl_frontend/.env"
-require_env_file "fl_backend/.env"
-[[ -f nginx.conf ]] || die "Missing nginx.conf — nginx mounts it read-only and will not start."
-[[ -d certs ]]      || die "Missing certs/ — nginx mounts it read-only and will not start."
+for arg in "${@:-}"; do
+  case "$arg" in
+    --status)  STATUS_ONLY=1 ;;
+    --help|-h) usage ;;
+    --*)       die "Unknown option: ${arg}. Try --help." ;;
+    "")        ;;
+    *)         PIN="$arg" ;;
+  esac
+done
 
-if [[ -n "$PIN" ]]; then
-  step "Pinning to $PIN"
-  docker pull "felzab/frankfurtleague:$PIN-frontend" || die "No such published tag: $PIN-frontend"
-  docker pull "felzab/frankfurtleague:$PIN-backend"  || die "No such published tag: $PIN-backend"
-  docker tag "felzab/frankfurtleague:$PIN-frontend" "$IMAGE_FRONTEND"
-  docker tag "felzab/frankfurtleague:$PIN-backend"  "$IMAGE_BACKEND"
-  ok "local :frontend / :backend now point at $PIN"
-else
-  step "Pulling the current images"
-  docker pull "$IMAGE_FRONTEND" || die "pull failed for $IMAGE_FRONTEND"
-  docker pull "$IMAGE_BACKEND"  || die "pull failed for $IMAGE_BACKEND"
+require_platform linux
+require_docker
+require_file "$COMPOSE"
+
+# --- --status: answer "what is actually running?" ----------------------------------------------------
+# Reads the image's own OCI labels rather than the tag name, because a tag is a moving pointer and can
+# be retagged locally. The label is baked in at build time and cannot drift.
+if (( STATUS_ONLY )); then
+  step "Currently running"
+  for svc in frontend backend; do
+    cid="$(docker compose -f "$COMPOSE" ps -q "$svc" 2>/dev/null || true)"
+    if [[ -z "$cid" ]]; then
+      warn "${svc}: not running"
+      continue
+    fi
+    img="$(docker inspect --format '{{.Config.Image}}' "$cid")"
+    state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")"
+    printf '       %-9s %s\n' "${svc}:" "$state"
+    printf '       %-9s image    %s\n' "" "$img"
+    printf '       %-9s commit   %s\n' "" "$(image_revision "$img")"
+    printf '       %-9s built    %s\n' "" "$(image_created "$img")"
+  done
+  step "Published builds available to roll back to"
+  docker image ls "$DOCKER_REPO" --format '       {{.Tag}}\t{{.CreatedSince}}' | sort | grep -- "-sha-" || \
+    info "none pinned locally — pull one first: docker pull ${DOCKER_REPO}:frontend-sha-XXXXXXX"
+  exit 0
 fi
 
-# Record what is running now, so a failed deploy has something to go back to.
-PREV_FRONTEND="$(docker inspect --format '{{.Image}}' "$(docker compose -f "$COMPOSE" ps -q frontend 2>/dev/null)" 2>/dev/null || true)"
-[[ -n "$PREV_FRONTEND" ]] && ok "previous frontend image recorded for rollback"
+# --- preflight --------------------------------------------------------------------------------------
+require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
+require_file "fl_backend/.env"  "The backend cannot start without it."
+require_file "nginx/prod.conf"  "nginx mounts this read-only; if it is missing, Docker creates a DIRECTORY at that path and nginx fails with 'not a directory'."
+require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 
+# --- pull -------------------------------------------------------------------------------------------
+if [[ -n "$PIN" ]]; then
+  step "Pinning to ${PIN}"
+  docker pull "${DOCKER_REPO}:frontend-${PIN}" || die "No such published tag: frontend-${PIN}
+       List what exists: docker image ls '${DOCKER_REPO}'"
+  docker pull "${DOCKER_REPO}:backend-${PIN}"  || die "No such published tag: backend-${PIN}"
+  # Point the moving tags at the pinned build, so compose (which references them) picks it up.
+  docker tag "${DOCKER_REPO}:frontend-${PIN}" "$IMAGE_FRONTEND"
+  docker tag "${DOCKER_REPO}:backend-${PIN}"  "$IMAGE_BACKEND"
+  ok "local :frontend and :backend now point at ${PIN}"
+else
+  step "Pulling the current published images"
+  docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
+       If this is an authentication error: docker login -u felzab"
+  docker pull "$IMAGE_BACKEND"  || die "pull failed for ${IMAGE_BACKEND}"
+fi
+
+info "frontend commit: $(image_revision "$IMAGE_FRONTEND")"
+info "backend  commit: $(image_revision "$IMAGE_BACKEND")"
+
+# --- remember the current version, for rollback -----------------------------------------------------
+PREV_TAG=""
+prev_cid="$(docker compose -f "$COMPOSE" ps -q frontend 2>/dev/null || true)"
+if [[ -n "$prev_cid" ]]; then
+  PREV_TAG="$(image_revision "$(docker inspect --format '{{.Config.Image}}' "$prev_cid")")"
+  [[ "$PREV_TAG" != "unknown" ]] && info "currently live commit: ${PREV_TAG} (rollback target)"
+fi
+
+# --- recreate ---------------------------------------------------------------------------------------
+# No `docker compose down` first: compose replaces only the services whose image changed, and starts
+# the replacement before removing the old container where it can. `down` guarantees a full outage.
 step "Recreating containers"
-# No `down` first: compose recreates changed services in place, so the outage is seconds, not minutes.
 docker compose -f "$COMPOSE" up -d --force-recreate --remove-orphans
 
 step "Waiting for health"
 if wait_healthy "$COMPOSE" backend 150 && wait_healthy "$COMPOSE" frontend 180; then
   printf '\n'; ok "Deploy healthy"
-  step "Confirming the security headers reached the edge"
-  curl -sI https://frankfurtleague.de 2>/dev/null | grep -iE "content-security-policy|strict-transport" | sed 's/^/      /' \
-    || warn "Could not read headers over HTTPS — check nginx and the certificates."
-  printf '\n      %s\n' "Logs: docker compose -f $COMPOSE logs -f frontend"
+  step "Security headers, as served over HTTPS"
+  if curl -fsSI https://frankfurtleague.de 2>/dev/null | grep -iE "content-security-policy|strict-transport-security" | sed 's/^/       /'; then
+    :
+  else
+    warn "Could not read headers over HTTPS — check nginx and the certificates in certs/."
+  fi
+  printf '\n       %s\n' "What is live:  ./scripts/deploy.sh --status"
+  printf '       %s\n'   "Follow logs:   docker compose -f ${COMPOSE} logs -f frontend"
 else
   printf '\n'
-  warn "The new version is NOT healthy."
-  warn "If the log says 'Invalid environment variables', that is the startup gate: fix those names in"
-  warn "the .env and redeploy. nginx will not serve traffic while the frontend is unhealthy."
-  if [[ -n "$PREV_FRONTEND" ]]; then
+  warn "THE NEW VERSION IS NOT HEALTHY."
+  warn "nginx waits for the frontend to be healthy, so it is not serving this version to anyone."
+  printf '\n'
+  warn "If the log above says 'Invalid environment variables: <NAMES>', that is the startup gate"
+  warn "doing its job: fix those variables in the .env file and run this script again."
+  if [[ -n "$PREV_TAG" && "$PREV_TAG" != "unknown" ]]; then
     printf '\n'
-    warn "To roll back:  ./scripts/deploy.sh <previous sha- tag>"
-    warn "Published tags:  docker image ls 'felzab/frankfurtleague'"
+    warn "To roll back to what was working:  ./scripts/deploy.sh sha-${PREV_TAG}"
+  else
+    printf '\n'
+    warn "Rollback targets:  docker image ls '${DOCKER_REPO}'"
   fi
   exit 1
 fi

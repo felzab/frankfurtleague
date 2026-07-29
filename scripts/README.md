@@ -3,11 +3,11 @@
 Three environments, strictly separated. Every script names its target platform and refuses to run
 against the wrong one.
 
-| Environment      | What it is                                     | Runs where          | Entry point                   |
-| ---------------- | ---------------------------------------------- | ------------------- | ----------------------------- |
-| **dev**          | `next dev`, no Docker, hot reload              | Windows (your PC)   | `pnpm dev` in `fl_frontend/`  |
-| **local**        | the production image, built and run locally    | Windows (your PC)   | `scripts/local.sh`            |
-| **prod**         | published images, on the server                | Linux (the server)  | `scripts/deploy.sh`           |
+| Environment | What it is                                  | Runs where         | Entry point                  |
+| ----------- | ------------------------------------------- | ------------------ | ---------------------------- |
+| **dev**     | `next dev`, no Docker, hot reload           | Windows (your PC)  | `pnpm dev` in `fl_frontend/` |
+| **local**   | the production image, built and run locally | Windows (your PC)  | `scripts/local.sh`           |
+| **prod**    | published images, on the server             | Linux (the server) | `scripts/deploy.sh`          |
 
 ## Why three and not two
 
@@ -25,32 +25,67 @@ build.
 
 ## The scripts
 
-| Script                          | Target   | What it does                                                          |
-| ------------------------------- | -------- | --------------------------------------------------------------------- |
-| `local.sh`                      | Windows  | Build + run the full local stack. `--fresh` wipes volumes first.       |
-| `verify.sh`                     | Windows  | `pnpm verify` **and** the image build — the full pre-merge gate.       |
-| `publish.sh`                    | Windows  | Build, tag with the git SHA, push. Refuses on a dirty tree.            |
-| `deploy.sh`                     | Linux    | Pull a tag and restart. Verifies health; rolls back on failure.        |
-| `revalidate_reference_data.sh`  | Linux    | Drop the frontend cache for one reference resource (BE-3 runbook).     |
-| `_lib.sh`                       | —        | Shared helpers. Not run directly.                                     |
+| Script                         | Target  | What it does                                                            |
+| ------------------------------ | ------- | ----------------------------------------------------------------------- |
+| `local.sh`                     | Windows | Build + run the production image locally. `--fresh` also wipes volumes. |
+| `verify.sh`                    | Windows | `pnpm verify` **and** the image build — the full pre-merge gate.        |
+| `publish.sh`                   | Windows | Build both, tag with the git SHA, push. Refuses on a dirty tree.        |
+| `deploy.sh`                    | Linux   | Pull and restart, wait for health. `--status` reports what is live.     |
+| `revalidate_reference_data.sh` | Linux   | Drop the frontend cache for one reference resource (BE-3 runbook).      |
+| `_lib.sh`                      | —       | Shared helpers. Not run directly.                                       |
 
 ## Windows: run these from Git Bash, but never `docker run -v` by hand
 
 Git Bash (MSYS) rewrites arguments that look like POSIX paths. A hand-typed
-`docker run -v ./nginx.conf:/etc/nginx/conf.d/default.conf` becomes
-`./nginx.conf;C:/Program Files/Git/etc/...`, and Docker then **creates a directory** called
-`nginx.conf;C`. That is where the two empty `nginx.conf;C` / `nginx.local.conf;C` directories in this
-repo came from. They are now gitignored, but the fix is not to type such commands: the compose files
+`docker run -v ./nginx/prod.conf:/etc/nginx/conf.d/default.conf` becomes
+`./nginx/prod.conf;C:/Program Files/Git/etc/...`, and Docker then **creates a directory** at the
+mangled path. That is where the two empty `nginx.conf;C` / `nginx.local.conf;C` directories came from. They are now gitignored, but the fix is not to type such commands: the compose files
 already declare every mount, and compose reads them from YAML where MSYS cannot interfere.
 
 If you ever must pass a container path on a command line, prefix the command with `MSYS_NO_PATHCONV=1`.
 
 ## Common failures, and what they actually mean
 
-| Symptom                                                    | Cause                                                                       |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `failed to connect to the docker API at npipe:...`         | Docker Desktop is not running. Start it and wait for the whale to settle.    |
-| `unable to prepare context: path "fl_frontend" not found`  | Wrong working directory. These scripts `cd` to the repo root themselves.     |
-| `Invalid environment variables: <NAMES>` then no traffic   | The env gate working as designed. Fix those variables in the `.env`.         |
-| `EBUSY` / `.next` locked during a build                    | A `next dev` is still running, or the folder is open in an editor/terminal.  |
-| A directory appeared named `something;C`                   | See the Git Bash section above.                                             |
+| Symptom                                                   | Cause                                                                       |
+| --------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `failed to connect to the docker API at npipe:...`        | Docker Desktop is not running. Start it and wait for the whale to settle.   |
+| `unable to prepare context: path "fl_frontend" not found` | Wrong working directory. These scripts `cd` to the repo root themselves.    |
+| `Invalid environment variables: <NAMES>` then no traffic  | The env gate working as designed. Fix those variables in the `.env`.        |
+| `EBUSY` / `.next` locked during a build                   | A `next dev` is still running, or the folder is open in an editor/terminal. |
+| A directory appeared named `something;C`                  | See the Git Bash section above.                                             |
+
+## Every script supports `--help`
+
+It prints the script's own header comment, so the documentation cannot drift away from the code.
+
+```bash
+./scripts/deploy.sh --help
+```
+
+## Which tag is live on the server?
+
+Tags are moving pointers, so the name alone is not evidence. Every image carries OCI labels recording
+the commit it was built from, and `--status` reads them back:
+
+```bash
+./scripts/deploy.sh --status
+```
+
+```
+frontend:  healthy
+           image    felzab/frankfurtleague:frontend
+           commit   1a2b3c4
+           built    2026-07-30T09:12:44Z
+```
+
+## Rolling back
+
+`publish.sh` tags every build immutably as `frontend-sha-<commit>` / `backend-sha-<commit>`, so there
+is always something to go back to:
+
+```bash
+./scripts/deploy.sh sha-1a2b3c4
+```
+
+`deploy.sh` records the currently-live commit before recreating anything, and prints that exact
+command if the new version fails to become healthy.

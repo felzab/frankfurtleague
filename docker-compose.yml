@@ -63,7 +63,7 @@ services:
       - "80:80" # HTTP access from the internet
       - "443:443" # HHTPS access from the internet
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - ./certs:/etc/nginx/certs:ro
     networks:
       - frankfurtleague-net

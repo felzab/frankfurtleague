@@ -1,15 +1,30 @@
 #!/usr/bin/env bash
-# Target platform: Windows (dev machine). Runs the PRODUCTION image locally, behind the local nginx.
 #
-# This is the only environment that exercises the standalone build, the startup env gate, the nginx
-# security headers and `output: "standalone"` file tracing. `next dev` exercises none of them, and
-# Wave 3 found two defects that every dev-mode check passed.
+# scripts/local.sh — run the REAL production image on your own machine, behind the real nginx.
+# TARGET PLATFORM: Windows (your development machine).
 #
-# Usage:
-#   ./scripts/local.sh            # build changed layers and start
-#   ./scripts/local.sh --fresh    # also destroy volumes first (clears stale Next assets)
-#   ./scripts/local.sh --logs     # start, then follow the frontend log
-#   ./scripts/local.sh --down     # stop the stack and leave
+# WHY THIS EXISTS, and why `pnpm dev` is not enough:
+#   `next dev` runs the app from source. It never produces the standalone build, never runs the
+#   startup environment gate, never goes through nginx, and never applies the security headers.
+#   Wave 3 found two defects that EVERY dev-mode check passed:
+#     - instrumentation.ts at the repo root compiles fine and is then dropped from the image,
+#       silently disabling the env gate and all production error logging;
+#     - a module-scope read of AUTH_URL that only fails in the builder stage, where there is no .env.
+#   This script is the only place those are visible before a deploy.
+#
+# USAGE:
+#   ./scripts/local.sh              build changed layers, start, wait for health
+#   ./scripts/local.sh --fresh      ALSO delete the volumes first (see below)
+#   ./scripts/local.sh --logs       start, then follow the frontend log
+#   ./scripts/local.sh --down       stop the stack and exit
+#   ./scripts/local.sh --help
+#
+# WHY --fresh IS NOT THE DEFAULT:
+#   --fresh runs `docker compose down -v`, which deletes the named volumes. Those hold Next.js's
+#   build cache, so the next build has to redo work it had already done — typically minutes rather
+#   than seconds. The default is the fast path because it is correct the overwhelming majority of the
+#   time: Docker rebuilds any layer whose inputs changed. Reach for --fresh when the stack behaves in
+#   a way the code does not explain, which almost always means a stale cached asset.
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 require_platform windows
@@ -19,12 +34,14 @@ COMPOSE="docker-compose.local.yml"
 # Arguments are parsed before any expensive or environmental check, so a typo fails instantly
 # instead of demanding Docker be running first.
 FRESH=0; FOLLOW=0; DOWN=0
-for arg in "$@"; do
+for arg in "${@:-}"; do
   case "$arg" in
     --fresh) FRESH=1 ;;
     --logs)  FOLLOW=1 ;;
     --down)  DOWN=1 ;;
-    *)       die "Unknown option: $arg (see the header of this script)" ;;
+    --help|-h) usage ;;
+    "")      ;;
+    *)       die "Unknown option: ${arg}. Try --help." ;;
   esac
 done
 
