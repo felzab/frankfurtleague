@@ -57,13 +57,13 @@ export default function SignInForm() {
               className="flex w-full gap-1">
               <Tabs.Tab
                 id="Admin"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
                 Admin
                 <Tabs.Indicator className="bg-brand-solid/80" />
               </Tabs.Tab>
               <Tabs.Tab
                 id="Spieler"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
                 Spieler
                 <Tabs.Indicator className="bg-brand-solid/80" />
               </Tabs.Tab>
@@ -105,7 +105,7 @@ export default function SignInForm() {
                 type="submit"
                 variant="primary"
                 isDisabled={isPending}
-                className="text-fluid-xs sm:text-fluid-sm bg-brand-solid text-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
+                className="text-fluid-xs sm:text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
                 {isPending ? "Wird gesendet..." : "Link senden"}
               </Button>
             </Form>

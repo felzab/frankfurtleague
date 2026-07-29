@@ -34,7 +34,7 @@ export default async function LandingPage() {
               <Link
                 href="/dashboard/spielplan#top"
                 prefetch={false}
-                className="bg-brand-solid text-fluid-sm shadow-brand/30 w-full rounded-xl px-7 py-3.5 text-center font-bold transition-all hover:scale-[1.02]">
+                className="bg-brand-solid text-brand-solid-foreground text-fluid-sm shadow-brand/30 w-full rounded-xl px-7 py-3.5 text-center font-bold transition-all hover:scale-[1.02]">
                 Spielplan →
               </Link>
               <Link
@@ -97,7 +97,7 @@ export default async function LandingPage() {
             <Link
               href="/about"
               prefetch={false}
-              className="bg-brand-solid text-fluid-xs flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold text-white transition-all hover:scale-[1.02] lg:w-56">
+              className="bg-brand-solid text-fluid-xs text-brand-solid-foreground flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold transition-all hover:scale-[1.02] lg:w-56">
               Mehr über das Projekt
             </Link>
             <Link

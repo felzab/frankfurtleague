@@ -135,7 +135,7 @@ export default function FormSchiedsrichterSection({
               type="button"
               variant="primary"
               isDisabled={isPending}
-              className="text-fluid-sm bg-brand-solid text-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]"
+              className="text-fluid-sm bg-brand-solid text-brand-solid-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]"
               onPress={handleCreateSubmit}>
               <Check
                 className="m-0"
@@ -187,7 +187,7 @@ export default function FormSchiedsrichterSection({
                         type="button"
                         variant="primary"
                         onPress={() => setIsCreatingInline(true)}
-                        className="text-fluid-sm bg-brand-solid text-foreground shadow-brand/25 rounded-xl px-6 py-3 font-bold tracking-wide shadow-lg transition-all duration-200 hover:opacity-90">
+                        className="text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 rounded-xl px-6 py-3 font-bold tracking-wide shadow-lg transition-all duration-200 hover:opacity-90">
                         <Plus width={16} /> Jetzt anlegen
                       </Button>
                     </div>

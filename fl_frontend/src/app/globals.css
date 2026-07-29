@@ -12,12 +12,16 @@
     --bg-muted: #e5e5e5;
     --fg-base: #0a0a0a;
     --fg-muted: #525252;
+    /* Paired foreground for --accent-brand-solid, the way HeroUI pairs --color-surface with
+       --color-surface-foreground. --fg-base cannot be used on that fill: it is near-black in
+       this theme, which is 1.97:1 on the maroon. Re-check this pair if the fill ever changes. */
+    --fg-on-brand: #ffffff;
     --border-base: #d4d4d4;
 
     /* Accents & Feedback */
     --accent-brand: #82181a;
-    /* Solid fills behind white/foreground text. Deliberately does NOT flip -- 10:1 on white
-       text in both themes -- while --accent-brand does, for foreground use on dark surfaces. */
+    /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
+       while --accent-brand does, for foreground use on dark surfaces. */
     --accent-brand-solid: #82181a;
     --accent-action: #059669;
     --accent-warn: #eab308;
@@ -33,6 +37,8 @@
     --bg-muted: #262626;
     --fg-base: #ffffff;
     --fg-muted: #a3a3a3;
+    /* Same value as the light theme: the fill it sits on does not flip either. */
+    --fg-on-brand: #ffffff;
     --border-base: #333333;
 
     /* Accents & Feedback */
@@ -93,6 +99,7 @@ Possible shimmer animation for landing page
   /* brand = foreground (text/border/ring/tints), brand-solid = opaque fill behind text */
   --color-brand: var(--accent-brand);
   --color-brand-solid: var(--accent-brand-solid);
+  --color-brand-solid-foreground: var(--fg-on-brand);
   --color-action: var(--accent-action);
   /* Spelled `warning`, not `warn`: the utility sites all say `warning`, and this shadows
      HeroUI's own --color-warning rather than competing with it. */
