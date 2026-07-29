@@ -18,12 +18,12 @@ const CSP_HEADER = "Content-Security-Policy-Report-Only";
 const adminGuard = auth((req: NextAuthRequest, _event: NextFetchEvent) => {
   const isLoggedIn = !!req.auth;
 
-  // Not logged in -> Send to sign in
+  // Not logged in -> Send to sign in.
+  // No callbackUrl: nothing consumed it -- the signin page ignores searchParams and the action
+  // hardcodes redirectTo: "/admin" -- and honouring it later is the opposite change, one that
+  // introduces an open redirect unless the value is allowlisted. Deep-linking is not worth that.
   if (!isLoggedIn) {
-    const loginUrl = new URL("/signin", req.nextUrl);
-    const fullUrl = req.nextUrl.pathname + req.nextUrl.search;
-    loginUrl.searchParams.set("callbackUrl", fullUrl);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/signin", req.nextUrl));
   }
 
   // Logged in, but NOT an admin -> Kick to homepage
