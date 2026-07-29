@@ -13,7 +13,9 @@ export default function TeamNotFound() {
       <Link
         href="/dashboard/teams"
         prefetch={false}
-        className="text-fluid-sm bg-brand-solid text-foreground mt-2 rounded-xl px-6 py-3 font-bold transition-all hover:scale-[1.02]">
+        // text-white, not text-foreground: --fg-base is near-black in the light theme, which is
+        // 1.97:1 on the brand fill. White is 10.03:1 in both themes.
+        className="text-fluid-sm bg-brand-solid mt-2 rounded-xl px-6 py-3 font-bold text-white transition-all hover:scale-[1.02]">
         Zur Team-Übersicht
       </Link>
     </div>
