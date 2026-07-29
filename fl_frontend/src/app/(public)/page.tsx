@@ -12,11 +12,11 @@ export default async function LandingPage() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
           {/* Primary Hero Box */}
           <div className="border-border bg-surface relative flex flex-col justify-between overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:p-8 lg:col-span-7">
-            <div className="bg-brand absolute top-0 left-0 z-10 h-1.5 w-full" />
+            <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
             <div className="relative z-10 flex flex-col gap-4">
               <div className="border-brand/30 bg-brand/15 text-fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
-                <span className="bg-brand size-2 animate-ping rounded-full" />
+                <span className="bg-brand-solid size-2 animate-ping rounded-full" />
                 Saison 2026
               </div>
 
@@ -34,7 +34,7 @@ export default async function LandingPage() {
               <Link
                 href="/dashboard/spielplan#top"
                 prefetch={false}
-                className="bg-brand text-fluid-sm shadow-brand/30 w-full rounded-xl px-7 py-3.5 text-center font-bold transition-all hover:scale-[1.02]">
+                className="bg-brand-solid text-fluid-sm shadow-brand/30 w-full rounded-xl px-7 py-3.5 text-center font-bold transition-all hover:scale-[1.02]">
                 Spielplan →
               </Link>
               <Link
@@ -89,7 +89,7 @@ export default async function LandingPage() {
         {/* SECONDARY INFO & CONTENT STRIP */}
         <div className="border-border bg-surface relative flex w-full flex-col items-center justify-between gap-6 overflow-hidden rounded-2xl border px-4 py-4 shadow-xs sm:px-6 lg:flex-row lg:py-6">
           <div className="relative z-10 flex items-center gap-3">
-            <span className="bg-brand min-h-2 min-w-2 animate-pulse rounded-full" />
+            <span className="bg-brand-solid min-h-2 min-w-2 animate-pulse rounded-full" />
             <span className="text-fluid-sm text-foreground font-bold">Du hast Fragen zum Turnierablauf oder möchtest mit uns sprechen?</span>
           </div>
 
@@ -97,7 +97,7 @@ export default async function LandingPage() {
             <Link
               href="/about"
               prefetch={false}
-              className="bg-brand text-fluid-xs flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold text-white transition-all hover:scale-[1.02] lg:w-56">
+              className="bg-brand-solid text-fluid-xs flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold text-white transition-all hover:scale-[1.02] lg:w-56">
               Mehr über das Projekt
             </Link>
             <Link

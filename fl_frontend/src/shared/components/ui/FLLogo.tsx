@@ -55,7 +55,7 @@ export function FLLogo({ className = "size-8" }: { className?: string }) {
         width="512"
         height="512"
         rx={32}
-        className="fill-[#82181a]"
+        className="fill-brand-solid"
       />
 
       <g className="[filter:url(#splash-medium)]">

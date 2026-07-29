@@ -22,7 +22,7 @@ export default function SpielplanView({ spielplanData }: { spielplanData: FLSpie
                 /* shrink-0 removed! whitespace-nowrap handles the sizing naturally. */
                 className="text-foreground-muted data-[selected=true]:text-foreground text-fluid-sm hover:text-foreground-muted flex h-11 items-center px-5 font-bold whitespace-nowrap transition-colors hover:opacity-100 md:px-6">
                 {spieltagData.name}
-                <Tabs.Indicator className="bg-brand rounded-lg shadow-sm" />
+                <Tabs.Indicator className="bg-brand-solid rounded-lg shadow-sm" />
               </Tabs.Tab>
             );
           })}

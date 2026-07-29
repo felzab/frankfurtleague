@@ -47,7 +47,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             title="Homepage"
             aria-label="Link to Homepage"
             href="/"
-            className="text-fluid-sm bg-brand text-foreground flex h-12 w-full items-center justify-center rounded-xl font-semibold shadow-md transition-transform hover:scale-[1.02]">
+            className="text-fluid-sm bg-brand-solid text-foreground flex h-12 w-full items-center justify-center rounded-xl font-semibold shadow-md transition-transform hover:scale-[1.02]">
             Zur Startseite
           </Link>
         </div>
