@@ -1,15 +1,13 @@
 "use client";
 
-import { startTransition, useEffect } from "react";
+import { startTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import DashboardError from "@/features/dashboard/components/DashboardError";
 
+// No console.error here -- see the note in src/app/error.tsx.
 export default function DashboardErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
-  useEffect(() => {
-    console.error("Dashboard Error:", error);
-  }, [error]);
 
   const handleRetry = () => {
     startTransition(() => {

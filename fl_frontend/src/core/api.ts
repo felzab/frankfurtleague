@@ -117,7 +117,9 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   const validated = schema.safeParse(rawData);
   if (!validated.success) {
-    console.log(z.treeifyError(validated.error));
+    // No console.log of the tree here: it fired unconditionally in production, emitted a raw object
+    // into a stream logging.ts otherwise keeps to one JSON document per line, and was redundant --
+    // the same tree travels on the error below and reaches the logger via instrumentation.ts.
     throw new APIMalformedDataError({
       message: "API returned malformed data.",
       url: res.url,
