@@ -12,7 +12,14 @@ export const frontend_config = createEnv({
     MONGODB_URI: z.string().regex(/^(mongodb(?:\+srv)?):\/\/.+/, "MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'"),
 
     // Auth
-    AUTH_URL: z.url(),
+    // @auth/core derives the session cookie's `Secure` flag from this URL's protocol, so a stray
+    // http:// value silently ships an admin session cookie that travels in plaintext. Gated on the
+    // host rather than NODE_ENV: the runner image sets NODE_ENV=production for the local stack too,
+    // which serves http://localhost:3000 (docker-compose.local.yml).
+    AUTH_URL: z.url().refine((raw) => {
+      const { protocol, hostname } = new URL(raw);
+      return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
+    }, "AUTH_URL must use https:// unless it points at localhost"),
     // Prefer the canonical URL over the literal "true": "true" tells Auth.js to trust the forwarded
     // Host, which nginx passes through unvalidated. Harmless while AUTH_URL below is mandatory --
     // Auth.js derives its base URL from that -- but the URL branch removes the dependency entirely.
