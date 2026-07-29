@@ -1,3 +1,5 @@
+import "server-only";
+
 import z from "zod";
 
 import { frontend_config } from "./config";

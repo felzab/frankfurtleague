@@ -1,3 +1,5 @@
+import "server-only";
+
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
