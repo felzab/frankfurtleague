@@ -5,6 +5,8 @@ import Resend from "next-auth/providers/resend";
 import { frontend_config } from "./config";
 import client from "./db";
 
+import type { Session } from "next-auth";
+
 const MONGO_DB_NAME = "authjs";
 
 function isUserAdmin(email?: string | null) {
@@ -44,3 +46,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
+
+/**
+ * The single definition of the admin policy. Returns the session when the caller is an admin, and
+ * `null` when it is not -- the caller decides whether that means `redirect()` or a refused action.
+ *
+ * The test was previously written out at eight sites (seven server actions plus the proxy), so a
+ * change of policy meant eight edits and missing one of them was invisible.
+ */
+export async function requireAdmin(): Promise<Session | null> {
+  const session = await auth();
+  return session?.user?.role === "admin" ? session : null;
+}
