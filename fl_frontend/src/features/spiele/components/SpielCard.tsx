@@ -1,6 +1,7 @@
 "use client";
 
 import { useToday } from "@/shared/hooks/useToday";
+import { formatSpielDatum } from "@/shared/utils/format";
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
@@ -22,7 +23,7 @@ export default function SpielCard({
 }) {
   const today = useToday();
 
-  const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
+  const spielDatum = formatSpielDatum(spielData.datum);
   const spielUhrzeit = spielData.uhrzeit || "--:--";
   const spielErgebnis = spielData.ergebnis ?? "- : -";
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
 import { useToday } from "@/shared/hooks/useToday";
+import { formatSpielDatum } from "@/shared/utils/format";
 import { CircleInfo } from "@gravity-ui/icons";
 
 import { Modal, Separator } from "@heroui/react";
@@ -25,7 +26,7 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
       })
     : null;
 
-  const spielDatum = spielData?.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : null;
+  const spielDatum = formatSpielDatum(spielData?.datum ?? null, "/");
   const mapUrl = spielData?.ort ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spielData.ort.maps_link)}` : "";
 
   return (
@@ -81,7 +82,7 @@ export default function SpielDetailsModal({ spielData, isOpen, onClose }: { spie
                   {/** Datum */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Datum</h4>
-                    <p className="text-foreground font-bold">{spielDatum ?? "/"}</p>
+                    <p className="text-foreground font-bold">{spielDatum}</p>
                   </div>
                   {/** Uhrzeit */}
                   <div>

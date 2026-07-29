@@ -1,13 +1,14 @@
 "use client";
 
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import { Card } from "@heroui/react";
 
 import type { FLSpiel } from "../schemas";
 
 export default function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpiel; onPress: () => void }) {
-  const spielDatum = spielData.datum ? new Date(spielData.datum).toLocaleDateString("de-de") : "TBD";
+  const spielDatum = formatSpielDatum(spielData.datum);
   const spielUhrzeit = spielData.uhrzeit || "--:--";
   const spielErgebnis = spielData.ergebnis ?? "-:-";
 
