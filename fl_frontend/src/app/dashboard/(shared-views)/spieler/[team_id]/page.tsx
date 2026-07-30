@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import { getSpieler } from "@/features/spieler/queries";
 import TeamSpielerView from "@/features/spieler/components/views/TeamSpielerView";
+import { getSpieler } from "@/features/spieler/queries";
 import { getTeams } from "@/features/teams/queries";
 
 import { APIBadStatusError } from "@/core/errors";

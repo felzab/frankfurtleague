@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import PlayoffsView from "@/features/spieltage/components/views/PlayoffsView";
 import { getSpiele } from "@/features/spiele/queries";
+import PlayoffsView from "@/features/spieltage/components/views/PlayoffsView";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { joinCollections } from "@/shared/utils/data";
 import { getGermanTodayStr } from "@/shared/utils/date";

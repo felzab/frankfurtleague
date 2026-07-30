@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import SpielCardUltraCompact from "@/features/spiele/components/SpielCardUltraCompact";
 import SpielDetailsModal from "@/features/spiele/components/modals/SpielDetailsModal";
+import SpielCardUltraCompact from "@/features/spiele/components/SpielCardUltraCompact";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";

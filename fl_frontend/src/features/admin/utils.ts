@@ -8,15 +8,10 @@ import type { FLSpiel } from "../spiele/schemas";
  * a runtime crash on `undefined.spiele`.
  */
 export type ActionRequiredCategory =
-  | "ergebnis_pending"
-  | "datum_missing"
-  | "uhrzeit_missing"
-  | "ort_missing"
-  | "schiedsrichter_missing"
-  | "is_canceled";
+  "ergebnis_pending" | "datum_missing" | "uhrzeit_missing" | "ort_missing" | "schiedsrichter_missing" | "is_canceled";
 
 /**
- * Declaration order is render order — the view maps `Object.entries` straight into the accordion.
+ * Declaration order is render order — the view maps `typedObjectEntries` straight into the accordion.
  */
 export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: string; desc: string }> = {
   ergebnis_pending: {

@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import SpielplanView from "@/features/spieltage/components/views/SpielplanView";
 import { getSpiele } from "@/features/spiele/queries";
+import SpielplanView from "@/features/spieltage/components/views/SpielplanView";
 import { getSpieltage } from "@/features/spieltage/queries";
 import { FLSpielplanSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";

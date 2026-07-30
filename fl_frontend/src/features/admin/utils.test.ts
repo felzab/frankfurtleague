@@ -49,12 +49,7 @@ describe("categorizeActionRequired", () => {
 
   it("flags each missing field in its own category", () => {
     const result = categorizeActionRequired(
-      [
-        makeSpiel({ datum: null }),
-        makeSpiel({ uhrzeit: null }),
-        makeSpiel({ ort: null }),
-        makeSpiel({ schiedsrichter: null }),
-      ],
+      [makeSpiel({ datum: null }), makeSpiel({ uhrzeit: null }), makeSpiel({ ort: null }), makeSpiel({ schiedsrichter: null })],
       TODAY,
     );
 
@@ -75,7 +70,10 @@ describe("categorizeActionRequired", () => {
 
   // is_canceled is exclusive: chasing missing details on a cancelled fixture is noise.
   it("reports a cancelled match only as cancelled, however incomplete it is", () => {
-    const result = categorizeActionRequired([makeSpiel({ is_canceled: true, datum: null, uhrzeit: null, ort: null, schiedsrichter: null })], TODAY);
+    const result = categorizeActionRequired(
+      [makeSpiel({ is_canceled: true, datum: null, uhrzeit: null, ort: null, schiedsrichter: null })],
+      TODAY,
+    );
 
     assert.equal(result.is_canceled.length, 1);
     assert.deepEqual(result.datum_missing, []);
