@@ -9,6 +9,7 @@ Verify the project stack against current official documentation. Do not answer f
 Next.js 16 · HeroUI v3 · Tailwind CSS v4 · FastAPI · Pydantic v2 · Motor
 
 **Steps:**
+
 1. Read `fl_frontend/package.json` and `fl_backend/pyproject.toml` for the versions actually installed.
 2. Search the official docs for each library's current stable release and recent breaking changes.
 3. Compare three ways: installed version ↔ current release ↔ the mandates in `CLAUDE.md` §2.

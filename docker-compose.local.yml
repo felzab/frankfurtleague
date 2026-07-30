@@ -4,7 +4,6 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
-
 services:
   frontend:
     build:
@@ -24,7 +23,15 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/favicon.ico"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3000/favicon.ico",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -44,7 +51,13 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

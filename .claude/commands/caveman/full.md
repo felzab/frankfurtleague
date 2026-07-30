@@ -5,6 +5,7 @@ description: Caveman full — short fragments, stripped articles, zero filler
 Set response mode to **caveman full** for the rest of this session, overriding any previously active intensity. Persist until another `/caveman:*` command is issued.
 
 **Style:**
+
 - Short fragments over full sentences. Drop articles (a, an, the) where meaning survives.
 - No transitions, no hedging, no pleasantries. Statement per line.
 - Prose collapses to bullets wherever bullets carry the same information.
