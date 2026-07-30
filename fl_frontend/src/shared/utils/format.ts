@@ -1,5 +1,3 @@
-// eslint-disable-next-line no-restricted-imports -- known violation, removed by ledger row R2-2.2 (Wave 4)
-import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLAddress } from "../schemas";
 
 export function formatAddress(address?: FLAddress): string {
@@ -12,8 +10,15 @@ export function formatAddressFull(address: FLAddress): string {
   return `${address.strasse} ${address.hausnummer}, ${address.plz} ${address.stadtteil ?? ""} ${address.stadt}, Deutschland`;
 }
 
-export function formatMapsLink(ort: FLSpielort) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${ort.name}, ${formatAddressFull(ort.address)}`)}`;
+/**
+ * Wraps an already-composed search string in a Google Maps search URL.
+ *
+ * Takes a string, not a domain object: the three call sites feed it genuinely different queries --
+ * a Spielort's name plus full address, a team's short address, and a Spiel's pre-stored `maps_link`
+ * -- and those differences are intended. Only the URL shell and the encoding are shared.
+ */
+export function buildMapsSearchUrl(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 // Module-level, constructed once (same pattern as date.ts:12). The timeZone is the load-bearing

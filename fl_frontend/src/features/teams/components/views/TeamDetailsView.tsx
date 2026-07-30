@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
 import { sortByDate } from "@/shared/utils/date";
-import { formatAddress } from "@/shared/utils/format";
+import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
 import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";
@@ -67,7 +67,8 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
   const router = useRouter();
 
   const formattedTeamAddress = formatAddress(teamData.address);
-  const teamMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formattedTeamAddress)}`;
+  // Deliberately formatAddress, not formatAddressFull: a team has no venue name to search by.
+  const teamMapUrl = buildMapsSearchUrl(formattedTeamAddress);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-y-8 pb-12 duration-400">

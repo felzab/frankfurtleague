@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { formatAddress, formatAddressFull, formatMapsLink, formatSpielDatum } from "./format.ts";
+import { buildMapsSearchUrl, formatAddress, formatAddressFull, formatSpielDatum } from "./format.ts";
 
 const address = {
   strasse: "Hanauer Landstraße",
@@ -38,21 +38,20 @@ describe("formatAddressFull", () => {
   });
 });
 
-describe("formatMapsLink", () => {
-  const ort = { id: "6890a1b2c3d4e5f607182930", address, name: "Sportplatz Ost", maps_link: "", default_mietpreis: 50, is_inactive: false };
-
-  it("builds a Google Maps search URL from the name and full address", () => {
-    assert.equal(
-      formatMapsLink(ort),
-      "https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ost%2C%20Hanauer%20Landstra%C3%9Fe%2012a%2C%2060314%20Ostend%20Frankfurt%20am%20Main%2C%20Deutschland",
-    );
+describe("buildMapsSearchUrl", () => {
+  it("wraps a query in a Google Maps search URL", () => {
+    assert.equal(buildMapsSearchUrl("Sportplatz Ost"), "https://www.google.com/maps/search/?api=1&query=Sportplatz%20Ost");
   });
 
-  // The query is the only user-controlled part of the URL, so encoding is the thing to pin.
+  // The query is the only caller-controlled part of the URL, so encoding is the thing to pin.
   it("percent-encodes characters that would otherwise break the query", () => {
-    const link = formatMapsLink({ ...ort, name: "Platz & Halle #2" });
+    const link = buildMapsSearchUrl("Platz & Halle #2");
     assert.ok(link.includes("Platz%20%26%20Halle%20%232"));
     assert.ok(!link.includes("&query=Platz &"));
+  });
+
+  it("returns a bare query parameter for an empty string", () => {
+    assert.equal(buildMapsSearchUrl(""), "https://www.google.com/maps/search/?api=1&query=");
   });
 });
 
