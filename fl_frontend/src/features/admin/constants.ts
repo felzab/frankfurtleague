@@ -18,5 +18,3 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure = [
     sub_options: [{ id: "schiedsrichter", label: "Schiedsrichter", iconName: "Person" }],
   },
 ];
-
-export const TBD_TEAM_SHORTHAND = "??";

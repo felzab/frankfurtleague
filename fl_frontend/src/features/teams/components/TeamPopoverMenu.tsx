@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 
-import { TBD_TEAM_SHORTHAND } from "@/features/admin/constants";
 import { CircleInfo, Persons } from "@gravity-ui/icons";
 
 import { Badge, Popover, Separator } from "@heroui/react";
+
+import { TBD_TEAM_SHORTHAND } from "../constants";
 
 export default function TeamPopoverMenu({
   teamName,

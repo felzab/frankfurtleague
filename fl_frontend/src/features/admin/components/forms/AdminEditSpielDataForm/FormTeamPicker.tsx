@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { TBD_TEAM_SHORTHAND } from "@/features/admin/constants";
+import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
 
 import { Autocomplete, Description, Input, Label, ListBox, SearchField, TextField, useFilter } from "@heroui/react";
 
