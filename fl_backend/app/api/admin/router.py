@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, status
 from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
 
-from app.api.admin.schemas import PatchSpielDataResponse
+from app.api.admin.schemas import FLPatchSpielDataResponse
 from app.api.admin.services import get_stats_contribution, update_team_statistik
 from app.api.schiedsrichter.schemas import (
     FLDeleteSchiedsrichterPayload,
@@ -66,7 +66,7 @@ async def get_spiele_action_required(spiele_collection: SpieleCollection, today:
     return FLSpieleListResponse(spiele=spiele)
 
 
-@router.patch("/update_spiel_data", response_model=PatchSpielDataResponse)
+@router.patch("/update_spiel_data", response_model=FLPatchSpielDataResponse)
 async def patch_spiel_data(
     spiel_data: Annotated[PatchSpielDataPayload, Body()],
     db: DBClient,
