@@ -4,9 +4,7 @@ import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
-import { formatSpielDatum } from "@/shared/utils/format";
-
-import { computeSpielStatus } from "../utils";
+import { computeSpielStatus, formatSpielDisplay } from "../utils";
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 import SpielStatusChip from "./ui/SpielStatusChip";
 
@@ -23,9 +21,7 @@ export default function SpielCard({
   onOpenAdminModal?: () => void;
   today: string;
 }) {
-  const spielDatum = formatSpielDatum(spielData.datum);
-  const spielUhrzeit = spielData.uhrzeit || "--:--";
-  const spielErgebnis = spielData.ergebnis ?? "- : -";
+  const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
 
   const spielStatus = computeSpielStatus({
     datum: spielData.datum,

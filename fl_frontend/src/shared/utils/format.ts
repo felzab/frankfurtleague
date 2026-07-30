@@ -1,5 +1,36 @@
 import type { FLAddress } from "../schemas";
 
+/**
+ * The app's missing-data placeholders, one per category (owner decision, 2026-07-30).
+ *
+ * Before this the same absent value read three different ways depending on which component you were
+ * looking at: a result was `"- : -"` on the main match card and `"-:-"` on the compact ones — both
+ * on screen at once in some flows — while `SpielDetailsModal` printed `"/"` for a date the cards
+ * showed as `"TBD"` and a time they showed as `"--:--"` (R2 §3.5, R4 §14.3). The rule now is that a
+ * category looks the same everywhere it appears.
+ */
+export const PLACEHOLDER = {
+  datum: "TBD",
+  uhrzeit: "--:--",
+  ergebnis: "-:-",
+  /** Names of absent related entities — a venue or referee that was never assigned. */
+  entity: "/",
+} as const;
+
+const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+
+/**
+ * Formats a euro amount for display. Module-level formatter, constructed once: both admin tables
+ * previously built a fresh `Intl.NumberFormat` *per row* (R2 §3.4, R4 §18.5).
+ */
+export const formatEuro = (value: number): string => EUR.format(value);
+
+/** Normalises a stored `HH:MM[:SS]` time to `HH:MM`, or returns the placeholder. */
+export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: string = PLACEHOLDER.uhrzeit): string {
+  if (!uhrzeit) return fallback;
+  return uhrzeit.slice(0, 5);
+}
+
 export function formatAddress(address?: FLAddress): string {
   if (!address) return "Keine Adresse hinterlegt";
 
@@ -32,7 +63,7 @@ const SPIEL_DATE_FORMATTER = new Intl.DateTimeFormat("de-DE", {
 });
 
 /** Formats a `YYYY-MM-DD` fixture date as a German calendar date, stable across server and client. */
-export function formatSpielDatum(datum: string | null, fallback = "TBD"): string {
+export function formatSpielDatum(datum: string | null, fallback: string = PLACEHOLDER.datum): string {
   if (!datum) return fallback;
   // Midday UTC lands on the same calendar date from UTC-11 to UTC+11, so a consumer that reuses
   // this instant without a timeZone still cannot shift the day anywhere the app is realistically

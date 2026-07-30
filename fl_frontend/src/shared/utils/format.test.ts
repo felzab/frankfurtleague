@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildMapsSearchUrl, formatAddress, formatAddressFull, formatSpielDatum } from "./format.ts";
+import { buildMapsSearchUrl, formatAddress, formatAddressFull, formatEuro, formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "./format.ts";
 
 const address = {
   strasse: "Hanauer Landstraße",
@@ -90,5 +90,49 @@ describe("formatSpielDatum", () => {
   it("is stable across both German DST offsets", () => {
     assert.equal(formatSpielDatum("2026-06-21"), "21.06.2026");
     assert.equal(formatSpielDatum("2026-12-21"), "21.12.2026");
+  });
+
+  it("defaults to the shared date placeholder", () => {
+    assert.equal(formatSpielDatum(null), PLACEHOLDER.datum);
+  });
+});
+
+describe("formatEuro", () => {
+  //   is the non-breaking space de-DE puts before the currency symbol.
+  it("formats an amount as German euros", () => {
+    assert.equal(formatEuro(25), "25,00 €");
+    assert.equal(formatEuro(0), "0,00 €");
+  });
+
+  it("groups thousands and keeps two decimals", () => {
+    assert.equal(formatEuro(1234.5), "1.234,50 €");
+  });
+
+  // The value is euros, not cents -- a stale comment in AdminSchiedsrichterTable claimed a /100
+  // division the code never did, and it was deleted with this extraction.
+  it("does not divide by 100", () => {
+    assert.equal(formatEuro(100), "100,00 €");
+  });
+});
+
+describe("formatUhrzeit", () => {
+  it("passes an HH:MM time through", () => {
+    assert.equal(formatUhrzeit("14:00"), "14:00");
+  });
+
+  it("truncates seconds a backend might send", () => {
+    assert.equal(formatUhrzeit("14:00:00"), "14:00");
+  });
+
+  it("returns the shared time placeholder for missing values", () => {
+    assert.equal(formatUhrzeit(null), "--:--");
+    assert.equal(formatUhrzeit(undefined), "--:--");
+    // "" is falsy and must take the placeholder too -- the cards' old `|| "--:--"` relied on that.
+    assert.equal(formatUhrzeit(""), "--:--");
+    assert.equal(formatUhrzeit(null), PLACEHOLDER.uhrzeit);
+  });
+
+  it("accepts an explicit fallback", () => {
+    assert.equal(formatUhrzeit(null, "/"), "/");
   });
 });

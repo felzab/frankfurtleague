@@ -5,7 +5,7 @@ import { Calendar, Copy, Globe, MapPin, Pencil, TrashBin } from "@gravity-ui/ico
 
 import { Button, Table, toast, Tooltip } from "@heroui/react";
 
-import { formatAddressFull } from "@/shared/utils/format";
+import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
 
@@ -22,8 +22,6 @@ function AdminSpielorteTable({
   setEditingOrt: (ort: FLSpielort) => void;
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
-  const formatCurrency = (value: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(value);
-
   const handleCopyAddress = (ort: FLSpielort) => {
     navigator.clipboard
       .writeText(`${ort.name}, ${formatAddressFull(ort.address)}`)
@@ -92,7 +90,7 @@ function AdminSpielorteTable({
 
                 <Table.Cell className="px-6 py-4">
                   <span className="bg-muted text-foreground text-fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
-                    {formatCurrency(ort.default_mietpreis)}
+                    {formatEuro(ort.default_mietpreis)}
                   </span>
                 </Table.Cell>
 

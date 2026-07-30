@@ -8,9 +8,9 @@ import { Separator } from "@heroui/react";
 
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
-import { buildMapsSearchUrl, formatSpielDatum } from "@/shared/utils/format";
+import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
 
-import { computeSpielStatus } from "../../utils";
+import { computeSpielStatus, formatSpielDisplay } from "../../utils";
 import SaisonPhaseChip from "../ui/SaisonPhaseChip";
 import SpielStatusChip from "../ui/SpielStatusChip";
 
@@ -27,12 +27,13 @@ export default function SpielDetailsModal({
   onClose: () => void;
   today: string;
 }) {
-  const spielDatum = formatSpielDatum(spielData?.datum ?? null, "/");
   // Searches the Spielort's stored maps_link, not an address -- the embedded copy carries no
   // FLAddress, so this query is genuinely different from the other two call sites.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
 
   if (!spielData) return null;
+
+  const { datum: spielDatum, uhrzeit: spielUhrzeit } = formatSpielDisplay(spielData);
 
   return (
     <ModalShell
@@ -83,7 +84,7 @@ export default function SpielDetailsModal({
           {/** Uhrzeit */}
           <div>
             <h4 className="text-foreground-muted font-semibold">Uhrzeit</h4>
-            <p className="text-foreground font-bold">{spielData.uhrzeit ?? "/"}</p>
+            <p className="text-foreground font-bold">{spielUhrzeit}</p>
           </div>
           {/** Ort */}
           <div>
@@ -97,13 +98,13 @@ export default function SpielDetailsModal({
                 {spielData.ort.name}
               </Link>
             ) : (
-              <p className="text-foreground font-bold">/</p>
+              <p className="text-foreground font-bold">{PLACEHOLDER.entity}</p>
             )}
           </div>
           {/** Schiedsrichter */}
           <div>
             <h4 className="text-foreground-muted font-semibold">Schiedsrichter</h4>
-            <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? "/"}</p>
+            <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? PLACEHOLDER.entity}</p>
           </div>
         </div>
       </>

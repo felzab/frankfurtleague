@@ -2,16 +2,13 @@
 
 import { Card } from "@heroui/react";
 
-import { formatSpielDatum } from "@/shared/utils/format";
-
+import { formatSpielDisplay } from "../utils";
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 
 import type { FLSpiel } from "../schemas";
 
 export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) {
-  const spielDatum = formatSpielDatum(spielData.datum);
-  const spielUhrzeit = spielData.uhrzeit || "--:--";
-  const spielErgebnis = spielData.ergebnis ?? "-:-";
+  const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
 
   return (
     <Card className="bg-surface border-border text-foreground w-full rounded-xl border p-4 shadow-sm transition-all">

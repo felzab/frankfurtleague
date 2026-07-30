@@ -3,14 +3,13 @@
 import { Card } from "@heroui/react";
 
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
-import { formatSpielDatum } from "@/shared/utils/format";
+
+import { formatSpielDisplay } from "../utils";
 
 import type { FLSpiel } from "../schemas";
 
 export default function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpiel; onPress: () => void }) {
-  const spielDatum = formatSpielDatum(spielData.datum);
-  const spielUhrzeit = spielData.uhrzeit || "--:--";
-  const spielErgebnis = spielData.ergebnis ?? "-:-";
+  const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
 
   return (
     <Card

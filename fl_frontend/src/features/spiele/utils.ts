@@ -1,3 +1,5 @@
+import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
+
 import type { FLSpiel, FLSpielStatus } from "./schemas";
 
 export const computeSpielStatus = ({
@@ -15,6 +17,20 @@ export const computeSpielStatus = ({
   if (datum === today) return "heute";
   return "vergangen";
 };
+
+/**
+ * The three presentation values every match card derives. Extracted because the three cards had
+ * copy-pasted them and one had drifted: an unplayed match rendered `"- : -"` in the main card and
+ * `"-:-"` in the compact and playoff cards, on the same screen (R2 §3.5).
+ *
+ * **This is derivation only. The three `SpielCard` components stay separate** — they are justified
+ * variance, not copy-paste (CLAUDE.md §9 A5).
+ */
+export const formatSpielDisplay = (spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis">) => ({
+  datum: formatSpielDatum(spiel.datum),
+  uhrzeit: formatUhrzeit(spiel.uhrzeit),
+  ergebnis: spiel.ergebnis ?? PLACEHOLDER.ergebnis,
+});
 
 /** Win / loss / draw / unknown, from one team's point of view. */
 export type FLSpielErgebnisFor = "W" | "L" | "D" | "?";

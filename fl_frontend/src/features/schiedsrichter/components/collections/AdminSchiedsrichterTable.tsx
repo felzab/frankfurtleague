@@ -5,6 +5,8 @@ import { Calendar, Copy, Pencil, Person, TrashBin } from "@gravity-ui/icons";
 
 import { Button, Table, toast, Tooltip } from "@heroui/react";
 
+import { formatEuro } from "@/shared/utils/format";
+
 import type { FLSchiedsrichter } from "../../schemas";
 
 function AdminSchiedsrichterTable({
@@ -18,9 +20,6 @@ function AdminSchiedsrichterTable({
   setEditingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
-  // Dividing by 100 assuming default_payment is stored in cents as an integer
-  const formatCurrency = (value: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(value);
-
   const handleCopyKontakt = (schiedsrichter: FLSchiedsrichter) => {
     // Collect available contact info cleanly
     const details = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
@@ -104,7 +103,7 @@ function AdminSchiedsrichterTable({
                 {/* 4. Honorar */}
                 <Table.Cell className="px-6 py-4">
                   <span className="bg-muted text-foreground text-fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
-                    {formatCurrency(schiedsrichter.default_payment)}
+                    {formatEuro(schiedsrichter.default_payment)}
                   </span>
                 </Table.Cell>
 
