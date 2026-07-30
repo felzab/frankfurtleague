@@ -5,16 +5,17 @@ import { resolveSaisonId } from "@/features/saisons/resolvers";
 import TeamSpielerView from "@/features/spieler/components/views/TeamSpielerView";
 import { getSpieler } from "@/features/spieler/queries";
 import { getTeams } from "@/features/teams/queries";
+import { resolveTeamId } from "@/features/teams/resolvers";
 
 import { APIBadStatusError } from "@/core/errors";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
-export async function generateMetadata(props: NextPageProps): Promise<Metadata> {
+export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
   // See teams/[team_id]/page.tsx: connection() keeps this out of the backend-less builder stage.
   await connection();
-  const { team_id } = (await props.params) as { team_id: string };
+  const team_id = await resolveTeamId(props.params);
 
   const teamsRes = await getTeams({ team_id: team_id, compact: true, saison_id: await resolveSaisonId(props.searchParams) }).catch(() => null);
   const teamData = teamsRes?.format === "compact" ? teamsRes.teams[0] : undefined;
@@ -28,9 +29,9 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
   };
 }
 
-export default async function TeamSpielerPage(props: NextPageProps) {
+export default async function TeamSpielerPage(props: NextPageProps<{ team_id: string }>) {
   await connection();
-  const { team_id } = (await props.params) as { team_id: string };
+  const team_id = await resolveTeamId(props.params);
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   const [teamsRes, spielerRes] = await Promise.all([
