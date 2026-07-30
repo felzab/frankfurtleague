@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse, SystemInfoResponse
 from app.core.config import backend_config
 from app.core.db import get_database
 from app.core.exceptions import DatabaseUnavailableException
@@ -13,12 +14,12 @@ from app.core.security import verify_access_system
 router = APIRouter(prefix=f"/api/v{backend_config.api_version}/system")
 
 
-@router.get("/is_live")
+@router.get("/is_live", response_model=CheckIsLiveResponse)
 async def check_is_live(request: Request) -> JSONResponse:
     return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
 
 
-@router.get("/is_ready", dependencies=[Depends(verify_access_system)])
+@router.get("/is_ready", dependencies=[Depends(verify_access_system)], response_model=CheckIsReadyResponse)
 async def check_is_ready(request: Request, db: Annotated[AsyncIOMotorDatabase, Depends(get_database)]):
     try:
         await db.command("ping")
@@ -27,7 +28,7 @@ async def check_is_ready(request: Request, db: Annotated[AsyncIOMotorDatabase, D
         raise DatabaseUnavailableException(error_code="DB-CONN-002") from unknown_error
 
 
-@router.get("/info", dependencies=[Depends(verify_access_system)])
+@router.get("/info", dependencies=[Depends(verify_access_system)], response_model=SystemInfoResponse)
 async def system_info(request: Request) -> JSONResponse:
 
     return JSONResponse(

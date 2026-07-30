@@ -28,5 +28,6 @@ export const getSystemInfo = async (): Promise<GetSystemInfoReturn> => {
 
   cacheLife("minutes");
   cacheTag("system", "system:info");
-  return apiClient<GetSystemInfoReturn>("/system/meta", GetSystemInfoReturnSchema, { authType: "system" });
+  // "/system/info", not "/system/meta" -- the latter has never existed on the backend.
+  return apiClient<GetSystemInfoReturn>("/system/info", GetSystemInfoReturnSchema, { authType: "system" });
 };
