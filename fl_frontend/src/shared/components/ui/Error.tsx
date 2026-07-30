@@ -41,7 +41,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             variant="ghost"
             aria-label="Retry"
             onPress={() => reset()}
-            className="text-fluid-sm border-border text-foreground h-12 w-full rounded-xl border bg-transparent font-semibold transition-transform hover:scale-[1.02]">
+            className="text-fluid-sm border-border text-foreground h-12 w-full rounded-xl border bg-transparent font-semibold transition-transform hover:scale-hover">
             Erneut versuchen
           </Button>
 
@@ -49,7 +49,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             title="Homepage"
             aria-label="Link to Homepage"
             href="/"
-            className="text-fluid-sm bg-brand-solid text-brand-solid-foreground flex h-12 w-full items-center justify-center rounded-xl font-semibold shadow-md transition-transform hover:scale-[1.02]">
+            className="text-fluid-sm bg-brand-solid text-brand-solid-foreground flex h-12 w-full items-center justify-center rounded-xl font-semibold shadow-md transition-transform hover:scale-hover">
             Zur Startseite
           </Link>
         </div>

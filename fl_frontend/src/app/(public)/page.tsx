@@ -7,7 +7,7 @@ export default async function LandingPage() {
   return (
     <>
       {/** Content section */}
-      <section className="flex w-full max-w-[1400px] flex-col gap-5 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
+      <section className="flex w-full max-w-page flex-col gap-5 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
         {/* HERO HUB GRID */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
           {/* Primary Hero Box */}
@@ -34,13 +34,13 @@ export default async function LandingPage() {
               <Link
                 href="/dashboard/spielplan#top"
                 prefetch={false}
-                className="bg-brand-solid text-brand-solid-foreground text-fluid-sm shadow-brand/30 w-full rounded-xl px-7 py-3.5 text-center font-bold transition-all hover:scale-[1.02]">
+                className="bg-brand-solid text-brand-solid-foreground text-fluid-sm shadow-brand/30 w-full rounded-xl px-7 py-3.5 text-center font-bold transition-all hover:scale-hover">
                 Spielplan →
               </Link>
               <Link
                 href="/dashboard/saisontabelle#top"
                 prefetch={false}
-                className="bg-background border-border text-fluid-sm w-full rounded-xl border px-7 py-3.5 text-center font-bold transition-all hover:scale-[1.02]">
+                className="bg-background border-border text-fluid-sm w-full rounded-xl border px-7 py-3.5 text-center font-bold transition-all hover:scale-hover">
                 Tabelle →
               </Link>
             </div>
@@ -97,13 +97,13 @@ export default async function LandingPage() {
             <Link
               href="/about"
               prefetch={false}
-              className="bg-brand-solid text-fluid-xs text-brand-solid-foreground flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold transition-all hover:scale-[1.02] lg:w-56">
+              className="bg-brand-solid text-fluid-xs text-brand-solid-foreground flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold transition-all hover:scale-hover lg:w-56">
               Mehr über das Projekt
             </Link>
             <Link
               href="/kontakt"
               prefetch={false}
-              className="bg-background border-border text-fluid-xs text-foreground flex h-10 w-full items-center justify-center rounded-xl border px-4 font-bold transition-all hover:scale-[1.04] lg:w-44">
+              className="bg-background border-border text-fluid-xs text-foreground flex h-10 w-full items-center justify-center rounded-xl border px-4 font-bold transition-all hover:scale-hover lg:w-44">
               Zum Kontakt
             </Link>
           </div>
@@ -111,7 +111,7 @@ export default async function LandingPage() {
       </section>
 
       {/* GAMES CONTAINER */}
-      <div className="w-full max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="w-full max-w-page px-4 py-8 sm:px-6 lg:px-8">
         <Suspense
           fallback={
             <div className="flex w-full justify-center py-20">

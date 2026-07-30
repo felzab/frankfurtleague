@@ -164,12 +164,22 @@ Possible shimmer animation for landing page
   --text-fluid-4xl: clamp(2.25rem, 1.73rem + 2.6vw, 3.5rem);
   --text-fluid-4xl--line-height: 1.1;
 
-  /* Custom breakpoints */
-  --breakpoint-2xl: 115rem;
-  --breakpoint-3xl: 135rem;
+  /* Page-width archetypes. Four independent caps used to be spelled as arbitrary values across 21
+     sites, which is how /dashboard/spielplan ended up clamping its tab strip 200px narrower than
+     the grid the tabs control. Pick one per page archetype.
+     NOT named `prose`: Tailwind ships --max-width-prose, and both namespaces feed max-w-*. */
+  --container-page: 1400px; /* dashboard + admin content */
+  --container-toolbar: 1200px; /* sticky tab and search bars */
+  --container-meta: 1100px; /* meta pages */
 
   /* Custom sizes */
   --navbar-height: 54px;
+  /* max-h-* resolves from --height-*, not from a --max-height-* namespace. */
+  --height-modal: 90dvh;
+  --width-sidemenu: 310px;
+  --width-sidemenu-collapsed: 72px;
+  /* One hover magnitude for the whole app. It was three: [1.02] x27, [1.04] x1, 105 x1. */
+  --scale-hover: 1.02;
 }
 
 /* Hides the scrollbar */

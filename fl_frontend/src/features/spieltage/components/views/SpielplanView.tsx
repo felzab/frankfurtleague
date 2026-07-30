@@ -12,7 +12,7 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
     <Tabs className="relative flex w-full flex-1 flex-col items-center">
       <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
         {/* The width boundaries for mobile vs desktop */}
-        <Tabs.List className="scrollbar-hide border-border bg-surface flex w-full max-w-full flex-row items-center gap-1 overflow-x-auto rounded-xl border p-1.5 shadow-sm lg:w-[90%] lg:max-w-[1200px]">
+        <Tabs.List className="scrollbar-hide border-border bg-surface flex w-full max-w-full flex-row items-center gap-1 overflow-x-auto rounded-xl border p-1.5 shadow-sm lg:w-[90%] lg:max-w-toolbar">
           {/** Tab options */}
           {spielplanData?.spieltage.map((spieltagData) => {
             return (
@@ -34,7 +34,7 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
         <Tabs.Panel
           key={spieltagData.id}
           id={spieltagData.id}
-          className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-[1400px] grid-cols-1 gap-5 px-4 pt-0 pb-4 duration-400 outline-none sm:grid-cols-2 sm:px-8 xl:grid-cols-3">
+          className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-page grid-cols-1 gap-5 px-4 pt-0 pb-4 duration-400 outline-none sm:grid-cols-2 sm:px-8 xl:grid-cols-3">
           {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
           <SpielCardsList
             spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}

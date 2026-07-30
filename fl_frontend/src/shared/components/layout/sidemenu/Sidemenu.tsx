@@ -70,7 +70,7 @@ export default function Sidemenu<TIcon extends string>({
       <aside
         className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,transform] duration-300 ease-in-out ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        } xl:relative xl:z-0 xl:shrink-0 xl:translate-x-0 ${isDesktopCollapsed ? "xl:w-[72px]" : "w-[310px]"}`}>
+        } xl:relative xl:z-0 xl:shrink-0 xl:translate-x-0 ${isDesktopCollapsed ? "xl:w-sidemenu-collapsed" : "w-sidemenu"}`}>
         <SidemenuDesktopHeader isDesktopCollapsed={isDesktopCollapsed} />
 
         {/* MOBILE DRAWER HEADER */}

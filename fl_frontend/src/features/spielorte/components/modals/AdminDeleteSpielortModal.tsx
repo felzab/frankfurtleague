@@ -100,7 +100,7 @@ export function AdminDeleteSpielortModal({ ortData, isOpen, onClose }: { ortData
                 type="button"
                 variant="secondary"
                 isDisabled={isPending}
-                className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-[1.02]"
+                className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-hover"
                 onPress={onClose}>
                 Abbrechen
               </Button>
@@ -108,7 +108,7 @@ export function AdminDeleteSpielortModal({ ortData, isOpen, onClose }: { ortData
                 type="button"
                 variant="primary"
                 isDisabled={isPending}
-                className="text-fluid-sm bg-danger text-foreground shadow-danger/25 rounded-xl px-6 py-3 font-semibold tracking-wide shadow-lg transition-all hover:scale-[1.02]"
+                className="text-fluid-sm bg-danger text-foreground shadow-danger/25 rounded-xl px-6 py-3 font-semibold tracking-wide shadow-lg transition-all hover:scale-hover"
                 onPress={handleDelete}>
                 <TrashBin
                   className="m-0"

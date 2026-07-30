@@ -66,7 +66,7 @@ export default function AdminCreateSpielortForm({ onClose }: { onClose: () => vo
         <Button
           type="button"
           variant="secondary"
-          className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-[1.02]"
+          className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-hover"
           onPress={onClose}>
           Abbrechen
         </Button>
@@ -74,7 +74,7 @@ export default function AdminCreateSpielortForm({ onClose }: { onClose: () => vo
           type="submit"
           variant="primary"
           isDisabled={isPending}
-          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]">
+          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-hover">
           <Check
             className="m-0"
             width={20}

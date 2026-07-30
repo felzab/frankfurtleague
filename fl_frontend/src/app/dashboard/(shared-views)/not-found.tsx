@@ -13,7 +13,7 @@ export default function TeamNotFound() {
       <Link
         href="/dashboard/teams"
         prefetch={false}
-        className="text-fluid-sm bg-brand-solid text-brand-solid-foreground mt-2 rounded-xl px-6 py-3 font-bold transition-all hover:scale-[1.02]">
+        className="text-fluid-sm bg-brand-solid text-brand-solid-foreground mt-2 rounded-xl px-6 py-3 font-bold transition-all hover:scale-hover">
         Zur Team-Übersicht
       </Link>
     </div>

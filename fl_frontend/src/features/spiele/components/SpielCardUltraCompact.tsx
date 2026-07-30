@@ -15,7 +15,7 @@ export default function SpielCardUltraCompact({ spielData, onPress }: { spielDat
   return (
     <Card
       /* FIX: Applied standard card styling (surface, border, hover states) to match the other components */
-      className="bg-surface border-border text-foreground hover:border-foreground/30 relative w-full rounded-xl border shadow-sm transition-all hover:scale-[1.02]">
+      className="bg-surface border-border text-foreground hover:border-foreground/30 relative w-full rounded-xl border shadow-sm transition-all hover:scale-hover">
       <Card.Content className="flex flex-row items-center justify-between p-3">
         {/* The card itself cannot become the button: it contains TeamPopoverMenu's own <button>
             triggers, and a nested button is invalid HTML that breaks the popover. So the click

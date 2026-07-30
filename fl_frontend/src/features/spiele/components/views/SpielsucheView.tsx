@@ -78,7 +78,7 @@ export default function SpielsucheView({
       {/** Search Bar */}
       <div className="bg-background sticky top-0 z-20 flex w-full justify-center px-4 py-4 sm:px-8 lg:py-8">
         {/* The Visual Search Bar Wrapper */}
-        <div className="bg-surface border-border focus-within:border-brand flex h-12 w-full max-w-[1200px] items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors lg:h-15">
+        <div className="bg-surface border-border focus-within:border-brand flex h-12 w-full max-w-toolbar items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors lg:h-15">
           <Magnifier
             className="text-foreground-muted shrink-0"
             width={20}
@@ -103,7 +103,7 @@ export default function SpielsucheView({
         ) : filteredResults.length === 0 ? (
           <p className="text-fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Keine Ergebnisse für "{spielQuery}"</p>
         ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-[1400px] grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="animate-in fade-in slide-in-from-bottom-4 grid w-full max-w-page grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
             <ListComponent
               spiele={filteredResults}
               today={today}

@@ -39,7 +39,7 @@ export default function NotFound() {
             variant="ghost"
             aria-label="Zurück zur vorherigen Seite"
             onPress={() => window.history.back()}
-            className="text-fluid-sm border-border hover:bg-muted/50 text-foreground h-12 w-full rounded-xl border bg-transparent px-8 font-semibold transition hover:scale-[1.02] sm:w-auto">
+            className="text-fluid-sm border-border hover:bg-muted/50 text-foreground h-12 w-full rounded-xl border bg-transparent px-8 font-semibold transition hover:scale-hover sm:w-auto">
             Zurück
           </Button>
 
@@ -47,7 +47,7 @@ export default function NotFound() {
             title="Startseite"
             aria-label="Zur Startseite"
             href="/"
-            className="text-fluid-sm bg-brand-solid hover:bg-brand-solid/90 focus-visible:ring-brand focus-visible:ring-offset-background text-brand-solid-foreground flex h-12 w-full items-center justify-center rounded-xl px-8 font-semibold shadow-md transition outline-none hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto">
+            className="text-fluid-sm bg-brand-solid hover:bg-brand-solid/90 focus-visible:ring-brand focus-visible:ring-offset-background text-brand-solid-foreground flex h-12 w-full items-center justify-center rounded-xl px-8 font-semibold shadow-md transition outline-none hover:scale-hover focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto">
             Zur Startseite
           </Link>
         </div>

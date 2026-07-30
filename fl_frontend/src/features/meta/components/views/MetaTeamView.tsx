@@ -10,7 +10,7 @@ import { GROUPED_MEMBERS, TAG_TITLES } from "../../constants";
 
 export default function MetaTeamView() {
   return (
-    <div className="flex w-full max-w-[1200px] flex-col items-center gap-y-4 text-left sm:gap-y-8">
+    <div className="flex w-full max-w-toolbar flex-col items-center gap-y-4 text-left sm:gap-y-8">
       {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
         <h2 className="text-fluid-2xl sm:text-fluid-2xl lg:text-fluid-3xl font-black tracking-tight text-white uppercase drop-shadow-md">

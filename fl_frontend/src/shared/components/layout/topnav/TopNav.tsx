@@ -8,7 +8,7 @@ import TopNavLinksDropdown from "./TopNavLinksDropdown";
 
 export default async function TopNav() {
   return (
-    <nav className="flex h-[var(--navbar-height)] w-full items-center justify-between px-4 sm:px-6">
+    <nav className="flex h-(--navbar-height) w-full items-center justify-between px-4 sm:px-6">
       {/* Brand Logo Area */}
       <Link
         href="/"

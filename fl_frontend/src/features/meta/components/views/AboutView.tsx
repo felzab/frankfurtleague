@@ -22,7 +22,7 @@ export default function AboutView() {
       </div>
 
       {/** Section 1: Unser Ziel */}
-      <section className="flex w-full max-w-[1100px] flex-col gap-y-4">
+      <section className="flex w-full max-w-meta flex-col gap-y-4">
         <div className="flex flex-row items-center gap-x-3 text-white">
           <StarFill className="size-6 drop-shadow lg:size-7" />
           <h3 className="text-fluid-lg font-extrabold tracking-wide uppercase">Unser Ziel</h3>
@@ -38,7 +38,7 @@ export default function AboutView() {
       </section>
 
       {/** Section 2: Das Regelwerk */}
-      <section className="flex w-full max-w-[1100px] flex-col gap-y-4">
+      <section className="flex w-full max-w-meta flex-col gap-y-4">
         <div className="flex flex-row items-center gap-x-3 text-white">
           <Book className="size-6 drop-shadow lg:size-7" />
           <h3 className="text-fluid-lg font-extrabold tracking-wide uppercase">Das Regelwerk (FAQ)</h3>
@@ -72,7 +72,7 @@ export default function AboutView() {
       </section>
 
       {/** Section 3: Active schools */}
-      <section className="w-full max-w-[1100px]">
+      <section className="w-full max-w-meta">
         <Card className="soccer-field-card-bg soccer-field-card-border rounded-2xl border shadow-2xl backdrop-blur-sm">
           <Card.Header className="flex items-center px-6 pt-6 pb-2">
             <Card.Title className="text-fluid-base font-extrabold tracking-widest text-white uppercase">Aktive Schulen der Saison</Card.Title>
@@ -106,7 +106,7 @@ async function ParticipatingTeamsDisplay() {
           teamShorthand={teamData.shorthand}
           teamIsDisqualified={teamData.is_disqualified}>
           <span
-            className={`text-fluid-xxs sm:text-fluid-xs inline-flex items-center rounded-xl border px-3.5 py-1.5 font-bold tracking-wide text-white uppercase shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 ${
+            className={`text-fluid-xxs sm:text-fluid-xs inline-flex items-center rounded-xl border px-3.5 py-1.5 font-bold tracking-wide text-white uppercase shadow-sm transition-all duration-200 hover:scale-hover active:scale-95 ${
               teamData.is_disqualified
                 ? "bg-danger/80 border-danger/40"
                 : "border-white/25 bg-white/10 backdrop-blur-md hover:border-white/50 hover:bg-white/20"

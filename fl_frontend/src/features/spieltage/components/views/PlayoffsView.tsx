@@ -17,15 +17,17 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
   return (
     // FIX: Added flex-1 and pb-12 so it respects the same native scrolling flow as the other pages
     <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12 duration-400">
-      {/* Viewport scroller */}
-      <div className="scrollbar-hide w-full snap-x snap-mandatory overflow-x-auto px-4 md:px-8">
+      {/* Viewport scroller. @container + cqw below: the columns used to be sized in vw, so once the
+          sidebar appears they each claim a share of the viewport the content area does not have and
+          the bracket overflows into the scroller. cqw measures this element instead. */}
+      <div className="scrollbar-hide @container w-full snap-x snap-mandatory overflow-x-auto px-4 md:px-8">
         {/* Tree track */}
         <div className="flex h-fit min-w-max flex-row items-stretch gap-8">
           {playoffsSpieltage.map((playoffsSpieltag, roundIndex) => (
             /* Responsive column */
             <div
               key={playoffsSpieltag.id}
-              className="flex w-[85vw] max-w-[380px] shrink-0 snap-center flex-col items-center md:w-[42vw] lg:w-[28vw]">
+              className="@2xl:w-[42cqw] @5xl:w-[28cqw] flex w-[85cqw] max-w-[380px] shrink-0 snap-center flex-col items-center">
               {/* Round Header
                   FIX: Swapped quaternary colors for the sleek surface/border combination
               */}
