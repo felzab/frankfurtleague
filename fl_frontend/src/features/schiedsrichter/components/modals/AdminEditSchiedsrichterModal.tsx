@@ -30,7 +30,7 @@ export function AdminEditSchiedsrichterModal({
             <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Schiedsrichter bearbeiten</Modal.Heading>
           </Modal.Header>
 
-          <Modal.Body className="scrollbar-hide text-foreground flex-1 overflow-y-auto px-0">
+          <Modal.Body className="scrollbar-hide scrollbar-gutter-stable text-foreground flex-1 overflow-y-auto px-0">
             <AdminEditSchiedsrichterForm
               key={schiedsrichterData.id}
               schiedsrichterData={schiedsrichterData}

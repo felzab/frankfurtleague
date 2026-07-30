@@ -83,36 +83,6 @@
   }
 }
 
-/*
-Possible shimmer animation for landing page
-
-@keyframes continuousFlowWave {
-  0% {
-    background-position: -160vw -80vh;
-  }
-  100% {
-    background-position: 120vw 120vh;
-  }
-}
-
-@utility brand-shimmer {
-  background-image: linear-gradient(
-    135deg,
-    transparent 30%,
-    color-mix(in srgb, var(--brand, #dc2626) 6%, transparent) 38%,
-    color-mix(in srgb, var(--brand, #dc2626) 18%, transparent) 48%,
-    color-mix(in srgb, var(--brand, #dc2626) 24%, transparent) 50%,
-    color-mix(in srgb, var(--brand, #dc2626) 18%, transparent) 52%,
-    color-mix(in srgb, var(--brand, #dc2626) 6%, transparent) 62%,
-    transparent 70%
-  );
-  background-size: 200vw 200vh;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-  animation: continuousFlowWave 10s linear infinite;
-}
-  */
-
 @theme {
   /* Fonts */
   --font-primary: var(--font-inter), ui-sans-serif, system-ui;
@@ -201,14 +171,17 @@ Possible shimmer animation for landing page
   --scale-hover: 1.02;
 }
 
-/* Hides the scrollbar */
+/* Hides the scrollbar, and nothing else. It used to also set `scrollbar-gutter: stable`, which
+   reserves the space the scrollbar would have taken -- the opposite concern, invisible from the
+   name, silently inherited by all 11 consumers. The sites that want the gutter now say so with
+   Tailwind's own `scrollbar-gutter-stable`. The !important flags are unnecessary: @utility output
+   lands in the utilities layer, which already beats HeroUI's base/scrollbar.css. */
 @utility scrollbar-hide {
   &::-webkit-scrollbar {
-    display: none !important;
+    display: none;
   }
-  -ms-overflow-style: none !important;
-  scrollbar-width: none !important;
-  scrollbar-gutter: stable !important;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Makes a dotted background. currentColor rather than a white literal: the dots then invert with

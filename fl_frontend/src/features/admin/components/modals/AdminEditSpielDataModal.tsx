@@ -30,7 +30,7 @@ export default function AdminEditSpielDataModal({
             <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Spielinformationen bearbeiten</Modal.Heading>
           </Modal.Header>
 
-          <Modal.Body className="scrollbar-hide text-foreground flex-1 overflow-y-auto px-0">
+          <Modal.Body className="scrollbar-hide scrollbar-gutter-stable text-foreground flex-1 overflow-y-auto px-0">
             <AdminEditSpielDataForm
               key={spielData.id}
               spielData={spielData}
