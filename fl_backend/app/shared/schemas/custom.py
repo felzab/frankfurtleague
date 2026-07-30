@@ -16,7 +16,7 @@ from pydantic_core import CoreSchema, core_schema
 
 # Regex for YYYY-MM-DD (e.g., 2026-06-08)
 # Ensures months are 01-12 and days are 01-31
-DATE_REGEX = r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
 # Regex for HH:MM:SS (e.g., 14:30:00)
 # Ensures hours are 00-23, minutes 00-59, seconds 00-59
@@ -134,16 +134,41 @@ def validate_external_url(value: str) -> str:
     """
     try:
         parts = urlsplit(value)
+        # Read `.port` for its side effect: urlsplit is lazy, and an invalid port
+        # ("example.com:notaport") only raises when the attribute is accessed. `new URL` rejects it
+        # outright, so without this the backend would accept a URL the frontend refuses. Bound to a
+        # name because a bare attribute access reads as dead code (and ruff's B018 says so).
+        _port = parts.port
     except ValueError as invalid_url_error:
         raise ValueError("URL could not be parsed") from invalid_url_error
 
-    # urlsplit lowercases neither scheme nor host for us in every case; zod compares the scheme
-    # case-insensitively because it reads it back off a parsed URL object.
+    # zod compares the scheme case-insensitively, because it reads it back off a parsed URL object.
     if parts.scheme.lower() not in EXTERNAL_URL_SCHEMES:
         raise ValueError("URL must use http or https")
 
     # `hostname` is the bare host: port stripped, userinfo excluded, already lowercased.
-    if not parts.hostname or not DOMAIN_REGEX.match(parts.hostname):
+    host = parts.hostname
+    if not host:
+        raise ValueError("URL must point at a domain name")
+
+    # DOMAIN_REGEX is ASCII-only, and so is the WHATWG `hostname` zod tests -- but `new URL`
+    # punycodes on the way in, so zod sees "xn--kthe-...". urlsplit does not, so an umlaut domain
+    # would reach the regex verbatim and be rejected. Encode first, or a perfectly ordinary
+    # "https://käthe-kollwitz-schule.de" fails validation on the READ path and takes the whole teams
+    # API down with it.
+    try:
+        if host.isascii():
+            # An "xn--" label that is not valid punycode passes DOMAIN_REGEX -- it is only ASCII
+            # letters, digits and hyphens -- but `new URL` throws on it, so the frontend would
+            # reject a value the backend stored. Round-tripping makes both ends agree.
+            if "xn--" in host:
+                host.encode("ascii").decode("idna")
+        else:
+            host = host.encode("idna").decode("ascii")
+    except UnicodeError as invalid_host_error:
+        raise ValueError("URL hostname is not a valid internationalised domain") from invalid_host_error
+
+    if not DOMAIN_REGEX.match(host):
         raise ValueError("URL must point at a domain name")
 
     return value

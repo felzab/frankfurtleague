@@ -26,10 +26,15 @@ class FLSpielOrtField(BaseModel):
     # Free text (venue name + address) searched on Google Maps, NOT a URL -- so no scheme check.
     maps_link: str = Field(min_length=1)
     # int, not float: a rental price is whole euros. Stored values are already integral.
-    # Required, with no default. The admin PATCH writes this payload back wholesale with $set
-    # (admin/router.py), so a default would let a request that omits the field silently overwrite a
-    # venue's stored rent with 0. The frontend's FLSpielOrtFieldSchema requires it too, and
-    # FormSpielortSection always sends it -- the sibling `payment` below has always been required.
+    #
+    # Required, with no default, on BOTH paths this model serves:
+    #   write -- the admin PATCH writes the payload back wholesale with $set (admin/router.py), so a
+    #            default let a request omitting the field silently overwrite a venue's rent with 0,
+    #            while the sibling `payment` below correctly 422'd in the same situation.
+    #   read  -- FLSpielOrtField is embedded in FLSpiel, so this also validates every document read
+    #            out of Mongo. Verified before removing the default: 25 of 25 spiele with an `ort`
+    #            carry `mietpreis`, and the frontend's FLSpielOrtFieldSchema has always required it,
+    #            so a document without it would already have been failing the client-side parse.
     mietpreis: int = Field(ge=0)
 
 

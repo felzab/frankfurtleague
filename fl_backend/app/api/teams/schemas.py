@@ -31,7 +31,7 @@ class FLTeam(BaseModel):
     description: str  # May be empty -- not every team writes one.
     full_name: str = Field(min_length=1)
     # Rendered straight into an href on a public page, so the scheme is constrained here as well as
-    # in the frontend. See EXTERNAL_URL_REGEX for why this is not AnyHttpUrl.
+    # in the frontend. See validate_external_url for why this is not AnyHttpUrl.
     website_url: CustomExternalUrl
     address: FLAddress
 

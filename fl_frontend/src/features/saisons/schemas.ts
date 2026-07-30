@@ -15,7 +15,11 @@ export const FLSaisonRulesSchema = z.object({
 });
 
 export const FLSaisonSchema = z.object({
-  id: z.string(),
+  // Exactly 4, mirroring the backend's FLSaison.id. FLSpielSchema.saison_id and
+  // FLSpieltagSchema.saison_id both require .length(4), and resolveSaisonId silently discards a
+  // param that is not 4 chars -- so an unbounded id here would let SaisonSelecter offer a season
+  // that renders as the current one with no error.
+  id: z.string().length(4),
 
   start_date: CustomDateStringSchema,
   end_date: CustomDateStringSchema,

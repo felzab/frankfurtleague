@@ -48,7 +48,7 @@ export const FLSpielSchema = z.object({
   // malformed "3" silently rendered as a loss for both teams. null means "not played yet".
   ergebnis: z
     .string()
-    .regex(/^\d+:\d+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
+    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
     .nullable(),
 
   spiel_nr: z.int().positive(),

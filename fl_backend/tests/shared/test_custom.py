@@ -95,11 +95,37 @@ def test_accepts_http_and_https_urls(value):
         "data:text/html,<a href=https://a.bc>",
         "https://a.bc <script>alert(1)</script>",
         "https://1.2.3.4",
+        "http://192.168.1.10/status",
+        "https://example.com.",
+        # `new URL` throws on an invalid port, so the frontend rejects this; without touching
+        # urlsplit's lazy `.port` the backend would have accepted it.
+        "https://example.com:notaport/",
+        # Valid-looking but undecodable punycode. Passes DOMAIN_REGEX (ASCII letters, digits and
+        # hyphens only) yet `new URL` rejects it, so the round-trip check is what keeps the two ends
+        # in agreement.
+        "https://xn--kthe-kollwitz-schule-5nb.de",
+        "https://",
+        "//example.com",
     ],
 )
 def test_rejects_non_http_schemes_and_bare_hosts(value):
     with pytest.raises(ValidationError):
         _Url.model_validate({"value": value})
+
+
+# The frontend accepts these because `new URL` punycodes the host before zod tests it. urlsplit does
+# not, so without encoding first an ordinary German umlaut domain would be rejected here -- on the
+# READ path, taking down every route that lists teams. A narrower rule than the regex it replaced.
+@pytest.mark.parametrize(
+    "value",
+    [
+        "https://käthe-kollwitz-schule.de",
+        "https://schule-für-alle.de",
+        "https://xn--kthe-kollwitz-schule-bzb.de",
+    ],
+)
+def test_accepts_internationalised_domains(value):
+    assert _Url.model_validate({"value": value}).value == value
 
 
 # Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects.
