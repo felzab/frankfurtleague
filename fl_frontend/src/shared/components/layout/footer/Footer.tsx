@@ -2,13 +2,13 @@ import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-// eslint-disable-next-line no-restricted-imports -- known violation, removed by ledger row R2-2.1 (Wave 4)
-import ServerIsLife from "@/features/system/components/ServerIsLive";
 import { FLLogo } from "@/shared/components/ui/FLLogo";
 
 import { FooterCopyrightString } from "./FooterCopyrightString";
 
-export default async function Footer() {
+// serverStatusSlot is injected by the composition root rather than imported, so this generic layout
+// primitive keeps zero feature dependencies. Same technique as Sidemenu's saisonMetadataDisplay.
+export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
   return (
     <footer className="mx-auto flex h-full w-full max-w-[1400px] flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
       {/* Main Footer Grid */}
@@ -145,7 +145,7 @@ export default async function Footer() {
       <div className="flex flex-col items-center justify-between gap-4 pt-6 text-center sm:flex-row sm:text-left">
         <FooterCopyrightString />
         <Suspense fallback={<span className="text-fluid-xxs text-foreground-muted opacity-80">Checking status...</span>}>
-          <ServerIsLife />
+          {serverStatusSlot}
         </Suspense>
       </div>
     </footer>
