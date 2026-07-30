@@ -12,9 +12,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "format": "prettier . --write",
-    "format:check": "prettier . --check",
-    "verify": "pnpm exec tsc --noEmit && pnpm exec eslint . && pnpm format:check && pnpm build && pnpm test && pnpm audit:prod",
+    "format": "prettier --write --ignore-path ../.prettierignore --ignore-path .prettierignore ..",
+    "format:check": "prettier --check --ignore-path ../.prettierignore --ignore-path .prettierignore ..",
+    "verify": "pnpm format && pnpm exec tsc --noEmit && pnpm exec eslint . && pnpm format:check && pnpm build && pnpm test && pnpm audit:prod",
     "typecheck": "tsc --noEmit",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tsconfig-alias-hook.mjs --test",
     "audit:prod": "pnpm audit --prod --audit-level high"

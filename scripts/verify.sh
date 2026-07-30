@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 #
 # scripts/verify.sh — the complete pre-merge gate.
-# TARGET PLATFORM: any. It only reads and builds, so it is safe anywhere, including CI.
+# TARGET PLATFORM: any. It builds and runs read-only checks, with one exception: step 2 reformats
+# the working tree. `pnpm verify` now runs `pnpm format` (prettier in write mode) as its FIRST
+# command, so a run may leave formatting changes for you to commit. Every later check then measures
+# the formatted tree rather than one that is still moving. In CI, commit or diff those changes — do
+# not assume the tree is untouched afterwards.
+#
+# NOTE: do not name any other tool's flags in this header. Check 8 of selfcheck.sh treats every
+# double-dashed word in this comment block as a documented flag of THIS script, and fails when the
+# case statement below has no match for it.
 #
 # WHAT IT RUNS, cheapest-to-fail first:
 #   1. selfcheck.sh  — the scripts themselves (instant)
-#   2. pnpm verify   — types, lint, formatting, next build, unit tests (audit ledger Part 4)
+#   2. pnpm verify   — formats, then types, lint, next build, unit tests (audit ledger Part 4)
 #   3. pnpm audit:prod — runtime dependency advisories only
 #   4. ruff + pytest  — fl_backend lint and schema-constraint tests (audit ledger BE-5)
 #   5. docker build  — BOTH images, which pnpm verify does not cover
@@ -45,7 +53,7 @@ else
   die "scripts/selfcheck.sh failed. Run it directly to see why:  ./scripts/selfcheck.sh"
 fi
 
-step "pnpm verify  (tsc, eslint, prettier, next build, node --test)"
+step "pnpm verify  (prettier --write, then tsc, eslint, next build, node --test)"
 ( cd fl_frontend && pnpm verify ) || die "pnpm verify failed. Fix that before looking at anything else."
 ok "pnpm verify exit 0"
 
