@@ -78,29 +78,6 @@ class FLSpiel(BaseModel):
 FLSpielListAdapter = TypeAdapter(list[FLSpiel])
 
 
-class FLSpieltag(BaseModel):
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
-    name: str
-
-    beginn: CustomDateString
-    ende: CustomDateString
-    anzahl_spiele: int = Field(gt=0)
-    order_val: int = Field(ge=0)
-    saison_phase: FLSaisonPhase
-
-
-class FLSpieltagWithSpiele(FLSpieltag):
-    spiele: list[FLSpiel]
-
-
-FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])
-FLSpieltagWithSpieleListAdapter = TypeAdapter(list[FLSpieltagWithSpiele])
-
-
-class FLSpielplan(BaseModel):
-    spieltage: list[FLSpieltagWithSpiele]
-
-
 class FLSpieleFilterParams(BaseModel):
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None

@@ -2,7 +2,6 @@ from typing import Annotated, Literal, Mapping, Union, get_args
 
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
-from app.api.spieler.schemas import FLSpieler
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomExternalUrl, CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
@@ -47,12 +46,7 @@ class FLTeamCompact(BaseModel):
     is_disqualified: bool
 
 
-class FLTeamWithSpieler(FLTeam):
-    spieler: list[FLSpieler]
-
-
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
-FLTeamWithSpielerListAdapter = TypeAdapter(list[FLTeamWithSpieler])
 FLTeamCompactListAdapter = TypeAdapter(list[FLTeamCompact])
 
 
