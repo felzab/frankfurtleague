@@ -181,24 +181,29 @@ Forgetting to run it is not harmful; the cache expires within 24 hours regardles
 ```
 
 `verify.sh` runs this first, so you rarely need it directly — reach for it after editing anything in
-`scripts/`. Eight checks:
+`scripts/`. Nine checks:
 
 | #   | Check                                       |
 | --- | ------------------------------------------- |
 | 1   | every script parses                         |
 | 2   | line endings are LF                         |
-| 3   | every helper a script calls is defined      |
-| 4   | `--help` works from any directory           |
-| 5   | unknown options are rejected                |
-| 6   | machine-specific scripts declare a platform |
-| 7   | `--help` matches the flags the code accepts |
-| 8   | shellcheck reports nothing                  |
+| 3   | the executable bit is set in git            |
+| 4   | every helper a script calls is defined      |
+| 5   | `--help` works from any directory           |
+| 6   | unknown options are rejected                |
+| 7   | machine-specific scripts declare a platform |
+| 8   | `--help` matches the flags the code accepts |
+| 9   | shellcheck reports nothing                  |
 
 `bash -n` validates syntax only. It cannot see a call to a function that does not exist, a CRLF line
-ending that breaks the script on Linux, or documentation that has drifted from behaviour. These checks
-cover what it misses.
+ending or a missing executable bit that breaks the script on Linux, or documentation that has drifted
+from behaviour. These checks cover what it misses.
 
-Check 8 uses a local `shellcheck` if you have one, otherwise `koalaman/shellcheck:stable` via Docker.
+Checks 2 and 3 exist because Windows hides both problems: it tolerates CRLF, and it has no real
+executable bit, so `chmod +x` in Git Bash never reaches git. Either one produces a script that works on
+your machine and fails on the server.
+
+Check 9 uses a local `shellcheck` if you have one, otherwise `koalaman/shellcheck:stable` via Docker.
 It is the only check that needs Docker, and you do not need to install anything.
 
 ---

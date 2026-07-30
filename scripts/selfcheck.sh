@@ -14,12 +14,13 @@
 # WHAT IT CHECKS:
 #   1. every script parses
 #   2. line endings are LF — CRLF makes a script fail outright on the Linux server
-#   3. every helper a script calls is actually defined in _lib.sh   <-- the one that was missed
-#   4. --help works from an unrelated working directory
-#   5. an unknown option is rejected, without needing Docker
-#   6. each script declares which platform it targets
-#   7. a script's --help matches the flags it actually accepts
-#   8. shellcheck — a local binary if present, otherwise the official Docker image
+#   3. the executable bit is set in git — Windows silently drops it
+#   4. every helper a script calls is actually defined in _lib.sh   <-- the one that was missed
+#   5. --help works from an unrelated working directory
+#   6. an unknown option is rejected, without needing Docker
+#   7. machine-specific scripts declare which platform they target
+#   8. a script's --help matches the flags it actually accepts
+#   9. shellcheck — a local binary if present, otherwise the official Docker image
 #
 # USAGE:
 #   ./scripts/selfcheck.sh
@@ -56,7 +57,26 @@ for f in scripts/*.sh; do
   fi
 done
 
-step "3. Every helper called is defined  (the check that was missing)"
+step "3. Executable bit is set in git"
+# Checks the mode GIT records, not the filesystem. On Windows core.fileMode is false, so `chmod +x`
+# in Git Bash is cosmetic and git keeps storing 100644 -- the script then arrives on the Linux server
+# non-executable and `./scripts/deploy.sh` fails with "Permission denied". Invisible on Windows,
+# because bash can still run a non-executable file when you name the interpreter.
+# Fix:  git update-index --chmod=+x scripts/<name>.sh
+# _lib.sh is deliberately excluded: it is sourced, never executed.
+for f in "${RUNNABLE[@]}"; do
+  [[ -f "scripts/$f" ]] || continue
+  mode="$(git ls-files -s "scripts/$f" 2>/dev/null | awk '{print $1}')"
+  if [[ "$mode" == "100755" ]]; then
+    info "$f"
+  elif [[ -z "$mode" ]]; then
+    info "$f (not tracked by git yet)"
+  else
+    note_fail "$f is mode ${mode} in git, not 100755 — it will not be executable on the server. Fix:  git update-index --chmod=+x scripts/$f"
+  fi
+done
+
+step "4. Every helper called is defined  (the check that was missing)"
 # Names defined in _lib.sh, including the shell builtins/aliases the scripts rely on.
 DEFINED="$(grep -oE '^[a-z_]+\(\)' scripts/_lib.sh | tr -d '()' | sort -u)"
 for f in "${RUNNABLE[@]}"; do
@@ -75,7 +95,7 @@ for f in "${RUNNABLE[@]}"; do
   fi
 done
 
-step "4. --help works from an unrelated directory"
+step "5. --help works from an unrelated directory"
 for f in local.sh verify.sh publish.sh deploy.sh; do
   if ( cd / && bash "${REPO_ROOT}/scripts/$f" --help >/dev/null 2>&1 ); then
     info "$f --help"
@@ -84,7 +104,7 @@ for f in local.sh verify.sh publish.sh deploy.sh; do
   fi
 done
 
-step "5. Unknown options are rejected, without requiring Docker"
+step "6. Unknown options are rejected, without requiring Docker"
 # The output is captured into a variable FIRST, deliberately.
 #
 # `script | grep -q ...` looks natural and is wrong here: `set -o pipefail` (from _lib.sh) makes a
@@ -100,14 +120,14 @@ for f in local.sh verify.sh publish.sh deploy.sh; do
   fi
 done
 
-step "6. Machine-specific scripts declare a target platform"
+step "7. Machine-specific scripts declare a target platform"
 # Only the scripts that MUST run on one machine. verify.sh and selfcheck.sh only read and build, so
 # pinning them to one OS would be an artificial restriction that also blocks CI.
 for f in local.sh publish.sh deploy.sh revalidate_reference_data.sh; do
   if grep -q "require_platform" "scripts/$f"; then info "$f"; else note_fail "$f has no require_platform guard"; fi
 done
 
-step "7. Documented flags match accepted flags"
+step "8. Documented flags match accepted flags"
 # Catches drift between a script's --help header and its case statement. Compared by READING both,
 # never by running the script: an earlier version of this check invoked each flag for real, which
 # meant `local.sh --fresh` tore down the local stack as a side effect of a documentation test.
@@ -124,7 +144,7 @@ for f in local.sh verify.sh publish.sh deploy.sh revalidate_reference_data.sh; d
   fi
 done
 
-step "8. shellcheck"
+step "9. shellcheck"
 # SC1091 is excluded throughout: shellcheck cannot follow the sourced _lib.sh, which is expected and
 # not a defect. SC2034 is annotated inline in _lib.sh rather than excluded globally.
 run_shellcheck() {
