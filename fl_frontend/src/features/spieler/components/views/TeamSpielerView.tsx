@@ -6,7 +6,7 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Avatar, Button, Chip, Table } from "@heroui/react";
 
-import type { FLSpieler } from "@/features/spieler/schemas";
+import type { FLSpieler } from "../../schemas";
 
 export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpieler[] }) {
   const router = useRouter();
