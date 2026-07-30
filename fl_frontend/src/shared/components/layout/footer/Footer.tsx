@@ -10,7 +10,7 @@ import { FooterCopyrightString } from "./FooterCopyrightString";
 // primitive keeps zero feature dependencies. Same technique as Sidemenu's saisonMetadataDisplay.
 export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
   return (
-    <footer className="mx-auto flex h-full w-full max-w-page flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
+    <footer className="max-w-page mx-auto flex h-full w-full flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
       {/* Main Footer Grid */}
       <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-4">
         {/* Brand & Mission Column */}
@@ -70,7 +70,7 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
                   already carries the accessible name. */}
               <span
                 aria-hidden="true"
-                className="bg-foreground size-6 [mask-image:url('/icons/footer/threads/threads_logo_black.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                className="bg-foreground size-6 [mask-image:url('/icons/footer/threads/threads_logo_black.svg')] [mask-size:contain] [mask-position:center] [mask-repeat:no-repeat]"
               />
             </Link>
 
@@ -84,7 +84,7 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
               className="transition-opacity hover:opacity-80">
               <span
                 aria-hidden="true"
-                className="bg-foreground size-6 [mask-image:url('/icons/footer/github/github_logo_black.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                className="bg-foreground size-6 [mask-image:url('/icons/footer/github/github_logo_black.svg')] [mask-size:contain] [mask-position:center] [mask-repeat:no-repeat]"
               />
             </Link>
 

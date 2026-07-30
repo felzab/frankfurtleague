@@ -17,7 +17,7 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
         typedObjectEntries(gruppenData).map(([group, teamsData]) => (
           <div
             key={group}
-            className="bg-surface border-border mb-6 flex w-full max-w-page flex-col items-center rounded-2xl border p-3 shadow-sm sm:p-6">
+            className="bg-surface border-border max-w-page mb-6 flex w-full flex-col items-center rounded-2xl border p-3 shadow-sm sm:p-6">
             <h3 className="text-fluid-xl text-foreground pb-6 font-extrabold tracking-wide uppercase">Gruppe {group}</h3>
 
             <Table

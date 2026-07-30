@@ -27,7 +27,7 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
             /* Responsive column */
             <div
               key={playoffsSpieltag.id}
-              className="@2xl:w-[42cqw] @5xl:w-[28cqw] flex w-[85cqw] max-w-[380px] shrink-0 snap-center flex-col items-center">
+              className="flex w-[85cqw] max-w-[380px] shrink-0 snap-center flex-col items-center @2xl:w-[42cqw] @5xl:w-[28cqw]">
               {/* Round Header
                   FIX: Swapped quaternary colors for the sleek surface/border combination
               */}

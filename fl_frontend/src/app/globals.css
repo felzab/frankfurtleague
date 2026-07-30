@@ -249,7 +249,7 @@
      and without a foreground declared here they would inherit --fg-base from <body> and render
      near-black on the green in light mode. */
   .soccer-field-base {
-    @apply border-field-fg/85 bg-field-base text-field-fg relative h-full min-h-[120dvh] w-full max-w-field flex-1 overflow-hidden border-[3px] shadow-2xl;
+    @apply border-field-fg/85 bg-field-base text-field-fg max-w-field relative h-full min-h-[120dvh] w-full flex-1 overflow-hidden border-[3px] shadow-2xl;
   }
 
   .corner-arc-base {

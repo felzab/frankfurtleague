@@ -26,7 +26,7 @@ export default function DashboardError({ error, retry }: { error: Error & { dige
 
         <Button
           onPress={() => retry()}
-          className="text-fluid-sm border-border hover:bg-muted/50 text-foreground mt-8 h-11 rounded-xl border bg-transparent px-6 font-semibold shadow-sm transition-transform hover:scale-hover">
+          className="text-fluid-sm border-border hover:bg-muted/50 text-foreground hover:scale-hover mt-8 h-11 rounded-xl border bg-transparent px-6 font-semibold shadow-sm transition-transform">
           <ArrowRotateRight className="mr-2 h-4 w-4" />
           Ansicht neu laden
         </Button>

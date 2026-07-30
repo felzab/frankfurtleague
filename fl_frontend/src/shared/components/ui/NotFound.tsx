@@ -10,7 +10,7 @@ export default function NotFound() {
       {/* Watermark */}
       <div className="pointer-events-none mb-4 flex items-center justify-center select-none sm:absolute sm:inset-0 sm:mb-0">
         {/* motion-safe:, not the global shortening — see Error.tsx. */}
-        <span className="text-foreground/20 sm:text-foreground/5 motion-safe:animate-pulse text-[7rem] leading-none font-black tracking-tighter sm:text-[15rem] md:text-[25rem] lg:text-[35rem]">
+        <span className="text-foreground/20 sm:text-foreground/5 text-[7rem] leading-none font-black tracking-tighter motion-safe:animate-pulse sm:text-[15rem] md:text-[25rem] lg:text-[35rem]">
           404
         </span>
       </div>
@@ -39,7 +39,7 @@ export default function NotFound() {
             variant="ghost"
             aria-label="Zurück zur vorherigen Seite"
             onPress={() => window.history.back()}
-            className="text-fluid-sm border-border hover:bg-muted/50 text-foreground h-12 w-full rounded-xl border bg-transparent px-8 font-semibold transition hover:scale-hover sm:w-auto">
+            className="text-fluid-sm border-border hover:bg-muted/50 text-foreground hover:scale-hover h-12 w-full rounded-xl border bg-transparent px-8 font-semibold transition sm:w-auto">
             Zurück
           </Button>
 
@@ -47,7 +47,7 @@ export default function NotFound() {
             title="Startseite"
             aria-label="Zur Startseite"
             href="/"
-            className="text-fluid-sm bg-brand-solid hover:bg-brand-solid/90 focus-visible:ring-brand focus-visible:ring-offset-background text-brand-solid-foreground flex h-12 w-full items-center justify-center rounded-xl px-8 font-semibold shadow-md transition outline-none hover:scale-hover focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto">
+            className="text-fluid-sm bg-brand-solid hover:bg-brand-solid/90 focus-visible:ring-brand focus-visible:ring-offset-background text-brand-solid-foreground hover:scale-hover flex h-12 w-full items-center justify-center rounded-xl px-8 font-semibold shadow-md transition outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto">
             Zur Startseite
           </Link>
         </div>

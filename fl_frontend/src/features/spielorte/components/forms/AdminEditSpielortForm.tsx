@@ -39,7 +39,7 @@ export default function AdminEditSpielortForm({ ortData, onClose }: { ortData: F
     <Form
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
       action={handleEditSubmit}>
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 flex w-full flex-col gap-4 px-2">
+      <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400">
         <SpielortFormFields
           draft={draft}
           onChange={setDraft}
@@ -50,7 +50,7 @@ export default function AdminEditSpielortForm({ ortData, onClose }: { ortData: F
         <Button
           type="button"
           variant="secondary"
-          className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-hover"
+          className="text-fluid-sm border-border text-foreground hover:scale-hover rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all"
           onPress={onClose}>
           Abbrechen
         </Button>
@@ -58,7 +58,7 @@ export default function AdminEditSpielortForm({ ortData, onClose }: { ortData: F
           type="submit"
           variant="primary"
           isDisabled={isPending}
-          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-hover">
+          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground hover:scale-hover rounded-xl px-6 py-3 font-semibold tracking-wide transition-all">
           <Check
             className="m-0"
             width={20}

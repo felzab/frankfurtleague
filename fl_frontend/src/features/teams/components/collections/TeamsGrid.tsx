@@ -8,7 +8,7 @@ import type { FLTeamCompact } from "../../schemas";
 
 export default function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]; urlPrefix: string }) {
   return (
-    <div className="grid w-full max-w-page grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {teams.map((teamData) => (
         <Link
           key={teamData.id}

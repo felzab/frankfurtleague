@@ -6,7 +6,7 @@ export default function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
   return (
     <Card
       variant="default"
-      className="bg-surface border-border text-foreground hover:border-brand flex size-full flex-col items-start rounded-xl border p-4 shadow-sm transition-all hover:scale-hover">
+      className="bg-surface border-border text-foreground hover:border-brand hover:scale-hover flex size-full flex-col items-start rounded-xl border p-4 shadow-sm transition-all">
       <Card.Header className="flex h-fit w-full flex-row items-center justify-between pb-3">
         <div>
           <Card.Title className="text-fluid-base font-bold">{teamData.name}</Card.Title>

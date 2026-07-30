@@ -87,7 +87,7 @@ export function AdminDeleteSchiedsrichterModal({
                   wirklich löschen?
                 </p>
               ) : (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
+                <div className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
                   <div className="text-danger flex items-center gap-2 font-bold">
                     <TriangleExclamation
                       width={18}
@@ -108,7 +108,7 @@ export function AdminDeleteSchiedsrichterModal({
                 type="button"
                 variant="secondary"
                 isDisabled={isPending}
-                className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-hover"
+                className="text-fluid-sm border-border text-foreground hover:scale-hover rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all"
                 onPress={onClose}>
                 Abbrechen
               </Button>
@@ -116,7 +116,7 @@ export function AdminDeleteSchiedsrichterModal({
                 type="button"
                 variant="primary"
                 isDisabled={isPending}
-                className="text-fluid-sm bg-danger text-foreground shadow-danger/25 rounded-xl px-6 py-3 font-semibold tracking-wide shadow-lg transition-all hover:scale-hover"
+                className="text-fluid-sm bg-danger text-foreground shadow-danger/25 hover:scale-hover rounded-xl px-6 py-3 font-semibold tracking-wide shadow-lg transition-all"
                 onPress={handleDelete}>
                 <TrashBin
                   className="m-0"
