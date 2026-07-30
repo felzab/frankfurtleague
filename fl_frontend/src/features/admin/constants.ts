@@ -1,6 +1,23 @@
-import type { SidemenuStructure } from "@/shared/types/types";
+import { ExclamationShape, Magnifier, MapPin, Person } from "@gravity-ui/icons";
 
-export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure = [
+import type { SidemenuStructure } from "@/shared/types/types";
+import type React from "react";
+
+/**
+ * The icon dictionary lives beside the structure it must agree with, and `AdminIconName` is derived
+ * from it — so an `iconName` typo below is a compile error instead of a nav item that silently
+ * renders without an icon.
+ */
+export const ADMIN_SIDEMENU_ICONS = {
+  ExclamationShape,
+  Magnifier,
+  Person,
+  MapPin,
+} as const satisfies Record<string, React.ElementType>;
+
+export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
+
+export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Spiele",
     sub_options: [

@@ -14,16 +14,18 @@ import SidemenuNavItem from "./SidemenuNavItem";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 
-export default function Sidemenu({
+// Generic over the icon key: the structure and the dictionary are checked against each other, so
+// iconDictionary[iconName] is a total lookup and cannot miss.
+export default function Sidemenu<TIcon extends string>({
   structure,
   linkPrefix,
   saisonMetadataDisplay,
   iconDictionary,
 }: {
-  structure: SidemenuStructure;
+  structure: SidemenuStructure<TIcon>;
   linkPrefix: string;
   saisonMetadataDisplay: React.ReactNode;
-  iconDictionary: Record<string, React.ElementType>;
+  iconDictionary: Record<TIcon, React.ElementType>;
 }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -133,7 +135,7 @@ export default function Sidemenu({
                         label={sub_option.label}
                         isActive={_checkIsActive(sub_option.id)}
                         isDesktopCollapsed={isDesktopCollapsed}
-                        icon={sub_option.iconName ? iconDictionary[sub_option.iconName] : null}
+                        icon={iconDictionary[sub_option.iconName]}
                         onMobileClick={() => setIsMobileOpen(false)}
                       />
                     );
