@@ -54,7 +54,12 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
               <Table.Column className="w-1 pr-2 pl-1 text-right whitespace-nowrap lg:px-4">Position</Table.Column>
             </Table.Header>
 
-            <Table.Body>
+            <Table.Body
+              renderEmptyState={() => (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                  <p className="text-fluid-sm text-foreground-muted font-medium">Für dieses Team ist noch kein Kader eingetragen.</p>
+                </div>
+              )}>
               {teamSpieler.map((spielerData) => (
                 <Table.Row
                   key={spielerData.id}

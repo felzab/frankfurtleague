@@ -2,6 +2,7 @@
 
 import { Badge, Table } from "@heroui/react";
 
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import TeamPopoverMenu from "../TeamPopoverMenu";
@@ -9,6 +10,17 @@ import TeamPopoverMenu from "../TeamPopoverMenu";
 import type { FLGruppen } from "../../schemas";
 
 export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
+  if (typedObjectEntries(gruppenData).length === 0) {
+    return (
+      <div className="flex w-full flex-1 items-start justify-center p-6">
+        <EmptyState
+          title="Für diese Saison gibt es noch keine Tabelle."
+          hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
+        />
+      </div>
+    );
+  }
+
   return (
     /** Container for all the groups */
     <div className="relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8">
@@ -44,7 +56,12 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
                   </Table.Column>
                 </Table.Header>
 
-                <Table.Body>
+                <Table.Body
+                  renderEmptyState={() => (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                      <p className="text-fluid-sm text-foreground-muted font-medium">Für diese Gruppe sind noch keine Teams eingeteilt.</p>
+                    </div>
+                  )}>
                   {teamsData.map((teamData, index) => (
                     <Table.Row
                       key={teamData.id}

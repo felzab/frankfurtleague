@@ -3,10 +3,23 @@
 import { Tabs } from "@heroui/react";
 
 import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import type { FLSpielplan } from "../../schemas";
 
 export default function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
+  // Without this the empty case renders a bordered, empty 44px tab bar and no panels (R4 §12.2).
+  if (!spielplanData?.spieltage?.length) {
+    return (
+      <div className="flex w-full flex-1 items-start justify-center p-6">
+        <EmptyState
+          title="Für diese Saison steht noch kein Spielplan fest."
+          hint="Sobald die Spieltage angelegt sind, erscheinen sie hier."
+        />
+      </div>
+    );
+  }
+
   return (
     // Updated to flex-1 and flex-col so it handles height naturally without jumping
     <Tabs className="relative flex w-full flex-1 flex-col items-center">

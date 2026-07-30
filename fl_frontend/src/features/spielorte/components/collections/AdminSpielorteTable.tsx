@@ -3,8 +3,9 @@ import Link from "next/link";
 
 import { Calendar, Copy, Globe, MapPin, Pencil, TrashBin } from "@gravity-ui/icons";
 
-import { Button, Table, toast, Tooltip } from "@heroui/react";
+import { Button, Table, toast } from "@heroui/react";
 
+import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
@@ -96,103 +97,70 @@ function AdminSpielorteTable({
 
                 <Table.Cell className="px-6 py-4">
                   <div className="flex items-center justify-end gap-2">
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Link
-                          href={formatMapsLink(ort)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                          <Globe
-                            width={18}
-                            height={18}
-                          />
-                        </Link>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Auf Maps öffnen
-                      </Tooltip.Content>
-                    </Tooltip>
+                    <IconTooltip label="Auf Maps öffnen">
+                      <Link
+                        href={formatMapsLink(ort)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
+                        <Globe
+                          width={18}
+                          height={18}
+                        />
+                      </Link>
+                    </IconTooltip>
 
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Link
-                          href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
-                          className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                          <Calendar
-                            width={18}
-                            height={18}
-                          />
-                        </Link>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Spiele anzeigen
-                      </Tooltip.Content>
-                    </Tooltip>
+                    <IconTooltip label="Spiele anzeigen">
+                      <Link
+                        href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
+                        className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
+                        <Calendar
+                          width={18}
+                          height={18}
+                        />
+                      </Link>
+                    </IconTooltip>
 
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:text-brand transition-colors"
-                          onPress={() => handleCopyAddress(ort)}>
-                          <Copy
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Adresse kopieren
-                      </Tooltip.Content>
-                    </Tooltip>
+                    <IconTooltip label="Adresse kopieren">
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        className="text-foreground-muted hover:text-brand transition-colors"
+                        onPress={() => handleCopyAddress(ort)}>
+                        <Copy
+                          width={18}
+                          height={18}
+                        />
+                      </Button>
+                    </IconTooltip>
 
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:text-brand transition-colors"
-                          onPress={() => setEditingOrt(ort)}>
-                          <Pencil
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Bearbeiten
-                      </Tooltip.Content>
-                    </Tooltip>
+                    <IconTooltip label="Bearbeiten">
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        className="text-foreground-muted hover:text-brand transition-colors"
+                        onPress={() => setEditingOrt(ort)}>
+                        <Pencil
+                          width={18}
+                          height={18}
+                        />
+                      </Button>
+                    </IconTooltip>
 
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                          onPress={() => setDeletingOrt(ort)}>
-                          <TrashBin
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border text-danger rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Löschen
-                      </Tooltip.Content>
-                    </Tooltip>
+                    <IconTooltip
+                      label="Löschen"
+                      tone="danger">
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        className="text-foreground-muted hover:bg-danger/10 hover:text-danger transition-colors"
+                        onPress={() => setDeletingOrt(ort)}>
+                        <TrashBin
+                          width={18}
+                          height={18}
+                        />
+                      </Button>
+                    </IconTooltip>
                   </div>
                 </Table.Cell>
               </Table.Row>

@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 
-import { Tooltip } from "@heroui/react";
+import { IconTooltip } from "../../ui/IconTooltip";
 
 export default function SidemenuNavItem({
   href,
@@ -32,18 +32,12 @@ export default function SidemenuNavItem({
     </Link>
   );
 
-  if (isDesktopCollapsed) {
-    return (
-      <Tooltip delay={0}>
-        <Tooltip.Trigger>{linkElement}</Tooltip.Trigger>
-        <Tooltip.Content
-          placement="right"
-          className="bg-surface text-foreground border-border text-fluid-xs rounded-md border px-2.5 py-1 shadow-md">
-          {label}
-        </Tooltip.Content>
-      </Tooltip>
-    );
-  }
-
-  return linkElement;
+  return (
+    <IconTooltip
+      label={label}
+      placement="right"
+      isEnabled={isDesktopCollapsed}>
+      {linkElement}
+    </IconTooltip>
+  );
 }

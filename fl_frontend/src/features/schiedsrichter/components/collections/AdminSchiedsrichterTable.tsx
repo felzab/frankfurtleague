@@ -3,8 +3,9 @@ import Link from "next/link";
 
 import { Calendar, Copy, Pencil, Person, TrashBin } from "@gravity-ui/icons";
 
-import { Button, Table, toast, Tooltip } from "@heroui/react";
+import { Button, Table, toast } from "@heroui/react";
 
+import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLSchiedsrichter } from "../../schemas";
@@ -110,82 +111,56 @@ function AdminSchiedsrichterTable({
                 {/* 5. Aktionen */}
                 <Table.Cell className="px-6 py-4">
                   <div className="flex items-center justify-end gap-2">
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Link
-                          href={`/admin/spielsuche?q=${encodeURIComponent(schiedsrichter.name)}`}
-                          className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                          <Calendar
-                            width={18}
-                            height={18}
-                          />
-                        </Link>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Einsätze anzeigen
-                      </Tooltip.Content>
-                    </Tooltip>
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:text-brand transition-colors"
-                          onPress={() => handleCopyKontakt(schiedsrichter)}>
-                          <Copy
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Kontaktdaten kopieren
-                      </Tooltip.Content>
-                    </Tooltip>
+                    <IconTooltip label="Einsätze anzeigen">
+                      <Link
+                        href={`/admin/spielsuche?q=${encodeURIComponent(schiedsrichter.name)}`}
+                        className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
+                        <Calendar
+                          width={18}
+                          height={18}
+                        />
+                      </Link>
+                    </IconTooltip>
+                    <IconTooltip label="Kontaktdaten kopieren">
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        className="text-foreground-muted hover:text-brand transition-colors"
+                        onPress={() => handleCopyKontakt(schiedsrichter)}>
+                        <Copy
+                          width={18}
+                          height={18}
+                        />
+                      </Button>
+                    </IconTooltip>
 
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:text-brand transition-colors"
-                          onPress={() => setEditingSchiedsrichter(schiedsrichter)}>
-                          <Pencil
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Bearbeiten
-                      </Tooltip.Content>
-                    </Tooltip>
+                    <IconTooltip label="Bearbeiten">
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        className="text-foreground-muted hover:text-brand transition-colors"
+                        onPress={() => setEditingSchiedsrichter(schiedsrichter)}>
+                        <Pencil
+                          width={18}
+                          height={18}
+                        />
+                      </Button>
+                    </IconTooltip>
 
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                          onPress={() => setDeletingSchiedsrichter(schiedsrichter)}>
-                          <TrashBin
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border text-danger rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Löschen
-                      </Tooltip.Content>
-                    </Tooltip>
+                    <IconTooltip
+                      label="Löschen"
+                      tone="danger">
+                      <Button
+                        isIconOnly
+                        variant="ghost"
+                        className="text-foreground-muted hover:bg-danger/10 hover:text-danger transition-colors"
+                        onPress={() => setDeletingSchiedsrichter(schiedsrichter)}>
+                        <TrashBin
+                          width={18}
+                          height={18}
+                        />
+                      </Button>
+                    </IconTooltip>
                   </div>
                 </Table.Cell>
               </Table.Row>

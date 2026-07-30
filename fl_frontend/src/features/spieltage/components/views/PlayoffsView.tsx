@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import SpielDetailsModal from "@/features/spiele/components/modals/SpielDetailsModal";
 import SpielCardUltraCompact from "@/features/spiele/components/SpielCardUltraCompact";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
@@ -12,7 +13,19 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
   // 1. The Single Modal State
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
-  if (!playoffsSpieltage || playoffsSpieltage.length === 0) return null;
+  // Was `return null`, which rendered a completely blank content area — and this is the expected
+  // state for most of a season, because the playoff Spieltage do not exist until the group phase
+  // finishes (R4 §12.2).
+  if (!playoffsSpieltage || playoffsSpieltage.length === 0) {
+    return (
+      <div className="flex w-full flex-1 items-start justify-center p-6">
+        <EmptyState
+          title="Noch keine Finalrunden"
+          hint="Die Playoff-Paarungen werden festgelegt, sobald die Gruppenphase abgeschlossen ist."
+        />
+      </div>
+    );
+  }
 
   return (
     // FIX: Added flex-1 and pb-12 so it respects the same native scrolling flow as the other pages

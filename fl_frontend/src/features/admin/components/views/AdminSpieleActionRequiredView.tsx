@@ -4,6 +4,7 @@ import { ChevronsDownWide } from "@gravity-ui/icons";
 
 import { Accordion } from "@heroui/react";
 
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "../../utils";
@@ -61,9 +62,10 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
                       />
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-6 text-center">
-                      <p className="text-fluid-sm text-success font-bold">Keine Spiele in dieser Kategorie!</p>
-                    </div>
+                    <EmptyState
+                      tone="positive"
+                      title="Keine Spiele in dieser Kategorie!"
+                    />
                   )}
                 </Accordion.Body>
               </Accordion.Panel>

@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { getSpiele } from "../../queries";
@@ -35,12 +36,16 @@ export default async function RecentAndUpcomingSpieleGrid() {
           <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">Nächste Begegnungen</h2>
         </div>
 
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <SpielCardsList
-            spiele={upcomingSpieleRes.spiele}
-            today={today}
-          />
-        </div>
+        {upcomingSpieleRes.spiele.length === 0 ? (
+          <EmptyState title="Aktuell sind keine Spiele angesetzt." />
+        ) : (
+          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <SpielCardsList
+              spiele={upcomingSpieleRes.spiele}
+              today={today}
+            />
+          </div>
+        )}
       </div>
 
       {/* RECENT GAMES SECTION */}
@@ -51,12 +56,16 @@ export default async function RecentAndUpcomingSpieleGrid() {
           <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">Vergangene Spiele</h2>
         </div>
 
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <SpielCardsList
-            spiele={recentSpieleRes.spiele}
-            today={today}
-          />
-        </div>
+        {recentSpieleRes.spiele.length === 0 ? (
+          <EmptyState title="Es wurde noch kein Spiel ausgetragen." />
+        ) : (
+          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <SpielCardsList
+              spiele={recentSpieleRes.spiele}
+              today={today}
+            />
+          </div>
+        )}
       </div>
     </section>
   );

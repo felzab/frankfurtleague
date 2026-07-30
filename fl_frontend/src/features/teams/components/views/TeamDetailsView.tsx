@@ -9,6 +9,7 @@ import { Button, Card } from "@heroui/react";
 
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import { computeErgebnisFor } from "@/features/spiele/utils";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
 import { sortByDate } from "@/shared/utils/date";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
@@ -31,6 +32,17 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
         return "bg-muted text-foreground-muted ring-border";
     }
   };
+
+  // Without this the empty case renders the dashed rail with no items -- a bare vertical line
+  // under the "Saisonspiele" heading (R4 §12.2).
+  if (spiele.length === 0) {
+    return (
+      <EmptyState
+        title="Für diese Saison sind noch keine Spiele angesetzt."
+        hint="Sobald der Spielplan steht, erscheinen die Begegnungen dieses Teams hier."
+      />
+    );
+  }
 
   return (
     <div className="border-border relative ml-2 border-l-2 border-dashed">
