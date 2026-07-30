@@ -94,7 +94,7 @@ export default function FormSpielortSection({
     <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-3 shadow-sm lg:p-4">
       {isCreatingInline ? (
         <div
-          className="animate-appearance-in flex w-full flex-col gap-4 px-2"
+          className="animate-in fade-in slide-in-from-bottom-4 duration-400 flex w-full flex-col gap-4 px-2"
           onKeyDownCapture={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

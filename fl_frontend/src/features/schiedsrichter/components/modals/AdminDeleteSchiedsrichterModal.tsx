@@ -87,7 +87,7 @@ export function AdminDeleteSchiedsrichterModal({
                   wirklich löschen?
                 </p>
               ) : (
-                <div className="animate-appearance-in bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
                   <div className="text-danger flex items-center gap-2 font-bold">
                     <TriangleExclamation
                       width={18}

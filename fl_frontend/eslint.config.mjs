@@ -4,8 +4,8 @@ import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
-// Both new plugins light up against existing violations, so they land as `warn` and are
-// flipped to `error` by the wave that clears them (better-tailwindcss: Wave 5a, jsx-a11y: Wave 6).
+// jsx-a11y still lights up against existing violations, so it stays `warn` until Wave 6 clears it.
+// better-tailwindcss was flipped to `error` by Wave 5a and no longer goes through this helper.
 const asWarnings = (rules) =>
   Object.fromEntries(Object.entries(rules).map(([rule, value]) => [rule, Array.isArray(value) ? ["warn", ...value.slice(1)] : "warn"]));
 
@@ -79,7 +79,11 @@ const eslintConfig = defineConfig([
       "better-tailwindcss": { entryPoint: "src/app/globals.css", detectComponentClasses: true },
     },
     rules: {
-      "better-tailwindcss/no-unknown-classes": "warn",
+      // `error` as of Wave 5a. It is the only check in the toolchain that can see a class name
+      // resolving to nothing -- tsc, the Tailwind Prettier plugin and the browser all accept
+      // `bg-surface-muted` (R4 §6.3) and `animate-appearance-in` (a HeroUI v2 utility that did not
+      // survive v3) in silence, and both shipped.
+      "better-tailwindcss/no-unknown-classes": "error",
     },
   },
 

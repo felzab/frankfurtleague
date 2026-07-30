@@ -55,7 +55,7 @@ export default function AdminCreateSpielortForm({ onClose }: { onClose: () => vo
     <Form
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
       action={handleCreateSubmit}>
-      <div className="animate-appearance-in flex w-full flex-col gap-4 px-2">
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 flex w-full flex-col gap-4 px-2">
         <SpielortFormFields
           draft={draft}
           onChange={setDraft}
