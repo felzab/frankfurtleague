@@ -55,6 +55,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pytest>=8.4.2",
     "ruff>=0.15.21",
 ]
 
@@ -73,3 +74,11 @@ ignore = ["B008"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.pytest.ini_options]
+# importlib is pytest's recommended import mode for new suites: no sys.path manipulation, and test
+# modules sharing a basename across directories cannot collide. It is why tests/ needs no
+# __init__.py files.
+addopts = "--import-mode=importlib --strict-markers --strict-config -q"
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,86 @@
+"""
+The custom string types.
+
+The date test is the one that matters: DATE_REGEX alone accepts 2026-02-31 and 2026-04-31, because a
+regex cannot know how many days a month has. Wave 4 added a real calendar check behind it.
+"""
+
+import pytest
+from pydantic import BaseModel, ValidationError
+
+from app.shared.schemas.custom import CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString
+
+
+class _Date(BaseModel):
+    value: CustomDateString
+
+
+class _Time(BaseModel):
+    value: CustomTimeString
+
+
+class _Url(BaseModel):
+    value: CustomExternalUrl
+
+
+class _ObjectId(BaseModel):
+    value: CustomObjectId
+
+
+@pytest.mark.parametrize("value", ["2026-01-01", "2026-12-31", "2024-02-29", "2026-02-28"])
+def test_accepts_real_calendar_dates(value):
+    assert _Date.model_validate({"value": value}).value == value
+
+
+@pytest.mark.parametrize("value", ["2026-02-31", "2026-04-31", "2026-02-30", "2025-02-29"])
+def test_rejects_dates_that_pass_the_regex_but_do_not_exist(value):
+    with pytest.raises(ValidationError):
+        _Date.model_validate({"value": value})
+
+
+@pytest.mark.parametrize("value", ["2026-1-1", "26-01-01", "2026/01/01", "2026-13-01", "", "today"])
+def test_rejects_malformed_dates(value):
+    with pytest.raises(ValidationError):
+        _Date.model_validate({"value": value})
+
+
+@pytest.mark.parametrize("value", ["00:00:00", "09:05:00", "23:59:59"])
+def test_accepts_times_with_seconds(value):
+    assert _Time.model_validate({"value": value}).value == value
+
+
+# The frontend used to accept both of these and the backend never has, so the admin form could
+# submit a time the API answered with a 422. Wave 4 tightened the frontend to match; this pins the
+# backend side of that contract.
+@pytest.mark.parametrize("value", ["14:30", "14:30:00.5", "24:00:00", "14:60:00", "2:30:00"])
+def test_rejects_times_without_seconds_or_out_of_range(value):
+    with pytest.raises(ValidationError):
+        _Time.model_validate({"value": value})
+
+
+@pytest.mark.parametrize("value", ["https://example.com", "http://example.com/path", "https://sub.example.co.uk"])
+def test_accepts_http_and_https_urls(value):
+    assert _Url.model_validate({"value": value}).value == value
+
+
+# The scheme allowlist is a security control, not tidiness: website_url is rendered into an href on
+# a public page, and React renders javascript: without complaint (audit R3b S8.1).
+@pytest.mark.parametrize(
+    "value",
+    ["javascript:alert(1)", "data:text/html,<script>", "vbscript:x", "ftp://example.com", "example.com", "https://nodot"],
+)
+def test_rejects_non_http_schemes_and_bare_hosts(value):
+    with pytest.raises(ValidationError):
+        _Url.model_validate({"value": value})
+
+
+# Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects.
+def test_object_id_round_trips_as_a_24_hex_string():
+    parsed = _ObjectId.model_validate({"value": "6890a1b2c3d4e5f607182930"})
+    assert str(parsed.value) == "6890a1b2c3d4e5f607182930"
+
+
+@pytest.mark.parametrize("value", ["not-an-objectid", "6890a1b2c3d4e5f60718293", ""])
+def test_rejects_malformed_object_ids(value):
+    with pytest.raises(ValidationError):
+        _ObjectId.model_validate({"value": value})

@@ -7,15 +7,16 @@
 #   1. selfcheck.sh  — the scripts themselves (instant)
 #   2. pnpm verify   — types, lint, formatting, next build, unit tests (audit ledger Part 4)
 #   3. pnpm audit:prod — runtime dependency advisories only
-#   4. docker build  — BOTH images, which pnpm verify does not cover
-#   5. an image check — is instrumentation.js actually inside the frontend image?
+#   4. ruff + pytest  — fl_backend lint and schema-constraint tests (audit ledger BE-5)
+#   5. docker build  — BOTH images, which pnpm verify does not cover
+#   6. an image check — is instrumentation.js actually inside the frontend image?
 #
-# WHY STEPS 3 AND 4 EXIST:
+# WHY STEPS 5 AND 6 EXIST:
 #   `pnpm verify` has been green while the image was broken. Twice.
 #     - a module-scope read of AUTH_URL failed only in the builder stage, where there is no .env;
 #     - instrumentation.ts at the repo root compiled, passed every test, and was then dropped from
 #       output:"standalone" — silently disabling the startup env gate AND all production error
-#       logging. Step 4 is a one-command check for exactly that.
+#       logging. Step 6 is a one-command check for exactly that.
 #
 # USAGE:
 #   ./scripts/verify.sh           everything (the image build takes a few minutes)
@@ -54,6 +55,12 @@ if ( cd fl_frontend && pnpm audit:prod ); then
 else
   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit --prod"
 fi
+
+step "fl_backend  (ruff + pytest)"
+_py="$(venv_python)"
+( cd fl_backend && "$_py" -m ruff check app tests && "$_py" -m ruff format --check app tests )   || die "ruff failed in fl_backend. Fix with:  cd fl_backend && .venv/Scripts/python -m ruff format app tests"
+( cd fl_backend && "$_py" -m pytest ) || die "fl_backend tests failed."
+ok "backend lint and schema tests pass"
 
 if (( QUICK )); then
   printf '\n'; warn "Skipped the image build (--quick). Do NOT merge on this alone if you touched"

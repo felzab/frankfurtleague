@@ -6,7 +6,7 @@ Operational scripts for building, testing, running and deploying Frankfurt-Leagu
 
 | Script                         | Run on        | Purpose                                               |
 | ------------------------------ | ------------- | ----------------------------------------------------- |
-| `verify.sh`                    | any           | Full pre-merge gate: checks, tests, both image builds |
+| `verify.sh`                    | any           | Full pre-merge gate: checks, both test suites, both image builds |
 | `local.sh`                     | dev — Windows | Run the production image locally, behind nginx        |
 | `publish.sh`                   | dev — Windows | Build, tag with the commit, push to Docker Hub        |
 | `deploy.sh`                    | prod — Linux  | Pull and restart, verify health, roll back            |
@@ -60,10 +60,16 @@ Runs, cheapest-to-fail first:
 1. `selfcheck.sh` — the scripts themselves
 2. `pnpm verify` — types, lint, formatting, `next build`, unit tests
 3. `pnpm audit:prod` — runtime dependency advisories
-4. `docker build` — both images
-5. an image check — that `instrumentation.js` is present in the frontend image
+4. `ruff` + `pytest` — `fl_backend` lint and schema-constraint tests
+5. `docker build` — both images
+6. an image check — that `instrumentation.js` is present in the frontend image
 
-Steps 4 and 5 exist because `pnpm verify` cannot see packaging problems: code that compiles can still
+Step 4 exists because `pnpm verify` runs **nothing** against `fl_backend`. The backend holds ~40
+validation constraints that the frontend mirrors rather than enforces, and until this step they had
+no regression net at all — see [`fl_backend/tests/README.md`](../fl_backend/tests/README.md) and
+ledger row BE-5. It needs the backend virtualenv: `cd fl_backend && uv sync --dev`.
+
+Steps 5 and 6 exist because `pnpm verify` cannot see packaging problems: code that compiles can still
 fail to build inside the image, or be omitted from `output: "standalone"` entirely.
 
 > `--quick` is **not** sufficient before a merge that touches `src/core/config.ts`, `src/core/auth.ts`

@@ -117,6 +117,17 @@ require_platform() {
        See scripts/README.md for which script belongs to which environment."
 }
 
+# Absolute path to fl_backend's virtualenv interpreter. The venv layout differs by platform --
+# Scripts/python.exe on Windows, bin/python on Linux -- and verify.sh runs on both.
+venv_python() {
+  local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
+  local nix="${REPO_ROOT}/fl_backend/.venv/bin/python"
+  if   [[ -x "$win" ]]; then printf '%s' "$win"
+  elif [[ -x "$nix" ]]; then printf '%s' "$nix"
+  else die "No fl_backend virtualenv found. Create it with:  cd fl_backend && uv sync --dev"
+  fi
+}
+
 require_file() { [[ -f "$1" ]] || die "Missing required file: $1
        ${2:-}"; }
 require_dir()  { [[ -d "$1" ]] || die "Missing required directory: $1
