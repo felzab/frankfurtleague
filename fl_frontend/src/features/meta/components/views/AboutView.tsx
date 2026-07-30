@@ -15,21 +15,21 @@ export default function AboutView() {
     <div className="relative flex w-full flex-col items-center gap-y-12 text-left">
       {/** Headline */}
       <div className="flex flex-col items-center text-center">
-        <h2 className="text-fluid-2xl lg:text-fluid-3xl font-black tracking-tight text-white uppercase drop-shadow-md">
+        <h2 className="text-fluid-2xl lg:text-fluid-3xl font-black tracking-tight text-field-fg uppercase drop-shadow-md">
           About Frankfurt-League
         </h2>
-        <p className="text-fluid-sm mt-2 font-medium text-white/80">Alles auf dem Platz – von Schülern, für Schüler.</p>
+        <p className="text-fluid-sm mt-2 font-medium text-field-fg/80">Alles auf dem Platz – von Schülern, für Schüler.</p>
       </div>
 
       {/** Section 1: Unser Ziel */}
       <section className="flex w-full max-w-meta flex-col gap-y-4">
-        <div className="flex flex-row items-center gap-x-3 text-white">
+        <div className="flex flex-row items-center gap-x-3 text-field-fg">
           <StarFill className="size-6 drop-shadow lg:size-7" />
           <h3 className="text-fluid-lg font-extrabold tracking-wide uppercase">Unser Ziel</h3>
         </div>
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-6 shadow-xl backdrop-blur-sm lg:p-8">
-          <p className="text-fluid-sm leading-relaxed font-medium text-pretty text-white/95">
+          <p className="text-fluid-sm leading-relaxed font-medium text-pretty text-field-fg/95">
             Unser Ziel ist simpel: Die Finanzierung unserer Abschlussfeiern und Abibälle. Anstatt Geld über herkömmliche, wenig lukrative Wege
             zu sammeln, organisieren wir einen stadtweiten Ligabetrieb im Großfeldfußball. Jedes Spiel bringt durch Ticket- und Cateringverkäufe
             direkte Einnahmen für den ausrichtenden Jahrgang. Alles wird auf dem Platz geklärt – von Schülern, für Schüler.
@@ -39,7 +39,7 @@ export default function AboutView() {
 
       {/** Section 2: Das Regelwerk */}
       <section className="flex w-full max-w-meta flex-col gap-y-4">
-        <div className="flex flex-row items-center gap-x-3 text-white">
+        <div className="flex flex-row items-center gap-x-3 text-field-fg">
           <Book className="size-6 drop-shadow lg:size-7" />
           <h3 className="text-fluid-lg font-extrabold tracking-wide uppercase">Das Regelwerk (FAQ)</h3>
         </div>
@@ -51,10 +51,10 @@ export default function AboutView() {
               key={item.id}
               className="soccer-field-card-bg soccer-field-card-border overflow-hidden rounded-2xl border shadow-lg backdrop-blur-sm">
               <Accordion.Heading>
-                <Accordion.Trigger className="text-fluid-base flex w-full items-center justify-between gap-x-4 p-6 font-bold text-white transition-colors outline-none hover:bg-white/5">
+                <Accordion.Trigger className="text-fluid-base flex w-full items-center justify-between gap-x-4 p-6 font-bold text-field-fg transition-colors outline-none hover:bg-field-fg/5">
                   <span>{item.q}</span>
 
-                  <Accordion.Indicator className="text-white/60 transition-transform duration-200">
+                  <Accordion.Indicator className="text-field-fg/60 transition-transform duration-200">
                     <ChevronsDownWide
                       width={20}
                       height={20}
@@ -63,8 +63,8 @@ export default function AboutView() {
                 </Accordion.Trigger>
               </Accordion.Heading>
 
-              <Accordion.Panel className="border-t border-white/10">
-                <Accordion.Body className="p-6 leading-relaxed font-medium text-white/90">{item.a}</Accordion.Body>
+              <Accordion.Panel className="border-t border-field-fg/10">
+                <Accordion.Body className="p-6 leading-relaxed font-medium text-field-fg/90">{item.a}</Accordion.Body>
               </Accordion.Panel>
             </Accordion.Item>
           ))}
@@ -75,10 +75,10 @@ export default function AboutView() {
       <section className="w-full max-w-meta">
         <Card className="soccer-field-card-bg soccer-field-card-border rounded-2xl border shadow-2xl backdrop-blur-sm">
           <Card.Header className="flex items-center px-6 pt-6 pb-2">
-            <Card.Title className="text-fluid-base font-extrabold tracking-widest text-white uppercase">Aktive Schulen der Saison</Card.Title>
+            <Card.Title className="text-fluid-base font-extrabold tracking-widest text-field-fg uppercase">Aktive Schulen der Saison</Card.Title>
           </Card.Header>
           <Card.Content className="p-6">
-            <Suspense fallback={<span className="text-fluid-sm text-white/70">Teams laden...</span>}>
+            <Suspense fallback={<span className="text-fluid-sm text-field-fg/70">Teams laden...</span>}>
               <ParticipatingTeamsDisplay />
             </Suspense>
           </Card.Content>
@@ -106,10 +106,10 @@ async function ParticipatingTeamsDisplay() {
           teamShorthand={teamData.shorthand}
           teamIsDisqualified={teamData.is_disqualified}>
           <span
-            className={`text-fluid-xxs sm:text-fluid-xs inline-flex items-center rounded-xl border px-3.5 py-1.5 font-bold tracking-wide text-white uppercase shadow-sm transition-all duration-200 hover:scale-hover active:scale-95 ${
+            className={`text-fluid-xxs sm:text-fluid-xs inline-flex items-center rounded-xl border px-3.5 py-1.5 font-bold tracking-wide text-field-fg uppercase shadow-sm transition-all duration-200 hover:scale-hover active:scale-95 ${
               teamData.is_disqualified
                 ? "bg-danger/80 border-danger/40"
-                : "border-white/25 bg-white/10 backdrop-blur-md hover:border-white/50 hover:bg-white/20"
+                : "border-field-fg/25 bg-field-fg/10 backdrop-blur-md hover:border-field-fg/50 hover:bg-field-fg/20"
             }`}>
             {teamData.name}
           </span>

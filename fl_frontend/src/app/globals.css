@@ -36,6 +36,17 @@
     --accent-phase-quarter: oklch(45.7% 0.24 277.023);
     --accent-phase-semi: oklch(49.6% 0.265 301.924);
     --accent-phase-final: oklch(51.4% 0.222 16.935);
+
+    /* The soccer-field motif on /about, /team and /kontakt. Those three pages stay green in both
+       themes -- that is the design, not an oversight -- but until these tokens existed the decision
+       was spread across 40 `text-white` / `bg-emerald-*` literals in four files, so the token layer
+       had no reach into three of the nine public routes. Now it is these four lines.
+       --field-base/--field-card are Tailwind's emerald 700/800 verbatim. */
+    --field-base: oklch(50.8% 0.118 165.612);
+    --field-card: oklch(43.2% 0.095 166.913);
+    --field-fg: #ffffff;
+    /* Alpha lives in the token because this is the one field value that differs per theme. */
+    --field-border: color-mix(in srgb, #ffffff 40%, transparent);
   }
 
   [data-theme="dark"] {
@@ -63,6 +74,12 @@
     --accent-phase-quarter: oklch(67.3% 0.182 276.935);
     --accent-phase-semi: oklch(71.4% 0.203 305.504);
     --accent-phase-final: oklch(71.2% 0.194 13.428);
+
+    /* Deeper greens for the dark theme; the foreground stays white because the surface stays green. */
+    --field-base: #0b3820;
+    --field-card: #124529;
+    --field-fg: #ffffff;
+    --field-border: color-mix(in srgb, #ffffff 20%, transparent);
   }
 }
 
@@ -123,6 +140,10 @@ Possible shimmer animation for landing page
   --color-phase-quarter: var(--accent-phase-quarter);
   --color-phase-semi: var(--accent-phase-semi);
   --color-phase-final: var(--accent-phase-final);
+  --color-field-base: var(--field-base);
+  --color-field-card: var(--field-card);
+  --color-field-fg: var(--field-fg);
+  --color-field-border: var(--field-border);
 
   /** Fluid text sizes */
   /* 10px to 12px */
@@ -168,6 +189,7 @@ Possible shimmer animation for landing page
   --container-page: 1400px; /* dashboard + admin content */
   --container-toolbar: 1200px; /* sticky tab and search bars */
   --container-meta: 1100px; /* meta pages */
+  --container-field: 1500px; /* the soccer-field backdrop, which frames the meta pages */
 
   /* Custom sizes */
   --navbar-height: 54px;
@@ -245,13 +267,14 @@ Possible shimmer animation for landing page
     @apply hidden!;
   }
 
-  /* Soccer Field Graphics - Balanced Professional Middle Ground */
+  /* Soccer Field Graphics - Balanced Professional Middle Ground.
+     Built on --color-field-* so the motif is one decision rather than 40 literals. */
   .soccer-field-base {
-    @apply relative h-full min-h-[120dvh] w-full max-w-[1500px] flex-1 overflow-hidden border-[3px] border-white/85 bg-emerald-700 shadow-2xl dark:bg-[#0b3820];
+    @apply border-field-fg/85 bg-field-base relative h-full min-h-[120dvh] w-full max-w-field flex-1 overflow-hidden border-[3px] shadow-2xl;
   }
 
   .corner-arc-base {
-    @apply absolute h-14 w-14 border-white/85 lg:h-20 lg:w-20;
+    @apply border-field-fg/85 absolute h-14 w-14 lg:h-20 lg:w-20;
   }
 
   .corner-arc-tl {
@@ -271,7 +294,7 @@ Possible shimmer animation for landing page
   }
 
   .penalty-area-base {
-    @apply absolute left-1/3 h-16 w-1/3 border-r-[3px] border-l-[3px] border-white/85 sm:h-24 xl:h-36 xl:border-r-[4px] xl:border-l-[4px];
+    @apply border-field-fg/85 absolute left-1/3 h-16 w-1/3 border-r-[3px] border-l-[3px] sm:h-24 xl:h-36 xl:border-r-[4px] xl:border-l-[4px];
   }
 
   .penalty-area-top {
@@ -283,14 +306,14 @@ Possible shimmer animation for landing page
   }
 
   .soccer-field-separator {
-    @apply my-4 h-[2px] w-full bg-white/25;
+    @apply bg-field-fg/25 my-4 h-[2px] w-full;
   }
 
   .soccer-field-card-bg {
-    @apply bg-emerald-800/90 backdrop-blur-md dark:bg-[#124529]/90;
+    @apply bg-field-card/90 backdrop-blur-md;
   }
 
   .soccer-field-card-border {
-    @apply border-white/40 dark:border-white/20;
+    @apply border-field-border;
   }
 }

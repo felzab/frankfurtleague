@@ -64,26 +64,26 @@ export default function KontaktView() {
   };
 
   return (
-    <div className="flex w-full max-w-toolbar flex-col items-center gap-y-4 text-left sm:gap-y-8">
+    <div className="flex w-full max-w-meta flex-col items-center gap-y-4 text-left sm:gap-y-8">
       {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
-        <h2 className="text-fluid-2xl sm:text-fluid-2xl lg:text-fluid-3xl font-black tracking-tight text-white uppercase drop-shadow-md">
+        <h2 className="text-fluid-2xl sm:text-fluid-2xl lg:text-fluid-3xl font-black tracking-tight text-field-fg uppercase drop-shadow-md">
           Frankfurt-League Kontakt
         </h2>
-        <p className="text-fluid-sm sm:text-fluid-sm mt-2 font-medium text-white/80">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
+        <p className="text-fluid-sm sm:text-fluid-sm mt-2 font-medium text-field-fg/80">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
       </div>
 
       <div className="soccer-field-separator w-full" />
 
       {/** Section 1: Offenheit */}
       <section className="flex w-full flex-col gap-y-3 sm:gap-y-4">
-        <div className="flex flex-row items-center gap-x-3 text-white">
+        <div className="flex flex-row items-center gap-x-3 text-field-fg">
           <ArrowsExpand className="size-5 drop-shadow sm:size-6 lg:size-7" />
           <h3 className="text-fluid-base sm:text-fluid-lg font-extrabold tracking-wide uppercase">Wir sind für alles offen</h3>
         </div>
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-5 shadow-xl sm:p-6 lg:p-8">
-          <p className="text-fluid-xs sm:text-fluid-sm leading-relaxed font-medium text-pretty text-white/95">
+          <p className="text-fluid-xs sm:text-fluid-sm leading-relaxed font-medium text-pretty text-field-fg/95">
             Fragen, Verbesserungsvorschläge oder Anregungen zur Liga? Kontaktiere uns gern über einen der folgenden Wege. Wir melden uns
             schnellstmöglich bei Dir!
           </p>
@@ -100,16 +100,16 @@ export default function KontaktView() {
             className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl backdrop-blur-md sm:p-6">
             <div>
               <Card.Header className="flex flex-row items-center gap-x-3.5 p-0 sm:gap-x-4">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10 p-2 shadow-inner sm:size-12">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-field-fg/10 p-2 shadow-inner sm:size-12">
                   {getIcon(channel.id)}
                 </div>
-                <div className="text-fluid-sm sm:text-fluid-base font-extrabold tracking-wider text-white uppercase">{channel.name}</div>
+                <div className="text-fluid-sm sm:text-fluid-base font-extrabold tracking-wider text-field-fg uppercase">{channel.name}</div>
               </Card.Header>
 
               <div className="soccer-field-separator my-3 sm:my-4" />
 
               <Card.Content className="p-0">
-                <span className="text-fluid-sm font-mono font-bold tracking-tight break-all text-white/90">{channel.value}</span>
+                <span className="text-fluid-sm font-mono font-bold tracking-tight break-all text-field-fg/90">{channel.value}</span>
               </Card.Content>
             </div>
 
@@ -118,7 +118,7 @@ export default function KontaktView() {
                 href={channel.action}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-fluid-xs flex w-full items-center justify-center rounded-xl border border-white/30 bg-white/10 py-3 font-bold text-white uppercase backdrop-blur-sm transition-all duration-200 hover:border-white hover:bg-white/25 active:scale-95">
+                className="text-fluid-xs flex w-full items-center justify-center rounded-xl border border-field-fg/30 bg-field-fg/10 py-3 font-bold text-field-fg uppercase backdrop-blur-sm transition-all duration-200 hover:border-field-fg hover:bg-field-fg/25 active:scale-95">
                 Jetzt kontaktieren
               </Link>
             </Card.Footer>
