@@ -4,11 +4,14 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
 // See SpielStatusChip for why all three maps live at module scope. This one mattered more: the icon
 // map allocated four <svg> elements holding 17 children on every render to use one of them.
+// The tint is the label colour at 10%, not 15%: one token has to serve both roles here, and at /15
+// the deeper tint pulled `gruppenphase` and `finale` to 4.39:1 and 4.46:1 in the light theme —
+// below AA, and below what the two-value raw-palette version managed. /10 restores 4.72 and 4.87.
 const PHASE_CLASSES: Record<FLSaisonPhase, string> = {
-  gruppenphase: "bg-phase-group/15 text-phase-group",
-  viertelfinale: "bg-phase-quarter/15 text-phase-quarter",
-  halbfinale: "bg-phase-semi/15 text-phase-semi",
-  finale: "bg-phase-final/15 text-phase-final",
+  gruppenphase: "bg-phase-group/10 text-phase-group",
+  viertelfinale: "bg-phase-quarter/10 text-phase-quarter",
+  halbfinale: "bg-phase-semi/10 text-phase-semi",
+  finale: "bg-phase-final/10 text-phase-final",
 };
 
 const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {

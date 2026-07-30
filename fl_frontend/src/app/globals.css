@@ -28,6 +28,16 @@
     --accent-success: #16a34a;
     --accent-info: #2563eb;
 
+    /* Text-grade companions to the four feedback accents, in the same relationship as
+       --accent-brand-solid is to --accent-brand: the accents above are tuned for FILLS and icons,
+       and are too light to carry small bold text on a light surface. Measured on a /15 tint over
+       --bg-surface: `text-success` is 2.58:1 and `text-warning` 1.61:1, versus 4.29 and 4.22 for
+       these. Use `-strong` for any text on a tinted background; use the plain accent for fills. */
+    --accent-success-strong: #047857;
+    --accent-info-strong: #1d4ed8;
+    --accent-warn-strong: #b45309;
+    --accent-danger-strong: #b91c1c;
+
     /* Tournament rounds. The four phases are an ordered sequence, not a semantic state, so none of
        the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
        palette. Values are Tailwind's sky/indigo/purple/rose 700 verbatim, i.e. exactly what the chip
@@ -69,6 +79,12 @@
     --accent-success: #22c55e;
     --accent-info: #3b82f6;
 
+    /* On dark surfaces the relationship inverts: the text variant is LIGHTER than the fill accent. */
+    --accent-success-strong: #34d399;
+    --accent-info-strong: #60a5fa;
+    --accent-warn-strong: #fbbf24;
+    --accent-danger-strong: #f87171;
+
     /* Tailwind's sky/indigo/purple/rose 400 -- the values the chip's `dark:` escapes used. */
     --accent-phase-group: oklch(74.6% 0.16 232.661);
     --accent-phase-quarter: oklch(67.3% 0.182 276.935);
@@ -106,6 +122,10 @@
   --color-danger: var(--accent-danger);
   --color-success: var(--accent-success);
   --color-info: var(--accent-info);
+  --color-warning-strong: var(--accent-warn-strong);
+  --color-danger-strong: var(--accent-danger-strong);
+  --color-success-strong: var(--accent-success-strong);
+  --color-info-strong: var(--accent-info-strong);
   --color-phase-group: var(--accent-phase-group);
   --color-phase-quarter: var(--accent-phase-quarter);
   --color-phase-semi: var(--accent-phase-semi);

@@ -11,12 +11,16 @@ import type { FLSpielStatus } from "../../schemas";
 //
 // Record<FLSpielStatus, ...> is what makes them exhaustive, so a backend enum change is a compile
 // error here rather than a raw API value appearing in the UI.
+// Tint from the feedback accent, label from its `-strong` companion. The plain accent is a fill
+// colour: as small bold text on its own 15% tint it measures 2.58:1 (success) and 1.61:1 (warning)
+// in the light theme. `-strong` restores 4.29-5.02:1, i.e. the contrast this chip had before it was
+// tokenised. See the ledger's NEW-C1 for the two states that are still short of AA.
 const STATUS_CLASSES: Record<FLSpielStatus, string> = {
-  vergangen: "bg-success/15 text-success",
-  heute: "bg-info/15 text-info",
-  ausstehend: "bg-warning/15 text-warning",
+  vergangen: "bg-success/15 text-success-strong",
+  heute: "bg-info/15 text-info-strong",
+  ausstehend: "bg-warning/15 text-warning-strong",
   unbekannt: "bg-muted text-foreground-muted",
-  abgesagt: "bg-danger/15 text-danger",
+  abgesagt: "bg-danger/15 text-danger-strong",
 };
 
 const STATUS_ICONS: Record<FLSpielStatus, React.ReactElement> = {
