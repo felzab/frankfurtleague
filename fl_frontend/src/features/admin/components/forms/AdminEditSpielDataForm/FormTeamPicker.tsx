@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Autocomplete, Description, Input, Label, ListBox, SearchField, TextField, useFilter } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
+import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
@@ -68,7 +69,7 @@ export function FormTeamPicker({
         onChange={handleTeamSelection}
         disabledKeys={disabledTeamId ? [disabledTeamId] : []}>
         <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
-        <Autocomplete.Trigger className="border-border bg-surface text-foreground rounded-lg border px-3 py-2">
+        <Autocomplete.Trigger className={FIELD_INPUT}>
           <Autocomplete.Value className="text-fluid-sm" />
           <Autocomplete.ClearButton type="button" />
           <Autocomplete.Indicator />
@@ -116,7 +117,7 @@ export function FormTeamPicker({
           <Label className="text-fluid-xs text-foreground font-bold">TBD Beschreibung</Label>
           <Input
             placeholder="z.B. Sieger 26."
-            className="border-border bg-surface text-foreground text-fluid-sm rounded-lg border px-3 py-2"
+            className={FIELD_INPUT}
           />
           <Description className="text-fluid-xxs text-foreground-muted">
             Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.

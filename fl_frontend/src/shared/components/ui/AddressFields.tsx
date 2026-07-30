@@ -2,6 +2,8 @@
 
 import { Input, Label, TextField } from "@heroui/react";
 
+import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+
 import type { FLAddress } from "@/shared/schemas";
 
 export default function AddressFields({ value, onChange }: { value: FLAddress; onChange: (newValue: FLAddress) => void }) {
@@ -19,7 +21,7 @@ export default function AddressFields({ value, onChange }: { value: FLAddress; o
           <Input
             value={value.strasse}
             onChange={(e) => updateField("strasse", e.target.value)}
-            className="border-border bg-surface text-fluid-sm text-foreground focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
+            className={FIELD_INPUT}
           />
         </TextField>
         <TextField
@@ -29,7 +31,7 @@ export default function AddressFields({ value, onChange }: { value: FLAddress; o
           <Input
             value={value.hausnummer}
             onChange={(e) => updateField("hausnummer", e.target.value)}
-            className="border-border bg-surface text-fluid-sm text-foreground focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
+            className={FIELD_INPUT}
           />
         </TextField>
       </div>
@@ -42,7 +44,7 @@ export default function AddressFields({ value, onChange }: { value: FLAddress; o
           <Input
             value={value.plz}
             onChange={(e) => updateField("plz", e.target.value)}
-            className="border-border bg-surface text-fluid-sm text-foreground focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
+            className={FIELD_INPUT}
           />
         </TextField>
         <TextField
@@ -52,7 +54,7 @@ export default function AddressFields({ value, onChange }: { value: FLAddress; o
           <Input
             value={value.stadt}
             onChange={(e) => updateField("stadt", e.target.value)}
-            className="border-border bg-surface text-foreground text-fluid-sm focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
+            className={FIELD_INPUT}
           />
         </TextField>
       </div>
@@ -63,7 +65,7 @@ export default function AddressFields({ value, onChange }: { value: FLAddress; o
           placeholder="z.B. Nordend"
           value={value.stadtteil}
           onChange={(e) => updateField("stadtteil", e.target.value)}
-          className="border-border bg-surface text-fluid-sm text-foreground focus:border-brand rounded-lg border px-3 py-2 transition-all outline-none"
+          className={FIELD_INPUT}
         />
       </TextField>
     </div>

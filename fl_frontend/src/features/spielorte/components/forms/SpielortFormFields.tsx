@@ -3,6 +3,7 @@
 import { Input, Label, NumberField, TextField } from "@heroui/react";
 
 import AddressFields from "@/shared/components/ui/AddressFields";
+import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 
 import type { SpielortDraft } from "../../types";
 
@@ -15,7 +16,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
           placeholder="z.B. Sportpark Nord"
           value={draft.name}
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
-          className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
+          className={FIELD_INPUT}
         />
       </TextField>
 

@@ -5,6 +5,7 @@ import { Check, Plus, Xmark } from "@gravity-ui/icons";
 import { Autocomplete, Button, Description, Label, ListBox, SearchField, toast, useFilter } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
+import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 
 import { submitInlineOnEnter } from "./suppressEnterSubmit";
 
@@ -139,7 +140,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
             value={selectedId}
             onChange={onSelect}>
             <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
-            <Autocomplete.Trigger className="border-border bg-surface text-foreground rounded-lg border px-3 py-2">
+            <Autocomplete.Trigger className={FIELD_INPUT}>
               <Autocomplete.Value className="text-fluid-sm" />
               <Autocomplete.ClearButton type="button" />
               <Autocomplete.Indicator />

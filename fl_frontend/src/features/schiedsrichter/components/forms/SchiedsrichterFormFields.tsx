@@ -2,6 +2,8 @@
 
 import { Input, Label, NumberField, TextField } from "@heroui/react";
 
+import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+
 import type { SchiedsrichterDraft } from "../../types";
 
 export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
@@ -20,7 +22,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           placeholder="z.B. Pierluigi Collina"
           value={draft.name}
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
-          className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
+          className={FIELD_INPUT}
         />
       </TextField>
 
@@ -31,7 +33,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           placeholder="z.B. Goethe-Gymnasium"
           value={draft.schule ?? ""}
           onChange={(e) => onChange({ ...draft, schule: e.target.value })}
-          className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
+          className={FIELD_INPUT}
         />
       </TextField>
 
@@ -42,7 +44,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           placeholder="z.B. ref@beispiel.de"
           value={draft.kontakt.email ?? ""}
           onChange={(e) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: e.target.value } })}
-          className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
+          className={FIELD_INPUT}
         />
       </TextField>
 
@@ -53,7 +55,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           placeholder="z.B. 0151 12345678"
           value={draft.kontakt.telefon ?? ""}
           onChange={(e) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: e.target.value } })}
-          className="border-border text-fluid-sm bg-surface text-foreground rounded-lg border px-3 py-2"
+          className={FIELD_INPUT}
         />
       </TextField>
 

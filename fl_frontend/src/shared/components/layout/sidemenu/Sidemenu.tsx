@@ -1,13 +1,12 @@
 "use client";
 
 import React, { Suspense, useState } from "react";
-import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import { Separator } from "@heroui/react";
 
-import { FLLogo } from "../../ui/FLLogo";
 import SidemenuDesktopHeader from "./SidemenuDesktopHeader";
+import SidemenuDrawerHeader from "./SidemenuDrawerHeader";
 import SidemenuFooter from "./SidemenuFooter";
 import SidemenuMobileHeader from "./SidemenuMobileHeader";
 import SidemenuNavItem from "./SidemenuNavItem";
@@ -73,35 +72,7 @@ export default function Sidemenu<TIcon extends string>({
         } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${isDesktopCollapsed ? "lg:w-sidemenu-collapsed" : "w-sidemenu"}`}>
         <SidemenuDesktopHeader isDesktopCollapsed={isDesktopCollapsed} />
 
-        {/* MOBILE DRAWER HEADER */}
-        <div className="border-border flex h-14 shrink-0 items-center justify-between border-b px-4 lg:hidden">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="bg-brand-solid text-brand-solid-foreground flex h-7 w-7 items-center justify-center rounded text-[10px] font-bold shadow-sm">
-              <FLLogo />
-            </Link>
-            <span className="text-fluid-sm truncate font-semibold">Frankfurt-League</span>
-          </div>
-          <button
-            onClick={() => setIsMobileOpen(false)}
-            className="text-foreground-muted hover:bg-muted hover:text-foreground -mr-1 rounded-md p-1.5 transition-colors"
-            aria-label="Close Menu">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="h-5 w-5">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
+        <SidemenuDrawerHeader onClose={() => setIsMobileOpen(false)} />
 
         {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">

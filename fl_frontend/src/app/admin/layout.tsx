@@ -6,7 +6,7 @@ import { getAdminSession } from "@/core/auth";
 import AdminSidemenu from "@/features/admin/components/AdminSidemenu";
 import AdminContextWrapper from "@/features/admin/components/providers/AdminContextWrapper";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
-import PageLoader from "@/shared/components/ui/PageLoader";
+import { ShellSkeleton } from "@/shared/components/ui/ShellSkeleton";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Second layer behind proxy.ts. Nothing else under /admin calls auth(), so before this the whole
@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AdminSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
       <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">
-        <Suspense fallback={<PageLoader />}>
+        <Suspense fallback={<ShellSkeleton />}>
           <AdminContextWrapper>{children}</AdminContextWrapper>
         </Suspense>
       </main>
