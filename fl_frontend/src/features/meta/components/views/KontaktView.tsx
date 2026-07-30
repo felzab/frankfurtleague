@@ -29,24 +29,13 @@ export default function KontaktView() {
         );
       case "threads":
         return (
-          <>
-            <Image
-              src={"/icons/footer/threads/threads_logo_black.svg"}
-              alt="Threads logo link"
-              width={32}
-              height={32}
-              title="Threads logo link"
-              className="block dark:hidden"
-            />
-            <Image
-              src={"/icons/footer/threads/threads_logo_white.svg"}
-              alt="Threads logo link"
-              width={32}
-              height={32}
-              title="Threads logo link"
-              className="hidden dark:block"
-            />
-          </>
+          // bg-field-fg, not bg-foreground as in the Footer: this icon sits on the green field card,
+          // where the foreground is always white. The light-theme variant used to render the BLACK
+          // logo here, on emerald.
+          <span
+            aria-hidden="true"
+            className="bg-field-fg size-8 [mask-image:url('/icons/footer/threads/threads_logo_black.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+          />
         );
       case "whatsapp":
         return (

@@ -64,19 +64,13 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
               rel="noopener noreferrer"
               aria-label="Threads Profile"
               className="transition-opacity hover:opacity-80">
-              <Image
-                src="/icons/footer/threads/threads_logo_black.svg"
-                alt="Threads logo"
-                width={24}
-                height={24}
-                className="block size-6 dark:hidden"
-              />
-              <Image
-                src="/icons/footer/threads/threads_logo_white.svg"
-                alt="Threads logo"
-                width={24}
-                height={24}
-                className="hidden size-6 dark:block"
+              {/* One masked element instead of a light/dark <Image> pair: both assets were in the
+                  DOM and both were fetched, and the mask takes its colour from bg-foreground, which
+                  flips with the theme on its own. The span is decorative — the link above it
+                  already carries the accessible name. */}
+              <span
+                aria-hidden="true"
+                className="bg-foreground size-6 [mask-image:url('/icons/footer/threads/threads_logo_black.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
               />
             </Link>
 
@@ -88,19 +82,9 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
               rel="noopener noreferrer"
               aria-label="GitHub Profile"
               className="transition-opacity hover:opacity-80">
-              <Image
-                src="/icons/footer/github/github_logo_black.svg"
-                alt="GitHub logo"
-                width={24}
-                height={24}
-                className="block size-6 dark:hidden"
-              />
-              <Image
-                src="/icons/footer/github/github_logo_white.svg"
-                alt="GitHub logo"
-                width={24}
-                height={24}
-                className="hidden size-6 dark:block"
+              <span
+                aria-hidden="true"
+                className="bg-foreground size-6 [mask-image:url('/icons/footer/github/github_logo_black.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
               />
             </Link>
 
