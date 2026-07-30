@@ -2,15 +2,7 @@
 
 import { Input, Label, NumberField, TextField } from "@heroui/react";
 
-export interface SchiedsrichterDraft {
-  name: string;
-  schule: string | null;
-  default_payment: number;
-  kontakt: {
-    telefon: string | null;
-    email: string | null;
-  };
-}
+import type { SchiedsrichterDraft } from "../../types";
 
 export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
   draft,
