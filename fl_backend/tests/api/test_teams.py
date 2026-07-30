@@ -8,7 +8,7 @@ attention here: it must always emit all four groups, and must refuse a team it c
 import pytest
 from pydantic import ValidationError
 
-from app.api.teams.schemas import FLGruppen, FLTeam, FLTeamCompact
+from app.api.teams.schemas import FLGruppen, FLTeam, FLTeamCompact, FLTeamsGroupedResponse
 
 
 def test_accepts_a_valid_team(team):
@@ -61,9 +61,21 @@ def test_rejects_a_shorthand_that_is_not_two_characters(team, shorthand):
         FLTeam.model_validate(team(shorthand=shorthand))
 
 
-def test_compact_team_shares_the_name_constraint(team):
-    with pytest.raises(ValidationError):
-        FLTeamCompact.model_validate(team(name=""))
+class TestFLTeamCompact:
+    """
+    The compact projection. It needs its own positive baseline: without one, the rejection test
+    below would keep passing if the fixture stopped satisfying FLTeamCompact for some unrelated
+    reason, and the constraint it names would go untested.
+    """
+
+    def test_accepts_the_team_fixture(self, team):
+        parsed = FLTeamCompact.model_validate(team())
+
+        assert parsed.name == "Carl-Schurz"
+        assert parsed.shorthand == "CS"
+
+    def test_shares_the_name_constraint(self, team, assert_rejects):
+        assert_rejects(FLTeamCompact, team(name=""), "name")
 
 
 class TestFLGruppen:
@@ -90,6 +102,19 @@ class TestFLGruppen:
 
         assert sorted(grouped.root) == ["A", "B", "C", "D"]
         assert all(members == [] for members in grouped.root.values())
+
+    # The tests above read `.root`. What actually broke /dashboard/saisontabelle was the SERIALISED
+    # body -- the frontend's FLGruppenSchema parses the response, not the Python object -- so this
+    # pins the wire shape end to end, through the response model the route really returns.
+    def test_the_serialised_response_body_carries_all_four_groups(self, team):
+        response = FLTeamsGroupedResponse(gruppen=FLGruppen.from_teams([FLTeam.model_validate(team(gruppe="A"))]))
+
+        body = response.model_dump()
+
+        assert sorted(body["gruppen"]) == ["A", "B", "C", "D"]
+        assert body["gruppen"]["B"] == []
+        assert body["acknowledged"] == 1
+        assert body["format"] == "grouped"
 
     def test_sorts_each_group_by_points_then_goal_difference(self, team, statistik):
         weak = FLTeam.model_validate(team(name="Weak", statistik=statistik(punkte=1)))

@@ -9,10 +9,12 @@ Payloads are keyed the way MongoDB serves them — `_id`, not `id` — because t
 alias the models declare and therefore the shape they are actually validated against in production.
 """
 
+import copy
 from collections.abc import Callable
 from typing import Any
 
 import pytest
+from pydantic import BaseModel, ValidationError
 
 # 24-hex ObjectId strings. Fixed rather than generated: a failing test should point at the same
 # value every run.
@@ -27,14 +29,53 @@ PayloadFactory = Callable[..., dict[str, Any]]
 
 
 def _factory(base: dict[str, Any]) -> PayloadFactory:
-    """Returns a callable producing a deep-enough copy of `base`, with `**overrides` applied."""
+    """
+    Returns a callable producing a fresh copy of `base`, with `**overrides` applied.
+
+    `deepcopy`, not a one-level dict comprehension: no fixture nests a dict inside a dict *today*,
+    so one level happens to be enough, but the first time one does (an `address` inside
+    `spiel_ort_field`, say) two calls in the same test would share the inner object and a mutation
+    to one would be visible in the other. Copying properly costs nothing at this size.
+    """
 
     def make(**overrides: Any) -> dict[str, Any]:
-        payload = {key: (dict(value) if isinstance(value, dict) else value) for key, value in base.items()}
+        payload = copy.deepcopy(base)
         payload.update(overrides)
         return payload
 
     return make
+
+
+RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationError]
+
+
+@pytest.fixture
+def assert_rejects() -> RejectsAssertion:
+    """
+    Assert a payload fails validation **because of a named field**, and return the error.
+
+    A bare `pytest.raises(ValidationError)` passes whatever went wrong, so a test meant to prove one
+    constraint can be satisfied by an unrelated typo in the payload — it stays green while the
+    constraint it names goes unenforced. Use this wherever more than one field could plausibly fail,
+    and always where the payload is hand-built rather than produced by a factory.
+
+    A fixture rather than a module-level function because `--import-mode=importlib` does not put
+    `conftest` on `sys.path`; fixtures are how pytest shares helpers without an import.
+
+    The field is matched against the last element of the error location, so nested payloads work
+    (`("ort", "mietpreis")` matches `"mietpreis"`) without the caller spelling out the path.
+    """
+
+    def _assert(model: type[BaseModel], payload: dict[str, Any], field: str) -> ValidationError:
+        with pytest.raises(ValidationError) as excinfo:
+            model.model_validate(payload)
+
+        failed = [str(error["loc"][-1]) for error in excinfo.value.errors() if error["loc"]]
+        assert field in failed, f"expected {model.__name__} to reject {field!r}, but the failing field(s) were {failed}"
+
+        return excinfo.value
+
+    return _assert
 
 
 @pytest.fixture

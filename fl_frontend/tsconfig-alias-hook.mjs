@@ -43,14 +43,25 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     if (!specifier.startsWith(ALIAS)) return nextResolve(specifier, context);
 
+    // No containment check against SRC_DIR on purpose: `@/../package.json` resolving outside src/
+    // is exactly what tsconfig's `paths` substitution does, and this hook exists to mirror tsconfig.
+    // Rejecting it here would make the two disagree, which is worse than allowing a path nobody
+    // writes.
     const base = path.join(SRC_DIR, specifier.slice(ALIAS.length));
     for (const suffix of CANDIDATE_SUFFIXES) {
       const candidate = base + suffix;
       if (isFile(candidate)) return { url: pathToFileURL(candidate).href, shortCircuit: true };
     }
 
-    // Fall through rather than throw, so an unresolvable alias reports Node's own error naming the
-    // original specifier instead of a rewritten path nobody wrote.
-    return nextResolve(specifier, context);
+    // Throw rather than fall through. Node's own error for an unresolved "@/..." is
+    // `Cannot find package '@/shared'`, which sends the reader looking for a missing dependency --
+    // the one thing it is not. Name the specifier, where it was imported from, and what was tried.
+    const tried = CANDIDATE_SUFFIXES.map((suffix) => path.relative(import.meta.dirname, base + suffix)).join(", ");
+    throw new Error(
+      `Cannot resolve "${specifier}"` +
+        (context.parentURL ? ` imported from ${context.parentURL}` : "") +
+        `\n  The "@/*" alias maps to src/*. None of these files exist: ${tried}` +
+        `\n  (resolved by tsconfig-alias-hook.mjs, which teaches \`node --test\` the tsconfig path alias)`,
+    );
   },
 });

@@ -57,6 +57,25 @@ recommended mode for new suites, which needs none and cannot suffer same-basenam
 - **Comments explain the *why*, not the assertion.** Where a constraint exists because of a specific
   defect, the test says so — see `test_spiele.py`'s `ergebnis` cases, which document the value that
   used to render as a loss for both teams.
+- **Assert *which* field failed when more than one could.** A bare `pytest.raises(ValidationError)`
+  passes whatever went wrong, so a test can stay green while the constraint it names goes
+  unenforced. The `assert_rejects` fixture takes the model, the payload and the field, and fails
+  with the list of fields that actually failed. Use it wherever the payload is hand-built rather
+  than produced by a factory.
+
+## When something fails
+
+The output is configured to tell you where, not just that:
+
+- `-ra` prints a reason line per non-passing test, so failures are named in the summary rather than
+  only in the scrollback.
+- `--showlocals` includes the fixture values in the traceback — you see the exact payload that
+  produced the failure, not just the assertion.
+- `-q` is deliberately **not** used: quiet mode suppresses precisely that detail, and the suite runs
+  in well under a second, so verbosity costs nothing.
+
+A failure therefore names the file and line, the expected and actual values, the parsed model, and
+appears again in a `short test summary info` block at the end.
 
 ## Running
 

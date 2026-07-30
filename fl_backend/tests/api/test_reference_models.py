@@ -28,9 +28,17 @@ class TestSpielort:
         with pytest.raises(ValidationError):
             FLSpielort.model_validate(spielort(default_mietpreis=-1))
 
-    def test_payload_shares_the_same_constraints(self, spielort, address):
-        with pytest.raises(ValidationError):
-            FLPostSpielortPayload.model_validate({"address": address(), "name": "", "default_mietpreis": 0})
+    # The payload gets its own positive baseline before anything asserts a rejection: without one,
+    # a mistyped key would produce "field required" and the rejection test would pass while the
+    # constraint it names went unenforced.
+    def test_payload_accepts_a_valid_body(self, address):
+        parsed = FLPostSpielortPayload.model_validate({"address": address(), "name": "Sportplatz Ost", "default_mietpreis": 80})
+
+        assert parsed.default_mietpreis == 80
+
+    def test_payload_shares_the_same_constraints(self, address, assert_rejects):
+        assert_rejects(FLPostSpielortPayload, {"address": address(), "name": "", "default_mietpreis": 0}, "name")
+        assert_rejects(FLPostSpielortPayload, {"address": address(), "name": "X", "default_mietpreis": -1}, "default_mietpreis")
 
 
 class TestSchiedsrichter:
@@ -52,9 +60,16 @@ class TestSchiedsrichter:
         with pytest.raises(ValidationError):
             FLSchiedsrichter.model_validate(schiedsrichter(kontakt=kontakt(email="nope")))
 
-    def test_payload_shares_the_same_constraints(self, kontakt):
-        with pytest.raises(ValidationError):
-            FLPostSchiedsrichterPayload.model_validate({"kontakt": kontakt(), "name": "", "schule": None, "default_payment": 0})
+    def test_payload_accepts_a_valid_body(self, kontakt):
+        parsed = FLPostSchiedsrichterPayload.model_validate({"kontakt": kontakt(), "name": "A. Referee", "schule": None, "default_payment": 20})
+
+        assert parsed.default_payment == 20
+
+    def test_payload_shares_the_same_constraints(self, kontakt, assert_rejects):
+        assert_rejects(FLPostSchiedsrichterPayload, {"kontakt": kontakt(), "name": "", "schule": None, "default_payment": 0}, "name")
+        assert_rejects(
+            FLPostSchiedsrichterPayload, {"kontakt": kontakt(), "name": "X", "schule": None, "default_payment": -1}, "default_payment"
+        )
 
 
 class TestSpieler:
