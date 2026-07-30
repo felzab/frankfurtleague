@@ -2,118 +2,127 @@ import { Chip } from "@heroui/react";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
+// See SpielStatusChip for why all three maps live at module scope. This one mattered more: the icon
+// map allocated four <svg> elements holding 17 children on every render to use one of them.
+const PHASE_CLASSES: Record<FLSaisonPhase, string> = {
+  gruppenphase: "bg-phase-group/15 text-phase-group",
+  viertelfinale: "bg-phase-quarter/15 text-phase-quarter",
+  halbfinale: "bg-phase-semi/15 text-phase-semi",
+  finale: "bg-phase-final/15 text-phase-final",
+};
+
+const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {
+  gruppenphase: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="size-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round">
+      <rect
+        x="4"
+        y="4"
+        width="6"
+        height="6"
+        rx="1"
+      />
+      <rect
+        x="14"
+        y="4"
+        width="6"
+        height="6"
+        rx="1"
+      />
+      <rect
+        x="4"
+        y="14"
+        width="6"
+        height="6"
+        rx="1"
+      />
+      <rect
+        x="14"
+        y="14"
+        width="6"
+        height="6"
+        rx="1"
+      />
+    </svg>
+  ),
+  viertelfinale: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="size-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round">
+      <path d="M4 4h4v5H4" />
+      <path d="M8 6.5h4" />
+      <path d="M4 15h4v5H4" />
+      <path d="M8 17.5h4" />
+      <path d="M12 6.5v11" />
+      <path d="M12 12h6" />
+    </svg>
+  ),
+  halbfinale: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="size-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round">
+      <path d="M6 6h5v12H6" />
+      <path d="M11 12h7" />
+      <circle
+        cx="19"
+        cy="12"
+        r="2"
+      />
+    </svg>
+  ),
+  finale: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="size-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round">
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="M7 4h10l-1 9c0 3-4 4-4 4s-4-1-4-4L7 4z" />
+      <path d="M7 7H5a2 2 0 0 1 0-4h2" />
+      <path d="M17 7h2a2 2 0 0 0 0-4h-2" />
+    </svg>
+  ),
+};
+
+const PHASE_LABELS: Record<FLSaisonPhase, string> = {
+  gruppenphase: "Gruppenphase",
+  viertelfinale: "Viertelfinale",
+  halbfinale: "Halbfinale",
+  finale: "Finale",
+};
+
 export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {
-  const tailwindColors = {
-    gruppenphase: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
-    viertelfinale: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
-    halbfinale: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
-    finale: "bg-rose-500/15 text-rose-700 dark:text-rose-400",
-  } as const;
-
-  const iconMap = {
-    gruppenphase: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="size-3.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round">
-        <rect
-          x="4"
-          y="4"
-          width="6"
-          height="6"
-          rx="1"
-        />
-        <rect
-          x="14"
-          y="4"
-          width="6"
-          height="6"
-          rx="1"
-        />
-        <rect
-          x="4"
-          y="14"
-          width="6"
-          height="6"
-          rx="1"
-        />
-        <rect
-          x="14"
-          y="14"
-          width="6"
-          height="6"
-          rx="1"
-        />
-      </svg>
-    ),
-    viertelfinale: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="size-3.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round">
-        <path d="M4 4h4v5H4" />
-        <path d="M8 6.5h4" />
-        <path d="M4 15h4v5H4" />
-        <path d="M8 17.5h4" />
-        <path d="M12 6.5v11" />
-        <path d="M12 12h6" />
-      </svg>
-    ),
-    halbfinale: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="size-3.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round">
-        <path d="M6 6h5v12H6" />
-        <path d="M11 12h7" />
-        <circle
-          cx="19"
-          cy="12"
-          r="2"
-        />
-      </svg>
-    ),
-    finale: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="size-3.5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round">
-        <path d="M8 21h8" />
-        <path d="M12 17v4" />
-        <path d="M7 4h10l-1 9c0 3-4 4-4 4s-4-1-4-4L7 4z" />
-        <path d="M7 7H5a2 2 0 0 1 0-4h2" />
-        <path d="M17 7h2a2 2 0 0 0 0-4h-2" />
-      </svg>
-    ),
-  } as const;
-
   return (
     <Chip
       size="sm"
-      className={`border-none px-1.5 py-0.5 ${tailwindColors[saisonPhase]}`}>
+      className={`border-none px-1.5 py-0.5 ${PHASE_CLASSES[saisonPhase]}`}>
       <div className="text-fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
-        {iconMap[saisonPhase]}
-        {saisonPhase}
+        {PHASE_ICONS[saisonPhase]}
+        {PHASE_LABELS[saisonPhase]}
       </div>
     </Chip>
   );

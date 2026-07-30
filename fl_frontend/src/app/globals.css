@@ -28,6 +28,15 @@
     --accent-danger: #dc2626;
     --accent-success: #16a34a;
     --accent-info: #2563eb;
+
+    /* Tournament rounds. The four phases are an ordered sequence, not a semantic state, so none of
+       the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
+       palette. Values are Tailwind's sky/indigo/purple/rose 700 verbatim, i.e. exactly what the chip
+       rendered before, and each is used both as the label colour and as a /15 tint behind it. */
+    --accent-phase-group: oklch(50% 0.134 242.749);
+    --accent-phase-quarter: oklch(45.7% 0.24 277.023);
+    --accent-phase-semi: oklch(49.6% 0.265 301.924);
+    --accent-phase-final: oklch(51.4% 0.222 16.935);
   }
 
   [data-theme="dark"] {
@@ -50,6 +59,12 @@
     --accent-danger: #ef4444;
     --accent-success: #22c55e;
     --accent-info: #3b82f6;
+
+    /* Tailwind's sky/indigo/purple/rose 400 -- the values the chip's `dark:` escapes used. */
+    --accent-phase-group: oklch(74.6% 0.16 232.661);
+    --accent-phase-quarter: oklch(67.3% 0.182 276.935);
+    --accent-phase-semi: oklch(71.4% 0.203 305.504);
+    --accent-phase-final: oklch(71.2% 0.194 13.428);
   }
 }
 
@@ -107,6 +122,10 @@ Possible shimmer animation for landing page
   --color-danger: var(--accent-danger);
   --color-success: var(--accent-success);
   --color-info: var(--accent-info);
+  --color-phase-group: var(--accent-phase-group);
+  --color-phase-quarter: var(--accent-phase-quarter);
+  --color-phase-semi: var(--accent-phase-semi);
+  --color-phase-final: var(--accent-phase-final);
 
   /** Fluid text sizes */
   /* 10px to 12px */
