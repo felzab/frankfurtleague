@@ -18,7 +18,8 @@
 #   4. --help works from an unrelated working directory
 #   5. an unknown option is rejected, without needing Docker
 #   6. each script declares which platform it targets
-#   7. shellcheck — a local binary if present, otherwise the official Docker image
+#   7. a script's --help matches the flags it actually accepts
+#   8. shellcheck — a local binary if present, otherwise the official Docker image
 #
 # USAGE:
 #   ./scripts/selfcheck.sh
@@ -104,7 +105,24 @@ for f in local.sh verify.sh publish.sh deploy.sh; do
   if grep -q "require_platform" "scripts/$f"; then info "$f"; else note_fail "$f has no require_platform guard"; fi
 done
 
-step "7. shellcheck"
+step "7. Documented flags match accepted flags"
+# Catches drift between a script's --help header and its case statement. Compared by READING both,
+# never by running the script: an earlier version of this check invoked each flag for real, which
+# meant `local.sh --fresh` tore down the local stack as a side effect of a documentation test.
+for f in local.sh verify.sh publish.sh deploy.sh; do
+  # Header only: take the contiguous comment block and STOP at the first line of code. Reading a
+  # fixed line range instead compared the code against itself, because the case statement fell
+  # inside the range -- so the check passed while a genuinely undocumented flag was present.
+  doc="$(awk 'NR>1 { if ($0 !~ /^#/) exit; print }' "scripts/$f" | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
+  code="$(grep -oE '^[[:space:]]+--[a-z|-]+\)' "scripts/$f" | tr -d ' )' | tr '|' '\n' | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
+  if [[ "$doc" == "$code" ]]; then
+    info "$f"
+  else
+    note_fail "$f: --help documents [${doc}] but the code accepts [${code}]"
+  fi
+done
+
+step "8. shellcheck"
 # SC1091 is excluded throughout: shellcheck cannot follow the sourced _lib.sh, which is expected and
 # not a defect. SC2034 is annotated inline in _lib.sh rather than excluded globally.
 run_shellcheck() {

@@ -5,18 +5,23 @@
 **Check this table before running anything.** Each script enforces its own row and refuses to start on
 the wrong machine, so a mistake costs you a message instead of an outage.
 
-| Script                         | RUN IT ON              | Needs Docker? |   Affects real users?    |
-| ------------------------------ | ---------------------- | :-----------: | :----------------------: |
-| `pnpm dev` (not a script)      | **your PC** — Windows  |      no       |            no            |
-| `local.sh`                     | **your PC** — Windows  |      yes      |            no            |
-| `verify.sh`                    | **your PC** — Windows  |      yes      |            no            |
-| `publish.sh`                   | **your PC** — Windows  |      yes      | **yes** — uploads images |
-| `deploy.sh`                    | **the server** — Linux |      yes      |   **yes** — goes live    |
-| `revalidate_reference_data.sh` | **the server** — Linux |      yes      |   yes — clears a cache   |
-| `_lib.sh`                      | never run directly     |       —       |            no            |
+| Script                         | RUN IT ON              |  Needs Docker?  |   Affects real users?    |
+| ------------------------------ | ---------------------- | :-------------: | :----------------------: |
+| `pnpm dev` (not a script)      | **your PC** — Windows  |       no        |            no            |
+| `local.sh`                     | **your PC** — Windows  |       yes       |            no            |
+| `verify.sh`                    | **your PC** — Windows  |       yes       |            no            |
+| `selfcheck.sh`                 | **either machine**     | only for step 8 |            no            |
+| `publish.sh`                   | **your PC** — Windows  |       yes       | **yes** — uploads images |
+| `deploy.sh`                    | **the server** — Linux |       yes       |   **yes** — goes live    |
+| `revalidate_reference_data.sh` | **the server** — Linux |       yes       |   yes — clears a cache   |
+| `_lib.sh`                      | never run directly     |        —        |            no            |
 
 Only two scripts reach real users: **`publish.sh`** uploads, **`deploy.sh`** goes live. Everything
 else you can run as often as you like.
+
+`selfcheck.sh` is the odd one out: it tests the other scripts rather than doing anything to the
+project, so it is safe anywhere and needs no Docker unless you want its shellcheck step. **You rarely
+run it directly — `verify.sh` runs it first.**
 
 ---
 
@@ -144,20 +149,21 @@ because that surfaces at run time. Exactly that shipped once: a helper in `_lib.
 `require_env_file` to `require_file`, `deploy.sh` was updated, `local.sh` was not, every syntax check
 passed, and it failed the first time a human ran it.
 
-`selfcheck.sh` closes that gap. **`verify.sh` runs it first, so it cannot be forgotten.** Seven checks:
+`selfcheck.sh` closes that gap. **`verify.sh` runs it first, so it cannot be forgotten.** Eight checks:
 
-| #   | Check                                       | Why it exists                                                                                                                                                                       |
-| --- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | every script parses                         | baseline                                                                                                                                                                            |
-| 2   | **line endings are LF**                     | CRLF makes a script fail outright on Linux: `bad interpreter: /usr/bin/env bash^M`. `deploy.sh` runs on Linux. Windows tolerates CRLF, so this is invisible where it is introduced. |
-| 3   | **every helper called is defined**          | the check that was missing                                                                                                                                                          |
-| 4   | `--help` works from an unrelated directory  | catches a relative path that stops resolving after `_lib.sh` changes directory                                                                                                      |
-| 5   | unknown options are rejected without Docker | catches an argument loop placed after an environmental check                                                                                                                        |
-| 6   | each script declares a target platform      | stops a prod script running on a laptop                                                                                                                                             |
-| 7   | **shellcheck**                              | a local binary if present, otherwise the official Docker image                                                                                                                      |
+| #   | Check                                           | Why it exists                                                                                                                                                                       |
+| --- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | every script parses                             | baseline                                                                                                                                                                            |
+| 2   | **line endings are LF**                         | CRLF makes a script fail outright on Linux: `bad interpreter: /usr/bin/env bash^M`. `deploy.sh` runs on Linux. Windows tolerates CRLF, so this is invisible where it is introduced. |
+| 3   | **every helper called is defined**              | the check that was missing                                                                                                                                                          |
+| 4   | `--help` works from an unrelated directory      | catches a relative path that stops resolving after `_lib.sh` changes directory                                                                                                      |
+| 5   | unknown options are rejected without Docker     | catches an argument loop placed after an environmental check                                                                                                                        |
+| 6   | each script declares a target platform          | stops a prod script running on a laptop                                                                                                                                             |
+| 7   | **`--help` matches the flags the code accepts** | catches documentation drifting from behaviour                                                                                                                                       |
+| 8   | **shellcheck**                                  | a local binary if present, otherwise the official Docker image                                                                                                                      |
 
-You do not need to install shellcheck: with Docker running, check 7 uses `koalaman/shellcheck:stable`
-automatically.
+You do not need to install shellcheck: with Docker running, check 8 uses `koalaman/shellcheck:stable`
+automatically. It is the only step that needs Docker.
 
 ## What the audit of these scripts found
 
