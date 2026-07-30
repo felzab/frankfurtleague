@@ -4,6 +4,7 @@ import { Plus } from "@gravity-ui/icons";
 
 import { Button, useOverlayState } from "@heroui/react";
 
+import { formButton } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 import AdminCreateSchiedsrichterForm from "../forms/AdminCreateSchiedsrichterForm";
@@ -15,7 +16,7 @@ export function AdminCreateSchiedsrichterModal() {
     <>
       <Button
         onPress={modalState.open}
-        className="text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 h-12 rounded-xl px-6 py-3 font-bold shadow-lg transition-all active:scale-95 lg:h-15">
+        className={formButton({ intent: "trigger" })}>
         <Plus
           width={18}
           height={18}

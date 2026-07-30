@@ -26,7 +26,7 @@ export default function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]
         <Link
           key={teamData.id}
           href={`${urlPrefix}/${teamData.id}`}
-          className="focus-visible:ring-brand size-full rounded-xl outline-none focus-visible:ring-1">
+          className="focus-visible:ring-brand size-full rounded-2xl outline-none focus-visible:ring-1">
           <TeamCard teamData={teamData} />
         </Link>
       ))}

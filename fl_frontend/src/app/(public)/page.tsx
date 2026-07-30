@@ -35,13 +35,13 @@ export default function LandingPage() {
               <Link
                 href="/dashboard/spielplan#top"
                 prefetch={false}
-                className="bg-brand-solid text-brand-solid-foreground text-fluid-sm shadow-brand/30 hover:scale-hover w-full rounded-xl px-7 py-3.5 text-center font-bold transition-all">
+                className="bg-brand-solid text-brand-solid-foreground text-fluid-sm shadow-brand/30 hover:scale-hover w-full rounded-xl px-7 py-3.5 text-center font-bold transition-transform duration-200">
                 Spielplan →
               </Link>
               <Link
                 href="/dashboard/saisontabelle#top"
                 prefetch={false}
-                className="bg-background border-border text-fluid-sm hover:scale-hover w-full rounded-xl border px-7 py-3.5 text-center font-bold transition-all">
+                className="bg-background border-border text-fluid-sm hover:scale-hover w-full rounded-xl border px-7 py-3.5 text-center font-bold transition-transform duration-200">
                 Tabelle →
               </Link>
             </div>
@@ -98,13 +98,13 @@ export default function LandingPage() {
             <Link
               href="/about"
               prefetch={false}
-              className="bg-brand-solid text-fluid-xs text-brand-solid-foreground hover:scale-hover flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold transition-all lg:w-56">
+              className="bg-brand-solid text-fluid-xs text-brand-solid-foreground hover:scale-hover flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold transition-transform duration-200 lg:w-56">
               Mehr über das Projekt
             </Link>
             <Link
               href="/kontakt"
               prefetch={false}
-              className="bg-background border-border text-fluid-xs text-foreground hover:scale-hover flex h-10 w-full items-center justify-center rounded-xl border px-4 font-bold transition-all lg:w-44">
+              className="bg-background border-border text-fluid-xs text-foreground hover:scale-hover flex h-10 w-full items-center justify-center rounded-xl border px-4 font-bold transition-transform duration-200 lg:w-44">
               Zum Kontakt
             </Link>
           </div>

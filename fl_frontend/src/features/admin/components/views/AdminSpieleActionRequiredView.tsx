@@ -28,7 +28,7 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
             <Accordion.Item
               key={category}
               /* Removed overflow-hidden so nothing gets clipped */
-              className="bg-surface border-border rounded-2xl border shadow-sm transition-all">
+              className="bg-surface border-border rounded-2xl border shadow-sm">
               <Accordion.Heading>
                 <Accordion.Trigger className="hover:bg-muted/80 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors outline-none">
                   <div className="flex flex-col gap-y-1">
