@@ -32,9 +32,11 @@ export default function KontaktView() {
           // bg-field-fg, not bg-foreground as in the Footer: this icon sits on the green field card,
           // where the foreground is always white. The light-theme variant used to render the BLACK
           // logo here, on emerald.
+          // inline-block for the same reason as the Footer's copy — this one is a flex item today,
+          // which blockifies it, but that is the parent's business and not something to depend on.
           <span
             aria-hidden="true"
-            className="bg-field-fg size-8 [mask-image:url('/icons/footer/threads/threads_logo_black.svg')] [mask-size:contain] [mask-position:center] [mask-repeat:no-repeat]"
+            className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
           />
         );
       case "whatsapp":

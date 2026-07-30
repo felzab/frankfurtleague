@@ -67,10 +67,13 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
               {/* One masked element instead of a light/dark <Image> pair: both assets were in the
                   DOM and both were fetched, and the mask takes its colour from bg-foreground, which
                   flips with the theme on its own. The span is decorative — the link above it
-                  already carries the accessible name. */}
+                  already carries the accessible name.
+                  inline-block is load-bearing: width/height do not apply to a non-replaced inline
+                  box, so a bare <span class="size-6"> renders 0x0. The <Image> it replaced was a
+                  replaced element, where they do apply. */}
               <span
                 aria-hidden="true"
-                className="bg-foreground size-6 [mask-image:url('/icons/footer/threads/threads_logo_black.svg')] [mask-size:contain] [mask-position:center] [mask-repeat:no-repeat]"
+                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
               />
             </Link>
 
@@ -84,7 +87,7 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
               className="transition-opacity hover:opacity-80">
               <span
                 aria-hidden="true"
-                className="bg-foreground size-6 [mask-image:url('/icons/footer/github/github_logo_black.svg')] [mask-size:contain] [mask-position:center] [mask-repeat:no-repeat]"
+                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/github/github_logo_black.svg')] mask-contain mask-center mask-no-repeat"
               />
             </Link>
 
