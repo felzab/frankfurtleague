@@ -18,7 +18,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
   cacheLife("days");
 
   return apiClient<FLSaisonListResponse>("/saisons", FLSaisonListResponseSchema, {
-    params: filters as Record<string, string | number | boolean>,
+    params: filters,
   });
 }
 

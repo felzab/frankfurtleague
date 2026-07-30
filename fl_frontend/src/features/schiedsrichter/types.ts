@@ -10,10 +10,10 @@ export type SchiedsrichterDraft = FLPostSchiedsrichterPayload;
 
 export type FLSchiedsrichterSortingOptions = "name" | "default_payment";
 
-export interface FLSchiedsrichterFilterParams {
+export type FLSchiedsrichterFilterParams = {
   default_payment?: number;
 
   limit?: number;
   sort_by?: FLSchiedsrichterSortingOptions;
   order?: "asc" | "desc";
-}
+};

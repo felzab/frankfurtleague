@@ -18,6 +18,6 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
   cacheLife("hours");
 
   return apiClient("/spiele", FLSpieleListResponseSchema, {
-    params: filters as Record<string, string | number | boolean>,
+    params: filters,
   });
 }

@@ -16,6 +16,6 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
   cacheLife("days");
 
   return apiClient<FLSchiedsrichterListResponse>("/schiedsrichter", FLSchiedsrichterListResponseSchema, {
-    params: filters as Record<string, string | number | boolean>,
+    params: filters,
   });
 }
