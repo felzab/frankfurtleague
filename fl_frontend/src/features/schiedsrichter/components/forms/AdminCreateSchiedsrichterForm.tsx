@@ -1,94 +1,46 @@
 "use client";
 
-import { useState, useTransition } from "react";
-
-import { Check } from "@gravity-ui/icons";
-
-import { Button, Form, toast } from "@heroui/react";
-
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { formButton } from "@/shared/components/ui/formButtons";
+import { EntityForm } from "@/shared/components/ui/EntityForm";
 
 import SchiedsrichterFormFields from "./SchiedsrichterFormFields";
 
+import type { FLKontakt } from "@/shared/schemas";
+
+type SchiedsrichterDraft = { name: string; schule: string; kontakt: FLKontakt; default_payment: number };
+
+const EMPTY_DRAFT: SchiedsrichterDraft = {
+  name: "",
+  schule: "",
+  default_payment: 0,
+  kontakt: { telefon: "", email: "" },
+};
+
 export default function AdminCreateSchiedsrichterForm({ onClose }: { onClose: () => void }) {
-  const [isPending, startTransition] = useTransition();
-
-  const [draft, setDraft] = useState({
-    name: "",
-    schule: "",
-    default_payment: 0,
-    kontakt: {
-      telefon: "",
-      email: "",
-    },
-  });
-
-  const handleCreateSubmit = () => {
-    startTransition(async () => {
-      const res = await postSchiedsrichterAction({
-        name: draft.name,
-        schule: draft.schule || null,
-        default_payment: draft.default_payment,
-        kontakt: {
-          telefon: draft.kontakt.telefon || null,
-          email: draft.kontakt.email || null,
-        },
-      });
-
-      if (!res.success || !res.created_id) {
-        toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
-        return;
-      }
-
-      setDraft({
-        name: "",
-        schule: "",
-        default_payment: 0,
-        kontakt: {
-          telefon: "",
-          email: "",
-        },
-      });
-
-      toast.success(res.message || "Schiedsrichter erfolgreich angelegt");
-
-      onClose();
-    });
-  };
-
   return (
-    <Form
-      className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
-      action={handleCreateSubmit}>
-      <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400">
+    <EntityForm<SchiedsrichterDraft>
+      initialDraft={EMPTY_DRAFT}
+      renderFields={(draft, setDraft) => (
         <SchiedsrichterFormFields
           draft={draft}
           onChange={setDraft}
         />
-      </div>
-
-      <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3 pt-4">
-        <Button
-          type="button"
-          variant="secondary"
-          className={formButton({ intent: "cancel" })}
-          onPress={onClose}>
-          Abbrechen
-        </Button>
-        <Button
-          type="submit"
-          variant="primary"
-          isDisabled={isPending}
-          className={formButton({ intent: "submit" })}>
-          <Check
-            className="m-0"
-            width={20}
-            height={20}
-          />
-          {isPending ? "Speichert..." : "Speichern"}
-        </Button>
-      </div>
-    </Form>
+      )}
+      onSubmit={async (draft) => {
+        const res = await postSchiedsrichterAction({
+          name: draft.name,
+          schule: draft.schule || null,
+          default_payment: draft.default_payment,
+          kontakt: {
+            telefon: draft.kontakt.telefon || null,
+            email: draft.kontakt.email || null,
+          },
+        });
+        // A create only counts if the backend actually handed back an id.
+        return { ...res, success: res.success && !!res.created_id };
+      }}
+      successMessage="Schiedsrichter erfolgreich angelegt"
+      onClose={onClose}
+    />
   );
 }

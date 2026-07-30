@@ -1,11 +1,10 @@
 import { memo } from "react";
-import Link from "next/link";
 
-import { Calendar, Copy, Pencil, Person, TrashBin } from "@gravity-ui/icons";
+import { Calendar, Person } from "@gravity-ui/icons";
 
-import { Button, Table, toast } from "@heroui/react";
+import { Table, toast } from "@heroui/react";
 
-import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLSchiedsrichter } from "../../schemas";
@@ -110,58 +109,28 @@ function AdminSchiedsrichterTable({
 
                 {/* 5. Aktionen */}
                 <Table.Cell className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <IconTooltip label="Einsätze anzeigen">
-                      <Link
-                        href={`/admin/spielsuche?q=${encodeURIComponent(schiedsrichter.name)}`}
-                        className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                        <Calendar
-                          width={18}
-                          height={18}
-                        />
-                      </Link>
-                    </IconTooltip>
-                    <IconTooltip label="Kontaktdaten kopieren">
-                      <Button
-                        isIconOnly
-                        variant="ghost"
-                        className="text-foreground-muted hover:text-brand transition-colors"
-                        onPress={() => handleCopyKontakt(schiedsrichter)}>
-                        <Copy
-                          width={18}
-                          height={18}
-                        />
-                      </Button>
-                    </IconTooltip>
-
-                    <IconTooltip label="Bearbeiten">
-                      <Button
-                        isIconOnly
-                        variant="ghost"
-                        className="text-foreground-muted hover:text-brand transition-colors"
-                        onPress={() => setEditingSchiedsrichter(schiedsrichter)}>
-                        <Pencil
-                          width={18}
-                          height={18}
-                        />
-                      </Button>
-                    </IconTooltip>
-
-                    <IconTooltip
+                  <RowActions>
+                    <RowActionLink
+                      href={`/admin/spielsuche?q=${encodeURIComponent(schiedsrichter.name)}`}
+                      label="Einsätze anzeigen">
+                      <Calendar
+                        width={18}
+                        height={18}
+                      />
+                    </RowActionLink>
+                    <RowActionCopy
+                      label="Kontaktdaten kopieren"
+                      onPress={() => handleCopyKontakt(schiedsrichter)}
+                    />
+                    <RowActionEdit
+                      label="Bearbeiten"
+                      onPress={() => setEditingSchiedsrichter(schiedsrichter)}
+                    />
+                    <RowActionDelete
                       label="Löschen"
-                      tone="danger">
-                      <Button
-                        isIconOnly
-                        variant="ghost"
-                        className="text-foreground-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                        onPress={() => setDeletingSchiedsrichter(schiedsrichter)}>
-                        <TrashBin
-                          width={18}
-                          height={18}
-                        />
-                      </Button>
-                    </IconTooltip>
-                  </div>
+                      onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
+                    />
+                  </RowActions>
                 </Table.Cell>
               </Table.Row>
             )}

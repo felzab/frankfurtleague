@@ -1,11 +1,10 @@
 import { memo } from "react";
-import Link from "next/link";
 
-import { Calendar, Copy, Globe, MapPin, Pencil, TrashBin } from "@gravity-ui/icons";
+import { Calendar, Globe, MapPin } from "@gravity-ui/icons";
 
-import { Button, Table, toast } from "@heroui/react";
+import { Table, toast } from "@heroui/react";
 
-import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
@@ -96,72 +95,37 @@ function AdminSpielorteTable({
                 </Table.Cell>
 
                 <Table.Cell className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <IconTooltip label="Auf Maps öffnen">
-                      <Link
-                        href={formatMapsLink(ort)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                        <Globe
-                          width={18}
-                          height={18}
-                        />
-                      </Link>
-                    </IconTooltip>
-
-                    <IconTooltip label="Spiele anzeigen">
-                      <Link
-                        href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
-                        className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                        <Calendar
-                          width={18}
-                          height={18}
-                        />
-                      </Link>
-                    </IconTooltip>
-
-                    <IconTooltip label="Adresse kopieren">
-                      <Button
-                        isIconOnly
-                        variant="ghost"
-                        className="text-foreground-muted hover:text-brand transition-colors"
-                        onPress={() => handleCopyAddress(ort)}>
-                        <Copy
-                          width={18}
-                          height={18}
-                        />
-                      </Button>
-                    </IconTooltip>
-
-                    <IconTooltip label="Bearbeiten">
-                      <Button
-                        isIconOnly
-                        variant="ghost"
-                        className="text-foreground-muted hover:text-brand transition-colors"
-                        onPress={() => setEditingOrt(ort)}>
-                        <Pencil
-                          width={18}
-                          height={18}
-                        />
-                      </Button>
-                    </IconTooltip>
-
-                    <IconTooltip
+                  <RowActions>
+                    <RowActionLink
+                      href={formatMapsLink(ort)}
+                      label="Auf Maps öffnen"
+                      external>
+                      <Globe
+                        width={18}
+                        height={18}
+                      />
+                    </RowActionLink>
+                    <RowActionLink
+                      href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
+                      label="Spiele anzeigen">
+                      <Calendar
+                        width={18}
+                        height={18}
+                      />
+                    </RowActionLink>
+                    <RowActionCopy
+                      label="Adresse kopieren"
+                      onPress={() => handleCopyAddress(ort)}
+                    />
+                    <RowActionEdit
+                      label="Bearbeiten"
+                      onPress={() => setEditingOrt(ort)}
+                    />
+                    <RowActionDelete
                       label="Löschen"
-                      tone="danger">
-                      <Button
-                        isIconOnly
-                        variant="ghost"
-                        className="text-foreground-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                        onPress={() => setDeletingOrt(ort)}>
-                        <TrashBin
-                          width={18}
-                          height={18}
-                        />
-                      </Button>
-                    </IconTooltip>
-                  </div>
+                      onPress={() => setDeletingOrt(ort)}
+                    />
+                  </RowActions>
                 </Table.Cell>
               </Table.Row>
             )}
