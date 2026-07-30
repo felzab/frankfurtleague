@@ -26,11 +26,10 @@
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 QUICK=0
-for arg in "${@:-}"; do
+for arg in "$@"; do
   case "$arg" in
     --quick)   QUICK=1 ;;
     --help|-h) usage ;;
-    "")        ;;
     *)         die "Unknown option: ${arg}. Try --help." ;;
   esac
 done
@@ -40,7 +39,11 @@ require_platform windows
 # Runs first because it is instant and because a broken script would make everything below it
 # unreliable. See selfcheck.sh for the class of bug bash -n cannot see.
 step "scripts/ self-check"
-bash scripts/selfcheck.sh >/dev/null 2>&1 && ok "scripts are internally consistent"   || die "scripts/selfcheck.sh failed. Run it directly to see why: ./scripts/selfcheck.sh"
+if bash scripts/selfcheck.sh >/dev/null 2>&1; then
+  ok "scripts are internally consistent"
+else
+  die "scripts/selfcheck.sh failed. Run it directly to see why:  ./scripts/selfcheck.sh"
+fi
 
 step "pnpm verify  (tsc, eslint, prettier, next build, node --test)"
 ( cd fl_frontend && pnpm verify ) || die "pnpm verify failed. Fix that before looking at anything else."

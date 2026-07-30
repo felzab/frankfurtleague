@@ -27,24 +27,23 @@
 #   a way the code does not explain, which almost always means a stale cached asset.
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
-require_platform windows
 
 COMPOSE="docker-compose.local.yml"
 
 # Arguments are parsed before any expensive or environmental check, so a typo fails instantly
 # instead of demanding Docker be running first.
 FRESH=0; FOLLOW=0; DOWN=0
-for arg in "${@:-}"; do
+for arg in "$@"; do
   case "$arg" in
     --fresh) FRESH=1 ;;
     --logs)  FOLLOW=1 ;;
     --down)  DOWN=1 ;;
     --help|-h) usage ;;
-    "")      ;;
     *)       die "Unknown option: ${arg}. Try --help." ;;
   esac
 done
 
+require_platform windows
 require_docker
 
 if (( DOWN )); then
@@ -83,4 +82,9 @@ else
   die "The stack came up unhealthy. If you see 'Invalid environment variables', fix those names in the .env files — that is the startup gate doing its job."
 fi
 
-(( FOLLOW )) && docker compose -f "$COMPOSE" logs -f frontend
+# An `if` block, not `(( FOLLOW )) && ...`: as the final command of the script, that compound
+# evaluates to 1 whenever FOLLOW is 0, so a completely successful run exited non-zero. Any caller
+# checking the exit status read every success as a failure.
+if (( FOLLOW )); then
+  docker compose -f "$COMPOSE" logs -f frontend
+fi

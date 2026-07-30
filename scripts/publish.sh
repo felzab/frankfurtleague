@@ -30,12 +30,11 @@
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 ALLOW_DIRTY=0; DRY_RUN=0
-for arg in "${@:-}"; do
+for arg in "$@"; do
   case "$arg" in
     --allow-dirty) ALLOW_DIRTY=1 ;;
     --dry-run)     DRY_RUN=1 ;;
     --help|-h) usage ;;
-    "")            ;;
     *)             die "Unknown option: ${arg}. Try --help." ;;
   esac
 done
@@ -110,7 +109,9 @@ fi
 step "Pushing four tags"
 for t in "$IMAGE_FRONTEND" "$TAG_FE" "$IMAGE_BACKEND" "$TAG_BE"; do
   info "pushing ${t}"
-  docker push "$t" >/dev/null || die "push failed for ${t}.
+  # Progress deliberately NOT suppressed: a first push of a ~370 MB image is minutes of silence
+  # otherwise, which is indistinguishable from a hang.
+  docker push "$t" || die "push failed for ${t}.
        If this is an authentication error, run: docker login -u felzab"
 done
 ok "all four tags pushed"

@@ -43,7 +43,9 @@ cd "$REPO_ROOT"
 #   frankfurtleague:frontend                 <- moving pointer, what prod runs by default
 #   frankfurtleague:frontend-sha-1a2b3c4     <- immutable, one per published commit
 DOCKER_REPO="felzab/frankfurtleague"
+# shellcheck disable=SC2034  # consumed by the scripts that source this file
 IMAGE_FRONTEND="${DOCKER_REPO}:frontend"
+# shellcheck disable=SC2034  # consumed by the scripts that source this file
 IMAGE_BACKEND="${DOCKER_REPO}:backend"
 
 # --- Output ----------------------------------------------------------------------------------------
@@ -162,17 +164,30 @@ wait_healthy() {
 
 # Reads the commit an image was built from, out of the image's own OCI label. This is how the server
 # can answer "what is actually running?" without trusting a tag name that may have been moved.
-# `docker image inspect` SUCCEEDS and prints an empty line when the label is absent, so a trailing
-# `|| echo unknown` never fires. An empty field in a status report reads as a broken report, so say
-# what an empty value actually means: the image predates the labelling added in publish.sh.
+# Reads one OCI label off an image, or returns EMPTY if it is absent.
+#
+# `docker image inspect` SUCCEEDS and prints an empty line for a missing label, so a trailing
+# `|| echo unknown` never fires — hence the explicit emptiness test.
+#
+# These return the RAW value with exactly one sentinel: the empty string. An earlier version returned
+# a human-readable "unlabelled (...)" sentence instead, which broke both of its callers in deploy.sh —
+# they still compared against the previous sentinel, and one interpolated the sentence into a
+# suggested command. Formatting for humans belongs to the caller; see image_revision_display.
 _image_label() {
   local image="$1" label="$2" value=""
   value="$(docker image inspect --format "{{index .Config.Labels \"${label}\"}}" "$image" 2>/dev/null)" || true
-  if [[ -z "$value" || "$value" == "<no value>" ]]; then
-    printf 'unlabelled (image predates publish.sh OCI labels)'
-  else
-    printf '%s' "$value"
-  fi
+  [[ "$value" == "<no value>" ]] && value=""
+  printf '%s' "$value"
 }
 image_revision() { _image_label "$1" "org.opencontainers.image.revision"; }
 image_created()  { _image_label "$1" "org.opencontainers.image.created";  }
+
+# Human-readable form for status output only. Never use this in a comparison or a command.
+image_revision_display() {
+  local v; v="$(image_revision "$1")"
+  [[ -n "$v" ]] && printf '%s' "$v" || printf 'unlabelled (built before publish.sh added OCI labels)'
+}
+image_created_display() {
+  local v; v="$(image_created "$1")"
+  [[ -n "$v" ]] && printf '%s' "$v" || printf 'unknown'
+}

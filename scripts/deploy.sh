@@ -26,15 +26,24 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 COMPOSE="docker-compose.yml"
 PIN=""; STATUS_ONLY=0
 
-for arg in "${@:-}"; do
+for arg in "$@"; do
   case "$arg" in
     --status)  STATUS_ONLY=1 ;;
     --help|-h) usage ;;
     --*)       die "Unknown option: ${arg}. Try --help." ;;
-    "")        ;;
     *)         PIN="$arg" ;;
   esac
 done
+
+# Validate the pin's SHAPE here, with the other argument handling and before any environmental check.
+# Two reasons: a typo fails instantly rather than after a platform and Docker check, and without this
+# it reaches the registry and comes back as an opaque "manifest unknown" instead of a sentence naming
+# the problem.
+if [[ -n "$PIN" && ! "$PIN" =~ ^sha-[0-9a-f]{7,40}(-dirty)?$ ]]; then
+  die "'${PIN}' does not look like a published tag.
+       Expected sha-<commit>, for example sha-1a2b3c4.
+       See what is available:  ./scripts/deploy.sh --status"
+fi
 
 require_platform linux
 require_docker
@@ -55,8 +64,8 @@ if (( STATUS_ONLY )); then
     state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")"
     printf '       %-9s %s\n' "${svc}:" "$state"
     printf '       %-9s image    %s\n' "" "$img"
-    printf '       %-9s commit   %s\n' "" "$(image_revision "$img")"
-    printf '       %-9s built    %s\n' "" "$(image_created "$img")"
+    printf '       %-9s commit   %s\n' "" "$(image_revision_display "$img")"
+    printf '       %-9s built    %s\n' "" "$(image_created_display "$img")"
   done
   step "Published builds available to roll back to"
   docker image ls "$DOCKER_REPO" --format '       {{.Tag}}\t{{.CreatedSince}}' | sort | grep -- "-sha-" || \
@@ -87,15 +96,21 @@ else
   docker pull "$IMAGE_BACKEND"  || die "pull failed for ${IMAGE_BACKEND}"
 fi
 
-info "frontend commit: $(image_revision "$IMAGE_FRONTEND")"
-info "backend  commit: $(image_revision "$IMAGE_BACKEND")"
+info "frontend commit: $(image_revision_display "$IMAGE_FRONTEND")"
+info "backend  commit: $(image_revision_display "$IMAGE_BACKEND")"
 
 # --- remember the current version, for rollback -----------------------------------------------------
+# image_revision returns the raw commit, or EMPTY when the image carries no label. Empty is the only
+# sentinel, so every test here is a plain -n and no prose can be interpolated into a suggested command.
 PREV_TAG=""
 prev_cid="$(docker compose -f "$COMPOSE" ps -q frontend 2>/dev/null || true)"
 if [[ -n "$prev_cid" ]]; then
   PREV_TAG="$(image_revision "$(docker inspect --format '{{.Config.Image}}' "$prev_cid")")"
-  [[ "$PREV_TAG" != "unknown" ]] && info "currently live commit: ${PREV_TAG} (rollback target)"
+  if [[ -n "$PREV_TAG" ]]; then
+    info "currently live commit: ${PREV_TAG} (rollback target)"
+  else
+    warn "the running image has no commit label, so there is no automatic rollback target"
+  fi
 fi
 
 # --- recreate ---------------------------------------------------------------------------------------
@@ -113,6 +128,14 @@ if wait_healthy "$COMPOSE" backend 150 && wait_healthy "$COMPOSE" frontend 180; 
   else
     warn "Could not read headers over HTTPS — check nginx and the certificates in certs/."
   fi
+  # nginx is what actually serves the site, and it has no healthcheck of its own to wait on. Without
+  # this, "Deploy healthy" could print while the site is unreachable.
+  if [[ -n "$(docker compose -f "$COMPOSE" ps -q nginx 2>/dev/null || true)" ]]; then
+    ok "nginx is running"
+  else
+    warn "nginx is NOT running — the site is unreachable even though the app is healthy."
+    warn "Check:  docker compose -f ${COMPOSE} logs nginx"
+  fi
   printf '\n       %s\n' "What is live:  ./scripts/deploy.sh --status"
   printf '       %s\n'   "Follow logs:   docker compose -f ${COMPOSE} logs -f frontend"
 else
@@ -122,7 +145,7 @@ else
   printf '\n'
   warn "If the log above says 'Invalid environment variables: <NAMES>', that is the startup gate"
   warn "doing its job: fix those variables in the .env file and run this script again."
-  if [[ -n "$PREV_TAG" && "$PREV_TAG" != "unknown" ]]; then
+  if [[ -n "$PREV_TAG" ]]; then
     printf '\n'
     warn "To roll back to what was working:  ./scripts/deploy.sh sha-${PREV_TAG}"
   else

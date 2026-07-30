@@ -13,11 +13,12 @@
 #
 # WHAT IT CHECKS:
 #   1. every script parses
-#   2. every helper a script calls is actually defined in _lib.sh   <-- the one that was missed
-#   3. --help works from an unrelated working directory
-#   4. an unknown option is rejected, without needing Docker
-#   5. each script declares which platform it targets
-#   6. shellcheck, if it is installed
+#   2. line endings are LF — CRLF makes a script fail outright on the Linux server
+#   3. every helper a script calls is actually defined in _lib.sh   <-- the one that was missed
+#   4. --help works from an unrelated working directory
+#   5. an unknown option is rejected, without needing Docker
+#   6. each script declares which platform it targets
+#   7. shellcheck — a local binary if present, otherwise the official Docker image
 #
 # USAGE:
 #   ./scripts/selfcheck.sh
@@ -30,10 +31,31 @@ note_fail() { warn "$*"; FAILURES=$(( FAILURES + 1 )); }
 
 step "1. Syntax"
 for f in scripts/*.sh; do
-  bash -n "$f" 2>/dev/null && info "$(basename "$f")" || note_fail "$(basename "$f") does not parse"
+  if bash -n "$f" 2>/dev/null; then info "$(basename "$f")"; else note_fail "$(basename "$f") does not parse"; fi
 done
 
-step "2. Every helper called is defined  (the check that was missing)"
+step "2. Line endings are LF"
+# A shell script with CRLF fails outright on Linux:
+#   bash: ./deploy.sh: /usr/bin/env bash^M: bad interpreter: No such file or directory
+# deploy.sh and revalidate_reference_data.sh RUN on the Linux server, so this is not cosmetic.
+# .gitattributes (`* text=auto eol=lf`) means git stores LF and a fresh Linux checkout is safe, but a
+# file copied directly, or an editor writing CRLF, bypasses that. Windows tolerates CRLF, so this is
+# precisely the class of defect that is invisible on the machine that introduces it.
+# `tr` is byte-oriented and interprets the escape itself, so no carriage return appears in this
+# file. Two rejected alternatives, both verified against a known-CRLF fixture:
+#   - awk /\r/  : MSYS awk STRIPS CR on input, so it never matches on Windows — the one
+#                  platform where CRLF is actually introduced. Silently useless.
+#   - grep for a literal CR: same problem, and it puts the character being detected into the
+#                  detector, which is how an earlier version matched itself and flagged everything.
+for f in scripts/*.sh; do
+  if [[ -n "$(tr -dc '\r' < "$f")" ]]; then
+    note_fail "$(basename "$f") has CRLF endings. Fix:  tr -d '\r' < $f > t && mv t $f && chmod +x $f"
+  else
+    info "$(basename "$f")"
+  fi
+done
+
+step "3. Every helper called is defined  (the check that was missing)"
 # Names defined in _lib.sh, including the shell builtins/aliases the scripts rely on.
 DEFINED="$(grep -oE '^[a-z_]+\(\)' scripts/_lib.sh | tr -d '()' | sort -u)"
 for f in "${RUNNABLE[@]}"; do
@@ -52,7 +74,7 @@ for f in "${RUNNABLE[@]}"; do
   fi
 done
 
-step "3. --help works from an unrelated directory"
+step "4. --help works from an unrelated directory"
 for f in local.sh verify.sh publish.sh deploy.sh; do
   if ( cd / && bash "${REPO_ROOT}/scripts/$f" --help >/dev/null 2>&1 ); then
     info "$f --help"
@@ -61,7 +83,7 @@ for f in local.sh verify.sh publish.sh deploy.sh; do
   fi
 done
 
-step "4. Unknown options are rejected, without requiring Docker"
+step "5. Unknown options are rejected, without requiring Docker"
 # The output is captured into a variable FIRST, deliberately.
 #
 # `script | grep -q ...` looks natural and is wrong here: `set -o pipefail` (from _lib.sh) makes a
@@ -77,20 +99,37 @@ for f in local.sh verify.sh publish.sh deploy.sh; do
   fi
 done
 
-step "5. Each script declares a target platform"
+step "6. Each script declares a target platform"
 for f in local.sh verify.sh publish.sh deploy.sh; do
-  grep -q "require_platform" "scripts/$f" && info "$f" || note_fail "$f has no require_platform guard"
+  if grep -q "require_platform" "scripts/$f"; then info "$f"; else note_fail "$f has no require_platform guard"; fi
 done
 
-step "6. shellcheck (optional)"
-if command -v shellcheck >/dev/null 2>&1; then
-  # SC1091: shellcheck cannot follow the sourced _lib.sh; that is expected, not a defect.
-  for f in scripts/*.sh; do
-    shellcheck -e SC1091 "$f" >/dev/null 2>&1 && info "$(basename "$f")" || note_fail "shellcheck findings in $(basename "$f") — run: shellcheck -e SC1091 $f"
-  done
-else
-  info "shellcheck not installed — skipped (optional; it catches quoting bugs this script does not)"
-fi
+step "7. shellcheck"
+# SC1091 is excluded throughout: shellcheck cannot follow the sourced _lib.sh, which is expected and
+# not a defect. SC2034 is annotated inline in _lib.sh rather than excluded globally.
+run_shellcheck() {
+  if command -v shellcheck >/dev/null 2>&1; then
+    shellcheck -e SC1091 "$@"
+    return
+  fi
+  # No local binary: use the official image, which is how shellcheck is actually reachable on a
+  # Windows dev machine. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows
+  # one — the same mangling that produced the stray `;C` directories in this repo.
+  if docker version >/dev/null 2>&1; then
+    MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/mnt" -w /mnt \
+      koalaman/shellcheck:stable -e SC1091 "$@"
+    return
+  fi
+  return 2
+}
+
+sc_out=""; sc_rc=0
+sc_out="$(run_shellcheck scripts/*.sh 2>&1)" || sc_rc=$?
+case "$sc_rc" in
+  0) info "no findings in any script" ;;
+  2) info "unavailable (no local binary and no Docker) — skipped" ;;
+  *) note_fail "shellcheck reported findings:"; printf '%s\n' "$sc_out" | head -40 | sed 's/^/       /' ;;
+esac
 
 printf '\n'
 if (( FAILURES == 0 )); then

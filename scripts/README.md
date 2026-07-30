@@ -139,14 +139,51 @@ build — at the worst moment, with the site down and no known-good image to fal
 ./scripts/selfcheck.sh
 ```
 
-`bash -n` checks **syntax only** — it cannot see that a script calls a function that does not exist,
-because that only surfaces at run time. Exactly that shipped once: a helper in `_lib.sh` was renamed
-from `require_env_file` to `require_file`, `deploy.sh` was updated, `local.sh` was not, and every
-syntax check passed. It failed the first time a human ran it.
+`bash -n` checks **syntax only**. It cannot see that a script calls a function which does not exist,
+because that surfaces at run time. Exactly that shipped once: a helper in `_lib.sh` was renamed from
+`require_env_file` to `require_file`, `deploy.sh` was updated, `local.sh` was not, every syntax check
+passed, and it failed the first time a human ran it.
 
-`selfcheck.sh` closes that gap. It verifies every helper each script calls is defined, that `--help`
-works from an unrelated directory, that unknown options are rejected without needing Docker, and that
-each script declares its target platform. `verify.sh` runs it first, so it cannot be forgotten.
+`selfcheck.sh` closes that gap. **`verify.sh` runs it first, so it cannot be forgotten.** Seven checks:
+
+| #   | Check                                       | Why it exists                                                                                                                                                                       |
+| --- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | every script parses                         | baseline                                                                                                                                                                            |
+| 2   | **line endings are LF**                     | CRLF makes a script fail outright on Linux: `bad interpreter: /usr/bin/env bash^M`. `deploy.sh` runs on Linux. Windows tolerates CRLF, so this is invisible where it is introduced. |
+| 3   | **every helper called is defined**          | the check that was missing                                                                                                                                                          |
+| 4   | `--help` works from an unrelated directory  | catches a relative path that stops resolving after `_lib.sh` changes directory                                                                                                      |
+| 5   | unknown options are rejected without Docker | catches an argument loop placed after an environmental check                                                                                                                        |
+| 6   | each script declares a target platform      | stops a prod script running on a laptop                                                                                                                                             |
+| 7   | **shellcheck**                              | a local binary if present, otherwise the official Docker image                                                                                                                      |
+
+You do not need to install shellcheck: with Docker running, check 7 uses `koalaman/shellcheck:stable`
+automatically.
+
+## What the audit of these scripts found
+
+They were audited the same way as the application code — shellcheck, plus a read of every line, plus
+tests of the failure paths. Five real defects, all fixed:
+
+- **`local.sh` exited 1 on a completely successful run.** The last line was
+  `(( FOLLOW )) && docker compose logs -f`, and `(( 0 ))` evaluates to 1, so the script's exit status
+  was 1 whenever `--logs` was not passed. Any automation checking the exit code read every success as
+  a failure. Now an `if` block.
+- **A renamed sentinel broke its own consumers.** `image_revision` was changed to return a
+  human-readable "unlabelled (…)" string, but `deploy.sh` still compared against the previous
+  sentinel and interpolated the result into a suggested command — it would have printed
+  `./scripts/deploy.sh sha-unlabelled (image predates…)`. The helpers now return the raw value or
+  empty, with formatting split into `image_revision_display`. Same class as the `require_env_file`
+  rename above: change a name, miss a caller.
+- **CRLF line endings throughout the working tree**, introduced by the tooling that wrote them.
+  `.gitattributes` meant the committed form was LF and the server was never at risk, but shellcheck
+  was unusable and one copied file would have broken the deploy. Now checked.
+- **A malformed rollback tag reached the registry** and returned an opaque `manifest unknown`.
+  `deploy.sh` now validates the shape first and names the problem.
+- **`nginx` was never verified after a deploy.** It has no healthcheck to wait on, so "Deploy healthy"
+  could print while the site was unreachable. Now reported explicitly.
+
+Two of those were found only by _running_ the failure path rather than reading it — which is why
+check 5 in the table above tests behaviour, not text.
 
 ## Every script supports `--help`
 
