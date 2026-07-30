@@ -1,7 +1,10 @@
 "use client";
 
-import { Card } from "@heroui/react";
+import { CircleExclamation } from "@gravity-ui/icons";
 
+import { Button, Card } from "@heroui/react";
+
+import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
 import { card } from "@/shared/components/ui/card";
 
 import { formatSpielDisplay } from "../utils";
@@ -9,34 +12,66 @@ import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 
 import type { FLSpiel } from "../schemas";
 
-export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) {
+export default function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FLSpiel; onOpenInfoModal?: () => void }) {
   const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
 
   return (
     <Card className={`${card()} w-full p-4`}>
-      <Card.Content className="flex w-full flex-col items-center justify-between gap-y-3 p-0 text-left lg:flex-row">
+      <Card.Content className="flex w-full flex-col items-center justify-between gap-y-3 p-0 text-left">
         {/* Metadata */}
-        <div className="flex h-fit w-full flex-col items-start gap-x-4 gap-y-2 lg:flex-row lg:items-center">
+        <div className="flex h-fit w-full flex-row items-center gap-x-4">
           {/** Time/Date */}
-          <div className="text-fluid-sm text-foreground-muted flex h-full w-fit flex-row items-center gap-x-2 font-bold lg:flex-col lg:items-start lg:gap-y-0.5">
+          <div className="text-fluid-sm text-foreground-muted flex h-full w-fit flex-row items-center gap-x-2 font-bold">
             <span className="w-full">{spielDatum}</span>
-            <span className="lg:hidden">-</span>
+            <span>-</span>
             <span className="w-full">{spielUhrzeit}</span>
           </div>
 
           <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
+
+          {/* The same details-modal affordance SpielCard has, sized to the slimmer row. */}
+          {onOpenInfoModal && (
+            <Button
+              isIconOnly
+              aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
+              onPress={onOpenInfoModal}
+              size="sm"
+              variant="tertiary"
+              className="bg-muted text-foreground hover:bg-muted/80 ml-auto h-[32px] w-[32px] p-0 transition-all duration-200">
+              <CircleExclamation className="m-0 size-4" />
+            </Button>
+          )}
         </div>
 
-        {/* Bottom Row: Teams and Score */}
-        <div className="flex w-full flex-row items-center justify-between gap-2 lg:w-fit lg:justify-end lg:gap-x-4">
-          <strong className="text-fluid-sm lg:text-fluid-base w-fit truncate font-bold">{spielData.team1.name || "Team 1"}</strong>
+        {/* Teams and Score — equal 1fr tracks so the score stays centered no matter how the two
+            name lengths differ; long names truncate, and the popover always carries the full name. */}
+        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+          <span className="flex min-w-0 justify-end">
+            <TeamPopoverMenu
+              teamName={spielData.team1.name}
+              teamId={spielData.team1.team_id}
+              teamShorthand={spielData.team1.shorthand}>
+              <strong className="text-fluid-sm lg:text-fluid-base max-w-full truncate text-right font-bold">
+                {spielData.team1.name || "Team 1"}
+              </strong>
+            </TeamPopoverMenu>
+          </span>
 
           <span
             className={`text-fluid-base px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
             {spielErgebnis}
           </span>
 
-          <strong className="text-fluid-sm lg:text-fluid-base w-fit truncate font-bold">{spielData.team2.name || "Team 2"}</strong>
+          <span className="flex min-w-0 justify-start">
+            <TeamPopoverMenu
+              teamName={spielData.team2.name}
+              teamId={spielData.team2.team_id}
+              teamShorthand={spielData.team2.shorthand}>
+              <strong className="text-fluid-sm lg:text-fluid-base max-w-full truncate text-left font-bold">
+                {spielData.team2.name || "Team 2"}
+              </strong>
+            </TeamPopoverMenu>
+          </span>
         </div>
       </Card.Content>
     </Card>

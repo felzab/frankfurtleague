@@ -20,6 +20,12 @@
 
     /* Accents & Feedback */
     --accent-brand: #82181a;
+
+    /* HeroUI's focus-ring color. Stock is a blue --accent; the owner wants brand everywhere a ring
+       still renders (buttons, tabs, menu items). Field-like controls suppress the ring entirely in
+       favour of their border turning brand -- see SearchBar / FIELD_INPUT. Declared once: the var()
+       resolves against the per-theme --accent-brand, so it flips with the theme. */
+    --focus: var(--accent-brand);
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
     --accent-brand-solid: #82181a;

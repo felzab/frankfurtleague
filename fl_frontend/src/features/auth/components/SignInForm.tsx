@@ -60,13 +60,13 @@ export default function SignInForm() {
               className="flex w-full gap-1">
               <Tabs.Tab
                 id="Admin"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-colors">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200">
                 Admin
                 <Tabs.Indicator className="bg-brand-solid/80" />
               </Tabs.Tab>
               <Tabs.Tab
                 id="Spieler"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-colors">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200">
                 Spieler
                 <Tabs.Indicator className="bg-brand-solid/80" />
               </Tabs.Tab>
@@ -93,7 +93,7 @@ export default function SignInForm() {
                 }}>
                 <Label className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
                 <Input
-                  className="border-border bg-surface text-foreground placeholder:text-foreground-muted focus-visible:border-brand text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-colors outline-none"
+                  className="border-border bg-surface text-foreground placeholder:text-foreground-muted focus-visible:border-brand text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-all duration-200 outline-none"
                   placeholder="name@beispiel.de"
                   type="email"
                   required
@@ -108,7 +108,7 @@ export default function SignInForm() {
                 type="submit"
                 variant="primary"
                 isDisabled={isPending}
-                className="text-fluid-xs sm:text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-[transform,opacity] duration-200 hover:opacity-90 active:scale-95">
+                className="text-fluid-xs sm:text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
                 {isPending ? "Wird gesendet..." : "Link senden"}
               </Button>
             </Form>

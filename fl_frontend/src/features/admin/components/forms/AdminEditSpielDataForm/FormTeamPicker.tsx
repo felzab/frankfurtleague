@@ -81,7 +81,7 @@ export function FormTeamPicker({
               variant="secondary"
               aria-label={`${label} suchen`}
               className="p-2">
-              <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5">
+              <SearchField.Group className="border-border bg-muted focus-within:border-brand rounded-lg border px-2 py-1.5 transition-all duration-200 focus-within:ring-0">
                 <SearchField.SearchIcon />
                 <SearchField.Input
                   placeholder="Team finden..."

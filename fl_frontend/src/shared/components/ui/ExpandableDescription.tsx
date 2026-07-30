@@ -19,7 +19,8 @@ export default function ExpandableDescription({ text }: { text: string }) {
           setIsExpanded(false);
         }
       }}>
-      <p className={`text-fluid-xs text-pretty transition-colors ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
+      <p
+        className={`text-fluid-xs text-pretty transition-all duration-200 ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
         {text}
       </p>
 

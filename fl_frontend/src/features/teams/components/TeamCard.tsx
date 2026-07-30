@@ -24,19 +24,19 @@ export default function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
           <Chip
             size="sm"
             variant="soft"
-            color="default">
+            color="success">
             {teamData.statistik.punkte} Punkte
           </Chip>
           <Chip
             size="sm"
             variant="soft"
-            color="default">
+            color="success">
             {teamData.statistik.siege} Siege
           </Chip>
           <Chip
             size="sm"
             variant="soft"
-            color="default">
+            color="success">
             {teamData.statistik.tore_geschossen} Tore
           </Chip>
         </div>

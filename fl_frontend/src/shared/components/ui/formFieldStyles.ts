@@ -8,4 +8,4 @@
  * `SignInForm`, which was the one field in the app already getting this right.
  */
 export const FIELD_INPUT =
-  "border-border bg-surface text-foreground text-fluid-sm focus-visible:border-brand rounded-lg border px-3 py-2 transition-colors outline-none";
+  "border-border bg-surface text-foreground text-fluid-sm focus-visible:border-brand focus-within:border-brand rounded-lg border px-3 py-2 transition-colors outline-none focus-visible:ring-0 focus-within:ring-0";

@@ -14,7 +14,7 @@ export default function SpielCardUltraCompact({ spielData, onPress }: { spielDat
 
   return (
     <Card className={`${card({ interactive: true })} relative w-full`}>
-      <Card.Content className="flex flex-row items-center justify-between p-3">
+      <Card.Content className="flex flex-row items-center justify-between gap-x-3 p-3">
         {/* The card itself cannot become the button: it contains TeamPopoverMenu's own <button>
             triggers, and a nested button is invalid HTML that breaks the popover. So the click
             target is a full-bleed overlay sibling, and the two popover triggers are lifted above
@@ -33,27 +33,28 @@ export default function SpielCardUltraCompact({ spielData, onPress }: { spielDat
           <span className="w-full">{spielUhrzeit}</span>
         </div>
 
-        {/** Who vs. Who */}
-        {/* FIX: Changed bg-background/90 to solid bg-background with a border to pop off the surface layer */}
-        <div className="bg-background border-border flex w-fit flex-row items-center gap-x-3 rounded-lg border px-4 py-1.5 shadow-sm">
+        {/** Who vs. Who — equal 1fr tracks keep the score centered whatever the shorthand lengths. */}
+        <div className="bg-background border-border grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 rounded-lg border px-4 py-1.5 shadow-sm">
           {/* TeamPopoverMenu renders display:contents, so z-index has to be applied from outside it. */}
-          <span className="relative z-20">
+          <span className="relative z-20 flex min-w-0 justify-end">
             <TeamPopoverMenu
               teamName={spielData.team1.name}
               teamId={spielData.team1.team_id}
               teamShorthand={spielData.team1.shorthand}>
-              <strong className="text-fluid-base text-foreground w-fit">{spielData.team1.shorthand}</strong>
+              <strong className="text-fluid-base text-foreground max-w-full truncate text-right">{spielData.team1.shorthand}</strong>
             </TeamPopoverMenu>
           </span>
 
-          <span className={`text-fluid-sm font-bold ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>{spielErgebnis}</span>
+          <span className={`text-fluid-sm text-center font-bold ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
+            {spielErgebnis}
+          </span>
 
-          <span className="relative z-20">
+          <span className="relative z-20 flex min-w-0 justify-start">
             <TeamPopoverMenu
               teamName={spielData.team2.name}
               teamId={spielData.team2.team_id}
               teamShorthand={spielData.team2.shorthand}>
-              <strong className="text-fluid-base text-foreground w-fit">{spielData.team2.shorthand}</strong>
+              <strong className="text-fluid-base text-foreground max-w-full truncate text-left">{spielData.team2.shorthand}</strong>
             </TeamPopoverMenu>
           </span>
         </div>

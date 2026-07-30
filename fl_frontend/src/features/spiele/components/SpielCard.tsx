@@ -4,6 +4,7 @@ import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
+import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
 import { card } from "@/shared/components/ui/card";
 
 import { computeSpielStatus, formatSpielDisplay } from "../utils";
@@ -52,7 +53,7 @@ export default function SpielCard({
               onPress={onOpenAdminModal}
               size="md"
               variant="tertiary"
-              className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 md:h-[38px] md:w-[38px]">
+              className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-all duration-200 md:h-[38px] md:w-[38px]">
               <PencilToSquare className="m-0 size-5" />
             </Button>
           )}
@@ -62,26 +63,40 @@ export default function SpielCard({
             onPress={onOpenInfoModal}
             size="md"
             variant="tertiary"
-            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 md:h-[38px] md:w-[38px]">
+            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-all duration-200 md:h-[38px] md:w-[38px]">
             <CircleExclamation className="m-0 size-5" />
           </Button>
         </div>
       </div>
 
-      {/* Spielinfos */}
-      <div className="bg-muted flex w-full items-center justify-between rounded-xl p-2">
-        <strong className="text-fluid-xs lg:text-fluid-sm text-foreground flex-1 truncate text-right font-bold">
-          {spielData.team1.name || "Team 1"}
-        </strong>
+      {/* Spielinfos — equal 1fr tracks keep the score centered regardless of name lengths. */}
+      <div className="bg-muted grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl p-2">
+        <span className="flex min-w-0 justify-end">
+          <TeamPopoverMenu
+            teamName={spielData.team1.name}
+            teamId={spielData.team1.team_id}
+            teamShorthand={spielData.team1.shorthand}>
+            <strong className="text-fluid-xs lg:text-fluid-sm text-foreground max-w-full truncate text-right font-bold">
+              {spielData.team1.name || "Team 1"}
+            </strong>
+          </TeamPopoverMenu>
+        </span>
 
         <span
           className={`text-fluid-base w-fit px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
           {spielErgebnis}
         </span>
 
-        <strong className="text-fluid-xs lg:text-fluid-sm text-foreground flex-1 truncate text-left font-bold">
-          {spielData.team2.name || "Team 2"}
-        </strong>
+        <span className="flex min-w-0 justify-start">
+          <TeamPopoverMenu
+            teamName={spielData.team2.name}
+            teamId={spielData.team2.team_id}
+            teamShorthand={spielData.team2.shorthand}>
+            <strong className="text-fluid-xs lg:text-fluid-sm text-foreground max-w-full truncate text-left font-bold">
+              {spielData.team2.name || "Team 2"}
+            </strong>
+          </TeamPopoverMenu>
+        </span>
       </div>
 
       <div className="flex h-fit w-full flex-row items-center justify-center gap-x-2">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -7,6 +8,7 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";
 
+import SpielDetailsModal from "@/features/spiele/components/modals/SpielDetailsModal";
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import { computeErgebnisFor } from "@/features/spiele/utils";
 import { card } from "@/shared/components/ui/card";
@@ -19,7 +21,7 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { FLTeam } from "../../schemas";
 
-function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: string }) {
+function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel[]; teamId: string; onOpenSpiel: (spiel: FLSpiel) => void }) {
   // Map results to valid semantic colors
   const getBadgeColor = (result: FLSpielErgebnisFor) => {
     switch (result) {
@@ -59,7 +61,10 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
               {result}
             </div>
 
-            <SpielCardCompact spielData={spielData} />
+            <SpielCardCompact
+              spielData={spielData}
+              onOpenInfoModal={() => onOpenSpiel(spielData)}
+            />
           </div>
         );
       })}
@@ -67,8 +72,10 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
   );
 }
 
-export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FLTeam; teamSpiele: FLSpiel[] }) {
+export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLTeam; teamSpiele: FLSpiel[]; today: string }) {
   const router = useRouter();
+  // One modal for the whole timeline, PlayoffsView-style.
+  const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
   const formattedTeamAddress = formatAddress(teamData.address);
   // Deliberately formatAddress, not formatAddressFull: a team has no venue name to search by.
@@ -161,8 +168,16 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
         <SaisonSpieleTimeline
           spiele={teamSpiele}
           teamId={teamData.id}
+          onOpenSpiel={setSelectedSpiel}
         />
       </div>
+
+      <SpielDetailsModal
+        spielData={selectedSpiel}
+        today={today}
+        isOpen={selectedSpiel !== null}
+        onClose={() => setSelectedSpiel(null)}
+      />
     </div>
   );
 }

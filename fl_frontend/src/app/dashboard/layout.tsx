@@ -2,7 +2,7 @@ import { Suspense } from "react";
 
 import DashboardSidemenu from "@/features/dashboard/components/DashboardSidemenu";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
-import { ShellSkeleton } from "@/shared/components/ui/ShellSkeleton";
+import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
 import type { Metadata } from "next";
 
@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <DashboardSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
       <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">
-        <Suspense fallback={<ShellSkeleton />}>{children}</Suspense>
+        <Suspense fallback={<ContentLoader />}>{children}</Suspense>
       </main>
     </div>
   );

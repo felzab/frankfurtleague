@@ -20,7 +20,10 @@ export default function TopNavLinksDropdown() {
           />
         </Dropdown.Trigger>
 
+        {/* isNonModal: a nav dropdown has no business locking document scroll -- the modal
+            default made the page scrollbar vanish while open. Light-dismiss still works. */}
         <Dropdown.Popover
+          isNonModal
           placement="bottom end"
           className="-mt-1 w-[220px] rounded-xl">
           <Dropdown.Menu aria-label="Navigation Links">

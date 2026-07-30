@@ -30,7 +30,7 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
           <Chip
             size="sm"
             variant="soft"
-            color="default"
+            color="success"
             className="font-bold">
             {teamSpieler.length} Spieler
           </Chip>
@@ -99,7 +99,7 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
                       <Chip
                         size="sm"
                         variant="soft"
-                        color="default"
+                        color="accent"
                         className="text-fluid-xxs font-semibold capitalize">
                         {spielerData.position || "-"}
                       </Chip>

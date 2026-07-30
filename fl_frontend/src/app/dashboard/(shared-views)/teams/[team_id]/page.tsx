@@ -7,6 +7,7 @@ import { getSpiele } from "@/features/spiele/queries";
 import TeamDetailsView from "@/features/teams/components/views/TeamDetailsView";
 import { getTeams } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -65,10 +66,14 @@ export default async function TeamDetailsPage(props: NextPageProps<{ team_id: st
     notFound();
   }
 
+  // Legal here: the scope is already dynamic via the connection() above (R3a-B4.1 constraint).
+  const today = getGermanTodayStr();
+
   return (
     <TeamDetailsView
       teamData={teamData}
       teamSpiele={spieleRes.spiele}
+      today={today}
     />
   );
 }
