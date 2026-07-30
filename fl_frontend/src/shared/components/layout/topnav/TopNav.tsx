@@ -1,12 +1,12 @@
-import { Suspense } from "react";
 import Link from "next/link";
-
-import { Bars } from "@gravity-ui/icons";
 
 import { FLLogo } from "../../ui/FLLogo";
 import TopNavLinksDropdown from "./TopNavLinksDropdown";
 
-export default async function TopNav() {
+// Sync, and the dropdown is rendered bare: TopNavLinksDropdown is a static client component (no
+// hooks that need a request, no data), so the Suspense that used to wrap it guarded nothing and
+// only added a resumable slot to the PPR shell. The whole nav is part of the static shell now.
+export default function TopNav() {
   return (
     <nav className="flex h-(--navbar-height) w-full items-center justify-between px-4 sm:px-6">
       {/* Brand Logo Area */}
@@ -40,15 +40,7 @@ export default async function TopNav() {
             aria-hidden="true"
           />
         </div>
-        <Suspense
-          fallback={
-            <Bars
-              aria-label="Loading menu"
-              className="text-foreground-muted size-8 opacity-50"
-            />
-          }>
-          <TopNavLinksDropdown />
-        </Suspense>
+        <TopNavLinksDropdown />
       </div>
     </nav>
   );

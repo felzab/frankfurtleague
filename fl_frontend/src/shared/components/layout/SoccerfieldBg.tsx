@@ -1,4 +1,4 @@
-export default async function SoccerfieldBg({ children }: { children: React.ReactNode }) {
+export default function SoccerfieldBg({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex w-full flex-1 flex-col items-center px-2 py-4 sm:px-6 lg:px-8">
       <div className="soccer-field-base dotted-bg max-w-field relative w-full overflow-hidden rounded-2xl shadow-2xl sm:rounded-3xl">

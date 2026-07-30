@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import RecentAndUpcomingSpieleGrid from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
 
-export default async function LandingPage() {
+export default function LandingPage() {
   return (
     <>
       {/** Content section */}

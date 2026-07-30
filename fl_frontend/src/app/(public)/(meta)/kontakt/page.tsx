@@ -12,6 +12,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function KontaktPage() {
+export default function KontaktPage() {
   return <KontaktView />;
 }

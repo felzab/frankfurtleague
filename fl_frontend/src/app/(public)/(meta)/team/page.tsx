@@ -12,6 +12,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function MetaTeamPage() {
+export default function MetaTeamPage() {
   return <MetaTeamView />;
 }

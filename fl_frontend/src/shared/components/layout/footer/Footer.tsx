@@ -131,9 +131,13 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
         </div>
       </div>
 
-      {/* Bottom Status & Copyright Bar */}
+      {/* Bottom Status & Copyright Bar. Both children are request-time holes in the static shell:
+          the copyright year reads the clock and the status pings the backend. Each gets its own
+          boundary so the shell shows a sensible fallback and the real values stream in. */}
       <div className="flex flex-col items-center justify-between gap-4 pt-6 text-center sm:flex-row sm:text-left">
-        <FooterCopyrightString />
+        <Suspense fallback={<p className="text-fluid-xxs text-foreground-muted">{`© Frankfurt-League. All rights reserved.`}</p>}>
+          <FooterCopyrightString />
+        </Suspense>
         <Suspense fallback={<span className="text-fluid-xxs text-foreground-muted opacity-80">Checking status...</span>}>
           {serverStatusSlot}
         </Suspense>
