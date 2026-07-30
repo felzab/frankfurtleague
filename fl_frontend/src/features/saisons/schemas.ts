@@ -1,6 +1,8 @@
 import { CustomDateStringSchema } from "@/shared/schemas";
 import z from "zod";
 
+import { BaseAPIResponseSchema } from "@/core/schemas";
+
 export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error: "FLSaisonStatus is invalid" });
 export const FLSaisonPhaseSchema = z.enum(["gruppenphase", "viertelfinale", "halbfinale", "finale"], { error: "FLSaisonPhase is invalid" });
 export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
@@ -22,13 +24,13 @@ export const FLSaisonSchema = z.object({
 });
 export type FLSaison = z.infer<typeof FLSaisonSchema>;
 
-export const FLSaisonListResponseSchema = z.object({
+export const FLSaisonListResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("list"),
   saisons: z.array(FLSaisonSchema),
 });
 export type FLSaisonListResponse = z.infer<typeof FLSaisonListResponseSchema>;
 
-export const FLSaisonsSingleResponseSchema = z.object({
+export const FLSaisonsSingleResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("single"),
   saison: FLSaisonSchema,
 });

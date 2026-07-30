@@ -6,11 +6,11 @@
  * the compiler could not know the attached property was called `spiele`, which is what forced the
  * codebase's only `as unknown as` at the playoffs call site.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- L and R are arbitrary row shapes
+/* eslint-disable @typescript-eslint/no-explicit-any -- L and R are arbitrary row shapes */
 export function joinCollections<
   L extends Record<string, any>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above
   R extends Record<string, any>,
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   K extends keyof L,
   J extends keyof R,
   TKey extends string,

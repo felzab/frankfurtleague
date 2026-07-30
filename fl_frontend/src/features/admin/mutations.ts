@@ -1,6 +1,7 @@
-import { apiClient, BaseAPIResponseSchema } from "@/core/api";
+import { apiClient } from "@/core/api";
+import { BaseAPIResponseSchema } from "@/core/schemas";
 
-import type { BaseAPIResponse } from "@/core/api";
+import type { BaseAPIResponse } from "@/core/schemas";
 import type { AdminPatchSpielDataPayload } from "./schemas";
 
 export const patchAdminSpielData = async (formData: AdminPatchSpielDataPayload): Promise<BaseAPIResponse> => {

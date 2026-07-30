@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { z } from "zod";
 
-import { ExternalUrlSchema, FLAddressSchema, FLKontaktSchema } from "./schemas.ts";
+import { CustomTimeStringSchema, ExternalUrlSchema, FLAddressSchema, FLKontaktSchema } from "./schemas.ts";
 
 const validAddress = {
   strasse: "Hanauer Landstraße",
@@ -94,6 +94,30 @@ describe("ExternalUrlSchema", () => {
   it("rejects a hostname that is not a domain", () => {
     for (const url of ["https://ok", "https://localhost", "https://127.0.0.1"]) {
       assert.equal(ExternalUrlSchema.safeParse(url).success, false, `expected "${url}" to be rejected`);
+    }
+  });
+});
+
+describe("CustomTimeStringSchema", () => {
+  it("accepts HH:MM:SS", () => {
+    for (const t of ["00:00:00", "09:05:00", "14:30:00", "23:59:59"]) {
+      assert.equal(CustomTimeStringSchema.safeParse(t).success, true, `expected ${t} to parse`);
+    }
+  });
+
+  // The gap this closed: z.iso.time() accepted both of these, the backend's CustomTimeString does
+  // not, so the admin form could submit a value the API answered with a 422.
+  it("rejects a time without seconds, which the backend rejects too", () => {
+    assert.equal(CustomTimeStringSchema.safeParse("14:30").success, false);
+  });
+
+  it("rejects fractional seconds, which the backend rejects too", () => {
+    assert.equal(CustomTimeStringSchema.safeParse("14:30:00.5").success, false);
+  });
+
+  it("rejects out-of-range and malformed values", () => {
+    for (const t of ["24:00:00", "14:60:00", "14:30:60", "2:30:00", "", "abc"]) {
+      assert.equal(CustomTimeStringSchema.safeParse(t).success, false, `expected ${t} to be rejected`);
     }
   });
 });

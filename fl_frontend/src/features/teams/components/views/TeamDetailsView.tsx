@@ -76,8 +76,8 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
       <div className="bg-surface border-border flex w-full flex-col gap-y-1.5 rounded-2xl border p-4 shadow-sm">
         <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h3>
 
-        {/* Offizieller Schulname */}
-        {teamData.full_name && <p className="text-fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>}
+        {/* Offizieller Schulname. No emptiness guard: both schemas now require it (R3a-B1.3). */}
+        <p className="text-fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
 
         <div className="flex flex-col gap-y-1 pt-2">
           <Link

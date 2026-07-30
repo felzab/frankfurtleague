@@ -69,11 +69,11 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
                         className="hidden shrink-0 sm:flex">
                         <Avatar.Fallback className="font-bold">
                           {spielerData.vorname.charAt(0).toUpperCase()}
-                          {spielerData.nachname.charAt(0).toUpperCase()}
+                          {spielerData.nachname?.charAt(0).toUpperCase() ?? ""}
                         </Avatar.Fallback>
                       </Avatar>
                       <span className="text-fluid-xs text-foreground line-clamp-1 font-bold">
-                        {`${spielerData.vorname} ${spielerData.nachname}`}
+                        {[spielerData.vorname, spielerData.nachname].filter(Boolean).join(" ")}
                       </span>
                     </div>
                   </Table.Cell>
@@ -85,7 +85,7 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
 
                   {/* STUFE */}
                   <Table.Cell className="text-fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-medium lg:px-4">
-                    {spielerData.stufe}
+                    {spielerData.stufe || "-"}
                   </Table.Cell>
 
                   {/* POSITION */}
@@ -96,7 +96,7 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
                         variant="soft"
                         color="accent"
                         className="text-fluid-xxs font-semibold capitalize">
-                        {spielerData.position}
+                        {spielerData.position || "-"}
                       </Chip>
                     </div>
                   </Table.Cell>

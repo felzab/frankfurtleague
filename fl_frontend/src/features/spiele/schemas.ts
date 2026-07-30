@@ -1,7 +1,7 @@
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/api";
+import { BaseAPIResponseSchema } from "@/core/schemas";
 
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
 
@@ -54,6 +54,10 @@ export const FLSpielSchema = z.object({
   spiel_nr: z.int().positive(),
   is_canceled: z.boolean(),
   saison_phase: FLSaisonPhaseSchema,
+  // The backend sends this (FLSpiel.saison_id, min_length=4, max_length=4). Until it was declared
+  // here, zod's default strip mode discarded it silently -- which is why the admin patch action has
+  // no season id to invalidate a granular cache tag with (ledger R3a-A2.1, D2).
+  saison_id: z.string().length(4),
 });
 export type FLSpiel = z.infer<typeof FLSpielSchema>;
 

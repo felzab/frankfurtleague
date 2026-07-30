@@ -4,7 +4,17 @@ const PHONE_REGEX = new RegExp(/^([+]?[\s0-9\-().]{3,20})$/);
 
 export const CustomDateStringSchema = z.iso.date({ error: "DateString has to be of the form: YYYY-MM-DD" });
 
-export const CustomTimeStringSchema = z.iso.time({ error: "TimeString has to be of the form: HH:MM:SS" });
+/**
+ * `HH:MM:SS`, seconds required.
+ *
+ * Not `z.iso.time()`, which also accepts `"14:30"` and `"14:30:00.5"`. The backend's
+ * `CustomTimeString` requires seconds and rejects a fractional part, so the looser schema let the
+ * admin form submit a value the API answered with a 422 — and made the error message here a lie
+ * about what it accepted (audit R3a §B1.4).
+ */
+export const CustomTimeStringSchema = z
+  .string()
+  .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/, { error: "TimeString has to be of the form: HH:MM:SS" });
 
 export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, {
   message: "ObjectIdString has to be 24 chars long and a combination of letters and numbers",
