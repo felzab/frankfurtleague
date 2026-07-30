@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!(await getAdminSession())) redirect("/signin");
 
   return (
-    <div className="relative flex h-dvh w-full flex-col xl:flex-row">
+    <div className="relative flex h-dvh w-full flex-col lg:flex-row">
       <AdminSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
       <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">

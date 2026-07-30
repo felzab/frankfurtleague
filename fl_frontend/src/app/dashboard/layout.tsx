@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex h-dvh w-full flex-col xl:flex-row">
+    <div className="relative flex h-dvh w-full flex-col lg:flex-row">
       <DashboardSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
       <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">

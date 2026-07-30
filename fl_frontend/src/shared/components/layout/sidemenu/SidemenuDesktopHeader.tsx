@@ -9,7 +9,7 @@ import { FLLogo } from "../../ui/FLLogo";
 export default function SidemenuDesktopHeader({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
   return (
     <div
-      className={`border-border hidden h-14 shrink-0 items-center border-b transition-all xl:flex ${
+      className={`border-border hidden h-14 shrink-0 items-center border-b transition-all lg:flex ${
         isDesktopCollapsed ? "justify-center" : "justify-start px-4"
       }`}>
       <Tooltip delay={0}>

@@ -2,7 +2,7 @@
 
 export default function SidemenuMobileHeader({ displayTitle, onToggleMenu }: { displayTitle: string; onToggleMenu: () => void }) {
   return (
-    <header className="bg-surface border-border flex h-14 w-full shrink-0 items-center justify-between border-b px-4 xl:hidden">
+    <header className="bg-surface border-border flex h-14 w-full shrink-0 items-center justify-between border-b px-4 lg:hidden">
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleMenu}
