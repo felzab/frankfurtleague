@@ -24,13 +24,13 @@ export default async function TopNav() {
         <div className="hidden items-center gap-1 lg:flex">
           <Link
             href="/dashboard"
-            className="text-fluid-sm text-foreground hover:bg-muted focus-visible:ring-action rounded-full px-4 py-1.5 font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none">
+            className="text-fluid-sm text-foreground hover:bg-muted focus-visible:ring-brand rounded-full px-4 py-1.5 font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none">
             Saisonübersicht
           </Link>
 
           <Link
             href="/admin"
-            className="text-fluid-sm text-foreground hover:bg-muted focus-visible:ring-action rounded-full px-4 py-1.5 font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none">
+            className="text-fluid-sm text-foreground hover:bg-muted focus-visible:ring-brand rounded-full px-4 py-1.5 font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none">
             Verwalten
           </Link>
 

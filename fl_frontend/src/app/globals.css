@@ -23,7 +23,6 @@
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
     --accent-brand-solid: #82181a;
-    --accent-action: #059669;
     --accent-warn: #eab308;
     --accent-danger: #dc2626;
     --accent-success: #16a34a;
@@ -54,7 +53,6 @@
     /* Lightened for dark surfaces: the light value is 1.88:1 on --bg-surface, this is ~5.6:1. */
     --accent-brand: #e05b5e;
     --accent-brand-solid: #82181a;
-    --accent-action: #10b981;
     --accent-warn: #fde047;
     --accent-danger: #ef4444;
     --accent-success: #22c55e;
@@ -115,7 +113,6 @@ Possible shimmer animation for landing page
   --color-brand: var(--accent-brand);
   --color-brand-solid: var(--accent-brand-solid);
   --color-brand-solid-foreground: var(--fg-on-brand);
-  --color-action: var(--accent-action);
   /* Spelled `warning`, not `warn`: the utility sites all say `warning`, and this shadows
      HeroUI's own --color-warning rather than competing with it. */
   --color-warning: var(--accent-warn);
