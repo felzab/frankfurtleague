@@ -5,6 +5,7 @@ import { Description, Label, NumberField, Separator, Switch } from "@heroui/reac
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
 
 import { FormTeamPicker } from "./FormTeamPicker";
+import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
@@ -54,12 +55,7 @@ export default function FormMatchupSection({
   return (
     <div
       className="bg-surface border-border flex h-fit w-full flex-col gap-y-6 rounded-xl border p-2 shadow-sm lg:p-4"
-      onKeyDownCapture={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }}>
+      onKeyDownCapture={suppressEnterSubmit}>
       {/** Team 1 */}
       <FormTeamPicker
         label="Team1"
