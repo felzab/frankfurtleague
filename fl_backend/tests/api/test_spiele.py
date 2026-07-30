@@ -81,7 +81,10 @@ class TestEmbeddedFields:
     # Owner decision: a rental price is whole euros. Stored values were float in 12 of 31
     # documents, but every one was integral -- Pydantic coerces those and rejects a fraction.
     def test_coerces_an_integral_float_rent(self, spiel, spiel_ort_field):
-        assert FLSpiel.model_validate(spiel(ort=spiel_ort_field(mietpreis=80.0))).ort.mietpreis == 80
+        parsed = FLSpiel.model_validate(spiel(ort=spiel_ort_field(mietpreis=80.0)))
+
+        assert parsed.ort is not None
+        assert parsed.ort.mietpreis == 80
 
     def test_rejects_a_fractional_rent(self, spiel, spiel_ort_field):
         with pytest.raises(ValidationError):

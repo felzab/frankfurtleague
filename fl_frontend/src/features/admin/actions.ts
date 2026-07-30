@@ -5,7 +5,7 @@ import { updateTag } from "next/cache";
 import { getAdminSession } from "@/core/auth";
 
 import { patchAdminSpielData } from "./mutations";
-import { AdminPatchSpielDataPayloadSchema } from "./schemas";
+import { FLPatchSpielDataPayloadSchema } from "./schemas";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -14,7 +14,7 @@ export async function patchAdminSpielDataAction(prevState: FormState, rawPayload
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
 
-  const validated = AdminPatchSpielDataPayloadSchema.safeParse(rawPayload);
+  const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
 
   if (!validated.success) {
     return {

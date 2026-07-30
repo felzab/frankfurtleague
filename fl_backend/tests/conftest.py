@@ -9,7 +9,8 @@ Payloads are keyed the way MongoDB serves them — `_id`, not `id` — because t
 alias the models declare and therefore the shape they are actually validated against in production.
 """
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 

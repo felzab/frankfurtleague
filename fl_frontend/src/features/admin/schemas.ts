@@ -4,7 +4,7 @@ import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSch
 
 import { FLSpielOrtFieldSchema, FLSpielSchiedsrichterFieldSchema, FLSpielTeamFieldSchema } from "../spiele/schemas";
 
-export const AdminPatchSpielDataPayloadSchema = z.object({
+export const FLPatchSpielDataPayloadSchema = z.object({
   datum: CustomDateStringSchema.nullable(),
   uhrzeit: CustomTimeStringSchema.nullable(),
 
@@ -18,4 +18,4 @@ export const AdminPatchSpielDataPayloadSchema = z.object({
   is_canceled: z.boolean(),
 });
 
-export type AdminPatchSpielDataPayload = z.infer<typeof AdminPatchSpielDataPayloadSchema>;
+export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSchema>;

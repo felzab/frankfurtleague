@@ -2,12 +2,12 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 
-import { FLSaisonListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
+import { FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
 
-import type { FLSaisonListResponse, FLSaisonsSingleResponse } from "./schemas";
+import type { FLSaisonsListResponse, FLSaisonsSingleResponse } from "./schemas";
 import type { FLSaisonsFilterParams } from "./types";
 
-export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonListResponse> {
+export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonsListResponse> {
   "use cache";
 
   const tags: string[] = ["saisons"];
@@ -17,7 +17,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
   cacheTag(...tags);
   cacheLife("days");
 
-  return apiClient<FLSaisonListResponse>("/saisons", FLSaisonListResponseSchema, {
+  return apiClient<FLSaisonsListResponse>("/saisons", FLSaisonsListResponseSchema, {
     params: filters,
   });
 }

@@ -113,13 +113,13 @@ class FLTeamsCompactListResponse(BaseAPIResponse):
     teams: list[FLTeamCompact]
 
 
-class FLTeamsGruppenResponse(BaseAPIResponse):
+class FLTeamsGroupedResponse(BaseAPIResponse):
     format: Literal["grouped"] = "grouped"
     gruppen: FLGruppen
 
 
 # Pydantic uses the 'format' field to decide which model to validate against
 FLTeamsResponse = Annotated[
-    Union[FLTeamsListResponse, FLTeamsGruppenResponse, FLTeamsCompactListResponse],
+    Union[FLTeamsListResponse, FLTeamsGroupedResponse, FLTeamsCompactListResponse],
     Field(discriminator="format"),
 ]

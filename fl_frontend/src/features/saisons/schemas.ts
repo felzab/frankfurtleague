@@ -24,11 +24,11 @@ export const FLSaisonSchema = z.object({
 });
 export type FLSaison = z.infer<typeof FLSaisonSchema>;
 
-export const FLSaisonListResponseSchema = BaseAPIResponseSchema.extend({
+export const FLSaisonsListResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("list"),
   saisons: z.array(FLSaisonSchema),
 });
-export type FLSaisonListResponse = z.infer<typeof FLSaisonListResponseSchema>;
+export type FLSaisonsListResponse = z.infer<typeof FLSaisonsListResponseSchema>;
 
 export const FLSaisonsSingleResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("single"),
@@ -36,5 +36,5 @@ export const FLSaisonsSingleResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSchema>;
 
-export const FLSaisonsResponseSchema = z.discriminatedUnion("format", [FLSaisonListResponseSchema, FLSaisonsSingleResponseSchema]);
+export const FLSaisonsResponseSchema = z.discriminatedUnion("format", [FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema]);
 export type FLSaisonsResponse = z.infer<typeof FLSaisonsResponseSchema>;
