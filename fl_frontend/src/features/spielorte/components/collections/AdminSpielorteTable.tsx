@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Link from "next/link";
 
 import { Calendar, Copy, Globe, MapPin, Pencil, TrashBin } from "@gravity-ui/icons";
@@ -10,7 +11,7 @@ import { formatMapsLink } from "../../utils";
 
 import type { FLSpielort } from "../../schemas";
 
-export default function AdminSpielorteTable({
+function AdminSpielorteTable({
   spielortQuery,
   filteredSpielorte,
   setEditingOrt,
@@ -51,7 +52,10 @@ export default function AdminSpielorteTable({
             </Table.Column>
           </Table.Header>
 
+          {/* `items` + a render function, not mapped children: the static form stops committing its
+              row collection after a few client navigations away and back (ledger NEW-T1). */}
           <Table.Body
+            items={filteredSpielorte}
             renderEmptyState={() => (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <p className="text-fluid-sm text-foreground-muted font-medium">
@@ -59,9 +63,8 @@ export default function AdminSpielorteTable({
                 </p>
               </div>
             )}>
-            {filteredSpielorte.map((ort) => (
+            {(ort: FLSpielort) => (
               <Table.Row
-                key={ort.id}
                 id={ort.id}
                 className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
                 <Table.Cell className="px-6 py-4">
@@ -195,10 +198,26 @@ export default function AdminSpielorteTable({
                   </div>
                 </Table.Cell>
               </Table.Row>
-            ))}
+            )}
           </Table.Body>
         </Table.Content>
       </Table.ScrollContainer>
     </Table>
   );
 }
+
+/**
+ * Memoised deliberately, and load-bearing — this is the NEW-T1 fix.
+ *
+ * The parent view calls `useSearchParams()`, which subscribes it to the client router. Next keeps
+ * the previous route mounted in a hidden React Activity tree for instant back-navigation, so every
+ * navigation *elsewhere* re-renders this table while it is hidden. A react-aria collection that
+ * re-renders while hidden drops its rows and never rebuilds them on restore, leaving the table
+ * shell with neither rows nor `renderEmptyState`. Bisected against seven probe routes: the table
+ * alone is fine, `useSearchParams` alone is fine, the two together fail on the third visit.
+ *
+ * Every prop must therefore stay referentially stable across those re-renders: `filteredSpielorte`
+ * comes from `useFuzzySearch`'s memo, and the two setters are `useState` setters. **Do not pass an
+ * inline lambda or a freshly-built array here** — it silently restores the bug.
+ */
+export default memo(AdminSpielorteTable);

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
 import { Magnifier } from "@gravity-ui/icons";
-import Fuse from "fuse.js";
 
 import { Input } from "@heroui/react";
+
+import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
+import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 
 import AdminSchiedsrichterTable from "../collections/AdminSchiedsrichterTable";
 import { AdminCreateSchiedsrichterModal } from "../modals/AdminCreateSchiedsrichterModal";
@@ -15,48 +16,15 @@ import { AdminEditSchiedsrichterModal } from "../modals/AdminEditSchiedsrichterM
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 
-export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FLSchiedsrichter[] }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
+const SEARCH_KEYS = ["name", "schule", "kontakt.email", "kontakt.telefon"] as const;
 
-  const schiedsrichterQuery = searchParams.get("q") || "";
-  const [inputValue, setInputValue] = useState(schiedsrichterQuery);
+export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FLSchiedsrichter[] }) {
+  const { urlValue: schiedsrichterQuery, inputValue, setInputValue } = useDebouncedUrlQuery();
   const [editingSchiedsrichter, setEditingSchiedsrichter] = useState<FLSchiedsrichter | null>(null);
   const [deletingSchiedsrichter, setDeletingSchiedsrichter] = useState<FLSchiedsrichter | null>(null);
 
-  // Sync local input if URL changes externally (e.g., browser back/forward buttons)
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setInputValue(schiedsrichterQuery);
-  }, [schiedsrichterQuery]);
-
-  // Debouncing-Logic (Updates URL lazily after 300ms)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (schiedsrichterQuery === inputValue) return;
-
-      const params = new URLSearchParams(searchParams);
-      if (inputValue) {
-        params.set("q", inputValue);
-      } else {
-        params.delete("q");
-      }
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [inputValue, router, pathname, searchParams, schiedsrichterQuery]);
-
-  const fuse = new Fuse(schiedsrichter, {
-    keys: ["name", "schule", "kontakt.email", "kontakt.telefon"],
-    threshold: 0.3,
-    distance: 100,
-    ignoreLocation: true,
-    minMatchCharLength: 1,
-  });
-
-  const filteredSchiedsrichter = !schiedsrichterQuery ? schiedsrichter : fuse.search(schiedsrichterQuery).map((result) => result.item);
+  const filteredSchiedsrichter = useFuzzySearch({ items: schiedsrichter, keys: SEARCH_KEYS, query: schiedsrichterQuery });
 
   return (
     <div className="max-w-page mx-auto flex h-full w-full flex-col gap-8 overflow-y-auto p-6 sm:p-8">

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
 import { Magnifier } from "@gravity-ui/icons";
-import Fuse from "fuse.js";
 
 import { Input } from "@heroui/react";
+
+import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
+import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 
 import AdminSpielorteTable from "../collections/AdminSpielorteTable";
 import { AdminCreateSpielortModal } from "../modals/AdminCreateSpielortModal";
@@ -15,48 +16,15 @@ import { AdminEditSpielortModal } from "../modals/AdminEditSpielortModal";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
-export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
+const SEARCH_KEYS = ["name", "address.plz", "address.strasse", "address.stadtteil"] as const;
 
-  const spielortQuery = searchParams.get("q") || "";
-  const [inputValue, setInputValue] = useState(spielortQuery);
+export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {
+  const { urlValue: spielortQuery, inputValue, setInputValue } = useDebouncedUrlQuery();
   const [editingOrt, setEditingOrt] = useState<FLSpielort | null>(null);
   const [deletingOrt, setDeletingOrt] = useState<FLSpielort | null>(null);
 
-  // Sync local input if URL changes externally (e.g., browser back/forward buttons)
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setInputValue(spielortQuery);
-  }, [spielortQuery]);
-
-  // Debouncing-Logic (Updates URL lazily after 300ms)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (spielortQuery === inputValue) return;
-
-      const params = new URLSearchParams(searchParams);
-      if (inputValue) {
-        params.set("q", inputValue);
-      } else {
-        params.delete("q");
-      }
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [inputValue, router, pathname, searchParams, spielortQuery]);
-
-  const fuse = new Fuse(spielorte, {
-    keys: ["name", "address.plz", "address.strasse", "address.stadtteil"],
-    threshold: 0.3,
-    distance: 100,
-    ignoreLocation: true,
-    minMatchCharLength: 1,
-  });
-
-  const filteredSpielorte = !spielortQuery ? spielorte : fuse.search(spielortQuery).map((result) => result.item);
+  const filteredSpielorte = useFuzzySearch({ items: spielorte, keys: SEARCH_KEYS, query: spielortQuery });
 
   return (
     <div className="max-w-page mx-auto flex h-full w-full flex-col gap-8 overflow-y-auto p-6 sm:p-8">

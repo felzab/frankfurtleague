@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Link from "next/link";
 
 import { Calendar, Copy, Pencil, Person, TrashBin } from "@gravity-ui/icons";
@@ -6,7 +7,7 @@ import { Button, Table, toast, Tooltip } from "@heroui/react";
 
 import type { FLSchiedsrichter } from "../../schemas";
 
-export default function AdminSchiedsrichterTable({
+function AdminSchiedsrichterTable({
   schiedsrichterQuery,
   filteredSchiedsrichter,
   setEditingSchiedsrichter,
@@ -54,7 +55,10 @@ export default function AdminSchiedsrichterTable({
             </Table.Column>
           </Table.Header>
 
+          {/* `items` + a render function, not mapped children: the static form stops committing its
+              row collection after a few client navigations away and back (ledger NEW-T1). */}
           <Table.Body
+            items={filteredSchiedsrichter}
             renderEmptyState={() => (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <p className="text-fluid-sm text-foreground-muted font-medium">
@@ -62,9 +66,8 @@ export default function AdminSchiedsrichterTable({
                 </p>
               </div>
             )}>
-            {filteredSchiedsrichter.map((schiedsrichter) => (
+            {(schiedsrichter: FLSchiedsrichter) => (
               <Table.Row
-                key={schiedsrichter.id}
                 id={schiedsrichter.id}
                 className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
                 {/* 1. Name */}
@@ -187,10 +190,18 @@ export default function AdminSchiedsrichterTable({
                   </div>
                 </Table.Cell>
               </Table.Row>
-            ))}
+            )}
           </Table.Body>
         </Table.Content>
       </Table.ScrollContainer>
     </Table>
   );
 }
+
+/**
+ * Memoised deliberately, and load-bearing — see the long note on `AdminSpielorteTable`. In short:
+ * the parent's `useSearchParams()` re-renders this table while it sits hidden in a React Activity
+ * tree during navigation elsewhere, and a react-aria collection that re-renders while hidden loses
+ * its rows for good. Every prop must stay referentially stable; no inline lambdas here.
+ */
+export default memo(AdminSchiedsrichterTable);
