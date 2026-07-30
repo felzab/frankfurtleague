@@ -4,10 +4,11 @@ import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
 import PlayoffsView from "@/features/spieltage/components/views/PlayoffsView";
 import { getSpieltage } from "@/features/spieltage/queries";
+import { FLSpieltagWithSpieleSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import z from "zod";
 
-import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
@@ -29,18 +30,24 @@ export default async function Page(props: NextPageProps) {
     getSpieltage({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
     getSpiele({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
   ]);
+  // Parsed, not cast -- the same guarantee /dashboard/spielplan already takes on the identical
+  // join. The type system cannot know the joined rows still satisfy FLSpieltagWithSpiele after a
+  // schema change upstream; without this the mismatch would surface as
+  // `playoffsSpieltag.spiele.map of undefined` inside a client component instead.
+  const playoffsSpieltage = z.array(FLSpieltagWithSpieleSchema).parse(
+    joinCollections({
+      left: spieltageRes.spieltage,
+      right: spieleRes.spiele,
+      leftIdKey: "id",
+      rightIdKey: "spieltag_id",
+      targetKey: "spiele",
+    }),
+  );
+
   return (
     <PlayoffsView
       today={getGermanTodayStr()}
-      playoffsSpieltage={
-        joinCollections({
-          left: spieltageRes.spieltage,
-          right: spieleRes.spiele,
-          leftIdKey: "id",
-          rightIdKey: "spieltag_id",
-          targetKey: "spiele",
-        }) as unknown as FLSpieltagWithSpiele[]
-      }
+      playoffsSpieltage={playoffsSpieltage}
     />
   );
 }
