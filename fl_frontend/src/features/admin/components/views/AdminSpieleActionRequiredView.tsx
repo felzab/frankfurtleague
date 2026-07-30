@@ -4,45 +4,24 @@ import { ChevronsDownWide } from "@gravity-ui/icons";
 
 import { Accordion } from "@heroui/react";
 
+import { typedObjectEntries } from "@/shared/utils/type";
+
+import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "../../utils";
 import AdminSpielCardsList from "../collections/AdminSpielCardsList";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overviewSpiele: FLSpiel[]; today: string }) {
-  const spieleCategories: { [key: string]: { name: string; desc: string; spiele: FLSpiel[] } } = {
-    ergebnis_pending: {
-      name: "Ergebnis ausstehend",
-      desc: "Spiele, die bereits gespielt wurden, aber kein eingetragenes Ergebnis haben",
-      spiele: [],
-    },
-    datum_missing: { name: "Fehlendes Datum", desc: "Spiele ohne eingetragenes Datum", spiele: [] },
-    uhrzeit_missing: { name: "Fehlende Uhrzeit", desc: "Spiele ohne eingetragene Uhrzeit", spiele: [] },
-    ort_missing: { name: "Fehlender Ort", desc: "Spiele ohne eingetragenen Ort", spiele: [] },
-    schiedsrichter_missing: { name: "Fehlender Schiedsrichter", desc: "Spiele ohne eingetragenen Schiedsrichter", spiele: [] },
-    is_canceled: { name: "Abgesagt", desc: "Abgesagte Spiele", spiele: [] },
-  };
-
-  overviewSpiele.forEach((spiel) => {
-    if (spiel.is_canceled) {
-      spieleCategories.is_canceled.spiele.push(spiel);
-      return;
-    }
-
-    if (spiel.datum === null) spieleCategories.datum_missing.spiele.push(spiel);
-    if (spiel.uhrzeit === null) spieleCategories.uhrzeit_missing.spiele.push(spiel);
-    if (spiel.ort === null) spieleCategories.ort_missing.spiele.push(spiel);
-    if (spiel.schiedsrichter === null) spieleCategories.schiedsrichter_missing.spiele.push(spiel);
-
-    if (spiel.datum !== null && spiel.datum < today && spiel.ergebnis === null) {
-      spieleCategories.ergebnis_pending.spiele.push(spiel);
-    }
-  });
+  const spieleCategories = categorizeActionRequired(overviewSpiele, today);
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center px-4 pt-6 pb-12 sm:px-8">
       <Accordion className="text-foreground flex w-full max-w-[1400px] flex-col gap-y-4">
-        {Object.entries(spieleCategories).map(([category, data]) => {
-          const hasItems = data.spiele.length > 0;
+        {/* typedObjectEntries, not Object.entries: the latter widens the key to string, which would
+            make the ACTION_REQUIRED_LABELS lookup below an unchecked index. */}
+        {typedObjectEntries(spieleCategories).map(([category, spiele]) => {
+          const hasItems = spiele.length > 0;
+          const label = ACTION_REQUIRED_LABELS[category];
 
           return (
             <Accordion.Item
@@ -53,15 +32,15 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
                 <Accordion.Trigger className="hover:bg-muted/80 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors outline-none">
                   <div className="flex flex-col gap-y-1">
                     <div className="flex items-center gap-x-3">
-                      <span className="text-fluid-base text-foreground font-extrabold tracking-tight">{data.name}</span>
+                      <span className="text-fluid-base text-foreground font-extrabold tracking-tight">{label.name}</span>
                       <span
                         className={`inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 text-xs font-extrabold shadow-sm ${
                           hasItems ? "bg-danger dark:bg-danger/90 text-white" : "bg-success dark:bg-success/90 text-white"
                         }`}>
-                        {data.spiele.length}
+                        {spiele.length}
                       </span>
                     </div>
-                    <span className="text-fluid-xxs text-foreground-muted font-medium">{data.desc}</span>
+                    <span className="text-fluid-xxs text-foreground-muted font-medium">{label.desc}</span>
                   </div>
                   <Accordion.Indicator className="text-foreground-muted transition-transform duration-200">
                     <ChevronsDownWide
@@ -77,7 +56,7 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
                   {hasItems ? (
                     <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                       <AdminSpielCardsList
-                        spiele={data.spiele}
+                        spiele={spiele}
                         today={today}
                       />
                     </div>

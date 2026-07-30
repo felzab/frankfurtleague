@@ -22,6 +22,6 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
   cacheLife("days");
 
   return apiClient<FLTeamsResponse>("/teams", FLTeamsResponseSchema, {
-    params: filters as Record<string, string | number | boolean>,
+    params: filters,
   });
 }

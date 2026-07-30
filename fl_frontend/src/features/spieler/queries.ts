@@ -21,6 +21,6 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
   cacheLife("days");
 
   return apiClient<FLSpielerListResponse>("/spieler", FLSpielerListResponseSchema, {
-    params: filters as Record<string, string | number | boolean>,
+    params: filters,
   });
 }

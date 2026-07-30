@@ -55,7 +55,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "ruff>=0.15.21",
+    "pytest>=9.1.1",
+    "ruff>=0.16.0",
 ]
 
 [tool.ruff]
@@ -73,3 +74,17 @@ ignore = ["B008"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.pytest.ini_options]
+# importlib is pytest's recommended import mode for new suites: no sys.path manipulation, and test
+# modules sharing a basename across directories cannot collide. It is why tests/ needs no
+# __init__.py files.
+#
+# -ra prints a reason line for every non-passing test, so a failure names itself in the summary
+# rather than only in the scrollback. --showlocals puts the fixture values in the traceback, which
+# is the difference between "a validation error was expected" and seeing the exact payload that
+# produced it. Deliberately NOT -q: quiet mode suppresses precisely the detail you need when
+# something breaks, and this suite is fast enough that verbosity costs nothing.
+addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals"
+testpaths = ["tests"]
+pythonpath = ["."]

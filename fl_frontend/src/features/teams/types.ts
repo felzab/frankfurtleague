@@ -1,6 +1,6 @@
 export type FLTeamsSortingOptions = "name";
 
-export interface FLTeamsFilterParams {
+export type FLTeamsFilterParams = {
   team_id?: string;
   saison_id?: string;
   gruppe?: string;
@@ -12,4 +12,4 @@ export interface FLTeamsFilterParams {
   limit?: number;
   sort_by?: FLTeamsSortingOptions;
   order?: "asc" | "desc";
-}
+};

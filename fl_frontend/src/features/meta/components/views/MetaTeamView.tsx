@@ -4,22 +4,9 @@ import { Person, Persons } from "@gravity-ui/icons";
 
 import { Card } from "@heroui/react";
 
-import { TEAM_MEMBERS } from "../../constants";
+import { typedObjectEntries } from "@/shared/utils/type";
 
-const TAG_TITLES: Record<string, string> = {
-  vorstand: "Vorstand",
-  orga: "Organisation",
-  web: "Web, Design & Kommunikation",
-};
-
-const GROUPED_MEMBERS = TEAM_MEMBERS.reduce(
-  (acc, member) => {
-    if (!acc[member.tag]) acc[member.tag] = [];
-    acc[member.tag].push(member);
-    return acc;
-  },
-  {} as Record<string, (typeof TEAM_MEMBERS)[0][]>,
-);
+import { GROUPED_MEMBERS, TAG_TITLES } from "../../constants";
 
 export default function MetaTeamView() {
   return (
@@ -53,12 +40,14 @@ export default function MetaTeamView() {
 
       {/** Section 2: Grouped Members */}
       <div className="flex w-full flex-col items-center gap-y-12">
-        {Object.entries(GROUPED_MEMBERS).map(([tag, members]) => (
+        {/* typedObjectEntries keeps `tag` as the literal union, so TAG_TITLES is a checked lookup
+            and needs no `|| tag` fallback. */}
+        {typedObjectEntries(GROUPED_MEMBERS).map(([tag, members]) => (
           <section
             key={tag}
             className="flex w-full flex-col gap-y-5">
             <h3 className="text-fluid-base sm:text-fluid-lg border-l-4 border-white pl-3 font-black tracking-wide text-white uppercase">
-              {TAG_TITLES[tag] || tag}
+              {TAG_TITLES[tag]}
             </h3>
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">

@@ -13,6 +13,28 @@ export const TEAM_MEMBERS: TeamMember[] = [
   { id: 10, name: "Jonathan", role: "Kommunikation", desc: "Kommunikation & Orga", tag: "web" },
 ];
 
+/** Section heading per tag. Keyed by the union, so a new tag is a compile error here. */
+export const TAG_TITLES: Record<TeamMember["tag"], string> = {
+  vorstand: "Vorstand",
+  orga: "Organisation",
+  web: "Web, Design & Kommunikation",
+};
+
+/**
+ * Members bucketed by tag, in TAG_TITLES key order.
+ *
+ * Seeded with all three keys rather than accumulating into `{}`: that keeps every bucket a real
+ * array, so the lookups are checked and the view needs no `|| tag` fallback. A new tag added to
+ * `TeamMember` fails to compile here until it is given a bucket and a title.
+ */
+export const GROUPED_MEMBERS = TEAM_MEMBERS.reduce(
+  (acc, member) => {
+    acc[member.tag].push(member);
+    return acc;
+  },
+  { vorstand: [], orga: [], web: [] } as Record<TeamMember["tag"], TeamMember[]>,
+);
+
 export const KONTAKT_CHANNELS: KontaktChannel[] = [
   {
     id: "email",

@@ -6,7 +6,7 @@ from app.api.teams.schemas import (
     FLTeamListAdapter,
     FLTeamsCompactListResponse,
     FLTeamsFilterParams,
-    FLTeamsGruppenResponse,
+    FLTeamsGroupedResponse,
     FLTeamsListResponse,
     FLTeamsResponse,
 )
@@ -37,6 +37,6 @@ async def get_teams(teams_collection: TeamsCollection, filters: FLTeamsFilterPar
 
     teams = FLTeamListAdapter.validate_python(teams_raw)
     if filters.in_gruppen:
-        return FLTeamsGruppenResponse(gruppen=FLGruppen.from_teams(teams=teams))
+        return FLTeamsGroupedResponse(gruppen=FLGruppen.from_teams(teams=teams))
 
     return FLTeamsListResponse(teams=teams)

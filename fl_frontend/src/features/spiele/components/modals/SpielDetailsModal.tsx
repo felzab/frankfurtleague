@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 
-import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
-import { formatSpielDatum } from "@/shared/utils/format";
 import { CircleInfo } from "@gravity-ui/icons";
 
 import { Modal, Separator } from "@heroui/react";
+
+import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { buildMapsSearchUrl, formatSpielDatum } from "@/shared/utils/format";
 
 import { computeSpielStatus } from "../../utils";
 import SaisonPhaseChip from "../ui/SaisonPhaseChip";
 import SpielStatusChip from "../ui/SpielStatusChip";
 
-import type { FLSpiel, FLSpielStatus } from "../../schemas";
+import type { FLSpiel } from "../../schemas";
 
 export default function SpielDetailsModal({
   spielData,
@@ -25,16 +26,10 @@ export default function SpielDetailsModal({
   onClose: () => void;
   today: string;
 }) {
-  const spielStatus = spielData
-    ? computeSpielStatus({
-        datum: spielData.datum,
-        isCanceled: spielData.is_canceled,
-        today,
-      })
-    : null;
-
   const spielDatum = formatSpielDatum(spielData?.datum ?? null, "/");
-  const mapUrl = spielData?.ort ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spielData.ort.maps_link)}` : "";
+  // Searches the Spielort's stored maps_link, not an address -- the embedded copy carries no
+  // FLAddress, so this query is genuinely different from the other two call sites.
+  const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
 
   return (
     <Modal.Backdrop
@@ -55,7 +50,8 @@ export default function SpielDetailsModal({
                   </Modal.Icon>
                 </div>
                 <div className="flex h-fit w-full flex-row items-center justify-start gap-x-2">
-                  <SpielStatusChip spielStatus={spielStatus as FLSpielStatus} />
+                  {/* Computed inside the guard, so narrowing flows and no cast is needed. */}
+                  <SpielStatusChip spielStatus={computeSpielStatus({ datum: spielData.datum, isCanceled: spielData.is_canceled, today })} />
                   <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
                 </div>
               </Modal.Header>

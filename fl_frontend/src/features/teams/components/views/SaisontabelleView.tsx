@@ -1,8 +1,8 @@
 "use client";
 
-import { typedObjectEntries } from "@/shared/utils/type";
-
 import { Badge, Table } from "@heroui/react";
+
+import { typedObjectEntries } from "@/shared/utils/type";
 
 import TeamPopoverMenu from "../TeamPopoverMenu";
 

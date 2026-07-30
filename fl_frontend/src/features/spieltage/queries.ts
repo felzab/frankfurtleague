@@ -17,6 +17,6 @@ export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promi
   cacheLife("days");
 
   return apiClient<FLSpieltageListResponse>("/spieltage", FLSpieltageListResponseSchema, {
-    params: filters as Record<string, string | number | boolean>,
+    params: filters,
   });
 }

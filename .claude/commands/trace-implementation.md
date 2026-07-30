@@ -8,6 +8,7 @@ Reason step-by-step **before** producing any code. No implementation until the t
 **Subject:** `$ARGUMENTS` — if empty, trace the change currently under discussion.
 
 **Work through, in order:**
+
 1. **Stack layers touched** — frontend (Next.js/HeroUI/Tailwind), API (FastAPI/Pydantic), data (Motor/MongoDB), infra (Compose/nginx). Name each layer and what changes in it.
 2. **Data flow** — trace a request end to end, including the response and error paths.
 3. **Edge cases** — empty, null, concurrent, duplicate, oversized, malformed, unauthorized.

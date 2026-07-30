@@ -1,0 +1,96 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "./utils.ts";
+
+import type { FLSpiel } from "../spiele/schemas.ts";
+
+const TODAY = "2026-07-30";
+
+// A fully-populated match that lands in no category, so each test can knock out one field and be
+// unambiguous about which rule it is exercising.
+function makeSpiel(overrides: Partial<FLSpiel> = {}): FLSpiel {
+  return {
+    id: "6890a1b2c3d4e5f607182930",
+    spieltag_id: "6890a1b2c3d4e5f607182931",
+    team1: { team_id: "6890a1b2c3d4e5f607182932", name: "Team A", tore: 2, shorthand: "TA" },
+    team2: { team_id: "6890a1b2c3d4e5f607182933", name: "Team B", tore: 1, shorthand: "TB" },
+    datum: "2026-07-20",
+    uhrzeit: "18:00:00",
+    ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x", mietpreis: 50 },
+    schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref", payment: 20 },
+    ergebnis: "2:1",
+    spiel_nr: 1,
+    is_canceled: false,
+    saison_phase: "gruppenphase",
+    ...overrides,
+  } as FLSpiel;
+}
+
+describe("categorizeActionRequired", () => {
+  it("returns all six categories even when nothing needs attention", () => {
+    const result = categorizeActionRequired([makeSpiel()], TODAY);
+
+    assert.deepEqual(Object.keys(result), Object.keys(ACTION_REQUIRED_LABELS));
+    for (const spiele of Object.values(result)) assert.deepEqual(spiele, []);
+  });
+
+  it("flags a past match with no result as ergebnis_pending", () => {
+    const result = categorizeActionRequired([makeSpiel({ datum: "2026-07-29", ergebnis: null })], TODAY);
+    assert.equal(result.ergebnis_pending.length, 1);
+  });
+
+  // Strict <, so a match dated today is not yet overdue. This boundary is the rule most likely to
+  // be "tidied" into <=, which would nag admins about matches still being played.
+  it("does not flag a match dated today with no result", () => {
+    const result = categorizeActionRequired([makeSpiel({ datum: TODAY, ergebnis: null })], TODAY);
+    assert.deepEqual(result.ergebnis_pending, []);
+  });
+
+  it("flags each missing field in its own category", () => {
+    const result = categorizeActionRequired(
+      [makeSpiel({ datum: null }), makeSpiel({ uhrzeit: null }), makeSpiel({ ort: null }), makeSpiel({ schiedsrichter: null })],
+      TODAY,
+    );
+
+    assert.equal(result.datum_missing.length, 1);
+    assert.equal(result.uhrzeit_missing.length, 1);
+    assert.equal(result.ort_missing.length, 1);
+    assert.equal(result.schiedsrichter_missing.length, 1);
+  });
+
+  // The *_missing categories are deliberately non-exclusive.
+  it("puts one match into several categories when several fields are missing", () => {
+    const result = categorizeActionRequired([makeSpiel({ datum: null, uhrzeit: null, ort: null })], TODAY);
+
+    assert.equal(result.datum_missing.length, 1);
+    assert.equal(result.uhrzeit_missing.length, 1);
+    assert.equal(result.ort_missing.length, 1);
+  });
+
+  // is_canceled is exclusive: chasing missing details on a cancelled fixture is noise.
+  it("reports a cancelled match only as cancelled, however incomplete it is", () => {
+    const result = categorizeActionRequired(
+      [makeSpiel({ is_canceled: true, datum: null, uhrzeit: null, ort: null, schiedsrichter: null })],
+      TODAY,
+    );
+
+    assert.equal(result.is_canceled.length, 1);
+    assert.deepEqual(result.datum_missing, []);
+    assert.deepEqual(result.uhrzeit_missing, []);
+    assert.deepEqual(result.ort_missing, []);
+    assert.deepEqual(result.schiedsrichter_missing, []);
+  });
+
+  it("does not flag a match with no date as ergebnis_pending", () => {
+    const result = categorizeActionRequired([makeSpiel({ datum: null, ergebnis: null })], TODAY);
+
+    assert.deepEqual(result.ergebnis_pending, []);
+    assert.equal(result.datum_missing.length, 1);
+  });
+
+  it("returns empty categories for an empty list", () => {
+    const result = categorizeActionRequired([], TODAY);
+    for (const spiele of Object.values(result)) assert.deepEqual(spiele, []);
+  });
+});

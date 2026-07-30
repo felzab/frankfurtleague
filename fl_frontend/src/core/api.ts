@@ -9,8 +9,9 @@ const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
 export const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;
 
-export const BaseAPIResponseSchema = z.object({ acknowledged: z.union([z.literal(0), z.literal(1)]), trace_id: z.string().optional() });
-export type BaseAPIResponse = z.infer<typeof BaseAPIResponseSchema>;
+// BaseAPIResponseSchema deliberately lives in ./schemas, not here. Import it from "@/core/schemas".
+// Re-exporting it from this module would defeat the point: the importer would pull in this file,
+// and with it "server-only".
 
 export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin" | "none";

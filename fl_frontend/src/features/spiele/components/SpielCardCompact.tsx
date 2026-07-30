@@ -1,8 +1,8 @@
 "use client";
 
-import { formatSpielDatum } from "@/shared/utils/format";
-
 import { Card } from "@heroui/react";
+
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 

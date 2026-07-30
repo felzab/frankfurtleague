@@ -1,21 +1,30 @@
 #!/usr/bin/env bash
 #
 # scripts/verify.sh — the complete pre-merge gate.
-# TARGET PLATFORM: any. It only reads and builds, so it is safe anywhere, including CI.
+# TARGET PLATFORM: any. It builds and runs read-only checks, with one exception: step 2 reformats
+# the working tree. `pnpm verify` now runs `pnpm format` (prettier in write mode) as its FIRST
+# command, so a run may leave formatting changes for you to commit. Every later check then measures
+# the formatted tree rather than one that is still moving. In CI, commit or diff those changes — do
+# not assume the tree is untouched afterwards.
+#
+# NOTE: do not name any other tool's flags in this header. Check 8 of selfcheck.sh treats every
+# double-dashed word in this comment block as a documented flag of THIS script, and fails when the
+# case statement below has no match for it.
 #
 # WHAT IT RUNS, cheapest-to-fail first:
 #   1. selfcheck.sh  — the scripts themselves (instant)
-#   2. pnpm verify   — types, lint, formatting, next build, unit tests (audit ledger Part 4)
+#   2. pnpm verify   — formats, then types, lint, next build, unit tests (audit ledger Part 4)
 #   3. pnpm audit:prod — runtime dependency advisories only
-#   4. docker build  — BOTH images, which pnpm verify does not cover
-#   5. an image check — is instrumentation.js actually inside the frontend image?
+#   4. ruff + pytest  — fl_backend lint and schema-constraint tests (audit ledger BE-5)
+#   5. docker build  — BOTH images, which pnpm verify does not cover
+#   6. an image check — is instrumentation.js actually inside the frontend image?
 #
-# WHY STEPS 3 AND 4 EXIST:
+# WHY STEPS 5 AND 6 EXIST:
 #   `pnpm verify` has been green while the image was broken. Twice.
 #     - a module-scope read of AUTH_URL failed only in the builder stage, where there is no .env;
 #     - instrumentation.ts at the repo root compiled, passed every test, and was then dropped from
 #       output:"standalone" — silently disabling the startup env gate AND all production error
-#       logging. Step 4 is a one-command check for exactly that.
+#       logging. Step 6 is a one-command check for exactly that.
 #
 # USAGE:
 #   ./scripts/verify.sh           everything (the image build takes a few minutes)
@@ -44,7 +53,7 @@ else
   die "scripts/selfcheck.sh failed. Run it directly to see why:  ./scripts/selfcheck.sh"
 fi
 
-step "pnpm verify  (tsc, eslint, prettier, next build, node --test)"
+step "pnpm verify  (prettier --write, then tsc, eslint, next build, node --test)"
 ( cd fl_frontend && pnpm verify ) || die "pnpm verify failed. Fix that before looking at anything else."
 ok "pnpm verify exit 0"
 
@@ -54,6 +63,12 @@ if ( cd fl_frontend && pnpm audit:prod ); then
 else
   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit --prod"
 fi
+
+step "fl_backend  (ruff + pytest)"
+_py="$(venv_python)"
+( cd fl_backend && "$_py" -m ruff check app tests && "$_py" -m ruff format --check app tests )   || die "ruff failed in fl_backend. Fix with:  cd fl_backend && .venv/Scripts/python -m ruff format app tests"
+( cd fl_backend && "$_py" -m pytest ) || die "fl_backend tests failed."
+ok "backend lint and schema tests pass"
 
 if (( QUICK )); then
   printf '\n'; warn "Skipped the image build (--quick). Do NOT merge on this alone if you touched"

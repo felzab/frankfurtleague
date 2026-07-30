@@ -80,3 +80,30 @@ describe("joinCollections", () => {
     );
   });
 });
+
+describe("joinCollections — duplicate left ids", () => {
+  const left = [
+    { id: "st1", label: "first" },
+    { id: "st1", label: "second copy of the same id" },
+  ];
+  const right = [{ spieltag_id: "st1", n: 1 }];
+
+  // Without .slice() every row sharing an id receives the SAME array instance, so an in-place sort
+  // or push in one consumer silently reorders another's list. This is the test that fails if the
+  // .slice() is removed -- the original fixtures all use distinct ids, so nothing caught it.
+  it("gives each row its own array instance", () => {
+    const [a, b] = joinCollections({ left, right, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "items" });
+
+    assert.deepEqual(a!.items, b!.items);
+    assert.notEqual(a!.items, b!.items, "rows sharing an id must not share one array");
+  });
+
+  it("does not let a mutation of one row's group reach another", () => {
+    const [a, b] = joinCollections({ left, right, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "items" });
+
+    a!.items.push({ spieltag_id: "st1", n: 99 });
+
+    assert.equal(a!.items.length, 2);
+    assert.equal(b!.items.length, 1);
+  });
+});

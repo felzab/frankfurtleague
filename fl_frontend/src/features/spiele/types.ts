@@ -3,7 +3,7 @@ import type { FLSpielStatus } from "./schemas";
 
 export type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";
 
-export interface FLSpieleFilterParams {
+export type FLSpieleFilterParams = {
   saison_id?: string;
   saison_phase?: "playoffs" | FLSaisonPhase;
   spiel_status?: FLSpielStatus;
@@ -12,4 +12,4 @@ export interface FLSpieleFilterParams {
   limit?: number;
   sort_by?: FLSpieleSortingOptions;
   order?: "asc" | "desc";
-}
+};

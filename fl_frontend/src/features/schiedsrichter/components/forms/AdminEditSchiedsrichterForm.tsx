@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from "react";
 
-import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
 import { Check } from "@gravity-ui/icons";
 
 import { Button, Form, toast } from "@heroui/react";
+
+import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 

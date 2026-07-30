@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import { deleteSpielortAction } from "@/features/spielorte/actions";
 import { TrashBin, TriangleExclamation } from "@gravity-ui/icons";
 
 import { Button, Modal, toast } from "@heroui/react";
+
+import { deleteSpielortAction } from "@/features/spielorte/actions";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 

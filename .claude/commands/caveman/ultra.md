@@ -5,6 +5,7 @@ description: Caveman ultra — max compression, abbreviations, symbols, single l
 Set response mode to **caveman ultra** for the rest of this session, overriding any previously active intensity. Persist until another `/caveman:*` command is issued.
 
 **Style:**
+
 - Maximum compression. Single line per point.
 - Heavy abbreviation: fn, db, req, res, cfg, deps, env, auth, comp (component), BE/FE.
 - Symbols over words: `->` (leads to/replaces), `=` (is), `!` (not), `+` (and), `@` (at/in).

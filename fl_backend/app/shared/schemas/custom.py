@@ -1,4 +1,7 @@
+import re
+from datetime import date
 from typing import Annotated, Any
+from urllib.parse import urlsplit
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -13,7 +16,7 @@ from pydantic_core import CoreSchema, core_schema
 
 # Regex for YYYY-MM-DD (e.g., 2026-06-08)
 # Ensures months are 01-12 and days are 01-31
-DATE_REGEX = r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
 # Regex for HH:MM:SS (e.g., 14:30:00)
 # Ensures hours are 00-23, minutes 00-59, seconds 00-59
@@ -77,8 +80,98 @@ def parse_empty_string_to_none(value: Any) -> Any:
 CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
 
 
-CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True)]
+# Regex for a phone number: digits, spaces, +, -, ( ) and . -- 3 to 20 characters.
+# Mirrors PHONE_REGEX in fl_frontend/src/shared/schemas.ts.
+PHONE_REGEX = r"^([+]?[\s0-9\-().]{3,20})$"
+
+# Hostname rule for an external URL. Byte-for-byte the regex zod uses for `z.regexes.domain`
+# (fl_frontend/node_modules/zod/v4/core/regexes.js), because ExternalUrlSchema tests the parsed
+# hostname against exactly this. Keeping the two identical is the point: a value must be accepted or
+# rejected the same way at both ends. It requires real domain labels, so it rejects bare hosts
+# ("localhost"), single-letter TLDs, underscores, and IP literals.
+DOMAIN_REGEX = re.compile(r"^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$")
+
+EXTERNAL_URL_SCHEMES = frozenset({"http", "https"})
+
+
+def validate_calendar_date(value: str) -> str:
+    """DATE_REGEX accepts 2026-02-31 and 2026-04-31. This rejects days that do not exist."""
+    try:
+        date.fromisoformat(value)
+    except ValueError as invalid_date_error:
+        raise ValueError("Date is not a real calendar date") from invalid_date_error
+    return value
+
+
+CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True), AfterValidator(validate_calendar_date)]
 CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]
 
 CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none)]
 CustomOptionalTimeString = Annotated[CustomTimeString | None, BeforeValidator(parse_empty_string_to_none)]
+
+# Empty string coerces to None first, so "" is stored as absent rather than failing the pattern.
+CustomOptionalPhoneString = Annotated[
+    Annotated[str, StringConstraints(pattern=PHONE_REGEX)] | None,
+    BeforeValidator(parse_empty_string_to_none),
+]
+
+
+def validate_external_url(value: str) -> str:
+    """
+    An http(s) URL safe to render into an href.
+
+    Scheme-restricted on purpose: a bare "is this a URL" check accepts `javascript:` and `data:`,
+    which are XSS sinks once React renders them into an href (audit R3b S8.1).
+
+    Parses rather than pattern-matches, mirroring what zod's ExternalUrlSchema does on the frontend:
+    split the URL, check the scheme, then test the *hostname* against DOMAIN_REGEX. A single regex
+    over the whole string cannot do this correctly -- the previous one was anchored only at the
+    start, so every character after the host was unvalidated and the leading `^` was carrying the
+    entire scheme restriction on its own.
+
+    Deliberately not pydantic's AnyHttpUrl: that normalises the value, and appending a trailing
+    slash would silently rewrite what is already stored and served.
+    """
+    try:
+        parts = urlsplit(value)
+        # Read `.port` for its side effect: urlsplit is lazy, and an invalid port
+        # ("example.com:notaport") only raises when the attribute is accessed. `new URL` rejects it
+        # outright, so without this the backend would accept a URL the frontend refuses. Bound to a
+        # name because a bare attribute access reads as dead code (and ruff's B018 says so).
+        _port = parts.port
+    except ValueError as invalid_url_error:
+        raise ValueError("URL could not be parsed") from invalid_url_error
+
+    # zod compares the scheme case-insensitively, because it reads it back off a parsed URL object.
+    if parts.scheme.lower() not in EXTERNAL_URL_SCHEMES:
+        raise ValueError("URL must use http or https")
+
+    # `hostname` is the bare host: port stripped, userinfo excluded, already lowercased.
+    host = parts.hostname
+    if not host:
+        raise ValueError("URL must point at a domain name")
+
+    # DOMAIN_REGEX is ASCII-only, and so is the WHATWG `hostname` zod tests -- but `new URL`
+    # punycodes on the way in, so zod sees "xn--kthe-...". urlsplit does not, so an umlaut domain
+    # would reach the regex verbatim and be rejected. Encode first, or a perfectly ordinary
+    # "https://käthe-kollwitz-schule.de" fails validation on the READ path and takes the whole teams
+    # API down with it.
+    try:
+        if host.isascii():
+            # An "xn--" label that is not valid punycode passes DOMAIN_REGEX -- it is only ASCII
+            # letters, digits and hyphens -- but `new URL` throws on it, so the frontend would
+            # reject a value the backend stored. Round-tripping makes both ends agree.
+            if "xn--" in host:
+                host.encode("ascii").decode("idna")
+        else:
+            host = host.encode("idna").decode("ascii")
+    except UnicodeError as invalid_host_error:
+        raise ValueError("URL hostname is not a valid internationalised domain") from invalid_host_error
+
+    if not DOMAIN_REGEX.match(host):
+        raise ValueError("URL must point at a domain name")
+
+    return value
+
+
+CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]

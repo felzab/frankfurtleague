@@ -1,7 +1,7 @@
-import { CustomObjectIdStringSchema, FLKontaktSchema } from "@/shared/schemas";
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/api";
+import { BaseAPIResponseSchema } from "@/core/schemas";
+import { CustomObjectIdStringSchema, FLKontaktSchema } from "@/shared/schemas";
 
 export const FLPostSchiedsrichterPayloadSchema = z.object({
   name: z.string().nonempty(),

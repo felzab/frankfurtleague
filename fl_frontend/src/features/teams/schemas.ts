@@ -1,5 +1,7 @@
-import { CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
 import z from "zod";
+
+import { BaseAPIResponseSchema } from "@/core/schemas";
+import { CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
 
 import { FLSpielerSchema } from "../spieler/schemas";
 
@@ -56,19 +58,19 @@ export const FLGruppenSchema = z.object({
 });
 export type FLGruppen = z.infer<typeof FLGruppenSchema>;
 
-export const FLTeamsListResponseSchema = z.object({
+export const FLTeamsListResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("list"),
   teams: z.array(FLTeamSchema),
 });
 export type FLTeamsListResponse = z.infer<typeof FLTeamsListResponseSchema>;
 
-export const FLTeamsCompactListResponseSchema = z.object({
+export const FLTeamsCompactListResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("compact"),
   teams: z.array(FLTeamCompactSchema),
 });
 export type FLTeamsCompactListResponse = z.infer<typeof FLTeamsCompactListResponseSchema>;
 
-export const FLTeamsGroupedResponseSchema = z.object({
+export const FLTeamsGroupedResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("grouped"),
   gruppen: FLGruppenSchema,
 });

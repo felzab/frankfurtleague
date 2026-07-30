@@ -3,20 +3,23 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
-import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
-import { sortByDate } from "@/shared/utils/date";
-import { formatAddress } from "@/shared/utils/format";
 import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";
 
+import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
+import { computeErgebnisFor } from "@/features/spiele/utils";
+import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
+import { sortByDate } from "@/shared/utils/date";
+import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
+
 import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { FLTeam } from "../../schemas";
 
 function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: string }) {
   // Map results to valid semantic colors
-  const getBadgeColor = (result: "W" | "L" | "D" | "?") => {
+  const getBadgeColor = (result: FLSpielErgebnisFor) => {
     switch (result) {
       case "W":
         return "bg-success text-white ring-success/30";
@@ -32,19 +35,7 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
   return (
     <div className="border-border relative ml-2 border-l-2 border-dashed">
       {sortByDate({ arr: spiele, key: "datum" }).map((spielData) => {
-        const teamIdx = teamId === spielData.team1.team_id ? 0 : 1;
-        const splitErgebnis = spielData.ergebnis && spielData.ergebnis.split(":");
-        let result: "W" | "L" | "D" | "?";
-
-        if (!spielData.ergebnis || !splitErgebnis) {
-          result = "?";
-        } else if (splitErgebnis[0] === splitErgebnis[1]) {
-          result = "D";
-        } else if (Number(splitErgebnis[teamIdx]) > Number(splitErgebnis[teamIdx === 0 ? 1 : 0])) {
-          result = "W";
-        } else {
-          result = "L";
-        }
+        const result = computeErgebnisFor({ spiel: spielData, teamId });
 
         return (
           <div
@@ -67,7 +58,8 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
   const router = useRouter();
 
   const formattedTeamAddress = formatAddress(teamData.address);
-  const teamMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formattedTeamAddress)}`;
+  // Deliberately formatAddress, not formatAddressFull: a team has no venue name to search by.
+  const teamMapUrl = buildMapsSearchUrl(formattedTeamAddress);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-y-8 pb-12 duration-400">
@@ -85,8 +77,8 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
       <div className="bg-surface border-border flex w-full flex-col gap-y-1.5 rounded-2xl border p-4 shadow-sm">
         <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h3>
 
-        {/* Offizieller Schulname */}
-        {teamData.full_name && <p className="text-fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>}
+        {/* Offizieller Schulname. No emptiness guard: both schemas now require it (R3a-B1.3). */}
+        <p className="text-fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
 
         <div className="flex flex-col gap-y-1 pt-2">
           <Link

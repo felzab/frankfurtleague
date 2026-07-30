@@ -1,67 +1,85 @@
-from collections import defaultdict
-from typing import Annotated, Literal, Mapping, Union
+from typing import Annotated, Literal, Mapping, Union, get_args
 
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
-from app.api.spieler.schemas import FLSpieler
 from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.custom import CustomExternalUrl, CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLGruppenNames = Literal["A", "B", "C", "D"]
 
 
 class FLTeamStatistik(BaseModel):
-    anzahl_gespielte_spiele: int = 0
-    siege: int = 0
-    niederlagen: int = 0
-    unentschieden: int = 0
-    tore_geschossen: int = 0
-    tore_kassiert: int = 0
-    punkte: int = 0
+    anzahl_gespielte_spiele: int = Field(0, ge=0)
+    siege: int = Field(0, ge=0)
+    niederlagen: int = Field(0, ge=0)
+    unentschieden: int = Field(0, ge=0)
+    tore_geschossen: int = Field(0, ge=0)
+    tore_kassiert: int = Field(0, ge=0)
+    punkte: int = Field(0, ge=0)
 
 
 class FLTeam(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
 
-    name: str
-    gruppe: str
+    name: str = Field(min_length=1)
+    gruppe: FLGruppenNames
     statistik: FLTeamStatistik
     is_placeholder: bool
     is_disqualified: bool
     shorthand: str = Field(min_length=2, max_length=2)
-    description: str
-    full_name: str
-    website_url: str
+    description: str  # May be empty -- not every team writes one.
+    full_name: str = Field(min_length=1)
+    # Rendered straight into an href on a public page, so the scheme is constrained here as well as
+    # in the frontend. See validate_external_url for why this is not AnyHttpUrl.
+    website_url: CustomExternalUrl
     address: FLAddress
 
 
 class FLTeamCompact(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
 
-    name: str
+    name: str = Field(min_length=1)
     statistik: FLTeamStatistik
     shorthand: str = Field(min_length=2, max_length=2)
     address: FLAddress
     is_disqualified: bool
 
 
-class FLTeamWithSpieler(FLTeam):
-    spieler: list[FLSpieler]
-
-
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
-FLTeamWithSpielerListAdapter = TypeAdapter(list[FLTeamWithSpieler])
 FLTeamCompactListAdapter = TypeAdapter(list[FLTeamCompact])
 
 
-class FLGruppen(RootModel[Mapping[str, list[FLTeam]]]):
+class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
+    """
+    The four groups, always all four.
+
+    Keyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the
+    response shape does not depend on which groups happen to have teams. Previously a
+    defaultdict was filled only from the teams present, so a season with nobody in group D
+    omitted the "D" key entirely -- and the frontend's FLGruppenSchema requires all four, so
+    that response failed to parse and took down /dashboard/saisontabelle. It worked only
+    because every season so far has had teams in all four groups.
+    """
+
     @classmethod
     def from_teams(cls, teams: list[FLTeam]):
-        grouped = defaultdict(list)
+        # Keyed by FLGruppenNames, not str: Mapping's key type is invariant, so a dict[str, ...]
+        # is not assignable to the RootModel's Mapping[FLGruppenNames, ...].
+        grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
+
         for team in teams:
-            group_key = team.gruppe.upper() if team.gruppe else "UNKNOWN"
-            grouped[group_key].append(team)
+            # FLTeam.gruppe is FLGruppenNames, so validation already rejects a blank or unknown
+            # group -- earlier and louder than here. This still guards the one way round that: an
+            # FLTeam built with model_construct, which skips validation entirely.
+            #
+            # Tested against `grouped` rather than for falsiness: `not team.gruppe` catches "" and
+            # None but lets "X" through to a bare KeyError -- an unhandled 500 instead of the
+            # deliberate error this guard exists to raise.
+            if team.gruppe not in grouped:
+                raise ValueError(f"Team {team.id} has gruppe {team.gruppe!r}, which is not one of A/B/C/D")
+            # No .upper(): the Literal has already pinned the value to exactly A/B/C/D.
+            grouped[team.gruppe].append(team)
 
         # Sort each list inside the dict
         for group_name in grouped:
@@ -99,13 +117,13 @@ class FLTeamsCompactListResponse(BaseAPIResponse):
     teams: list[FLTeamCompact]
 
 
-class FLTeamsGruppenResponse(BaseAPIResponse):
+class FLTeamsGroupedResponse(BaseAPIResponse):
     format: Literal["grouped"] = "grouped"
     gruppen: FLGruppen
 
 
 # Pydantic uses the 'format' field to decide which model to validate against
 FLTeamsResponse = Annotated[
-    Union[FLTeamsListResponse, FLTeamsGruppenResponse, FLTeamsCompactListResponse],
+    Union[FLTeamsListResponse, FLTeamsGroupedResponse, FLTeamsCompactListResponse],
     Field(discriminator="format"),
 ]

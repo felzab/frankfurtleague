@@ -2,9 +2,9 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { formatSpielDatum } from "@/shared/utils/format";
-
 import { Description, ListBox, Select } from "@heroui/react";
+
+import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { Key } from "@heroui/react";
 import type { FLSaison } from "../schemas";

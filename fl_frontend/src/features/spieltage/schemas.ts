@@ -1,5 +1,7 @@
-import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 import z from "zod";
+
+import { BaseAPIResponseSchema } from "@/core/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
 import { FLSpielSchema } from "../spiele/schemas";
@@ -25,7 +27,7 @@ export const FLSpielplanSchema = z.object({
 });
 export type FLSpielplan = z.infer<typeof FLSpielplanSchema>;
 
-export const FLSpieltageListResponseSchema = z.object({
+export const FLSpieltageListResponseSchema = BaseAPIResponseSchema.extend({
   spieltage: z.array(FLSpieltagSchema),
 });
 export type FLSpieltageListResponse = z.infer<typeof FLSpieltageListResponseSchema>;

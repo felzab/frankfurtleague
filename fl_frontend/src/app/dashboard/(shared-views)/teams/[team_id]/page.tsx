@@ -1,21 +1,21 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { APIBadStatusError } from "@/core/errors";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
 import TeamDetailsView from "@/features/teams/components/views/TeamDetailsView";
 import { getTeams } from "@/features/teams/queries";
-
-import { APIBadStatusError } from "@/core/errors";
+import { resolveTeamId } from "@/features/teams/resolvers";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
-export async function generateMetadata(props: NextPageProps): Promise<Metadata> {
+export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
   // connection() for the same reason the page has one: the Docker builder stage has no reachable
   // FastAPI, so an unguarded getTeams() here would fail `docker compose build` (CLAUDE.md §9 A1/A6).
   await connection();
-  const { team_id } = (await props.params) as { team_id: string };
+  const team_id = await resolveTeamId(props.params);
 
   // getTeams is "use cache", so this duplicates no round-trip with the page render below.
   const teamsRes = await getTeams({ team_id: team_id, saison_id: await resolveSaisonId(props.searchParams) }).catch(() => null);
@@ -31,9 +31,9 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
   };
 }
 
-export default async function TeamDetailsPage(props: NextPageProps) {
+export default async function TeamDetailsPage(props: NextPageProps<{ team_id: string }>) {
   await connection();
-  const { team_id } = (await props.params) as { team_id: string };
+  const team_id = await resolveTeamId(props.params);
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   const [teamsRes, spieleRes] = await Promise.all([
@@ -47,12 +47,17 @@ export default async function TeamDetailsPage(props: NextPageProps) {
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
 
-  if (!teamsRes || teamsRes.format !== "list") {
+  // A missing team is a 404; a response in the wrong shape is a broken contract. Checked in that
+  // order so each reaches the right place: the shape check used to sit *after* a combined
+  // `!teamsRes || format !== "list"` notFound(), which made it unreachable and reported a backend
+  // contract violation to the user as "Team nicht gefunden" -- the same conflation the catch above
+  // exists to avoid, since notFound() is not an error and never reaches onRequestError.
+  if (!teamsRes) {
     notFound();
   }
 
   if (teamsRes.format !== "list") {
-    throw new Error("Expected list teams response, got other");
+    throw new Error(`Expected a "list" teams response, got "${teamsRes.format}"`);
   }
 
   const teamData = teamsRes.teams[0];

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import ServerIsLive from "@/features/system/components/ServerIsLive";
 import Footer from "@/shared/components/layout/footer/Footer";
 import TopNav from "@/shared/components/layout/topnav/TopNav";
 
@@ -16,7 +17,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <main className="flex w-full flex-1 flex-col items-center justify-start">{children}</main>
 
       <footer className="bg-surface border-border z-10 h-auto w-full shrink-0 border-t lg:h-[220px]">
-        <Footer />
+        <Footer serverStatusSlot={<ServerIsLive />} />
       </footer>
     </>
   );

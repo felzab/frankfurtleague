@@ -4,7 +4,6 @@ x-logging: &default-logging
     max-size: "10m"
     max-file: "3"
 
-
 services:
   frontend:
     env_file: ./fl_frontend/.env
@@ -18,7 +17,15 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/favicon.ico"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3000/favicon.ico",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -26,10 +33,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: '2G'
+          cpus: "1.5"
+          memory: "2G"
         reservations:
-          memory: '512M'
+          memory: "512M"
 
   backend:
     env_file: ./fl_backend/.env
@@ -43,7 +50,13 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v0/system/is_live', timeout=10)",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -51,10 +64,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
-          memory: '512M'
+          cpus: "0.8"
+          memory: "512M"
         reservations:
-          memory: '128M'
+          memory: "128M"
 
   nginx:
     image: nginx:alpine
@@ -76,11 +89,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: '256M'
+          cpus: "0.5"
+          memory: "256M"
         reservations:
-          memory: '128M'
-
+          memory: "128M"
 
 networks:
   frankfurtleague-net:

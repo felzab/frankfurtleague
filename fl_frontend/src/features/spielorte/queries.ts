@@ -16,6 +16,6 @@ export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promi
   cacheLife("days");
 
   return apiClient<FLSpielorteListResponse>("/spielorte", FLSpielorteListResponseSchema, {
-    params: filters as Record<string, string | number | boolean>,
+    params: filters,
   });
 }

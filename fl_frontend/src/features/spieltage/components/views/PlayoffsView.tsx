@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-import SpielDetailsModal from "../modals/SpielDetailsModal";
-import SpielCardUltraCompact from "../SpielCardUltraCompact";
+import SpielDetailsModal from "@/features/spiele/components/modals/SpielDetailsModal";
+import SpielCardUltraCompact from "@/features/spiele/components/SpielCardUltraCompact";
 
-import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
-import type { FLSpiel } from "../../schemas";
+import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpieltagWithSpiele } from "../../schemas";
 
 export default function PlayoffBracketView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
   // 1. The Single Modal State

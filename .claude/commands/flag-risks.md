@@ -8,6 +8,7 @@ Analyze for risk across three axes: **security**, **performance**, **maintainabi
 **Target:** `$ARGUMENTS` if provided. Otherwise the most recent code block in this conversation.
 
 **Rate each finding HIGH / MEDIUM / LOW:**
+
 - **HIGH** — exploitable, data-losing, or production-breaking. Includes: injection, missing authz/authn, secrets in code or logs, unvalidated input reaching the DB, unbounded queries.
 - **MEDIUM** — degrades under real load or predictably causes future bugs. Includes: N+1 queries, missing indexes, unhandled rejections, race conditions, missing error boundaries.
 - **LOW** — friction and clarity. Naming, duplication, weak typing, absent tests.

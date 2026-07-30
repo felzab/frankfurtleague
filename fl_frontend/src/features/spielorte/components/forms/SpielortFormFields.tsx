@@ -1,16 +1,10 @@
 "use client";
 
-import AddressFields from "@/shared/components/ui/AddressFields";
-
 import { Input, Label, NumberField, TextField } from "@heroui/react";
 
-import type { FLAddress } from "@/shared/schemas";
+import AddressFields from "@/shared/components/ui/AddressFields";
 
-export interface SpielortDraft {
-  name: string;
-  address: FLAddress;
-  default_mietpreis: number;
-}
+import type { SpielortDraft } from "../../types";
 
 export default function SpielortFormFields<T extends SpielortDraft>({ draft, onChange }: { draft: T; onChange: (updatedDraft: T) => void }) {
   return (
