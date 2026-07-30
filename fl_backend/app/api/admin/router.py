@@ -15,7 +15,7 @@ from app.api.schiedsrichter.schemas import (
     FLPostSchiedsrichterResponse,
     FLSchiedsrichter,
 )
-from app.api.spiele.schemas import FLSpiel, FLSpieleListResponse, FLSpielListAdapter, PatchSpielDataPayload
+from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpieleListResponse, FLSpielListAdapter
 from app.api.spielorte.schemas import (
     FLDeleteSpielortPayload,
     FLDeleteSpielortResponse,
@@ -68,7 +68,7 @@ async def get_spiele_action_required(spiele_collection: SpieleCollection, today:
 
 @router.patch("/update_spiel_data", response_model=FLPatchSpielDataResponse)
 async def patch_spiel_data(
-    spiel_data: Annotated[PatchSpielDataPayload, Body()],
+    spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
     db: DBClient,
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,

@@ -9,7 +9,7 @@ FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
 FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
 
 
-class PatchSpielDataPayload(BaseModel):
+class FLPatchSpielDataPayload(BaseModel):
     spiel_id: CustomObjectId
     is_canceled: bool
 
