@@ -4,15 +4,15 @@ Operational scripts for building, testing, running and deploying Frankfurt-Leagu
 
 ## Quick reference
 
-| Script                         | Run on        | Purpose                                               |
-| ------------------------------ | ------------- | ----------------------------------------------------- |
+| Script                         | Run on        | Purpose                                                          |
+| ------------------------------ | ------------- | ---------------------------------------------------------------- |
 | `verify.sh`                    | any           | Full pre-merge gate: checks, both test suites, both image builds |
-| `local.sh`                     | dev — Windows | Run the production image locally, behind nginx        |
-| `publish.sh`                   | dev — Windows | Build, tag with the commit, push to Docker Hub        |
-| `deploy.sh`                    | prod — Linux  | Pull and restart, verify health, roll back            |
-| `revalidate_reference_data.sh` | prod — Linux  | Drop the frontend cache for one reference resource    |
-| `selfcheck.sh`                 | any           | Test the scripts themselves                           |
-| `_lib.sh`                      | —             | Shared helpers; sourced, never run directly           |
+| `local.sh`                     | dev — Windows | Run the production image locally, behind nginx                   |
+| `publish.sh`                   | dev — Windows | Build, tag with the commit, push to Docker Hub                   |
+| `deploy.sh`                    | prod — Linux  | Pull and restart, verify health, roll back                       |
+| `revalidate_reference_data.sh` | prod — Linux  | Drop the frontend cache for one reference resource               |
+| `selfcheck.sh`                 | any           | Test the scripts themselves                                      |
+| `_lib.sh`                      | —             | Shared helpers; sourced, never run directly                      |
 
 ```bash
 # ship a change
