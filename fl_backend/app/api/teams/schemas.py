@@ -70,15 +70,18 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
 
     @classmethod
     def from_teams(cls, teams: list[FLTeam]):
-        grouped: dict[str, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
+        # Keyed by FLGruppenNames, not str: Mapping's key type is invariant, so a dict[str, ...]
+        # is not assignable to the RootModel's Mapping[FLGruppenNames, ...].
+        grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
 
         for team in teams:
-            # A team with no group has nowhere to go. Raising surfaces the bad row; the previous
-            # "UNKNOWN" bucket was silently dropped by the frontend, so the team just vanished
-            # from the league table with no error anywhere.
+            # FLTeam.gruppe is FLGruppenNames, so validation already rejects a blank or unknown
+            # group -- earlier and louder than here. This still guards the one way round that:
+            # an FLTeam built with model_construct, which skips validation entirely.
             if not team.gruppe:
                 raise ValueError(f"Team {team.id} has no gruppe and cannot be grouped")
-            grouped[team.gruppe.upper()].append(team)
+            # No .upper(): the Literal has already pinned the value to exactly A/B/C/D.
+            grouped[team.gruppe].append(team)
 
         # Sort each list inside the dict
         for group_name in grouped:
