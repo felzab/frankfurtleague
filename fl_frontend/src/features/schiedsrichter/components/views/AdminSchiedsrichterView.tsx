@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 
-import { Magnifier } from "@gravity-ui/icons";
-
-import { Input } from "@heroui/react";
-
+import { SearchBar } from "@/shared/components/ui/SearchBar";
 import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 
@@ -36,22 +33,13 @@ export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FL
         <AdminCreateSchiedsrichterModal />
       </div>
 
-      {/* Toolbar / Search - Exact same design as Spielorte */}
-      <div className="bg-surface border-border focus-within:border-brand flex h-12 w-full max-w-md items-center gap-3 rounded-xl border px-4 py-2.5 shadow-sm transition-colors lg:h-15">
-        <Magnifier
-          className="text-foreground-muted shrink-0"
-          width={18}
-          height={18}
-        />
-        <Input
-          type="text"
-          value={inputValue}
-          placeholder="Suchen nach Name, Schule, E-Mail..."
-          variant="secondary"
-          className="text-fluid-sm w-full border-none bg-transparent pl-0 outline-none focus-visible:ring-0 sm:pl-1"
-          onChange={(e) => setInputValue(e.target.value)}
-        />
-      </div>
+      <SearchBar
+        label="Schiedsrichter suchen"
+        placeholder="Suchen nach Name, Schule, E-Mail..."
+        value={inputValue}
+        onChange={setInputValue}
+        className="w-full max-w-md"
+      />
 
       <AdminSchiedsrichterTable
         schiedsrichterQuery={schiedsrichterQuery}
