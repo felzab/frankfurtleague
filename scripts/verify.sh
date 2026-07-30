@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # scripts/verify.sh — the complete pre-merge gate.
-# TARGET PLATFORM: Windows (your development machine).
+# TARGET PLATFORM: any. It only reads and builds, so it is safe anywhere, including CI.
 #
 # WHAT IT RUNS, cheapest-to-fail first:
 #   1. selfcheck.sh  — the scripts themselves (instant)
@@ -34,7 +34,6 @@ for arg in "$@"; do
   esac
 done
 
-require_platform windows
 
 # Runs first because it is instant and because a broken script would make everything below it
 # unreliable. See selfcheck.sh for the class of bug bash -n cannot see.
@@ -53,7 +52,7 @@ step "pnpm audit:prod  (runtime advisories only)"
 if ( cd fl_frontend && pnpm audit:prod ); then
   ok "no known runtime vulnerabilities"
 else
-  warn "runtime advisories present — see the audit ledger R3b-S10.1"
+  warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit --prod"
 fi
 
 if (( QUICK )); then

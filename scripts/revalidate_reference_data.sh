@@ -1,35 +1,50 @@
-#!/bin/bash
-# Target platform: Linux (production host) / any shell with docker compose.
+#!/usr/bin/env bash
 #
-# Drops the frontend's cache for one reference resource. Run this after editing `saisons`,
-# `spieler` or `spieltage` directly in MongoDB -- those three have no frontend write surface and no
-# backend write endpoint, so nothing invalidates them automatically and the site serves the old data
-# for up to 24 hours (they are cached with cacheLife("days")).
+# scripts/revalidate_reference_data.sh — drop the frontend cache for one reference resource.
+# TARGET PLATFORM: Linux (the production server).
 #
-# This is the BE-3 runbook step. It stayed a runbook step rather than backend code because
-# fl_backend has no write path for these three collections -- every write endpoint under
-# app/api/admin/ touches spiele, spielorte or schiedsrichter, which the admin UI already invalidates.
+# WHEN TO RUN IT:
+#   After editing `saisons`, `spieler` or `spieltage` directly in MongoDB. Those three are cached with
+#   cacheLife("days") and have no admin write surface, so nothing invalidates them automatically and
+#   the site keeps serving the old values for up to 24 hours. Everything else — matches, venues,
+#   referees — the admin UI already invalidates when you save.
 #
-# The request runs *inside* the frontend container: /api/revalidate is not exposed through nginx
-# (nginx routes /api to FastAPI), and INTERNAL_API_KEY_SYSTEM is read from the container's own
-# environment, so the key never reaches this script, the shell history, or a log line.
+# HOW IT WORKS:
+#   The request runs INSIDE the frontend container. /api/revalidate is not exposed through nginx —
+#   nginx routes /api to the backend — so the route is reachable only on the container network, and
+#   INTERNAL_API_KEY_SYSTEM is read from the container's own environment. The key therefore never
+#   reaches this script, your shell history or a log line.
 #
-# Usage: ./scripts/revalidate_reference_data.sh saisons|spieler|spieltage
+#   node, not wget: the image is node:alpine, whose busybox wget cannot set a request method or a JSON
+#   body, and there is no curl. node is guaranteed present.
+#
+# USAGE:
+#   ./scripts/revalidate_reference_data.sh saisons
+#   ./scripts/revalidate_reference_data.sh spieler
+#   ./scripts/revalidate_reference_data.sh spieltage
+#   ./scripts/revalidate_reference_data.sh --help
 
-set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-RESOURCE="${1:-}"
+RESOURCE=""
+for arg in "$@"; do
+  case "$arg" in
+    saisons|spieler|spieltage) RESOURCE="$arg" ;;
+    --help|-h) usage ;;
+    *) die "Unknown resource: '${arg}'.
+       Only saisons, spieler and spieltage need this — they are the three with no write surface.
+       Everything else the admin UI already invalidates when you save." ;;
+  esac
+done
 
-case "$RESOURCE" in
-  saisons | spieler | spieltage) ;;
-  *)
-    echo "Usage: $0 saisons|spieler|spieltage" >&2
-    exit 2
-    ;;
-esac
+[[ -n "$RESOURCE" ]] || die "Name a resource: saisons, spieler or spieltage. See --help."
 
-# node, not wget: the image is node:alpine, whose busybox wget has no --method and no way to set a
-# request body on anything but --post-data. There is no curl either. node is guaranteed present.
+require_platform linux
+require_docker
+require_file "docker-compose.yml"
+
+step "Revalidating ${RESOURCE}"
+
 docker compose exec -T frontend node -e '
   const [resource] = process.argv.slice(1);
   const res = await fetch("http://127.0.0.1:3000/api/revalidate", {
@@ -41,5 +56,7 @@ docker compose exec -T frontend node -e '
     console.error(`Revalidation failed for ${resource}: HTTP ${res.status}`);
     process.exit(1);
   }
-  console.log(`Revalidated: ${resource}`);
-' "$RESOURCE"
+' "$RESOURCE" || die "Revalidation failed for ${RESOURCE}.
+       Is the frontend container running?  docker compose ps frontend"
+
+ok "${RESOURCE} revalidated — the next request rebuilds it from the backend"

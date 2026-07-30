@@ -100,8 +100,10 @@ for f in local.sh verify.sh publish.sh deploy.sh; do
   fi
 done
 
-step "6. Each script declares a target platform"
-for f in local.sh verify.sh publish.sh deploy.sh; do
+step "6. Machine-specific scripts declare a target platform"
+# Only the scripts that MUST run on one machine. verify.sh and selfcheck.sh only read and build, so
+# pinning them to one OS would be an artificial restriction that also blocks CI.
+for f in local.sh publish.sh deploy.sh revalidate_reference_data.sh; do
   if grep -q "require_platform" "scripts/$f"; then info "$f"; else note_fail "$f has no require_platform guard"; fi
 done
 
@@ -109,12 +111,12 @@ step "7. Documented flags match accepted flags"
 # Catches drift between a script's --help header and its case statement. Compared by READING both,
 # never by running the script: an earlier version of this check invoked each flag for real, which
 # meant `local.sh --fresh` tore down the local stack as a side effect of a documentation test.
-for f in local.sh verify.sh publish.sh deploy.sh; do
+for f in local.sh verify.sh publish.sh deploy.sh revalidate_reference_data.sh; do
   # Header only: take the contiguous comment block and STOP at the first line of code. Reading a
   # fixed line range instead compared the code against itself, because the case statement fell
   # inside the range -- so the check passed while a genuinely undocumented flag was present.
   doc="$(awk 'NR>1 { if ($0 !~ /^#/) exit; print }' "scripts/$f" | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
-  code="$(grep -oE '^[[:space:]]+--[a-z|-]+\)' "scripts/$f" | tr -d ' )' | tr '|' '\n' | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
+  code="$(grep -oE '^[[:space:]]+--[a-z|[:space:]-]+\)' "scripts/$f" | tr -d ' )' | tr '|' '\n' | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
   if [[ "$doc" == "$code" ]]; then
     info "$f"
   else
