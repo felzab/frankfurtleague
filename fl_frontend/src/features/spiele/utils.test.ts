@@ -88,9 +88,19 @@ describe("computeErgebnisFor", () => {
     }
   });
 
-  // A team id that is neither side is treated as team2 by the isTeam1 ternary. Documents the
-  // current behaviour rather than endorsing it -- callers always pass one of the two.
-  it("treats an unknown teamId as the away side", () => {
-    assert.equal(computeErgebnisFor({ spiel: makeSpiel("3:1"), teamId: "6890a1b2c3d4e5f607189999" }), "L");
+  // A team id belonging to neither side must be "unknown", not a result. The two-way
+  // `teamId === team1.team_id` branch this replaced scored it from team2's point of view, so a
+  // stale embedded id rendered a confident red "L" for a team that never played the match.
+  it("returns '?' for a teamId that is neither side, rather than scoring it as a loss", () => {
+    const unknown = "6890a1b2c3d4e5f607189999";
+
+    assert.equal(computeErgebnisFor({ spiel: makeSpiel("3:1"), teamId: unknown }), "?");
+    assert.equal(computeErgebnisFor({ spiel: makeSpiel("1:3"), teamId: unknown }), "?");
+    assert.equal(computeErgebnisFor({ spiel: makeSpiel("2:2"), teamId: unknown }), "?");
+  });
+
+  // Guards the digit class: the wire format is ASCII, and Number("٢") is NaN.
+  it("returns '?' for non-ASCII digits", () => {
+    assert.equal(computeErgebnisFor({ spiel: makeSpiel("٢:١"), teamId: TEAM_1 }), "?");
   });
 });

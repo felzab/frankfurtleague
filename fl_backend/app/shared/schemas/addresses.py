@@ -6,8 +6,8 @@ from pydantic import BaseModel, Field
 class FLAddress(BaseModel):
     strasse: str = Field(min_length=1)
     # May be empty -- not every venue has a house number -- but otherwise digits, hyphens and a/b/c.
-    hausnummer: str = Field(pattern=r"^([\d\-abcABC]+)?$")
-    plz: str = Field(pattern=r"^\d{5}$")
+    hausnummer: str = Field(pattern=r"^([0-9\-abcABC]+)?$")
+    plz: str = Field(pattern=r"^[0-9]{5}$")
     stadtteil: str
     stadt: str = Field(min_length=1)
 

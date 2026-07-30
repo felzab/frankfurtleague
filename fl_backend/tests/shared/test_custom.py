@@ -58,16 +58,44 @@ def test_rejects_times_without_seconds_or_out_of_range(value):
         _Time.model_validate({"value": value})
 
 
-@pytest.mark.parametrize("value", ["https://example.com", "http://example.com/path", "https://sub.example.co.uk"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "https://example.com",
+        "http://example.com/path",
+        "https://sub.example.co.uk",
+        "https://example.com:8443/x",
+        "https://user@example.com",
+        # Accepted because zod reads the scheme off a parsed URL, which lowercases it. The previous
+        # regex was case-sensitive and rejected this -- a disagreement between the two ends.
+        "HTTPS://EXAMPLE.COM",
+    ],
+)
 def test_accepts_http_and_https_urls(value):
     assert _Url.model_validate({"value": value}).value == value
 
 
 # The scheme allowlist is a security control, not tidiness: website_url is rendered into an href on
 # a public page, and React renders javascript: without complaint (audit R3b S8.1).
+#
+# The last four are the cases the previous regex-only check got wrong. The two embedding a valid URL
+# are the important ones: that regex was anchored only at the start, so its leading "^" carried the
+# entire scheme restriction on its own -- every other rejection case here passed even with the "^"
+# deleted, which meant nothing defended the control that actually mattered.
 @pytest.mark.parametrize(
     "value",
-    ["javascript:alert(1)", "data:text/html,<script>", "vbscript:x", "ftp://example.com", "example.com", "https://nodot"],
+    [
+        "javascript:alert(1)",
+        "data:text/html,<script>",
+        "vbscript:x",
+        "ftp://example.com",
+        "example.com",
+        "https://nodot",
+        "javascript:fetch('https://evil.co/x')",
+        "data:text/html,<a href=https://a.bc>",
+        "https://a.bc <script>alert(1)</script>",
+        "https://1.2.3.4",
+    ],
 )
 def test_rejects_non_http_schemes_and_bare_hosts(value):
     with pytest.raises(ValidationError):

@@ -108,12 +108,16 @@ class TestFLGruppen:
 
         assert [t.name for t in grouped.root["A"]] == ["Better", "Worse"]
 
-    # Validation already rejects a blank group, so reaching this guard requires model_construct,
-    # which skips validation. Owner decision: fail loudly. Previously such a team went into an
-    # "UNKNOWN" bucket that the frontend silently discarded, so it vanished from the league table
-    # with no error anywhere.
-    def test_refuses_a_team_it_cannot_place(self, team):
-        unplaceable = FLTeam.model_construct(**{**team(), "gruppe": ""})
+    # Validation already rejects these, so reaching the guard requires model_construct, which skips
+    # validation. Owner decision: fail loudly. Previously such a team went into an "UNKNOWN" bucket
+    # that the frontend silently discarded, so it vanished from the league table with no error.
+    #
+    # "X" is the case that matters: the guard used to test `not team.gruppe`, which catches "" and
+    # None but let any other value through to a bare KeyError -- an unhandled 500 rather than the
+    # deliberate error. Parametrised so neither branch can regress unnoticed.
+    @pytest.mark.parametrize("gruppe", ["", "X", "a", " ", "AB"])
+    def test_refuses_a_team_it_cannot_place(self, team, gruppe):
+        unplaceable = FLTeam.model_construct(**{**team(), "gruppe": gruppe})
 
-        with pytest.raises(ValueError, match="no gruppe"):
+        with pytest.raises(ValueError, match="not one of A/B/C/D"):
             FLGruppen.from_teams([unplaceable])

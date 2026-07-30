@@ -47,12 +47,17 @@ export default async function TeamDetailsPage(props: NextPageProps<{ team_id: st
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
 
-  if (!teamsRes || teamsRes.format !== "list") {
+  // A missing team is a 404; a response in the wrong shape is a broken contract. Checked in that
+  // order so each reaches the right place: the shape check used to sit *after* a combined
+  // `!teamsRes || format !== "list"` notFound(), which made it unreachable and reported a backend
+  // contract violation to the user as "Team nicht gefunden" -- the same conflation the catch above
+  // exists to avoid, since notFound() is not an error and never reaches onRequestError.
+  if (!teamsRes) {
     notFound();
   }
 
   if (teamsRes.format !== "list") {
-    throw new Error("Expected list teams response, got other");
+    throw new Error(`Expected a "list" teams response, got "${teamsRes.format}"`);
   }
 
   const teamData = teamsRes.teams[0];

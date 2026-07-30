@@ -94,6 +94,28 @@ class TestEmbeddedFields:
         with pytest.raises(ValidationError):
             FLSpiel.model_validate(spiel(ort=spiel_ort_field(mietpreis=-1)))
 
+    # mietpreis must be REQUIRED, not defaulted. The admin PATCH writes this payload back wholesale
+    # with $set, so a default let a request omitting the field silently overwrite a venue's stored
+    # rent with 0 -- while the sibling `payment` correctly 422'd in the same situation.
+    @pytest.mark.parametrize("field", ["mietpreis", "name", "maps_link", "spielort_id"])
+    def test_requires_every_venue_field(self, spiel, spiel_ort_field, field):
+        incomplete = spiel_ort_field()
+        del incomplete[field]
+
+        with pytest.raises(ValidationError) as excinfo:
+            FLSpiel.model_validate(spiel(ort=incomplete))
+
+        assert excinfo.value.errors()[0]["loc"][-1] == field
+
+    def test_requires_every_referee_field(self, spiel, spiel_schiedsrichter_field):
+        incomplete = spiel_schiedsrichter_field()
+        del incomplete["payment"]
+
+        with pytest.raises(ValidationError) as excinfo:
+            FLSpiel.model_validate(spiel(schiedsrichter=incomplete))
+
+        assert excinfo.value.errors()[0]["loc"][-1] == "payment"
+
 
 class TestPatchPayload:
     """The admin write path. Its empty-string coercion is what lets the form clear a field."""

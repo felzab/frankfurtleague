@@ -70,10 +70,14 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
 
         for team in teams:
             # FLTeam.gruppe is FLGruppenNames, so validation already rejects a blank or unknown
-            # group -- earlier and louder than here. This still guards the one way round that:
-            # an FLTeam built with model_construct, which skips validation entirely.
-            if not team.gruppe:
-                raise ValueError(f"Team {team.id} has no gruppe and cannot be grouped")
+            # group -- earlier and louder than here. This still guards the one way round that: an
+            # FLTeam built with model_construct, which skips validation entirely.
+            #
+            # Tested against `grouped` rather than for falsiness: `not team.gruppe` catches "" and
+            # None but lets "X" through to a bare KeyError -- an unhandled 500 instead of the
+            # deliberate error this guard exists to raise.
+            if team.gruppe not in grouped:
+                raise ValueError(f"Team {team.id} has gruppe {team.gruppe!r}, which is not one of A/B/C/D")
             # No .upper(): the Literal has already pinned the value to exactly A/B/C/D.
             grouped[team.gruppe].append(team)
 

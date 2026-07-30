@@ -43,12 +43,15 @@ export default async function TeamSpielerPage(props: NextPageProps<{ team_id: st
     getSpieler({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
 
-  if (!teamsRes || teamsRes.format !== "compact") {
+  // A missing team is a 404; a response in the wrong shape is a broken contract. See the sibling
+  // teams/[team_id] page: the shape check used to be unreachable behind the notFound(), so a
+  // contract violation was reported to the user as a missing team and never logged.
+  if (!teamsRes) {
     notFound();
   }
 
   if (teamsRes.format !== "compact") {
-    throw new Error("Expected compact teams response, got other");
+    throw new Error(`Expected a "compact" teams response, got "${teamsRes.format}"`);
   }
 
   const teamData = teamsRes.teams[0];

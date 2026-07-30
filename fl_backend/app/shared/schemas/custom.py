@@ -1,5 +1,7 @@
+import re
 from datetime import date
 from typing import Annotated, Any
+from urllib.parse import urlsplit
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -82,11 +84,14 @@ CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_
 # Mirrors PHONE_REGEX in fl_frontend/src/shared/schemas.ts.
 PHONE_REGEX = r"^([+]?[\s0-9\-().]{3,20})$"
 
-# Regex for an http(s) URL. Scheme-restricted on purpose: a bare "is it a URL" check accepts
-# javascript: and data:, which are XSS sinks once rendered into an href (audit R3b S8.1). Mirrors
-# ExternalUrlSchema in the frontend. Deliberately NOT pydantic's AnyHttpUrl, which normalises the
-# value -- appending a trailing slash would silently change what is already stored and served.
-EXTERNAL_URL_REGEX = r"^https?://[^\s/?#]+\.[^\s/?#]+"
+# Hostname rule for an external URL. Byte-for-byte the regex zod uses for `z.regexes.domain`
+# (fl_frontend/node_modules/zod/v4/core/regexes.js), because ExternalUrlSchema tests the parsed
+# hostname against exactly this. Keeping the two identical is the point: a value must be accepted or
+# rejected the same way at both ends. It requires real domain labels, so it rejects bare hosts
+# ("localhost"), single-letter TLDs, underscores, and IP literals.
+DOMAIN_REGEX = re.compile(r"^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$")
+
+EXTERNAL_URL_SCHEMES = frozenset({"http", "https"})
 
 
 def validate_calendar_date(value: str) -> str:
@@ -109,4 +114,39 @@ CustomOptionalPhoneString = Annotated[
     Annotated[str, StringConstraints(pattern=PHONE_REGEX)] | None,
     BeforeValidator(parse_empty_string_to_none),
 ]
-CustomExternalUrl = Annotated[str, StringConstraints(pattern=EXTERNAL_URL_REGEX)]
+
+
+def validate_external_url(value: str) -> str:
+    """
+    An http(s) URL safe to render into an href.
+
+    Scheme-restricted on purpose: a bare "is this a URL" check accepts `javascript:` and `data:`,
+    which are XSS sinks once React renders them into an href (audit R3b S8.1).
+
+    Parses rather than pattern-matches, mirroring what zod's ExternalUrlSchema does on the frontend:
+    split the URL, check the scheme, then test the *hostname* against DOMAIN_REGEX. A single regex
+    over the whole string cannot do this correctly -- the previous one was anchored only at the
+    start, so every character after the host was unvalidated and the leading `^` was carrying the
+    entire scheme restriction on its own.
+
+    Deliberately not pydantic's AnyHttpUrl: that normalises the value, and appending a trailing
+    slash would silently rewrite what is already stored and served.
+    """
+    try:
+        parts = urlsplit(value)
+    except ValueError as invalid_url_error:
+        raise ValueError("URL could not be parsed") from invalid_url_error
+
+    # urlsplit lowercases neither scheme nor host for us in every case; zod compares the scheme
+    # case-insensitively because it reads it back off a parsed URL object.
+    if parts.scheme.lower() not in EXTERNAL_URL_SCHEMES:
+        raise ValueError("URL must use http or https")
+
+    # `hostname` is the bare host: port stripped, userinfo excluded, already lowercased.
+    if not parts.hostname or not DOMAIN_REGEX.match(parts.hostname):
+        raise ValueError("URL must point at a domain name")
+
+    return value
+
+
+CustomExternalUrl = Annotated[str, AfterValidator(validate_external_url)]

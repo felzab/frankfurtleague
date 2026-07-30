@@ -9,6 +9,36 @@ FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
 FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
 
 
+# The three embedded field models are declared BEFORE the payload and FLSpiel that reference them.
+# With them below, those models resolved only through PEP 649 deferred annotations plus pydantic's
+# lazy rebuild -- __pydantic_complete__ stayed False until the first validation, so anything reaching
+# into the core schema earlier raised PydanticUserError instead of a clean ValidationError.
+class FLSpielTeamField(BaseModel):
+    team_id: CustomObjectId
+    name: str = Field(min_length=1)
+    tore: Annotated[int, Field(ge=0)] | None
+    shorthand: str = Field(min_length=2, max_length=2)
+
+
+class FLSpielOrtField(BaseModel):
+    spielort_id: CustomObjectId
+    name: str = Field(min_length=1)
+    # Free text (venue name + address) searched on Google Maps, NOT a URL -- so no scheme check.
+    maps_link: str = Field(min_length=1)
+    # int, not float: a rental price is whole euros. Stored values are already integral.
+    # Required, with no default. The admin PATCH writes this payload back wholesale with $set
+    # (admin/router.py), so a default would let a request that omits the field silently overwrite a
+    # venue's stored rent with 0. The frontend's FLSpielOrtFieldSchema requires it too, and
+    # FormSpielortSection always sends it -- the sibling `payment` below has always been required.
+    mietpreis: int = Field(ge=0)
+
+
+class FLSpielSchiedsrichterField(BaseModel):
+    schiedsrichter_id: CustomObjectId
+    name: str = Field(min_length=1)
+    payment: int = Field(ge=0)
+
+
 class FLPatchSpielDataPayload(BaseModel):
     spiel_id: CustomObjectId
     is_canceled: bool
@@ -29,28 +59,6 @@ class FLPatchSpielDataPayload(BaseModel):
         return data
 
 
-class FLSpielTeamField(BaseModel):
-    team_id: CustomObjectId
-    name: str = Field(min_length=1)
-    tore: Annotated[int, Field(ge=0)] | None
-    shorthand: str = Field(min_length=2, max_length=2)
-
-
-class FLSpielOrtField(BaseModel):
-    spielort_id: CustomObjectId
-    name: str = Field(min_length=1)
-    # Free text (venue name + address) searched on Google Maps, NOT a URL -- so no scheme check.
-    maps_link: str = Field(min_length=1)
-    # int, not float: a rental price is whole euros. Stored values are already integral.
-    mietpreis: int = Field(0, ge=0)
-
-
-class FLSpielSchiedsrichterField(BaseModel):
-    schiedsrichter_id: CustomObjectId
-    name: str = Field(min_length=1)
-    payment: int = Field(ge=0)
-
-
 class FLSpiel(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through id
 
@@ -66,7 +74,7 @@ class FLSpiel(BaseModel):
     # "Tore:Tore", or null when the match has not been played. Parsed as structured data by the
     # frontend, which derives win/draw/loss from it -- a malformed value rendered as a loss for
     # both teams before this was constrained.
-    ergebnis: Annotated[str, StringConstraints(pattern=r"^\d+:\d+$")] | None
+    ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
     spieltag_id: CustomObjectId
     spiel_nr: int = Field(gt=0)
 
