@@ -4,6 +4,8 @@ import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
+import { card } from "@/shared/components/ui/card";
+
 import { computeSpielStatus, formatSpielDisplay } from "../utils";
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 import SpielStatusChip from "./ui/SpielStatusChip";
@@ -31,7 +33,7 @@ export default function SpielCard({
 
   return (
     <div
-      className={`border-border bg-surface relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 rounded-2xl border px-4 py-3 shadow-xs transition-shadow hover:shadow-sm lg:px-5 lg:py-4 ${
+      className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4 ${
         spielStatus === "vergangen" ? "opacity-90" : ""
       }`}>
       <div className="flex w-full flex-row items-center justify-between">

@@ -1,12 +1,14 @@
 import { Card, Chip } from "@heroui/react";
 
+import { card } from "@/shared/components/ui/card";
+
 import type { FLTeamCompact } from "../schemas";
 
 export default function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
   return (
     <Card
       variant="default"
-      className="bg-surface border-border text-foreground hover:border-brand hover:scale-hover flex size-full flex-col items-start rounded-xl border p-4 shadow-sm transition-all">
+      className={`${card({ interactive: true })} flex size-full flex-col items-start p-4`}>
       <Card.Header className="flex h-fit w-full flex-row items-center justify-between pb-3">
         <div>
           <Card.Title className="text-fluid-base font-bold">{teamData.name}</Card.Title>
@@ -22,19 +24,19 @@ export default function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
           <Chip
             size="sm"
             variant="soft"
-            color="success">
+            color="default">
             {teamData.statistik.punkte} Punkte
           </Chip>
           <Chip
             size="sm"
             variant="soft"
-            color="success">
+            color="default">
             {teamData.statistik.siege} Siege
           </Chip>
           <Chip
             size="sm"
             variant="soft"
-            color="success">
+            color="default">
             {teamData.statistik.tore_geschossen} Tore
           </Chip>
         </div>

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import RecentAndUpcomingSpieleGrid from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
+import { card } from "@/shared/components/ui/card";
 
 export default function LandingPage() {
   return (
@@ -52,7 +53,7 @@ export default function LandingPage() {
             <Link
               href="/dashboard/teams#top"
               prefetch={false}
-              className="border-border bg-surface hover:border-brand group relative flex items-center justify-between overflow-hidden rounded-2xl border p-5 shadow-xs transition-all hover:shadow-sm">
+              className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Schulen & Kader</span>
                 <span className="text-fluid-sm text-foreground font-black">Alle Teams durchstöbern</span>
@@ -64,7 +65,7 @@ export default function LandingPage() {
             <Link
               href="/dashboard/saisontabelle#top"
               prefetch={false}
-              className="border-border bg-surface hover:border-brand group relative flex items-center justify-between overflow-hidden rounded-2xl border p-5 shadow-xs transition-all hover:shadow-sm">
+              className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Ranking</span>
                 <span className="text-fluid-sm text-foreground font-black">Tabellenstand & Platzierungen</span>
@@ -76,7 +77,7 @@ export default function LandingPage() {
             <Link
               href="/dashboard/spielplan#top"
               prefetch={false}
-              className="border-border bg-surface hover:border-brand group relative flex items-center justify-between overflow-hidden rounded-2xl border p-5 shadow-xs transition-all hover:shadow-sm">
+              className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchday</span>
                 <span className="text-fluid-sm text-foreground font-black">Ansetzungen & Ergebnisse</span>

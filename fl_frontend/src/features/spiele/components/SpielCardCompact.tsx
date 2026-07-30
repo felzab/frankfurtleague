@@ -2,6 +2,8 @@
 
 import { Card } from "@heroui/react";
 
+import { card } from "@/shared/components/ui/card";
+
 import { formatSpielDisplay } from "../utils";
 import SaisonPhaseChip from "./ui/SaisonPhaseChip";
 
@@ -11,7 +13,7 @@ export default function SpielCardCompact({ spielData }: { spielData: FLSpiel }) 
   const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
 
   return (
-    <Card className="bg-surface border-border text-foreground w-full rounded-xl border p-4 shadow-sm transition-all">
+    <Card className={`${card()} w-full p-4`}>
       <Card.Content className="flex w-full flex-col items-center justify-between gap-y-3 p-0 text-left lg:flex-row">
         {/* Metadata */}
         <div className="flex h-fit w-full flex-col items-start gap-x-4 gap-y-2 lg:flex-row lg:items-center">

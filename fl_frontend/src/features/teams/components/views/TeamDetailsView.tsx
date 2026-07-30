@@ -9,6 +9,7 @@ import { Button, Card } from "@heroui/react";
 
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import { computeErgebnisFor } from "@/features/spiele/utils";
+import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
 import { sortByDate } from "@/shared/utils/date";
@@ -135,7 +136,7 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
             <Card
               key={i}
               variant="default"
-              className="bg-surface border-border text-foreground rounded-xl border shadow-sm">
+              className={card()}>
               <Card.Content className="py-4 text-center">
                 <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
                 <p className="text-fluid-lg text-foreground font-extrabold">{stat.value}</p>
@@ -145,7 +146,7 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
           <Card
             key={5}
             variant="secondary"
-            className="bg-surface border-border text-foreground hidden rounded-xl border shadow-sm lg:block">
+            className={`${card()} hidden lg:block`}>
             <Card.Content className="py-4 text-center">
               <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">Punkte</p>
               <p className="text-fluid-lg text-foreground font-extrabold">{teamData.statistik.punkte}</p>

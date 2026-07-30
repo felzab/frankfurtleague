@@ -3,6 +3,7 @@
 import { Card } from "@heroui/react";
 
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { card } from "@/shared/components/ui/card";
 
 import { formatSpielDisplay } from "../utils";
 
@@ -12,9 +13,7 @@ export default function SpielCardUltraCompact({ spielData, onPress }: { spielDat
   const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
 
   return (
-    <Card
-      /* FIX: Applied standard card styling (surface, border, hover states) to match the other components */
-      className="bg-surface border-border text-foreground hover:border-foreground/30 hover:scale-hover relative w-full rounded-xl border shadow-sm transition-all">
+    <Card className={`${card({ interactive: true })} relative w-full`}>
       <Card.Content className="flex flex-row items-center justify-between p-3">
         {/* The card itself cannot become the button: it contains TeamPopoverMenu's own <button>
             triggers, and a nested button is invalid HTML that breaks the popover. So the click
