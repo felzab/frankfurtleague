@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
+import { computeErgebnisFor } from "@/features/spiele/utils";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
 import { sortByDate } from "@/shared/utils/date";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
@@ -12,11 +13,12 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 import { Button, Card } from "@heroui/react";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { FLTeam } from "../../schemas";
 
 function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: string }) {
   // Map results to valid semantic colors
-  const getBadgeColor = (result: "W" | "L" | "D" | "?") => {
+  const getBadgeColor = (result: FLSpielErgebnisFor) => {
     switch (result) {
       case "W":
         return "bg-success text-white ring-success/30";
@@ -32,19 +34,7 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
   return (
     <div className="border-border relative ml-2 border-l-2 border-dashed">
       {sortByDate({ arr: spiele, key: "datum" }).map((spielData) => {
-        const teamIdx = teamId === spielData.team1.team_id ? 0 : 1;
-        const splitErgebnis = spielData.ergebnis && spielData.ergebnis.split(":");
-        let result: "W" | "L" | "D" | "?";
-
-        if (!spielData.ergebnis || !splitErgebnis) {
-          result = "?";
-        } else if (splitErgebnis[0] === splitErgebnis[1]) {
-          result = "D";
-        } else if (Number(splitErgebnis[teamIdx]) > Number(splitErgebnis[teamIdx === 0 ? 1 : 0])) {
-          result = "W";
-        } else {
-          result = "L";
-        }
+        const result = computeErgebnisFor({ spiel: spielData, teamId });
 
         return (
           <div
