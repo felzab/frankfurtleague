@@ -7,11 +7,23 @@
 #   1. refuses to run unless the git working tree is clean (so the tag means something)
 #   2. builds the frontend image, then the backend image
 #   3. only if BOTH built, pushes all four tags
-#   4. prints the exact command to deploy or roll back to this build
+#   4. removes superseded LOCAL sha tags — never registry ones, see below
+#   5. prints the exact command to deploy or roll back to this build
 #
 # WHY BOTH ARE BUILT BEFORE EITHER IS PUSHED: a half-published pair is worse than a failed build.
 # If the backend build fails after the frontend was already pushed, prod can pull a frontend that
 # expects a backend which does not exist yet.
+#
+# WHY LOCAL SHA TAGS ARE PRUNED AND REGISTRY ONES ARE NOT:
+#   deploy.sh rolls back by PULLING a pinned tag, so the registry is the rollback mechanism and a
+#   local sha tag is only a build byproduct. Left alone they never expire: each publish re-points
+#   the moving tag, but the superseded image keeps its own sha tag, so it never becomes dangling
+#   and `docker image prune` never reclaims it. That is ~750 MB per publish, accumulating with no
+#   upper bound. Pruning happens only after every push has succeeded, so the copy that matters is
+#   already in the registry before anything local is touched.
+#   Docker Hub retention is deliberately NOT automated: a botched registry delete destroys rollback
+#   history, and rollback is the one thing that must work on your worst day. Prune it by hand,
+#   keeping roughly the last five. scripts/README.md has the procedure.
 #
 # TAGS PUSHED (Docker Hub free plan = one private repo, so tags separate the services):
 #   frankfurtleague:frontend                  moving pointer — what deploy.sh pulls by default
@@ -115,6 +127,30 @@ for t in "$IMAGE_FRONTEND" "$TAG_FE" "$IMAGE_BACKEND" "$TAG_BE"; do
        If this is an authentication error, run: docker login -u felzab"
 done
 ok "all four tags pushed"
+
+# --- prune superseded LOCAL sha tags ---------------------------------------------------------------
+# Deliberately placed after the push loop: everything removed here is already in the registry, which
+# is the only copy deploy.sh reads. `docker image rm` on a tag untags it, and deletes the underlying
+# image only when no other tag points at it — so the moving tags built above are never at risk.
+step "Pruning superseded local sha tags"
+superseded="$(docker image ls "$DOCKER_REPO" --format '{{.Repository}}:{{.Tag}}' \
+  | grep -E ':(frontend|backend)-sha-' \
+  | grep -vxF -e "$TAG_FE" -e "$TAG_BE" || true)"
+
+if [[ -z "$superseded" ]]; then
+  info "none — ${QUALIFIER} is the only build on this machine"
+else
+  while IFS= read -r old_tag; do
+    [[ -n "$old_tag" ]] || continue
+    if docker image rm "$old_tag" >/dev/null 2>&1; then
+      info "removed ${old_tag}"
+    else
+      # A running container still using it is the usual cause. Not fatal: the push already succeeded.
+      warn "could not remove ${old_tag} — left in place"
+    fi
+  done <<< "$superseded"
+  ok "local sha tags are now ${QUALIFIER} only — older builds remain on Docker Hub"
+fi
 
 printf '\n'
 ok "Published ${QUALIFIER} from ${BRANCH}"

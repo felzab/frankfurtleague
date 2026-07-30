@@ -124,6 +124,45 @@ Ordered `<service>-<qualifier>` so that alphabetical listings group each service
 Every image also carries OCI labels — `org.opencontainers.image.revision`, `.created` and `.version` —
 recording the commit it was built from.
 
+### Keeping old tags from piling up
+
+**Locally, `publish.sh` handles it.** After every push succeeds it deletes local `*-sha-*` tags other
+than the one it just built. That is safe because `deploy.sh` rolls back by _pulling_ a pinned tag, so
+the registry is the rollback mechanism and a local sha tag is only a build byproduct.
+
+Left alone they never expire on their own. Each publish re-points the moving tag, but the superseded
+image keeps its own sha tag — so it never becomes dangling, and `docker image prune` never reclaims
+it. That is roughly **750 MB per publish**, with no upper bound.
+
+**In the registry, prune by hand.** This is deliberately not automated: a botched registry delete
+destroys rollback history, and rollback is the one thing that has to work on your worst day.
+
+Keep roughly the last five sha tags per service. To decide what goes:
+
+1. **Never delete what is live.** Read it from the server, do not recall it:
+
+   ```bash
+   ./scripts/deploy.sh --status
+   ```
+
+   The `commit` line comes from the image's own OCI label, so it is true even if a tag was moved.
+
+2. **Never delete what the moving tag points at.** On Docker Hub, `frontend` and
+   `frontend-sha-<commit>` sharing a digest means they are the same image.
+
+3. **Map the rest back to history.** The suffix is the git short SHA, so a tag is one `git log`
+   away from its commit:
+
+   ```bash
+   git log --oneline -15
+   ```
+
+   Anything older than the last five, and not live, is safe to remove.
+
+Then delete them in the Docker Hub UI: **Repository → Tags**, sort by _Last pushed_, and delete from
+the bottom. Deleting a tag never affects an image already pulled onto the server — only the ability to
+pull it again.
+
 ---
 
 ## `deploy.sh` — go live
