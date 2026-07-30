@@ -17,7 +17,7 @@ export const CustomTimeStringSchema = z
   .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/, { error: "TimeString has to be of the form: HH:MM:SS" });
 
 export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, {
-  message: "ObjectIdString has to be 24 chars long and a combination of letters and numbers",
+  error: "ObjectIdString has to be 24 chars long and a combination of letters and numbers",
 });
 
 /**

@@ -16,5 +16,7 @@ import z from "zod";
  * emits it only in error bodies (`app/core/exception_handlers.py`); on a success response it
  * travels as the `X-Correlation-ID` header. It stays optional here and never arrives.
  */
-export const BaseAPIResponseSchema = z.object({ acknowledged: z.union([z.literal(0), z.literal(1)]), trace_id: z.string().optional() });
+// z.literal([0, 1]) is zod 4's shorthand for a union of literals — same output type and the same
+// accept/reject behaviour as z.union([z.literal(0), z.literal(1)]), verified case by case.
+export const BaseAPIResponseSchema = z.object({ acknowledged: z.literal([0, 1]), trace_id: z.string().optional() });
 export type BaseAPIResponse = z.infer<typeof BaseAPIResponseSchema>;
