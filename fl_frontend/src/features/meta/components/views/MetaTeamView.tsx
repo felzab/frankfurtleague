@@ -64,8 +64,9 @@ export default function MetaTeamView() {
                         />
                       </div>
                       <Card.Title className="text-fluid-base sm:text-fluid-lg text-field-fg mt-3 font-black">{member.name}</Card.Title>
-                      {/* text-emerald-200 was the one field colour with no token equivalent: a muted
-                          label on the green card. Expressed as the field foreground at 80%. */}
+                      {/* This label was the one field colour with no token equivalent — a pale
+                          emerald, i.e. a muted label on the green card. Expressed as the field
+                          foreground at 80%. */}
                       <Card.Description className="text-fluid-xxs sm:text-fluid-xs text-field-fg/80 font-bold tracking-widest uppercase">
                         {member.role}
                       </Card.Description>
