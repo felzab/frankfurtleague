@@ -211,10 +211,13 @@ Possible shimmer animation for landing page
   scrollbar-gutter: stable !important;
 }
 
-/* Makes a dotted background */
+/* Makes a dotted background. currentColor rather than a white literal: the dots then invert with
+   whatever text colour the consumer sets, instead of being invisible on any light surface. The
+   !important flags are gone -- @utility output lands in the utilities layer, which already outranks
+   components and base. */
 @utility dotted-bg {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px) !important;
-  background-size: 32px 32px !important;
+  background-image: radial-gradient(color-mix(in srgb, currentColor 16%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
 /* One block neutralises all 194 animated properties in the app, rather than 194 `motion-reduce:`
@@ -269,8 +272,11 @@ Possible shimmer animation for landing page
 
   /* Soccer Field Graphics - Balanced Professional Middle Ground.
      Built on --color-field-* so the motif is one decision rather than 40 literals. */
+  /* text-field-fg is load-bearing, not decoration: `dotted-bg` derives its dots from currentColor,
+     and without a foreground declared here they would inherit --fg-base from <body> and render
+     near-black on the green in light mode. */
   .soccer-field-base {
-    @apply border-field-fg/85 bg-field-base relative h-full min-h-[120dvh] w-full max-w-field flex-1 overflow-hidden border-[3px] shadow-2xl;
+    @apply border-field-fg/85 bg-field-base text-field-fg relative h-full min-h-[120dvh] w-full max-w-field flex-1 overflow-hidden border-[3px] shadow-2xl;
   }
 
   .corner-arc-base {
