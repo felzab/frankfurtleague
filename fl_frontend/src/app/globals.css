@@ -169,6 +169,22 @@ Possible shimmer animation for landing page
   background-size: 32px 32px !important;
 }
 
+/* One block neutralises all 194 animated properties in the app, rather than 194 `motion-reduce:`
+   variants that each new component would have to remember. Deliberately unlayered: unlayered rules
+   outrank every @layer, so this wins over base, components and utilities alike. Animations are
+   shortened rather than removed so animation/transition end events still fire. Where the animation
+   must stop entirely instead of merely running fast, the site opts in with `motion-safe:`. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer components {
   /* UI Overrides */
   .table__column {

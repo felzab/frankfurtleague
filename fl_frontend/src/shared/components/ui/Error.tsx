@@ -9,7 +9,9 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
     <div className="bg-background relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden p-4 sm:p-6">
       {/* Watermark */}
       <div className="pointer-events-none mb-4 flex items-center justify-center select-none sm:absolute sm:inset-0 sm:mb-0">
-        <span className="text-foreground/20 sm:text-foreground/5 animate-pulse text-[5.5rem] leading-none font-black tracking-tighter sm:text-[10rem] md:text-[18rem] lg:text-[25rem]">
+        {/* motion-safe:, not the global shortening: a 25rem glyph pulsing behind text the user is
+            trying to read must stop entirely, not run fast. */}
+        <span className="text-foreground/20 sm:text-foreground/5 motion-safe:animate-pulse text-[5.5rem] leading-none font-black tracking-tighter sm:text-[10rem] md:text-[18rem] lg:text-[25rem]">
           ERROR
         </span>
       </div>

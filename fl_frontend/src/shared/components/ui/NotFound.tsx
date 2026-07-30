@@ -9,7 +9,8 @@ export default function NotFound() {
     <div className="bg-background relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden p-4 sm:p-6">
       {/* Watermark */}
       <div className="pointer-events-none mb-4 flex items-center justify-center select-none sm:absolute sm:inset-0 sm:mb-0">
-        <span className="text-foreground/20 sm:text-foreground/5 animate-pulse text-[7rem] leading-none font-black tracking-tighter sm:text-[15rem] md:text-[25rem] lg:text-[35rem]">
+        {/* motion-safe:, not the global shortening — see Error.tsx. */}
+        <span className="text-foreground/20 sm:text-foreground/5 motion-safe:animate-pulse text-[7rem] leading-none font-black tracking-tighter sm:text-[15rem] md:text-[25rem] lg:text-[35rem]">
           404
         </span>
       </div>
