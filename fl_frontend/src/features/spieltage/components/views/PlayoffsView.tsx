@@ -35,7 +35,7 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
           the bracket overflows into the scroller. cqw measures this element instead. */}
       <div className="scrollbar-hide @container w-full snap-x snap-mandatory overflow-x-auto px-4 md:px-8">
         {/* Tree track */}
-        <div className="flex h-fit min-w-max flex-row items-stretch gap-8">
+        <div className="mx-auto flex h-fit min-w-max flex-row items-stretch gap-8">
           {playoffsSpieltage.map((playoffsSpieltag, roundIndex) => (
             /* Responsive column */
             <div

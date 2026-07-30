@@ -28,24 +28,30 @@ export default function SpielCardUltraCompact({ spielData, onPress }: { spielDat
         />
 
         {/** Game Metadata */}
-        <div className="text-fluid-sm text-foreground-muted flex h-full w-fit flex-col items-start font-bold">
-          <span className="w-full">{spielDatum}</span>
-          <span className="w-full">{spielUhrzeit}</span>
+        <div className="flex h-full w-fit flex-col items-start">
+          <span className="text-fluid-sm text-foreground font-bold">{spielDatum}</span>
+          <span className="text-fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
         </div>
 
         {/** Who vs. Who — equal 1fr tracks keep the score centered whatever the shorthand lengths. */}
-        <div className="bg-background border-border grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 rounded-lg border px-4 py-1.5 shadow-sm">
+        <div className="bg-background border-border grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 rounded-xl border px-4 py-1.5 shadow-sm">
           {/* TeamPopoverMenu renders display:contents, so z-index has to be applied from outside it. */}
           <span className="relative z-20 flex min-w-0 justify-end">
             <TeamPopoverMenu
               teamName={spielData.team1.name}
               teamId={spielData.team1.team_id}
               teamShorthand={spielData.team1.shorthand}>
-              <strong className="text-fluid-base text-foreground max-w-full truncate text-right">{spielData.team1.shorthand}</strong>
+              <strong className="text-fluid-base hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
+                {spielData.team1.shorthand}
+              </strong>
             </TeamPopoverMenu>
           </span>
 
-          <span className={`text-fluid-sm text-center font-bold ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
+          {/* The result in the status chips' tint formula -- the owner's reference chip look. */}
+          <span
+            className={`text-fluid-xs rounded-md px-1.5 py-0.5 text-center font-extrabold ${
+              spielData.ergebnis !== null ? "bg-success/15 text-success-strong" : "bg-danger/15 text-danger-strong"
+            }`}>
             {spielErgebnis}
           </span>
 
@@ -54,7 +60,9 @@ export default function SpielCardUltraCompact({ spielData, onPress }: { spielDat
               teamName={spielData.team2.name}
               teamId={spielData.team2.team_id}
               teamShorthand={spielData.team2.shorthand}>
-              <strong className="text-fluid-base text-foreground max-w-full truncate text-left">{spielData.team2.shorthand}</strong>
+              <strong className="text-fluid-base hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
+                {spielData.team2.shorthand}
+              </strong>
             </TeamPopoverMenu>
           </span>
         </div>

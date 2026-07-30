@@ -20,10 +20,11 @@ export default function TopNavLinksDropdown() {
           />
         </Dropdown.Trigger>
 
-        {/* isNonModal: a nav dropdown has no business locking document scroll -- the modal
-            default made the page scrollbar vanish while open. Light-dismiss still works. */}
+        {/* Modal (the default) on purpose: `isNonModal` was tried and reverted -- it sets
+            react-aria's isDismissable to false, so clicking outside no longer closed the menu.
+            The scroll lock briefly hides the page scrollbar while open, but react-aria reserves
+            the gutter on <html> itself, so nothing shifts. */}
         <Dropdown.Popover
-          isNonModal
           placement="bottom end"
           className="-mt-1 w-[220px] rounded-xl">
           <Dropdown.Menu aria-label="Navigation Links">

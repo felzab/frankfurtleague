@@ -52,7 +52,7 @@ export default async function RecentAndUpcomingSpieleGrid() {
       <div className="flex w-full flex-col">
         {/* Section Header */}
         <div className="mb-6 flex flex-col gap-1">
-          <span className="text-fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase">Rückblick</span>
+          <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Rückblick</span>
           <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">Vergangene Spiele</h2>
         </div>
 

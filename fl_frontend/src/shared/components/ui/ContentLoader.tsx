@@ -1,16 +1,22 @@
 /**
- * The layout-level Suspense fallback (ledger NEW-T3, owner decision 2026-07-31).
+ * The content-area loader (ledger NEW-T3/NEW-F5) — deliberately a different shape from
+ * `PageLoader`'s ringed spinner, because the two appear in different situations and the owner
+ * wants them tellable at a glance: `PageLoader` = a whole page is loading (root `loading.tsx`);
+ * this = the shell is already painted and only the content region is streaming (the dashboard and
+ * admin `loading.tsx` files plus the two layout-level Suspense boundaries).
  *
- * `loading.tsx` and the layout boundary cover different transitions — segment navigation vs
- * streaming within a render — but both used to show the identical full-page `PageLoader`. At the
- * layout level the shell is already painted, so this is `PageLoader`'s quieter sibling: the same
- * brand spinner at reduced size, no ping ring, one line of text. Same family, clearly lighter.
+ * Three staggered bouncing dots in the landing page's `bg-brand-solid` dot language. No text —
+ * the a11y name comes from the label; sighted users get the distinct shape instead.
  */
 export function ContentLoader() {
   return (
-    <div className="flex w-full flex-1 flex-col items-center justify-center gap-y-3 px-4 py-16 text-center">
-      <div className="border-border border-t-brand size-8 animate-spin rounded-full border-[3px]" />
-      <p className="text-fluid-xs text-foreground-muted font-medium">Inhalte werden geladen...</p>
+    <div
+      role="status"
+      aria-label="Inhalte werden geladen"
+      className="flex w-full flex-1 items-center justify-center gap-x-1.5 px-4 py-16">
+      <span className="bg-brand-solid size-2.5 animate-bounce rounded-full [animation-delay:-0.3s]" />
+      <span className="bg-brand-solid size-2.5 animate-bounce rounded-full [animation-delay:-0.15s]" />
+      <span className="bg-brand-solid size-2.5 animate-bounce rounded-full" />
     </div>
   );
 }

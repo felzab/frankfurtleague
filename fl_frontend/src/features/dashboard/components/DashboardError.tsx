@@ -12,7 +12,7 @@ export default function DashboardError({ error, retry }: { error: Error & { dige
         {/* Warning Badge */}
         <div className="bg-background border-border mb-6 flex items-center gap-2.5 rounded-full border px-3 py-1.5 shadow-sm">
           <div className="bg-warning h-2 w-2 animate-pulse rounded-full" />
-          <span className="text-foreground text-[10px] font-black tracking-widest uppercase sm:text-xs">Fehlpass</span>
+          <span className="text-foreground text-fluid-xxs sm:text-fluid-xs font-black tracking-widest uppercase">Fehlpass</span>
         </div>
 
         <h2 className="text-fluid-lg text-foreground font-extrabold tracking-tight">Daten konnten nicht geladen werden.</h2>

@@ -51,7 +51,7 @@ export default function SpielCardCompact({ spielData, onOpenInfoModal }: { spiel
               teamName={spielData.team1.name}
               teamId={spielData.team1.team_id}
               teamShorthand={spielData.team1.shorthand}>
-              <strong className="text-fluid-sm lg:text-fluid-base max-w-full truncate text-right font-bold">
+              <strong className="text-fluid-sm lg:text-fluid-base hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
                 {spielData.team1.name || "Team 1"}
               </strong>
             </TeamPopoverMenu>
@@ -67,7 +67,7 @@ export default function SpielCardCompact({ spielData, onOpenInfoModal }: { spiel
               teamName={spielData.team2.name}
               teamId={spielData.team2.team_id}
               teamShorthand={spielData.team2.shorthand}>
-              <strong className="text-fluid-sm lg:text-fluid-base max-w-full truncate text-left font-bold">
+              <strong className="text-fluid-sm lg:text-fluid-base hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
                 {spielData.team2.name || "Team 2"}
               </strong>
             </TeamPopoverMenu>

@@ -20,7 +20,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <div className="bg-surface/70 border-border relative z-10 flex w-full max-w-2xl flex-col items-center rounded-2xl border p-6 text-center shadow-2xl backdrop-blur-xl sm:rounded-3xl sm:p-12 md:p-16">
         <div className="bg-background border-border mb-6 flex items-center gap-2.5 rounded-full border px-3 py-1.5 shadow-sm sm:mb-8 sm:px-4">
           <div className="bg-danger h-2 w-2 animate-pulse rounded-full sm:h-2.5 sm:w-2.5" />
-          <span className="text-foreground text-[10px] font-black tracking-widest uppercase sm:text-xs">Spielunterbrechung</span>
+          <span className="text-foreground text-fluid-xxs sm:text-fluid-xs font-black tracking-widest uppercase">Spielunterbrechung</span>
         </div>
 
         <h1 className="text-fluid-2xl text-foreground font-extrabold tracking-tight">
