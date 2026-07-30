@@ -77,6 +77,15 @@ if (( QUICK )); then
 fi
 
 require_docker
+
+# Reclaim the throwaway images on EVERY exit path, registered before the first build that creates
+# them. It has to be a trap: `die` calls exit directly, so a plain line at the end of the script only
+# runs when the gate passes. A failed gate used to leave both tags behind; the next run then moved
+# them onto fresh images and orphaned the old ones as untagged 369 MB layers that nothing but
+# `docker image prune` would ever reclaim. Registered after the --quick exit above, which returns
+# before either image exists. Placed after require_docker so it is never armed without a daemon.
+trap 'docker image rm -f frankfurtleague-verify:frontend frankfurtleague-verify:backend >/dev/null 2>&1 || true' EXIT
+
 step "docker build — frontend  (the check pnpm verify cannot do)"
 docker build -q -f fl_frontend/Dockerfile -t frankfurtleague-verify:frontend fl_frontend >/dev/null \
   || die "The frontend image failed to build. This is the failure pnpm verify cannot see."
@@ -96,5 +105,4 @@ else
   die "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repo root."
 fi
 
-docker image rm -f frankfurtleague-verify:frontend frankfurtleague-verify:backend >/dev/null 2>&1 || true
 printf '\n'; ok "Full gate green — safe to merge."
