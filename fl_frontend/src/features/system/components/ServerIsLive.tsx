@@ -10,7 +10,7 @@ export default async function ServerIsLive() {
   });
 
   return (
-    <span className={`text-fluid-xxs text-right opacity-80 ${ping?.acknowledged ? "text-green-500" : "text-red-500"}`}>
+    <span className={`text-fluid-xxs text-right opacity-80 ${ping?.acknowledged ? "text-success" : "text-danger"}`}>
       {`Server status: ${ping?.acknowledged ? "online" : "oFLine"}`}
     </span>
   );

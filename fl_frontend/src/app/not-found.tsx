@@ -1,5 +1,5 @@
 import NotFound from "@/shared/components/ui/NotFound";
 
-export default async function NotfoundPage() {
+export default function NotfoundPage() {
   return <NotFound />;
 }

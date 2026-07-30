@@ -96,7 +96,7 @@ export default function FormSchiedsrichterSection({
     <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-3 shadow-sm lg:p-4">
       {isCreatingInline ? (
         <div
-          className="animate-appearance-in flex flex-col gap-4 px-2"
+          className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-4 px-2 duration-400"
           onKeyDownCapture={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -128,7 +128,7 @@ export default function FormSchiedsrichterSection({
               type="button"
               variant="secondary"
               isDisabled={isPending}
-              className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-[1.02]"
+              className="text-fluid-sm border-border text-foreground hover:scale-hover rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all"
               onPress={() => setIsCreatingInline(false)}>
               Abbrechen
             </Button>
@@ -136,7 +136,7 @@ export default function FormSchiedsrichterSection({
               type="button"
               variant="primary"
               isDisabled={isPending}
-              className="text-fluid-sm bg-brand-solid text-brand-solid-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]"
+              className="text-fluid-sm bg-brand-solid text-brand-solid-foreground hover:scale-hover rounded-xl px-6 py-3 font-semibold tracking-wide transition-all"
               onPress={handleCreateSubmit}>
               <Check
                 className="m-0"

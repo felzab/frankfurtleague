@@ -55,7 +55,7 @@ export default function AdminCreateSpielortForm({ onClose }: { onClose: () => vo
     <Form
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
       action={handleCreateSubmit}>
-      <div className="animate-appearance-in flex w-full flex-col gap-4 px-2">
+      <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400">
         <SpielortFormFields
           draft={draft}
           onChange={setDraft}
@@ -66,7 +66,7 @@ export default function AdminCreateSpielortForm({ onClose }: { onClose: () => vo
         <Button
           type="button"
           variant="secondary"
-          className="text-fluid-sm border-border text-foreground rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all hover:scale-[1.02]"
+          className="text-fluid-sm border-border text-foreground hover:scale-hover rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all"
           onPress={onClose}>
           Abbrechen
         </Button>
@@ -74,7 +74,7 @@ export default function AdminCreateSpielortForm({ onClose }: { onClose: () => vo
           type="submit"
           variant="primary"
           isDisabled={isPending}
-          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground rounded-xl px-6 py-3 font-semibold tracking-wide transition-all hover:scale-[1.02]">
+          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground hover:scale-hover rounded-xl px-6 py-3 font-semibold tracking-wide transition-all">
           <Check
             className="m-0"
             width={20}

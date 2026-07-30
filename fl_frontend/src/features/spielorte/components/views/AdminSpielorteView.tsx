@@ -59,7 +59,7 @@ export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {
   const filteredSpielorte = !spielortQuery ? spielorte : fuse.search(spielortQuery).map((result) => result.item);
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col gap-8 overflow-y-auto p-6 sm:p-8">
+    <div className="max-w-page mx-auto flex h-full w-full flex-col gap-8 overflow-y-auto p-6 sm:p-8">
       <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col">
           <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">Spielorte</h1>

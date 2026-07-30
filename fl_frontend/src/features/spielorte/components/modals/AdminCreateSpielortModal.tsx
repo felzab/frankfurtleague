@@ -26,7 +26,7 @@ export function AdminCreateSpielortModal() {
         onOpenChange={modalState.setOpen}
         variant="blur">
         <Modal.Container placement="top">
-          <Modal.Dialog className="bg-background border-border text-foreground flex max-h-[90dvh] w-full max-w-2xl flex-col rounded-2xl border p-4 shadow-2xl outline-none">
+          <Modal.Dialog className="bg-background border-border text-foreground max-h-modal flex w-full max-w-2xl flex-col rounded-2xl border p-4 shadow-2xl outline-none">
             <Modal.CloseTrigger
               onPress={modalState.close}
               className="text-foreground-muted hover:text-foreground transition-colors"
@@ -36,7 +36,7 @@ export function AdminCreateSpielortModal() {
               <Modal.Heading className="text-fluid-lg text-foreground font-extrabold tracking-tight">Spielort anlegen</Modal.Heading>
             </Modal.Header>
 
-            <Modal.Body className="scrollbar-hide text-foreground flex-1 overflow-y-auto px-0">
+            <Modal.Body className="scrollbar-hide text-foreground flex-1 scrollbar-gutter-stable overflow-y-auto px-0">
               <AdminCreateSpielortForm onClose={modalState.close} />
             </Modal.Body>
           </Modal.Dialog>

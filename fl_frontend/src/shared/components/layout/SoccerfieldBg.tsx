@@ -1,7 +1,7 @@
-export default async function SoccerfieldBg({ children }: { children: React.ReactNode }) {
+export default function SoccerfieldBg({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex w-full flex-1 flex-col items-center px-2 py-4 sm:px-6 lg:px-8">
-      <div className="soccer-field-base dotted-bg relative w-full max-w-[1500px] overflow-hidden rounded-2xl shadow-2xl sm:rounded-3xl">
+      <div className="soccer-field-base dotted-bg max-w-field relative w-full overflow-hidden rounded-2xl shadow-2xl sm:rounded-3xl">
         {/* Absolute Pitch Markings Layer (Non-interactive Background) */}
         <div className="pointer-events-none absolute inset-0 z-0">
           <div className="corner-arc-base corner-arc-tl" />

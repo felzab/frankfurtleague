@@ -61,7 +61,7 @@ export default function Sidemenu<TIcon extends string>({
       <div
         onClick={_toggleMobileMenu}
         aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 xl:hidden ${
+        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
           isMobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
@@ -70,11 +70,11 @@ export default function Sidemenu<TIcon extends string>({
       <aside
         className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,transform] duration-300 ease-in-out ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        } xl:relative xl:z-0 xl:shrink-0 xl:translate-x-0 ${isDesktopCollapsed ? "xl:w-[72px]" : "w-[310px]"}`}>
+        } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${isDesktopCollapsed ? "lg:w-sidemenu-collapsed" : "w-sidemenu"}`}>
         <SidemenuDesktopHeader isDesktopCollapsed={isDesktopCollapsed} />
 
         {/* MOBILE DRAWER HEADER */}
-        <div className="border-border flex h-14 shrink-0 items-center justify-between border-b px-4 xl:hidden">
+        <div className="border-border flex h-14 shrink-0 items-center justify-between border-b px-4 lg:hidden">
           <div className="flex items-center gap-3">
             <Link
               href="/"
@@ -106,7 +106,7 @@ export default function Sidemenu<TIcon extends string>({
         {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
           <Suspense fallback={<div className="bg-muted h-[70px] w-full animate-pulse rounded-xl" />}>
-            <div className={`transition-all duration-300 ${isDesktopCollapsed ? "hidden h-0 xl:block xl:opacity-0" : "opacity-100"}`}>
+            <div className={`transition-all duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
             </div>
           </Suspense>

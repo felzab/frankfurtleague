@@ -101,7 +101,7 @@ export default function SignInForm() {
                   disabled={isPending}
                   autoFocus={false}
                 />
-                <FieldError className="text-fluid-xxs mt-1 font-bold text-red-400" />
+                <FieldError className="text-fluid-xxs text-danger mt-1 font-bold" />
               </TextField>
 
               <Button

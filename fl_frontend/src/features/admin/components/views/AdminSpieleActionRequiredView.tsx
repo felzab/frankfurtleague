@@ -16,7 +16,7 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center px-4 pt-6 pb-12 sm:px-8">
-      <Accordion className="text-foreground flex w-full max-w-[1400px] flex-col gap-y-4">
+      <Accordion className="text-foreground max-w-page flex w-full flex-col gap-y-4">
         {/* typedObjectEntries, not Object.entries: the latter widens the key to string, which would
             make the ACTION_REQUIRED_LABELS lookup below an unchecked index. */}
         {typedObjectEntries(spieleCategories).map(([category, spiele]) => {

@@ -8,9 +8,12 @@ import { FooterCopyrightString } from "./FooterCopyrightString";
 
 // serverStatusSlot is injected by the composition root rather than imported, so this generic layout
 // primitive keeps zero feature dependencies. Same technique as Sidemenu's saisonMetadataDisplay.
-export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
+// Not async: it awaits nothing, so the `async` only produced a promise for React to unwrap. Tested
+// as a candidate cause of the PPR resume failure (ledger NEW-T2) and it is NOT the cause — the
+// aborts are unchanged either way. Kept because an async function with no await is still wrong.
+export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
   return (
-    <footer className="mx-auto flex h-full w-full max-w-[1400px] flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
+    <footer className="max-w-page mx-auto flex h-full w-full flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
       {/* Main Footer Grid */}
       <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-4">
         {/* Brand & Mission Column */}
@@ -64,19 +67,16 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
               rel="noopener noreferrer"
               aria-label="Threads Profile"
               className="transition-opacity hover:opacity-80">
-              <Image
-                src="/icons/footer/threads/threads_logo_black.svg"
-                alt="Threads logo"
-                width={24}
-                height={24}
-                className="block size-6 dark:hidden"
-              />
-              <Image
-                src="/icons/footer/threads/threads_logo_white.svg"
-                alt="Threads logo"
-                width={24}
-                height={24}
-                className="hidden size-6 dark:block"
+              {/* One masked element instead of a light/dark <Image> pair: both assets were in the
+                  DOM and both were fetched, and the mask takes its colour from bg-foreground, which
+                  flips with the theme on its own. The span is decorative — the link above it
+                  already carries the accessible name.
+                  inline-block is load-bearing: width/height do not apply to a non-replaced inline
+                  box, so a bare <span class="size-6"> renders 0x0. The <Image> it replaced was a
+                  replaced element, where they do apply. */}
+              <span
+                aria-hidden="true"
+                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
               />
             </Link>
 
@@ -88,19 +88,9 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
               rel="noopener noreferrer"
               aria-label="GitHub Profile"
               className="transition-opacity hover:opacity-80">
-              <Image
-                src="/icons/footer/github/github_logo_black.svg"
-                alt="GitHub logo"
-                width={24}
-                height={24}
-                className="block size-6 dark:hidden"
-              />
-              <Image
-                src="/icons/footer/github/github_logo_white.svg"
-                alt="GitHub logo"
-                width={24}
-                height={24}
-                className="hidden size-6 dark:block"
+              <span
+                aria-hidden="true"
+                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/github/github_logo_black.svg')] mask-contain mask-center mask-no-repeat"
               />
             </Link>
 
@@ -141,9 +131,13 @@ export default async function Footer({ serverStatusSlot }: { serverStatusSlot?: 
         </div>
       </div>
 
-      {/* Bottom Status & Copyright Bar */}
+      {/* Bottom Status & Copyright Bar. Both children are request-time holes in the static shell:
+          the copyright year reads the clock and the status pings the backend. Each gets its own
+          boundary so the shell shows a sensible fallback and the real values stream in. */}
       <div className="flex flex-col items-center justify-between gap-4 pt-6 text-center sm:flex-row sm:text-left">
-        <FooterCopyrightString />
+        <Suspense fallback={<p className="text-fluid-xxs text-foreground-muted">{`© Frankfurt-League. All rights reserved.`}</p>}>
+          <FooterCopyrightString />
+        </Suspense>
         <Suspense fallback={<span className="text-fluid-xxs text-foreground-muted opacity-80">Checking status...</span>}>
           {serverStatusSlot}
         </Suspense>

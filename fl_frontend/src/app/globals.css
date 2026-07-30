@@ -23,11 +23,40 @@
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
     --accent-brand-solid: #82181a;
-    --accent-action: #059669;
     --accent-warn: #eab308;
     --accent-danger: #dc2626;
     --accent-success: #16a34a;
     --accent-info: #2563eb;
+
+    /* Text-grade companions to the four feedback accents, in the same relationship as
+       --accent-brand-solid is to --accent-brand: the accents above are tuned for FILLS and icons,
+       and are too light to carry small bold text on a light surface. Measured on a /15 tint over
+       --bg-surface: `text-success` is 2.58:1 and `text-warning` 1.61:1, versus 4.29 and 4.22 for
+       these. Use `-strong` for any text on a tinted background; use the plain accent for fills. */
+    --accent-success-strong: #047857;
+    --accent-info-strong: #1d4ed8;
+    --accent-warn-strong: #b45309;
+    --accent-danger-strong: #b91c1c;
+
+    /* Tournament rounds. The four phases are an ordered sequence, not a semantic state, so none of
+       the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
+       palette. Values are Tailwind's sky/indigo/purple/rose 700 verbatim, i.e. exactly what the chip
+       rendered before, and each is used both as the label colour and as a /15 tint behind it. */
+    --accent-phase-group: oklch(50% 0.134 242.749);
+    --accent-phase-quarter: oklch(45.7% 0.24 277.023);
+    --accent-phase-semi: oklch(49.6% 0.265 301.924);
+    --accent-phase-final: oklch(51.4% 0.222 16.935);
+
+    /* The soccer-field motif on /about, /team and /kontakt. Those three pages stay green in both
+       themes -- that is the design, not an oversight -- but until these tokens existed the decision
+       was spread across 40 `text-white` / `bg-emerald-*` literals in four files, so the token layer
+       had no reach into three of the nine public routes. Now it is these four lines.
+       --field-base/--field-card are Tailwind's emerald 700/800 verbatim. */
+    --field-base: oklch(50.8% 0.118 165.612);
+    --field-card: oklch(43.2% 0.095 166.913);
+    --field-fg: #ffffff;
+    /* Alpha lives in the token because this is the one field value that differs per theme. */
+    --field-border: color-mix(in srgb, #ffffff 40%, transparent);
   }
 
   [data-theme="dark"] {
@@ -45,43 +74,30 @@
     /* Lightened for dark surfaces: the light value is 1.88:1 on --bg-surface, this is ~5.6:1. */
     --accent-brand: #e05b5e;
     --accent-brand-solid: #82181a;
-    --accent-action: #10b981;
     --accent-warn: #fde047;
     --accent-danger: #ef4444;
     --accent-success: #22c55e;
     --accent-info: #3b82f6;
+
+    /* On dark surfaces the relationship inverts: the text variant is LIGHTER than the fill accent. */
+    --accent-success-strong: #34d399;
+    --accent-info-strong: #60a5fa;
+    --accent-warn-strong: #fbbf24;
+    --accent-danger-strong: #f87171;
+
+    /* Tailwind's sky/indigo/purple/rose 400 -- the values the chip's `dark:` escapes used. */
+    --accent-phase-group: oklch(74.6% 0.16 232.661);
+    --accent-phase-quarter: oklch(67.3% 0.182 276.935);
+    --accent-phase-semi: oklch(71.4% 0.203 305.504);
+    --accent-phase-final: oklch(71.2% 0.194 13.428);
+
+    /* Deeper greens for the dark theme; the foreground stays white because the surface stays green. */
+    --field-base: #0b3820;
+    --field-card: #124529;
+    --field-fg: #ffffff;
+    --field-border: color-mix(in srgb, #ffffff 20%, transparent);
   }
 }
-
-/*
-Possible shimmer animation for landing page
-
-@keyframes continuousFlowWave {
-  0% {
-    background-position: -160vw -80vh;
-  }
-  100% {
-    background-position: 120vw 120vh;
-  }
-}
-
-@utility brand-shimmer {
-  background-image: linear-gradient(
-    135deg,
-    transparent 30%,
-    color-mix(in srgb, var(--brand, #dc2626) 6%, transparent) 38%,
-    color-mix(in srgb, var(--brand, #dc2626) 18%, transparent) 48%,
-    color-mix(in srgb, var(--brand, #dc2626) 24%, transparent) 50%,
-    color-mix(in srgb, var(--brand, #dc2626) 18%, transparent) 52%,
-    color-mix(in srgb, var(--brand, #dc2626) 6%, transparent) 62%,
-    transparent 70%
-  );
-  background-size: 200vw 200vh;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-  animation: continuousFlowWave 10s linear infinite;
-}
-  */
 
 @theme {
   /* Fonts */
@@ -100,13 +116,24 @@ Possible shimmer animation for landing page
   --color-brand: var(--accent-brand);
   --color-brand-solid: var(--accent-brand-solid);
   --color-brand-solid-foreground: var(--fg-on-brand);
-  --color-action: var(--accent-action);
   /* Spelled `warning`, not `warn`: the utility sites all say `warning`, and this shadows
      HeroUI's own --color-warning rather than competing with it. */
   --color-warning: var(--accent-warn);
   --color-danger: var(--accent-danger);
   --color-success: var(--accent-success);
   --color-info: var(--accent-info);
+  --color-warning-strong: var(--accent-warn-strong);
+  --color-danger-strong: var(--accent-danger-strong);
+  --color-success-strong: var(--accent-success-strong);
+  --color-info-strong: var(--accent-info-strong);
+  --color-phase-group: var(--accent-phase-group);
+  --color-phase-quarter: var(--accent-phase-quarter);
+  --color-phase-semi: var(--accent-phase-semi);
+  --color-phase-final: var(--accent-phase-final);
+  --color-field-base: var(--field-base);
+  --color-field-card: var(--field-card);
+  --color-field-fg: var(--field-fg);
+  --color-field-border: var(--field-border);
 
   /** Fluid text sizes */
   /* 10px to 12px */
@@ -145,28 +172,61 @@ Possible shimmer animation for landing page
   --text-fluid-4xl: clamp(2.25rem, 1.73rem + 2.6vw, 3.5rem);
   --text-fluid-4xl--line-height: 1.1;
 
-  /* Custom breakpoints */
-  --breakpoint-2xl: 115rem;
-  --breakpoint-3xl: 135rem;
+  /* Page-width archetypes. Four independent caps used to be spelled as arbitrary values across 21
+     sites, which is how /dashboard/spielplan ended up clamping its tab strip 200px narrower than
+     the grid the tabs control. Pick one per page archetype.
+     NOT named `prose`: Tailwind ships --max-width-prose, and both namespaces feed max-w-*. */
+  --container-page: 1400px; /* dashboard + admin content */
+  --container-toolbar: 1200px; /* sticky tab and search bars */
+  --container-meta: 1100px; /* meta pages */
+  --container-field: 1500px; /* the soccer-field backdrop, which frames the meta pages */
 
   /* Custom sizes */
   --navbar-height: 54px;
+  /* max-h-* resolves from --height-*, not from a --max-height-* namespace. */
+  --height-modal: 90dvh;
+  --width-sidemenu: 310px;
+  --width-sidemenu-collapsed: 72px;
+  /* One hover magnitude for the whole app. It was three: [1.02] x27, [1.04] x1, 105 x1. */
+  --scale-hover: 1.02;
 }
 
-/* Hides the scrollbar */
+/* Hides the scrollbar, and nothing else. It used to also set `scrollbar-gutter: stable`, which
+   reserves the space the scrollbar would have taken -- the opposite concern, invisible from the
+   name, silently inherited by all 11 consumers. The sites that want the gutter now say so with
+   Tailwind's own `scrollbar-gutter-stable`. The !important flags are unnecessary: @utility output
+   lands in the utilities layer, which already beats HeroUI's base/scrollbar.css. */
 @utility scrollbar-hide {
   &::-webkit-scrollbar {
-    display: none !important;
+    display: none;
   }
-  -ms-overflow-style: none !important;
-  scrollbar-width: none !important;
-  scrollbar-gutter: stable !important;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-/* Makes a dotted background */
+/* Makes a dotted background. currentColor rather than a white literal: the dots then invert with
+   whatever text colour the consumer sets, instead of being invisible on any light surface. The
+   !important flags are gone -- @utility output lands in the utilities layer, which already outranks
+   components and base. */
 @utility dotted-bg {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px) !important;
-  background-size: 32px 32px !important;
+  background-image: radial-gradient(color-mix(in srgb, currentColor 16%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* One block neutralises all 194 animated properties in the app, rather than 194 `motion-reduce:`
+   variants that each new component would have to remember. Deliberately unlayered: unlayered rules
+   outrank every @layer, so this wins over base, components and utilities alike. Animations are
+   shortened rather than removed so animation/transition end events still fire. Where the animation
+   must stop entirely instead of merely running fast, the site opts in with `motion-safe:`. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer components {
@@ -203,13 +263,17 @@ Possible shimmer animation for landing page
     @apply hidden!;
   }
 
-  /* Soccer Field Graphics - Balanced Professional Middle Ground */
+  /* Soccer Field Graphics - Balanced Professional Middle Ground.
+     Built on --color-field-* so the motif is one decision rather than 40 literals. */
+  /* text-field-fg is load-bearing, not decoration: `dotted-bg` derives its dots from currentColor,
+     and without a foreground declared here they would inherit --fg-base from <body> and render
+     near-black on the green in light mode. */
   .soccer-field-base {
-    @apply relative h-full min-h-[120dvh] w-full max-w-[1500px] flex-1 overflow-hidden border-[3px] border-white/85 bg-emerald-700 shadow-2xl dark:bg-[#0b3820];
+    @apply border-field-fg/85 bg-field-base text-field-fg max-w-field relative h-full min-h-[120dvh] w-full flex-1 overflow-hidden border-[3px] shadow-2xl;
   }
 
   .corner-arc-base {
-    @apply absolute h-14 w-14 border-white/85 lg:h-20 lg:w-20;
+    @apply border-field-fg/85 absolute h-14 w-14 lg:h-20 lg:w-20;
   }
 
   .corner-arc-tl {
@@ -229,7 +293,7 @@ Possible shimmer animation for landing page
   }
 
   .penalty-area-base {
-    @apply absolute left-1/3 h-16 w-1/3 border-r-[3px] border-l-[3px] border-white/85 sm:h-24 xl:h-36 xl:border-r-[4px] xl:border-l-[4px];
+    @apply border-field-fg/85 absolute left-1/3 h-16 w-1/3 border-r-[3px] border-l-[3px] sm:h-24 xl:h-36 xl:border-r-[4px] xl:border-l-[4px];
   }
 
   .penalty-area-top {
@@ -241,14 +305,14 @@ Possible shimmer animation for landing page
   }
 
   .soccer-field-separator {
-    @apply my-4 h-[2px] w-full bg-white/25;
+    @apply bg-field-fg/25 my-4 h-[2px] w-full;
   }
 
   .soccer-field-card-bg {
-    @apply bg-emerald-800/90 backdrop-blur-md dark:bg-[#124529]/90;
+    @apply bg-field-card/90 backdrop-blur-md;
   }
 
   .soccer-field-card-border {
-    @apply border-white/40 dark:border-white/20;
+    @apply border-field-border;
   }
 }
