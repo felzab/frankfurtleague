@@ -2,9 +2,9 @@
 
 import { Tabs } from "@heroui/react";
 
-import SpielCardsList from "../collections/SpielCardsList";
+import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 
-import type { FLSpielplan } from "@/features/spieltage/schemas";
+import type { FLSpielplan } from "../../schemas";
 
 export default function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
   return (
