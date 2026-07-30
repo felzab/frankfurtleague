@@ -6,6 +6,7 @@ import { Autocomplete, Button, Description, Label, ListBox, NumberField, SearchF
 
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
+import { formButton } from "@/shared/components/ui/formButtons";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpielSchiedsrichterField } from "@/features/spiele/schemas";
@@ -128,7 +129,7 @@ export default function FormSchiedsrichterSection({
               type="button"
               variant="secondary"
               isDisabled={isPending}
-              className="text-fluid-sm border-border text-foreground hover:scale-hover rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all"
+              className={formButton({ intent: "cancel" })}
               onPress={() => setIsCreatingInline(false)}>
               Abbrechen
             </Button>
@@ -136,7 +137,7 @@ export default function FormSchiedsrichterSection({
               type="button"
               variant="primary"
               isDisabled={isPending}
-              className="text-fluid-sm bg-brand-solid text-brand-solid-foreground hover:scale-hover rounded-xl px-6 py-3 font-semibold tracking-wide transition-all"
+              className={formButton({ intent: "submit" })}
               onPress={handleCreateSubmit}>
               <Check
                 className="m-0"

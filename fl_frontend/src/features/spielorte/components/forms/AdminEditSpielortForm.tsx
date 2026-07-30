@@ -8,6 +8,7 @@ import { Button, Form, toast } from "@heroui/react";
 
 import { patchSpielortAction } from "@/features/spielorte/actions";
 import SpielortFormFields from "@/features/spielorte/components/forms/SpielortFormFields";
+import { formButton } from "@/shared/components/ui/formButtons";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
@@ -50,7 +51,7 @@ export default function AdminEditSpielortForm({ ortData, onClose }: { ortData: F
         <Button
           type="button"
           variant="secondary"
-          className="text-fluid-sm border-border text-foreground hover:scale-hover rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all"
+          className={formButton({ intent: "cancel" })}
           onPress={onClose}>
           Abbrechen
         </Button>
@@ -58,7 +59,7 @@ export default function AdminEditSpielortForm({ ortData, onClose }: { ortData: F
           type="submit"
           variant="primary"
           isDisabled={isPending}
-          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground hover:scale-hover rounded-xl px-6 py-3 font-semibold tracking-wide transition-all">
+          className={formButton({ intent: "submit" })}>
           <Check
             className="m-0"
             width={20}
