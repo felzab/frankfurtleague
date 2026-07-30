@@ -9,17 +9,17 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 class FLPostSchiedsrichterPayload(BaseModel):
     kontakt: FLKontakt
-    name: str
+    name: str = Field(min_length=1)
     schule: CustomOptionalString
-    default_payment: int
+    default_payment: int = Field(ge=0)
 
 
 class FLPatchSchiedsrichterPayload(BaseModel):
     id: CustomObjectId
     kontakt: FLKontakt
-    name: str
+    name: str = Field(min_length=1)
     schule: CustomOptionalString
-    default_payment: int
+    default_payment: int = Field(ge=0)
 
 
 class FLDeleteSchiedsrichterPayload(BaseModel):
@@ -28,9 +28,9 @@ class FLDeleteSchiedsrichterPayload(BaseModel):
 
 class FLSchiedsrichter(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
-    name: str
+    name: str = Field(min_length=1)
     schule: str | None
-    default_payment: int
+    default_payment: int = Field(ge=0)
     kontakt: FLKontakt
     is_inactive: bool
 

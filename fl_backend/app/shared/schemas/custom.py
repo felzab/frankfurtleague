@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated, Any
 
 from bson import ObjectId
@@ -77,8 +78,35 @@ def parse_empty_string_to_none(value: Any) -> Any:
 CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
 
 
-CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True)]
+# Regex for a phone number: digits, spaces, +, -, ( ) and . -- 3 to 20 characters.
+# Mirrors PHONE_REGEX in fl_frontend/src/shared/schemas.ts.
+PHONE_REGEX = r"^([+]?[\s0-9\-().]{3,20})$"
+
+# Regex for an http(s) URL. Scheme-restricted on purpose: a bare "is it a URL" check accepts
+# javascript: and data:, which are XSS sinks once rendered into an href (audit R3b S8.1). Mirrors
+# ExternalUrlSchema in the frontend. Deliberately NOT pydantic's AnyHttpUrl, which normalises the
+# value -- appending a trailing slash would silently change what is already stored and served.
+EXTERNAL_URL_REGEX = r"^https?://[^\s/?#]+\.[^\s/?#]+"
+
+
+def validate_calendar_date(value: str) -> str:
+    """DATE_REGEX accepts 2026-02-31 and 2026-04-31. This rejects days that do not exist."""
+    try:
+        date.fromisoformat(value)
+    except ValueError as invalid_date_error:
+        raise ValueError("Date is not a real calendar date") from invalid_date_error
+    return value
+
+
+CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True), AfterValidator(validate_calendar_date)]
 CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]
 
 CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none)]
 CustomOptionalTimeString = Annotated[CustomTimeString | None, BeforeValidator(parse_empty_string_to_none)]
+
+# Empty string coerces to None first, so "" is stored as absent rather than failing the pattern.
+CustomOptionalPhoneString = Annotated[
+    Annotated[str, StringConstraints(pattern=PHONE_REGEX)] | None,
+    BeforeValidator(parse_empty_string_to_none),
+]
+CustomExternalUrl = Annotated[str, StringConstraints(pattern=EXTERNAL_URL_REGEX)]

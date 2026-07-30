@@ -11,14 +11,14 @@ from app.shared.schemas.responses import BaseAPIResponse
 class FLPatchSpielortPayload(BaseModel):
     id: CustomObjectId
     address: FLAddress
-    name: str
-    default_mietpreis: int
+    name: str = Field(min_length=1)
+    default_mietpreis: int = Field(ge=0)
 
 
 class FLPostSpielortPayload(BaseModel):
     address: FLAddress
-    name: str
-    default_mietpreis: int
+    name: str = Field(min_length=1)
+    default_mietpreis: int = Field(ge=0)
 
 
 class FLDeleteSpielortPayload(BaseModel):
@@ -28,9 +28,10 @@ class FLDeleteSpielortPayload(BaseModel):
 class FLSpielort(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
     address: FLAddress
-    name: str
-    maps_link: str
-    default_mietpreis: int
+    name: str = Field(min_length=1)
+    # Free text (venue name + address) searched on Google Maps, NOT a URL -- so no scheme check.
+    maps_link: str = Field(min_length=1)
+    default_mietpreis: int = Field(ge=0)
     is_inactive: bool
 
 

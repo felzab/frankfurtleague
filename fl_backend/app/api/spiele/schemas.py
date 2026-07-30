@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString, CustomOptionalTimeString, CustomTimeString
 from app.shared.schemas.responses import BaseAPIResponse
@@ -31,22 +31,24 @@ class PatchSpielDataPayload(BaseModel):
 
 class FLSpielTeamField(BaseModel):
     team_id: CustomObjectId
-    name: str
+    name: str = Field(min_length=1)
     tore: Annotated[int, Field(ge=0)] | None
     shorthand: str = Field(min_length=2, max_length=2)
 
 
 class FLSpielOrtField(BaseModel):
     spielort_id: CustomObjectId
-    name: str
-    maps_link: str
-    mietpreis: float = 0
+    name: str = Field(min_length=1)
+    # Free text (venue name + address) searched on Google Maps, NOT a URL -- so no scheme check.
+    maps_link: str = Field(min_length=1)
+    # int, not float: a rental price is whole euros. Stored values are already integral.
+    mietpreis: int = Field(0, ge=0)
 
 
 class FLSpielSchiedsrichterField(BaseModel):
     schiedsrichter_id: CustomObjectId
-    name: str
-    payment: int
+    name: str = Field(min_length=1)
+    payment: int = Field(ge=0)
 
 
 class FLSpiel(BaseModel):
@@ -61,9 +63,12 @@ class FLSpiel(BaseModel):
     ort: FLSpielOrtField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
 
-    ergebnis: str | None
+    # "Tore:Tore", or null when the match has not been played. Parsed as structured data by the
+    # frontend, which derives win/draw/loss from it -- a malformed value rendered as a loss for
+    # both teams before this was constrained.
+    ergebnis: Annotated[str, StringConstraints(pattern=r"^\d+:\d+$")] | None
     spieltag_id: CustomObjectId
-    spiel_nr: int
+    spiel_nr: int = Field(gt=0)
 
     is_canceled: bool
     saison_phase: FLSaisonPhase
@@ -79,8 +84,8 @@ class FLSpieltag(BaseModel):
 
     beginn: CustomDateString
     ende: CustomDateString
-    anzahl_spiele: int
-    order_val: int
+    anzahl_spiele: int = Field(gt=0)
+    order_val: int = Field(ge=0)
     saison_phase: FLSaisonPhase
 
 

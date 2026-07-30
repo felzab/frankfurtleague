@@ -10,8 +10,8 @@ FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 
 
 class FLSaisonRules(BaseModel):
-    win_points: int
-    draw_points: int
+    win_points: int = Field(gt=0)
+    draw_points: int = Field(ge=0)
 
 
 class FLSaison(BaseModel):

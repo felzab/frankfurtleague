@@ -9,12 +9,12 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 class FLSpieltag(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
-    name: str
+    name: str = Field(min_length=1)
 
     beginn: CustomDateString
     ende: CustomDateString
-    anzahl_spiele: int
-    order_val: int
+    anzahl_spiele: int = Field(gt=0)
+    order_val: int = Field(ge=0)
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=4, max_length=4)
 
