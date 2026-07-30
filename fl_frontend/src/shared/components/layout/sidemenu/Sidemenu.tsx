@@ -75,7 +75,7 @@ export default function Sidemenu<TIcon extends string>({
         <SidemenuDrawerHeader onClose={() => setIsMobileOpen(false)} />
 
         {/* MAIN SCROLLABLE CONTENT */}
-        <div className="flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
+        <div className="flex flex-1 scrollbar-gutter-stable flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
           <Suspense fallback={<div className="bg-muted h-[70px] w-full animate-pulse rounded-xl" />}>
             <div className={`transition-all duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}

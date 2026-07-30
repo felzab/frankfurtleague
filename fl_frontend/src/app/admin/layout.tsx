@@ -20,7 +20,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="relative flex h-dvh w-full flex-col lg:flex-row">
       <AdminSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
-      <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">
+      <main className="bg-background relative flex flex-1 scrollbar-gutter-stable flex-col overflow-y-auto">
+        {/* NOT redundant with `loading.tsx` (unlike the dashboard's): Next nests that fallback
+            around the page segment only, i.e. INSIDE AdminContextWrapper. This boundary is what
+            covers the wrapper's own three FastAPI round-trips. Do not remove it. */}
         <Suspense fallback={<ContentLoader />}>
           <AdminContextWrapper>{children}</AdminContextWrapper>
         </Suspense>

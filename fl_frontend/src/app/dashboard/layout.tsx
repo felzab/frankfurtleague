@@ -1,8 +1,5 @@
-import { Suspense } from "react";
-
 import DashboardSidemenu from "@/features/dashboard/components/DashboardSidemenu";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
-import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
 import type { Metadata } from "next";
 
@@ -21,9 +18,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="relative flex h-dvh w-full flex-col lg:flex-row">
       <DashboardSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
-      <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">
-        <Suspense fallback={<ContentLoader />}>{children}</Suspense>
-      </main>
+      {/* No boundary here on purpose: Next nests `loading.tsx` INSIDE the layout, so that
+          fallback is strictly closer to the page and always wins the race. Nothing else in this
+          layout suspends -- SaisonMetadataDisplay has its own boundary inside Sidemenu -- so one
+          here would be dead code. `admin/layout.tsx` is the opposite case; see the note there. */}
+      <main className="bg-background relative flex flex-1 scrollbar-gutter-stable flex-col overflow-y-auto">{children}</main>
     </div>
   );
 }

@@ -14,9 +14,9 @@ export function ContentLoader() {
       role="status"
       aria-label="Inhalte werden geladen"
       className="flex w-full flex-1 items-center justify-center gap-x-1.5 px-4 py-16">
-      <span className="bg-brand-solid size-2.5 animate-bounce rounded-full [animation-delay:-0.3s]" />
-      <span className="bg-brand-solid size-2.5 animate-bounce rounded-full [animation-delay:-0.15s]" />
-      <span className="bg-brand-solid size-2.5 animate-bounce rounded-full" />
+      <span className="bg-brand-solid animate-loader-dot size-2.5 rounded-full [animation-delay:-0.4s]" />
+      <span className="bg-brand-solid animate-loader-dot size-2.5 rounded-full [animation-delay:-0.2s]" />
+      <span className="bg-brand-solid animate-loader-dot size-2.5 rounded-full" />
     </div>
   );
 }

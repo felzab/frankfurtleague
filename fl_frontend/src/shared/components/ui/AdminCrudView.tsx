@@ -56,7 +56,7 @@ export function AdminCrudView<TItem extends { id: string }>({
   const filteredItems = useFuzzySearch({ items, keys: searchKeys, query });
 
   return (
-    <div className="max-w-page mx-auto flex h-full w-full flex-col gap-8 overflow-y-auto p-6 sm:p-8">
+    <div className="max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
       <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col">
           <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{title}</h1>

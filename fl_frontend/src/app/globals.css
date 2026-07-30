@@ -195,6 +195,22 @@
   --width-sidemenu-collapsed: 72px;
   /* One hover magnitude for the whole app. It was three: [1.02] x27, [1.04] x1, 105 x1. */
   --scale-hover: 1.02;
+
+  /* The content loader's dots. Tailwind's `animate-bounce` is 1s at translateY(-25%) -- on a 10px
+     dot that is 2.5px of travel, invisible for the moment the loader is on screen. */
+  --animate-loader-dot: loader-dot 0.6s infinite ease-in-out;
+
+  @keyframes loader-dot {
+    0%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.55;
+    }
+    50% {
+      transform: translateY(-7px);
+      opacity: 1;
+    }
+  }
 }
 
 /* Hides the scrollbar, and nothing else. It used to also set `scrollbar-gutter: stable`, which
@@ -202,6 +218,10 @@
    name, silently inherited by all 11 consumers. The sites that want the gutter now say so with
    Tailwind's own `scrollbar-gutter-stable`. The !important flags are unnecessary: @utility output
    lands in the utilities layer, which already beats HeroUI's base/scrollbar.css. */
+/* Scroll-gutter rule for the whole app: EVERY scroll container reserves its gutter, so a
+   scrollbar appearing (an accordion expanding, an overlay locking the page) can never resize the
+   content box and shift the layout. `scrollbar-gutter` only applies to scroll containers -- for the
+   viewport that is <html>, not <body>, which is why the old body-level declaration did nothing. */
 @utility scrollbar-hide {
   &::-webkit-scrollbar {
     display: none;
@@ -263,7 +283,8 @@
 
   .animate-ping,
   .animate-pulse,
-  .animate-bounce {
+  .animate-bounce,
+  .animate-loader-dot {
     animation: none !important;
   }
 }

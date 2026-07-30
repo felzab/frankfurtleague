@@ -34,7 +34,7 @@ export default function SpielCardUltraCompact({ spielData, onPress }: { spielDat
         </div>
 
         {/** Who vs. Who — equal 1fr tracks keep the score centered whatever the shorthand lengths. */}
-        <div className="bg-background border-border grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 rounded-xl border px-4 py-1.5 shadow-sm">
+        <div className="bg-background border-border grid w-fit grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
           {/* TeamPopoverMenu renders display:contents, so z-index has to be applied from outside it. */}
           <span className="relative z-20 flex min-w-0 justify-end">
             <TeamPopoverMenu
