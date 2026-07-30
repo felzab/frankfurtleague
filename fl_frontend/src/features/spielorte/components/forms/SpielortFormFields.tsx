@@ -1,8 +1,8 @@
 "use client";
 
-import AddressFields from "@/shared/components/ui/AddressFields";
-
 import { Input, Label, NumberField, TextField } from "@heroui/react";
+
+import AddressFields from "@/shared/components/ui/AddressFields";
 
 import type { SpielortDraft } from "../../types";
 

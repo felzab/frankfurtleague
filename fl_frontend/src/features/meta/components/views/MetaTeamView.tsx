@@ -1,9 +1,10 @@
 "use client";
 
-import { typedObjectEntries } from "@/shared/utils/type";
 import { Person, Persons } from "@gravity-ui/icons";
 
 import { Card } from "@heroui/react";
+
+import { typedObjectEntries } from "@/shared/utils/type";
 
 import { GROUPED_MEMBERS, TAG_TITLES } from "../../constants";
 

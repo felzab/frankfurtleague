@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 
-import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
-import { buildMapsSearchUrl, formatSpielDatum } from "@/shared/utils/format";
 import { CircleInfo } from "@gravity-ui/icons";
 
 import { Modal, Separator } from "@heroui/react";
+
+import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { buildMapsSearchUrl, formatSpielDatum } from "@/shared/utils/format";
 
 import { computeSpielStatus } from "../../utils";
 import SaisonPhaseChip from "../ui/SaisonPhaseChip";

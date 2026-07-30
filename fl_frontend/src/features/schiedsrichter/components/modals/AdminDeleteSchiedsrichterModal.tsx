@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import { deleteSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { TrashBin, TriangleExclamation } from "@gravity-ui/icons";
 
 import { Button, Modal, toast } from "@heroui/react";
+
+import { deleteSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 

@@ -1,8 +1,8 @@
 "use client";
 
-import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
-
 import { Tabs } from "@heroui/react";
+
+import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 
 import type { FLSpielplan } from "../../schemas";
 

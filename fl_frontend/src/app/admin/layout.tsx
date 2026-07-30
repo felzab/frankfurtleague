@@ -2,12 +2,11 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
+import { getAdminSession } from "@/core/auth";
 import AdminSidemenu from "@/features/admin/components/AdminSidemenu";
 import AdminContextWrapper from "@/features/admin/components/providers/AdminContextWrapper";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import PageLoader from "@/shared/components/ui/PageLoader";
-
-import { getAdminSession } from "@/core/auth";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Second layer behind proxy.ts. Nothing else under /admin calls auth(), so before this the whole

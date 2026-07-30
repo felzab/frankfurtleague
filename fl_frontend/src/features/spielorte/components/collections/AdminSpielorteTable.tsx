@@ -1,9 +1,10 @@
 import Link from "next/link";
 
-import { formatAddressFull } from "@/shared/utils/format";
 import { Calendar, Copy, Globe, MapPin, Pencil, TrashBin } from "@gravity-ui/icons";
 
 import { Button, Table, toast, Tooltip } from "@heroui/react";
+
+import { formatAddressFull } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
 

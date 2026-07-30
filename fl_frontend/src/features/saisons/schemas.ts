@@ -1,7 +1,7 @@
-import { CustomDateStringSchema } from "@/shared/schemas";
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { CustomDateStringSchema } from "@/shared/schemas";
 
 export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error: "FLSaisonStatus is invalid" });
 export const FLSaisonPhaseSchema = z.enum(["gruppenphase", "viertelfinale", "halbfinale", "finale"], { error: "FLSaisonPhase is invalid" });

@@ -1,9 +1,10 @@
 "use client";
 
-import { typedObjectEntries } from "@/shared/utils/type";
 import { ChevronsDownWide } from "@gravity-ui/icons";
 
 import { Accordion } from "@heroui/react";
+
+import { typedObjectEntries } from "@/shared/utils/type";
 
 import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "../../utils";
 import AdminSpielCardsList from "../collections/AdminSpielCardsList";

@@ -1,9 +1,9 @@
 "use client";
 
+import { Card } from "@heroui/react";
+
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
 import { formatSpielDatum } from "@/shared/utils/format";
-
-import { Card } from "@heroui/react";
 
 import type { FLSpiel } from "../schemas";
 

@@ -1,5 +1,7 @@
 import { connection } from "next/server";
 
+import z from "zod";
+
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
 import PlayoffsView from "@/features/spieltage/components/views/PlayoffsView";
@@ -7,7 +9,6 @@ import { getSpieltage } from "@/features/spieltage/queries";
 import { FLSpieltagWithSpieleSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import z from "zod";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";

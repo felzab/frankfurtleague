@@ -1,7 +1,7 @@
-import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
 import { FLSpielSchema } from "../spiele/schemas";

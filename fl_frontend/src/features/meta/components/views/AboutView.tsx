@@ -1,11 +1,12 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
-import { getTeams } from "@/features/teams/queries";
 import { Book, ChevronsDownWide, StarFill } from "@gravity-ui/icons";
 
 import { Accordion, Card } from "@heroui/react";
+
+import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { getTeams } from "@/features/teams/queries";
 
 import { QA_QUESTIONS } from "../../constants";
 

@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { ArrowUturnCwLeft } from "@gravity-ui/icons";
+
+import { Button, Card } from "@heroui/react";
+
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import { computeErgebnisFor } from "@/features/spiele/utils";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
 import { sortByDate } from "@/shared/utils/date";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
-import { ArrowUturnCwLeft } from "@gravity-ui/icons";
-
-import { Button, Card } from "@heroui/react";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpielErgebnisFor } from "@/features/spiele/utils";

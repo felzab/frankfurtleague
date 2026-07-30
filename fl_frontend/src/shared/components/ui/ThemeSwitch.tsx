@@ -1,11 +1,12 @@
 "use client";
 
-import useMounted from "@/shared/hooks/useMounted";
 import Moon from "@gravity-ui/icons/Moon";
 import Sun from "@gravity-ui/icons/Sun";
 import { useTheme } from "next-themes";
 
 import { Switch } from "@heroui/react";
+
+import useMounted from "@/shared/hooks/useMounted";
 
 export default function ThemeSwitch() {
   const _toggleTheme = () => {
