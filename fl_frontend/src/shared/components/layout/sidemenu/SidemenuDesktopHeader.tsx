@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-
-import { FLLogo } from "../../ui/FLLogo";
+import { BrandLink } from "../../ui/BrandLink";
 import { IconTooltip } from "../../ui/IconTooltip";
 
 export default function SidemenuDesktopHeader({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
@@ -15,16 +13,10 @@ export default function SidemenuDesktopHeader({ isDesktopCollapsed }: { isDeskto
         label="Zur öffentlichen Website"
         placement="right"
         isEnabled={isDesktopCollapsed}>
-        <Link
-          href="/"
+        <BrandLink
           title="Zur öffentlichen Website"
-          className={`text-foreground flex items-center font-bold tracking-tight transition-opacity hover:opacity-80 ${
-            isDesktopCollapsed ? "justify-center" : "gap-2"
-          }`}>
-          <FLLogo />
-
-          {!isDesktopCollapsed && "Frankfurt-League"}
-        </Link>
+          hideName={isDesktopCollapsed}
+        />
       </IconTooltip>
     </div>
   );

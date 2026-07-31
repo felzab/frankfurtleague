@@ -28,8 +28,8 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
    * in the light theme and 1.32:1 in dark — the draw marker was effectively invisible. The ring
    * stays on the tint accent: it is decoration around the dot, not a foreground.
    */
-  const getBadgeColor = (result: FLSpielErgebnisFor) => {
-    switch (result) {
+  const getBadgeColor = (ergebnisFor: FLSpielErgebnisFor) => {
+    switch (ergebnisFor) {
       case "W":
         return "bg-success-solid text-success-solid-foreground ring-success/30";
       case "D":
@@ -59,7 +59,7 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
       role="list"
       className="border-border relative ml-2 border-l-2 border-dashed">
       {sortByDate({ arr: spiele, key: "datum" }).map((spielData) => {
-        const result = computeErgebnisFor({ spiel: spielData, teamId });
+        const ergebnisFor = computeErgebnisFor({ spiel: spielData, teamId });
 
         return (
           <div
@@ -67,8 +67,8 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
             key={spielData.id}
             className="relative mb-8 pl-6">
             <div
-              className={`absolute top-4 left-[-11px] size-[20px] rounded-full ring-4 ${getBadgeColor(result)} flex items-center justify-center text-[10px] font-bold shadow-sm`}>
-              {result}
+              className={`absolute top-4 left-[-11px] size-[20px] rounded-full ring-4 ${getBadgeColor(ergebnisFor)} flex items-center justify-center text-[10px] font-bold shadow-sm`}>
+              {ergebnisFor}
             </div>
 
             <SpielCardCompact

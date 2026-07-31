@@ -1,9 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { ArrowRightFromSquare, Ellipsis } from "@gravity-ui/icons";
+import { ArrowRightFromSquare, Ellipsis, TriangleExclamation } from "@gravity-ui/icons";
 
 import { Dropdown, Label, Separator, toast } from "@heroui/react";
 
@@ -45,7 +45,21 @@ export function SidemenuOptionsMenu({
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
   const [isSigningOut, startSignOut] = useTransition();
+  const [isConfirmingSignOut, setIsConfirmingSignOut] = useState(false);
+  const [wasOpen, setWasOpen] = useState(isOpen);
   const router = useRouter();
+
+  // Arming is per-visit, not sticky: a menu reopened later must not still be one press away from
+  // ending the session.
+  // Adjusted during render rather than in an effect — React's documented pattern for resetting state
+  // when something changes, and the one `react-hooks/set-state-in-effect` exists to push you toward.
+  // It also covers both directions at once, which an `onOpenChange` handler would not:
+  // `useNavigationClosedOverlay` closes the menu on a route change by setting its own state, so that
+  // path never reaches the handler.
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    setIsConfirmingSignOut(false);
+  }
 
   // The action returns rather than redirecting, so the navigation happens here — see the note on
   // `signOutAction`. The toast is fired BEFORE navigating: `Toast.Provider` is mounted once above
@@ -123,19 +137,47 @@ export function SidemenuOptionsMenu({
             <>
               <Separator className="my-1" />
               <Dropdown.Section aria-label="Konto">
+                {/* Confirms in place rather than in a modal (owner decision 2026-07-31): the first
+                    press arms the row and the second signs out, so the question is answered where
+                    the eye already is instead of in a dialog somewhere else on the screen.
+                    `shouldCloseOnSelect={false}` is what makes it possible — without it the first
+                    press dismisses the menu and the second never happens. The theme row above uses
+                    the same escape hatch for the same structural reason.
+                    Escaping is deliberately easy and undocumented-to-the-user: closing the menu,
+                    pressing Escape or clicking away all reset it (see the effect above). The only
+                    path to signing out is a second, deliberate press on a row that has visibly
+                    changed. */}
                 <Dropdown.Item
                   id="sign-out"
-                  textValue="Abmelden"
+                  textValue={isConfirmingSignOut ? "Wirklich abmelden?" : "Abmelden"}
                   isDisabled={isSigningOut}
-                  onAction={handleSignOut}
-                  className="data-hovered:bg-danger/10 flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+                  shouldCloseOnSelect={false}
+                  onAction={() => {
+                    if (!isConfirmingSignOut) {
+                      setIsConfirmingSignOut(true);
+                      return;
+                    }
+                    handleSignOut();
+                  }}
+                  className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
+                    isConfirmingSignOut ? "bg-danger/10 data-hovered:bg-danger/20" : "data-hovered:bg-danger/10"
+                  }`}>
                   <Label className="text-fluid-sm text-danger min-w-0 flex-1 font-semibold">
-                    {isSigningOut ? "Wird abgemeldet..." : "Abmelden"}
+                    {isSigningOut ? "Wird abgemeldet..." : isConfirmingSignOut ? "Wirklich abmelden?" : "Abmelden"}
                   </Label>
-                  <ArrowRightFromSquare
-                    aria-hidden="true"
-                    className="text-danger size-4"
-                  />
+                  {/* The icon changes with the state so the row does not rely on colour alone to say
+                      it is armed — the tint and the label both shift, and so does the glyph. */}
+                  {isConfirmingSignOut ? (
+                    <TriangleExclamation
+                      aria-hidden="true"
+                      className="text-danger size-4 shrink-0"
+                    />
+                  ) : (
+                    <ArrowRightFromSquare
+                      aria-hidden="true"
+                      className="text-danger size-4 shrink-0"
+                    />
+                  )}
                 </Dropdown.Item>
               </Dropdown.Section>
             </>

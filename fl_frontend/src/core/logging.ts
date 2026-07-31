@@ -40,7 +40,7 @@ function log(level: "INFO" | "WARN" | "ERROR", message: string, meta?: LogMeta) 
     return;
   }
 
-  // Developement
+  // Development
   const color = level === "ERROR" ? "\x1b[31m" : level === "WARN" ? "\x1b[33m" : "\x1b[34m";
   const reset = "\x1b[0m";
 

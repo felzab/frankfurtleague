@@ -3,6 +3,7 @@
 import React, { Suspense, useState } from "react";
 import { usePathname } from "next/navigation";
 
+import { SaisonSlotSkeleton } from "../../ui/SaisonSlotSkeleton";
 import SidemenuDesktopHeader from "./SidemenuDesktopHeader";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import SidemenuFooter from "./SidemenuFooter";
@@ -103,16 +104,9 @@ export default function Sidemenu<TIcon extends string>({
 
         {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex flex-1 scrollbar-gutter-stable flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
-          {/* The skeleton carries no text, so without a labelled status region a screen-reader user
-              gets silence while the season selector loads (R4 §4.6). */}
-          <Suspense
-            fallback={
-              <div
-                role="status"
-                aria-label="Saisonauswahl wird geladen"
-                className="bg-muted h-[70px] w-full animate-pulse rounded-xl"
-              />
-            }>
+          {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one
+              continuous state rather than skeleton → dead control → live control (NEW-R6). */}
+          <Suspense fallback={<SaisonSlotSkeleton />}>
             <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
             </div>

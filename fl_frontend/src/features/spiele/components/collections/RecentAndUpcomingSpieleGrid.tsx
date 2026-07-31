@@ -31,7 +31,7 @@ export default async function RecentAndUpcomingSpieleGrid() {
         {/* Section Header */}
         <div className="mb-6 flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchdays</span>
+            <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Spieltage</span>
           </div>
           <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">Nächste Begegnungen</h2>
         </div>

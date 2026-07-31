@@ -37,12 +37,12 @@ export default function FormMatchupSection({
       if (team2Payload) onTeam2Change({ ...team2Payload, tore: team2InitialData.tore });
     }
   };
-  const hanldeToreTeam1Change = (val: number) => {
+  const handleToreTeam1Change = (val: number) => {
     if (team1Payload) {
       onTeam1Change({ ...team1Payload, tore: isNaN(val) ? null : val });
     }
   };
-  const hanldeToreTeam2Change = (val: number) => {
+  const handleToreTeam2Change = (val: number) => {
     if (team2Payload) {
       onTeam2Change({ ...team2Payload, tore: isNaN(val) ? null : val });
     }
@@ -110,7 +110,7 @@ export default function FormMatchupSection({
         minValue={0}
         name="team1.tore"
         value={team1Tore}
-        onChange={hanldeToreTeam1Change}
+        onChange={handleToreTeam1Change}
         className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
         <Label className={FIELD_LABEL}>Team 1: Tore</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
@@ -128,7 +128,7 @@ export default function FormMatchupSection({
         minValue={0}
         name="team2.tore"
         value={team2Tore}
-        onChange={hanldeToreTeam2Change}
+        onChange={handleToreTeam2Change}
         className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
         <Label className={FIELD_LABEL}>Team 2: Tore</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">

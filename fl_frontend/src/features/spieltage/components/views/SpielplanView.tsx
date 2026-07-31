@@ -27,8 +27,11 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
   }
 
   return (
-    // Updated to flex-1 and flex-col so it handles height naturally without jumping
-    <Tabs className="relative flex w-full flex-1 flex-col items-center">
+    // Updated to flex-1 and flex-col so it handles height naturally without jumping.
+    // The arrival animation lives here rather than on each panel (NEW-R3): this element mounts once
+    // per page visit and never again on a tab press, so the rise plays exactly when it should — the
+    // page settling into place — and cannot be replayed or interrupted by switching Spieltag.
+    <Tabs className="animate-in fade-in slide-in-from-bottom-4 relative flex w-full flex-1 flex-col items-center duration-400">
       {pageHeading}
 
       <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
@@ -60,11 +63,18 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
           {/* The entry animation lives here and NOT on `Tabs.Panel`. RAC keeps a deselected panel
               mounted until `panel.getAnimations()` all settle (`useExitAnimation`), and
               `getAnimations()` does not look at descendants — so an `animate-in` on the panel itself
-              made a fast tab switch hold the previous panel on screen for the rest of its 400ms
-              enter animation, which is the leftover-cards flicker. Identical visually. */}
+              made a fast tab switch hold the previous panel on screen for the rest of its enter
+              animation, which is the leftover-cards flicker. Identical visually.
+
+              A short fade only, with the rise moved up to the `Tabs` root (NEW-R3). This div
+              remounts on every tab press, so whatever it carries replays on every press — and a
+              400ms 1rem rise replayed per press is the jitter the owner reported: the cards travel
+              while the sticky tab bar stays put, and a second press interrupts the first mid-flight.
+              A 150ms fade has no movement to interrupt and the grid is readable almost at once.
+              Arrival still animates, because the root mounts once and carries the rise. */}
           <div
             role="list"
-            className="animate-in fade-in slide-in-from-bottom-4 grid w-full grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
+            className="animate-in fade-in grid w-full grid-cols-1 gap-5 duration-150 sm:grid-cols-2 xl:grid-cols-3">
             {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}

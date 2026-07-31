@@ -80,7 +80,7 @@ export default function LandingPage() {
               prefetch={false}
               className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
-                <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchday</span>
+                <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Spieltag</span>
                 <span className="text-fluid-sm text-foreground font-black">Ansetzungen & Ergebnisse</span>
               </div>
               <span className="text-fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>

@@ -2,7 +2,7 @@ from typing import Any, Mapping
 
 from app.api.spieler.schemas import FLSpielerFilterParams
 
-SAISON_SPECIFIC_SPIELER_DATA_DB_NAME = "saison_spieler"
+SAISON_SPIELER_COLLECTION_NAME = "saison_spieler"
 AS_NAME = "saison_data"
 
 
@@ -36,7 +36,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
     pipeline.append(
         {
             "$lookup": {
-                "from": SAISON_SPECIFIC_SPIELER_DATA_DB_NAME,
+                "from": SAISON_SPIELER_COLLECTION_NAME,
                 "let": {"base_spieler_id": "$_id"},  # Pass the base player's _id into the sub-pipeline
                 "pipeline": lookup_pipeline,
                 "as": AS_NAME,

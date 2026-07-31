@@ -9,7 +9,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
 
-export default function PlayoffBracketView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
+export default function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
   // 1. The Single Modal State
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 

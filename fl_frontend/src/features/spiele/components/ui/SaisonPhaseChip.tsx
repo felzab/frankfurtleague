@@ -8,7 +8,7 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas";
 // the deeper tint pulled `gruppenphase` and `finale` to 4.39:1 and 4.46:1 in the light theme —
 // below AA, and below what the two-value raw-palette version managed. /10 restores 4.72 and 4.87.
 const PHASE_CLASSES: Record<FLSaisonPhase, string> = {
-  gruppenphase: "bg-phase-group/10 text-phase-group",
+  gruppenphase: "bg-phase-gruppenphase/10 text-phase-gruppenphase",
   viertelfinale: "bg-phase-quarter/10 text-phase-quarter",
   halbfinale: "bg-phase-semi/10 text-phase-semi",
   finale: "bg-phase-final/10 text-phase-final",
