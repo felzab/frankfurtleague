@@ -25,7 +25,7 @@ export default function MetaTeamView() {
       <section className="flex w-full flex-col gap-y-3 sm:gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-2 sm:gap-x-3">
           <Persons className="size-5 drop-shadow sm:size-6" />
-          <h3 className="text-fluid-base sm:text-fluid-lg font-extrabold tracking-wide uppercase">Behind the scenes</h3>
+          <h3 className="text-fluid-base sm:text-fluid-lg font-extrabold tracking-wide uppercase">Hinter den Kulissen</h3>
         </div>
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-4 shadow-xl sm:p-6 lg:p-8">

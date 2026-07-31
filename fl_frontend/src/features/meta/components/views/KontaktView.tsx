@@ -21,7 +21,7 @@ export default function KontaktView() {
         return (
           <Image
             src="/icons/footer/instagram/instagram.svg"
-            alt="Instagram logo link"
+            alt=""
             width={32}
             height={32}
             title="Instagram by Pixel Icons"
@@ -43,7 +43,7 @@ export default function KontaktView() {
         return (
           <Image
             src="/icons/footer/whatsapp/whatsapp.svg"
-            alt="Whatsapp logo link"
+            alt=""
             width={32}
             height={32}
             title="Whatsapp by Icon Mafia"

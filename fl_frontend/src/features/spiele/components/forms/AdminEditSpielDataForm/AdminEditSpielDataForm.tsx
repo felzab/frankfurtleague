@@ -111,10 +111,10 @@ export default function AdminEditSpielDataForm({
       <Separator className="bg-border" />
 
       {/** Cancel Spiel */}
+      {/* No `aria-label`: "Spiel absagen" below sits inside the switch's own <label>, so an
+          aria-label would only override the visible text with a copy of itself (cf. R4 §3.2). */}
       <Switch
         size="md"
-        aria-label="Spiel absagen switch"
-        autoFocus={false}
         isSelected={spielIsCanceled}
         onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
         <Switch.Content className="text-fluid-sm text-danger flex h-fit w-full flex-row items-center justify-between font-bold">

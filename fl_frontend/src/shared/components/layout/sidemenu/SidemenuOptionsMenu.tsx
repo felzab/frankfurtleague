@@ -1,9 +1,12 @@
 "use client";
 
-import { Ellipsis } from "@gravity-ui/icons";
+import { useTransition } from "react";
 
-import { Dropdown, Label } from "@heroui/react";
+import { ArrowRightFromSquare, Ellipsis } from "@gravity-ui/icons";
 
+import { Dropdown, Label, Separator, toast } from "@heroui/react";
+
+import { signOutAction } from "@/features/auth/actions";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 
 import { IconTooltip } from "../../ui/IconTooltip";
@@ -14,8 +17,8 @@ import ThemeSwitch from "../../ui/ThemeSwitch";
  *
  * Dashboard and admin have no topnav, so the theme switch that lives in `TopNavLinksDropdown` was
  * unreachable on those routes entirely. This is a menu rather than a bare switch because the footer
- * is the natural home for the next few of these — Wave 6's NEW-S1 sign-out is already queued for it
- * — and the item markup matches the topnav dropdown so they stay one pattern.
+ * is the natural home for several of these — it now also carries the admin sign-out (NEW-S1) — and
+ * the item markup matches the topnav dropdown so they stay one pattern.
  *
  * Layout follows the standard sidebar-footer menu (shadcn's `SidebarFooter` + dropdown, as used in
  * Vercel's dashboard template): expanded, the trigger is a full-width row and the menu opens above
@@ -27,8 +30,21 @@ import ThemeSwitch from "../../ui/ThemeSwitch";
  * would swallow the press. It therefore reports `aria-expanded` for free, which the topnav's
  * raw-`<svg>` trigger does not (Wave 6, R4-2.1).
  */
-export function SidemenuOptionsMenu({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
+export function SidemenuOptionsMenu({ isDesktopCollapsed, showSignOut = false }: { isDesktopCollapsed: boolean; showSignOut?: boolean }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
+  const [isSigningOut, startSignOut] = useTransition();
+
+  const handleSignOut = () => {
+    startSignOut(async () => {
+      try {
+        await signOutAction();
+      } catch {
+        // The success path never returns — `signOut({ redirectTo })` throws a redirect that Next
+        // consumes — so reaching here means the session was not ended.
+        toast.danger("Abmelden fehlgeschlagen. Bitte versuche es erneut.");
+      }
+    });
+  };
 
   return (
     <Dropdown
@@ -61,7 +77,7 @@ export function SidemenuOptionsMenu({ isDesktopCollapsed }: { isDesktopCollapsed
         offset={8}
         placement={isDesktopCollapsed ? "right bottom" : "top"}
         className={`rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
-        <Dropdown.Menu aria-label="Sidemenu Optionen">
+        <Dropdown.Menu aria-label="Seitenmenü-Optionen">
           <Dropdown.Section aria-label="Einstellungen">
             <Dropdown.Item
               id="theme-switch"
@@ -71,6 +87,31 @@ export function SidemenuOptionsMenu({ isDesktopCollapsed }: { isDesktopCollapsed
               <ThemeSwitch />
             </Dropdown.Item>
           </Dropdown.Section>
+
+          {/* Admin only — the dashboard shell has no session to end (ledger NEW-S1). Until this
+              existed, `core/auth.ts`'s exported `signOut` had zero call sites and the only way to
+              revoke a session was deleting its row from the `authjs` collection by hand. */}
+          {showSignOut && (
+            <>
+              <Separator className="my-1" />
+              <Dropdown.Section aria-label="Konto">
+                <Dropdown.Item
+                  id="sign-out"
+                  textValue="Abmelden"
+                  isDisabled={isSigningOut}
+                  onAction={handleSignOut}
+                  className="data-[hover=true]:bg-danger/10 flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+                  <Label className="text-fluid-sm text-danger min-w-0 flex-1 font-semibold">
+                    {isSigningOut ? "Wird abgemeldet..." : "Abmelden"}
+                  </Label>
+                  <ArrowRightFromSquare
+                    aria-hidden="true"
+                    className="text-danger size-4"
+                  />
+                </Dropdown.Item>
+              </Dropdown.Section>
+            </>
+          )}
         </Dropdown.Menu>
       </Dropdown.Popover>
     </Dropdown>

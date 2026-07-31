@@ -80,13 +80,15 @@ export default function SignInForm() {
             <Form
               action={formAction}
               className="flex flex-col gap-y-5">
+              {/* No `aria-label` on the field or the input: both outranked the visible <Label>, so
+                  the accessible name was "email" while the screen read "EMAIL-ADRESSE" — and a
+                  voice-control user saying the visible text matched nothing (R4 §3.2). `TextField`
+                  associates the label itself. */}
               <TextField
                 className="flex w-full flex-col gap-y-2"
                 isRequired
-                autoFocus={false}
                 name="email"
                 type="email"
-                aria-label="email-input"
                 validate={(value) => {
                   if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value)) {
                     return "Bitte gebe eine valide Email ein.";
@@ -99,9 +101,7 @@ export default function SignInForm() {
                   placeholder="name@beispiel.de"
                   type="email"
                   required
-                  aria-label="email"
                   disabled={isPending}
-                  autoFocus={false}
                 />
                 <FieldError className="text-fluid-xxs text-danger mt-1 font-bold" />
               </TextField>
@@ -120,12 +120,10 @@ export default function SignInForm() {
           <Tabs.Panel id="Spieler">
             <Form className="flex flex-col gap-y-5">
               <TextField
-                autoFocus={false}
                 className="flex w-full flex-col gap-y-2"
                 isRequired
                 name="email"
                 type="email"
-                aria-label="email-input"
                 validate={(value) => {
                   if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value)) {
                     return "Bitte gebe eine valide Email ein.";
@@ -134,7 +132,6 @@ export default function SignInForm() {
                 }}>
                 <Label className="text-fluid-xs text-foreground-muted font-bold tracking-wider uppercase">Email-Adresse</Label>
                 <Input
-                  autoFocus={false}
                   className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 text-fluid-xs sm:text-fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
                   placeholder="coming soon..."
                   disabled

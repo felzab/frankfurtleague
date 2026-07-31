@@ -47,11 +47,17 @@ export default function SpielDetailsModal({
       }}
       variant="blur">
       <Modal.Container placement="top">
-        <Modal.Dialog
-          aria-label="Spieldetails-Dialog"
-          className="border-border bg-surface rounded-2xl border p-6 shadow-sm">
+        {/* No `aria-label`: it outranked the heading, so opening a match announced
+            "Spieldetails-Dialog" and never said which match (R4 §1.1). `Modal.Heading` below names
+            the dialog "Spiel Nr. 42", which is the one thing it exists to convey. */}
+        <Modal.Dialog className="border-border bg-surface rounded-2xl border p-6 shadow-sm">
           {spielData && (
             <>
+              {/* The only modal a non-admin ever sees, and it had no close affordance at all —
+                  dismissable only by Escape or an outside press, which leaves a touch user with
+                  motor difficulty nothing to aim at (R4 §1.4). Same trigger the admin shell uses. */}
+              <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
+
               <Modal.Header className="gap-y-2 pb-4">
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">
                   <Modal.Heading className="text-fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>

@@ -5,7 +5,7 @@ import { unstable_rethrow } from "next/navigation";
 import { AuthError } from "next-auth";
 import { z } from "zod";
 
-import { signIn } from "@/core/auth";
+import { signIn, signOut } from "@/core/auth";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -59,4 +59,19 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
     // 3. Fallback for unexpected errors
     throw error;
   }
+}
+
+/**
+ * Ends the admin's own session (ledger NEW-S1).
+ *
+ * `core/auth.ts` has exported `signOut` since Auth.js was wired up and nothing has ever called it,
+ * so the only way to revoke a session was to delete the row from the `authjs` collection by hand —
+ * which needs database access. Wave 3 cut the lifetime from 30 days to 8 hours (R3b-S5.2), bounding
+ * the exposure without closing it.
+ *
+ * Deleting the session row is `signOut`'s own job; this wrapper exists because a client component
+ * cannot import from `core/auth` and because `redirectTo` belongs on the server side of the call.
+ */
+export async function signOutAction(): Promise<void> {
+  await signOut({ redirectTo: "/" });
 }

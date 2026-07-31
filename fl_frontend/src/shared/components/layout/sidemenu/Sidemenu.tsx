@@ -5,6 +5,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Separator } from "@heroui/react";
 
+import { BELOW_LG_QUERY, useMediaQuery } from "@/shared/hooks/useMediaQuery";
+
 import SidemenuDesktopHeader from "./SidemenuDesktopHeader";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import SidemenuFooter from "./SidemenuFooter";
@@ -20,16 +22,40 @@ export default function Sidemenu<TIcon extends string>({
   linkPrefix,
   saisonMetadataDisplay,
   iconDictionary,
+  showSignOut = false,
 }: {
   structure: SidemenuStructure<TIcon>;
   linkPrefix: string;
   saisonMetadataDisplay: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
+  /** Whether the footer's options menu offers sign-out — true only for the admin shell. */
+  showSignOut?: boolean;
 }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+
+  // Above `lg` the same <aside> is the permanent desktop rail, so `inert` must never reach it there.
+  // The query's server snapshot is `false`, which is the safe branch: never inert rather than
+  // wrongly inert. See the note on the <aside>.
+  const isDrawerViewport = useMediaQuery(BELOW_LG_QUERY);
+  const isDrawerClosed = isDrawerViewport && !isMobileOpen;
+
+  // Escape closes the open drawer. Bound to the document, not the <aside>: opening the drawer does
+  // not move focus into it, so focus is still on the hamburger in `SidemenuMobileHeader` — outside
+  // this subtree — and a handler on the panel would never see the key. Tabbing forward from the
+  // hamburger does reach the drawer, since it comes later in DOM order.
+  React.useEffect(() => {
+    if (!isMobileOpen) return;
+
+    const closeOnEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMobileOpen(false);
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [isMobileOpen]);
 
   const globalSaisonId = searchParams.get("saison_id");
   const globalQuery = new URLSearchParams();
@@ -56,7 +82,9 @@ export default function Sidemenu<TIcon extends string>({
         onToggleMenu={_toggleMobileMenu}
       />
 
-      {/* MOBILE BACKDROP */}
+      {/* MOBILE BACKDROP — a dismiss shortcut for pointers, not a control. It is `aria-hidden` and
+          not focusable on purpose; the keyboard paths are the close button and Escape below.
+          eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
         onClick={_toggleMobileMenu}
         aria-hidden="true"
@@ -65,8 +93,15 @@ export default function Sidemenu<TIcon extends string>({
         }`}
       />
 
-      {/* CLOUDFLARE STYLE SIDEBAR */}
+      {/* CLOUDFLARE STYLE SIDEBAR
+          Closed, the drawer is only translated off-screen, and `translate-x` removes an element from
+          neither the tab order nor the accessibility tree — so a phone user tabbing the page fell
+          into 11-14 controls sitting 310px off the left edge, with focus invisible (R4 §1.2).
+          `inert` takes the whole subtree out of both, and is gated on the viewport because above
+          `lg` this same element is the permanent desktop rail. Escape is handled in the effect
+          above, not here — see the note there for why the listener has to be on the document. */}
       <aside
+        inert={isDrawerClosed}
         className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,transform] duration-300 ease-in-out ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${isDesktopCollapsed ? "lg:w-sidemenu-collapsed" : "w-sidemenu"}`}>
@@ -76,7 +111,16 @@ export default function Sidemenu<TIcon extends string>({
 
         {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex flex-1 scrollbar-gutter-stable flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
-          <Suspense fallback={<div className="bg-muted h-[70px] w-full animate-pulse rounded-xl" />}>
+          {/* The skeleton carries no text, so without a labelled status region a screen-reader user
+              gets silence while the season selector loads (R4 §4.6). */}
+          <Suspense
+            fallback={
+              <div
+                role="status"
+                aria-label="Saisonauswahl wird geladen"
+                className="bg-muted h-[70px] w-full animate-pulse rounded-xl"
+              />
+            }>
             <div className={`transition-all duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
             </div>
@@ -120,6 +164,7 @@ export default function Sidemenu<TIcon extends string>({
         <SidemenuFooter
           isDesktopCollapsed={isDesktopCollapsed}
           onToggleDesktopMenu={_toggleDesktopMenu}
+          showSignOut={showSignOut}
         />
       </aside>
     </>

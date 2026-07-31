@@ -11,6 +11,9 @@ export default function AdminSidemenu({ saisonMetadataDisplay }: { saisonMetadat
     <Sidemenu
       structure={ADMIN_SIDEMENU_STRUCTURE}
       linkPrefix="/admin"
+      // Only the admin shell sits behind a session, so it is the only one with anything to sign out
+      // of (ledger NEW-S1).
+      showSignOut
       saisonMetadataDisplay={saisonMetadataDisplay}
       iconDictionary={ADMIN_SIDEMENU_ICONS}
     />

@@ -82,9 +82,8 @@ export default function FormMatchupSection({
       <Separator className="bg-border" />
 
       {/** Switch to enter Ergebnis */}
+      {/* Named by its own visible content — see the note on the cancel switch. */}
       <Switch
-        aria-label="Ergebnis eintragen switch"
-        autoFocus={false}
         isSelected={ergebnisCanBeEdited}
         onChange={handleErgebnisCanBeEditedToggle}>
         <Switch.Content className="text-fluid-sm text-foreground flex h-fit w-full flex-row items-center justify-between font-bold">

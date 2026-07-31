@@ -39,15 +39,13 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         <div className="mt-8 flex w-full flex-col-reverse gap-3 sm:mt-10 sm:flex-row sm:gap-4">
           <Button
             variant="ghost"
-            aria-label="Retry"
             onPress={() => reset()}
             className="text-fluid-sm border-border text-foreground hover:scale-hover h-12 w-full rounded-xl border bg-transparent font-semibold transition-transform">
             Erneut versuchen
           </Button>
 
           <Link
-            title="Homepage"
-            aria-label="Link to Homepage"
+            title="Startseite"
             href="/"
             className="text-fluid-sm bg-brand-solid text-brand-solid-foreground hover:scale-hover flex h-12 w-full items-center justify-center rounded-xl font-semibold shadow-md transition-transform">
             Zur Startseite

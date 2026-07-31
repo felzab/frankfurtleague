@@ -12,7 +12,7 @@ export default function TopNav() {
       {/* Brand Logo Area */}
       <Link
         href="/"
-        title="Homepage"
+        title="Startseite"
         className="text-fluid-lg text-foreground flex items-center gap-2 font-bold tracking-tighter transition-opacity hover:opacity-80">
         <FLLogo />
         Frankfurt-League
