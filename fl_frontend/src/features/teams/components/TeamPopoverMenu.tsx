@@ -49,13 +49,13 @@ export default function TeamPopoverMenu({
             `min-width:auto`; the button was `w-fit`; and `.badge-anchor` bakes in `shrink-0`, which
             `shrink` here undoes. The card only ever constrained its own grid cell, so the overflow
             happened inside this wrapper and the name spilled past the card edge. */}
-        <Popover.Trigger className="min-w-0 max-w-full">
+        <Popover.Trigger className="max-w-full min-w-0">
           {/* type="button" is load-bearing: a typeless button defaults to submit, so mounting this
               anywhere inside a <form> would make opening the popover submit the form. */}
           <button
             type="button"
-            className="hover:text-brand focus-visible:text-brand relative flex min-w-0 max-w-full cursor-pointer items-center text-left transition-colors duration-200 outline-none">
-            <Badge.Anchor className="min-w-0 max-w-full shrink">{children}</Badge.Anchor>
+            className="hover:text-brand focus-visible:text-brand relative flex max-w-full min-w-0 cursor-pointer items-center text-left transition-colors duration-200 outline-none">
+            <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
           </button>
         </Popover.Trigger>
 
