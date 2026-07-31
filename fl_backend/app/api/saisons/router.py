@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.saisons.crud import CURRENT_SAISON_FILTER
 from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonsFilterOptions,
@@ -43,7 +44,7 @@ async def get_current_saison(
 
     saison_raw = await pull_one_from_db(
         collection=saisons_collection,
-        db_filter={"status": "active"},
+        db_filter=CURRENT_SAISON_FILTER,
     )
 
     saison = FLSaison.model_validate(saison_raw)
