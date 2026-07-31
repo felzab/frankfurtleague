@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { ChevronsDownWide } from "@gravity-ui/icons";
 
 import { Accordion } from "@heroui/react";
@@ -14,7 +16,10 @@ import AdminSpielCardsList from "../collections/AdminSpielCardsList";
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overviewSpiele: FLSpiel[]; today: string }) {
-  const spieleCategories = categorizeActionRequired(overviewSpiele, today);
+  // Memoised by hand because the React Compiler is deliberately off (see `next.config.ts`). Without
+  // it, every `Accordion` expand and collapse re-partitions the whole match list — six fresh arrays
+  // and an O(n) pass with five predicates per match — to produce the identical result.
+  const spieleCategories = useMemo(() => categorizeActionRequired(overviewSpiele, today), [overviewSpiele, today]);
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center px-4 pt-6 pb-12 sm:px-8">

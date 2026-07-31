@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useMemo } from "react";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
@@ -29,7 +29,11 @@ export function AdminProvider({
   teams: FLTeam[];
   children: ReactNode;
 }) {
-  return (
-    <AdminContext.Provider value={{ spielorte: spielorte, schiedsrichter: schiedsrichter, teams: teams }}>{children}</AdminContext.Provider>
-  );
+  // Memoised by hand because the React Compiler is deliberately off (see `next.config.ts`). A fresh
+  // object literal here is a new identity every render, which re-renders every `useAdmin()` consumer
+  // whenever only `children` changed. Low impact today — the provider is rendered by a server
+  // component — but it is a trap the moment this moves inside a client boundary.
+  const value = useMemo(() => ({ spielorte, schiedsrichter, teams }), [spielorte, schiedsrichter, teams]);
+
+  return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 }

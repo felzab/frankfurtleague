@@ -106,7 +106,8 @@ Also honor these as plain-text triggers (case-insensitive, slash optional) when 
 
 Ratified 2026-07-29 from the five-pass repo audit in `docs/audit/`. Each reads as a violation of §2 or of ordinary best practice, and each is deliberate. **Do not flag, refactor, or "optimize" these without an explicit instruction that names the decision.** If you believe one is wrong, say so and stop — do not act.
 
-**A1 — Page-level `await connection()` on 13 pages is the standard entry pattern.** _(audit: 1-deprecated §8d)_
+**A1 — `await connection()` guards every data fetch on 13 pages, and is the standard entry pattern.** _(audit: 1-deprecated §8d; wording amended 2026-07-31)_
+It is normally the first statement of the page component. Where a page splits static chrome from a `Suspense`-wrapped data hole — `admin/schiedsrichter` and `admin/spielorte` — it lives in the in-file async child that performs the fetch instead. **The requirement is that `connection()` precedes the fetch, not that it sits in the default export.**
 The layouts already provide the static-shell/dynamic-hole split, so PPR works as intended. The Docker builder stage has **no reachable FastAPI backend** (`SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`). Removing these calls to "restore prerendering" makes `docker compose build` fail on every data-fetching page. The `"use cache"` layer already delivers the performance win.
 
 **A2 — Auth.js owns a direct `MongoClient`.** _(audit: 1-deprecated §10a)_
