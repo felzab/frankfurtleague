@@ -16,6 +16,7 @@
     "format:check": "prettier --check . ../docs ../scripts ../.claude ../CLAUDE.md ../docker-compose.yml ../docker-compose.local.yml",
     "verify": "pnpm format && pnpm exec tsc --noEmit && pnpm exec eslint . && pnpm format:check && pnpm build && pnpm test && pnpm audit:prod",
     "typecheck": "tsc --noEmit",
+    "brand": "node scripts/generate-brand-assets.mjs",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tsconfig-alias-hook.mjs --test",
     "audit:prod": "pnpm audit --prod --audit-level high"
   },
@@ -53,6 +54,7 @@
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "prettier": "3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0"
