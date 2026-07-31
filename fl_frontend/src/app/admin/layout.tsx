@@ -4,7 +4,6 @@ import { connection } from "next/server";
 
 import { getAdminSession } from "@/core/auth";
 import AdminSidemenu from "@/features/admin/components/AdminSidemenu";
-import AdminContextWrapper from "@/features/admin/components/providers/AdminContextWrapper";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { SkipToContentLink } from "@/shared/components/ui/SkipToContentLink";
@@ -26,12 +25,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <main
         id="main-content"
         className="bg-background relative flex flex-1 scrollbar-gutter-stable flex-col overflow-y-auto">
-        {/* NOT redundant with `loading.tsx` (unlike the dashboard's): Next nests that fallback
-            around the page segment only, i.e. INSIDE AdminContextWrapper. This boundary is what
-            covers the wrapper's own three FastAPI round-trips. Do not remove it. */}
-        <Suspense fallback={<ContentLoader />}>
-          <AdminContextWrapper>{children}</AdminContextWrapper>
-        </Suspense>
+        {/* AdminContextWrapper moved out to the two routes that consume it (R4 §16.2), so this no
+            longer covers its three round-trips — but it stays, because each page's own awaits still
+            need a boundary between them and the shell above. */}
+        <Suspense fallback={<ContentLoader />}>{children}</Suspense>
       </main>
     </div>
   );
