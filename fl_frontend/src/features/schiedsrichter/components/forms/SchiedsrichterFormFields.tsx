@@ -48,12 +48,12 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
       {/* 2. Schule / Verein */}
       <TextField
         name="schule"
+        value={draft.schule ?? ""}
+        onChange={(next) => onChange({ ...draft, schule: next })}
         isInvalid={errors ? !!errors["schule"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Schule / Verein </Label>
         <Input
           placeholder="z.B. Goethe-Gymnasium"
-          value={draft.schule ?? ""}
-          onChange={(e) => onChange({ ...draft, schule: e.target.value })}
           className={FIELD_INPUT}
         />
         <FieldError className={FIELD_ERROR}>{errors?.["schule"]}</FieldError>
@@ -63,12 +63,12 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
       <TextField
         type="email"
         name="kontakt.email"
+        value={draft.kontakt.email ?? ""}
+        onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: next } })}
         isInvalid={errors ? !!errors["kontakt.email"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">E-Mail </Label>
         <Input
           placeholder="z.B. ref@beispiel.de"
-          value={draft.kontakt.email ?? ""}
-          onChange={(e) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: e.target.value } })}
           className={FIELD_INPUT}
         />
         <FieldError className={FIELD_ERROR}>{errors?.["kontakt.email"]}</FieldError>
@@ -78,12 +78,12 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
       <TextField
         type="tel"
         name="kontakt.telefon"
+        value={draft.kontakt.telefon ?? ""}
+        onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: next } })}
         isInvalid={errors ? !!errors["kontakt.telefon"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Telefon</Label>
         <Input
           placeholder="z.B. 0151 12345678"
-          value={draft.kontakt.telefon ?? ""}
-          onChange={(e) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: e.target.value } })}
           className={FIELD_INPUT}
         />
         <FieldError className={FIELD_ERROR}>{errors?.["kontakt.telefon"]}</FieldError>

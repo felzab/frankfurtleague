@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
+import { Button, Form, Separator, Switch, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
@@ -109,21 +109,29 @@ export default function AdminEditSpielDataForm({
       {/** Cancel Spiel */}
       {/* No `aria-label`: "Spiel absagen" below sits inside the switch's own <label>, so an
           aria-label would only override the visible text with a copy of itself (cf. R4 §3.2). */}
-      <Switch
-        size="md"
-        isSelected={spielIsCanceled}
-        onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
-        <Switch.Content className="text-fluid-sm text-danger flex h-fit w-full flex-row items-center justify-between font-bold">
-          Spiel absagen
-          <Switch.Control className={`${spielIsCanceled ? "bg-danger" : ""}`}>
-            <Switch.Thumb />
-          </Switch.Control>
-        </Switch.Content>
-        <Description className="text-fluid-xxs text-foreground-muted px-0 leading-normal font-medium whitespace-normal">
+      <div className="flex w-full flex-col gap-y-1">
+        <Switch
+          size="md"
+          aria-describedby="spiel-absagen-hint"
+          isSelected={spielIsCanceled}
+          onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
+          <Switch.Content className="text-fluid-sm text-danger flex h-fit w-full flex-row items-center justify-between font-bold">
+            Spiel absagen
+            <Switch.Control className={`${spielIsCanceled ? "bg-danger" : ""}`}>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
+        </Switch>
+        {/* Outside the `Switch`, which renders a `<label>`: as a child, this whole paragraph
+            toggled the switch on any click. `aria-describedby` keeps the screen-reader wiring that
+            `Description` provided. */}
+        <p
+          id="spiel-absagen-hint"
+          className="text-fluid-xxs text-foreground-muted leading-normal font-medium">
           Wird dieser Schalter umgelegt, so wird das Spiel als abgesagt eingetragen. Dies kann zurückgesetzt werden, indem der Schalter zurück
           umgelegt wird.
-        </Description>
-      </Switch>
+        </p>
+      </div>
 
       <Separator className="bg-border" />
 

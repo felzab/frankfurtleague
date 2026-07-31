@@ -55,6 +55,7 @@ export default function FormSpielortSection({
   return (
     <InlineCreateAutocomplete<FLSpielort, SpielortDraft>
       label="Spielort"
+      placeholder="z.B. Sportpark Nord"
       name="spielOrtUI"
       items={spielorte}
       selectedId={ortPayload?.spielort_id ?? null}

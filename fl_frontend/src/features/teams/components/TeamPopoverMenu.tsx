@@ -16,7 +16,6 @@ export default function TeamPopoverMenu({
   teamShorthand,
   teamIsDisqualified,
   placement = "right",
-  portalContainer,
   children,
 }: {
   teamName: string;
@@ -31,16 +30,6 @@ export default function TeamPopoverMenu({
    * placement moves width onto the cross axis, where it does get clamped.
    */
   placement?: "right" | "top";
-  /**
-   * Where the popover portals to. Defaults to `document.body`, which is right everywhere except
-   * inside a `position: fixed` overlay: react-aria positions against `document.body` by adding
-   * `documentElement.scrollTop` to the trigger's viewport rect (`calculatePosition`'s `getOffset`,
-   * taken whenever the containing block is the documentElement). A trigger inside a fixed modal has
-   * no such scroll offset, so the popover lands exactly `scrollY` pixels too low and then flips
-   * because it "cannot fit". Passing a container inside the modal moves the maths onto
-   * `getPosition`, which subtracts the parent's offset and cancels the scroll out.
-   */
-  portalContainer?: Element | null;
   children: React.ReactNode;
 }) {
   const isTbdTeam = teamShorthand === TBD_TEAM_SHORTHAND;
@@ -77,8 +66,7 @@ export default function TeamPopoverMenu({
 
         <Popover.Content
           placement={placement}
-          offset={10}
-          UNSTABLE_portalContainer={portalContainer ?? undefined}>
+          offset={10}>
           {/* max-w caps the panel: nothing else constrains it, so without this the dialog grows to
               the full team name and a long one pushes it past the viewport edge. */}
           <Popover.Dialog className="bg-surface border-border text-foreground w-max max-w-[280px] rounded-xl border p-4 shadow-lg outline-none">

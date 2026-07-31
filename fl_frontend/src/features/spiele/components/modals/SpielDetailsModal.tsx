@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 
 import { CircleInfo } from "@gravity-ui/icons";
 
 import { Modal, Separator } from "@heroui/react";
 
-import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
 import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, formatSpielDisplay } from "../../utils";
@@ -38,10 +36,6 @@ export default function SpielDetailsModal({
   // FLAddress, so this query is genuinely different from the other two call sites.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
 
-  // Callback ref, not `useRef`: the popovers need the node during render, and a `useRef` is still
-  // null on the render that mounts it. See TeamPopoverMenu's `portalContainer` for why this exists.
-  const [popoverContainer, setPopoverContainer] = useState<HTMLDivElement | null>(null);
-
   return (
     <Modal.Backdrop
       isOpen={isOpen}
@@ -55,16 +49,6 @@ export default function SpielDetailsModal({
         {/* No `aria-label`: it outranked the heading, so opening a match announced
             "Spieldetails-Dialog" and never said which match (R4 §1.1). `Modal.Heading` below names
             the dialog "Spiel Nr. 42", which is the one thing it exists to convey. */}
-        {/* The team popovers portal in here rather than into `document.body`, so their position is
-            measured against this fixed overlay instead of against the scrolled document. It sits
-            OUTSIDE `Modal.Dialog` because HeroUI's default `scroll: "inside"` gives the dialog
-            `overflow: clip`, which would cut the popover off. `pointer-events-auto` undoes
-            `.modal__container`'s `pointer-events: none`, which the popover would otherwise inherit.
-            Empty and zero-sized, so it changes no layout. */}
-        <div
-          ref={setPopoverContainer}
-          className="pointer-events-auto"
-        />
         <Modal.Dialog className="border-border bg-surface rounded-2xl border p-6 shadow-sm">
           {spielData && (
             <>
@@ -90,33 +74,30 @@ export default function SpielDetailsModal({
                 {/* Teams area  */}
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
                   {/** I just pass teamIsDisqualified=false because it's not included in the game data */}
-                  {/* placement="top": unlike the cards, these triggers are untruncated full names
-                      centred in a narrow dialog, so a horizontal placement has no room to flip into
-                      and would hang off-screen. See the note on TeamPopoverMenu's `placement`. */}
-                  <TeamPopoverMenu
-                    teamName={spielData.team1.name}
-                    teamId={spielData.team1.team_id}
-                    teamShorthand={spielData.team1.shorthand}
-                    teamIsDisqualified={false}
-                    placement="top"
-                    portalContainer={popoverContainer}>
-                    <span className="text-fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">
-                      {spielData.team1.name}
-                    </span>
-                  </TeamPopoverMenu>
+                  {/* Plain links, not a team popover (owner decision, 2026-07-31). A popover
+                      anchored inside a `position: fixed` overlay is mispositioned by react-aria,
+                      which adds `document.scrollTop` to the trigger's viewport rect — on the landing
+                      page, the one route where you must scroll to reach a match, it opened that far
+                      below the name. Every fix for that is a workaround around a nested overlay
+                      nobody needs: this modal is already a focused view of one match, so the name
+                      goes straight to the team. The Kader shortcut stays on the cards. */}
+                  <Link
+                    prefetch={false}
+                    href={`/dashboard/teams/${spielData.team1.team_id}`}
+                    onClick={onClose}
+                    className="text-fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
+                    {spielData.team1.name}
+                  </Link>
 
                   <span className="text-fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
-                  <TeamPopoverMenu
-                    teamName={spielData.team2.name}
-                    teamId={spielData.team2.team_id}
-                    teamShorthand={spielData.team2.shorthand}
-                    teamIsDisqualified={false}
-                    placement="top"
-                    portalContainer={popoverContainer}>
-                    <span className="text-fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">
-                      {spielData.team2.name}
-                    </span>
-                  </TeamPopoverMenu>
+
+                  <Link
+                    prefetch={false}
+                    href={`/dashboard/teams/${spielData.team2.team_id}`}
+                    onClick={onClose}
+                    className="text-fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
+                    {spielData.team2.name}
+                  </Link>
                 </div>
 
                 <Separator className="bg-border my-4 h-[2px]" />

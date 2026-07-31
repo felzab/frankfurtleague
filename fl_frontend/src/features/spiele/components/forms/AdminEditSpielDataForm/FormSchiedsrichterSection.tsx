@@ -59,6 +59,7 @@ export default function FormSchiedsrichterSection({
   return (
     <InlineCreateAutocomplete<FLSchiedsrichter, SchiedsrichterDraft>
       label="Schiedsrichter"
+      placeholder="z.B. Pierluigi Collina"
       name="schiedsrichterUI"
       items={schiedsrichter}
       selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}

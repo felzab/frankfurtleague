@@ -83,20 +83,26 @@ export default function FormMatchupSection({
 
       {/** Switch to enter Ergebnis */}
       {/* Named by its own visible content — see the note on the cancel switch. */}
-      <Switch
-        isSelected={ergebnisCanBeEdited}
-        onChange={handleErgebnisCanBeEditedToggle}>
-        <Switch.Content className="text-fluid-sm text-foreground flex h-fit w-full flex-row items-center justify-between font-bold">
-          Spielergebnis eintragen
-          <Switch.Control>
-            <Switch.Thumb />
-          </Switch.Control>
-        </Switch.Content>
-        <Description className="text-fluid-xxs text-foreground-muted px-0 leading-normal font-medium whitespace-normal">
+      <div className="flex w-full flex-col gap-y-1">
+        <Switch
+          aria-describedby="ergebnis-eintragen-hint"
+          isSelected={ergebnisCanBeEdited}
+          onChange={handleErgebnisCanBeEditedToggle}>
+          <Switch.Content className="text-fluid-sm text-foreground flex h-fit w-full flex-row items-center justify-between font-bold">
+            Spielergebnis eintragen
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
+        </Switch>
+        {/* See the cancel switch: a `Description` child of `Switch` sits inside its `<label>`. */}
+        <p
+          id="ergebnis-eintragen-hint"
+          className="text-fluid-xxs text-foreground-muted leading-normal font-medium">
           Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis
           zurückgesetzt.
-        </Description>
-      </Switch>
+        </p>
+      </div>
 
       {/** Tore Team 1 */}
       <NumberField

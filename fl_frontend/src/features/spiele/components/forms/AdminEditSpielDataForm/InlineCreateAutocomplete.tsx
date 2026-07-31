@@ -1,4 +1,4 @@
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { Check, Plus, Xmark } from "@gravity-ui/icons";
 
@@ -38,6 +38,7 @@ type CreateResult = { success: boolean; created_id?: string | null; message?: st
  */
 export function InlineCreateAutocomplete<TItem extends { id: string; name: string }, TDraft>({
   label,
+  placeholder,
   name,
   items,
   selectedId,
@@ -52,8 +53,10 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   createdToast,
   children,
 }: {
-  /** "Spielort" — used for the field label, placeholders and the footer button. */
+  /** "Spielort" — used for the field label and the footer button. */
   label: string;
+  /** Picker placeholder. A bare noun ("Spielort") read as a value rather than a prompt. */
+  placeholder: string;
   /** Form field name, e.g. "spielOrtUI"; the search field appends "_search". */
   name: string;
   items: TItem[];
@@ -90,11 +93,22 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   // it — the draft fields take these as an explicit prop instead, and render exactly the same
   // `<FieldError>` under exactly the same input as they do in the modal forms.
   const [createErrors, setCreateErrors] = useState<FieldErrors>({});
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Deduplicated on id, so a created record collapses into the real one once the server catches up.
   const options = [...createdItems.filter((created) => !items.some((item) => item.id === created.id)), ...items];
 
   const handleCreateSubmit = () => {
+    // Gate on the browser's own constraint validation BEFORE the server is touched, so an empty
+    // required field is reported here exactly as it is in the CRUD modals — natively, at the field,
+    // in the browser's language. This panel cannot be a `<form>` (it renders inside the match
+    // form's), so there is no `reportValidity()` for the group: ask each control in turn and stop at
+    // the first that objects, which is also what focuses it. Without this the draft went to the
+    // server and came back as zod messages, which is why the two paths read differently.
+    for (const control of panelRef.current?.querySelectorAll("input, select, textarea") ?? []) {
+      if (!(control as HTMLInputElement).reportValidity()) return;
+    }
+
     startTransition(async () => {
       const res = await onCreate(draft);
 
@@ -129,8 +143,9 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
     <div className="flex w-full flex-col gap-y-4">
       {isCreatingInline ? (
         <div
+          ref={panelRef}
           className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400"
-          onKeyDownCapture={submitInlineOnEnter(handleCreateSubmit)}>
+          onKeyDownCapture={(event) => submitInlineOnEnter(event, handleCreateSubmit)}>
           <div className="border-border flex items-center justify-between border-b pb-2">
             <h4 className="text-fluid-sm text-foreground font-bold">{createHeading}</h4>
             <Button
@@ -178,7 +193,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
           <Autocomplete
             name={name}
             className="w-full"
-            placeholder={label}
+            placeholder={placeholder}
             selectionMode="single"
             value={selectedId}
             onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
