@@ -4,7 +4,7 @@ import { Tabs } from "@heroui/react";
 
 import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
-import { TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
+import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLSpielplan } from "../../schemas";
 
@@ -44,7 +44,7 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
                 /* shrink-0 removed! whitespace-nowrap handles the sizing naturally. */
                 className={`${TAB_ITEM} flex h-11 items-center px-5 whitespace-nowrap md:px-6`}>
                 {spieltagData.name}
-                <Tabs.Indicator className="bg-brand-solid rounded-lg shadow-sm" />
+                <Tabs.Indicator className={TAB_INDICATOR} />
               </Tabs.Tab>
             );
           })}

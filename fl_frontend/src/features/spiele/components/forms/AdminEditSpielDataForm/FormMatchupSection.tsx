@@ -89,10 +89,10 @@ export default function FormMatchupSection({
           isSelected={ergebnisCanBeEdited}
           onChange={handleErgebnisCanBeEditedToggle}>
           <Switch.Content className="text-fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+            Spielergebnis eintragen
             <Switch.Control>
               <Switch.Thumb />
             </Switch.Control>
-            Spielergebnis eintragen
           </Switch.Content>
         </Switch>
         {/* See the cancel switch: a `Description` child of `Switch` sits inside its `<label>`. */}

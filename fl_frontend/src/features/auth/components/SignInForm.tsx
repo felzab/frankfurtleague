@@ -7,7 +7,7 @@ import { Ban } from "@gravity-ui/icons";
 import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { handleSignIn } from "../actions";
@@ -98,13 +98,13 @@ export default function SignInForm() {
                   id="Admin"
                   className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
                   Admin
-                  <Tabs.Indicator className="bg-brand-solid/80" />
+                  <Tabs.Indicator className={TAB_INDICATOR} />
                 </Tabs.Tab>
                 <Tabs.Tab
                   id="Spieler"
                   className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
                   Spieler
-                  <Tabs.Indicator className="bg-brand-solid/80" />
+                  <Tabs.Indicator className={TAB_INDICATOR} />
                 </Tabs.Tab>
               </Tabs.List>
             </Tabs.ListContainer>

@@ -116,10 +116,10 @@ export default function AdminEditSpielDataForm({
           isSelected={spielIsCanceled}
           onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
           <Switch.Content className="text-fluid-sm text-danger flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+            Spiel absagen
             <Switch.Control className={`${spielIsCanceled ? "bg-danger" : ""}`}>
               <Switch.Thumb />
             </Switch.Control>
-            Spiel absagen
           </Switch.Content>
         </Switch>
         {/* Outside the `Switch`, which renders a `<label>`: as a child, this whole paragraph

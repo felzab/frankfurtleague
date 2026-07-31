@@ -37,6 +37,13 @@ export const TAB_ITEM =
 export const TAB_TRACK = "border-border bg-muted rounded-xl border";
 
 /**
+ * The selected-tab fill. `rounded-lg` is not decoration: HeroUI's `.tabs__indicator` defaults to
+ * `calc(var(--radius) * 3)`, which does not match the `rounded-lg` on `TAB_ITEM` — so the hover
+ * background and the selected background had visibly different corners on the same tab.
+ */
+export const TAB_INDICATOR = "bg-brand-solid rounded-lg shadow-sm";
+
+/**
  * The one field-error appearance. Every `<FieldError>` in the app uses it, so a rejected value looks
  * the same wherever it is rejected — five of the six forms previously had no field-level error
  * surface at all and reported failures only through a toast that named no field (R4 §3.1).
