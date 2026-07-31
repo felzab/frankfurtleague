@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { ArrowRightFromSquare, Ellipsis } from "@gravity-ui/icons";
 
@@ -42,15 +43,18 @@ export function SidemenuOptionsMenu({
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
   const [isSigningOut, startSignOut] = useTransition();
+  const router = useRouter();
 
+  // The action returns rather than redirecting, so the navigation happens here and `catch` only ever
+  // sees a real failure — see the note on `signOutAction`. `refresh()` is what drops the cached
+  // server render of the admin shell the user was just looking at.
   const handleSignOut = () => {
     startSignOut(async () => {
       try {
         await onSignOut?.();
+        router.push("/");
+        router.refresh();
       } catch {
-        // On success this promise resolves and the router navigates: the action's `redirect()`
-        // throws on the server, and Next turns that into a redirect response rather than a client
-        // rejection. So reaching this branch means the session genuinely was not ended.
         toast.danger("Abmelden fehlgeschlagen. Bitte versuche es erneut.");
       }
     });

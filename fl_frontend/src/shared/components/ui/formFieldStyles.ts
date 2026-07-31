@@ -4,17 +4,15 @@
  * focus feedback at all — inside a single form, so a keyboard user saw the ring appear on
  * Straße/Nr./PLZ/Stadt and vanish on Name.
  *
- * `focus-visible:`, not `focus:`, so the border does not fire on pointer clicks — matching
- * `SignInForm`, which was the one field in the app already getting this right.
+ * Carries no focus classes at all. The border-turns-brand treatment and the ring suppression that
+ * goes with it are declared once for every field-shaped control in the unlayered block at the bottom
+ * of `globals.css`, keyed off HeroUI's `data-slot` attributes. Repeating them here is how the app
+ * ended up with fields that had the treatment and fields that did not — the Tore inputs, the date
+ * and time pickers and the sign-in inputs were all still showing a ring.
  *
- * The `ring-0` pair is the app's **one** exception to the focus outline every other control takes
- * (globals.css, `--focus`): a field says it is focused by turning its border brand, and adding a
- * ring on top would indicate the same state twice. Keep both `focus-visible:` and `focus-within:`
- * variants — the composite HeroUI fields put focus on an inner input, so only `focus-within` fires
- * on the wrapper.
+ * `transition-colors` stays, so the border animates into brand rather than snapping.
  */
-export const FIELD_INPUT =
-  "border-border bg-surface text-foreground text-fluid-sm focus-visible:border-brand focus-within:border-brand rounded-lg border px-3 py-2 transition-colors outline-none focus-visible:ring-0 focus-within:ring-0";
+export const FIELD_INPUT = "border-border bg-surface text-foreground text-fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
 
 /**
  * The one field-error appearance. Every `<FieldError>` in the app uses it, so a rejected value looks

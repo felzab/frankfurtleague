@@ -6,6 +6,7 @@ import { AuthError } from "next-auth";
 import { z } from "zod";
 
 import { signIn, signOut } from "@/core/auth";
+import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -38,7 +39,13 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
   // three. This is the only server action reachable without a session.
   const validated = SignInPayloadSchema.safeParse({ email: formData.get("email") });
   if (!validated.success) {
-    return settleAfterFloor(startedAt, { success: false, error: "Bitte gebe eine valide Email ein." });
+    // Reported as a field error, not just a toast, so this form behaves like the other six. Safe to
+    // be specific here: it is a format check on what the user typed, so it leaks no membership.
+    return settleAfterFloor(startedAt, {
+      success: false,
+      error: "Bitte gebe eine valide Email ein.",
+      fieldErrors: toFieldErrors(validated.error),
+    });
   }
 
   try {
@@ -69,9 +76,14 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
  * which needs database access. Wave 3 cut the lifetime from 30 days to 8 hours (R3b-S5.2), bounding
  * the exposure without closing it.
  *
- * Deleting the session row is `signOut`'s own job; this wrapper exists because a client component
- * cannot import from `core/auth` and because `redirectTo` belongs on the server side of the call.
+ * `redirect: false` is load-bearing. The default path calls `redirect()` (next-auth `lib/actions.js`
+ * — `if (options?.redirect ?? true) return redirect(res.redirect)`), which throws `NEXT_REDIRECT`;
+ * Next performs the navigation, but the client-side promise still settles as a rejection, so a
+ * caller with a `try/catch` reports a failure for a sign-out that actually succeeded. That is
+ * exactly what shipped: the user was signed out, landed on the home page, and was told
+ * "Abmeldung fehlgeschlagen". Returning normally lets the caller navigate and keeps `catch`
+ * meaning what it says.
  */
 export async function signOutAction(): Promise<void> {
-  await signOut({ redirectTo: "/" });
+  await signOut({ redirect: false });
 }

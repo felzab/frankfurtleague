@@ -43,7 +43,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>
         <Label className="text-fluid-xs text-foreground font-bold">Standard Mietpreis</Label>
-        <NumberField.Group className="border-border bg-surface text-foreground focus-within:border-brand rounded-lg border transition-colors focus-within:ring-0">
+        <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
           <NumberField.Input className="text-fluid-sm w-full py-0" />
           <NumberField.IncrementButton />

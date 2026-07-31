@@ -208,7 +208,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
                   value={searchQuery}
                   onChange={setSearchQuery}
                   className="p-2">
-                  <SearchField.Group className="border-border bg-muted focus-within:border-brand rounded-lg border px-2 py-1.5 transition-all duration-200 focus-within:ring-0">
+                  <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5 transition-all duration-200">
                     <SearchField.SearchIcon />
                     <SearchField.Input
                       placeholder={`${label} finden...`}

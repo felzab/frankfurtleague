@@ -7,6 +7,8 @@ import { Ban } from "@gravity-ui/icons";
 import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
+import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { handleSignIn } from "../actions";
 
@@ -29,13 +31,17 @@ export default function SignInForm() {
       return;
     }
 
+    // A malformed address is shown at the field through `validationErrors` below, like every other
+    // form in the app. The toast is kept for failures that belong to no field.
+    if (hasFieldErrors(state.fieldErrors)) return;
+
     toast.danger("Anmeldung fehlgeschlagen", {
       actionProps: {
         children: "Schließen",
         onPress: () => toast.clear(),
         variant: "danger",
       },
-      description: state.error ?? "Bitte gebe eine valide Email ein.",
+      description: state.error ?? "Ein unerwarteter Fehler ist aufgetreten.",
       indicator: <Ban />,
       timeout: 6000,
     });
@@ -79,6 +85,7 @@ export default function SignInForm() {
           <Tabs.Panel id="Admin">
             <Form
               action={formAction}
+              validationErrors={state?.fieldErrors ?? {}}
               className="flex flex-col gap-y-5">
               {/* No `aria-label` on the field or the input: both outranked the visible <Label>, so
                   the accessible name was "email" while the screen read "EMAIL-ADRESSE" — and a
@@ -88,22 +95,16 @@ export default function SignInForm() {
                 className="flex w-full flex-col gap-y-2"
                 isRequired
                 name="email"
-                type="email"
-                validate={(value) => {
-                  if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value)) {
-                    return "Bitte gebe eine valide Email ein.";
-                  }
-                  return null;
-                }}>
+                type="email">
                 <Label className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
                 <Input
-                  className="border-border bg-surface text-foreground placeholder:text-foreground-muted focus-visible:border-brand text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-all duration-200 outline-none"
+                  className="border-border bg-surface text-foreground placeholder:text-foreground-muted text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-all duration-200 outline-none"
                   placeholder="name@beispiel.de"
                   type="email"
                   required
                   disabled={isPending}
                 />
-                <FieldError className="text-fluid-xxs text-danger mt-1 font-bold" />
+                <FieldError className={FIELD_ERROR} />
               </TextField>
 
               <Button
@@ -123,20 +124,14 @@ export default function SignInForm() {
                 className="flex w-full flex-col gap-y-2"
                 isRequired
                 name="email"
-                type="email"
-                validate={(value) => {
-                  if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value)) {
-                    return "Bitte gebe eine valide Email ein.";
-                  }
-                  return null;
-                }}>
+                type="email">
                 <Label className="text-fluid-xs text-foreground-muted font-bold tracking-wider uppercase">Email-Adresse</Label>
                 <Input
                   className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 text-fluid-xs sm:text-fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
                   placeholder="coming soon..."
                   disabled
                 />
-                <FieldError />
+                <FieldError className={FIELD_ERROR} />
               </TextField>
 
               <Button

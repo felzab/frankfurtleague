@@ -27,8 +27,8 @@
        --fg-base, not --accent-brand: it is white in the dark theme -- the look the owner picked --
        and near-black in the light theme, where white would be invisible on --bg-base. Both read as
        "the standard focus outline", which is the point.
-       Field-like controls opt out of the ring entirely and turn their border brand instead; that is
-       the one deliberate exception, and it lives in SearchBar / FIELD_INPUT. */
+       Field-like controls and collection options opt out; both exceptions are declared once, in the
+       unlayered block near the bottom of this file. */
     --focus: var(--fg-base);
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
@@ -141,9 +141,8 @@
      `outline-style: none` in @layer components, which outranks this @layer base rule. And why it
      beats the browser's own focus ring: any author style does.
 
-     Form fields are deliberately absent from the selector. They keep their border turning brand and
-     get no ring or outline at all -- inputs are excluded here by element type, and the field-shaped
-     HeroUI triggers (autocomplete, search field) suppress the ring in FIELD_INPUT / SearchBar. */
+     Form fields are absent from the selector by element type, and the field-shaped HeroUI triggers
+     (autocomplete, select, search field) are handled by the unlayered exception block below. */
   a:focus-visible,
   button:focus-visible,
   summary:focus-visible,
@@ -295,6 +294,50 @@
 @utility dotted-bg {
   background-image: radial-gradient(color-mix(in srgb, currentColor 16%, transparent) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+/* THE two focus exceptions, and they are the only ones (owner decision, 2026-07-31).
+
+   Everything else in the app takes the one focus indicator declared in @layer base: HeroUI's ring
+   and the matching outline, both in var(--focus). These two categories must not.
+
+   1. FIELD-SHAPED CONTROLS -- anything you type a value into. A text input matches :focus-visible on
+      a plain mouse click (the CSS selectors spec makes that exception for elements that take text
+      entry), so a ring here fires for ordinary pointer users, which is not what a focus ring is for.
+      They say "focused" by turning their border brand instead. Neutralising --tw-ring-shadow rather
+      than the whole box-shadow is deliberate: HeroUI composes box-shadow from the tw variables, so
+      overriding just the ring leaves --tw-shadow (the fields' own shadow-sm) intact.
+
+   2. COLLECTION OPTIONS -- listbox and menu items. react-aria focuses the first option as soon as
+      you type in a combobox, so a ring appeared around a result the user had not chosen. The focused
+      option is conveyed by a background highlight, which is what every native picker does; the
+      composite widget's own border already shows where focus is.
+
+   Deliberately unlayered: unlayered rules outrank every @layer, including HeroUI's `components` and
+   Tailwind's `utilities`, so neither a library default nor a stray per-site class can reintroduce a
+   ring. That also means this is the ONE place either rule can be changed -- which is the point. */
+[data-slot="input"],
+[data-slot="input-group"],
+[data-slot="number-field-group"],
+[data-slot="search-field-group"],
+[data-slot="date-input-group"],
+[data-slot="autocomplete-trigger"],
+[data-slot="select-trigger"],
+[data-slot="combo-box-input-group"] {
+  &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]) {
+    --tw-ring-shadow: 0 0 #0000;
+    border-color: var(--accent-brand);
+    outline: none;
+  }
+}
+
+[data-slot="list-box-item"],
+[data-slot="menu-item"] {
+  &:is(:focus, :focus-visible, [data-focused="true"], [data-focus-visible="true"]) {
+    --tw-ring-shadow: 0 0 #0000;
+    background-color: var(--bg-muted);
+    outline: none;
+  }
 }
 
 /* Reduced motion, SOFTENED (owner decision 2026-07-31, amending Wave 5a's R4-5.1 block).

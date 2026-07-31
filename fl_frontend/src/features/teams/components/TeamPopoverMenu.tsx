@@ -53,20 +53,15 @@ export default function TeamPopoverMenu({
             `min-width:auto`; the button was `w-fit`; and `.badge-anchor` bakes in `shrink-0`, which
             `shrink` here undoes. The card only ever constrained its own grid cell, so the overflow
             happened inside this wrapper and the name spilled past the card edge. */}
-        <Popover.Trigger className="max-w-full min-w-0">
-          {/* type="button" is load-bearing: a typeless button defaults to submit, so mounting this
-              anywhere inside a <form> would make opening the popover submit the form.
+        {/* The trigger IS the control — no <button> inside it. `Popover.Trigger` renders a
+            `div role="button"` wrapped in react-aria's `Pressable` (HeroUI 3.2.2, `popover.js`),
+            which is focusable in its own right, so nesting a real button gave every team name TWO
+            tab stops with two differently-shaped focus outlines. Keyboard activation is Pressable's.
 
-              This is the most repeated interactive element in the app — one per row of the season
-              table, both teams on every match card — and it had `outline-none` with only a colour
-              shift behind it, which is the same shift `hover:` makes (R4 §2.3). It now takes the
-              app-wide focus outline like every other plain button; `rounded` keeps that outline
-              hugging the name rather than boxing it. */}
-          <button
-            type="button"
-            className="hover:text-brand relative flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
-            <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
-          </button>
+            That also retires the old `type="button"` note: a div cannot submit a form, so the hazard
+            of mounting this inside `AdminEditSpielDataForm` is gone by construction. */}
+        <Popover.Trigger className="hover:text-brand relative flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
+          <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
         </Popover.Trigger>
 
         <Popover.Content
