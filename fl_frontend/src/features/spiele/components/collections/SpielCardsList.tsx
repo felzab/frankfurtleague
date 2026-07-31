@@ -22,7 +22,7 @@ export default function SpielCardsList({
     <div className="contents">
       {spiele.map((spielData) => (
         <SpielCard
-          key={spielData.spiel_nr}
+          key={spielData.id}
           spielData={spielData}
           today={today}
           onOpenInfoModal={() => setSelectedSpiel(spielData)}

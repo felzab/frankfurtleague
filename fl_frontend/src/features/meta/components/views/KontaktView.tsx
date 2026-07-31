@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 import { ArrowsExpand, Envelope } from "@gravity-ui/icons";
@@ -20,12 +19,10 @@ export default function KontaktView() {
         );
       case "instagram":
         return (
-          <Image
-            src="/icons/footer/instagram/instagram.svg"
-            alt=""
-            width={32}
-            height={32}
+          <span
+            aria-hidden="true"
             title="Instagram by Pixel Icons"
+            className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
           />
         );
       case "threads":
@@ -42,12 +39,10 @@ export default function KontaktView() {
         );
       case "whatsapp":
         return (
-          <Image
-            src="/icons/footer/whatsapp/whatsapp.svg"
-            alt=""
-            width={32}
-            height={32}
+          <span
+            aria-hidden="true"
             title="Whatsapp by Icon Mafia"
+            className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/whatsapp/whatsapp_logo_black.svg')] mask-contain mask-center mask-no-repeat"
           />
         );
       default:
@@ -88,10 +83,10 @@ export default function KontaktView() {
       <section
         role="list"
         className="grid w-full grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {KONTAKT_CHANNELS.map((channel, i) => (
+        {KONTAKT_CHANNELS.map((channel) => (
           <Card
             role="listitem"
-            key={i}
+            key={channel.id}
             className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl sm:p-6">
             <div>
               <Card.Header className="flex flex-row items-center gap-x-3.5 p-0 sm:gap-x-4">

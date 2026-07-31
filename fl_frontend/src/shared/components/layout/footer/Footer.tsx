@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Image from "next/image";
 import Link from "next/link";
 
 import { FLLogo } from "@/shared/components/ui/FLLogo";
@@ -67,13 +66,18 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
               rel="noopener noreferrer"
               aria-label="Threads-Profil"
               className="transition-opacity hover:opacity-80">
-              {/* One masked element instead of a light/dark <Image> pair: both assets were in the
-                  DOM and both were fetched, and the mask takes its colour from bg-foreground, which
-                  flips with the theme on its own. The span is decorative — the link above it
-                  already carries the accessible name.
+              {/* The recipe all four socials use. One masked element instead of a light/dark
+                  <Image> pair: both assets were in the DOM and both were fetched, and the mask takes
+                  its colour from bg-foreground, which flips with the theme on its own. The span is
+                  decorative — the link above it already carries the accessible name.
                   inline-block is load-bearing: width/height do not apply to a non-replaced inline
                   box, so a bare <span class="size-6"> renders 0x0. The <Image> it replaced was a
-                  replaced element, where they do apply. */}
+                  replaced element, where they do apply.
+                  Each *_logo_black.svg is a glyph-only silhouette, used purely as an alpha mask —
+                  Instagram and WhatsApp were derived from their brand-coloured originals for this,
+                  so the whole row is one colour rather than two mono icons beside two coloured
+                  ones. Mask sources must have a transparent background: WhatsApp's original is a
+                  filled rounded square and would have masked as a solid block. */}
               <span
                 aria-hidden="true"
                 className="bg-foreground inline-block size-6 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
@@ -102,12 +106,9 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
               rel="noopener noreferrer"
               aria-label="Instagram-Profil"
               className="transition-opacity hover:opacity-80">
-              <Image
-                src="/icons/footer/instagram/instagram.svg"
-                alt=""
-                width={24}
-                height={24}
-                className="size-6"
+              <span
+                aria-hidden="true"
+                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
               />
             </Link>
 
@@ -119,12 +120,9 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
               rel="noopener noreferrer"
               aria-label="WhatsApp-Kanal"
               className="transition-opacity hover:opacity-80">
-              <Image
-                src="/icons/footer/whatsapp/whatsapp.svg"
-                alt=""
-                width={24}
-                height={24}
-                className="size-6"
+              <span
+                aria-hidden="true"
+                className="bg-foreground inline-block size-6 mask-[url('/icons/footer/whatsapp/whatsapp_logo_black.svg')] mask-contain mask-center mask-no-repeat"
               />
             </Link>
           </div>

@@ -140,35 +140,36 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
       <div className="flex flex-col gap-y-4">
         <h2 className="text-fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
 
+        {/* Five cards, one code path. "Punkte" used to sit outside the map with key={5} — one added
+            stat away from colliding with the map's own indices — and carried variant="secondary",
+            which renders identically to "default" (R4 §9.2). `desktopOnly` is the only real
+            difference between it and the other four. */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {[
-            { label: "Spiele", value: teamData.statistik.anzahl_gespielte_spiele },
+            { label: "Spiele", value: teamData.statistik.anzahl_gespielte_spiele, desktopOnly: false },
             {
               label: "S - U - N",
               value: `${teamData.statistik.siege} - ${teamData.statistik.unentschieden} - ${teamData.statistik.niederlagen}`,
+              desktopOnly: false,
             },
-            { label: "Tore", value: `${teamData.statistik.tore_geschossen}:${teamData.statistik.tore_kassiert}` },
-            { label: "Differenz", value: teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert },
-          ].map((stat, i) => (
+            { label: "Tore", value: `${teamData.statistik.tore_geschossen}:${teamData.statistik.tore_kassiert}`, desktopOnly: false },
+            {
+              label: "Differenz",
+              value: teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert,
+              desktopOnly: false,
+            },
+            { label: "Punkte", value: teamData.statistik.punkte, desktopOnly: true },
+          ].map((stat) => (
             <Card
-              key={i}
+              key={stat.label}
               variant="default"
-              className={card()}>
+              className={`${card()}${stat.desktopOnly ? " hidden lg:block" : ""}`}>
               <Card.Content className="py-4 text-center">
                 <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
                 <p className="text-fluid-lg text-foreground font-extrabold">{stat.value}</p>
               </Card.Content>
             </Card>
           ))}
-          <Card
-            key={5}
-            variant="secondary"
-            className={`${card()} hidden lg:block`}>
-            <Card.Content className="py-4 text-center">
-              <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">Punkte</p>
-              <p className="text-fluid-lg text-foreground font-extrabold">{teamData.statistik.punkte}</p>
-            </Card.Content>
-          </Card>
         </div>
       </div>
 
