@@ -30,6 +30,10 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
   return (
     // FIX: Added flex-1 and pb-12 so it respects the same native scrolling flow as the other pages
     <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12 duration-400">
+      {/* These routes have no visible page title by design, so the `h1` that anchors the heading
+          list is visually hidden. The text matches the route's own `metadata.title` (R4 §4.2). */}
+      <h1 className="sr-only">Finalrunden</h1>
+
       {/* Viewport scroller. @container + cqw below: the columns used to be sized in vw, so once the
           sidebar appears they each claim a share of the viewport the content area does not have and
           the bracket overflows into the scroller. cqw measures this element instead. */}
@@ -44,9 +48,9 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
               {/* Round Header
                   FIX: Swapped quaternary colors for the sleek surface/border combination
               */}
-              <h4 className="bg-surface border-border text-foreground text-fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
+              <h2 className="bg-surface border-border text-foreground text-fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
                 {playoffsSpieltag.name}
-              </h4>
+              </h2>
 
               {/* Spiele column*/}
               <div className="relative flex w-full flex-1 flex-col">

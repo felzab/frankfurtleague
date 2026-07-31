@@ -138,7 +138,11 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
         <Suspense fallback={<p className="text-fluid-xxs text-foreground-muted">{`© Frankfurt-League. Alle Rechte vorbehalten.`}</p>}>
           <FooterCopyrightString />
         </Suspense>
-        <Suspense fallback={<span className="text-fluid-xxs text-foreground-muted opacity-80">Status wird geprüft...</span>}>
+        <Suspense fallback={<span
+              role="status"
+              className="text-fluid-xxs text-foreground-muted opacity-80">
+              Status wird geprüft...
+            </span>}>
           {serverStatusSlot}
         </Suspense>
       </div>

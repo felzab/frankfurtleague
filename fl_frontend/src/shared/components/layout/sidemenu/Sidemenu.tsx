@@ -22,14 +22,14 @@ export default function Sidemenu<TIcon extends string>({
   linkPrefix,
   saisonMetadataDisplay,
   iconDictionary,
-  showSignOut = false,
+  onSignOut,
 }: {
   structure: SidemenuStructure<TIcon>;
   linkPrefix: string;
   saisonMetadataDisplay: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
-  /** Whether the footer's options menu offers sign-out — true only for the admin shell. */
-  showSignOut?: boolean;
+  /** Passed to the footer's options menu; only the admin shell supplies one. */
+  onSignOut?: () => Promise<void>;
 }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -83,8 +83,7 @@ export default function Sidemenu<TIcon extends string>({
       />
 
       {/* MOBILE BACKDROP — a dismiss shortcut for pointers, not a control. It is `aria-hidden` and
-          not focusable on purpose; the keyboard paths are the close button and Escape below.
-          eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+          not focusable on purpose; the keyboard paths are the close button and Escape above. */}
       <div
         onClick={_toggleMobileMenu}
         aria-hidden="true"
@@ -164,7 +163,7 @@ export default function Sidemenu<TIcon extends string>({
         <SidemenuFooter
           isDesktopCollapsed={isDesktopCollapsed}
           onToggleDesktopMenu={_toggleDesktopMenu}
-          showSignOut={showSignOut}
+          onSignOut={onSignOut}
         />
       </aside>
     </>

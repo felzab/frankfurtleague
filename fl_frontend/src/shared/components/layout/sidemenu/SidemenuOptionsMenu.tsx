@@ -6,7 +6,6 @@ import { ArrowRightFromSquare, Ellipsis } from "@gravity-ui/icons";
 
 import { Dropdown, Label, Separator, toast } from "@heroui/react";
 
-import { signOutAction } from "@/features/auth/actions";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 
 import { IconTooltip } from "../../ui/IconTooltip";
@@ -30,14 +29,24 @@ import ThemeSwitch from "../../ui/ThemeSwitch";
  * would swallow the press. It therefore reports `aria-expanded` for free, which the topnav's
  * raw-`<svg>` trigger does not (Wave 6, R4-2.1).
  */
-export function SidemenuOptionsMenu({ isDesktopCollapsed, showSignOut = false }: { isDesktopCollapsed: boolean; showSignOut?: boolean }) {
+export function SidemenuOptionsMenu({
+  isDesktopCollapsed,
+  onSignOut,
+}: {
+  isDesktopCollapsed: boolean;
+  /**
+   * Injected by the shell that has a session to end — `shared` cannot import from `features`, and
+   * its presence is the gate: the dashboard shell passes nothing and gets no sign-out item.
+   */
+  onSignOut?: () => Promise<void>;
+}) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
   const [isSigningOut, startSignOut] = useTransition();
 
   const handleSignOut = () => {
     startSignOut(async () => {
       try {
-        await signOutAction();
+        await onSignOut?.();
       } catch {
         // The success path never returns — `signOut({ redirectTo })` throws a redirect that Next
         // consumes — so reaching here means the session was not ended.
@@ -91,7 +100,7 @@ export function SidemenuOptionsMenu({ isDesktopCollapsed, showSignOut = false }:
           {/* Admin only — the dashboard shell has no session to end (ledger NEW-S1). Until this
               existed, `core/auth.ts`'s exported `signOut` had zero call sites and the only way to
               revoke a session was deleting its row from the `authjs` collection by hand. */}
-          {showSignOut && (
+          {onSignOut && (
             <>
               <Separator className="my-1" />
               <Dropdown.Section aria-label="Konto">

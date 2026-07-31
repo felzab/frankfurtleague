@@ -12,6 +12,10 @@ export default function ExpandableDescription({ text }: { text: string }) {
   }
 
   return (
+    // A pointer convenience layered over a control that is already fully keyboard-accessible: the
+    // <button> below toggles both directions, so collapsing by clicking the text adds no capability
+    // a keyboard user lacks. Giving this a role would invent a second control for the same action.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="mt-2"
       onClick={() => {

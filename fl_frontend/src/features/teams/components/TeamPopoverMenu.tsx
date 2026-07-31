@@ -42,6 +42,10 @@ export default function TeamPopoverMenu({
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
   return (
+    // Not a control: it stops the card underneath from also reacting when the trigger is pressed.
+    // There is no action here to give a keyboard equivalent to — the trigger inside is a real
+    // <button> — and giving this an interactive role would invent a second, duplicate one.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="contents"
       onClick={(e) => e.stopPropagation()}

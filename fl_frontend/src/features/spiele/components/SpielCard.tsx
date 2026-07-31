@@ -34,6 +34,7 @@ export default function SpielCard({
 
   return (
     <div
+      role="listitem"
       className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4 ${
         spielStatus === "vergangen" ? "opacity-90" : ""
       }`}>

@@ -40,6 +40,10 @@ export default function SpielsucheView({
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center">
+      {/* These routes have no visible page title by design, so the `h1` that anchors the heading
+          list is visually hidden. The text matches the route's own `metadata.title` (R4 §4.2). */}
+      <h1 className="sr-only">Spielsuche</h1>
+
       {/** Search Bar */}
       <div className="bg-background sticky top-0 z-20 flex w-full justify-center px-4 py-4 sm:px-8 lg:py-8">
         <SearchBar
@@ -58,7 +62,9 @@ export default function SpielsucheView({
         ) : filteredResults.length === 0 ? (
           <p className="text-fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Keine Ergebnisse für "{spielQuery}"</p>
         ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-4 max-w-page grid w-full grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            role="list"
+            className="animate-in fade-in slide-in-from-bottom-4 max-w-page grid w-full grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
             <ListComponent
               spiele={filteredResults}
               today={today}

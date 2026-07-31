@@ -21,9 +21,12 @@ export default function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]
   }
 
   return (
-    <div className="max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div
+      role="list"
+      className="max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {teams.map((teamData) => (
         <Link
+          role="listitem"
           key={teamData.id}
           href={`${urlPrefix}/${teamData.id}`}
           className="focus-visible:ring-brand size-full rounded-2xl outline-none focus-visible:ring-1">

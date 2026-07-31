@@ -28,7 +28,7 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
       {/* Header Container */}
       <div className={`${card()} mb-2 flex w-full flex-col items-center p-4 sm:p-6`}>
         <div className="flex w-full flex-row items-center justify-between">
-          <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h3>
+          <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h1>
           <Chip
             size="sm"
             variant="soft"

@@ -15,9 +15,9 @@ export default function AboutView() {
     <div className="relative flex w-full flex-col items-center gap-y-12 text-left">
       {/** Headline */}
       <div className="flex flex-col items-center text-center">
-        <h2 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
+        <h1 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
           About Frankfurt-League
-        </h2>
+        </h1>
         <p className="text-fluid-sm text-field-fg/80 mt-2 font-medium">Alles auf dem Platz – von Schülern, für Schüler.</p>
       </div>
 
@@ -25,7 +25,7 @@ export default function AboutView() {
       <section className="max-w-meta flex w-full flex-col gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-3">
           <StarFill className="size-6 drop-shadow lg:size-7" />
-          <h3 className="text-fluid-lg font-extrabold tracking-wide uppercase">Unser Ziel</h3>
+          <h2 className="text-fluid-lg font-extrabold tracking-wide uppercase">Unser Ziel</h2>
         </div>
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-6 shadow-xl lg:p-8">
@@ -41,7 +41,7 @@ export default function AboutView() {
       <section className="max-w-meta flex w-full flex-col gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-3">
           <Book className="size-6 drop-shadow lg:size-7" />
-          <h3 className="text-fluid-lg font-extrabold tracking-wide uppercase">Das Regelwerk (FAQ)</h3>
+          <h2 className="text-fluid-lg font-extrabold tracking-wide uppercase">Das Regelwerk (FAQ)</h2>
         </div>
 
         {/** Q/A */}
@@ -83,7 +83,14 @@ export default function AboutView() {
             </Card.Title>
           </Card.Header>
           <Card.Content className="p-6">
-            <Suspense fallback={<span className="text-fluid-sm text-field-fg/70">Teams laden...</span>}>
+            <Suspense
+              fallback={
+                <span
+                  role="status"
+                  className="text-fluid-sm text-field-fg/70">
+                  Teams laden...
+                </span>
+              }>
               <ParticipatingTeamsDisplay />
             </Suspense>
           </Card.Content>

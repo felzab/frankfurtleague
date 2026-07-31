@@ -39,7 +39,9 @@ export default async function RecentAndUpcomingSpieleGrid() {
         {upcomingSpieleRes.spiele.length === 0 ? (
           <EmptyState title="Aktuell sind keine Spiele angesetzt." />
         ) : (
-          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div
+            role="list"
+            className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <SpielCardsList
               spiele={upcomingSpieleRes.spiele}
               today={today}
@@ -59,7 +61,9 @@ export default async function RecentAndUpcomingSpieleGrid() {
         {recentSpieleRes.spiele.length === 0 ? (
           <EmptyState title="Es wurde noch kein Spiel ausgetragen." />
         ) : (
-          <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div
+            role="list"
+            className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <SpielCardsList
               spiele={recentSpieleRes.spiele}
               today={today}

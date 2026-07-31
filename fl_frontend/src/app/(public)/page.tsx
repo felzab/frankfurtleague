@@ -115,7 +115,9 @@ export default function LandingPage() {
       <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
         <Suspense
           fallback={
-            <div className="flex w-full justify-center py-20">
+            <div
+              role="status"
+              className="flex w-full justify-center py-20">
               <span className="text-fluid-sm text-foreground-muted animate-pulse italic">Spiele werden geladen...</span>
             </div>
           }>

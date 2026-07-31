@@ -25,6 +25,10 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
   return (
     /** Container for all the groups */
     <div className="relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8">
+      {/* These routes have no visible page title by design, so the `h1` that anchors the heading
+          list is visually hidden. The text matches the route's own `metadata.title` (R4 §4.2). */}
+      <h1 className="sr-only">Saisontabelle</h1>
+
       {
         /** One Table generated for each group */
         typedObjectEntries(gruppenData).map(([group, teamsData]) => (
@@ -33,7 +37,7 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
             className={`${card()} max-w-page mb-6 flex w-full flex-col items-start p-3 sm:p-6`}>
             <div className="flex flex-col gap-1 pb-6">
               <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
-              <h3 className="text-fluid-xl text-foreground font-black tracking-tight">Gruppe {group}</h3>
+              <h2 className="text-fluid-xl text-foreground font-black tracking-tight">Gruppe {group}</h2>
             </div>
 
             <Table

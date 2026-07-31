@@ -10,11 +10,11 @@ import { SidemenuOptionsMenu } from "./SidemenuOptionsMenu";
 export default function SidemenuFooter({
   isDesktopCollapsed,
   onToggleDesktopMenu,
-  showSignOut = false,
+  onSignOut,
 }: {
   isDesktopCollapsed: boolean;
   onToggleDesktopMenu: () => void;
-  showSignOut?: boolean;
+  onSignOut?: () => Promise<void>;
 }) {
   return (
     <div className={`border-border flex flex-col border-t p-3 ${isDesktopCollapsed ? "items-center gap-3" : "gap-1"}`}>
@@ -22,7 +22,7 @@ export default function SidemenuFooter({
           width, which is what keeps the menu inside the sidemenu (standard sidebar-footer pattern). */}
       <SidemenuOptionsMenu
         isDesktopCollapsed={isDesktopCollapsed}
-        showSignOut={showSignOut}
+        onSignOut={onSignOut}
       />
 
       {/* Escape Hatch */}

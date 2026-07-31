@@ -100,7 +100,7 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
 
       {/* Header Info Card */}
       <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4`}>
-        <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h3>
+        <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h1>
 
         {/* Offizieller Schulname. No emptiness guard: both schemas now require it (R3a-B1.3). */}
         <p className="text-fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
@@ -133,7 +133,7 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
 
       {/* Saison Stats Section */}
       <div className="flex flex-col gap-y-4">
-        <h4 className="text-fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h4>
+        <h2 className="text-fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {[
@@ -169,7 +169,7 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
 
       {/* Games Timeline */}
       <div className="mt-4 size-full">
-        <h5 className="text-fluid-lg text-foreground mb-6 font-extrabold tracking-tight">Saisonspiele</h5>
+        <h2 className="text-fluid-lg text-foreground mb-6 font-extrabold tracking-tight">Saisonspiele</h2>
         <SaisonSpieleTimeline
           spiele={teamSpiele}
           teamId={teamData.id}
