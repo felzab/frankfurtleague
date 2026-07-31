@@ -6,6 +6,8 @@ import { Ban } from "@gravity-ui/icons";
 
 import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
 
+import { formButton } from "@/shared/components/ui/formButtons";
+
 import { handleSignIn } from "../actions";
 
 export default function SignInForm() {
@@ -108,7 +110,7 @@ export default function SignInForm() {
                 type="submit"
                 variant="primary"
                 isDisabled={isPending}
-                className="text-fluid-xs sm:text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
+                className={formButton({ intent: "submit", fullWidth: true })}>
                 {isPending ? "Wird gesendet..." : "Link senden"}
               </Button>
             </Form>
@@ -144,7 +146,9 @@ export default function SignInForm() {
                 isDisabled
                 type="submit"
                 variant="primary"
-                className="text-fluid-xs sm:text-fluid-sm border-border bg-surface text-foreground-muted/50 flex w-full cursor-not-allowed items-center justify-center rounded-xl border py-3.5 font-bold uppercase">
+                // Same recipe as the Admin tab: the disabled look is the recipe's own
+                // `disabled:opacity-50`, not a second hand-written "inert" appearance.
+                className={formButton({ intent: "submit", fullWidth: true })}>
                 Link senden
               </Button>
             </Form>
