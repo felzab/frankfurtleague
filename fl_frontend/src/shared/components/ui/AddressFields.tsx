@@ -5,6 +5,7 @@ import { FieldError, Input, Label, TextField } from "@heroui/react";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLAddress } from "@/shared/schemas";
+import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
  * The shared address editor.
@@ -19,11 +20,19 @@ export default function AddressFields({
   value,
   onChange,
   namePrefix = "address",
+  errors,
 }: {
   value: FLAddress;
   onChange: (newValue: FLAddress) => void;
   /** The address object's own path in the payload, so field names match the server's error keys. */
   namePrefix?: string;
+  /**
+   * Server messages keyed by the same dotted path, for the one caller that has no `<Form>` above it:
+   * the inline-create panel renders inside the match form's `<form>` and cannot be one itself, so
+   * `Form`'s `validationErrors` context never reaches it. Everywhere else this stays undefined and
+   * the context does the work — both routes end at the same `<FieldError>` under the same input.
+   */
+  errors?: FieldErrors;
 }) {
   const updateField = (field: keyof FLAddress, newValue: string) => {
     onChange({ ...value, [field]: newValue });
@@ -35,6 +44,7 @@ export default function AddressFields({
         <TextField
           isRequired
           name={`${namePrefix}.strasse`}
+          isInvalid={errors ? !!errors[`${namePrefix}.strasse`] : undefined}
           className="w-2/3">
           <Label className="text-fluid-xs text-foreground font-bold">Straße</Label>
           <Input
@@ -42,11 +52,12 @@ export default function AddressFields({
             onChange={(e) => updateField("strasse", e.target.value)}
             className={FIELD_INPUT}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.strasse`]}</FieldError>
         </TextField>
         <TextField
           isRequired
           name={`${namePrefix}.hausnummer`}
+          isInvalid={errors ? !!errors[`${namePrefix}.hausnummer`] : undefined}
           className="w-1/3">
           <Label className="text-fluid-xs text-foreground font-bold">Nr.</Label>
           <Input
@@ -54,7 +65,7 @@ export default function AddressFields({
             onChange={(e) => updateField("hausnummer", e.target.value)}
             className={FIELD_INPUT}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.hausnummer`]}</FieldError>
         </TextField>
       </div>
 
@@ -62,6 +73,7 @@ export default function AddressFields({
         <TextField
           isRequired
           name={`${namePrefix}.plz`}
+          isInvalid={errors ? !!errors[`${namePrefix}.plz`] : undefined}
           className="w-1/3">
           <Label className="text-fluid-xs text-foreground font-bold">PLZ</Label>
           <Input
@@ -69,11 +81,12 @@ export default function AddressFields({
             onChange={(e) => updateField("plz", e.target.value)}
             className={FIELD_INPUT}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.plz`]}</FieldError>
         </TextField>
         <TextField
           isRequired
           name={`${namePrefix}.stadt`}
+          isInvalid={errors ? !!errors[`${namePrefix}.stadt`] : undefined}
           className="w-2/3">
           <Label className="text-fluid-xs text-foreground font-bold">Stadt</Label>
           <Input
@@ -81,13 +94,14 @@ export default function AddressFields({
             onChange={(e) => updateField("stadt", e.target.value)}
             className={FIELD_INPUT}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.stadt`]}</FieldError>
         </TextField>
       </div>
 
       <TextField
         isRequired
-        name={`${namePrefix}.stadtteil`}>
+        name={`${namePrefix}.stadtteil`}
+        isInvalid={errors ? !!errors[`${namePrefix}.stadtteil`] : undefined}>
         <Label className="text-fluid-xs text-foreground font-bold">Stadtteil</Label>
         <Input
           placeholder="z.B. Nordend"
@@ -95,7 +109,7 @@ export default function AddressFields({
           onChange={(e) => updateField("stadtteil", e.target.value)}
           className={FIELD_INPUT}
         />
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.stadtteil`]}</FieldError>
       </TextField>
     </div>
   );

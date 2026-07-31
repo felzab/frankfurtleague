@@ -360,7 +360,12 @@
    asks of a focus indicator. The solid pair is the app's standard fill-behind-text combination. */
 [data-slot="list-box-item"],
 [data-slot="menu-item"] {
-  &:is(:focus, :focus-visible, [data-focused="true"], [data-focus-visible="true"]) {
+  /* `data-focus-visible` ONLY — deliberately not `data-focused` or `:focus`. react-aria moves the
+     focused key on hover (`useMenuItem`'s `onHoverStart` calls `setFocusedKey`), so matching
+     `data-focused` repainted every menu item, dropdown entry and picker option brand on plain mouse
+     hover. That is a real behaviour change to the whole app's hover language, not a focus style.
+     Hover keeps the `hover:bg-muted` each call site already declares. */
+  &:is(:focus-visible, [data-focus-visible="true"]) {
     --tw-ring-shadow: 0 0 #0000;
     background-color: var(--accent-brand-solid);
     color: var(--fg-on-brand);

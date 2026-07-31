@@ -49,21 +49,28 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
   }
 
   try {
-    // Attempt sign in with Auth.js
-    await signIn("resend", { email: validated.data.email, redirectTo: "/admin" });
+    // `redirect: false` is the other half of NEUTRAL_RESULT, and without it the neutral response was
+    // decorative. With the default, an allowlisted address ends in `redirect()` to
+    // /api/auth/verify-request while a rejected one falls into the AccessDenied branch below and
+    // stays put -- so the browser NAVIGATING was itself the membership oracle this action exists to
+    // close, readable by anyone watching the address bar. `redirect: false` makes `signIn` return
+    // the URL as a string instead (next-auth `lib/actions.js`), which is discarded here: both paths
+    // now end on /signin with the same message, and the caller renders the confirmation itself.
+    // The verification email is still sent -- that happens inside `Auth()`, before this returns.
+    await signIn("resend", { email: validated.data.email, redirect: false });
 
     return settleAfterFloor(startedAt, NEUTRAL_RESULT);
   } catch (error) {
-    // 1. Rethrow Next.js redirects IMMEDIATELY
+    // Kept even though nothing here should redirect any more: `unstable_rethrow` is what stops a
+    // future `redirect()`/`notFound()` from being swallowed by the AuthError branch below.
     unstable_rethrow(error);
 
-    // 2. Handle Auth.js errors -- including AccessDenied from the allowlist check, which must not
-    //    be distinguishable from success. See NEUTRAL_RESULT above.
+    // AccessDenied from the allowlist check lands here, and must not be distinguishable from
+    // success. See NEUTRAL_RESULT above.
     if (error instanceof AuthError) {
       return settleAfterFloor(startedAt, NEUTRAL_RESULT);
     }
 
-    // 3. Fallback for unexpected errors
     throw error;
   }
 }
@@ -84,6 +91,21 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
  * "Abmeldung fehlgeschlagen". Returning normally lets the caller navigate and keeps `catch`
  * meaning what it says.
  */
-export async function signOutAction(): Promise<void> {
-  await signOut({ redirect: false });
+export async function signOutAction(): Promise<FormState> {
+  try {
+    await signOut({ redirect: false });
+
+    return { success: true, message: "Erfolgreich abgemeldet." };
+  } catch (error) {
+    // Same guard as `handleSignIn`, for the same reason: keep a framework redirect from being
+    // reported as a failed sign-out. Nothing on this path redirects today -- `redirect: false` --
+    // but the pairing is what makes the two actions read the same way.
+    unstable_rethrow(error);
+
+    if (error instanceof AuthError) {
+      return { success: false, error: "Abmelden fehlgeschlagen. Bitte versuche es erneut." };
+    }
+
+    throw error;
+  }
 }

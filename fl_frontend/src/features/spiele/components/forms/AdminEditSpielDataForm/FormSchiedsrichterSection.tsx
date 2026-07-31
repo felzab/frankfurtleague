@@ -67,10 +67,11 @@ export default function FormSchiedsrichterSection({
       createHeading="Neuen Schiedsrichter anlegen"
       emptyStateText="Dieser Schiedsrichter existiert noch nicht."
       emptyDraft={EMPTY_DRAFT}
-      renderDraftFields={(draft, setDraft) => (
+      renderDraftFields={(draft, setDraft, errors) => (
         <SchiedsrichterFormFields
           draft={draft}
           onChange={setDraft}
+          errors={errors}
         />
       )}
       onCreate={(draft) =>

@@ -63,10 +63,11 @@ export default function FormSpielortSection({
       createHeading="Neuen Spielort anlegen"
       emptyStateText="Dieser Spielort existiert noch nicht."
       emptyDraft={EMPTY_DRAFT}
-      renderDraftFields={(draft, setDraft) => (
+      renderDraftFields={(draft, setDraft, errors) => (
         <SpielortFormFields
           draft={draft}
           onChange={setDraft}
+          errors={errors}
         />
       )}
       onCreate={(draft) =>

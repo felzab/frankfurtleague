@@ -4,6 +4,7 @@ import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react"
 
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { SchiedsrichterDraft } from "../../types";
 
 /**
@@ -14,16 +15,24 @@ import type { SchiedsrichterDraft } from "../../types";
 export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
   draft,
   onChange,
+  errors,
 }: {
   draft: T;
   onChange: (updatedDraft: T) => void;
+  /**
+   * Server messages keyed by payload path, for the inline-create panel — it renders inside the match
+   * form's `<form>`, so `Form`'s `validationErrors` context cannot reach it. Left undefined by the
+   * `EntityForm` callers, where the context supplies the same messages to the same `<FieldError>`s.
+   */
+  errors?: FieldErrors;
 }) {
   return (
     <>
       {/* 1. Name */}
       <TextField
         isRequired
-        name="name">
+        name="name"
+        isInvalid={errors ? !!errors["name"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Pierluigi Collina"
@@ -31,11 +40,13 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
           className={FIELD_INPUT}
         />
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
       </TextField>
 
       {/* 2. Schule / Verein */}
-      <TextField name="schule">
+      <TextField
+        name="schule"
+        isInvalid={errors ? !!errors["schule"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Schule / Verein </Label>
         <Input
           placeholder="z.B. Goethe-Gymnasium"
@@ -43,13 +54,14 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           onChange={(e) => onChange({ ...draft, schule: e.target.value })}
           className={FIELD_INPUT}
         />
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR}>{errors?.["schule"]}</FieldError>
       </TextField>
 
       {/* 3. E-Mail */}
       <TextField
         type="email"
-        name="kontakt.email">
+        name="kontakt.email"
+        isInvalid={errors ? !!errors["kontakt.email"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">E-Mail </Label>
         <Input
           placeholder="z.B. ref@beispiel.de"
@@ -57,13 +69,14 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           onChange={(e) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: e.target.value } })}
           className={FIELD_INPUT}
         />
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR}>{errors?.["kontakt.email"]}</FieldError>
       </TextField>
 
       {/* 4. Telefon */}
       <TextField
         type="tel"
-        name="kontakt.telefon">
+        name="kontakt.telefon"
+        isInvalid={errors ? !!errors["kontakt.telefon"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Telefon</Label>
         <Input
           placeholder="z.B. 0151 12345678"
@@ -71,7 +84,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           onChange={(e) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: e.target.value } })}
           className={FIELD_INPUT}
         />
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR}>{errors?.["kontakt.telefon"]}</FieldError>
       </TextField>
 
       {/* 5. Standard Honorar */}
@@ -79,6 +92,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         minValue={0}
         isRequired
         name="default_payment"
+        isInvalid={errors ? !!errors["default_payment"] : undefined}
         step={5}
         value={draft.default_payment}
         onChange={(val) =>
@@ -94,7 +108,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           <NumberField.Input className="text-fluid-sm w-full py-0" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR}>{errors?.["default_payment"]}</FieldError>
       </NumberField>
     </>
   );

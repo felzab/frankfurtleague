@@ -5,15 +5,30 @@ import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react"
 import AddressFields from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { SpielortDraft } from "../../types";
 
 /** Field names match their path in the create/patch payload — see `SchiedsrichterFormFields`. */
-export default function SpielortFormFields<T extends SpielortDraft>({ draft, onChange }: { draft: T; onChange: (updatedDraft: T) => void }) {
+export default function SpielortFormFields<T extends SpielortDraft>({
+  draft,
+  onChange,
+  errors,
+}: {
+  draft: T;
+  onChange: (updatedDraft: T) => void;
+  /**
+   * Server messages keyed by payload path, for the inline-create panel — it renders inside the match
+   * form's `<form>`, so `Form`'s `validationErrors` context cannot reach it. Left undefined by the
+   * `EntityForm` callers, where the context supplies the same messages to the same `<FieldError>`s.
+   */
+  errors?: FieldErrors;
+}) {
   return (
     <>
       <TextField
         isRequired
-        name="name">
+        name="name"
+        isInvalid={errors ? !!errors["name"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"
@@ -21,18 +36,20 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
           className={FIELD_INPUT}
         />
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
       </TextField>
 
       <AddressFields
         value={draft.address}
         onChange={(newAddress) => onChange({ ...draft, address: newAddress })}
+        errors={errors}
       />
 
       <NumberField
         minValue={0}
         isRequired
         name="default_mietpreis"
+        isInvalid={errors ? !!errors["default_mietpreis"] : undefined}
         step={5}
         value={draft.default_mietpreis}
         onChange={(val) =>
@@ -48,7 +65,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
           <NumberField.Input className="text-fluid-sm w-full py-0" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR}>{errors?.["default_mietpreis"]}</FieldError>
       </NumberField>
     </>
   );

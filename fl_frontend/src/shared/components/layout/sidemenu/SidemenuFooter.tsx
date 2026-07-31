@@ -7,6 +7,8 @@ import { ArrowRightToSquare, LayoutSideContentLeft, LayoutSideContentRight } fro
 import { IconTooltip } from "../../ui/IconTooltip";
 import { SidemenuOptionsMenu } from "./SidemenuOptionsMenu";
 
+import type { FormState } from "@/shared/types/types";
+
 export default function SidemenuFooter({
   isDesktopCollapsed,
   onToggleDesktopMenu,
@@ -14,7 +16,7 @@ export default function SidemenuFooter({
 }: {
   isDesktopCollapsed: boolean;
   onToggleDesktopMenu: () => void;
-  onSignOut?: () => Promise<void>;
+  onSignOut?: () => Promise<FormState>;
 }) {
   return (
     <div className={`border-border flex flex-col border-t p-3 ${isDesktopCollapsed ? "items-center gap-3" : "gap-1"}`}>

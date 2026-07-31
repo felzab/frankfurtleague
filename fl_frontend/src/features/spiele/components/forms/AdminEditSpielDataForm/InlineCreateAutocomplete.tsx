@@ -5,7 +5,7 @@ import { Check, Plus, Xmark } from "@gravity-ui/icons";
 import { Autocomplete, Button, Description, Label, ListBox, SearchField, toast, useFilter } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { submitInlineOnEnter } from "./suppressEnterSubmit";
@@ -67,7 +67,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   createHeading: string;
   emptyStateText: string;
   emptyDraft: TDraft;
-  renderDraftFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>) => ReactNode;
+  renderDraftFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>, errors: FieldErrors) => ReactNode;
   onCreate: (draft: TDraft) => Promise<CreateResult>;
   /** Turns a just-created draft into a collection item, so it can be shown before the next render. */
   buildCreatedItem: (draft: TDraft, createdId: string) => TItem;
@@ -85,8 +85,9 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   // Records created in this session, still absent from the server-rendered `items`.
   const [createdItems, setCreatedItems] = useState<TItem[]>([]);
   // Rejected-field messages for the inline panel. It renders inside `AdminEditSpielDataForm`'s
-  // <form>, so it cannot be a <form> itself and cannot use `Form`'s `validationErrors` — hence one
-  // region for the panel rather than a message under each input.
+  // <form>, so it cannot be a <form> itself and `Form`'s `validationErrors` context never reaches
+  // it — the draft fields take these as an explicit prop instead, and render exactly the same
+  // `<FieldError>` under exactly the same input as they do in the modal forms.
   const [createErrors, setCreateErrors] = useState<FieldErrors>({});
 
   // Deduplicated on id, so a created record collapses into the real one once the server catches up.
@@ -139,21 +140,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
             </Button>
           </div>
 
-          {renderDraftFields(draft, setDraft)}
-
-          {Object.keys(createErrors).length > 0 && (
-            <div
-              role="alert"
-              className="border-danger/30 bg-danger/5 flex flex-col gap-1 rounded-lg border p-3">
-              {Object.entries(createErrors).map(([field, message]) => (
-                <p
-                  key={field}
-                  className={FIELD_ERROR}>
-                  {message}
-                </p>
-              ))}
-            </div>
-          )}
+          {renderDraftFields(draft, setDraft, createErrors)}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button

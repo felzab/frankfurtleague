@@ -12,6 +12,8 @@ import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOv
 import { IconTooltip } from "../../ui/IconTooltip";
 import ThemeSwitch from "../../ui/ThemeSwitch";
 
+import type { FormState } from "@/shared/types/types";
+
 /**
  * The sidemenu's options menu, opening upward from the footer.
  *
@@ -39,19 +41,28 @@ export function SidemenuOptionsMenu({
    * Injected by the shell that has a session to end — `shared` cannot import from `features`, and
    * its presence is the gate: the dashboard shell passes nothing and gets no sign-out item.
    */
-  onSignOut?: () => Promise<void>;
+  onSignOut?: () => Promise<FormState>;
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
   const [isSigningOut, startSignOut] = useTransition();
   const router = useRouter();
 
-  // The action returns rather than redirecting, so the navigation happens here and `catch` only ever
-  // sees a real failure — see the note on `signOutAction`. `refresh()` is what drops the cached
-  // server render of the admin shell the user was just looking at.
+  // The action returns rather than redirecting, so the navigation happens here — see the note on
+  // `signOutAction`. The toast is fired BEFORE navigating: `Toast.Provider` is mounted once above
+  // the router in `RootProviders`, so it survives the transition, whereas a toast queued after
+  // `push()` races the unmount of this menu and was simply never seen.
   const handleSignOut = () => {
     startSignOut(async () => {
       try {
-        await onSignOut?.();
+        const result = await onSignOut?.();
+
+        if (result && !result.success) {
+          toast.danger(result.error ?? "Abmelden fehlgeschlagen. Bitte versuche es erneut.");
+          return;
+        }
+
+        toast.success(result?.message ?? "Erfolgreich abgemeldet.");
+        // `refresh()` drops the cached server render of the admin shell just left behind.
         router.push("/");
         router.refresh();
       } catch {

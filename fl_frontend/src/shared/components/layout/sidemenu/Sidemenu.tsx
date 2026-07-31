@@ -11,7 +11,7 @@ import SidemenuFooter from "./SidemenuFooter";
 import SidemenuMobileHeader from "./SidemenuMobileHeader";
 import SidemenuNavItem from "./SidemenuNavItem";
 
-import type { SidemenuStructure } from "@/shared/types/types";
+import type { FormState, SidemenuStructure } from "@/shared/types/types";
 
 // Generic over the icon key: the structure and the dictionary are checked against each other, so
 // iconDictionary[iconName] is a total lookup and cannot miss.
@@ -27,7 +27,7 @@ export default function Sidemenu<TIcon extends string>({
   saisonMetadataDisplay: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
   /** Passed to the footer's options menu; only the admin shell supplies one. */
-  onSignOut?: () => Promise<void>;
+  onSignOut?: () => Promise<FormState>;
 }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
