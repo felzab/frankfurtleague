@@ -113,7 +113,7 @@ export function SidemenuOptionsMenu({
               textValue="Modus"
               shouldCloseOnSelect={false}
               data-menu-static="true"
-              className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-[hover=true]:bg-transparent">
+              className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-hovered:bg-transparent!">
               <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
               <ThemeSwitch />
             </Dropdown.Item>
@@ -131,7 +131,7 @@ export function SidemenuOptionsMenu({
                   textValue="Abmelden"
                   isDisabled={isSigningOut}
                   onAction={handleSignOut}
-                  className="data-[hover=true]:bg-danger/10 flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+                  className="data-hovered:bg-danger/10 flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
                   <Label className="text-fluid-sm text-danger min-w-0 flex-1 font-semibold">
                     {isSigningOut ? "Wird abgemeldet..." : "Abmelden"}
                   </Label>

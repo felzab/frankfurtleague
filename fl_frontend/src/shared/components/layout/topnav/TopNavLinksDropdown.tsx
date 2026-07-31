@@ -52,7 +52,7 @@ export default function TopNavLinksDropdown() {
                 id="admin"
                 textValue="Verwalten"
                 href="/admin"
-                className="data-[hover=true]:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+                className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
                 <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Verwalten</Label>
                 <Pencil className="text-foreground-muted size-4" />
               </Dropdown.Item>
@@ -75,7 +75,7 @@ export default function TopNavLinksDropdown() {
                 id="team"
                 textValue="Team"
                 href="/team"
-                className="data-[hover=true]:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+                className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
                 <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Team</Label>
                 <Persons className="text-foreground-muted size-4" />
               </Dropdown.Item>
@@ -84,7 +84,7 @@ export default function TopNavLinksDropdown() {
                 id="kontakt"
                 textValue="Kontakt"
                 href="/kontakt"
-                className="data-[hover=true]:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
+                className="data-hovered:bg-muted flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
                 <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Kontakt</Label>
                 <At className="text-foreground-muted size-4" />
               </Dropdown.Item>
@@ -100,7 +100,7 @@ export default function TopNavLinksDropdown() {
                 textValue="Modus"
                 shouldCloseOnSelect={false}
                 data-menu-static="true"
-                className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-[hover=true]:bg-transparent">
+                className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-hovered:bg-transparent!">
                 <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
                 <ThemeSwitch />
               </Dropdown.Item>

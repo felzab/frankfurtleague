@@ -37,8 +37,8 @@ export default function TeamPopoverMenu({
 
   return (
     // Not a control: it stops the card underneath from also reacting when the trigger is pressed.
-    // There is no action here to give a keyboard equivalent to — the trigger inside is a real
-    // <button> — and giving this an interactive role would invent a second, duplicate one.
+    // There is no action here to give a keyboard equivalent to — `Popover.Trigger` below is the
+    // control — and giving this an interactive role would invent a second, duplicate one.
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="contents"
@@ -60,7 +60,7 @@ export default function TeamPopoverMenu({
 
             That also retires the old `type="button"` note: a div cannot submit a form, so the hazard
             of mounting this inside `AdminEditSpielDataForm` is gone by construction. */}
-        <Popover.Trigger className="hover:text-brand relative flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
+        <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
           <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
         </Popover.Trigger>
 

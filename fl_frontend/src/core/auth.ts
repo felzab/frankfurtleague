@@ -23,6 +23,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Resend({
       from: "no-reply@frankfurtleague.de",
+      // 15 minutes, down from the provider's 24-hour default. A sign-in link is a bearer credential
+      // sitting in an inbox, so the window it is useful in should be the window someone actually
+      // needs to walk from "I asked for a link" to "I clicked it". `LINK_VALIDITY_TEXT` in
+      // `authEmail.ts` states this number to the reader -- keep the two in step.
+      maxAge: 15 * 60,
       /**
        * Replaces Auth.js's stock template, which sends an English subject ("Sign in to …") and a
        * generic body on a German-only site. The message itself lives in `features/auth/email.ts` —

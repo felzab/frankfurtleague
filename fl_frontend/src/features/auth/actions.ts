@@ -20,7 +20,7 @@ const SignInPayloadSchema = z.object({
 // `submittedEmail` is the caller's own input echoed back, which reveals nothing.
 const neutralResult = (submittedEmail: string): FormState => ({
   success: true,
-  message: "Falls diese Adresse freigegeben ist, wurde ein Anmeldelink verschickt.",
+  message: "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs.",
   submittedEmail,
 });
 

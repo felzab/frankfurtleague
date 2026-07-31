@@ -43,7 +43,7 @@ export default function SaisonSelector({ seasons, currentSeason }: { seasons: FL
         onChange={handleSelectionChange}
         className="w-full">
         {/* Sleek, single-layer trigger with interactive border states */}
-        <Select.Trigger className="border-border/60 bg-surface/50 hover:bg-surface hover:border-border data-[open=true]:border-brand data-[open=true]:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-all duration-200">
+        <Select.Trigger className="border-border/60 bg-surface/50 hover:bg-surface hover:border-border aria-expanded:border-brand aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-all duration-200">
           <div className="flex flex-col items-start gap-0.5 text-left">
             {/* Rendered from `activeSaisonId`, NOT from `Select.Value`.
                 `Select.Value` resolves its label out of the react-aria collection, so any render

@@ -32,12 +32,16 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
       <TextField
         isRequired
         name="name"
+        value={draft.name}
+        onChange={(next) => onChange({ ...draft, name: next })}
+        // German replacement for the browser's own required message, which follows the BROWSER's UI
+        // language and cannot be translated by the page. Only reachable because `TextField` owns the
+        // value: with `value` on the inner `<Input>`, react-aria's field state never saw it.
+        validate={(v) => (v.trim().length === 0 ? "Bitte gib einen Namen ein." : null)}
         isInvalid={errors ? !!errors["name"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Pierluigi Collina"
-          value={draft.name}
-          onChange={(e) => onChange({ ...draft, name: e.target.value })}
           className={FIELD_INPUT}
         />
         <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>

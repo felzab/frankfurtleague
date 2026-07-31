@@ -15,6 +15,17 @@
 export const FIELD_INPUT = "border-border bg-surface text-foreground text-fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
 
 /**
+ * The one tab appearance. Both tab strips in the app — the sign-in role picker and the spielplan's
+ * Spieltag bar — are the same control doing the same job, and writing the classes at each site is
+ * how they ended up with different hover states.
+ *
+ * The selected tab is excluded from the hover background on purpose: it already carries
+ * `Tabs.Indicator`, and a second background under a moving indicator reads as a glitch.
+ */
+export const TAB_ITEM =
+  "text-foreground-muted hover:bg-muted/60 hover:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:hover:bg-transparent data-[selected=true]:hover:text-brand-solid-foreground text-fluid-sm rounded-lg font-bold tracking-wide transition-colors";
+
+/**
  * The one field-error appearance. Every `<FieldError>` in the app uses it, so a rejected value looks
  * the same wherever it is rejected — five of the six forms previously had no field-level error
  * surface at all and reported failures only through a toast that named no field (R4 §3.1).

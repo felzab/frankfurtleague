@@ -28,12 +28,14 @@ export default function SpielortFormFields<T extends SpielortDraft>({
       <TextField
         isRequired
         name="name"
+        value={draft.name}
+        onChange={(next) => onChange({ ...draft, name: next })}
+        // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
+        validate={(v) => (v.trim().length === 0 ? "Bitte gib einen Namen ein." : null)}
         isInvalid={errors ? !!errors["name"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"
-          value={draft.name}
-          onChange={(e) => onChange({ ...draft, name: e.target.value })}
           className={FIELD_INPUT}
         />
         <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>

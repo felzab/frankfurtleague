@@ -34,8 +34,11 @@ import "server-only";
 
 const BRAND_NAME = "Frankfurt-League";
 
-/** How long the link stays valid, for the copy only — the real TTL is Auth.js's `maxAge`. */
-const LINK_VALIDITY_TEXT = "24 Stunden";
+/**
+ * How long the link stays valid, for the copy only. The real TTL is the Resend provider's `maxAge`
+ * in `core/auth.ts` — change both together or the email starts lying to the reader.
+ */
+const LINK_VALIDITY_TEXT = "15 Minuten";
 
 /** Deep red from `--accent-brand-solid`. Hardcoded on purpose: CSS variables do not exist in email. */
 const BRAND_COLOR = "#82181a";
@@ -55,7 +58,8 @@ function renderHtml(url: string): string {
       </h1>
       <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#525252;">
         Klicke auf den Button, um dich bei der ${BRAND_NAME}-Verwaltung anzumelden. Der Link ist
-        ${LINK_VALIDITY_TEXT} gültig und kann nur einmal verwendet werden.
+        <strong style="color:#0a0a0a;">${LINK_VALIDITY_TEXT}</strong> gültig und kann nur einmal
+        verwendet werden.
       </p>
       <a href="${url}" style="display:inline-block;background-color:${BRAND_COLOR};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:10px;">
         Jetzt anmelden
@@ -82,6 +86,8 @@ function renderText(url: string): string {
     "",
     `Öffne diesen Link, um dich bei der ${BRAND_NAME}-Verwaltung anzumelden.`,
     `Er ist ${LINK_VALIDITY_TEXT} gültig und kann nur einmal verwendet werden.`,
+    "",
+    "Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.",
     "",
     url,
     "",

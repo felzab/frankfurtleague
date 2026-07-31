@@ -38,33 +38,35 @@ export default function AddressFields({
     onChange({ ...value, [field]: newValue });
   };
 
+  /** German replacement for the browser's own required message, which follows the browser's UI
+   *  language and not the page's. Only reachable because `TextField` owns the value below. */
+  const required = (label: string) => (fieldValue: string) => (fieldValue.trim().length === 0 ? `Bitte gib ${label} ein.` : null);
+
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex gap-3">
         <TextField
           isRequired
           name={`${namePrefix}.strasse`}
+          value={value.strasse}
+          onChange={(next) => updateField("strasse", next)}
+          validate={required("eine Straße")}
           isInvalid={errors ? !!errors[`${namePrefix}.strasse`] : undefined}
           className="w-2/3">
           <Label className="text-fluid-xs text-foreground font-bold">Straße</Label>
-          <Input
-            value={value.strasse}
-            onChange={(e) => updateField("strasse", e.target.value)}
-            className={FIELD_INPUT}
-          />
+          <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.strasse`]}</FieldError>
         </TextField>
         <TextField
           isRequired
           name={`${namePrefix}.hausnummer`}
+          value={value.hausnummer}
+          onChange={(next) => updateField("hausnummer", next)}
+          validate={required("eine Hausnummer")}
           isInvalid={errors ? !!errors[`${namePrefix}.hausnummer`] : undefined}
           className="w-1/3">
           <Label className="text-fluid-xs text-foreground font-bold">Nr.</Label>
-          <Input
-            value={value.hausnummer}
-            onChange={(e) => updateField("hausnummer", e.target.value)}
-            className={FIELD_INPUT}
-          />
+          <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.hausnummer`]}</FieldError>
         </TextField>
       </div>
@@ -73,27 +75,25 @@ export default function AddressFields({
         <TextField
           isRequired
           name={`${namePrefix}.plz`}
+          value={value.plz}
+          onChange={(next) => updateField("plz", next)}
+          validate={required("eine PLZ")}
           isInvalid={errors ? !!errors[`${namePrefix}.plz`] : undefined}
           className="w-1/3">
           <Label className="text-fluid-xs text-foreground font-bold">PLZ</Label>
-          <Input
-            value={value.plz}
-            onChange={(e) => updateField("plz", e.target.value)}
-            className={FIELD_INPUT}
-          />
+          <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.plz`]}</FieldError>
         </TextField>
         <TextField
           isRequired
           name={`${namePrefix}.stadt`}
+          value={value.stadt}
+          onChange={(next) => updateField("stadt", next)}
+          validate={required("eine Stadt")}
           isInvalid={errors ? !!errors[`${namePrefix}.stadt`] : undefined}
           className="w-2/3">
           <Label className="text-fluid-xs text-foreground font-bold">Stadt</Label>
-          <Input
-            value={value.stadt}
-            onChange={(e) => updateField("stadt", e.target.value)}
-            className={FIELD_INPUT}
-          />
+          <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.stadt`]}</FieldError>
         </TextField>
       </div>
@@ -101,12 +101,13 @@ export default function AddressFields({
       <TextField
         isRequired
         name={`${namePrefix}.stadtteil`}
+        value={value.stadtteil}
+        onChange={(next) => updateField("stadtteil", next)}
+        validate={required("einen Stadtteil")}
         isInvalid={errors ? !!errors[`${namePrefix}.stadtteil`] : undefined}>
         <Label className="text-fluid-xs text-foreground font-bold">Stadtteil</Label>
         <Input
           placeholder="z.B. Nordend"
-          value={value.stadtteil}
-          onChange={(e) => updateField("stadtteil", e.target.value)}
           className={FIELD_INPUT}
         />
         <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.stadtteil`]}</FieldError>

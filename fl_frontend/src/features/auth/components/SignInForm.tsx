@@ -7,7 +7,7 @@ import { Ban } from "@gravity-ui/icons";
 import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, TAB_ITEM } from "@/shared/components/ui/formFieldStyles";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { handleSignIn } from "../actions";
@@ -67,14 +67,14 @@ export default function SignInForm() {
             role="status"
             className="flex flex-col items-center gap-y-3 py-6 text-center">
             <span className="text-4xl">📬</span>
-            <p className="text-fluid-base text-foreground font-bold">Anmeldelink angefordert</p>
-            <p className="text-fluid-sm text-foreground-muted font-medium text-pretty">
-              {state?.message ?? "Falls diese Adresse freigegeben ist, wurde ein Anmeldelink verschickt."}
-            </p>
+            <p className="text-fluid-lg text-foreground font-black tracking-tight">Prüfe dein Postfach</p>
 
             {state?.submittedEmail && <p className="text-fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 
-            <p className="text-fluid-xs text-foreground-muted">Der Link ist nur kurze Zeit gültig. Du kannst dieses Fenster offen lassen.</p>
+            <p className="text-fluid-sm text-foreground-muted font-medium text-pretty">
+              {state?.message ?? "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs."}
+            </p>
+            <p className="text-fluid-xs text-foreground-muted">Der Link gilt 15 Minuten und lässt sich nur einmal verwenden.</p>
 
             {/* Without this the only way back to the form was a page reload — the action does not
                 navigate any more, so nothing else resets the view. */}
@@ -96,13 +96,13 @@ export default function SignInForm() {
                 className="flex w-full gap-1">
                 <Tabs.Tab
                   id="Admin"
-                  className="text-fluid-sm text-foreground-muted hover:bg-muted/60 hover:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:hover:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200 data-[selected=true]:hover:bg-transparent">
+                  className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
                   Admin
                   <Tabs.Indicator className="bg-brand-solid/80" />
                 </Tabs.Tab>
                 <Tabs.Tab
                   id="Spieler"
-                  className="text-fluid-sm text-foreground-muted hover:bg-muted/60 hover:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:hover:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200 data-[selected=true]:hover:bg-transparent">
+                  className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
                   Spieler
                   <Tabs.Indicator className="bg-brand-solid/80" />
                 </Tabs.Tab>

@@ -352,6 +352,24 @@
   }
 }
 
+/* The theme switch. HeroUI rings `.switch__control` off the Switch root's focus state, and that ring
+   fired on a plain mouse press — react-aria's focus-visible modality is global, so a press that
+   follows any earlier key press counts as keyboard focus. Rather than chase the modality, the switch
+   opts out of rings entirely and speaks the same language every field-shaped control in this app
+   speaks: a neutral border that turns brand. The row it sits in is a container, not a control, so
+   the affordance belongs here on the switch and nowhere else. */
+[data-slot="switch-control"] {
+  --tw-ring-shadow: 0 0 #0000;
+  border: 1px solid transparent;
+  outline: none;
+  transition: border-color 150ms ease;
+}
+
+[data-slot="switch"]:is(:hover, [data-hovered="true"]) [data-slot="switch-control"],
+[data-slot="switch"]:is(:focus-within, [data-focus-visible="true"]) [data-slot="switch-control"] {
+  border-color: var(--accent-brand);
+}
+
 /* Collection options.
 
    WHY an option lights up at all, since it surprises people: react-aria moves the focused key onto

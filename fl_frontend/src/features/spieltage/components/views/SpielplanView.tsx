@@ -4,6 +4,7 @@ import { Tabs } from "@heroui/react";
 
 import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { TAB_ITEM } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLSpielplan } from "../../schemas";
 
@@ -40,7 +41,7 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
                 key={spieltagData.id}
                 id={spieltagData.id}
                 /* shrink-0 removed! whitespace-nowrap handles the sizing naturally. */
-                className="text-foreground-muted hover:bg-muted/60 hover:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:hover:text-brand-solid-foreground text-fluid-sm flex h-11 items-center rounded-lg px-5 font-bold whitespace-nowrap transition-colors data-[selected=true]:hover:bg-transparent md:px-6">
+                className={`${TAB_ITEM} flex h-11 items-center px-5 whitespace-nowrap md:px-6`}>
                 {spieltagData.name}
                 <Tabs.Indicator className="bg-brand-solid rounded-lg shadow-sm" />
               </Tabs.Tab>
