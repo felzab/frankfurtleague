@@ -44,6 +44,20 @@
     --accent-warn-strong: #b45309;
     --accent-danger-strong: #b91c1c;
 
+    /* Fill-grade companions, in exactly the relationship --accent-brand-solid has to --accent-brand:
+       one deep value that does NOT flip, so a white foreground is legible on it in both themes
+       (ledger NEW-C1). The plain accents above are tuned as tints, and white on them measured
+       3.30:1 light / 2.28:1 dark for success, 1.92 / 1.32 for warning -- the draw badge was very
+       nearly invisible in dark mode. These measure 5.45 / 4.55 / 5.96, identical in both themes.
+       Use `-solid` for an opaque badge behind text, the plain accent for a tint, `-strong` for text
+       on a tint. Re-measure the pair if either half ever changes. */
+    --accent-success-solid: #047857;
+    --accent-warn-solid: #b45309;
+    --accent-danger-solid: #b91c1c;
+    --fg-on-success: #ffffff;
+    --fg-on-warn: #ffffff;
+    --fg-on-danger: #ffffff;
+
     /* Tournament rounds. The four phases are an ordered sequence, not a semantic state, so none of
        the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
        palette. Values are Tailwind's sky/indigo/purple/rose 700 verbatim, i.e. exactly what the chip
@@ -91,6 +105,15 @@
     --accent-warn-strong: #fbbf24;
     --accent-danger-strong: #f87171;
 
+    /* Same values as the light theme, for the same reason --accent-brand-solid does not flip: these
+       are fills carrying white text, so flipping them would break the pair they exist to hold. */
+    --accent-success-solid: #047857;
+    --accent-warn-solid: #b45309;
+    --accent-danger-solid: #b91c1c;
+    --fg-on-success: #ffffff;
+    --fg-on-warn: #ffffff;
+    --fg-on-danger: #ffffff;
+
     /* Tailwind's sky/indigo/purple/rose 400 -- the values the chip's `dark:` escapes used. */
     --accent-phase-group: oklch(74.6% 0.16 232.661);
     --accent-phase-quarter: oklch(67.3% 0.182 276.935);
@@ -132,6 +155,13 @@
   --color-danger-strong: var(--accent-danger-strong);
   --color-success-strong: var(--accent-success-strong);
   --color-info-strong: var(--accent-info-strong);
+  /* Opaque feedback fills and the foreground that goes on them, mirroring brand-solid. */
+  --color-warning-solid: var(--accent-warn-solid);
+  --color-danger-solid: var(--accent-danger-solid);
+  --color-success-solid: var(--accent-success-solid);
+  --color-warning-solid-foreground: var(--fg-on-warn);
+  --color-danger-solid-foreground: var(--fg-on-danger);
+  --color-success-solid-foreground: var(--fg-on-success);
   --color-phase-group: var(--accent-phase-group);
   --color-phase-quarter: var(--accent-phase-quarter);
   --color-phase-semi: var(--accent-phase-semi);

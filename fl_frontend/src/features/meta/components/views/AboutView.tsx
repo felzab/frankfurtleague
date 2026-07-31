@@ -51,7 +51,10 @@ export default function AboutView() {
               key={item.id}
               className="soccer-field-card-bg soccer-field-card-border overflow-hidden rounded-2xl border shadow-xl">
               <Accordion.Heading>
-                <Accordion.Trigger className="text-fluid-base text-field-fg hover:bg-field-fg/5 flex w-full items-center justify-between gap-x-4 p-6 font-bold transition-colors outline-none">
+                {/* Focus shows as a border turning brand (the app's treatment, NEW-F3) — except
+                    here, where the panel is the emerald field and brand dark-red is barely visible
+                    on it. `field-fg` is the token the rest of this surface already reads in. */}
+                <Accordion.Trigger className="text-fluid-base text-field-fg hover:bg-field-fg/5 focus-visible:border-field-fg flex w-full items-center justify-between gap-x-4 border border-transparent p-6 font-bold transition-colors outline-none">
                   <span>{item.q}</span>
 
                   <Accordion.Indicator className="text-field-fg/60 transition-transform duration-200">
@@ -106,7 +109,8 @@ async function ParticipatingTeamsDisplay() {
           teamName={teamData.name}
           teamId={teamData.id}
           teamShorthand={teamData.shorthand}
-          teamIsDisqualified={teamData.is_disqualified}>
+          teamIsDisqualified={teamData.is_disqualified}
+          surface="field">
           <span
             className={`text-fluid-xxs sm:text-fluid-xs text-field-fg hover:scale-hover inline-flex items-center rounded-xl border px-3.5 py-1.5 font-bold tracking-wide uppercase shadow-sm transition-all duration-200 active:scale-95 ${
               teamData.is_disqualified

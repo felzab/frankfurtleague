@@ -22,15 +22,20 @@ import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { FLTeam } from "../../schemas";
 
 function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel[]; teamId: string; onOpenSpiel: (spiel: FLSpiel) => void }) {
-  // Map results to valid semantic colors
+  /**
+   * The W/D/L dots are 10px bold glyphs on an opaque fill, so they need the `-solid` fills rather
+   * than the tint-grade accents (ledger NEW-C1). On the plain accents a white "D" measured 1.92:1
+   * in the light theme and 1.32:1 in dark — the draw marker was effectively invisible. The ring
+   * stays on the tint accent: it is decoration around the dot, not a foreground.
+   */
   const getBadgeColor = (result: FLSpielErgebnisFor) => {
     switch (result) {
       case "W":
-        return "bg-success text-white ring-success/30";
+        return "bg-success-solid text-success-solid-foreground ring-success/30";
       case "D":
-        return "bg-warning text-white ring-warning/30";
+        return "bg-warning-solid text-warning-solid-foreground ring-warning/30";
       case "L":
-        return "bg-danger text-white ring-danger/30";
+        return "bg-danger-solid text-danger-solid-foreground ring-danger/30";
       default:
         return "bg-muted text-foreground-muted ring-border";
     }
