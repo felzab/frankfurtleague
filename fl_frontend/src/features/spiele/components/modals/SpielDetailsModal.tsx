@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 
 import { CircleInfo } from "@gravity-ui/icons";
@@ -37,6 +38,10 @@ export default function SpielDetailsModal({
   // FLAddress, so this query is genuinely different from the other two call sites.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
 
+  // Callback ref, not `useRef`: the popovers need the node during render, and a `useRef` is still
+  // null on the render that mounts it. See TeamPopoverMenu's `portalContainer` for why this exists.
+  const [popoverContainer, setPopoverContainer] = useState<HTMLDivElement | null>(null);
+
   return (
     <Modal.Backdrop
       isOpen={isOpen}
@@ -50,6 +55,16 @@ export default function SpielDetailsModal({
         {/* No `aria-label`: it outranked the heading, so opening a match announced
             "Spieldetails-Dialog" and never said which match (R4 §1.1). `Modal.Heading` below names
             the dialog "Spiel Nr. 42", which is the one thing it exists to convey. */}
+        {/* The team popovers portal in here rather than into `document.body`, so their position is
+            measured against this fixed overlay instead of against the scrolled document. It sits
+            OUTSIDE `Modal.Dialog` because HeroUI's default `scroll: "inside"` gives the dialog
+            `overflow: clip`, which would cut the popover off. `pointer-events-auto` undoes
+            `.modal__container`'s `pointer-events: none`, which the popover would otherwise inherit.
+            Empty and zero-sized, so it changes no layout. */}
+        <div
+          ref={setPopoverContainer}
+          className="pointer-events-auto"
+        />
         <Modal.Dialog className="border-border bg-surface rounded-2xl border p-6 shadow-sm">
           {spielData && (
             <>
@@ -83,7 +98,8 @@ export default function SpielDetailsModal({
                     teamId={spielData.team1.team_id}
                     teamShorthand={spielData.team1.shorthand}
                     teamIsDisqualified={false}
-                    placement="top">
+                    placement="top"
+                    portalContainer={popoverContainer}>
                     <span className="text-fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">
                       {spielData.team1.name}
                     </span>
@@ -95,7 +111,8 @@ export default function SpielDetailsModal({
                     teamId={spielData.team2.team_id}
                     teamShorthand={spielData.team2.shorthand}
                     teamIsDisqualified={false}
-                    placement="top">
+                    placement="top"
+                    portalContainer={popoverContainer}>
                     <span className="text-fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">
                       {spielData.team2.name}
                     </span>

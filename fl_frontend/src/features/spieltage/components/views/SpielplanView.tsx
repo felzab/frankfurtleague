@@ -4,7 +4,7 @@ import { Tabs } from "@heroui/react";
 
 import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
-import { TAB_ITEM } from "@/shared/components/ui/formFieldStyles";
+import { TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLSpielplan } from "../../schemas";
 
@@ -33,7 +33,8 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
 
       <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
         {/* The width boundaries for mobile vs desktop */}
-        <Tabs.List className="scrollbar-hide border-border bg-surface lg:max-w-toolbar flex w-full max-w-full flex-row items-center gap-1 overflow-x-auto rounded-xl border p-1.5 shadow-sm lg:w-[90%]">
+        <Tabs.List
+          className={`${TAB_TRACK} scrollbar-hide lg:max-w-toolbar flex w-full max-w-full flex-row items-center gap-1 overflow-x-auto p-1.5 shadow-sm lg:w-[90%]`}>
           {/** Tab options */}
           {spielplanData?.spieltage.map((spieltagData) => {
             return (
@@ -55,10 +56,15 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
         <Tabs.Panel
           key={spieltagData.id}
           id={spieltagData.id}
-          className="animate-in fade-in slide-in-from-bottom-4 max-w-page w-full px-4 pt-0 pb-4 duration-400 outline-none sm:px-8">
+          className="max-w-page w-full px-4 pt-0 pb-4 outline-none sm:px-8">
+          {/* The entry animation lives here and NOT on `Tabs.Panel`. RAC keeps a deselected panel
+              mounted until `panel.getAnimations()` all settle (`useExitAnimation`), and
+              `getAnimations()` does not look at descendants — so an `animate-in` on the panel itself
+              made a fast tab switch hold the previous panel on screen for the rest of its 400ms
+              enter animation, which is the leftover-cards flicker. Identical visually. */}
           <div
             role="list"
-            className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            className="animate-in fade-in slide-in-from-bottom-4 grid w-full grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
             {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}

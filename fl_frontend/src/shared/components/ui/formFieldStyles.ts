@@ -21,9 +21,20 @@ export const FIELD_INPUT = "border-border bg-surface text-foreground text-fluid-
  *
  * The selected tab is excluded from the hover background on purpose: it already carries
  * `Tabs.Indicator`, and a second background under a moving indicator reads as a glitch.
+ *
+ * Hover LIFTS to `bg-surface` rather than darkening, because the track itself is the recessed
+ * `bg-muted` (see `TAB_TRACK`). A darkening hover is invisible on a `bg-muted` track, which is
+ * exactly how the two strips came to look different despite sharing this constant.
+ *
+ * `data-hovered:`, not `hover:` — these are react-aria components, and `useHover` ignores the
+ * emulated mouse events a touch device fires, so `data-hovered` clears after a tap where `:hover`
+ * sticks until the user taps something else.
  */
 export const TAB_ITEM =
-  "text-foreground-muted hover:bg-muted/60 hover:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:hover:bg-transparent data-[selected=true]:hover:text-brand-solid-foreground text-fluid-sm rounded-lg font-bold tracking-wide transition-colors";
+  "text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-transparent data-[selected=true]:data-hovered:text-brand-solid-foreground text-fluid-sm rounded-lg font-bold tracking-wide transition-colors";
+
+/** The recessed track both tab strips sit in. Paired with `TAB_ITEM`'s lifting hover. */
+export const TAB_TRACK = "border-border bg-muted rounded-xl border";
 
 /**
  * The one field-error appearance. Every `<FieldError>` in the app uses it, so a rejected value looks

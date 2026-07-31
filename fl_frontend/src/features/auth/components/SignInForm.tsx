@@ -7,7 +7,7 @@ import { Ban } from "@gravity-ui/icons";
 import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, TAB_ITEM } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { handleSignIn } from "../actions";
@@ -90,7 +90,7 @@ export default function SignInForm() {
           <Tabs
             defaultSelectedKey="Admin"
             className="w-full">
-            <Tabs.ListContainer className="border-border bg-muted mb-6 rounded-xl border p-1">
+            <Tabs.ListContainer className={`${TAB_TRACK} mb-6 p-1`}>
               <Tabs.List
                 aria-label="Rolle auswählen"
                 className="flex w-full gap-1">

@@ -31,7 +31,6 @@ export default function SpielortFormFields<T extends SpielortDraft>({
         value={draft.name}
         onChange={(next) => onChange({ ...draft, name: next })}
         // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
-        validate={(v) => (v.trim().length === 0 ? "Bitte gib einen Namen ein." : null)}
         isInvalid={errors ? !!errors["name"] : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
