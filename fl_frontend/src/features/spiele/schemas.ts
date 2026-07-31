@@ -65,3 +65,25 @@ export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
   spiele: z.array(FLSpielSchema),
 });
 export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
+
+/**
+ * The admin edit payload, composed from the field schemas above rather than redeclaring them, so
+ * the write shape cannot drift from the read shape. It lived in `features/admin` until the write
+ * path moved here (ledger NEW-F9); the composition is now intra-slice, which is what made the move
+ * worth doing.
+ */
+export const FLPatchSpielDataPayloadSchema = z.object({
+  datum: CustomDateStringSchema.nullable(),
+  uhrzeit: CustomTimeStringSchema.nullable(),
+
+  ort: FLSpielOrtFieldSchema.nullable(),
+  schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
+
+  team1: FLSpielTeamFieldSchema,
+  team2: FLSpielTeamFieldSchema,
+
+  spiel_id: CustomObjectIdStringSchema,
+  is_canceled: z.boolean(),
+});
+
+export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSchema>;

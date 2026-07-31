@@ -1,24 +1,42 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
 
 import { patchAdminSpielDataAction } from "../../../actions";
-import { useAdmin } from "../../providers/AdminContextProvider";
 import FormDateTimeSection from "./FormDateTimeSection";
 import FormMatchupSection from "./FormMatchupSection";
 import FormSchiedsrichterSection from "./FormSchiedsrichterSection";
 import FormSpielortSection from "./FormSpielortSection";
 
+import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpiel, FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLTeam } from "@/features/teams/schemas";
 
-export default function AdminEditSpielDataForm({ spielData, onClose }: { spielData: FLSpiel; onClose: () => void }) {
-  const adminData = useAdmin();
-
-  const [state, formAction, isPending] = useActionState(patchAdminSpielDataAction, null);
+/**
+ * The lookup lists arrive as props rather than from `useAdmin()`. They are only ever available on
+ * admin routes, but reading the context here would make `spiele` depend on `admin` — the exact
+ * direction the write path was moved out of `admin` to avoid. The aggregator supplies them
+ * instead, which is what an aggregator slice is for.
+ */
+export default function AdminEditSpielDataForm({
+  spielData,
+  teams,
+  spielorte,
+  schiedsrichter,
+  onClose,
+}: {
+  spielData: FLSpiel;
+  teams: FLTeam[];
+  spielorte: FLSpielort[];
+  schiedsrichter: FLSchiedsrichter[];
+  onClose: () => void;
+}) {
+  const [isPending, startTransition] = useTransition();
 
   const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtField | null>(spielData.ort);
@@ -27,16 +45,15 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
-  useEffect(() => {
-    if (state?.success) {
-      toast.success(state.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
-      onClose();
-    } else if (state?.error) {
-      toast.danger(state.error || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 });
-    }
-  }, [state, onClose]);
-
   const handleFormSubmit = (formData: FormData) => {
+    // Both teams are required by the payload schema, but the Autocomplete's clear button can empty
+    // them. Without this the submit failed server-side with the generic "check your input" toast,
+    // which named no field.
+    if (!team1Payload || !team2Payload) {
+      toast.danger("Bitte wähle beide Teams aus.", { timeout: 6000 });
+      return;
+    }
+
     const payload = {
       spiel_id: spielData.id,
       is_canceled: spielIsCanceled,
@@ -51,7 +68,19 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       team2: team2Payload,
     };
 
-    formAction(payload);
+    startTransition(async () => {
+      const res = await patchAdminSpielDataAction(payload);
+
+      if (!res.success) {
+        toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
+          timeout: 6000,
+        });
+        return;
+      }
+
+      toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
+      onClose();
+    });
   };
 
   return (
@@ -86,14 +115,14 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
 
       {/** Spielort */}
       <FormSpielortSection
-        spielorte={adminData.spielorte}
+        spielorte={spielorte}
         ortPayload={ortPayload}
         onOrtChange={setOrtPayload}
       />
 
       {/** Schiedsrichter */}
       <FormSchiedsrichterSection
-        schiedsrichter={adminData.schiedsrichter}
+        schiedsrichter={schiedsrichter}
         schiedsrichterPayload={schiedsrichterPayload}
         onSchiedsrichterChange={setSchiedsrichterPayload}
       />
@@ -102,7 +131,7 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
 
       {/** Team1 vs. Team2 */}
       <FormMatchupSection
-        teams={adminData.teams}
+        teams={teams}
         team1Payload={team1Payload}
         onTeam1Change={setTeam1Payload}
         team2Payload={team2Payload}

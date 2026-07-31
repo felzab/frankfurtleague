@@ -6,7 +6,7 @@ import { Autocomplete, Button, Description, Label, ListBox, SearchField, toast, 
 
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
-import { formPanel, overlayPanel } from "@/shared/components/ui/formPanel";
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { submitInlineOnEnter } from "./suppressEnterSubmit";
 
@@ -86,7 +86,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   const showStickyFooter = searchQuery.trim() === "" ? items.length > 0 : items.some((item) => contains(item.name, searchQuery));
 
   return (
-    <div className={`${formPanel()} gap-y-4`}>
+    <div className="flex w-full flex-col gap-y-4">
       {isCreatingInline ? (
         <div
           className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400"

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Description, Label, NumberField, Separator, Switch } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
-import { formPanel } from "@/shared/components/ui/formPanel";
+import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -55,8 +55,10 @@ export default function FormMatchupSection({
 
   return (
     <div
-      className={`${formPanel()} gap-y-6`}
+      className="flex w-full flex-col gap-y-6"
       onKeyDownCapture={suppressEnterSubmit}>
+      <h3 className={FORM_SECTION_HEADING}>Begegnung</h3>
+
       {/** Team 1 */}
       <FormTeamPicker
         label="Team1"
@@ -128,23 +130,32 @@ export default function FormMatchupSection({
       </NumberField>
 
       {/** Ergebniskontrolle */}
-      <div className={`${formPanel()} items-center gap-y-2 text-center`}>
-        <h4 className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Ergebniskontrolle</h4>
+      <div className="flex w-full flex-col items-center gap-y-2 text-center">
+        <h4 className={FORM_SECTION_HEADING}>Ergebniskontrolle</h4>
 
-        <div className="flex w-full items-center justify-center gap-x-3 py-1">
-          <span
-            className={`text-fluid-sm max-w-[120px] truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground/80"}`}>
-            {team1Name}
+        {/* Same equal-track grid as SpielCardUltraCompact's pill: both 1fr columns resolve to the
+            wider name's width, so the score stays centred however the two names differ. A flex row
+            sized both cells intrinsically and let the score drift off-centre. */}
+        <div className="bg-background border-border grid w-fit max-w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
+          <span className="flex min-w-0 justify-end">
+            <strong
+              className={`text-fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground"}`}>
+              {team1Name}
+            </strong>
           </span>
 
           <span
-            className={`bg-muted border-border text-fluid-base rounded-lg border px-3 py-1 font-mono font-extrabold shadow-sm ${isNaN(team1Tore) || isNaN(team2Tore) ? "text-danger" : "text-success"}`}>
+            className={`text-fluid-xs rounded-md px-1.5 py-0.5 text-center font-extrabold ${
+              isNaN(team1Tore) || isNaN(team2Tore) ? "bg-danger/15 text-danger-strong" : "bg-success/15 text-success-strong"
+            }`}>
             {isNaN(team1Tore) ? "-" : team1Tore} : {isNaN(team2Tore) ? "-" : team2Tore}
           </span>
 
-          <span
-            className={`text-fluid-sm max-w-[120px] truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground/80"}`}>
-            {team2Name}
+          <span className="flex min-w-0 justify-start">
+            <strong
+              className={`text-fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground"}`}>
+              {team2Name}
+            </strong>
           </span>
         </div>
 

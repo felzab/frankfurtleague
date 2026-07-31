@@ -6,7 +6,7 @@ import { Autocomplete, Description, Input, Label, ListBox, SearchField, TextFiel
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
 import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
-import { formPanel, overlayPanel } from "@/shared/components/ui/formPanel";
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
@@ -42,7 +42,11 @@ export function FormTeamPicker({
         team_id: resolvedTeam.id,
         shorthand: resolvedTeam.shorthand,
         name: resolvedTeam.shorthand === TBD_TEAM_SHORTHAND ? tbdTeamName : resolvedTeam.name,
-        tore: teamPayload?.tore ?? NaN,
+        // `null`, never NaN: the schema accepts a nullable int, and an unplayed Spiel carries
+        // `tore: null`. Defaulting to NaN put a value in the payload that can never validate, so
+        // changing a team on an unplayed Spiel failed with the generic error toast. NaN belongs in
+        // the NumberField's `value` (an empty field), not in what gets submitted.
+        tore: teamPayload?.tore ?? null,
       });
     }
   };
@@ -59,7 +63,7 @@ export function FormTeamPicker({
   };
 
   return (
-    <div className={`${formPanel()} gap-y-4`}>
+    <div className="flex w-full flex-col gap-y-4">
       <Autocomplete
         isRequired
         name={`${label}UI`}

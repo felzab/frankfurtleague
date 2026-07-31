@@ -2,7 +2,8 @@ import { parseDate, parseTime } from "@internationalized/date";
 
 import { Calendar, DateField, DatePicker, Description, Label, TimeField } from "@heroui/react";
 
-import { formPanel, overlayPanel } from "@/shared/components/ui/formPanel";
+import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
@@ -11,8 +12,10 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
   return (
     <div
-      className={`${formPanel()} gap-y-4`}
+      className="flex w-full flex-col gap-y-4"
       onKeyDownCapture={suppressEnterSubmit}>
+      <h3 className={FORM_SECTION_HEADING}>Termin</h3>
+
       {/** Spieldatum */}
       <DatePicker
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
@@ -22,7 +25,17 @@ export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel 
         <DateField.Group
           fullWidth
           className="border-border bg-surface text-foreground rounded-lg border">
-          <DateField.Input className="text-fluid-sm">{(segment) => <DateField.Segment segment={segment} />}</DateField.Input>
+          {/* HeroUI styles literal segments (the "." and ":") with `text-muted`, which is a
+              *background* token -- about 1.1:1 against the field surface, so the separators were
+              effectively invisible. `data-type` comes from react-aria on every segment. */}
+          <DateField.Input className="text-fluid-sm">
+            {(segment) => (
+              <DateField.Segment
+                segment={segment}
+                className="data-[type=literal]:text-foreground-muted"
+              />
+            )}
+          </DateField.Input>
           <DateField.Suffix>
             <DatePicker.Trigger>
               <DatePicker.TriggerIndicator />
@@ -61,7 +74,14 @@ export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel 
         defaultValue={spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null}>
         <Label className="text-fluid-xs text-foreground font-bold">Uhrzeit</Label>
         <TimeField.Group className="border-border bg-surface text-foreground rounded-lg border">
-          <TimeField.Input className="text-fluid-sm">{(segment) => <TimeField.Segment segment={segment} />}</TimeField.Input>
+          <TimeField.Input className="text-fluid-sm">
+            {(segment) => (
+              <TimeField.Segment
+                segment={segment}
+                className="data-[type=literal]:text-foreground-muted"
+              />
+            )}
+          </TimeField.Input>
         </TimeField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Die Uhrzeit des Anpfiffs</Description>
       </TimeField>
