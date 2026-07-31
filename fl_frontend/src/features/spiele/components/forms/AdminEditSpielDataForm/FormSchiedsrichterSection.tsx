@@ -10,7 +10,6 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 import type { FLKontakt } from "@/shared/schemas";
-import type { Key } from "@heroui/react";
 
 type SchiedsrichterDraft = { name: string; schule: string; kontakt: FLKontakt; default_payment: number };
 
@@ -30,20 +29,17 @@ export default function FormSchiedsrichterSection({
   schiedsrichterPayload: FLSpielSchiedsrichterFieldDraft | null;
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
 }) {
-  const handleSchiedsrichterChange = (key: Key | null) => {
-    if (!key) {
-      onSchiedsrichterChange(null);
-      return;
-    }
-
-    const resolvedSchiedsrichter = schiedsrichter.find((s: FLSchiedsrichter) => s.id === key);
-    if (resolvedSchiedsrichter) {
-      onSchiedsrichterChange({
-        schiedsrichter_id: resolvedSchiedsrichter.id,
-        name: resolvedSchiedsrichter.name,
-        payment: resolvedSchiedsrichter.default_payment,
-      });
-    }
+  // The picker hands over the resolved record — see the note on `FormSpielortSection`.
+  const handleSchiedsrichterChange = (resolved: FLSchiedsrichter | null) => {
+    onSchiedsrichterChange(
+      resolved
+        ? {
+            schiedsrichter_id: resolved.id,
+            name: resolved.name,
+            payment: resolved.default_payment,
+          }
+        : null,
+    );
   };
 
   // An emptied currency field arrives as NaN and must stay empty. Coercing it to 0 here is what let

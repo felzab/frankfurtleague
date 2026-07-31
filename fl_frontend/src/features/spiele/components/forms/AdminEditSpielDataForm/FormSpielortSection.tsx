@@ -11,7 +11,6 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLAddress } from "@/shared/schemas";
-import type { Key } from "@heroui/react";
 
 type SpielortDraft = { name: string; address: FLAddress; default_mietpreis: number };
 
@@ -30,21 +29,20 @@ export default function FormSpielortSection({
   ortPayload: FLSpielOrtFieldDraft | null;
   onOrtChange: (payload: FLSpielOrtFieldDraft | null) => void;
 }) {
-  const handleOrtChange = (key: Key | null) => {
-    if (!key) {
-      onOrtChange(null);
-      return;
-    }
-
-    const resolvedOrt = spielorte.find((o: FLSpielort) => o.id === key);
-    if (resolvedOrt) {
-      onOrtChange({
-        spielort_id: resolvedOrt.id,
-        name: resolvedOrt.name,
-        maps_link: resolvedOrt.maps_link,
-        mietpreis: resolvedOrt.default_mietpreis,
-      });
-    }
+  // The picker hands over the resolved record. Looking it up here against `spielorte` would miss a
+  // Spielort just created inline, which lives only in the picker's own list until the next server
+  // render — the lookup silently failed and the "und zugewiesen" toast was a lie.
+  const handleOrtChange = (resolvedOrt: FLSpielort | null) => {
+    onOrtChange(
+      resolvedOrt
+        ? {
+            spielort_id: resolvedOrt.id,
+            name: resolvedOrt.name,
+            maps_link: resolvedOrt.maps_link,
+            mietpreis: resolvedOrt.default_mietpreis,
+          }
+        : null,
+    );
   };
 
   // NaN is an emptied field, not a zero price — see the note on `FormSchiedsrichterSection`.

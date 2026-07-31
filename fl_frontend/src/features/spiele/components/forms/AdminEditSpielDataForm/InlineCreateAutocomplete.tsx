@@ -5,16 +5,17 @@ import { Check, Plus, Xmark } from "@gravity-ui/icons";
 import { Autocomplete, Button, Description, Label, ListBox, SearchField, toast, useFilter } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { submitInlineOnEnter } from "./suppressEnterSubmit";
 
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { Key } from "@heroui/react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 /** What the `post*Action` server actions return. */
-type CreateResult = { success: boolean; created_id?: string | null; message?: string; error?: string };
+type CreateResult = { success: boolean; created_id?: string | null; message?: string; error?: string; fieldErrors?: FieldErrors };
 
 /**
  * The pick-or-create-inline control, once. `FormSchiedsrichterSection` and `FormSpielortSection`
@@ -56,7 +57,12 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   name: string;
   items: TItem[];
   selectedId: string | null;
-  onSelect: (key: Key | null) => void;
+  /**
+   * Receives the resolved item, not the key. The caller cannot do that lookup itself: a record
+   * created inline exists only in this component's `createdItems` until the next server render, so
+   * resolving against the caller's own list would silently miss it — and did.
+   */
+  onSelect: (item: TItem | null) => void;
   description: string;
   createHeading: string;
   emptyStateText: string;
@@ -78,6 +84,10 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   const [draft, setDraft] = useState<TDraft>(emptyDraft);
   // Records created in this session, still absent from the server-rendered `items`.
   const [createdItems, setCreatedItems] = useState<TItem[]>([]);
+  // Rejected-field messages for the inline panel. It renders inside `AdminEditSpielDataForm`'s
+  // <form>, so it cannot be a <form> itself and cannot use `Form`'s `validationErrors` — hence one
+  // region for the panel rather than a message under each input.
+  const [createErrors, setCreateErrors] = useState<FieldErrors>({});
 
   // Deduplicated on id, so a created record collapses into the real one once the server catches up.
   const options = [...createdItems.filter((created) => !items.some((item) => item.id === created.id)), ...items];
@@ -87,6 +97,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
       const res = await onCreate(draft);
 
       if (!res.success || !res.created_id) {
+        setCreateErrors(res.fieldErrors ?? {});
         toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
         return;
       }
@@ -97,7 +108,8 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
       setIsCreatingInline(false);
       setSearchQuery("");
       setDraft(emptyDraft);
-      onSelect(createdItem.id);
+      setCreateErrors({});
+      onSelect(createdItem);
 
       toast.success(res.message || createdToast);
     });
@@ -128,6 +140,20 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
           </div>
 
           {renderDraftFields(draft, setDraft)}
+
+          {Object.keys(createErrors).length > 0 && (
+            <div
+              role="alert"
+              className="border-danger/30 bg-danger/5 flex flex-col gap-1 rounded-lg border p-3">
+              {Object.entries(createErrors).map(([field, message]) => (
+                <p
+                  key={field}
+                  className={FIELD_ERROR}>
+                  {message}
+                </p>
+              ))}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
@@ -161,7 +187,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
             placeholder={label}
             selectionMode="single"
             value={selectedId}
-            onChange={onSelect}>
+            onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
             <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
             <Autocomplete.Trigger className={FIELD_INPUT}>
               <Autocomplete.Value className="text-fluid-sm" />

@@ -34,12 +34,11 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
         isRequired
         name="default_mietpreis"
         step={5}
-        value={draft.default_mietpreis ?? NaN}
-        // An emptied field stays empty rather than becoming 0 — see `SchiedsrichterFormFields`.
+        value={draft.default_mietpreis}
         onChange={(val) =>
           onChange({
             ...draft,
-            default_mietpreis: val === undefined || isNaN(val) ? null : val,
+            default_mietpreis: val === undefined || isNaN(val) ? 0 : val,
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>

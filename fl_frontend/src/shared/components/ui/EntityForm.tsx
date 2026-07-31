@@ -41,7 +41,9 @@ export function EntityForm<TDraft>({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
-  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors();
+  // Fires when the server rejected a path no field renders — without it the submit would fail in
+  // complete silence, because the toast below is suppressed whenever `fieldErrors` is non-empty.
+  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() => toast.danger("Ein unerwarteter Fehler ist aufgetreten."));
 
   const handleSubmit = () => {
     startTransition(async () => {

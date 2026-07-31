@@ -5,7 +5,7 @@ import { CustomObjectIdStringSchema, FLKontaktSchema } from "@/shared/schemas";
 
 export const FLPostSchiedsrichterPayloadSchema = z.object({
   name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
-  default_payment: z.int().nonnegative({ error: "Bitte gib ein Standard-Honorar ein." }),
+  default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
   kontakt: FLKontaktSchema,
   schule: z.string().nullable(),
 });
@@ -14,7 +14,7 @@ export type FLPostSchiedsrichterPayload = z.infer<typeof FLPostSchiedsrichterPay
 export const FLPatchSchiedsrichterPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
-  default_payment: z.int().nonnegative({ error: "Bitte gib ein Standard-Honorar ein." }),
+  default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
   kontakt: FLKontaktSchema,
   schule: z.string().nullable(),
 });

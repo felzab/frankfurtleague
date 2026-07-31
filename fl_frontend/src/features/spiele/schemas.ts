@@ -20,14 +20,17 @@ export const FLSpielOrtFieldSchema = z.object({
   spielort_id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
   maps_link: z.string().nonempty(),
-  mietpreis: z.int().nonnegative({ error: "Bitte gib einen Mietpreis ein." }),
+  // The message goes on the TYPE check, not on `nonnegative()`: the reachable failure is a cleared
+  // field arriving as `null`, and every one of these inputs has `minValue={0}`, so a negative number
+  // never gets here.
+  mietpreis: z.int({ error: "Bitte gib einen Mietpreis ein." }).nonnegative({ error: "Der Mietpreis darf nicht negativ sein." }),
 });
 export type FLSpielOrtField = z.infer<typeof FLSpielOrtFieldSchema>;
 
 export const FLSpielSchiedsrichterFieldSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
-  payment: z.int().nonnegative({ error: "Bitte gib eine Entschädigung ein." }),
+  payment: z.int({ error: "Bitte gib eine Entschädigung ein." }).nonnegative({ error: "Die Entschädigung darf nicht negativ sein." }),
 });
 export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFieldSchema>;
 

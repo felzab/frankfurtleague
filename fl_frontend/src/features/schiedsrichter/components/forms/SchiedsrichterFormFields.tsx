@@ -80,13 +80,11 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         isRequired
         name="default_payment"
         step={5}
-        value={draft.default_payment ?? NaN}
-        // NaN is an emptied field, kept as `null` rather than coerced to 0 — the same defect as the
-        // match form's Honorar/Mietpreis (R4 §3.1). `isRequired` blocks the submit and names it.
+        value={draft.default_payment}
         onChange={(val) =>
           onChange({
             ...draft,
-            default_payment: val === undefined || isNaN(val) ? null : val,
+            default_payment: val === undefined || isNaN(val) ? 0 : val,
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>

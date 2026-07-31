@@ -46,7 +46,10 @@ export default function AdminEditSpielDataForm({
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
-  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors();
+  // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
+  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
+    toast.danger("Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 }),
+  );
 
   const handleFormSubmit = (formData: FormData) => {
     // Both teams are required by the payload schema, but the Autocomplete's clear button can empty

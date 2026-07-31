@@ -6,12 +6,11 @@ import type { FLPostSchiedsrichterPayload } from "./schemas";
  * Derived from the payload schema the server action validates, rather than restated — the two were
  * a near-copy of each other and could drift apart silently.
  *
- * `default_payment` widens to `number | null`, and only here: an emptied currency field is empty,
- * not zero. Coercing it back to 0 at the input is what let a cleared Honorar submit as 0 € in
- * silence (ledger R4-3.1). The payload schema still requires a number, so clearing it fails
- * validation with a message on the field instead.
+ * `default_payment` stays a plain number. 0 € is a legitimate standard honorar (a volunteer), the
+ * field is `isRequired`, and the "emptied field must not become 0" rule applies to the MATCH-level
+ * override in `spiele/schemas.ts` — not to an entity default.
  */
-export type SchiedsrichterDraft = Omit<FLPostSchiedsrichterPayload, "default_payment"> & { default_payment: number | null };
+export type SchiedsrichterDraft = FLPostSchiedsrichterPayload;
 
 export type FLSchiedsrichterSortingOptions = "name" | "default_payment";
 
