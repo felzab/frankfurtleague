@@ -324,18 +324,46 @@
 [data-slot="autocomplete-trigger"],
 [data-slot="select-trigger"],
 [data-slot="combo-box-input-group"] {
-  &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]) {
+  /* `:not([data-invalid="true"])` matters: HeroUI marks a rejected field with a danger outline and
+     upgrades it to a danger ring while focused. Without the guard this rule stripped both and
+     painted the border brand — and it did so at the exact moment `useServerFieldErrors` moves focus
+     into the rejected field, so a field the server had just refused looked normally focused. */
+  &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
+      [data-invalid="true"]
+    ) {
     --tw-ring-shadow: 0 0 #0000;
     border-color: var(--accent-brand);
     outline: none;
   }
+
+  /* A rejected field says so with its border, focused or not — same language as the brand border,
+     different colour, so the two states are told apart by hue rather than by shape. */
+  &[data-invalid="true"] {
+    --tw-ring-shadow: 0 0 #0000;
+    border-color: var(--accent-danger);
+    outline: none;
+  }
+
+  /* The indicator chevron inside a picker is a real react-aria Button and is the field's own focus
+     target, so it drew the base-layer outline as a floating box in the middle of the field while
+     the field border was already brand — two indicators for one control. The field owns the
+     affordance; its inner trigger must not add a second. */
+  & :is([data-slot$="-indicator"], [data-slot$="-default-indicator"]):focus-visible {
+    outline: none;
+  }
 }
 
+/* Collection options. A ring around the first result the moment you type reads as an error, so the
+   focused option is filled instead — the same thing a native <select> does with the system accent.
+   `brand-solid` rather than `muted`: muted is what `hover:` already uses at these call sites, and it
+   measures 1.18:1 (light) / 1.29:1 (dark) against the popover surface, well under the 3:1 WCAG 1.4.11
+   asks of a focus indicator. The solid pair is the app's standard fill-behind-text combination. */
 [data-slot="list-box-item"],
 [data-slot="menu-item"] {
   &:is(:focus, :focus-visible, [data-focused="true"], [data-focus-visible="true"]) {
     --tw-ring-shadow: 0 0 #0000;
-    background-color: var(--bg-muted);
+    background-color: var(--accent-brand-solid);
+    color: var(--fg-on-brand);
     outline: none;
   }
 }
