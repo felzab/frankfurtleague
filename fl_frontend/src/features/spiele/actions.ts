@@ -3,6 +3,7 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
+import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData } from "./mutations";
 import { FLPatchSpielDataPayloadSchema } from "./schemas";
@@ -26,6 +27,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown): Promise<No
     return {
       success: false,
       error: "Bitte überprüfe deine Eingaben!",
+      fieldErrors: toFieldErrors(validated.error),
     };
   }
 

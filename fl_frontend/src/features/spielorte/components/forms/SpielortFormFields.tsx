@@ -1,16 +1,20 @@
 "use client";
 
-import { Input, Label, NumberField, TextField } from "@heroui/react";
+import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react";
 
 import AddressFields from "@/shared/components/ui/AddressFields";
-import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 
 import type { SpielortDraft } from "../../types";
 
+/** Field names match their path in the create/patch payload — see `SchiedsrichterFormFields`. */
 export default function SpielortFormFields<T extends SpielortDraft>({ draft, onChange }: { draft: T; onChange: (updatedDraft: T) => void }) {
   return (
     <>
-      <TextField isRequired>
+      <TextField
+        isRequired
+        name="name"
+        validate={(value) => (value.trim().length === 0 ? "Bitte gib einen Namen ein." : null)}>
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"
@@ -18,6 +22,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
           className={FIELD_INPUT}
         />
+        <FieldError className={FIELD_ERROR} />
       </TextField>
 
       <AddressFields
@@ -28,12 +33,14 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
       <NumberField
         minValue={0}
         isRequired
+        name="default_mietpreis"
         step={5}
-        value={draft.default_mietpreis}
+        value={draft.default_mietpreis ?? NaN}
+        // An emptied field stays empty rather than becoming 0 — see `SchiedsrichterFormFields`.
         onChange={(val) =>
           onChange({
             ...draft,
-            default_mietpreis: val === undefined || isNaN(val) ? 0 : val,
+            default_mietpreis: val === undefined || isNaN(val) ? null : val,
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>
@@ -43,6 +50,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
           <NumberField.Input className="text-fluid-sm w-full py-0" />
           <NumberField.IncrementButton />
         </NumberField.Group>
+        <FieldError className={FIELD_ERROR} />
       </NumberField>
     </>
   );

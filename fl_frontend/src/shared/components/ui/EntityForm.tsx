@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Check } from "@gravity-ui/icons";
 
@@ -8,10 +8,11 @@ import { Button, Form, toast } from "@heroui/react";
 
 import { formButton } from "./formButtons";
 
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 /** What the `post*`/`patch*` server actions return, after the caller has folded in its own guard. */
-type SubmitResult = { success: boolean; message?: string; error?: string };
+type SubmitResult = { success: boolean; message?: string; error?: string; fieldErrors?: FieldErrors };
 
 /**
  * The create/edit form skeleton, once. `AdminCreate*Form` and `AdminEdit*Form` came in four files
@@ -38,16 +39,41 @@ export function EntityForm<TDraft>({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const formRef = useRef<HTMLFormElement>(null);
+
+  /**
+   * Moves focus to the first field the server rejected.
+   *
+   * react-aria writes each server error onto its input with `setCustomValidity` and auto-focuses the
+   * first invalid one — but only from its `invalid` DOM event handler, and that event fires solely
+   * during native form validation. Server errors arrive after the submit is over, so nothing fires
+   * it and focus stays on "Speichern" (verified in react-aria 3.50,
+   * `private/form/useFormValidation.mjs`). `reportValidity()` raises the event on every invalid
+   * control, which is exactly the entry point react-aria is listening for; its handler also calls
+   * `preventDefault`, so the browser's own error bubble never appears.
+   */
+  useEffect(() => {
+    if (Object.keys(fieldErrors).length > 0) formRef.current?.reportValidity();
+  }, [fieldErrors]);
 
   const handleSubmit = () => {
     startTransition(async () => {
       const res = await onSubmit(draft);
 
       if (!res.success) {
-        toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+        setFieldErrors(res.fieldErrors ?? {});
+
+        // A field-level rejection already says which field and why, at the field. The toast is for
+        // the failures that belong to no field — a network error, a 500, a denied session.
+        if (!res.fieldErrors || Object.keys(res.fieldErrors).length === 0) {
+          toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+        }
         return;
       }
 
+      setFieldErrors({});
       setDraft(initialDraft);
       toast.success(res.message || successMessage);
       onClose();
@@ -56,6 +82,8 @@ export function EntityForm<TDraft>({
 
   return (
     <Form
+      ref={formRef}
+      validationErrors={fieldErrors}
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
       action={handleSubmit}>
       {/* No entrance animation: this mounts inside a modal that is already animating in, so its own
@@ -64,10 +92,13 @@ export function EntityForm<TDraft>({
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 
       <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3 pt-4">
-        {/* `isDisabled={isPending}` on this one is Wave 6's R4-3.4, deliberately not done here. */}
+        {/* Disabled while the mutation is in flight (R4 §3.4): pressing it unmounted the modal out
+            from under a running transition, whose `toast.success` and draft reset then fired against
+            a dead tree — so the record was created and the user was never told. */}
         <Button
           type="button"
           variant="secondary"
+          isDisabled={isPending}
           className={formButton({ intent: "cancel" })}
           onPress={onClose}>
           Abbrechen

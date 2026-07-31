@@ -1,9 +1,9 @@
 import { useState } from "react";
 
-import { Description, Label, NumberField, Separator, Switch } from "@heroui/react";
+import { Description, FieldError, Label, NumberField, Separator, Switch } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -62,6 +62,7 @@ export default function FormMatchupSection({
       {/** Team 1 */}
       <FormTeamPicker
         label="Team1"
+        fieldName="team1"
         teams={teams}
         teamPayload={team1Payload}
         onTeamChange={onTeam1Change}
@@ -71,6 +72,7 @@ export default function FormMatchupSection({
       {/** Team 2 */}
       <FormTeamPicker
         label="Team2"
+        fieldName="team2"
         teams={teams}
         teamPayload={team2Payload}
         onTeamChange={onTeam2Change}
@@ -101,6 +103,7 @@ export default function FormMatchupSection({
       <NumberField
         isReadOnly={!ergebnisCanBeEdited}
         minValue={0}
+        name="team1.tore"
         value={team1Tore}
         onChange={hanldeToreTeam1Change}
         className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
@@ -111,12 +114,14 @@ export default function FormMatchupSection({
           <NumberField.IncrementButton />
         </NumberField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Anzahl der Tore von Team 1</Description>
+        <FieldError className={FIELD_ERROR} />
       </NumberField>
 
       {/** Tore Team 2 */}
       <NumberField
         isReadOnly={!ergebnisCanBeEdited}
         minValue={0}
+        name="team2.tore"
         value={team2Tore}
         onChange={hanldeToreTeam2Change}
         className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
@@ -127,6 +132,7 @@ export default function FormMatchupSection({
           <NumberField.IncrementButton />
         </NumberField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Anzahl der Tore von Team 2</Description>
+        <FieldError className={FIELD_ERROR} />
       </NumberField>
 
       {/** Ergebniskontrolle */}
@@ -159,15 +165,21 @@ export default function FormMatchupSection({
           </span>
         </div>
 
-        {isNaN(team1Tore) || isNaN(team2Tore) ? (
-          <p className="text-fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
-        ) : (
-          <p className="text-fluid-xs text-brand font-extrabold tracking-wide">
-            {team1Tore === team2Tore && "Unentschieden"}
-            {team1Tore > team2Tore && `Sieg für ${team1Name}`}
-            {team2Tore > team1Tore && `Sieg für ${team2Name}`}
-          </p>
-        )}
+        {/* The outcome is derived from two fields elsewhere on the form, so a screen-reader user
+            editing the score never learns it changed unless it is announced. */}
+        <div
+          role="status"
+          aria-live="polite">
+          {isNaN(team1Tore) || isNaN(team2Tore) ? (
+            <p className="text-fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
+          ) : (
+            <p className="text-fluid-xs text-brand font-extrabold tracking-wide">
+              {team1Tore === team2Tore && "Unentschieden"}
+              {team1Tore > team2Tore && `Sieg für ${team1Name}`}
+              {team2Tore > team1Tore && `Sieg für ${team2Name}`}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

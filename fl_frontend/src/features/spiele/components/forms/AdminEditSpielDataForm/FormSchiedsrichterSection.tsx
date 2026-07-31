@@ -1,13 +1,14 @@
-import { Description, Label, NumberField } from "@heroui/react";
+import { Description, FieldError, Label, NumberField } from "@heroui/react";
 
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
+import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
 
 import { InlineCreateAutocomplete } from "./InlineCreateAutocomplete";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
-import type { FLSpielSchiedsrichterField } from "@/features/spiele/schemas";
+import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 import type { FLKontakt } from "@/shared/schemas";
 import type { Key } from "@heroui/react";
 
@@ -26,8 +27,8 @@ export default function FormSchiedsrichterSection({
   onSchiedsrichterChange,
 }: {
   schiedsrichter: FLSchiedsrichter[];
-  schiedsrichterPayload: FLSpielSchiedsrichterField | null;
-  onSchiedsrichterChange: (payload: FLSpielSchiedsrichterField | null) => void;
+  schiedsrichterPayload: FLSpielSchiedsrichterFieldDraft | null;
+  onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
 }) {
   const handleSchiedsrichterChange = (key: Key | null) => {
     if (!key) {
@@ -45,11 +46,16 @@ export default function FormSchiedsrichterSection({
     }
   };
 
+  // An emptied currency field arrives as NaN and must stay empty. Coercing it to 0 here is what let
+  // a cleared Honorar submit as 0 € without a word (ledger R4-3.1, from NEW-F13) — indistinguishable
+  // from a referee who genuinely works for free. `null` fails the payload schema instead, which is
+  // the honest outcome. The `?? NaN` at the display boundary below is the other half and must stay:
+  // RAC types `value?: number`, so `value={null}` is a type error.
   const handlePaymentChange = (newPayment: number) => {
     if (schiedsrichterPayload) {
       onSchiedsrichterChange({
         ...schiedsrichterPayload,
-        payment: isNaN(newPayment) ? 0 : newPayment,
+        payment: isNaN(newPayment) ? null : newPayment,
       });
     }
   };
@@ -79,11 +85,20 @@ export default function FormSchiedsrichterSection({
           default_payment: draft.default_payment,
         })
       }
-      createdToast="Schiedsrichter erfolgreich angelegt">
+      buildCreatedItem={(draft, createdId) => ({
+        id: createdId,
+        name: draft.name,
+        schule: draft.schule,
+        kontakt: draft.kontakt,
+        default_payment: draft.default_payment,
+        is_inactive: false,
+      })}
+      createdToast="Schiedsrichter erfolgreich angelegt und zugewiesen">
       {/** Schiedsrichter Entschädigung */}
       <NumberField
         minValue={0}
-        name="schiedsrichterPaymentUI"
+        // Named after its path in the patch payload — see the note on `FormSpielortSection`.
+        name="schiedsrichter.payment"
         value={schiedsrichterPayload?.payment ?? NaN}
         onChange={handlePaymentChange}
         onKeyDown={suppressEnterSubmit}
@@ -100,6 +115,7 @@ export default function FormSchiedsrichterSection({
           <NumberField.IncrementButton />
         </NumberField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Die Entschädigung für den Schiedsrichter</Description>
+        <FieldError className={FIELD_ERROR} />
       </NumberField>
     </InlineCreateAutocomplete>
   );

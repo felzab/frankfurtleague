@@ -1,12 +1,14 @@
-import { Description, Label, NumberField } from "@heroui/react";
+import { Description, FieldError, Label, NumberField } from "@heroui/react";
 
 import { postSpielortAction } from "@/features/spielorte/actions";
 import SpielortFormFields from "@/features/spielorte/components/forms/SpielortFormFields";
+import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { formatAddressFull } from "@/shared/utils/format";
 
 import { InlineCreateAutocomplete } from "./InlineCreateAutocomplete";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSpielOrtField } from "@/features/spiele/schemas";
+import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLAddress } from "@/shared/schemas";
 import type { Key } from "@heroui/react";
@@ -25,8 +27,8 @@ export default function FormSpielortSection({
   onOrtChange,
 }: {
   spielorte: FLSpielort[];
-  ortPayload: FLSpielOrtField | null;
-  onOrtChange: (payload: FLSpielOrtField | null) => void;
+  ortPayload: FLSpielOrtFieldDraft | null;
+  onOrtChange: (payload: FLSpielOrtFieldDraft | null) => void;
 }) {
   const handleOrtChange = (key: Key | null) => {
     if (!key) {
@@ -45,9 +47,10 @@ export default function FormSpielortSection({
     }
   };
 
+  // NaN is an emptied field, not a zero price — see the note on `FormSchiedsrichterSection`.
   const handleMietpreisChange = (newPrice: number) => {
     if (ortPayload) {
-      onOrtChange({ ...ortPayload, mietpreis: isNaN(newPrice) ? 0 : newPrice });
+      onOrtChange({ ...ortPayload, mietpreis: isNaN(newPrice) ? null : newPrice });
     }
   };
 
@@ -75,11 +78,25 @@ export default function FormSpielortSection({
           address: draft.address,
         })
       }
-      createdToast="Spielort erfolgreich angelegt">
+      buildCreatedItem={(draft, createdId) => ({
+        id: createdId,
+        name: draft.name,
+        address: draft.address,
+        // Reproduces what the backend stores verbatim: `post_spielort` writes
+        // `f"{name}, {address.to_string}, Deutschland"` (admin/router.py:143), and
+        // `formatAddressFull` composes the same parts in the same order. `maps_link` is a plain
+        // search string here, not a URL — `formatMapsLink` is what wraps one for an href.
+        maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
+        default_mietpreis: draft.default_mietpreis,
+        is_inactive: false,
+      })}
+      createdToast="Spielort erfolgreich angelegt und zugewiesen">
       {/** Mietpreis */}
       <NumberField
         minValue={0}
-        name="spielortMietpreisUI"
+        // Named after its path in the patch payload, so a server-side zod error lands on this field
+        // through `Form`'s `validationErrors` without a translation table.
+        name="ort.mietpreis"
         value={ortPayload?.mietpreis ?? NaN}
         onChange={handleMietpreisChange}
         onKeyDown={suppressEnterSubmit}
@@ -96,6 +113,7 @@ export default function FormSpielortSection({
           <NumberField.IncrementButton />
         </NumberField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Der Mietpreis für den Spielort</Description>
+        <FieldError className={FIELD_ERROR} />
       </NumberField>
     </InlineCreateAutocomplete>
   );

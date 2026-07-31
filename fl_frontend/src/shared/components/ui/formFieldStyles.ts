@@ -11,6 +11,13 @@ export const FIELD_INPUT =
   "border-border bg-surface text-foreground text-fluid-sm focus-visible:border-brand focus-within:border-brand rounded-lg border px-3 py-2 transition-colors outline-none focus-visible:ring-0 focus-within:ring-0";
 
 /**
+ * The one field-error appearance. Every `<FieldError>` in the app uses it, so a rejected value looks
+ * the same wherever it is rejected — five of the six forms previously had no field-level error
+ * surface at all and reported failures only through a toast that named no field (R4 §3.1).
+ */
+export const FIELD_ERROR = "text-fluid-xxs text-danger mt-1 font-bold";
+
+/**
  * Section label inside a form. Groups of fields are named with a heading and separated by
  * whitespace/rules rather than wrapped in bordered panels — nesting bordered boxes inside an
  * already-bordered modal reads as a layered cake and, per WAI form guidance, deep grouping hurts

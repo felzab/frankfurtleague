@@ -25,6 +25,14 @@ type CreateResult = { success: boolean; created_id?: string | null; message?: st
  * inline draft, the Spielort copy only swallowed the key. Enter now submits the draft at both,
  * and `submitInlineOnEnter` suppresses the event before doing so, so it can never reach
  * `AdminEditSpielDataForm`'s outer `<Form action>`.
+ *
+ * A record created inline is selected immediately (R4 §13.4) — the section exists to attach one to
+ * the match, and reporting "angelegt" while leaving the picker empty led admins to save a match
+ * with no referee. `items` still comes from the last server render, so the new record is held in
+ * `createdItems` and merged into the collection: `Autocomplete.Value` renders from
+ * `SelectValue`, which resolves the label out of the collection and shows the placeholder for a key
+ * it cannot find (verified in react-aria-components 1.19, `Select.mjs` — `state.selectedItems`).
+ * Selecting a key that is not in the collection would therefore look like nothing happened.
  */
 export function InlineCreateAutocomplete<TItem extends { id: string; name: string }, TDraft>({
   label,
@@ -38,6 +46,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   emptyDraft,
   renderDraftFields,
   onCreate,
+  buildCreatedItem,
   createdToast,
   children,
 }: {
@@ -54,6 +63,8 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   emptyDraft: TDraft;
   renderDraftFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>) => ReactNode;
   onCreate: (draft: TDraft) => Promise<CreateResult>;
+  /** Turns a just-created draft into a collection item, so it can be shown before the next render. */
+  buildCreatedItem: (draft: TDraft, createdId: string) => TItem;
   createdToast: string;
   /** Rendered under the picker when not creating inline — each caller's currency NumberField. */
   children: ReactNode;
@@ -65,6 +76,11 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   const [isCreatingInline, setIsCreatingInline] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [draft, setDraft] = useState<TDraft>(emptyDraft);
+  // Records created in this session, still absent from the server-rendered `items`.
+  const [createdItems, setCreatedItems] = useState<TItem[]>([]);
+
+  // Deduplicated on id, so a created record collapses into the real one once the server catches up.
+  const options = [...createdItems.filter((created) => !items.some((item) => item.id === created.id)), ...items];
 
   const handleCreateSubmit = () => {
     startTransition(async () => {
@@ -75,15 +91,19 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
         return;
       }
 
+      const createdItem = buildCreatedItem(draft, res.created_id);
+
+      setCreatedItems((previous) => [...previous, createdItem]);
       setIsCreatingInline(false);
       setSearchQuery("");
       setDraft(emptyDraft);
+      onSelect(createdItem.id);
 
       toast.success(res.message || createdToast);
     });
   };
 
-  const showStickyFooter = searchQuery.trim() === "" ? items.length > 0 : items.some((item) => contains(item.name, searchQuery));
+  const showStickyFooter = searchQuery.trim() === "" ? options.length > 0 : options.some((item) => contains(item.name, searchQuery));
 
   return (
     <div className="flex w-full flex-col gap-y-4">
@@ -96,9 +116,11 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
             <Button
               type="button"
               variant="ghost"
+              aria-label={`Formular "${createHeading}" schließen`}
               className="h-8 w-8 min-w-8 px-0"
               onPress={() => setIsCreatingInline(false)}>
               <Xmark
+                aria-hidden="true"
                 width={16}
                 height={16}
               />
@@ -143,7 +165,12 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
             <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
             <Autocomplete.Trigger className={FIELD_INPUT}>
               <Autocomplete.Value className="text-fluid-sm" />
-              <Autocomplete.ClearButton type="button" />
+              {/* HeroUI hardcodes aria-label="Clear selection" on this button and spreads props
+                  after it, so passing one is the only way to germanise it. */}
+              <Autocomplete.ClearButton
+                type="button"
+                aria-label={`${label}-Auswahl aufheben`}
+              />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
             <Autocomplete.Popover className={overlayPanel()}>
@@ -178,7 +205,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
                     </div>
                   )}
                   className="p-1">
-                  {items.map((item) => (
+                  {options.map((item) => (
                     <ListBox.Item
                       key={item.id}
                       id={item.id}

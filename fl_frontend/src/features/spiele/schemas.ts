@@ -20,16 +20,25 @@ export const FLSpielOrtFieldSchema = z.object({
   spielort_id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
   maps_link: z.string().nonempty(),
-  mietpreis: z.int().nonnegative(),
+  mietpreis: z.int().nonnegative({ error: "Bitte gib einen Mietpreis ein." }),
 });
 export type FLSpielOrtField = z.infer<typeof FLSpielOrtFieldSchema>;
 
 export const FLSpielSchiedsrichterFieldSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
-  payment: z.int().nonnegative(),
+  payment: z.int().nonnegative({ error: "Bitte gib eine Entschädigung ein." }),
 });
 export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFieldSchema>;
+
+/**
+ * The edit form's in-progress shapes. An emptied currency field is `null` while the admin is typing
+ * — it must not silently become 0, which is what shipped a 0 € Mietpreis whenever someone cleared
+ * the box (ledger R4-3.1, from NEW-F13). The strict schemas above still reject `null`, so a cleared
+ * field fails validation with the German message on it rather than saving a wrong number.
+ */
+export type FLSpielOrtFieldDraft = Omit<FLSpielOrtField, "mietpreis"> & { mietpreis: number | null };
+export type FLSpielSchiedsrichterFieldDraft = Omit<FLSpielSchiedsrichterField, "payment"> & { payment: number | null };
 
 export const FLSpielSchema = z.object({
   id: CustomObjectIdStringSchema,

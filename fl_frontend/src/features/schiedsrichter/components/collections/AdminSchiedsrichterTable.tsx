@@ -6,6 +6,7 @@ import { Table, toast } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { CLIPBOARD_ERROR_MESSAGE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatEuro } from "@/shared/utils/format";
 
 import type { FLSchiedsrichter } from "../../schemas";
@@ -21,14 +22,14 @@ function AdminSchiedsrichterTable({
   setEditingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
-  const handleCopyKontakt = (schiedsrichter: FLSchiedsrichter) => {
+  const handleCopyKontakt = async (schiedsrichter: FLSchiedsrichter) => {
     // Collect available contact info cleanly
     const details = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
 
-    navigator.clipboard
-      .writeText(details)
-      .then(() => toast.success("Kontaktdaten in die Zwischenablage kopiert!"))
-      .catch(() => toast.danger("Fehler beim Kopieren der Kontaktdaten."));
+    const copied = await copyTextToClipboard(details);
+
+    if (copied) toast.success("Kontaktdaten in die Zwischenablage kopiert!");
+    else toast.danger(CLIPBOARD_ERROR_MESSAGE);
   };
 
   return (
@@ -113,22 +114,27 @@ function AdminSchiedsrichterTable({
                   <RowActions>
                     <RowActionLink
                       href={`/admin/spielsuche?q=${encodeURIComponent(schiedsrichter.name)}`}
-                      label="Einsätze anzeigen">
+                      label="Einsätze anzeigen"
+                      ariaLabel={`Einsätze von ${schiedsrichter.name} anzeigen`}>
                       <Calendar
+                        aria-hidden="true"
                         width={18}
                         height={18}
                       />
                     </RowActionLink>
                     <RowActionCopy
                       label="Kontaktdaten kopieren"
+                      ariaLabel={`Kontaktdaten von ${schiedsrichter.name} kopieren`}
                       onPress={() => handleCopyKontakt(schiedsrichter)}
                     />
                     <RowActionEdit
                       label="Bearbeiten"
+                      ariaLabel={`Schiedsrichter ${schiedsrichter.name} bearbeiten`}
                       onPress={() => setEditingSchiedsrichter(schiedsrichter)}
                     />
                     <RowActionDelete
                       label="Löschen"
+                      ariaLabel={`Schiedsrichter ${schiedsrichter.name} löschen`}
                       onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
                     />
                   </RowActions>

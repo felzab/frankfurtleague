@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 
-import { Autocomplete, Description, Input, Label, ListBox, SearchField, TextField, useFilter } from "@heroui/react";
+import { Autocomplete, Description, FieldError, Input, Label, ListBox, SearchField, TextField, useFilter } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
-import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
@@ -14,12 +14,15 @@ import type { Key } from "@heroui/react";
 
 export function FormTeamPicker({
   label,
+  fieldName,
   teams,
   teamPayload,
   onTeamChange,
   disabledTeamId,
 }: {
   label: string;
+  /** The team's path in the patch payload ("team1"/"team2"), so server errors reach these fields. */
+  fieldName: string;
   teams: FLTeam[];
   teamPayload: FLSpielTeamField | null;
   onTeamChange: (payload: FLSpielTeamField | null) => void;
@@ -66,7 +69,7 @@ export function FormTeamPicker({
     <div className="flex w-full flex-col gap-y-4">
       <Autocomplete
         isRequired
-        name={`${label}UI`}
+        name={`${fieldName}.team_id`}
         className="w-full"
         placeholder={`${label} auswählen`}
         selectionMode="single"
@@ -76,7 +79,11 @@ export function FormTeamPicker({
         <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
         <Autocomplete.Trigger className={FIELD_INPUT}>
           <Autocomplete.Value className="text-fluid-sm" />
-          <Autocomplete.ClearButton type="button" />
+          {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. */}
+          <Autocomplete.ClearButton
+            type="button"
+            aria-label={`${label}-Auswahl aufheben`}
+          />
           <Autocomplete.Indicator />
         </Autocomplete.Trigger>
 
@@ -110,12 +117,14 @@ export function FormTeamPicker({
           </Autocomplete.Filter>
         </Autocomplete.Popover>
         {!teamIsTbd && <Description className="text-fluid-xxs text-foreground-muted">{`Suche ${label} aus`}</Description>}
+        <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
       {/* Conditionally render TBD Input based on the parent payload's shorthand */}
       {teamIsTbd && (
         <TextField
           isRequired
+          name={`${fieldName}.name`}
           className="w-full"
           value={tbdTeamName}
           onChange={handleTbdTeamNameChange}>
@@ -127,6 +136,7 @@ export function FormTeamPicker({
           <Description className="text-fluid-xxs text-foreground-muted">
             Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.
           </Description>
+          <FieldError className={FIELD_ERROR} />
         </TextField>
       )}
     </div>

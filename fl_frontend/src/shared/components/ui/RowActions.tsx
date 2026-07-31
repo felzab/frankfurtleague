@@ -19,6 +19,12 @@ import type { ReactNode } from "react";
  *
  * The data columns are deliberately NOT shared — they genuinely differ per entity, and a
  * config-driven table is where that kind of abstraction stops paying (owner decision, 2026-07-30).
+ *
+ * `label` and `ariaLabel` are two different things and both are required (R4 §4.1). `label` is the
+ * tooltip, which react-aria wires as `aria-describedby` — a description, announced after the name
+ * and dropped entirely by screen readers in forms mode. It never names the control. `ariaLabel`
+ * carries the record name so the five icons in a row are distinguishable from each other and from
+ * the same five icons in every other row.
  */
 const ACTION_CLASS =
   "text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2";
@@ -26,11 +32,24 @@ const ACTION_CLASS =
 const DANGER_CLASS =
   "text-foreground-muted hover:bg-danger/10 hover:text-danger focus-visible:ring-danger flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2";
 
-export function RowActionLink({ href, label, external, children }: { href: string; label: string; external?: boolean; children: ReactNode }) {
+export function RowActionLink({
+  href,
+  label,
+  ariaLabel,
+  external,
+  children,
+}: {
+  href: string;
+  label: string;
+  ariaLabel: string;
+  external?: boolean;
+  children: ReactNode;
+}) {
   return (
     <IconTooltip label={label}>
       <Link
         href={href}
+        aria-label={ariaLabel}
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
         className={ACTION_CLASS}>
         {children}
@@ -39,15 +58,17 @@ export function RowActionLink({ href, label, external, children }: { href: strin
   );
 }
 
-export function RowActionCopy({ label, onPress }: { label: string; onPress: () => void }) {
+export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ariaLabel: string; onPress: () => void }) {
   return (
     <IconTooltip label={label}>
       <Button
         isIconOnly
+        aria-label={ariaLabel}
         variant="ghost"
         className={ACTION_CLASS}
         onPress={onPress}>
         <Copy
+          aria-hidden="true"
           width={18}
           height={18}
         />
@@ -56,15 +77,17 @@ export function RowActionCopy({ label, onPress }: { label: string; onPress: () =
   );
 }
 
-export function RowActionEdit({ label, onPress }: { label: string; onPress: () => void }) {
+export function RowActionEdit({ label, ariaLabel, onPress }: { label: string; ariaLabel: string; onPress: () => void }) {
   return (
     <IconTooltip label={label}>
       <Button
         isIconOnly
+        aria-label={ariaLabel}
         variant="ghost"
         className={ACTION_CLASS}
         onPress={onPress}>
         <Pencil
+          aria-hidden="true"
           width={18}
           height={18}
         />
@@ -73,17 +96,19 @@ export function RowActionEdit({ label, onPress }: { label: string; onPress: () =
   );
 }
 
-export function RowActionDelete({ label, onPress }: { label: string; onPress: () => void }) {
+export function RowActionDelete({ label, ariaLabel, onPress }: { label: string; ariaLabel: string; onPress: () => void }) {
   return (
     <IconTooltip
       label={label}
       tone="danger">
       <Button
         isIconOnly
+        aria-label={ariaLabel}
         variant="ghost"
         className={DANGER_CLASS}
         onPress={onPress}>
         <TrashBin
+          aria-hidden="true"
           width={18}
           height={18}
         />

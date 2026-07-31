@@ -5,8 +5,11 @@ import type { FLPostSpielortPayload } from "./schemas";
  *
  * Derived from the payload schema the server action validates, rather than restated — the two were
  * a near-copy of each other and could drift apart silently.
+ *
+ * `default_mietpreis` widens to `number | null` for the reason given on `SchiedsrichterDraft`: an
+ * emptied currency field must not become 0.
  */
-export type SpielortDraft = FLPostSpielortPayload;
+export type SpielortDraft = Omit<FLPostSpielortPayload, "default_mietpreis"> & { default_mietpreis: number | null };
 
 export type FLSpielorteSortingOptions = "name";
 

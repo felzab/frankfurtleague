@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
 
@@ -13,9 +13,10 @@ import FormSchiedsrichterSection from "./FormSchiedsrichterSection";
 import FormSpielortSection from "./FormSpielortSection";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
-import type { FLSpiel, FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSpiel, FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
+import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
  * The lookup lists arrive as props rather than from `useAdmin()`. They are only ever available on
@@ -39,18 +40,30 @@ export default function AdminEditSpielDataForm({
   const [isPending, startTransition] = useTransition();
 
   const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
-  const [ortPayload, setOrtPayload] = useState<FLSpielOrtField | null>(spielData.ort);
-  const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterField | null>(spielData.schiedsrichter);
+  const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
+  const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
 
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Focuses the first field the server rejected — see the long note in `EntityForm`.
+  useEffect(() => {
+    if (Object.keys(fieldErrors).length > 0) formRef.current?.reportValidity();
+  }, [fieldErrors]);
+
   const handleFormSubmit = (formData: FormData) => {
     // Both teams are required by the payload schema, but the Autocomplete's clear button can empty
-    // them. Without this the submit failed server-side with the generic "check your input" toast,
-    // which named no field.
+    // them. Reported on the two pickers rather than as a toast, so the message sits at the field it
+    // is about — the same channel the server's own rejections use.
     if (!team1Payload || !team2Payload) {
-      toast.danger("Bitte wähle beide Teams aus.", { timeout: 6000 });
+      setFieldErrors({
+        ...(team1Payload ? {} : { "team1.team_id": "Bitte wähle ein Team aus." }),
+        ...(team2Payload ? {} : { "team2.team_id": "Bitte wähle ein Team aus." }),
+      });
       return;
     }
 
@@ -72,12 +85,18 @@ export default function AdminEditSpielDataForm({
       const res = await patchAdminSpielDataAction(payload);
 
       if (!res.success) {
-        toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
-          timeout: 6000,
-        });
+        setFieldErrors(res.fieldErrors ?? {});
+
+        // Only for failures no single field owns — see the note in `EntityForm`.
+        if (!res.fieldErrors || Object.keys(res.fieldErrors).length === 0) {
+          toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
+            timeout: 6000,
+          });
+        }
         return;
       }
 
+      setFieldErrors({});
       toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
       onClose();
     });
@@ -85,6 +104,8 @@ export default function AdminEditSpielDataForm({
 
   return (
     <Form
+      ref={formRef}
+      validationErrors={fieldErrors}
       className="flex min-h-full flex-col gap-y-6 pt-2 pb-6"
       action={handleFormSubmit}>
       <Separator className="bg-border" />

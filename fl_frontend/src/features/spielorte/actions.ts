@@ -3,15 +3,18 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
+import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort } from "./mutations";
 import { FLDeleteSpielortPayloadSchema, FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema } from "./schemas";
+
+import type { FieldErrors } from "@/shared/utils/validation";
 
 import type { FLDeleteSpielortPayload, FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort } from "./schemas";
 
 export async function postSpielortAction(
   rawPayload: FLPostSpielortPayload,
-): Promise<{ success: boolean; created_id?: string; message?: string; error?: string }> {
+): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
@@ -22,6 +25,7 @@ export async function postSpielortAction(
     return {
       success: false,
       error: "Bitte überprüfe deine Eingaben!",
+      fieldErrors: toFieldErrors(validated.error),
     };
   }
 
@@ -37,7 +41,7 @@ export async function postSpielortAction(
 
 export async function patchSpielortAction(
   rawPayload: FLPatchSpielortPayload,
-): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string }> {
+): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
@@ -48,6 +52,7 @@ export async function patchSpielortAction(
     return {
       success: false,
       error: "Bitte überprüfe deine Eingaben!",
+      fieldErrors: toFieldErrors(validated.error),
     };
   }
 
@@ -69,7 +74,7 @@ export async function patchSpielortAction(
 // This is a soft delete
 export async function deleteSpielortAction(
   rawPayload: FLDeleteSpielortPayload,
-): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string }> {
+): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
@@ -80,6 +85,7 @@ export async function deleteSpielortAction(
     return {
       success: false,
       error: "Bitte überprüfe deine Eingaben!",
+      fieldErrors: toFieldErrors(validated.error),
     };
   }
 
