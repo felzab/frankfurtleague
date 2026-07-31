@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
 
@@ -18,7 +18,7 @@ import type { FLSpiel, FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamF
 export default function AdminEditSpielDataForm({ spielData, onClose }: { spielData: FLSpiel; onClose: () => void }) {
   const adminData = useAdmin();
 
-  const [state, formAction, isPending] = useActionState(patchAdminSpielDataAction, null);
+  const [isPending, startTransition] = useTransition();
 
   const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtField | null>(spielData.ort);
@@ -27,16 +27,15 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
-  useEffect(() => {
-    if (state?.success) {
-      toast.success(state.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
-      onClose();
-    } else if (state?.error) {
-      toast.danger(state.error || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 });
-    }
-  }, [state, onClose]);
-
   const handleFormSubmit = (formData: FormData) => {
+    // Both teams are required by the payload schema, but the Autocomplete's clear button can empty
+    // them. Without this the submit failed server-side with the generic "check your input" toast,
+    // which named no field.
+    if (!team1Payload || !team2Payload) {
+      toast.danger("Bitte wähle beide Teams aus.", { timeout: 6000 });
+      return;
+    }
+
     const payload = {
       spiel_id: spielData.id,
       is_canceled: spielIsCanceled,
@@ -51,7 +50,19 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       team2: team2Payload,
     };
 
-    formAction(payload);
+    startTransition(async () => {
+      const res = await patchAdminSpielDataAction(payload);
+
+      if (!res.success) {
+        toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
+          timeout: 6000,
+        });
+        return;
+      }
+
+      toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
+      onClose();
+    });
   };
 
   return (

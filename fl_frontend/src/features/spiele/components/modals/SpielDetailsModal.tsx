@@ -69,11 +69,15 @@ export default function SpielDetailsModal({
                 {/* Teams area  */}
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
                   {/** I just pass teamIsDisqualified=false because it's not included in the game data */}
+                  {/* placement="top": unlike the cards, these triggers are untruncated full names
+                      centred in a narrow dialog, so a horizontal placement has no room to flip into
+                      and would hang off-screen. See the note on TeamPopoverMenu's `placement`. */}
                   <TeamPopoverMenu
                     teamName={spielData.team1.name}
                     teamId={spielData.team1.team_id}
                     teamShorthand={spielData.team1.shorthand}
-                    teamIsDisqualified={false}>
+                    teamIsDisqualified={false}
+                    placement="top">
                     <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team1.name}</span>
                   </TeamPopoverMenu>
 
@@ -82,7 +86,8 @@ export default function SpielDetailsModal({
                     teamName={spielData.team2.name}
                     teamId={spielData.team2.team_id}
                     teamShorthand={spielData.team2.shorthand}
-                    teamIsDisqualified={false}>
+                    teamIsDisqualified={false}
+                    placement="top">
                     <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team2.name}</span>
                   </TeamPopoverMenu>
                 </div>

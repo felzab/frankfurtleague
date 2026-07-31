@@ -9,7 +9,13 @@ import { FLPatchSpielDataPayloadSchema } from "./schemas";
 
 import type { FormState } from "@/shared/types/types";
 
-export async function patchAdminSpielDataAction(prevState: FormState, rawPayload: unknown): Promise<FormState> {
+/**
+ * No `prevState` parameter: the caller awaits this inside a transition rather than through
+ * `useActionState`. That hook exists to hold state you *render*; this form only pipes the result
+ * into a toast and closes, so the reducer signature bought nothing and cost an effect. Matches
+ * `patchSpielortAction` and the rest of the admin write path.
+ */
+export async function patchAdminSpielDataAction(rawPayload: unknown): Promise<NonNullable<FormState>> {
   if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }

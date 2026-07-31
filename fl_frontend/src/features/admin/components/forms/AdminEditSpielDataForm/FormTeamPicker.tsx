@@ -42,7 +42,11 @@ export function FormTeamPicker({
         team_id: resolvedTeam.id,
         shorthand: resolvedTeam.shorthand,
         name: resolvedTeam.shorthand === TBD_TEAM_SHORTHAND ? tbdTeamName : resolvedTeam.name,
-        tore: teamPayload?.tore ?? NaN,
+        // `null`, never NaN: the schema accepts a nullable int, and an unplayed Spiel carries
+        // `tore: null`. Defaulting to NaN put a value in the payload that can never validate, so
+        // changing a team on an unplayed Spiel failed with the generic error toast. NaN belongs in
+        // the NumberField's `value` (an empty field), not in what gets submitted.
+        tore: teamPayload?.tore ?? null,
       });
     }
   };

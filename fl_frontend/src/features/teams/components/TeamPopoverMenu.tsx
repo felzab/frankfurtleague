@@ -13,12 +13,21 @@ export default function TeamPopoverMenu({
   teamId,
   teamShorthand,
   teamIsDisqualified,
+  placement = "right",
   children,
 }: {
   teamName: string;
   teamId: string;
   teamShorthand: string;
   teamIsDisqualified?: boolean;
+  /**
+   * Defaults to `"right"`, which suits the cards: their triggers are truncated inside narrow grid
+   * tracks, so one side always has room. Pass `"top"` where the trigger is wide and centred — with
+   * a horizontal placement the width is the *main* axis, and react-aria only flips on that axis,
+   * it never clamps to the viewport (`containerPadding` applies to the cross axis only). A vertical
+   * placement moves width onto the cross axis, where it does get clamped.
+   */
+  placement?: "right" | "top";
   children: React.ReactNode;
 }) {
   const isTbdTeam = teamShorthand === TBD_TEAM_SHORTHAND;
@@ -29,15 +38,21 @@ export default function TeamPopoverMenu({
       onPointerDown={(e) => e.stopPropagation()}>
       <Popover>
         <Popover.Trigger>
-          <button className="hover:text-brand focus-visible:text-brand relative flex w-fit cursor-pointer items-center text-left transition-colors duration-200 outline-none">
+          {/* type="button" is load-bearing: a typeless button defaults to submit, so mounting this
+              anywhere inside a <form> would make opening the popover submit the form. */}
+          <button
+            type="button"
+            className="hover:text-brand focus-visible:text-brand relative flex w-fit cursor-pointer items-center text-left transition-colors duration-200 outline-none">
             <Badge.Anchor className="w-fit">{children}</Badge.Anchor>
           </button>
         </Popover.Trigger>
 
         <Popover.Content
-          placement="right"
+          placement={placement}
           offset={10}>
-          <Popover.Dialog className="bg-surface border-border text-foreground rounded-xl border p-4 shadow-lg outline-none">
+          {/* max-w caps the panel: nothing else constrains it, so without this the dialog grows to
+              the full team name and a long one pushes it past the viewport edge. */}
+          <Popover.Dialog className="bg-surface border-border text-foreground w-max max-w-[280px] rounded-xl border p-4 shadow-lg outline-none">
             <Popover.Arrow className="fill-surface" />
 
             <Popover.Heading className="text-fluid-base flex w-full flex-row items-center justify-between font-bold">
