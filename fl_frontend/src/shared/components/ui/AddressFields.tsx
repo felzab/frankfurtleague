@@ -62,7 +62,6 @@ export default function AddressFields({
         <TextField
           isRequired
           name={`${namePrefix}.plz`}
-          validate={(plz) => (/^\d{5}$/.test(plz) ? null : "Die PLZ muss genau 5 Ziffern haben.")}
           className="w-1/3">
           <Label className="text-fluid-xs text-foreground font-bold">PLZ</Label>
           <Input

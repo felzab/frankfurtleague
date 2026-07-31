@@ -13,8 +13,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({ draft, onC
     <>
       <TextField
         isRequired
-        name="name"
-        validate={(value) => (value.trim().length === 0 ? "Bitte gib einen Namen ein." : null)}>
+        name="name">
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"

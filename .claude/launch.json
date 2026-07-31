@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fl-frontend-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "fl_frontend", "dev"],
+      "port": 3000
+    }
+  ]
+}

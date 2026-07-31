@@ -1,25 +1,32 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 
 /**
- * Whether a CSS media query currently matches.
+ * Whether a CSS media query currently matches. `false` until the component has mounted, so the
+ * caller must pick a query whose `false` branch is the safe one — for the sidemenu that is "not
+ * inert", i.e. never wrongly inert.
  *
- * `useSyncExternalStore` rather than `useState` + `useEffect`: the server snapshot is an explicit
- * argument, so the hydration result is stated rather than raced. It returns `false` on the server —
- * there is no viewport to measure — which is why the caller must choose a query whose `false`
- * branch is the safe one.
+ * `useState` + `useEffect` rather than `useSyncExternalStore`. Both work; this one is kept because
+ * the state update is unconditional after mount and therefore easy to reason about, and because the
+ * server snapshot is expressed as the initial state rather than as a third callback.
  */
 export function useMediaQuery(query: string): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const list = window.matchMedia(query);
-      list.addEventListener("change", onChange);
-      return () => list.removeEventListener("change", onChange);
-    },
-    () => window.matchMedia(query).matches,
-    () => false,
-  );
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const list = window.matchMedia(query);
+
+    // Set from the effect too, not just from the listener: `change` only fires on a *transition*,
+    // so a viewport that already matched at mount would otherwise never be reported.
+    setMatches(list.matches);
+
+    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
+    list.addEventListener("change", onChange);
+    return () => list.removeEventListener("change", onChange);
+  }, [query]);
+
+  return matches;
 }
 
 /**
