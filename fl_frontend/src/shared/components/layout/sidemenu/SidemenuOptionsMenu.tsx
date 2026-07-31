@@ -4,6 +4,8 @@ import { Ellipsis } from "@gravity-ui/icons";
 
 import { Dropdown, Label } from "@heroui/react";
 
+import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
+
 import { IconTooltip } from "../../ui/IconTooltip";
 import ThemeSwitch from "../../ui/ThemeSwitch";
 
@@ -26,15 +28,23 @@ import ThemeSwitch from "../../ui/ThemeSwitch";
  * raw-`<svg>` trigger does not (Wave 6, R4-2.1).
  */
 export function SidemenuOptionsMenu({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
+  const { isOpen, setIsOpen } = useNavigationClosedOverlay();
+
   return (
-    <Dropdown>
+    <Dropdown
+      isOpen={isOpen}
+      onOpenChange={setIsOpen}>
       <IconTooltip
         label="Weitere Optionen"
         placement="right"
         isEnabled={isDesktopCollapsed}>
+        {/* `transform-none` when pressed cancels HeroUI's `.dropdown__trigger` `scale(0.97)`. That
+            reads fine on an icon button but wrong on a full-width row. Note `scale-100` would NOT
+            work: Tailwind v4 emits the standalone `scale` property, which composes with `transform`
+            rather than replacing it, so the 0.97 would survive. */}
         <Dropdown.Trigger
           aria-label="Weitere Optionen"
-          className={`text-foreground-muted hover:bg-muted hover:text-foreground flex h-9 shrink-0 items-center rounded-md transition-colors ${
+          className={`text-foreground-muted hover:bg-muted hover:text-foreground flex h-9 shrink-0 items-center rounded-md transition-colors data-[pressed=true]:transform-none ${
             isDesktopCollapsed ? "w-9 justify-center p-0" : "w-full justify-start gap-2.5 px-3"
           }`}>
           <Ellipsis className="h-[18px] w-[18px] shrink-0" />
@@ -45,9 +55,12 @@ export function SidemenuOptionsMenu({ isDesktopCollapsed }: { isDesktopCollapsed
       {/* Expanded: `top` centres the menu on a trigger that already spans the sidemenu, and the
           width matches the footer's content box (sidemenu minus its p-3), so the menu cannot spill
           into the content area. Collapsed: no 220px menu fits in a 72px rail, so it opens beside it. */}
+      {/* `offset` rather than a margin class: it feeds react-aria's positioning maths, so the gap is
+          measured from the trigger in whichever direction the menu ends up opening. */}
       <Dropdown.Popover
+        offset={8}
         placement={isDesktopCollapsed ? "right bottom" : "top"}
-        className={`rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "mb-1 w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
+        className={`rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
         <Dropdown.Menu aria-label="Sidemenu Optionen">
           <Dropdown.Section aria-label="Einstellungen">
             <Dropdown.Item

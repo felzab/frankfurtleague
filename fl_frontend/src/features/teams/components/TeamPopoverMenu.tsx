@@ -6,6 +6,8 @@ import { CircleInfo, Persons } from "@gravity-ui/icons";
 
 import { Badge, Popover, Separator } from "@heroui/react";
 
+import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
+
 import { TBD_TEAM_SHORTHAND } from "../constants";
 
 export default function TeamPopoverMenu({
@@ -31,19 +33,29 @@ export default function TeamPopoverMenu({
   children: React.ReactNode;
 }) {
   const isTbdTeam = teamShorthand === TBD_TEAM_SHORTHAND;
+  const { isOpen, setIsOpen } = useNavigationClosedOverlay();
+
   return (
     <div
       className="contents"
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}>
-      <Popover>
-        <Popover.Trigger>
+      <Popover
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}>
+        {/* `min-w-0 max-w-full` on all three layers is what lets a caller's `truncate` work at all.
+            Each one otherwise refuses to shrink and sizes itself to the full un-wrapped name:
+            HeroUI's `.popover__trigger` is `inline-block`, so as a flex item it keeps the default
+            `min-width:auto`; the button was `w-fit`; and `.badge-anchor` bakes in `shrink-0`, which
+            `shrink` here undoes. The card only ever constrained its own grid cell, so the overflow
+            happened inside this wrapper and the name spilled past the card edge. */}
+        <Popover.Trigger className="min-w-0 max-w-full">
           {/* type="button" is load-bearing: a typeless button defaults to submit, so mounting this
               anywhere inside a <form> would make opening the popover submit the form. */}
           <button
             type="button"
-            className="hover:text-brand focus-visible:text-brand relative flex w-fit cursor-pointer items-center text-left transition-colors duration-200 outline-none">
-            <Badge.Anchor className="w-fit">{children}</Badge.Anchor>
+            className="hover:text-brand focus-visible:text-brand relative flex min-w-0 max-w-full cursor-pointer items-center text-left transition-colors duration-200 outline-none">
+            <Badge.Anchor className="min-w-0 max-w-full shrink">{children}</Badge.Anchor>
           </button>
         </Popover.Trigger>
 
@@ -85,6 +97,7 @@ export default function TeamPopoverMenu({
                 <Link
                   prefetch={false}
                   href={`/dashboard/teams/${teamId}`}
+                  onClick={() => setIsOpen(false)}
                   className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                   <CircleInfo
                     className="text-brand shrink-0"
@@ -111,6 +124,7 @@ export default function TeamPopoverMenu({
                 <Link
                   prefetch={false}
                   href={`/dashboard/spieler/${teamId}`}
+                  onClick={() => setIsOpen(false)}
                   className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
                   <Persons
                     className="text-brand shrink-0"

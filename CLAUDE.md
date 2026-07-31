@@ -125,7 +125,9 @@ Justified variance, not copy-paste: 2 chips / 1 chip / 0 chips, full names vs sh
 It would call `getTeams()` at build time, which throws `APINetworkError` in the builder stage (see A1). The prerender set is `teams × seasons` and grows every season, and the pages are `saison_id`-parameterised through `searchParams`, which `generateStaticParams` cannot enumerate. `cacheLife("days")` on `getTeams` already delivers most of the win.
 
 **A7 — `admin` is an aggregator slice and legitimately imports from four others.** _(audit: 2-architecture §2.6)_
-27 of 47 cross-feature import sites. `AdminContext` genuinely needs three lookup lists at once, and `admin/schemas.ts` _composing_ the patch payload from `spiele`'s field schemas is what makes drift structurally impossible. **Any cross-feature import lint must be scoped to `core` and `shared` only** — a blanket ban flags 47 sites, of which 44 are correct.
+27 of 47 cross-feature import sites. `AdminContext` genuinely needs three lookup lists at once. **Any cross-feature import lint must be scoped to `core` and `shared` only** — a blanket ban flags 47 sites, of which 44 are correct.
+
+_Amended 2026-07-31:_ the Spiel **write path** (`actions.ts`, `mutations.ts`, the patch schema and `AdminEditSpielDataForm`) moved to `features/spiele`, so slices are business entities rather than user roles and `admin` stops accumulating CRUD for everything. The patch payload still composes from `spiele`'s field schemas — now **intra-slice** in `spiele/schemas.ts`, which keeps drift structurally impossible without the cross-feature hop. `admin` remains the aggregator: `AdminContext`, `AdminSidemenu`, the aggregator views, and `admin/queries.ts` (which cannot move — see A8). The edit form takes its lookup lists as **props** supplied by `AdminSpielCardsList`; it must not read `useAdmin()`, or `spiele` would depend on `admin` again.
 
 **A8 — `getAdminSpieleActionRequired` is deliberately uncached.** _(audit: 3a-rsc-data §A1.3)_
 Admin-authorized data. The carve-out from the otherwise-universal `"use cache"` layer is intentional.

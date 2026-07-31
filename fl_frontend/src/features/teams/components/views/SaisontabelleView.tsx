@@ -76,14 +76,17 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
                       </Table.Cell>
 
                       {/** Team name */}
-                      <Table.Cell className="text-fluid-xs truncate overflow-visible px-1 py-4 lg:min-w-[200px] lg:px-4">
+                      {/* `overflow-visible` stays — the DQ badge is translated outside this cell on
+                          purpose. Truncation therefore has to live on the span below, not here; the
+                          `truncate` that used to sit on this cell was inert for the same reason. */}
+                      <Table.Cell className="text-fluid-xs overflow-visible px-1 py-4 lg:min-w-[200px] lg:px-4">
                         <TeamPopoverMenu
                           teamName={teamData.name}
                           teamId={teamData.id}
                           teamShorthand={teamData.shorthand}
                           teamIsDisqualified={teamData.is_disqualified}>
                           {/** Desktop view */}
-                          <span className="text-fluid-xs text-foreground hover:text-brand hidden w-fit font-medium transition-colors lg:block">
+                          <span className="text-fluid-xs text-foreground hover:text-brand hidden max-w-full min-w-0 truncate font-medium transition-colors lg:block">
                             {`${teamData.name} - ${teamData.shorthand}`}
                           </span>
                           {/** Mobile view */}

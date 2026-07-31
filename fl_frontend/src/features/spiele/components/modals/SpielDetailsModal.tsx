@@ -78,7 +78,7 @@ export default function SpielDetailsModal({
                     teamShorthand={spielData.team1.shorthand}
                     teamIsDisqualified={false}
                     placement="top">
-                    <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team1.name}</span>
+                    <span className="text-fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">{spielData.team1.name}</span>
                   </TeamPopoverMenu>
 
                   <span className="text-fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
@@ -88,7 +88,7 @@ export default function SpielDetailsModal({
                     teamShorthand={spielData.team2.shorthand}
                     teamIsDisqualified={false}
                     placement="top">
-                    <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team2.name}</span>
+                    <span className="text-fluid-xl hover:text-brand max-w-full truncate font-bold transition-colors duration-200">{spielData.team2.name}</span>
                   </TeamPopoverMenu>
                 </div>
 
