@@ -29,7 +29,7 @@ export default function ExpandableDescription({ text }: { text: string }) {
       </p>
 
       <button
-        className="text-fluid-xs text-success focus-visible:ring-brand mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+        className="text-fluid-xs text-success mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80"
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>

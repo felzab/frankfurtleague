@@ -19,7 +19,7 @@ export default function TopNavLinksDropdown() {
             (ledger NEW-F8). */}
         <Dropdown.Trigger
           aria-label="Navigationsmenü öffnen"
-          className="text-foreground hover:bg-muted focus-visible:border-brand rounded-md border border-transparent p-1 transition-colors outline-none">
+          className="text-foreground hover:bg-muted rounded-md p-1 transition-colors">
           <Bars
             aria-hidden="true"
             height={40}

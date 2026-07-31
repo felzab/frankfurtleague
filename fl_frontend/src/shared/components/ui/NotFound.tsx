@@ -47,7 +47,7 @@ export default function NotFound() {
             title="Startseite"
             aria-label="Zur Startseite"
             href="/"
-            className="text-fluid-sm bg-brand-solid hover:bg-brand-solid/90 focus-visible:ring-brand focus-visible:ring-offset-background text-brand-solid-foreground hover:scale-hover flex h-12 w-full items-center justify-center rounded-xl px-8 font-semibold shadow-md transition outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:w-auto">
+            className="text-fluid-sm bg-brand-solid hover:bg-brand-solid/90 text-brand-solid-foreground hover:scale-hover flex h-12 w-full items-center justify-center rounded-xl px-8 font-semibold shadow-md transition sm:w-auto">
             Zur Startseite
           </Link>
         </div>

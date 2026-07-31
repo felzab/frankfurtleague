@@ -16,7 +16,6 @@ export default function TeamPopoverMenu({
   teamShorthand,
   teamIsDisqualified,
   placement = "right",
-  surface = "default",
   children,
 }: {
   teamName: string;
@@ -31,11 +30,6 @@ export default function TeamPopoverMenu({
    * placement moves width onto the cross axis, where it does get clamped.
    */
   placement?: "right" | "top";
-  /**
-   * The surface the trigger sits on, which is only about the focus border. `brand` is invisible on
-   * the emerald field of `/about`, where the rest of the surface reads in `field-fg`.
-   */
-  surface?: "default" | "field";
   children: React.ReactNode;
 }) {
   const isTbdTeam = teamShorthand === TBD_TEAM_SHORTHAND;
@@ -64,14 +58,13 @@ export default function TeamPopoverMenu({
               anywhere inside a <form> would make opening the popover submit the form.
 
               This is the most repeated interactive element in the app — one per row of the season
-              table, both teams on every match card — and a colour shift alone was not a focus
-              indicator, because it is the same shift `hover:` makes (R4 §2.3). The border is
-              transparent at rest, so it changes no layout. */}
+              table, both teams on every match card — and it had `outline-none` with only a colour
+              shift behind it, which is the same shift `hover:` makes (R4 §2.3). It now takes the
+              app-wide focus outline like every other plain button; `rounded` keeps that outline
+              hugging the name rather than boxing it. */}
           <button
             type="button"
-            className={`hover:text-brand focus-visible:text-brand relative flex max-w-full min-w-0 cursor-pointer items-center rounded border border-transparent text-left transition-colors duration-200 outline-none ${
-              surface === "field" ? "focus-visible:border-field-fg" : "focus-visible:border-brand"
-            }`}>
+            className="hover:text-brand relative flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
             <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
           </button>
         </Popover.Trigger>

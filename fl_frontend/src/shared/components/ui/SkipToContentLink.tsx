@@ -14,7 +14,7 @@ export function SkipToContentLink() {
   return (
     <a
       href="#main-content"
-      className="bg-brand-solid text-brand-solid-foreground text-fluid-sm focus-visible:border-brand-solid-foreground sr-only rounded-md border border-transparent px-4 py-2 font-bold outline-none focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-60">
+      className="bg-brand-solid text-brand-solid-foreground text-fluid-sm sr-only rounded-md px-4 py-2 font-bold focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-60">
       Zum Inhalt springen
     </a>
   );

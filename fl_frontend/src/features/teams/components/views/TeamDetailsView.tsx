@@ -53,12 +53,17 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
   }
 
   return (
-    <div className="border-border relative ml-2 border-l-2 border-dashed">
+    // Same list semantics as the six card grids (R4 §4.4): this is a repeated collection too, so a
+    // screen-reader user gets a count and a position here as well.
+    <div
+      role="list"
+      className="border-border relative ml-2 border-l-2 border-dashed">
       {sortByDate({ arr: spiele, key: "datum" }).map((spielData) => {
         const result = computeErgebnisFor({ spiel: spielData, teamId });
 
         return (
           <div
+            role="listitem"
             key={spielData.id}
             className="relative mb-8 pl-6">
             <div

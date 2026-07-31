@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
+import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { patchAdminSpielDataAction } from "../../../actions";
 import FormDateTimeSection from "./FormDateTimeSection";
@@ -16,7 +17,6 @@ import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpiel, FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
-import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
  * The lookup lists arrive as props rather than from `useAdmin()`. They are only ever available on
@@ -46,14 +46,7 @@ export default function AdminEditSpielDataForm({
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
-  const formRef = useRef<HTMLFormElement>(null);
-
-  // Focuses the first field the server rejected — see the long note in `EntityForm`.
-  useEffect(() => {
-    if (Object.keys(fieldErrors).length > 0) formRef.current?.reportValidity();
-  }, [fieldErrors]);
+  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors();
 
   const handleFormSubmit = (formData: FormData) => {
     // Both teams are required by the payload schema, but the Autocomplete's clear button can empty
@@ -87,8 +80,8 @@ export default function AdminEditSpielDataForm({
       if (!res.success) {
         setFieldErrors(res.fieldErrors ?? {});
 
-        // Only for failures no single field owns — see the note in `EntityForm`.
-        if (!res.fieldErrors || Object.keys(res.fieldErrors).length === 0) {
+        // Only for failures no single field owns.
+        if (!hasFieldErrors(res.fieldErrors)) {
           toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
             timeout: 6000,
           });

@@ -48,8 +48,9 @@ export function SidemenuOptionsMenu({
       try {
         await onSignOut?.();
       } catch {
-        // The success path never returns — `signOut({ redirectTo })` throws a redirect that Next
-        // consumes — so reaching here means the session was not ended.
+        // On success this promise resolves and the router navigates: the action's `redirect()`
+        // throws on the server, and Next turns that into a redirect response rather than a client
+        // rejection. So reaching this branch means the session genuinely was not ended.
         toast.danger("Abmelden fehlgeschlagen. Bitte versuche es erneut.");
       }
     });

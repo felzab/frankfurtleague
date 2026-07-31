@@ -25,12 +25,16 @@ import type { ReactNode } from "react";
  * and dropped entirely by screen readers in forms mode. It never names the control. `ariaLabel`
  * carries the record name so the five icons in a row are distinguishable from each other and from
  * the same five icons in every other row.
+ *
+ * Neither class carries a focus style. The `<Button>` actions take HeroUI's ring and the `<Link>`
+ * actions take the matching base-layer outline, both in `var(--focus)` — a per-site ring here is
+ * what made the row actions look different from everything else.
  */
 const ACTION_CLASS =
-  "text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2";
+  "text-foreground-muted hover:bg-muted/40 hover:text-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors";
 
 const DANGER_CLASS =
-  "text-foreground-muted hover:bg-danger/10 hover:text-danger focus-visible:ring-danger flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2";
+  "text-foreground-muted hover:bg-danger/10 hover:text-danger flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors";
 
 export function RowActionLink({
   href,

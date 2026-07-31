@@ -16,9 +16,14 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
   // Was `return null`, which rendered a completely blank content area — and this is the expected
   // state for most of a season, because the playoff Spieltage do not exist until the group phase
   // finishes (R4 §12.2).
+  /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
+     `h1` whether or not the season has data. */
+  const pageHeading = <h1 className="sr-only">Finalrunden</h1>;
+
   if (!playoffsSpieltage || playoffsSpieltage.length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
+        {pageHeading}
         <EmptyState
           title="Noch keine Finalrunden"
           hint="Die Playoff-Paarungen werden festgelegt, sobald die Gruppenphase abgeschlossen ist."
@@ -30,9 +35,7 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
   return (
     // FIX: Added flex-1 and pb-12 so it respects the same native scrolling flow as the other pages
     <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12 duration-400">
-      {/* These routes have no visible page title by design, so the `h1` that anchors the heading
-          list is visually hidden. The text matches the route's own `metadata.title` (R4 §4.2). */}
-      <h1 className="sr-only">Finalrunden</h1>
+      {pageHeading}
 
       {/* Viewport scroller. @container + cqw below: the columns used to be sized in vw, so once the
           sidebar appears they each claim a share of the viewport the content area does not have and

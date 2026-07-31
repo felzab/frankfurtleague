@@ -21,11 +21,15 @@
     /* Accents & Feedback */
     --accent-brand: #82181a;
 
-    /* HeroUI's focus-ring color. Stock is a blue --accent; the owner wants brand everywhere a ring
-       still renders (buttons, tabs, menu items). Field-like controls suppress the ring entirely in
-       favour of their border turning brand -- see SearchBar / FIELD_INPUT. Declared once: the var()
-       resolves against the per-theme --accent-brand, so it flips with the theme. */
-    --focus: var(--accent-brand);
+    /* THE focus colour, and there is only one (owner decision, 2026-07-31).
+       HeroUI reads --focus for all 47 of its focus rings, and the base-layer rule further down gives
+       plain <a>/<button> an identical outline, so this single line is the whole focus palette.
+       --fg-base, not --accent-brand: it is white in the dark theme -- the look the owner picked --
+       and near-black in the light theme, where white would be invisible on --bg-base. Both read as
+       "the standard focus outline", which is the point.
+       Field-like controls opt out of the ring entirely and turn their border brand instead; that is
+       the one deliberate exception, and it lives in SearchBar / FIELD_INPUT. */
+    --focus: var(--fg-base);
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
     --accent-brand-solid: #82181a;
@@ -125,6 +129,27 @@
     --field-card: #124529;
     --field-fg: #ffffff;
     --field-border: color-mix(in srgb, #ffffff 20%, transparent);
+  }
+
+  /* The focus indicator for everything HeroUI does not already style.
+     HeroUI covers its own components -- button, link, tab, accordion trigger, menu item, table row,
+     switch and 30-odd more -- with a 2px ring in var(--focus) at a 2px offset. This gives a plain
+     <a>, <button> or [tabindex] an outline with the same width, offset and colour, so the app has
+     ONE focus appearance rather than three (owner, 2026-07-31).
+
+     Why this cannot double up on HeroUI's components: every one of them also declares
+     `outline-style: none` in @layer components, which outranks this @layer base rule. And why it
+     beats the browser's own focus ring: any author style does.
+
+     Form fields are deliberately absent from the selector. They keep their border turning brand and
+     get no ring or outline at all -- inputs are excluded here by element type, and the field-shaped
+     HeroUI triggers (autocomplete, search field) suppress the ring in FIELD_INPUT / SearchBar. */
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
   }
 }
 

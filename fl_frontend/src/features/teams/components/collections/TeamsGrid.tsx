@@ -29,7 +29,7 @@ export default function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]
           role="listitem"
           key={teamData.id}
           href={`${urlPrefix}/${teamData.id}`}
-          className="focus-visible:ring-brand size-full rounded-2xl outline-none focus-visible:ring-1">
+          className="size-full rounded-2xl">
           <TeamCard teamData={teamData} />
         </Link>
       ))}

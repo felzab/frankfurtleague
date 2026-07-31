@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Check } from "@gravity-ui/icons";
 
 import { Button, Form, toast } from "@heroui/react";
+
+import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { formButton } from "./formButtons";
 
@@ -39,24 +41,7 @@ export function EntityForm<TDraft>({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
-  const formRef = useRef<HTMLFormElement>(null);
-
-  /**
-   * Moves focus to the first field the server rejected.
-   *
-   * react-aria writes each server error onto its input with `setCustomValidity` and auto-focuses the
-   * first invalid one — but only from its `invalid` DOM event handler, and that event fires solely
-   * during native form validation. Server errors arrive after the submit is over, so nothing fires
-   * it and focus stays on "Speichern" (verified in react-aria 3.50,
-   * `private/form/useFormValidation.mjs`). `reportValidity()` raises the event on every invalid
-   * control, which is exactly the entry point react-aria is listening for; its handler also calls
-   * `preventDefault`, so the browser's own error bubble never appears.
-   */
-  useEffect(() => {
-    if (Object.keys(fieldErrors).length > 0) formRef.current?.reportValidity();
-  }, [fieldErrors]);
+  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors();
 
   const handleSubmit = () => {
     startTransition(async () => {
@@ -67,7 +52,7 @@ export function EntityForm<TDraft>({
 
         // A field-level rejection already says which field and why, at the field. The toast is for
         // the failures that belong to no field — a network error, a 500, a denied session.
-        if (!res.fieldErrors || Object.keys(res.fieldErrors).length === 0) {
+        if (!hasFieldErrors(res.fieldErrors)) {
           toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
         }
         return;

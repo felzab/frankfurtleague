@@ -5,8 +5,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Separator } from "@heroui/react";
 
-import { BELOW_LG_QUERY, useMediaQuery } from "@/shared/hooks/useMediaQuery";
-
 import SidemenuDesktopHeader from "./SidemenuDesktopHeader";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import SidemenuFooter from "./SidemenuFooter";
@@ -35,12 +33,6 @@ export default function Sidemenu<TIcon extends string>({
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
-
-  // Above `lg` the same <aside> is the permanent desktop rail, so `inert` must never reach it there.
-  // The query's server snapshot is `false`, which is the safe branch: never inert rather than
-  // wrongly inert. See the note on the <aside>.
-  const isDrawerViewport = useMediaQuery(BELOW_LG_QUERY);
-  const isDrawerClosed = isDrawerViewport && !isMobileOpen;
 
   // Escape closes the open drawer. Bound to the document, not the <aside>: opening the drawer does
   // not move focus into it, so focus is still on the hamburger in `SidemenuMobileHeader` — outside
@@ -93,16 +85,22 @@ export default function Sidemenu<TIcon extends string>({
       />
 
       {/* CLOUDFLARE STYLE SIDEBAR
-          Closed, the drawer is only translated off-screen, and `translate-x` removes an element from
-          neither the tab order nor the accessibility tree — so a phone user tabbing the page fell
-          into 11-14 controls sitting 310px off the left edge, with focus invisible (R4 §1.2).
-          `inert` takes the whole subtree out of both, and is gated on the viewport because above
-          `lg` this same element is the permanent desktop rail. Escape is handled in the effect
-          above, not here — see the note there for why the listener has to be on the document. */}
+          Closed, the drawer used to be only translated off-screen, and `translate-x` removes an
+          element from neither the tab order nor the accessibility tree — so a phone user tabbing the
+          page fell into 11-14 controls sitting 310px off the left edge, with focus invisible
+          (R4 §1.2). `invisible` fixes that in CSS: it takes the subtree out of both, and `lg:visible`
+          restores it for the desktop rail, which is this same element above `lg`.
+
+          Visibility rather than `inert`, which would need the breakpoint duplicated in JS as a
+          matchMedia string. It also survives before hydration, and it does not cut the slide-out
+          short: CSS Transitions interpolate `visibility` discretely, holding the visible end for the
+          whole duration, so the panel stays on screen until the transform finishes.
+
+          Escape is handled in the effect above — see the note there for why the listener has to be
+          on the document. */}
       <aside
-        inert={isDrawerClosed}
-        className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,transform] duration-300 ease-in-out ${
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
+        className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,transform,visibility] duration-300 ease-in-out lg:visible ${
+          isMobileOpen ? "visible translate-x-0" : "invisible -translate-x-full"
         } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${isDesktopCollapsed ? "lg:w-sidemenu-collapsed" : "w-sidemenu"}`}>
         <SidemenuDesktopHeader isDesktopCollapsed={isDesktopCollapsed} />
 

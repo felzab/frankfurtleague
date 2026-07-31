@@ -8,10 +8,15 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import type { FLSpielplan } from "../../schemas";
 
 export default function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
+  /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
+     `h1` whether or not the season has data. */
+  const pageHeading = <h1 className="sr-only">Spielplan</h1>;
+
   // Without this the empty case renders a bordered, empty 44px tab bar and no panels (R4 §12.2).
   if (!spielplanData?.spieltage?.length) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
+        {pageHeading}
         <EmptyState
           title="Für diese Saison steht noch kein Spielplan fest."
           hint="Sobald die Spieltage angelegt sind, erscheinen sie hier."
@@ -23,9 +28,7 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
   return (
     // Updated to flex-1 and flex-col so it handles height naturally without jumping
     <Tabs className="relative flex w-full flex-1 flex-col items-center">
-      {/* These routes have no visible page title by design, so the `h1` that anchors the heading
-          list is visually hidden. The text matches the route's own `metadata.title` (R4 §4.2). */}
-      <h1 className="sr-only">Spielplan</h1>
+      {pageHeading}
 
       <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
         {/* The width boundaries for mobile vs desktop */}

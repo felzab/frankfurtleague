@@ -11,9 +11,14 @@ import TeamPopoverMenu from "../TeamPopoverMenu";
 import type { FLGruppen } from "../../schemas";
 
 export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
+  /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
+     `h1` whether or not the season has data. */
+  const pageHeading = <h1 className="sr-only">Saisontabelle</h1>;
+
   if (typedObjectEntries(gruppenData).length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
+        {pageHeading}
         <EmptyState
           title="Für diese Saison gibt es noch keine Tabelle."
           hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
@@ -25,9 +30,7 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
   return (
     /** Container for all the groups */
     <div className="relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8">
-      {/* These routes have no visible page title by design, so the `h1` that anchors the heading
-          list is visually hidden. The text matches the route's own `metadata.title` (R4 §4.2). */}
-      <h1 className="sr-only">Saisontabelle</h1>
+      {pageHeading}
 
       {
         /** One Table generated for each group */

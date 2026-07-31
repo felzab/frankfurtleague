@@ -6,6 +6,12 @@
  *
  * `focus-visible:`, not `focus:`, so the border does not fire on pointer clicks — matching
  * `SignInForm`, which was the one field in the app already getting this right.
+ *
+ * The `ring-0` pair is the app's **one** exception to the focus outline every other control takes
+ * (globals.css, `--focus`): a field says it is focused by turning its border brand, and adding a
+ * ring on top would indicate the same state twice. Keep both `focus-visible:` and `focus-within:`
+ * variants — the composite HeroUI fields put focus on an inner input, so only `focus-within` fires
+ * on the wrapper.
  */
 export const FIELD_INPUT =
   "border-border bg-surface text-foreground text-fluid-sm focus-visible:border-brand focus-within:border-brand rounded-lg border px-3 py-2 transition-colors outline-none focus-visible:ring-0 focus-within:ring-0";
