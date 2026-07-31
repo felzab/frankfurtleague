@@ -204,39 +204,52 @@ writeFileSync(
 // ─── The React component ──────────────────────────────────────────────────────
 // Emitted from the same geometry rather than transcribed. Hand-copying these coordinates once put
 // the header mark 47px away from the icons — invisible in isolation, obvious side by side.
+//
+// This emits the DISPLAY rendering: outline, erosion and speed bars, the same mark the app icons
+// carry. Only the favicon is clean. An earlier pass shipped the clean mark here too, on the theory
+// that erosion is noise below ~32px — but the header renders at 32-34 CSS px, which is 64-68 device
+// pixels on any modern screen, and the texture resolves perfectly well at that density. The brand
+// should look like the brand in the header. Owner correction, 2026-08-01.
 function flLogoComponent() {
-  const rects = (dx, dy, fill) => {
+  const rects = (dx, dy, fill, indent, filter) => {
     const h = H;
     const t = h * STEM;
     const x0 = 256 + dx - pairWidth(h) / 2;
     const y = Y + dy;
     const xL = x0 + h * F_W + h * KERN;
+    const pad = " ".repeat(indent);
     const r = (x, yy, w, hh) =>
-      `        <rect x="${+x.toFixed(2)}" y="${+yy.toFixed(2)}" width="${+w.toFixed(2)}" height="${+hh.toFixed(2)}" />`;
+      `${pad}  <rect x="${+x.toFixed(2)}" y="${+yy.toFixed(2)}" width="${+w.toFixed(2)}" height="${+hh.toFixed(2)}" />`;
+    const open = filter
+      ? `${pad}<g fill="${fill}" filter={\`url(#\${filterId})\`}>`
+      : fill === "none"
+        ? `${pad}<g fill="none" stroke="#ffffff" strokeWidth="7" opacity="0.75">`
+        : `${pad}<g fill="${fill}">`;
     return [
-      `      <g fill="${fill}">`,
+      open,
       r(x0, y, t, h),
       r(x0, y, h * F_W, t),
       r(x0, y + h * 0.395, h * F_MID_W, t),
       r(xL, y, t, h),
       r(xL, y + h - t, h * L_W, t),
-      `      </g>`,
+      `${pad}</g>`,
     ].join("\n");
   };
 
   const BT = String.fromCharCode(96);
-  return `/**
+  return `import { useId } from "react";
+
+/**
  * The FL mark, as rendered in the app's chrome.
  *
- * **Generated - do not edit by hand.** Run ${BT}node scripts/generate-brand-assets.mjs${BT} from
- * ${BT}fl_frontend/${BT}; that script owns the geometry and emits this file alongside the icons, so the
- * header mark and the favicon cannot drift apart. They already did once, by 47px, when these
- * coordinates were transcribed by hand.
+ * **Generated - do not edit by hand.** Run ${BT}pnpm brand${BT} from ${BT}fl_frontend/${BT}; that script owns the
+ * geometry and emits this file alongside the icons, so the header mark and the app icons cannot drift
+ * apart. They already did once, by 47px, when these coordinates were transcribed by hand.
  *
- * This is the **clean** rendering - no outline, no print erosion. The component is only ever mounted
- * small (24-34px in the topnav, sidemenu, drawer and footer), where the outline doubles every edge
- * into noise and the speckle reads as dirt. The eroded rendering ships as ${BT}apple-icon.png${BT}, the two
- * manifest icons and the Open Graph card.
+ * This is the full mark - offset shadow, outline and print erosion - matching ${BT}apple-icon.png${BT}, the
+ * manifest icons and the Open Graph card. **Only the favicon is clean**, because at 16px the outline
+ * doubles every edge into noise; the header renders at 32-34 CSS px, which is 64-68 device pixels,
+ * and the texture resolves fine there.
  *
  * The letters are rectangles rather than ${BT}<text>${BT}: the same drawing has to rasterise identically in
  * the browser and in librsvg when the PNGs are built, and librsvg has no Impact.
@@ -245,12 +258,35 @@ function flLogoComponent() {
  * the owner's instruction (2026-08-01).
  */
 export function FLLogo({ className = "size-8" }: { className?: string }) {
+  // The filter id must be unique per instance: up to four logos share a page, duplicate ids are
+  // invalid, and ${BT}url(#…)${BT} resolves to the first match - so every later logo would silently borrow
+  // the first one's filter.
+  const filterId = useId();
+
   return (
     <svg
       viewBox="0 0 512 512"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       role="presentation">
+      <defs>
+        {/* Two passes: turbulence roughens the outline, then a second, coarser turbulence is
+            thresholded into specks and punched out of the letters. The three numbers below are the
+            erosion strength - change them in the generator, not here. */}
+        <filter
+          id={filterId}
+          x="-18%"
+          y="-18%"
+          width="136%"
+          height="136%">
+          <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="7" result="edge" />
+          <feDisplacementMap in="SourceGraphic" in2="edge" scale="${EROSION.disp}" xChannelSelector="R" yChannelSelector="G" result="rough" />
+          <feTurbulence type="fractalNoise" baseFrequency="${EROSION.grain}" numOctaves="3" seed="3" result="grain" />
+          <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ${EROSION.cut}" result="speck" />
+          <feComposite operator="out" in="rough" in2="speck" />
+        </filter>
+      </defs>
+
       {/* The tile takes the theme token, not a literal, so it tracks --accent-brand-solid. */}
       <rect
         width="512"
@@ -258,10 +294,21 @@ export function FLLogo({ className = "size-8" }: { className?: string }) {
         rx="112"
         className="fill-brand-solid"
       />
+
       {/* skewX gives the italic; the translate re-centres what the skew pushed left. */}
       <g transform="${SKEW}">
-${rects(14, 14, MAROON_DEEP)}
-${rects(0, 0, WHITE)}
+${rects(16, 16, MAROON_DEEP, 8, true)}
+${rects(16, 16, "none", 8, false)}
+${rects(0, 0, WHITE, 8, true)}
+      </g>
+
+      {/* The speed bars. */}
+      <g
+        fill="${WHITE}"
+        opacity="0.55"
+        transform="${SKEW}">
+        <rect x="86" y="396" width="164" height="17" rx="8" />
+        <rect x="86" y="424" width="104" height="17" rx="8" />
       </g>
     </svg>
   );
@@ -280,4 +327,4 @@ console.log("  public/icons/manifest/manifest-512.png  maskable, display");
 console.log("  public/icons/manifest/icon-192.png      any, display");
 console.log("  public/icons/manifest/icon-512.png      any, display");
 console.log("  public/icons/opengraph/opengraph.png    1200x630");
-console.log("  src/shared/components/ui/FLLogo.tsx     clean, generated");
+console.log("  src/shared/components/ui/FLLogo.tsx     display, generated");
