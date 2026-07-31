@@ -36,6 +36,12 @@ export type FormState = {
    * a rejected submit could only ever produce a toast that named nothing (R4 §3.1).
    */
   fieldErrors?: FieldErrors;
+  /**
+   * Echoes an address the user just typed, so a confirmation screen can show it back. Safe to
+   * return: it is their own input, not a lookup result, so it reveals nothing about who is
+   * registered.
+   */
+  submittedEmail?: string;
 } | null;
 
 /**

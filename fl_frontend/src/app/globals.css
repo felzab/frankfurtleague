@@ -353,13 +353,21 @@
   }
 }
 
-/* Collection options. A ring around the first result the moment you type reads as an error, so the
-   focused option is filled instead — the same thing a native <select> does with the system accent.
-   `brand-solid` rather than `muted`: muted is what `hover:` already uses at these call sites, and it
-   measures 1.18:1 (light) / 1.29:1 (dark) against the popover surface, well under the 3:1 WCAG 1.4.11
-   asks of a focus indicator. The solid pair is the app's standard fill-behind-text combination. */
-[data-slot="list-box-item"],
-[data-slot="menu-item"] {
+/* Collection options.
+
+   WHY an option lights up at all, since it surprises people: react-aria moves the focused key onto
+   the first match as soon as you type in a combobox, so that Enter picks it. That is deliberate
+   combobox behaviour (the same thing the browser address bar and any command palette do), and it
+   needs a visible state or Enter becomes a guess. Wave 6 only changed what that state LOOKS like —
+   it was HeroUI's focus ring, which read as an error around a result nobody had chosen.
+
+   It reuses the app's existing "this one is active" language, the same `bg-brand/N` + `text-brand`
+   that marks the current sidemenu item, rather than inventing a third thing. A plain `muted` tint
+   was tried and rejected: it is the token `hover:` already uses at these call sites, so keyboard and
+   mouse states became indistinguishable, and it measures 1.18:1 (light) / 1.29:1 (dark) against the
+   popover surface — under the 3:1 WCAG 1.4.11 asks of a focus indicator. */
+[data-slot="list-box-item"]:not([data-menu-static]),
+[data-slot="menu-item"]:not([data-menu-static]) {
   /* `data-focus-visible` ONLY — deliberately not `data-focused` or `:focus`. react-aria moves the
      focused key on hover (`useMenuItem`'s `onHoverStart` calls `setFocusedKey`), so matching
      `data-focused` repainted every menu item, dropdown entry and picker option brand on plain mouse
@@ -367,8 +375,8 @@
      Hover keeps the `hover:bg-muted` each call site already declares. */
   &:is(:focus-visible, [data-focus-visible="true"]) {
     --tw-ring-shadow: 0 0 #0000;
-    background-color: var(--accent-brand-solid);
-    color: var(--fg-on-brand);
+    background-color: color-mix(in srgb, var(--accent-brand) 15%, transparent);
+    color: var(--accent-brand);
     outline: none;
   }
 }

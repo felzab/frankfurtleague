@@ -7,6 +7,7 @@ import { Autocomplete, Button, Description, Label, ListBox, SearchField, toast, 
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { submitInlineOnEnter } from "./suppressEnterSubmit";
 
@@ -99,7 +100,13 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
 
       if (!res.success || !res.created_id) {
         setCreateErrors(res.fieldErrors ?? {});
-        toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+
+        // Only when no field owns the failure. The draft fields render every rejected path below, so
+        // a toast on top of them repeats "Bitte überprüfe deine Eingaben" for information the form is
+        // already showing at each input.
+        if (!hasFieldErrors(res.fieldErrors)) {
+          toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+        }
         return;
       }
 

@@ -17,10 +17,12 @@ const SignInPayloadSchema = z.object({
 // Deliberately identical whether or not the address is on the admin allowlist. This action is
 // public and unauthenticated, so a distinguishable "not authorized" response is a membership oracle
 // for ALLOWED_ADMIN_EMAILS -- and the address is the only thing an attacker needs to enumerate.
-const NEUTRAL_RESULT: FormState = {
+// `submittedEmail` is the caller's own input echoed back, which reveals nothing.
+const neutralResult = (submittedEmail: string): FormState => ({
   success: true,
   message: "Falls diese Adresse freigegeben ist, wurde ein Anmeldelink verschickt.",
-};
+  submittedEmail,
+});
 
 // Floor, not a delay: the allowlisted path does real work (Resend round-trip) while the rejected
 // path returns almost immediately, and that difference alone re-opens the oracle.
@@ -57,9 +59,14 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
     // the URL as a string instead (next-auth `lib/actions.js`), which is discarded here: both paths
     // now end on /signin with the same message, and the caller renders the confirmation itself.
     // The verification email is still sent -- that happens inside `Auth()`, before this returns.
-    await signIn("resend", { email: validated.data.email, redirect: false });
+    // Both options, and they do different jobs: `redirectTo` becomes Auth.js's `callbackUrl`, i.e.
+    // where the magic LINK lands the user once the token is verified (without it the callback falls
+    // back to the Referer, which is /signin — so clicking the link dropped admins back on the sign-in
+    // page). `redirect: false` only stops THIS action from navigating the browser now. next-auth
+    // destructures the two separately, so they do not conflict.
+    await signIn("resend", { email: validated.data.email, redirectTo: "/admin", redirect: false });
 
-    return settleAfterFloor(startedAt, NEUTRAL_RESULT);
+    return settleAfterFloor(startedAt, neutralResult(validated.data.email));
   } catch (error) {
     // Kept even though nothing here should redirect any more: `unstable_rethrow` is what stops a
     // future `redirect()`/`notFound()` from being swallowed by the AuthError branch below.
@@ -68,7 +75,7 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
     // AccessDenied from the allowlist check lands here, and must not be distinguishable from
     // success. See NEUTRAL_RESULT above.
     if (error instanceof AuthError) {
-      return settleAfterFloor(startedAt, NEUTRAL_RESULT);
+      return settleAfterFloor(startedAt, neutralResult(validated.data.email));
     }
 
     throw error;

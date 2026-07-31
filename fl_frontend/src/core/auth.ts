@@ -4,6 +4,7 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
 
+import { buildMagicLinkEmail } from "./authEmail";
 import { frontend_config } from "./config";
 import client from "./db";
 import { logger } from "./logging";
@@ -22,6 +23,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Resend({
       from: "no-reply@frankfurtleague.de",
+      /**
+       * Replaces Auth.js's stock template, which sends an English subject ("Sign in to …") and a
+       * generic body on a German-only site. The message itself lives in `features/auth/email.ts` —
+       * edit it there, not here. This function is only the transport.
+       *
+       * Mirrors the provider's own implementation (`@auth/core/providers/resend.js`): same endpoint,
+       * same auth header, same error shape, so a Resend failure still surfaces the API's message.
+       */
+      async sendVerificationRequest({ identifier: to, provider, url }) {
+        const { subject, html, text } = buildMagicLinkEmail(url);
+
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ from: provider.from, to, subject, html, text }),
+        });
+
+        if (!res.ok) throw new Error("Resend error: " + JSON.stringify(await res.json()));
+      },
     }),
   ],
   callbacks: {

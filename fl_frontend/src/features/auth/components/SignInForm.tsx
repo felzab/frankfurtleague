@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { Ban } from "@gravity-ui/icons";
 
@@ -12,13 +12,20 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { handleSignIn } from "../actions";
 
+import type { FormState } from "@/shared/types/types";
+
 export default function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
   // The action no longer navigates, so this panel is what the user sees after a submit. It says the
   // same thing for an allowlisted and a non-allowlisted address -- that neutrality is the whole
   // point, and it is why the copy is conditional ("falls ... freigegeben") rather than a promise.
-  const isSubmitted = state?.success === true;
+  //
+  // `dismissedAt` is what lets "Andere Adresse verwenden" bring the form back: `useActionState` has
+  // no reset, and the previous result stays in state until the next submit, so the panel is keyed off
+  // the pair rather than off `state` alone.
+  const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
+  const isSubmitted = state?.success === true && state !== dismissedAt;
 
   useEffect(() => {
     if (!state || state.success) return;
@@ -64,7 +71,20 @@ export default function SignInForm() {
             <p className="text-fluid-sm text-foreground-muted font-medium text-pretty">
               {state?.message ?? "Falls diese Adresse freigegeben ist, wurde ein Anmeldelink verschickt."}
             </p>
+
+            {state?.submittedEmail && <p className="text-fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
+
             <p className="text-fluid-xs text-foreground-muted">Der Link ist nur kurze Zeit gültig. Du kannst dieses Fenster offen lassen.</p>
+
+            {/* Without this the only way back to the form was a page reload — the action does not
+                navigate any more, so nothing else resets the view. */}
+            <Button
+              type="button"
+              variant="secondary"
+              onPress={() => setDismissedAt(state)}
+              className={formButton({ intent: "cancel" })}>
+              Andere E-Mail-Adresse verwenden
+            </Button>
           </div>
         ) : (
           <Tabs
@@ -76,13 +96,13 @@ export default function SignInForm() {
                 className="flex w-full gap-1">
                 <Tabs.Tab
                   id="Admin"
-                  className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200">
+                  className="text-fluid-sm text-foreground-muted hover:bg-muted/60 hover:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:hover:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200 data-[selected=true]:hover:bg-transparent">
                   Admin
                   <Tabs.Indicator className="bg-brand-solid/80" />
                 </Tabs.Tab>
                 <Tabs.Tab
                   id="Spieler"
-                  className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200">
+                  className="text-fluid-sm text-foreground-muted hover:bg-muted/60 hover:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:hover:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200 data-[selected=true]:hover:bg-transparent">
                   Spieler
                   <Tabs.Indicator className="bg-brand-solid/80" />
                 </Tabs.Tab>

@@ -22,8 +22,8 @@ export default function TopNavLinksDropdown() {
           className="text-foreground hover:bg-muted rounded-md p-1 transition-colors">
           <Bars
             aria-hidden="true"
-            height={40}
-            width={40}
+            height={28}
+            width={28}
           />
         </Dropdown.Trigger>
 
@@ -94,9 +94,12 @@ export default function TopNavLinksDropdown() {
 
             {/* SECTION 3: App Controls */}
             <Dropdown.Section aria-label="Einstellungen">
+              {/* See the identical row in `SidemenuOptionsMenu` for why these two props are here. */}
               <Dropdown.Item
                 id="theme-switch"
                 textValue="Modus"
+                shouldCloseOnSelect={false}
+                data-menu-static="true"
                 className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-[hover=true]:bg-transparent">
                 <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
                 <ThemeSwitch />

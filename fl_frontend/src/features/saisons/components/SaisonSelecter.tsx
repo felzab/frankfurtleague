@@ -45,7 +45,15 @@ export default function SaisonSelector({ seasons, currentSeason }: { seasons: FL
         {/* Sleek, single-layer trigger with interactive border states */}
         <Select.Trigger className="border-border/60 bg-surface/50 hover:bg-surface hover:border-border data-[open=true]:border-brand data-[open=true]:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-all duration-200">
           <div className="flex flex-col items-start gap-0.5 text-left">
-            <Select.Value className="text-fluid-lg! text-foreground font-black tracking-tight" />
+            {/* Rendered from `activeSaisonId`, NOT from `Select.Value`.
+                `Select.Value` resolves its label out of the react-aria collection, so any render
+                where the collection has not committed shows HeroUI's English "Select an item"
+                placeholder instead — intermittently, and only for the name, which is exactly the
+                reported symptom: the timespan below stayed correct because it reads the same prop
+                this now does. Both halves of the trigger come from one source and cannot disagree. */}
+            <span className="text-fluid-lg text-foreground font-black tracking-tight">
+              {activeSaisonId ? `Saison ${activeSaisonId}` : "Saison wählen"}
+            </span>
             <Description className="text-fluid-xxs text-foreground-muted font-bold tracking-wider uppercase">{timespan}</Description>
           </div>
 
