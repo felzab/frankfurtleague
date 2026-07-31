@@ -6,6 +6,7 @@ import { CircleInfo, Persons } from "@gravity-ui/icons";
 
 import { Badge, Popover, Separator } from "@heroui/react";
 
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 
 import { TBD_TEAM_SHORTHAND } from "../constants";
@@ -36,6 +37,10 @@ export default function TeamPopoverMenu({
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
   return (
+    // Not a control: it stops the card underneath from also reacting when the trigger is pressed.
+    // There is no action here to give a keyboard equivalent to — `Popover.Trigger` below is the
+    // control — and giving this an interactive role would invent a second, duplicate one.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="contents"
       onClick={(e) => e.stopPropagation()}
@@ -49,14 +54,15 @@ export default function TeamPopoverMenu({
             `min-width:auto`; the button was `w-fit`; and `.badge-anchor` bakes in `shrink-0`, which
             `shrink` here undoes. The card only ever constrained its own grid cell, so the overflow
             happened inside this wrapper and the name spilled past the card edge. */}
-        <Popover.Trigger className="max-w-full min-w-0">
-          {/* type="button" is load-bearing: a typeless button defaults to submit, so mounting this
-              anywhere inside a <form> would make opening the popover submit the form. */}
-          <button
-            type="button"
-            className="hover:text-brand focus-visible:text-brand relative flex max-w-full min-w-0 cursor-pointer items-center text-left transition-colors duration-200 outline-none">
-            <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
-          </button>
+        {/* The trigger IS the control — no <button> inside it. `Popover.Trigger` renders a
+            `div role="button"` wrapped in react-aria's `Pressable` (HeroUI 3.2.2, `popover.js`),
+            which is focusable in its own right, so nesting a real button gave every team name TWO
+            tab stops with two differently-shaped focus outlines. Keyboard activation is Pressable's.
+
+            That also retires the old `type="button"` note: a div cannot submit a form, so the hazard
+            of mounting this inside `AdminEditSpielDataForm` is gone by construction. */}
+        <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
+          <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
         </Popover.Trigger>
 
         <Popover.Content
@@ -64,13 +70,13 @@ export default function TeamPopoverMenu({
           offset={10}>
           {/* max-w caps the panel: nothing else constrains it, so without this the dialog grows to
               the full team name and a long one pushes it past the viewport edge. */}
-          <Popover.Dialog className="bg-surface border-border text-foreground w-max max-w-[280px] rounded-xl border p-4 shadow-lg outline-none">
+          <Popover.Dialog className={`${overlayPanel()} w-max max-w-[280px] p-4 outline-none`}>
             <Popover.Arrow className="fill-surface" />
 
             <Popover.Heading className="text-fluid-base flex w-full flex-row items-center justify-between font-bold">
               <span className="truncate pr-2">{teamName}</span>
               {teamIsDisqualified && (
-                <span className="bg-danger/10 text-danger rounded-md px-2 py-0.5 text-xs font-extrabold uppercase">DQ</span>
+                <span className="bg-danger/10 text-danger text-fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">DQ</span>
               )}
             </Popover.Heading>
 

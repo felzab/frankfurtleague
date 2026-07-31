@@ -21,14 +21,22 @@ export default function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]
   }
 
   return (
-    <div className="max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div
+      role="list"
+      className="max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {teams.map((teamData) => (
-        <Link
+        // The role goes on the wrapper, never on the <Link>: an explicit role replaces the implicit
+        // `link` one, which would drop the card out of a screen reader's list of links.
+        <div
+          role="listitem"
           key={teamData.id}
-          href={`${urlPrefix}/${teamData.id}`}
-          className="focus-visible:ring-brand size-full rounded-2xl outline-none focus-visible:ring-1">
-          <TeamCard teamData={teamData} />
-        </Link>
+          className="size-full">
+          <Link
+            href={`${urlPrefix}/${teamData.id}`}
+            className="block size-full rounded-2xl">
+            <TeamCard teamData={teamData} />
+          </Link>
+        </div>
       ))}
     </div>
   );

@@ -35,7 +35,7 @@ export const suppressEnterSubmit = (e: KeyboardEvent) => {
  * The suppression happens first and unconditionally for non-exempt targets, so Enter can never
  * reach the parent form.
  */
-export const submitInlineOnEnter = (submit: () => void) => (e: KeyboardEvent) => {
+export const submitInlineOnEnter = (e: KeyboardEvent, submit: () => void) => {
   if (e.key !== "Enter" || handlesEnterItself(e)) return;
   e.preventDefault();
   e.stopPropagation();

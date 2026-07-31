@@ -12,6 +12,10 @@ export default function ExpandableDescription({ text }: { text: string }) {
   }
 
   return (
+    // A pointer convenience layered over a control that is already fully keyboard-accessible: the
+    // <button> below toggles both directions, so collapsing by clicking the text adds no capability
+    // a keyboard user lacks. Giving this a role would invent a second control for the same action.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="mt-2"
       onClick={() => {
@@ -20,12 +24,12 @@ export default function ExpandableDescription({ text }: { text: string }) {
         }
       }}>
       <p
-        className={`text-fluid-xs text-pretty transition-all duration-200 ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
+        className={`text-fluid-xs text-pretty transition-colors duration-200 ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
         {text}
       </p>
 
       <button
-        className="text-fluid-xs text-success focus-visible:ring-brand mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none"
+        className="text-fluid-xs text-success mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80"
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>

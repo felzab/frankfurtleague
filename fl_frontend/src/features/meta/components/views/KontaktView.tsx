@@ -13,6 +13,7 @@ export default function KontaktView() {
       case "email":
         return (
           <Envelope
+            aria-hidden="true"
             width={32}
             height={32}
           />
@@ -21,7 +22,7 @@ export default function KontaktView() {
         return (
           <Image
             src="/icons/footer/instagram/instagram.svg"
-            alt="Instagram logo link"
+            alt=""
             width={32}
             height={32}
             title="Instagram by Pixel Icons"
@@ -43,7 +44,7 @@ export default function KontaktView() {
         return (
           <Image
             src="/icons/footer/whatsapp/whatsapp.svg"
-            alt="Whatsapp logo link"
+            alt=""
             width={32}
             height={32}
             title="Whatsapp by Icon Mafia"
@@ -58,9 +59,9 @@ export default function KontaktView() {
     <div className="max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8">
       {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
-        <h2 className="text-fluid-2xl sm:text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
+        <h1 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
           Frankfurt-League Kontakt
-        </h2>
+        </h1>
         <p className="text-fluid-sm sm:text-fluid-sm text-field-fg/80 mt-2 font-medium">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
       </div>
 
@@ -70,7 +71,7 @@ export default function KontaktView() {
       <section className="flex w-full flex-col gap-y-3 sm:gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-3">
           <ArrowsExpand className="size-5 drop-shadow sm:size-6 lg:size-7" />
-          <h3 className="text-fluid-base sm:text-fluid-lg font-extrabold tracking-wide uppercase">Wir sind für alles offen</h3>
+          <h2 className="text-fluid-base sm:text-fluid-lg font-extrabold tracking-wide uppercase">Wir sind für alles offen</h2>
         </div>
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-5 shadow-xl sm:p-6 lg:p-8">
@@ -84,9 +85,12 @@ export default function KontaktView() {
       <div className="soccer-field-separator w-full" />
 
       {/** Section 2: Channels Grid */}
-      <section className="grid w-full grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <section
+        role="list"
+        className="grid w-full grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
         {KONTAKT_CHANNELS.map((channel, i) => (
           <Card
+            role="listitem"
             key={i}
             className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl sm:p-6">
             <div>
@@ -109,7 +113,7 @@ export default function KontaktView() {
                 href={channel.action}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-fluid-xs border-field-fg/30 bg-field-fg/10 text-field-fg hover:border-field-fg hover:bg-field-fg/25 flex w-full items-center justify-center rounded-xl border py-3 font-bold uppercase backdrop-blur-sm transition-all duration-200 active:scale-95">
+                className="text-fluid-xs border-field-fg/30 bg-field-fg/10 text-field-fg hover:border-field-fg hover:bg-field-fg/25 flex w-full items-center justify-center rounded-xl border py-3 font-bold uppercase backdrop-blur-sm transition-[transform,background-color,border-color] duration-200 active:scale-95">
                 Jetzt kontaktieren
               </Link>
             </Card.Footer>

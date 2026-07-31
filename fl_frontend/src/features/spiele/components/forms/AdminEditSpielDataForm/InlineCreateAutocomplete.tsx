@@ -1,20 +1,22 @@
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
-import { Check, Plus, Xmark } from "@gravity-ui/icons";
+import { Check, Plus } from "@gravity-ui/icons";
 
-import { Autocomplete, Button, Description, Label, ListBox, SearchField, toast, useFilter } from "@heroui/react";
+import { Autocomplete, Button, CloseButton, Description, Label, ListBox, SearchField, toast, useFilter } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { submitInlineOnEnter } from "./suppressEnterSubmit";
 
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { Key } from "@heroui/react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 /** What the `post*Action` server actions return. */
-type CreateResult = { success: boolean; created_id?: string | null; message?: string; error?: string };
+type CreateResult = { success: boolean; created_id?: string | null; message?: string; error?: string; fieldErrors?: FieldErrors };
 
 /**
  * The pick-or-create-inline control, once. `FormSchiedsrichterSection` and `FormSpielortSection`
@@ -25,9 +27,18 @@ type CreateResult = { success: boolean; created_id?: string | null; message?: st
  * inline draft, the Spielort copy only swallowed the key. Enter now submits the draft at both,
  * and `submitInlineOnEnter` suppresses the event before doing so, so it can never reach
  * `AdminEditSpielDataForm`'s outer `<Form action>`.
+ *
+ * A record created inline is selected immediately (R4 §13.4) — the section exists to attach one to
+ * the match, and reporting "angelegt" while leaving the picker empty led admins to save a match
+ * with no referee. `items` still comes from the last server render, so the new record is held in
+ * `createdItems` and merged into the collection: `Autocomplete.Value` renders from
+ * `SelectValue`, which resolves the label out of the collection and shows the placeholder for a key
+ * it cannot find (verified in react-aria-components 1.19, `Select.mjs` — `state.selectedItems`).
+ * Selecting a key that is not in the collection would therefore look like nothing happened.
  */
 export function InlineCreateAutocomplete<TItem extends { id: string; name: string }, TDraft>({
   label,
+  placeholder,
   name,
   items,
   selectedId,
@@ -38,22 +49,32 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   emptyDraft,
   renderDraftFields,
   onCreate,
+  buildCreatedItem,
   createdToast,
   children,
 }: {
-  /** "Spielort" — used for the field label, placeholders and the footer button. */
+  /** "Spielort" — used for the field label and the footer button. */
   label: string;
+  /** Picker placeholder. A bare noun ("Spielort") read as a value rather than a prompt. */
+  placeholder: string;
   /** Form field name, e.g. "spielOrtUI"; the search field appends "_search". */
   name: string;
   items: TItem[];
   selectedId: string | null;
-  onSelect: (key: Key | null) => void;
+  /**
+   * Receives the resolved item, not the key. The caller cannot do that lookup itself: a record
+   * created inline exists only in this component's `createdItems` until the next server render, so
+   * resolving against the caller's own list would silently miss it — and did.
+   */
+  onSelect: (item: TItem | null) => void;
   description: string;
   createHeading: string;
   emptyStateText: string;
   emptyDraft: TDraft;
-  renderDraftFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>) => ReactNode;
+  renderDraftFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>, errors: FieldErrors) => ReactNode;
   onCreate: (draft: TDraft) => Promise<CreateResult>;
+  /** Turns a just-created draft into a collection item, so it can be shown before the next render. */
+  buildCreatedItem: (draft: TDraft, createdId: string) => TItem;
   createdToast: string;
   /** Rendered under the picker when not creating inline — each caller's currency NumberField. */
   children: ReactNode;
@@ -65,47 +86,88 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
   const [isCreatingInline, setIsCreatingInline] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [draft, setDraft] = useState<TDraft>(emptyDraft);
+  // Records created in this session, still absent from the server-rendered `items`.
+  const [createdItems, setCreatedItems] = useState<TItem[]>([]);
+  // Rejected-field messages for the inline panel. It renders inside `AdminEditSpielDataForm`'s
+  // <form>, so it cannot be a <form> itself and `Form`'s `validationErrors` context never reaches
+  // it — the draft fields take these as an explicit prop instead, and render exactly the same
+  // `<FieldError>` under exactly the same input as they do in the modal forms.
+  const [createErrors, setCreateErrors] = useState<FieldErrors>({});
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Deduplicated on id, so a created record collapses into the real one once the server catches up.
+  const options = [...createdItems.filter((created) => !items.some((item) => item.id === created.id)), ...items];
 
   const handleCreateSubmit = () => {
+    // Gate on the browser's own constraint validation BEFORE the server is touched, so an empty
+    // required field is reported here exactly as it is in the CRUD modals. This panel cannot be a
+    // `<form>` (it renders inside the match form's), so there is no group-level check to call.
+    //
+    // `checkValidity()`, not `reportValidity()`, and on EVERY control rather than stopping at the
+    // first: each call fires the native `invalid` event, which react-aria intercepts —
+    // `useFormValidation` calls `preventDefault()` on it (so no browser bubble ever appears) and
+    // renders `input.validationMessage` in that field's own `<FieldError>`. Asking every control
+    // therefore lights up every empty field at once instead of one at a time. Focus is then put on
+    // the first, which is what a real form submit does.
+    const invalidControls = [...(panelRef.current?.querySelectorAll("input, select, textarea") ?? [])].filter(
+      (control) => !(control as HTMLInputElement).checkValidity(),
+    );
+
+    if (invalidControls.length > 0) {
+      (invalidControls[0] as HTMLInputElement).focus();
+      return;
+    }
+
     startTransition(async () => {
       const res = await onCreate(draft);
 
       if (!res.success || !res.created_id) {
-        toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+        setCreateErrors(res.fieldErrors ?? {});
+
+        // Only when no field owns the failure. The draft fields render every rejected path below, so
+        // a toast on top of them repeats "Bitte überprüfe deine Eingaben" for information the form is
+        // already showing at each input.
+        if (!hasFieldErrors(res.fieldErrors)) {
+          toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+        }
         return;
       }
 
+      const createdItem = buildCreatedItem(draft, res.created_id);
+
+      setCreatedItems((previous) => [...previous, createdItem]);
       setIsCreatingInline(false);
       setSearchQuery("");
       setDraft(emptyDraft);
+      setCreateErrors({});
+      onSelect(createdItem);
 
       toast.success(res.message || createdToast);
     });
   };
 
-  const showStickyFooter = searchQuery.trim() === "" ? items.length > 0 : items.some((item) => contains(item.name, searchQuery));
+  const showStickyFooter = searchQuery.trim() === "" ? options.length > 0 : options.some((item) => contains(item.name, searchQuery));
 
   return (
     <div className="flex w-full flex-col gap-y-4">
       {isCreatingInline ? (
         <div
+          ref={panelRef}
           className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400"
-          onKeyDownCapture={submitInlineOnEnter(handleCreateSubmit)}>
+          onKeyDownCapture={(event) => submitInlineOnEnter(event, handleCreateSubmit)}>
           <div className="border-border flex items-center justify-between border-b pb-2">
             <h4 className="text-fluid-sm text-foreground font-bold">{createHeading}</h4>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-8 w-8 min-w-8 px-0"
-              onPress={() => setIsCreatingInline(false)}>
-              <Xmark
-                width={16}
-                height={16}
-              />
-            </Button>
+            {/* Same control the modal shells use, so "close this panel" looks and behaves the
+                same everywhere. `Modal.CloseTrigger` is just this with the dialog's close wired in,
+                which is not available outside a modal. */}
+            <CloseButton
+              aria-label={`Formular "${createHeading}" schließen`}
+              className="text-foreground-muted hover:text-foreground transition-colors"
+              onPress={() => setIsCreatingInline(false)}
+            />
           </div>
 
-          {renderDraftFields(draft, setDraft)}
+          {renderDraftFields(draft, setDraft, createErrors)}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
@@ -136,14 +198,19 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
           <Autocomplete
             name={name}
             className="w-full"
-            placeholder={label}
+            placeholder={placeholder}
             selectionMode="single"
             value={selectedId}
-            onChange={onSelect}>
-            <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
+            onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
+            <Label className={FIELD_LABEL}>{label}</Label>
             <Autocomplete.Trigger className={FIELD_INPUT}>
               <Autocomplete.Value className="text-fluid-sm" />
-              <Autocomplete.ClearButton type="button" />
+              {/* HeroUI hardcodes aria-label="Clear selection" on this button and spreads props
+                  after it, so passing one is the only way to germanise it. */}
+              <Autocomplete.ClearButton
+                type="button"
+                aria-label={`${label}-Auswahl aufheben`}
+              />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
             <Autocomplete.Popover className={overlayPanel()}>
@@ -155,7 +222,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
                   value={searchQuery}
                   onChange={setSearchQuery}
                   className="p-2">
-                  <SearchField.Group className="border-border bg-muted focus-within:border-brand rounded-lg border px-2 py-1.5 transition-all duration-200 focus-within:ring-0">
+                  <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5 transition-colors duration-200">
                     <SearchField.SearchIcon />
                     <SearchField.Input
                       placeholder={`${label} finden...`}
@@ -178,7 +245,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
                     </div>
                   )}
                   className="p-1">
-                  {items.map((item) => (
+                  {options.map((item) => (
                     <ListBox.Item
                       key={item.id}
                       id={item.id}

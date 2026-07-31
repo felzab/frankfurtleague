@@ -22,15 +22,20 @@ import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { FLTeam } from "../../schemas";
 
 function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel[]; teamId: string; onOpenSpiel: (spiel: FLSpiel) => void }) {
-  // Map results to valid semantic colors
+  /**
+   * The W/D/L dots are 10px bold glyphs on an opaque fill, so they need the `-solid` fills rather
+   * than the tint-grade accents (ledger NEW-C1). On the plain accents a white "D" measured 1.92:1
+   * in the light theme and 1.32:1 in dark — the draw marker was effectively invisible. The ring
+   * stays on the tint accent: it is decoration around the dot, not a foreground.
+   */
   const getBadgeColor = (result: FLSpielErgebnisFor) => {
     switch (result) {
       case "W":
-        return "bg-success text-white ring-success/30";
+        return "bg-success-solid text-success-solid-foreground ring-success/30";
       case "D":
-        return "bg-warning text-white ring-warning/30";
+        return "bg-warning-solid text-warning-solid-foreground ring-warning/30";
       case "L":
-        return "bg-danger text-white ring-danger/30";
+        return "bg-danger-solid text-danger-solid-foreground ring-danger/30";
       default:
         return "bg-muted text-foreground-muted ring-border";
     }
@@ -48,12 +53,17 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
   }
 
   return (
-    <div className="border-border relative ml-2 border-l-2 border-dashed">
+    // Same list semantics as the six card grids (R4 §4.4): this is a repeated collection too, so a
+    // screen-reader user gets a count and a position here as well.
+    <div
+      role="list"
+      className="border-border relative ml-2 border-l-2 border-dashed">
       {sortByDate({ arr: spiele, key: "datum" }).map((spielData) => {
         const result = computeErgebnisFor({ spiel: spielData, teamId });
 
         return (
           <div
+            role="listitem"
             key={spielData.id}
             className="relative mb-8 pl-6">
             <div
@@ -95,7 +105,7 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
 
       {/* Header Info Card */}
       <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4`}>
-        <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h3>
+        <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h1>
 
         {/* Offizieller Schulname. No emptiness guard: both schemas now require it (R3a-B1.3). */}
         <p className="text-fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
@@ -128,7 +138,7 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
 
       {/* Saison Stats Section */}
       <div className="flex flex-col gap-y-4">
-        <h4 className="text-fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h4>
+        <h2 className="text-fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {[
@@ -164,7 +174,7 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
 
       {/* Games Timeline */}
       <div className="mt-4 size-full">
-        <h5 className="text-fluid-lg text-foreground mb-6 font-extrabold tracking-tight">Saisonspiele</h5>
+        <h2 className="text-fluid-lg text-foreground mb-6 font-extrabold tracking-tight">Saisonspiele</h2>
         <SaisonSpieleTimeline
           spiele={teamSpiele}
           teamId={teamData.id}

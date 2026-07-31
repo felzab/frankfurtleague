@@ -4,11 +4,6 @@ import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
-// jsx-a11y still lights up against existing violations, so it stays `warn` until Wave 6 clears it.
-// better-tailwindcss was flipped to `error` by Wave 5a and no longer goes through this helper.
-const asWarnings = (rules) =>
-  Object.fromEntries(Object.entries(rules).map(([rule, value]) => [rule, Array.isArray(value) ? ["warn", ...value.slice(1)] : "warn"]));
-
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -90,9 +85,14 @@ const eslintConfig = defineConfig([
   // R4 Phase 0.2 — eslint-config-next already registers the `jsx-a11y` plugin (and enables 8 of its
   // rules), so re-registering it is a flat-config error. Only the rule set is taken from here; the
   // direct devDependency is what pins the version this list is derived from.
+  //
+  // `error` as of Wave 6, which cleared the inherited violations. The two that remain are suppressed
+  // at their sites with a stated reason (`TeamPopoverMenu`, `ExpandableDescription`): both are
+  // pointer conveniences over controls that are already keyboard-accessible, and giving either an
+  // interactive role would invent a second control for an action that already has one.
   {
     files: ["src/**/*.{ts,tsx}"],
-    rules: asWarnings(jsxA11y.flatConfigs.recommended.rules),
+    rules: jsxA11y.flatConfigs.recommended.rules,
   },
 
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/"]),

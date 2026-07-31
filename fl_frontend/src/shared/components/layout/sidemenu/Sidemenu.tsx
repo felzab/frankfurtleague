@@ -11,7 +11,7 @@ import SidemenuFooter from "./SidemenuFooter";
 import SidemenuMobileHeader from "./SidemenuMobileHeader";
 import SidemenuNavItem from "./SidemenuNavItem";
 
-import type { SidemenuStructure } from "@/shared/types/types";
+import type { FormState, SidemenuStructure } from "@/shared/types/types";
 
 // Generic over the icon key: the structure and the dictionary are checked against each other, so
 // iconDictionary[iconName] is a total lookup and cannot miss.
@@ -20,16 +20,34 @@ export default function Sidemenu<TIcon extends string>({
   linkPrefix,
   saisonMetadataDisplay,
   iconDictionary,
+  onSignOut,
 }: {
   structure: SidemenuStructure<TIcon>;
   linkPrefix: string;
   saisonMetadataDisplay: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
+  /** Passed to the footer's options menu; only the admin shell supplies one. */
+  onSignOut?: () => Promise<FormState>;
 }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
+
+  // Escape closes the open drawer. Bound to the document, not the <aside>: opening the drawer does
+  // not move focus into it, so focus is still on the hamburger in `SidemenuMobileHeader` — outside
+  // this subtree — and a handler on the panel would never see the key. Tabbing forward from the
+  // hamburger does reach the drawer, since it comes later in DOM order.
+  React.useEffect(() => {
+    if (!isMobileOpen) return;
+
+    const closeOnEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMobileOpen(false);
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [isMobileOpen]);
 
   const globalSaisonId = searchParams.get("saison_id");
   const globalQuery = new URLSearchParams();
@@ -56,7 +74,8 @@ export default function Sidemenu<TIcon extends string>({
         onToggleMenu={_toggleMobileMenu}
       />
 
-      {/* MOBILE BACKDROP */}
+      {/* MOBILE BACKDROP — a dismiss shortcut for pointers, not a control. It is `aria-hidden` and
+          not focusable on purpose; the keyboard paths are the close button and Escape above. */}
       <div
         onClick={_toggleMobileMenu}
         aria-hidden="true"
@@ -65,10 +84,23 @@ export default function Sidemenu<TIcon extends string>({
         }`}
       />
 
-      {/* CLOUDFLARE STYLE SIDEBAR */}
+      {/* CLOUDFLARE STYLE SIDEBAR
+          Closed, the drawer used to be only translated off-screen, and `translate-x` removes an
+          element from neither the tab order nor the accessibility tree — so a phone user tabbing the
+          page fell into 11-14 controls sitting 310px off the left edge, with focus invisible
+          (R4 §1.2). `invisible` fixes that in CSS: it takes the subtree out of both, and `lg:visible`
+          restores it for the desktop rail, which is this same element above `lg`.
+
+          Visibility rather than `inert`, which would need the breakpoint duplicated in JS as a
+          matchMedia string. It also survives before hydration, and it does not cut the slide-out
+          short: CSS Transitions interpolate `visibility` discretely, holding the visible end for the
+          whole duration, so the panel stays on screen until the transform finishes.
+
+          Escape is handled in the effect above — see the note there for why the listener has to be
+          on the document. */}
       <aside
-        className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,transform] duration-300 ease-in-out ${
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
+        className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,transform,visibility] duration-300 ease-in-out lg:visible ${
+          isMobileOpen ? "visible translate-x-0" : "invisible -translate-x-full"
         } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${isDesktopCollapsed ? "lg:w-sidemenu-collapsed" : "w-sidemenu"}`}>
         <SidemenuDesktopHeader isDesktopCollapsed={isDesktopCollapsed} />
 
@@ -76,8 +108,17 @@ export default function Sidemenu<TIcon extends string>({
 
         {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex flex-1 scrollbar-gutter-stable flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
-          <Suspense fallback={<div className="bg-muted h-[70px] w-full animate-pulse rounded-xl" />}>
-            <div className={`transition-all duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
+          {/* The skeleton carries no text, so without a labelled status region a screen-reader user
+              gets silence while the season selector loads (R4 §4.6). */}
+          <Suspense
+            fallback={
+              <div
+                role="status"
+                aria-label="Saisonauswahl wird geladen"
+                className="bg-muted h-[70px] w-full animate-pulse rounded-xl"
+              />
+            }>
+            <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
             </div>
           </Suspense>
@@ -120,6 +161,7 @@ export default function Sidemenu<TIcon extends string>({
         <SidemenuFooter
           isDesktopCollapsed={isDesktopCollapsed}
           onToggleDesktopMenu={_toggleDesktopMenu}
+          onSignOut={onSignOut}
         />
       </aside>
     </>

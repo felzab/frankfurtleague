@@ -5,6 +5,8 @@ import type { FLPostSpielortPayload } from "./schemas";
  *
  * Derived from the payload schema the server action validates, rather than restated — the two were
  * a near-copy of each other and could drift apart silently.
+ *
+ * `default_mietpreis` stays a plain number — see the note on `SchiedsrichterDraft`.
  */
 export type SpielortDraft = FLPostSpielortPayload;
 

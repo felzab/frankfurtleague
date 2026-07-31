@@ -33,6 +33,7 @@ export function ModalShell({
   heading,
   icon,
   size,
+  role,
   children,
 }: {
   isOpen: boolean;
@@ -41,6 +42,12 @@ export function ModalShell({
   /** Rendered to the left of the heading — the destructive confirmations' danger badge. */
   icon?: ReactNode;
   size?: "form" | "confirm";
+  /**
+   * `"alertdialog"` for an irreversible action, so a screen reader signals it as one instead of
+   * announcing it exactly like the benign create/edit dialogs (R4 §1.3). It reaches react-aria's
+   * `useDialog`, which defaults to `"dialog"` and applies whatever it is given.
+   */
+  role?: "dialog" | "alertdialog";
   children: ReactNode;
 }) {
   const styles = modalShell({ size });
@@ -55,7 +62,9 @@ export function ModalShell({
       }}
       variant="blur">
       <Modal.Container placement="top">
-        <Modal.Dialog className={styles.dialog()}>
+        <Modal.Dialog
+          role={role}
+          className={styles.dialog()}>
           <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
 
           <Modal.Header className={styles.header()}>

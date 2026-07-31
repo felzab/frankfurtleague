@@ -11,9 +11,14 @@ import TeamPopoverMenu from "../TeamPopoverMenu";
 import type { FLGruppen } from "../../schemas";
 
 export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
+  /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
+     `h1` whether or not the season has data. */
+  const pageHeading = <h1 className="sr-only">Saisontabelle</h1>;
+
   if (typedObjectEntries(gruppenData).length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
+        {pageHeading}
         <EmptyState
           title="Für diese Saison gibt es noch keine Tabelle."
           hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
@@ -25,6 +30,8 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
   return (
     /** Container for all the groups */
     <div className="relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8">
+      {pageHeading}
+
       {
         /** One Table generated for each group */
         typedObjectEntries(gruppenData).map(([group, teamsData]) => (
@@ -33,7 +40,7 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
             className={`${card()} max-w-page mb-6 flex w-full flex-col items-start p-3 sm:p-6`}>
             <div className="flex flex-col gap-1 pb-6">
               <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
-              <h3 className="text-fluid-xl text-foreground font-black tracking-tight">Gruppe {group}</h3>
+              <h2 className="text-fluid-xl text-foreground font-black tracking-tight">Gruppe {group}</h2>
             </div>
 
             <Table

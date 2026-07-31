@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import RecentAndUpcomingSpieleGrid from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
 import { card } from "@/shared/components/ui/card";
+import { ctaButton } from "@/shared/components/ui/formButtons";
 
 export default function LandingPage() {
   return (
@@ -35,13 +36,13 @@ export default function LandingPage() {
               <Link
                 href="/dashboard/spielplan#top"
                 prefetch={false}
-                className="bg-brand-solid text-brand-solid-foreground text-fluid-sm shadow-brand/30 hover:scale-hover w-full rounded-xl px-7 py-3.5 text-center font-bold transition-all duration-200">
+                className={`${ctaButton({ intent: "primary" })} w-full`}>
                 Spielplan →
               </Link>
               <Link
                 href="/dashboard/saisontabelle#top"
                 prefetch={false}
-                className="bg-background border-border text-fluid-sm hover:scale-hover w-full rounded-xl border px-7 py-3.5 text-center font-bold transition-all duration-200">
+                className={`${ctaButton({ intent: "outline" })} w-full`}>
                 Tabelle →
               </Link>
             </div>
@@ -98,13 +99,13 @@ export default function LandingPage() {
             <Link
               href="/about"
               prefetch={false}
-              className="bg-brand-solid text-fluid-xs text-brand-solid-foreground hover:scale-hover flex h-10 w-full items-center justify-center rounded-xl px-4 font-bold transition-all duration-200 lg:w-56">
+              className={`${ctaButton({ intent: "primary", size: "sm" })} w-full lg:w-56`}>
               Mehr über das Projekt
             </Link>
             <Link
               href="/kontakt"
               prefetch={false}
-              className="bg-background border-border text-fluid-xs text-foreground hover:scale-hover flex h-10 w-full items-center justify-center rounded-xl border px-4 font-bold transition-all duration-200 lg:w-44">
+              className={`${ctaButton({ intent: "outline", size: "sm" })} w-full lg:w-44`}>
               Zum Kontakt
             </Link>
           </div>
@@ -115,7 +116,9 @@ export default function LandingPage() {
       <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
         <Suspense
           fallback={
-            <div className="flex w-full justify-center py-20">
+            <div
+              role="status"
+              className="flex w-full justify-center py-20">
               <span className="text-fluid-sm text-foreground-muted animate-pulse italic">Spiele werden geladen...</span>
             </div>
           }>

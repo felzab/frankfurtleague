@@ -6,6 +6,7 @@ import { Table, toast } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { CLIPBOARD_ERROR_MESSAGE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
@@ -23,11 +24,11 @@ function AdminSpielorteTable({
   setEditingOrt: (ort: FLSpielort) => void;
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
-  const handleCopyAddress = (ort: FLSpielort) => {
-    navigator.clipboard
-      .writeText(`${ort.name}, ${formatAddressFull(ort.address)}`)
-      .then(() => toast.success("Adresse in die Zwischenablage kopiert!"))
-      .catch(() => toast.danger("Fehler beim Kopieren der Adresse."));
+  const handleCopyAddress = async (ort: FLSpielort) => {
+    const copied = await copyTextToClipboard(`${ort.name}, ${formatAddressFull(ort.address)}`);
+
+    if (copied) toast.success("Adresse in die Zwischenablage kopiert!");
+    else toast.danger(CLIPBOARD_ERROR_MESSAGE);
   };
 
   return (
@@ -100,30 +101,37 @@ function AdminSpielorteTable({
                     <RowActionLink
                       href={formatMapsLink(ort)}
                       label="Auf Maps öffnen"
+                      ariaLabel={`${ort.name} auf Google Maps öffnen`}
                       external>
                       <Globe
+                        aria-hidden="true"
                         width={18}
                         height={18}
                       />
                     </RowActionLink>
                     <RowActionLink
                       href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
-                      label="Spiele anzeigen">
+                      label="Spiele anzeigen"
+                      ariaLabel={`Spiele in ${ort.name} anzeigen`}>
                       <Calendar
+                        aria-hidden="true"
                         width={18}
                         height={18}
                       />
                     </RowActionLink>
                     <RowActionCopy
                       label="Adresse kopieren"
+                      ariaLabel={`Adresse von ${ort.name} kopieren`}
                       onPress={() => handleCopyAddress(ort)}
                     />
                     <RowActionEdit
                       label="Bearbeiten"
+                      ariaLabel={`Spielort ${ort.name} bearbeiten`}
                       onPress={() => setEditingOrt(ort)}
                     />
                     <RowActionDelete
                       label="Löschen"
+                      ariaLabel={`Spielort ${ort.name} löschen`}
                       onPress={() => setDeletingOrt(ort)}
                     />
                   </RowActions>

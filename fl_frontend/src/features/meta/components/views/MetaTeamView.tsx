@@ -13,9 +13,9 @@ export default function MetaTeamView() {
     <div className="max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8">
       {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
-        <h2 className="text-fluid-2xl sm:text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
+        <h1 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
           Frankfurt-League Team
-        </h2>
+        </h1>
         <p className="text-fluid-sm sm:text-fluid-sm text-field-fg/80 mt-2 font-medium">Wer das Event möglich macht.</p>
       </div>
 
@@ -25,7 +25,7 @@ export default function MetaTeamView() {
       <section className="flex w-full flex-col gap-y-3 sm:gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-2 sm:gap-x-3">
           <Persons className="size-5 drop-shadow sm:size-6" />
-          <h3 className="text-fluid-base sm:text-fluid-lg font-extrabold tracking-wide uppercase">Behind the scenes</h3>
+          <h2 className="text-fluid-base sm:text-fluid-lg font-extrabold tracking-wide uppercase">Hinter den Kulissen</h2>
         </div>
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-4 shadow-xl sm:p-6 lg:p-8">
@@ -46,13 +46,16 @@ export default function MetaTeamView() {
           <section
             key={tag}
             className="flex w-full flex-col gap-y-5">
-            <h3 className="text-fluid-base sm:text-fluid-lg border-field-fg text-field-fg border-l-4 pl-3 font-black tracking-wide uppercase">
+            <h2 className="text-fluid-base sm:text-fluid-lg border-field-fg text-field-fg border-l-4 pl-3 font-black tracking-wide uppercase">
               {TAG_TITLES[tag]}
-            </h3>
+            </h2>
 
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+            <div
+              role="list"
+              className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
               {members.map((member) => (
                 <Card
+                  role="listitem"
                   key={member.id}
                   className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl sm:p-6">
                   <div>

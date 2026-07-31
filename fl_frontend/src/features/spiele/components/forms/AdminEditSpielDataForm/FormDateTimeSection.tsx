@@ -1,8 +1,8 @@
 import { parseDate, parseTime } from "@internationalized/date";
 
-import { Calendar, DateField, DatePicker, Description, Label, TimeField } from "@heroui/react";
+import { Calendar, DateField, DatePicker, Description, FieldError, Label, TimeField } from "@heroui/react";
 
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -21,7 +21,7 @@ export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel 
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
         name="datum"
         className="w-full">
-        <Label className="text-fluid-xs text-foreground font-bold">Spieldatum</Label>
+        <Label className={FIELD_LABEL}>Spieldatum</Label>
         <DateField.Group
           fullWidth
           className="border-border bg-surface text-foreground rounded-lg border">
@@ -43,9 +43,10 @@ export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel 
           </DateField.Suffix>
         </DateField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Wähle das Datum aus, an dem das Spiel stattfindet</Description>
+        <FieldError className={FIELD_ERROR} />
         <DatePicker.Popover className="p-2">
           <Calendar
-            aria-label="Event date"
+            aria-label="Spieldatum auswählen"
             className={`${overlayPanel()} p-3`}>
             <Calendar.Header className="bg-transparent">
               <Calendar.YearPickerTrigger>
@@ -72,7 +73,7 @@ export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel 
         name="uhrzeit"
         hourCycle={24}
         defaultValue={spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null}>
-        <Label className="text-fluid-xs text-foreground font-bold">Uhrzeit</Label>
+        <Label className={FIELD_LABEL}>Uhrzeit</Label>
         <TimeField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <TimeField.Input className="text-fluid-sm">
             {(segment) => (
@@ -84,6 +85,7 @@ export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel 
           </TimeField.Input>
         </TimeField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Die Uhrzeit des Anpfiffs</Description>
+        <FieldError className={FIELD_ERROR} />
       </TimeField>
     </div>
   );

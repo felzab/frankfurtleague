@@ -1,9 +1,9 @@
 import { useState } from "react";
 
-import { Description, Label, NumberField, Separator, Switch } from "@heroui/react";
+import { Description, FieldError, Label, NumberField, Separator, Switch } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -62,6 +62,7 @@ export default function FormMatchupSection({
       {/** Team 1 */}
       <FormTeamPicker
         label="Team1"
+        fieldName="team1"
         teams={teams}
         teamPayload={team1Payload}
         onTeamChange={onTeam1Change}
@@ -71,6 +72,7 @@ export default function FormMatchupSection({
       {/** Team 2 */}
       <FormTeamPicker
         label="Team2"
+        fieldName="team2"
         teams={teams}
         teamPayload={team2Payload}
         onTeamChange={onTeam2Change}
@@ -80,53 +82,62 @@ export default function FormMatchupSection({
       <Separator className="bg-border" />
 
       {/** Switch to enter Ergebnis */}
-      <Switch
-        aria-label="Ergebnis eintragen switch"
-        autoFocus={false}
-        isSelected={ergebnisCanBeEdited}
-        onChange={handleErgebnisCanBeEditedToggle}>
-        <Switch.Content className="text-fluid-sm text-foreground flex h-fit w-full flex-row items-center justify-between font-bold">
-          Spielergebnis eintragen
-          <Switch.Control>
-            <Switch.Thumb />
-          </Switch.Control>
-        </Switch.Content>
-        <Description className="text-fluid-xxs text-foreground-muted px-0 leading-normal font-medium whitespace-normal">
+      {/* Named by its own visible content — see the note on the cancel switch. */}
+      <div className="flex w-full flex-col gap-y-1">
+        <Switch
+          aria-describedby="ergebnis-eintragen-hint"
+          isSelected={ergebnisCanBeEdited}
+          onChange={handleErgebnisCanBeEditedToggle}>
+          <Switch.Content className="text-fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+            Spielergebnis eintragen
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
+        </Switch>
+        {/* See the cancel switch: a `Description` child of `Switch` sits inside its `<label>`. */}
+        <p
+          id="ergebnis-eintragen-hint"
+          className="text-fluid-xxs text-foreground-muted leading-normal font-medium">
           Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis
           zurückgesetzt.
-        </Description>
-      </Switch>
+        </p>
+      </div>
 
       {/** Tore Team 1 */}
       <NumberField
         isReadOnly={!ergebnisCanBeEdited}
         minValue={0}
+        name="team1.tore"
         value={team1Tore}
         onChange={hanldeToreTeam1Change}
         className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
-        <Label className="text-fluid-xs text-foreground font-bold">Team 1: Tore</Label>
+        <Label className={FIELD_LABEL}>Team 1: Tore</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
           <NumberField.Input className="w-[120px]" />
           <NumberField.IncrementButton />
         </NumberField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Anzahl der Tore von Team 1</Description>
+        <FieldError className={FIELD_ERROR} />
       </NumberField>
 
       {/** Tore Team 2 */}
       <NumberField
         isReadOnly={!ergebnisCanBeEdited}
         minValue={0}
+        name="team2.tore"
         value={team2Tore}
         onChange={hanldeToreTeam2Change}
         className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
-        <Label className="text-fluid-xs text-foreground font-bold">Team 2: Tore</Label>
+        <Label className={FIELD_LABEL}>Team 2: Tore</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
           <NumberField.Input className="w-[120px]" />
           <NumberField.IncrementButton />
         </NumberField.Group>
         <Description className="text-fluid-xxs text-foreground-muted">Anzahl der Tore von Team 2</Description>
+        <FieldError className={FIELD_ERROR} />
       </NumberField>
 
       {/** Ergebniskontrolle */}
@@ -159,15 +170,21 @@ export default function FormMatchupSection({
           </span>
         </div>
 
-        {isNaN(team1Tore) || isNaN(team2Tore) ? (
-          <p className="text-fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
-        ) : (
-          <p className="text-fluid-xs text-brand font-extrabold tracking-wide">
-            {team1Tore === team2Tore && "Unentschieden"}
-            {team1Tore > team2Tore && `Sieg für ${team1Name}`}
-            {team2Tore > team1Tore && `Sieg für ${team2Name}`}
-          </p>
-        )}
+        {/* The outcome is derived from two fields elsewhere on the form, so a screen-reader user
+            editing the score never learns it changed unless it is announced. */}
+        <div
+          role="status"
+          aria-live="polite">
+          {isNaN(team1Tore) || isNaN(team2Tore) ? (
+            <p className="text-fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
+          ) : (
+            <p className="text-fluid-xs text-brand font-extrabold tracking-wide">
+              {team1Tore === team2Tore && "Unentschieden"}
+              {team1Tore > team2Tore && `Sieg für ${team1Name}`}
+              {team2Tore > team1Tore && `Sieg für ${team2Name}`}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

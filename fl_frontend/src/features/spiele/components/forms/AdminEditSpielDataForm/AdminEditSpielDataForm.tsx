@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 
-import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
+import { Button, Form, Separator, Switch, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
+import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { patchAdminSpielDataAction } from "../../../actions";
 import FormDateTimeSection from "./FormDateTimeSection";
@@ -13,7 +14,7 @@ import FormSchiedsrichterSection from "./FormSchiedsrichterSection";
 import FormSpielortSection from "./FormSpielortSection";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
-import type { FLSpiel, FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSpiel, FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
@@ -39,18 +40,26 @@ export default function AdminEditSpielDataForm({
   const [isPending, startTransition] = useTransition();
 
   const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
-  const [ortPayload, setOrtPayload] = useState<FLSpielOrtField | null>(spielData.ort);
-  const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterField | null>(spielData.schiedsrichter);
+  const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
+  const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
 
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
+  // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
+  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
+    toast.danger("Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 }),
+  );
+
   const handleFormSubmit = (formData: FormData) => {
     // Both teams are required by the payload schema, but the Autocomplete's clear button can empty
-    // them. Without this the submit failed server-side with the generic "check your input" toast,
-    // which named no field.
+    // them. Reported on the two pickers rather than as a toast, so the message sits at the field it
+    // is about — the same channel the server's own rejections use.
     if (!team1Payload || !team2Payload) {
-      toast.danger("Bitte wähle beide Teams aus.", { timeout: 6000 });
+      setFieldErrors({
+        ...(team1Payload ? {} : { "team1.team_id": "Bitte wähle ein Team aus." }),
+        ...(team2Payload ? {} : { "team2.team_id": "Bitte wähle ein Team aus." }),
+      });
       return;
     }
 
@@ -72,12 +81,18 @@ export default function AdminEditSpielDataForm({
       const res = await patchAdminSpielDataAction(payload);
 
       if (!res.success) {
-        toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
-          timeout: 6000,
-        });
+        setFieldErrors(res.fieldErrors ?? {});
+
+        // Only for failures no single field owns.
+        if (!hasFieldErrors(res.fieldErrors)) {
+          toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
+            timeout: 6000,
+          });
+        }
         return;
       }
 
+      setFieldErrors({});
       toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
       onClose();
     });
@@ -85,28 +100,38 @@ export default function AdminEditSpielDataForm({
 
   return (
     <Form
+      ref={formRef}
+      validationErrors={fieldErrors}
       className="flex min-h-full flex-col gap-y-6 pt-2 pb-6"
       action={handleFormSubmit}>
       <Separator className="bg-border" />
 
       {/** Cancel Spiel */}
-      <Switch
-        size="md"
-        aria-label="Spiel absagen switch"
-        autoFocus={false}
-        isSelected={spielIsCanceled}
-        onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
-        <Switch.Content className="text-fluid-sm text-danger flex h-fit w-full flex-row items-center justify-between font-bold">
-          Spiel absagen
-          <Switch.Control className={`${spielIsCanceled ? "bg-danger" : ""}`}>
-            <Switch.Thumb />
-          </Switch.Control>
-        </Switch.Content>
-        <Description className="text-fluid-xxs text-foreground-muted px-0 leading-normal font-medium whitespace-normal">
+      {/* No `aria-label`: "Spiel absagen" below sits inside the switch's own <label>, so an
+          aria-label would only override the visible text with a copy of itself (cf. R4 §3.2). */}
+      <div className="flex w-full flex-col gap-y-1">
+        <Switch
+          size="md"
+          aria-describedby="spiel-absagen-hint"
+          isSelected={spielIsCanceled}
+          onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
+          <Switch.Content className="text-fluid-sm text-danger flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+            Spiel absagen
+            <Switch.Control className={`${spielIsCanceled ? "bg-danger" : ""}`}>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
+        </Switch>
+        {/* Outside the `Switch`, which renders a `<label>`: as a child, this whole paragraph
+            toggled the switch on any click. `aria-describedby` keeps the screen-reader wiring that
+            `Description` provided. */}
+        <p
+          id="spiel-absagen-hint"
+          className="text-fluid-xxs text-foreground-muted leading-normal font-medium">
           Wird dieser Schalter umgelegt, so wird das Spiel als abgesagt eingetragen. Dies kann zurückgesetzt werden, indem der Schalter zurück
           umgelegt wird.
-        </Description>
-      </Switch>
+        </p>
+      </div>
 
       <Separator className="bg-border" />
 

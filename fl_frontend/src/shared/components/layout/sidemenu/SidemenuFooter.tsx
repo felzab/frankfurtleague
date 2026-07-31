@@ -7,18 +7,25 @@ import { ArrowRightToSquare, LayoutSideContentLeft, LayoutSideContentRight } fro
 import { IconTooltip } from "../../ui/IconTooltip";
 import { SidemenuOptionsMenu } from "./SidemenuOptionsMenu";
 
+import type { FormState } from "@/shared/types/types";
+
 export default function SidemenuFooter({
   isDesktopCollapsed,
   onToggleDesktopMenu,
+  onSignOut,
 }: {
   isDesktopCollapsed: boolean;
   onToggleDesktopMenu: () => void;
+  onSignOut?: () => Promise<FormState>;
 }) {
   return (
     <div className={`border-border flex flex-col border-t p-3 ${isDesktopCollapsed ? "items-center gap-3" : "gap-1"}`}>
       {/* Options first: expanded it is a full-width row whose menu opens above it at the same
           width, which is what keeps the menu inside the sidemenu (standard sidebar-footer pattern). */}
-      <SidemenuOptionsMenu isDesktopCollapsed={isDesktopCollapsed} />
+      <SidemenuOptionsMenu
+        isDesktopCollapsed={isDesktopCollapsed}
+        onSignOut={onSignOut}
+      />
 
       {/* Escape Hatch */}
       <IconTooltip

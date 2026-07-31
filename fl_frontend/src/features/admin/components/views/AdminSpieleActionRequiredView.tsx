@@ -18,6 +18,10 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center px-4 pt-6 pb-12 sm:px-8">
+      {/* The route's design has no visible page title, so the `h1` that anchors the heading list is
+          visually hidden (R4 §4.2). Its text matches the sidemenu entry that leads here. */}
+      <h1 className="sr-only">Übersicht: Spiele mit Handlungsbedarf</h1>
+
       <Accordion className="text-foreground max-w-page flex w-full flex-col gap-y-4">
         {/* typedObjectEntries, not Object.entries: the latter widens the key to string, which would
             make the ACTION_REQUIRED_LABELS lookup below an unchecked index. */}
@@ -30,14 +34,20 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
               key={category}
               /* Removed overflow-hidden so nothing gets clipped */
               className={card()}>
-              <Accordion.Heading>
-                <Accordion.Trigger className="hover:bg-muted/80 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors outline-none">
+              {/* `level={2}` sits these six under the page `h1`. `Accordion.Heading` already emits a
+                  real heading wrapping the trigger (react-aria-components defaults it to `h3`), so
+                  the category name did not need to become one — the level was the only thing wrong. */}
+              <Accordion.Heading level={2}>
+                <Accordion.Trigger className="hover:bg-muted/40 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors">
                   <div className="flex flex-col gap-y-1">
                     <div className="flex items-center gap-x-3">
                       <span className="text-fluid-base text-foreground font-extrabold tracking-tight">{label.name}</span>
+                      {/* The `-solid` fills hold one deep value in both themes, so white stays legible
+                          on them (NEW-C1). The plain `danger`/`success` accents are tuned as tints and
+                          measured 3.30:1 light / 2.28:1 dark behind this 12px bold count. */}
                       <span
-                        className={`inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 text-xs font-extrabold shadow-sm ${
-                          hasItems ? "bg-danger dark:bg-danger/90 text-white" : "bg-success dark:bg-success/90 text-white"
+                        className={`text-fluid-xxs inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 font-extrabold shadow-sm ${
+                          hasItems ? "bg-danger-solid text-danger-solid-foreground" : "bg-success-solid text-success-solid-foreground"
                         }`}>
                         {spiele.length}
                       </span>
@@ -56,7 +66,9 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
               <Accordion.Panel>
                 <Accordion.Body className="border-border flex w-full flex-col items-center border-t px-2 py-6 lg:px-6">
                   {hasItems ? (
-                    <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    <div
+                      role="list"
+                      className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                       <AdminSpielCardsList
                         spiele={spiele}
                         today={today}

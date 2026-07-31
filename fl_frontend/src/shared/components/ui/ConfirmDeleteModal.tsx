@@ -79,6 +79,9 @@ export function ConfirmDeleteModal({
       onClose={onClose}
       heading={heading}
       size="confirm"
+      // Irreversible, and the copy below says so — but a plain dialog is announced exactly like the
+      // create/edit ones, so the destructive nature never reached a screen reader (R4 §1.3).
+      role="alertdialog"
       icon={
         <div className="bg-danger/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
           <TrashBin
@@ -98,9 +101,15 @@ export function ConfirmDeleteModal({
             wirklich löschen?
           </p>
         ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
+          /* `role="alert"` because this panel replaces the step-1 copy in place: without it the
+             escalation is silent, and the only other signal is the button label quietly changing
+             to "Ja, endgültig löschen". */
+          <div
+            role="alert"
+            className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
             <div className="text-danger flex items-center gap-2 font-bold">
               <TriangleExclamation
+                aria-hidden="true"
                 width={18}
                 height={18}
               />

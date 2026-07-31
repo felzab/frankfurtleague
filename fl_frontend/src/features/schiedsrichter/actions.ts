@@ -3,15 +3,17 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
+import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter } from "./mutations";
 import { FLDeleteSchiedsrichterPayloadSchema, FLPatchSchiedsrichterPayloadSchema, FLPostSchiedsrichterPayloadSchema } from "./schemas";
 
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDeleteSchiedsrichterPayload, FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter } from "./schemas";
 
 export async function postSchiedsrichterAction(
   rawPayload: FLPostSchiedsrichterPayload,
-): Promise<{ success: boolean; created_id?: string; message?: string; error?: string }> {
+): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
@@ -22,6 +24,7 @@ export async function postSchiedsrichterAction(
     return {
       success: false,
       error: "Bitte überprüfe deine Eingaben!",
+      fieldErrors: toFieldErrors(validated.error),
     };
   }
 
@@ -41,7 +44,7 @@ export async function postSchiedsrichterAction(
 
 export async function patchSchiedsrichterAction(
   rawPayload: FLPatchSchiedsrichterPayload,
-): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string }> {
+): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
@@ -52,6 +55,7 @@ export async function patchSchiedsrichterAction(
     return {
       success: false,
       error: "Bitte überprüfe deine Eingaben!",
+      fieldErrors: toFieldErrors(validated.error),
     };
   }
 
@@ -73,7 +77,7 @@ export async function patchSchiedsrichterAction(
 // This is a soft delete
 export async function deleteSchiedsrichterAction(
   rawPayload: FLDeleteSchiedsrichterPayload,
-): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string }> {
+): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
   if (!(await getAdminSession())) {
     return { success: false, error: "Access Denied: Admin privileges missing" };
   }
@@ -84,6 +88,7 @@ export async function deleteSchiedsrichterAction(
     return {
       success: false,
       error: "Bitte überprüfe deine Eingaben!",
+      fieldErrors: toFieldErrors(validated.error),
     };
   }
 

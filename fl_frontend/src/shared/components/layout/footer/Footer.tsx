@@ -20,7 +20,7 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
           <Link
             href="/"
-            title="Homepage"
+            title="Startseite"
             className="text-fluid-lg text-foreground flex items-center gap-2 font-bold tracking-tighter transition-opacity hover:opacity-80">
             <FLLogo />
             Frankfurt-League
@@ -37,19 +37,19 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
             <Link
               href="/about"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-foreground transition-colors">
+              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
               About
             </Link>
             <Link
               href="/team"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-foreground transition-colors">
+              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Team
             </Link>
             <Link
               href="/kontakt"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-foreground transition-colors">
+              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Kontakt
             </Link>
           </nav>
@@ -65,7 +65,7 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
               prefetch={false}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Threads Profile"
+              aria-label="Threads-Profil"
               className="transition-opacity hover:opacity-80">
               {/* One masked element instead of a light/dark <Image> pair: both assets were in the
                   DOM and both were fetched, and the mask takes its colour from bg-foreground, which
@@ -86,7 +86,7 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
               prefetch={false}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="GitHub Profile"
+              aria-label="GitHub-Profil"
               className="transition-opacity hover:opacity-80">
               <span
                 aria-hidden="true"
@@ -100,11 +100,11 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
               prefetch={false}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Instagram Profile"
+              aria-label="Instagram-Profil"
               className="transition-opacity hover:opacity-80">
               <Image
                 src="/icons/footer/instagram/instagram.svg"
-                alt="Instagram logo"
+                alt=""
                 width={24}
                 height={24}
                 className="size-6"
@@ -117,11 +117,11 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
               prefetch={false}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="WhatsApp Channel"
+              aria-label="WhatsApp-Kanal"
               className="transition-opacity hover:opacity-80">
               <Image
                 src="/icons/footer/whatsapp/whatsapp.svg"
-                alt="WhatsApp logo"
+                alt=""
                 width={24}
                 height={24}
                 className="size-6"
@@ -135,10 +135,17 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
           the copyright year reads the clock and the status pings the backend. Each gets its own
           boundary so the shell shows a sensible fallback and the real values stream in. */}
       <div className="flex flex-col items-center justify-between gap-4 pt-6 text-center sm:flex-row sm:text-left">
-        <Suspense fallback={<p className="text-fluid-xxs text-foreground-muted">{`© Frankfurt-League. All rights reserved.`}</p>}>
+        <Suspense fallback={<p className="text-fluid-xxs text-foreground-muted">{`© Frankfurt-League. Alle Rechte vorbehalten.`}</p>}>
           <FooterCopyrightString />
         </Suspense>
-        <Suspense fallback={<span className="text-fluid-xxs text-foreground-muted opacity-80">Checking status...</span>}>
+        <Suspense
+          fallback={
+            <span
+              role="status"
+              className="text-fluid-xxs text-foreground-muted opacity-80">
+              Status wird geprüft...
+            </span>
+          }>
           {serverStatusSlot}
         </Suspense>
       </div>

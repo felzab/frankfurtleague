@@ -1,3 +1,5 @@
+import type { FieldErrors } from "../utils/validation";
+
 /**
  * Generic over the icon key so a structure and its icon dictionary cannot disagree.
  *
@@ -28,6 +30,18 @@ export type FormState = {
   message?: string;
   success: boolean;
   error?: string;
+  /**
+   * Per-field validation messages, keyed by the field's dotted payload path. `error` stays the
+   * transport-level fallback — a network failure or a 500 belongs to no field. Without this channel
+   * a rejected submit could only ever produce a toast that named nothing (R4 §3.1).
+   */
+  fieldErrors?: FieldErrors;
+  /**
+   * Echoes an address the user just typed, so a confirmation screen can show it back. Safe to
+   * return: it is their own input, not a lookup result, so it reveals nothing about who is
+   * registered.
+   */
+  submittedEmail?: string;
 } | null;
 
 /**

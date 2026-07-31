@@ -1,33 +1,38 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { Ban } from "@gravity-ui/icons";
 
 import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
+import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
+import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { handleSignIn } from "../actions";
+
+import type { FormState } from "@/shared/types/types";
 
 export default function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
-  useEffect(() => {
-    // `undefined`/`null` means the action has not run yet -- only react to a settled result.
-    // Testing `!state?.success` instead fired this on mount, before the user typed.
-    if (!state) return;
+  // The action no longer navigates, so this panel is what the user sees after a submit. It says the
+  // same thing for an allowlisted and a non-allowlisted address -- that neutrality is the whole
+  // point, and it is why the copy is conditional ("falls ... freigegeben") rather than a promise.
+  //
+  // `dismissedAt` is what lets "Andere Adresse verwenden" bring the form back: `useActionState` has
+  // no reset, and the previous result stays in state until the next submit, so the panel is keyed off
+  // the pair rather than off `state` alone.
+  const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
+  const isSubmitted = state?.success === true && state !== dismissedAt;
 
-    // The success branch deliberately cannot confirm that an email was sent: the action returns the
-    // same result for an allowlisted and a non-allowlisted address, so saying "Link gesendet" here
-    // would re-open the enumeration oracle the action closes. Only a malformed address fails now.
-    if (state.success) {
-      toast.success("Anmeldelink angefordert", {
-        description: state.message ?? "Prüfe dein E-Mail-Postfach und folge dem Anmeldelink.",
-        timeout: 6000,
-      });
-      return;
-    }
+  useEffect(() => {
+    if (!state || state.success) return;
+
+    // A malformed address is shown at the field through `validationErrors` below, like every other
+    // form in the app. The toast is kept for failures that belong to no field.
+    if (hasFieldErrors(state.fieldErrors)) return;
 
     toast.danger("Anmeldung fehlgeschlagen", {
       actionProps: {
@@ -35,7 +40,7 @@ export default function SignInForm() {
         onPress: () => toast.clear(),
         variant: "danger",
       },
-      description: state.error ?? "Bitte gebe eine valide Email ein.",
+      description: state.error ?? "Ein unerwarteter Fehler ist aufgetreten.",
       indicator: <Ban />,
       timeout: 6000,
     });
@@ -47,113 +52,129 @@ export default function SignInForm() {
         {/* Header */}
         <div className="flex flex-col items-center pb-6 text-center">
           <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
-          <h2 className="text-fluid-2xl sm:text-fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h2>
-          <p className="text-fluid-sm sm:text-fluid-sm text-foreground-muted mt-1 font-medium">Verwalte oder sehe Daten ein</p>
+          <h1 className="text-fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h1>
+          <p className="text-fluid-sm text-foreground-muted mt-1 font-medium">Verwalte oder sehe Daten ein</p>
         </div>
 
         <div className="border-border mb-8 h-[1px] w-full" />
 
-        <Tabs
-          defaultSelectedKey="Admin"
-          className="w-full">
-          <Tabs.ListContainer className="border-border bg-muted mb-6 rounded-xl border p-1">
-            <Tabs.List
-              aria-label="Rolle auswählen"
-              className="flex w-full gap-1">
-              <Tabs.Tab
-                id="Admin"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200">
-                Admin
-                <Tabs.Indicator className="bg-brand-solid/80" />
-              </Tabs.Tab>
-              <Tabs.Tab
-                id="Spieler"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200">
-                Spieler
-                <Tabs.Indicator className="bg-brand-solid/80" />
-              </Tabs.Tab>
-            </Tabs.List>
-          </Tabs.ListContainer>
+        {isSubmitted ? (
+          /* Deliberately says "falls diese Adresse freigegeben ist" and never "wir haben gesendet".
+             The action returns the same result for an allowlisted and a rejected address, and this
+             panel is what the user sees in both cases — a confirmation that named a real outcome
+             would hand back exactly the membership test the action removes. */
+          <div
+            role="status"
+            className="flex flex-col items-center gap-y-3 py-6 text-center">
+            <span className="text-4xl">📬</span>
+            <p className="text-fluid-lg text-foreground font-black tracking-tight">Prüfe dein Postfach</p>
 
-          {/* Admin Form */}
-          <Tabs.Panel id="Admin">
-            <Form
-              action={formAction}
-              className="flex flex-col gap-y-5">
-              <TextField
-                className="flex w-full flex-col gap-y-2"
-                isRequired
-                autoFocus={false}
-                name="email"
-                type="email"
-                aria-label="email-input"
-                validate={(value) => {
-                  if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value)) {
-                    return "Bitte gebe eine valide Email ein.";
-                  }
-                  return null;
-                }}>
-                <Label className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
-                <Input
-                  className="border-border bg-surface text-foreground placeholder:text-foreground-muted focus-visible:border-brand text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-all duration-200 outline-none"
-                  placeholder="name@beispiel.de"
-                  type="email"
-                  required
-                  aria-label="email"
-                  disabled={isPending}
-                  autoFocus={false}
-                />
-                <FieldError className="text-fluid-xxs text-danger mt-1 font-bold" />
-              </TextField>
+            {state?.submittedEmail && <p className="text-fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 
-              <Button
-                type="submit"
-                variant="primary"
-                isDisabled={isPending}
-                className={formButton({ intent: "submit", fullWidth: true })}>
-                {isPending ? "Wird gesendet..." : "Link senden"}
-              </Button>
-            </Form>
-          </Tabs.Panel>
+            <p className="text-fluid-sm text-foreground-muted font-medium text-pretty">
+              {state?.message ?? "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs."}
+            </p>
+            <p className="text-fluid-xs text-foreground-muted">Der Link gilt 15 Minuten und lässt sich nur einmal verwenden.</p>
 
-          {/* Spieler Form */}
-          <Tabs.Panel id="Spieler">
-            <Form className="flex flex-col gap-y-5">
-              <TextField
-                autoFocus={false}
-                className="flex w-full flex-col gap-y-2"
-                isRequired
-                name="email"
-                type="email"
-                aria-label="email-input"
-                validate={(value) => {
-                  if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(value)) {
-                    return "Bitte gebe eine valide Email ein.";
-                  }
-                  return null;
-                }}>
-                <Label className="text-fluid-xs text-foreground-muted font-bold tracking-wider uppercase">Email-Adresse</Label>
-                <Input
-                  autoFocus={false}
-                  className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 text-fluid-xs sm:text-fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
-                  placeholder="coming soon..."
-                  disabled
-                />
-                <FieldError />
-              </TextField>
+            {/* Without this the only way back to the form was a page reload — the action does not
+                navigate any more, so nothing else resets the view. */}
+            <Button
+              type="button"
+              variant="secondary"
+              onPress={() => setDismissedAt(state)}
+              className={formButton({ intent: "cancel" })}>
+              Andere E-Mail-Adresse verwenden
+            </Button>
+          </div>
+        ) : (
+          <Tabs
+            defaultSelectedKey="Admin"
+            className="w-full">
+            <Tabs.ListContainer className={`${TAB_TRACK} mb-6 p-1`}>
+              <Tabs.List
+                aria-label="Rolle auswählen"
+                className="flex w-full gap-1">
+                <Tabs.Tab
+                  id="Admin"
+                  className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
+                  Admin
+                  <Tabs.Indicator className={TAB_INDICATOR} />
+                </Tabs.Tab>
+                <Tabs.Tab
+                  id="Spieler"
+                  className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
+                  Spieler
+                  <Tabs.Indicator className={TAB_INDICATOR} />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
 
-              <Button
-                isDisabled
-                type="submit"
-                variant="primary"
-                // Same recipe as the Admin tab: the disabled look is the recipe's own
-                // `disabled:opacity-50`, not a second hand-written "inert" appearance.
-                className={formButton({ intent: "submit", fullWidth: true })}>
-                Link senden
-              </Button>
-            </Form>
-          </Tabs.Panel>
-        </Tabs>
+            {/* Admin Form */}
+            <Tabs.Panel id="Admin">
+              <Form
+                action={formAction}
+                validationErrors={state?.fieldErrors ?? {}}
+                className="flex flex-col gap-y-5">
+                {/* No `aria-label` on the field or the input: both outranked the visible <Label>, so
+                  the accessible name was "email" while the screen read "EMAIL-ADRESSE" — and a
+                  voice-control user saying the visible text matched nothing (R4 §3.2). `TextField`
+                  associates the label itself. */}
+                <TextField
+                  className="flex w-full flex-col gap-y-2"
+                  isRequired
+                  name="email"
+                  type="email">
+                  <Label className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
+                  <Input
+                    className="border-border bg-surface text-foreground placeholder:text-foreground-muted text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
+                    placeholder="z.B. name@beispiel.de"
+                    type="email"
+                    required
+                    disabled={isPending}
+                  />
+                  <FieldError className={FIELD_ERROR} />
+                </TextField>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  isDisabled={isPending}
+                  className={formButton({ intent: "submit", fullWidth: true })}>
+                  {isPending ? "Wird gesendet..." : "Link senden"}
+                </Button>
+              </Form>
+            </Tabs.Panel>
+
+            {/* Spieler Form */}
+            <Tabs.Panel id="Spieler">
+              <Form className="flex flex-col gap-y-5">
+                <TextField
+                  className="flex w-full flex-col gap-y-2"
+                  isRequired
+                  name="email"
+                  type="email">
+                  <Label className="text-fluid-xs text-foreground-muted font-bold tracking-wider uppercase">Email-Adresse</Label>
+                  <Input
+                    className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 text-fluid-xs sm:text-fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
+                    placeholder="coming soon..."
+                    disabled
+                  />
+                  <FieldError className={FIELD_ERROR} />
+                </TextField>
+
+                <Button
+                  isDisabled
+                  type="submit"
+                  variant="primary"
+                  // Same recipe as the Admin tab: the disabled look is the recipe's own
+                  // `disabled:opacity-50`, not a second hand-written "inert" appearance.
+                  className={formButton({ intent: "submit", fullWidth: true })}>
+                  Link senden
+                </Button>
+              </Form>
+            </Tabs.Panel>
+          </Tabs>
+        )}
       </div>
     </div>
   );

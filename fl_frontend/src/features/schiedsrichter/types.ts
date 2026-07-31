@@ -5,6 +5,10 @@ import type { FLPostSchiedsrichterPayload } from "./schemas";
  *
  * Derived from the payload schema the server action validates, rather than restated — the two were
  * a near-copy of each other and could drift apart silently.
+ *
+ * `default_payment` stays a plain number. 0 € is a legitimate standard honorar (a volunteer), the
+ * field is `isRequired`, and the "emptied field must not become 0" rule applies to the MATCH-level
+ * override in `spiele/schemas.ts` — not to an entity default.
  */
 export type SchiedsrichterDraft = FLPostSchiedsrichterPayload;
 

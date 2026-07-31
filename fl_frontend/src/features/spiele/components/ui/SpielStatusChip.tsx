@@ -14,7 +14,13 @@ import type { FLSpielStatus } from "../../schemas";
 // Tint from the feedback accent, label from its `-strong` companion. The plain accent is a fill
 // colour: as small bold text on its own 15% tint it measures 2.58:1 (success) and 1.61:1 (warning)
 // in the light theme. `-strong` restores 4.29-5.02:1, i.e. the contrast this chip had before it was
-// tokenised. See the ledger's NEW-C1 for the two states that are still short of AA.
+// tokenised.
+//
+// `vergangen` (4.29:1) and `ausstehend` (4.22:1) remain just under AA in the LIGHT theme only; dark
+// measures 6.10-8.51. Accepted by the owner 2026-07-31 (ledger NEW-C1): both sit at or above their
+// pre-audit values, the labels carry an icon beside them, and passing 4.5:1 on amber needs roughly
+// amber-800, which reads brown. This is a recorded deviation, not an oversight -- do not "fix" it
+// by darkening the tokens without the owner.
 const STATUS_CLASSES: Record<FLSpielStatus, string> = {
   vergangen: "bg-success/15 text-success-strong",
   heute: "bg-info/15 text-info-strong",

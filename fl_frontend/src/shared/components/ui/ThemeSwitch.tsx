@@ -8,6 +8,14 @@ import { Switch } from "@heroui/react";
 
 import useMounted from "@/shared/hooks/useMounted";
 
+/**
+ * No focus classes on the control, deliberately (R4 §5.3).
+ *
+ * `Switch.Control` is a plain `<span>`, so `focus-visible:` on it can never fire — the focusable
+ * element is the hidden input. HeroUI already handles that: `.switch:focus-visible .switch__control`
+ * rings the track in var(--focus) off the root's state. The old `ring-0 outline-none` here was
+ * cancelling exactly that ring, which is why the switch had no focus indication at all.
+ */
 export default function ThemeSwitch() {
   const _toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -18,8 +26,10 @@ export default function ThemeSwitch() {
 
   if (!mounted) {
     return (
-      <Switch isSelected={false}>
-        <Switch.Control className="ring-0 outline-none">
+      <Switch
+        aria-label="Darstellungsmodus umschalten"
+        isSelected={false}>
+        <Switch.Control>
           <Switch.Thumb />
         </Switch.Control>
       </Switch>
@@ -28,11 +38,11 @@ export default function ThemeSwitch() {
 
   return (
     <Switch
-      aria-label="Modus switch"
+      aria-label="Darstellungsmodus umschalten"
       isSelected={theme === "light"}
       onChange={_toggleTheme}>
       <Switch.Content>
-        <Switch.Control className="ring-0 outline-none">
+        <Switch.Control>
           <Switch.Thumb>
             <Switch.Icon>
               {resolvedTheme === "dark" ? (
