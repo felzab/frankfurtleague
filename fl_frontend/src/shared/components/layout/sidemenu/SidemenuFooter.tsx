@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRightToSquare, LayoutSideContentLeft, LayoutSideContentRight } from "@gravity-ui/icons";
 
 import { IconTooltip } from "../../ui/IconTooltip";
+import SidemenuOptionsMenu from "./SidemenuOptionsMenu";
 
 export default function SidemenuFooter({
   isDesktopCollapsed,
@@ -31,21 +32,25 @@ export default function SidemenuFooter({
         </Link>
       </IconTooltip>
 
-      {/* Desktop Collapse Toggle — always tooltipped, because its label is the state itself */}
-      <IconTooltip
-        label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}
-        placement="right">
-        <button
-          onClick={onToggleDesktopMenu}
-          className="text-foreground-muted hover:bg-muted hover:text-foreground hidden h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors lg:flex"
-          aria-label="Menü ein- oder ausklappen">
-          {isDesktopCollapsed ? (
-            <LayoutSideContentRight className="h-[18px] w-[18px]" />
-          ) : (
-            <LayoutSideContentLeft className="h-[18px] w-[18px]" />
-          )}
-        </button>
-      </IconTooltip>
+      <div className={`flex items-center ${isDesktopCollapsed ? "flex-col gap-3" : "gap-1"}`}>
+        <SidemenuOptionsMenu isDesktopCollapsed={isDesktopCollapsed} />
+
+        {/* Desktop Collapse Toggle — always tooltipped, because its label is the state itself */}
+        <IconTooltip
+          label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}
+          placement="right">
+          <button
+            onClick={onToggleDesktopMenu}
+            className="text-foreground-muted hover:bg-muted hover:text-foreground hidden h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors lg:flex"
+            aria-label="Menü ein- oder ausklappen">
+            {isDesktopCollapsed ? (
+              <LayoutSideContentRight className="h-[18px] w-[18px]" />
+            ) : (
+              <LayoutSideContentLeft className="h-[18px] w-[18px]" />
+            )}
+          </button>
+        </IconTooltip>
+      </div>
     </div>
   );
 }
