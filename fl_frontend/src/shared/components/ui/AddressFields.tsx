@@ -46,7 +46,7 @@ export default function AddressFields({
           name={`${namePrefix}.strasse`}
           value={value.strasse}
           onChange={(next) => updateField("strasse", next)}
-          isInvalid={errors ? !!errors[`${namePrefix}.strasse`] : undefined}
+          isInvalid={errors?.[`${namePrefix}.strasse`] ? true : undefined}
           className="w-2/3">
           <Label className="text-fluid-xs text-foreground font-bold">Straße</Label>
           <Input className={FIELD_INPUT} />
@@ -57,7 +57,7 @@ export default function AddressFields({
           name={`${namePrefix}.hausnummer`}
           value={value.hausnummer}
           onChange={(next) => updateField("hausnummer", next)}
-          isInvalid={errors ? !!errors[`${namePrefix}.hausnummer`] : undefined}
+          isInvalid={errors?.[`${namePrefix}.hausnummer`] ? true : undefined}
           className="w-1/3">
           <Label className="text-fluid-xs text-foreground font-bold">Nr.</Label>
           <Input className={FIELD_INPUT} />
@@ -71,7 +71,7 @@ export default function AddressFields({
           name={`${namePrefix}.plz`}
           value={value.plz}
           onChange={(next) => updateField("plz", next)}
-          isInvalid={errors ? !!errors[`${namePrefix}.plz`] : undefined}
+          isInvalid={errors?.[`${namePrefix}.plz`] ? true : undefined}
           className="w-1/3">
           <Label className="text-fluid-xs text-foreground font-bold">PLZ</Label>
           <Input className={FIELD_INPUT} />
@@ -82,7 +82,7 @@ export default function AddressFields({
           name={`${namePrefix}.stadt`}
           value={value.stadt}
           onChange={(next) => updateField("stadt", next)}
-          isInvalid={errors ? !!errors[`${namePrefix}.stadt`] : undefined}
+          isInvalid={errors?.[`${namePrefix}.stadt`] ? true : undefined}
           className="w-2/3">
           <Label className="text-fluid-xs text-foreground font-bold">Stadt</Label>
           <Input className={FIELD_INPUT} />
@@ -95,7 +95,7 @@ export default function AddressFields({
         name={`${namePrefix}.stadtteil`}
         value={value.stadtteil}
         onChange={(next) => updateField("stadtteil", next)}
-        isInvalid={errors ? !!errors[`${namePrefix}.stadtteil`] : undefined}>
+        isInvalid={errors?.[`${namePrefix}.stadtteil`] ? true : undefined}>
         <Label className="text-fluid-xs text-foreground font-bold">Stadtteil</Label>
         <Input
           placeholder="z.B. Nordend"

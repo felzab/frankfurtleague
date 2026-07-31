@@ -1,8 +1,8 @@
 import { useRef, useState, useTransition } from "react";
 
-import { Check, Plus, Xmark } from "@gravity-ui/icons";
+import { Check, Plus } from "@gravity-ui/icons";
 
-import { Autocomplete, Button, Description, Label, ListBox, SearchField, toast, useFilter } from "@heroui/react";
+import { Autocomplete, Button, CloseButton, Description, Label, ListBox, SearchField, toast, useFilter } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
@@ -100,13 +100,22 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
 
   const handleCreateSubmit = () => {
     // Gate on the browser's own constraint validation BEFORE the server is touched, so an empty
-    // required field is reported here exactly as it is in the CRUD modals — natively, at the field,
-    // in the browser's language. This panel cannot be a `<form>` (it renders inside the match
-    // form's), so there is no `reportValidity()` for the group: ask each control in turn and stop at
-    // the first that objects, which is also what focuses it. Without this the draft went to the
-    // server and came back as zod messages, which is why the two paths read differently.
-    for (const control of panelRef.current?.querySelectorAll("input, select, textarea") ?? []) {
-      if (!(control as HTMLInputElement).reportValidity()) return;
+    // required field is reported here exactly as it is in the CRUD modals. This panel cannot be a
+    // `<form>` (it renders inside the match form's), so there is no group-level check to call.
+    //
+    // `checkValidity()`, not `reportValidity()`, and on EVERY control rather than stopping at the
+    // first: each call fires the native `invalid` event, which react-aria intercepts —
+    // `useFormValidation` calls `preventDefault()` on it (so no browser bubble ever appears) and
+    // renders `input.validationMessage` in that field's own `<FieldError>`. Asking every control
+    // therefore lights up every empty field at once instead of one at a time. Focus is then put on
+    // the first, which is what a real form submit does.
+    const invalidControls = [...(panelRef.current?.querySelectorAll("input, select, textarea") ?? [])].filter(
+      (control) => !(control as HTMLInputElement).checkValidity(),
+    );
+
+    if (invalidControls.length > 0) {
+      (invalidControls[0] as HTMLInputElement).focus();
+      return;
     }
 
     startTransition(async () => {
@@ -148,18 +157,14 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
           onKeyDownCapture={(event) => submitInlineOnEnter(event, handleCreateSubmit)}>
           <div className="border-border flex items-center justify-between border-b pb-2">
             <h4 className="text-fluid-sm text-foreground font-bold">{createHeading}</h4>
-            <Button
-              type="button"
-              variant="ghost"
+            {/* Same control the modal shells use, so "close this panel" looks and behaves the
+                same everywhere. `Modal.CloseTrigger` is just this with the dialog's close wired in,
+                which is not available outside a modal. */}
+            <CloseButton
               aria-label={`Formular "${createHeading}" schließen`}
-              className="h-8 w-8 min-w-8 px-0"
-              onPress={() => setIsCreatingInline(false)}>
-              <Xmark
-                aria-hidden="true"
-                width={16}
-                height={16}
-              />
-            </Button>
+              className="text-foreground-muted hover:text-foreground transition-colors"
+              onPress={() => setIsCreatingInline(false)}
+            />
           </div>
 
           {renderDraftFields(draft, setDraft, createErrors)}

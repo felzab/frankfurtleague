@@ -31,7 +31,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({
         value={draft.name}
         onChange={(next) => onChange({ ...draft, name: next })}
         // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
-        isInvalid={errors ? !!errors["name"] : undefined}>
+        isInvalid={errors?.["name"] ? true : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"
@@ -50,7 +50,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({
         minValue={0}
         isRequired
         name="default_mietpreis"
-        isInvalid={errors ? !!errors["default_mietpreis"] : undefined}
+        isInvalid={errors?.["default_mietpreis"] ? true : undefined}
         step={5}
         value={draft.default_mietpreis}
         onChange={(val) =>

@@ -94,12 +94,11 @@ export default function TopNavLinksDropdown() {
 
             {/* SECTION 3: App Controls */}
             <Dropdown.Section aria-label="Einstellungen">
-              {/* See the identical row in `SidemenuOptionsMenu` for why these two props are here. */}
+              {/* See the identical row in `SidemenuOptionsMenu` for why this row does not close. */}
               <Dropdown.Item
                 id="theme-switch"
                 textValue="Modus"
                 shouldCloseOnSelect={false}
-                data-menu-static="true"
                 className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-hovered:bg-transparent!">
                 <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
                 <ThemeSwitch />

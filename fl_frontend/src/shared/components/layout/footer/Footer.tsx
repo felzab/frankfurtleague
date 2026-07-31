@@ -37,19 +37,19 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
             <Link
               href="/about"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-foreground transition-colors">
+              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
               About
             </Link>
             <Link
               href="/team"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-foreground transition-colors">
+              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Team
             </Link>
             <Link
               href="/kontakt"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-foreground transition-colors">
+              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Kontakt
             </Link>
           </nav>

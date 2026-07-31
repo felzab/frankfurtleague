@@ -36,7 +36,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         onChange={(next) => onChange({ ...draft, name: next })}
         // `value`/`onChange` belong on the field, not the inner `<Input>`: that is RAC's controlled
         // API, and with them on the input react-aria's field state never sees a value at all.
-        isInvalid={errors ? !!errors["name"] : undefined}>
+        isInvalid={errors?.["name"] ? true : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
         <Input
           placeholder="z.B. Pierluigi Collina"
@@ -50,7 +50,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         name="schule"
         value={draft.schule ?? ""}
         onChange={(next) => onChange({ ...draft, schule: next })}
-        isInvalid={errors ? !!errors["schule"] : undefined}>
+        isInvalid={errors?.["schule"] ? true : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Schule / Verein </Label>
         <Input
           placeholder="z.B. Goethe-Gymnasium"
@@ -65,7 +65,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         name="kontakt.email"
         value={draft.kontakt.email ?? ""}
         onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: next } })}
-        isInvalid={errors ? !!errors["kontakt.email"] : undefined}>
+        isInvalid={errors?.["kontakt.email"] ? true : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">E-Mail </Label>
         <Input
           placeholder="z.B. ref@beispiel.de"
@@ -80,7 +80,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         name="kontakt.telefon"
         value={draft.kontakt.telefon ?? ""}
         onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: next } })}
-        isInvalid={errors ? !!errors["kontakt.telefon"] : undefined}>
+        isInvalid={errors?.["kontakt.telefon"] ? true : undefined}>
         <Label className="text-fluid-sm text-foreground font-bold">Telefon</Label>
         <Input
           placeholder="z.B. 0151 12345678"
@@ -94,7 +94,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         minValue={0}
         isRequired
         name="default_payment"
-        isInvalid={errors ? !!errors["default_payment"] : undefined}
+        isInvalid={errors?.["default_payment"] ? true : undefined}
         step={5}
         value={draft.default_payment}
         onChange={(val) =>

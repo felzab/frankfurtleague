@@ -370,40 +370,25 @@
   border-color: var(--accent-brand);
 }
 
-/* Collection options.
+/* Collection options: NO focus highlight at all (owner decision, 2026-07-31, superseding Wave 6's
+   neutral fill and the brand fill before it).
 
-   WHY an option lights up at all, since it surprises people: react-aria moves the focused key onto
-   the first match as soon as you type in a combobox, so that Enter picks it. That is deliberate
-   combobox behaviour (the same thing the browser address bar and any command palette do), and it
-   needs a visible state or Enter becomes a guess. Wave 6 only changed what that state LOOKS like —
-   it was HeroUI's focus ring, which read as an error around a result nobody had chosen.
+   The highlight was correct in principle — react-aria moves the focused key onto the first match as
+   you type in a combobox so Enter can pick it, and that needs a visible state — but not achievable
+   here. react-aria's `isFocusVisible` is a GLOBAL interaction-modality flag, not per-element state:
+   whether a freshly opened dropdown paints its selected row depends on whether the user's last
+   interaction anywhere on the page was a key press. The owner saw it appear and disappear at random
+   on the season selector across three review rounds. The browser's own `:focus-visible` uses a very
+   similar heuristic, so it is not a fix, and inside a combobox popover focus never leaves the search
+   input, so the browser cannot see the option at all.
 
-   It is a NEUTRAL fill, not a brand one, because that is what the systems this app resembles do:
-   Radix/shadcn's `Command` highlights the active item with `bg-accent` (a muted neutral, not
-   `primary`), and Vercel's command menu, Linear, GitHub's ActionList and the Cloudflare dashboard
-   all use a light grey. Brand-filled options are the older native-`<select>` convention, kept alive
-   mainly by Tailwind UI's examples. Those systems also let hover and keyboard-active look the same
-   on purpose: while you are typing, the pointer is not resting on the list.
+   What is left: each call site's own `hover:` background, and the checkmark indicator that marks the
+   selection. Both are stable and neither depends on modality.
 
-   Accepted trade-off, stated rather than hidden: a grey-on-grey highlight is around 1.2:1 against
-   the popover surface, below the 3:1 WCAG 1.4.11 asks of a focus indicator. It is full-strength
-   `muted` against call sites that hover at `muted/50`, so there is a step, but not a large one. The
-   alternative that passes is a coloured fill, which is the thing being removed. Same shape of
-   deviation as the two `SpielStatusChip` states (ledger NEW-C1). */
-[data-slot="list-box-item"]:not([data-menu-static]),
-[data-slot="menu-item"]:not([data-menu-static]) {
-  /* `data-focus-visible` ONLY — deliberately not `data-focused` or `:focus`. react-aria moves the
-     focused key on hover (`useMenuItem`'s `onHoverStart` calls `setFocusedKey`), so matching
-     `data-focused` repainted every menu item, dropdown entry and picker option brand on plain mouse
-     hover. That is a real behaviour change to the whole app's hover language, not a focus style.
-     Hover keeps the `hover:bg-muted` each call site already declares. */
-  &:is(:focus-visible, [data-focus-visible="true"]):not([data-hovered="true"]) {
-    --tw-ring-shadow: 0 0 #0000;
-    background-color: var(--bg-muted);
-    color: var(--fg-base);
-    outline: none;
-  }
-}
+   Known gap, recorded rather than hidden: a keyboard user arrowing through an open list has no
+   indicator inside the popover (WCAG 2.4.7). The focus ring on the trigger still shows which control
+   is open. Revisit if a reliable per-element signal appears — do NOT reintroduce a rule keyed off
+   `data-focus-visible`, which is what this block exists to prevent. */
 
 /* Reduced motion, SOFTENED (owner decision 2026-07-31, amending Wave 5a's R4-5.1 block).
    The original block zeroed every animation- and transition-duration, which made the whole site

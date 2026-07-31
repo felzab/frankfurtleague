@@ -104,15 +104,12 @@ export function SidemenuOptionsMenu({
         className={`rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
         <Dropdown.Menu aria-label="Seitenmenü-Optionen">
           <Dropdown.Section aria-label="Einstellungen">
-            {/* `shouldCloseOnSelect={false}`: this row is a container for a control, not a command, so
-                pressing it must not dismiss the menu the switch lives in.
-                `data-menu-static` opts it out of the focused-option highlight — the row is not a
-                choice, and flashing it brand on press looked like a selection had been made. */}
+            {/* `shouldCloseOnSelect={false}`: this row is a container for a control, not a command,
+                so pressing it must not dismiss the menu the switch lives in. */}
             <Dropdown.Item
               id="theme-switch"
               textValue="Modus"
               shouldCloseOnSelect={false}
-              data-menu-static="true"
               className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-hovered:bg-transparent!">
               <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
               <ThemeSwitch />
