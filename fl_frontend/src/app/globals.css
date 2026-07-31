@@ -322,7 +322,6 @@
 [data-slot="search-field-group"],
 [data-slot="date-input-group"],
 [data-slot="autocomplete-trigger"],
-[data-slot="select-trigger"],
 [data-slot="combo-box-input-group"] {
   /* `:not([data-invalid="true"])` matters: HeroUI marks a rejected field with a danger outline and
      upgrades it to a danger ring while focused. Without the guard this rule stripped both and
@@ -361,11 +360,18 @@
    needs a visible state or Enter becomes a guess. Wave 6 only changed what that state LOOKS like —
    it was HeroUI's focus ring, which read as an error around a result nobody had chosen.
 
-   It reuses the app's existing "this one is active" language, the same `bg-brand/N` + `text-brand`
-   that marks the current sidemenu item, rather than inventing a third thing. A plain `muted` tint
-   was tried and rejected: it is the token `hover:` already uses at these call sites, so keyboard and
-   mouse states became indistinguishable, and it measures 1.18:1 (light) / 1.29:1 (dark) against the
-   popover surface — under the 3:1 WCAG 1.4.11 asks of a focus indicator. */
+   It is a NEUTRAL fill, not a brand one, because that is what the systems this app resembles do:
+   Radix/shadcn's `Command` highlights the active item with `bg-accent` (a muted neutral, not
+   `primary`), and Vercel's command menu, Linear, GitHub's ActionList and the Cloudflare dashboard
+   all use a light grey. Brand-filled options are the older native-`<select>` convention, kept alive
+   mainly by Tailwind UI's examples. Those systems also let hover and keyboard-active look the same
+   on purpose: while you are typing, the pointer is not resting on the list.
+
+   Accepted trade-off, stated rather than hidden: a grey-on-grey highlight is around 1.2:1 against
+   the popover surface, below the 3:1 WCAG 1.4.11 asks of a focus indicator. It is full-strength
+   `muted` against call sites that hover at `muted/50`, so there is a step, but not a large one. The
+   alternative that passes is a coloured fill, which is the thing being removed. Same shape of
+   deviation as the two `SpielStatusChip` states (ledger NEW-C1). */
 [data-slot="list-box-item"]:not([data-menu-static]),
 [data-slot="menu-item"]:not([data-menu-static]) {
   /* `data-focus-visible` ONLY — deliberately not `data-focused` or `:focus`. react-aria moves the
@@ -373,10 +379,10 @@
      `data-focused` repainted every menu item, dropdown entry and picker option brand on plain mouse
      hover. That is a real behaviour change to the whole app's hover language, not a focus style.
      Hover keeps the `hover:bg-muted` each call site already declares. */
-  &:is(:focus-visible, [data-focus-visible="true"]) {
+  &:is(:focus-visible, [data-focus-visible="true"]):not([data-hovered="true"]) {
     --tw-ring-shadow: 0 0 #0000;
-    background-color: color-mix(in srgb, var(--accent-brand) 15%, transparent);
-    color: var(--accent-brand);
+    background-color: var(--bg-muted);
+    color: var(--fg-base);
     outline: none;
   }
 }

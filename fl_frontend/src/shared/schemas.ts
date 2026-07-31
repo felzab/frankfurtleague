@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const PHONE_REGEX = new RegExp(/^([+]?[\s0-9\-().]{3,20})$/);
 
-export const CustomDateStringSchema = z.iso.date({ error: "DateString has to be of the form: YYYY-MM-DD" });
+export const CustomDateStringSchema = z.iso.date({ error: "Bitte gib ein gültiges Datum ein." });
 
 /**
  * `HH:MM:SS`, seconds required.
@@ -14,10 +14,11 @@ export const CustomDateStringSchema = z.iso.date({ error: "DateString has to be 
  */
 export const CustomTimeStringSchema = z
   .string()
-  .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/, { error: "TimeString has to be of the form: HH:MM:SS" });
+  .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/, { error: "Bitte gib eine gültige Uhrzeit ein." });
 
 export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, {
-  error: "ObjectIdString has to be 24 chars long and a combination of letters and numbers",
+  // German because a failure here reaches a `<FieldError>` under a picker, not a console.
+  error: "Ungültige Auswahl. Bitte wähle den Eintrag erneut aus.",
 });
 
 /**
@@ -35,18 +36,27 @@ export const ExternalUrlSchema = z.url({ protocol: /^https?$/, hostname: z.regex
 
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
-  hausnummer: z
-    .string()
-    .regex(/^[\d\-abcABC]+$/, "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.")
-    .or(z.literal("")),
-  plz: z.string().regex(/^\d{5}$/, "Die PLZ muss genau 5 Ziffern haben."),
+  // `*` not `+`, so "optional" is expressed by the pattern rather than by a union. A union whose
+  // branches both fail can surface a BRANCH's message instead of its own, which is how this field
+  // ended up showing zod's raw "Invalid string: must match pattern ..." to an admin.
+  hausnummer: z.string().regex(/^[\d\-abcABC]*$/, {
+    error: "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.",
+  }),
+  plz: z.string().regex(/^\d{5}$/, { error: "Die PLZ muss genau 5 Ziffern haben." }),
   stadtteil: z.string(),
   stadt: z.string().nonempty({ error: "Bitte gib eine Stadt ein." }),
 });
 export type FLAddress = z.infer<typeof FLAddressSchema>;
 
 export const FLKontaktSchema = z.object({
-  telefon: z.string().regex(PHONE_REGEX, "Ungültige Telefonnummer").or(z.string().trim().length(0)).nullable(),
-  email: z.email().or(z.string().trim().length(0)).nullable(),
+  // Both fields are optional, so each is "a valid value OR blank" -- a union. The message has to sit
+  // on the union: with `.or()` the branch messages are unreachable and zod falls back to its own
+  // English "Invalid input", which is what these two fields were showing.
+  telefon: z
+    .union([z.string().regex(PHONE_REGEX), z.string().trim().length(0)], {
+      error: "Bitte gib eine gültige Telefonnummer ein.",
+    })
+    .nullable(),
+  email: z.union([z.email(), z.string().trim().length(0)], { error: "Bitte gib eine gültige E-Mail-Adresse ein." }).nullable(),
 });
 export type FLKontakt = z.infer<typeof FLKontaktSchema>;
