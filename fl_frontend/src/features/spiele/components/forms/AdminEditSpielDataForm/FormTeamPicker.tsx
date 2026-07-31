@@ -6,7 +6,7 @@ import { Autocomplete, Description, Input, Label, ListBox, SearchField, TextFiel
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
 import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
-import { overlayPanel } from "@/shared/components/ui/formPanel";
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";

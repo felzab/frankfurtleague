@@ -3,7 +3,7 @@ import { parseDate, parseTime } from "@internationalized/date";
 import { Calendar, DateField, DatePicker, Description, Label, TimeField } from "@heroui/react";
 
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
-import { overlayPanel } from "@/shared/components/ui/formPanel";
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 

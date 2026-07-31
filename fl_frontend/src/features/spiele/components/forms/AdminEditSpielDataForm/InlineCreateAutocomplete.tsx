@@ -6,7 +6,7 @@ import { Autocomplete, Button, Description, Label, ListBox, SearchField, toast, 
 
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
-import { overlayPanel } from "@/shared/components/ui/formPanel";
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { submitInlineOnEnter } from "./suppressEnterSubmit";
 
