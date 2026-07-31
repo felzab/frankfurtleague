@@ -79,6 +79,18 @@ const eslintConfig = defineConfig([
       // `bg-surface-muted` (R4 §6.3) and `animate-appearance-in` (a HeroUI v2 utility that did not
       // survive v3) in silence, and both shipped.
       "better-tailwindcss/no-unknown-classes": "error",
+
+      // `error` as of Wave 7, at 0 existing violations. Partial cover for the defect that wave
+      // shipped: `${card()}${cond ? " hidden lg:block" : ""}` relied on a space INSIDE the string,
+      // and `prettier --write` -- which `verify.sh` runs first -- trims class strings, so the space
+      // vanished and the classes fused into `...cardclasseshidden`. tsc, the build and the browser
+      // all accept that silently.
+      // Know its limit, measured rather than assumed: this catches a literal abutting an
+      // interpolation (`text-sm${cond ? ... }`) but NOT two adjacent interpolations, which is
+      // exactly the shape that shipped -- it cannot see inside `card()`. The convention is what
+      // actually prevents it: **put the separating space in the template literal, never inside a
+      // class string.** This rule is the half of that a machine can enforce.
+      "better-tailwindcss/no-concatenated-classes": "error",
     },
   },
 
