@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { computeErgebnisFor, computeSpielStatus } from "./utils.ts";
+import { computeErgebnisFor, computeSpielStatus, formatSpielDisplay } from "./utils.ts";
 
 import type { FLSpiel } from "./schemas.ts";
 
@@ -102,5 +102,27 @@ describe("computeErgebnisFor", () => {
   // Guards the digit class: the wire format is ASCII, and Number("٢") is NaN.
   it("returns '?' for non-ASCII digits", () => {
     assert.equal(computeErgebnisFor({ spiel: makeSpiel("٢:١"), teamId: TEAM_1 }), "?");
+  });
+});
+
+describe("formatSpielDisplay", () => {
+  const spiel = { datum: "2026-07-28", uhrzeit: "14:00", ergebnis: "3:1" };
+
+  it("derives all three display values", () => {
+    assert.deepEqual(formatSpielDisplay(spiel), { datum: "28.07.2026", uhrzeit: "14:00", ergebnis: "3:1" });
+  });
+
+  // The drift this replaced: SpielCard rendered "- : -" while the two compact cards rendered
+  // "-:-", and both appear on the same screen in some flows.
+  it("uses one result placeholder for an unplayed match", () => {
+    assert.equal(formatSpielDisplay({ ...spiel, ergebnis: null }).ergebnis, "-:-");
+  });
+
+  it("uses the shared placeholders for a missing date and time", () => {
+    assert.deepEqual(formatSpielDisplay({ datum: null, uhrzeit: null, ergebnis: null }), {
+      datum: "TBD",
+      uhrzeit: "--:--",
+      ergebnis: "-:-",
+    });
   });
 });

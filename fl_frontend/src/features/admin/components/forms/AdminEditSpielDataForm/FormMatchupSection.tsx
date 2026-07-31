@@ -3,8 +3,10 @@ import { useState } from "react";
 import { Description, Label, NumberField, Separator, Switch } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
+import { formPanel } from "@/shared/components/ui/formPanel";
 
 import { FormTeamPicker } from "./FormTeamPicker";
+import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
@@ -53,13 +55,8 @@ export default function FormMatchupSection({
 
   return (
     <div
-      className="bg-surface border-border flex h-fit w-full flex-col gap-y-6 rounded-xl border p-2 shadow-sm lg:p-4"
-      onKeyDownCapture={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }}>
+      className={`${formPanel()} gap-y-6`}
+      onKeyDownCapture={suppressEnterSubmit}>
       {/** Team 1 */}
       <FormTeamPicker
         label="Team1"
@@ -131,7 +128,7 @@ export default function FormMatchupSection({
       </NumberField>
 
       {/** Ergebniskontrolle */}
-      <div className="bg-surface border-border flex h-fit w-full flex-col items-center gap-y-2 rounded-xl border p-4 text-center shadow-sm">
+      <div className={`${formPanel()} items-center gap-y-2 text-center`}>
         <h4 className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Ergebniskontrolle</h4>
 
         <div className="flex w-full items-center justify-center gap-x-3 py-1">

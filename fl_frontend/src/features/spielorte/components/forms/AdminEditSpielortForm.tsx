@@ -1,72 +1,33 @@
 "use client";
 
-import { useState, useTransition } from "react";
-
-import { Check } from "@gravity-ui/icons";
-
-import { Button, Form, toast } from "@heroui/react";
-
 import { patchSpielortAction } from "@/features/spielorte/actions";
 import SpielortFormFields from "@/features/spielorte/components/forms/SpielortFormFields";
+import { EntityForm } from "@/shared/components/ui/EntityForm";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
 export default function AdminEditSpielortForm({ ortData, onClose }: { ortData: FLSpielort; onClose: () => void }) {
-  const [isPending, startTransition] = useTransition();
-
-  const [draft, setDraft] = useState<FLSpielort>(ortData);
-
-  const handleEditSubmit = () => {
-    startTransition(async () => {
-      const res = await patchSpielortAction({
-        id: ortData.id,
-        name: draft.name,
-        default_mietpreis: draft.default_mietpreis,
-        address: draft.address,
-      });
-
-      if (!res.success || !res.updated_document) {
-        toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
-        return;
-      }
-
-      toast.success(res.message || "Spielort erfolgreich bearbeitet");
-
-      onClose();
-    });
-  };
   return (
-    <Form
-      className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
-      action={handleEditSubmit}>
-      <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400">
+    <EntityForm<FLSpielort>
+      initialDraft={ortData}
+      renderFields={(draft, setDraft) => (
         <SpielortFormFields
           draft={draft}
           onChange={setDraft}
         />
-      </div>
-
-      <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3 pt-4">
-        <Button
-          type="button"
-          variant="secondary"
-          className="text-fluid-sm border-border text-foreground hover:scale-hover rounded-xl border bg-transparent px-6 py-3 font-semibold transition-all"
-          onPress={onClose}>
-          Abbrechen
-        </Button>
-        <Button
-          type="submit"
-          variant="primary"
-          isDisabled={isPending}
-          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground hover:scale-hover rounded-xl px-6 py-3 font-semibold tracking-wide transition-all">
-          <Check
-            className="m-0"
-            width={20}
-            height={20}
-          />
-          {isPending ? "Speichert..." : "Speichern"}
-        </Button>
-      </div>
-    </Form>
+      )}
+      onSubmit={async (draft) => {
+        const res = await patchSpielortAction({
+          id: ortData.id,
+          name: draft.name,
+          default_mietpreis: draft.default_mietpreis,
+          address: draft.address,
+        });
+        // An edit only counts if the backend echoed the updated document back.
+        return { ...res, success: res.success && !!res.updated_document };
+      }}
+      successMessage="Spielort erfolgreich bearbeitet"
+      onClose={onClose}
+    />
   );
 }

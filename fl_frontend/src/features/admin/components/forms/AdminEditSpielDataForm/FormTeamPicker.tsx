@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Autocomplete, Description, Input, Label, ListBox, SearchField, TextField, useFilter } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
+import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { formPanel, overlayPanel } from "@/shared/components/ui/formPanel";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
@@ -57,7 +59,7 @@ export function FormTeamPicker({
   };
 
   return (
-    <div className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-3 shadow-sm lg:p-4">
+    <div className={`${formPanel()} gap-y-4`}>
       <Autocomplete
         isRequired
         name={`${label}UI`}
@@ -68,19 +70,19 @@ export function FormTeamPicker({
         onChange={handleTeamSelection}
         disabledKeys={disabledTeamId ? [disabledTeamId] : []}>
         <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
-        <Autocomplete.Trigger className="border-border bg-surface text-foreground rounded-lg border px-3 py-2">
+        <Autocomplete.Trigger className={FIELD_INPUT}>
           <Autocomplete.Value className="text-fluid-sm" />
           <Autocomplete.ClearButton type="button" />
           <Autocomplete.Indicator />
         </Autocomplete.Trigger>
 
-        <Autocomplete.Popover className="bg-surface border-border rounded-xl border shadow-lg">
+        <Autocomplete.Popover className={overlayPanel()}>
           <Autocomplete.Filter filter={contains}>
             <SearchField
               variant="secondary"
               aria-label={`${label} suchen`}
               className="p-2">
-              <SearchField.Group className="border-border bg-muted rounded-lg border px-2 py-1.5">
+              <SearchField.Group className="border-border bg-muted focus-within:border-brand rounded-lg border px-2 py-1.5 transition-all duration-200 focus-within:ring-0">
                 <SearchField.SearchIcon />
                 <SearchField.Input
                   placeholder="Team finden..."
@@ -116,7 +118,7 @@ export function FormTeamPicker({
           <Label className="text-fluid-xs text-foreground font-bold">TBD Beschreibung</Label>
           <Input
             placeholder="z.B. Sieger 26."
-            className="border-border bg-surface text-foreground text-fluid-sm rounded-lg border px-3 py-2"
+            className={FIELD_INPUT}
           />
           <Description className="text-fluid-xxs text-foreground-muted">
             Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.

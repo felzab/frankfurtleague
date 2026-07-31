@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -7,8 +8,11 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";
 
+import SpielDetailsModal from "@/features/spiele/components/modals/SpielDetailsModal";
 import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
 import { computeErgebnisFor } from "@/features/spiele/utils";
+import { card } from "@/shared/components/ui/card";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
 import { sortByDate } from "@/shared/utils/date";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
@@ -17,7 +21,7 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { FLTeam } from "../../schemas";
 
-function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: string }) {
+function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel[]; teamId: string; onOpenSpiel: (spiel: FLSpiel) => void }) {
   // Map results to valid semantic colors
   const getBadgeColor = (result: FLSpielErgebnisFor) => {
     switch (result) {
@@ -31,6 +35,17 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
         return "bg-muted text-foreground-muted ring-border";
     }
   };
+
+  // Without this the empty case renders the dashed rail with no items -- a bare vertical line
+  // under the "Saisonspiele" heading (R4 §12.2).
+  if (spiele.length === 0) {
+    return (
+      <EmptyState
+        title="Für diese Saison sind noch keine Spiele angesetzt."
+        hint="Sobald der Spielplan steht, erscheinen die Begegnungen dieses Teams hier."
+      />
+    );
+  }
 
   return (
     <div className="border-border relative ml-2 border-l-2 border-dashed">
@@ -46,7 +61,10 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
               {result}
             </div>
 
-            <SpielCardCompact spielData={spielData} />
+            <SpielCardCompact
+              spielData={spielData}
+              onOpenInfoModal={() => onOpenSpiel(spielData)}
+            />
           </div>
         );
       })}
@@ -54,8 +72,10 @@ function SaisonSpieleTimeline({ spiele, teamId }: { spiele: FLSpiel[]; teamId: s
   );
 }
 
-export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FLTeam; teamSpiele: FLSpiel[] }) {
+export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLTeam; teamSpiele: FLSpiel[]; today: string }) {
   const router = useRouter();
+  // One modal for the whole timeline, PlayoffsView-style.
+  const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
   const formattedTeamAddress = formatAddress(teamData.address);
   // Deliberately formatAddress, not formatAddressFull: a team has no venue name to search by.
@@ -74,7 +94,7 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
       </Button>
 
       {/* Header Info Card */}
-      <div className="bg-surface border-border flex w-full flex-col gap-y-1.5 rounded-2xl border p-4 shadow-sm">
+      <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4`}>
         <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h3>
 
         {/* Offizieller Schulname. No emptiness guard: both schemas now require it (R3a-B1.3). */}
@@ -123,7 +143,7 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
             <Card
               key={i}
               variant="default"
-              className="bg-surface border-border text-foreground rounded-xl border shadow-sm">
+              className={card()}>
               <Card.Content className="py-4 text-center">
                 <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
                 <p className="text-fluid-lg text-foreground font-extrabold">{stat.value}</p>
@@ -133,7 +153,7 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
           <Card
             key={5}
             variant="secondary"
-            className="bg-surface border-border text-foreground hidden rounded-xl border shadow-sm lg:block">
+            className={`${card()} hidden lg:block`}>
             <Card.Content className="py-4 text-center">
               <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">Punkte</p>
               <p className="text-fluid-lg text-foreground font-extrabold">{teamData.statistik.punkte}</p>
@@ -148,8 +168,16 @@ export default function TeamDetailsView({ teamData, teamSpiele }: { teamData: FL
         <SaisonSpieleTimeline
           spiele={teamSpiele}
           teamId={teamData.id}
+          onOpenSpiel={setSelectedSpiel}
         />
       </div>
+
+      <SpielDetailsModal
+        spielData={selectedSpiel}
+        today={today}
+        isOpen={selectedSpiel !== null}
+        onClose={() => setSelectedSpiel(null)}
+      />
     </div>
   );
 }

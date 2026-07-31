@@ -2,18 +2,17 @@ import { parseDate, parseTime } from "@internationalized/date";
 
 import { Calendar, DateField, DatePicker, Description, Label, TimeField } from "@heroui/react";
 
+import { formPanel, overlayPanel } from "@/shared/components/ui/formPanel";
+
+import { suppressEnterSubmit } from "./suppressEnterSubmit";
+
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
   return (
     <div
-      className="bg-surface border-border flex h-fit w-full flex-col gap-y-4 rounded-xl border p-4 shadow-sm"
-      onKeyDownCapture={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }}>
+      className={`${formPanel()} gap-y-4`}
+      onKeyDownCapture={suppressEnterSubmit}>
       {/** Spieldatum */}
       <DatePicker
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
@@ -34,7 +33,7 @@ export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel 
         <DatePicker.Popover className="p-2">
           <Calendar
             aria-label="Event date"
-            className="bg-surface border-border text-foreground rounded-xl border p-3 shadow-lg">
+            className={`${overlayPanel()} p-3`}>
             <Calendar.Header className="bg-transparent">
               <Calendar.YearPickerTrigger>
                 <Calendar.YearPickerTriggerHeading />

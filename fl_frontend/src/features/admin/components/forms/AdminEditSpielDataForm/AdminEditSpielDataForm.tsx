@@ -4,6 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 
 import { Button, Description, Form, Separator, Switch, toast } from "@heroui/react";
 
+import { formButton } from "@/shared/components/ui/formButtons";
+
 import { patchAdminSpielDataAction } from "../../../actions";
 import { useAdmin } from "../../providers/AdminContextProvider";
 import FormDateTimeSection from "./FormDateTimeSection";
@@ -115,15 +117,17 @@ export default function AdminEditSpielDataForm({ spielData, onClose }: { spielDa
       <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3">
         <Button
           type="button"
+          variant="secondary"
           onPress={onClose}
           isDisabled={isPending}
-          className="text-fluid-sm border-border text-foreground-muted hover:bg-muted hover:text-foreground rounded-xl border bg-transparent px-6 py-3 font-bold transition-all active:scale-95">
+          className={formButton({ intent: "cancel" })}>
           Abbrechen
         </Button>
         <Button
           type="submit"
+          variant="primary"
           isDisabled={isPending}
-          className="text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 rounded-xl px-6 py-3 font-bold tracking-wide shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
+          className={formButton({ intent: "submit" })}>
           {isPending ? "Speichert..." : "Speichern"}
         </Button>
       </div>

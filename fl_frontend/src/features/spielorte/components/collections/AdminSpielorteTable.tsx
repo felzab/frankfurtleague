@@ -1,16 +1,18 @@
-import Link from "next/link";
+import { memo } from "react";
 
-import { Calendar, Copy, Globe, MapPin, Pencil, TrashBin } from "@gravity-ui/icons";
+import { Calendar, Globe, MapPin } from "@gravity-ui/icons";
 
-import { Button, Table, toast, Tooltip } from "@heroui/react";
+import { Table, toast } from "@heroui/react";
 
-import { formatAddressFull } from "@/shared/utils/format";
+import { card } from "@/shared/components/ui/card";
+import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
 
 import type { FLSpielort } from "../../schemas";
 
-export default function AdminSpielorteTable({
+function AdminSpielorteTable({
   spielortQuery,
   filteredSpielorte,
   setEditingOrt,
@@ -21,8 +23,6 @@ export default function AdminSpielorteTable({
   setEditingOrt: (ort: FLSpielort) => void;
   setDeletingOrt: (ort: FLSpielort) => void;
 }) {
-  const formatCurrency = (value: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(value);
-
   const handleCopyAddress = (ort: FLSpielort) => {
     navigator.clipboard
       .writeText(`${ort.name}, ${formatAddressFull(ort.address)}`)
@@ -31,7 +31,7 @@ export default function AdminSpielorteTable({
   };
 
   return (
-    <Table className="bg-surface border-border h-fit w-full rounded-2xl border p-0 shadow-sm">
+    <Table className={`${card()} h-fit w-full p-0`}>
       <Table.ScrollContainer className="scrollbar-hide">
         <Table.Content aria-label="Tabelle aller Spielorte">
           <Table.Header>
@@ -51,7 +51,10 @@ export default function AdminSpielorteTable({
             </Table.Column>
           </Table.Header>
 
+          {/* `items` + a render function, not mapped children: the static form stops committing its
+              row collection after a few client navigations away and back (ledger NEW-T1). */}
           <Table.Body
+            items={filteredSpielorte}
             renderEmptyState={() => (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <p className="text-fluid-sm text-foreground-muted font-medium">
@@ -59,9 +62,8 @@ export default function AdminSpielorteTable({
                 </p>
               </div>
             )}>
-            {filteredSpielorte.map((ort) => (
+            {(ort: FLSpielort) => (
               <Table.Row
-                key={ort.id}
                 id={ort.id}
                 className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
                 <Table.Cell className="px-6 py-4">
@@ -89,116 +91,68 @@ export default function AdminSpielorteTable({
 
                 <Table.Cell className="px-6 py-4">
                   <span className="bg-muted text-foreground text-fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
-                    {formatCurrency(ort.default_mietpreis)}
+                    {formatEuro(ort.default_mietpreis)}
                   </span>
                 </Table.Cell>
 
                 <Table.Cell className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Link
-                          href={formatMapsLink(ort)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                          <Globe
-                            width={18}
-                            height={18}
-                          />
-                        </Link>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Auf Maps öffnen
-                      </Tooltip.Content>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Link
-                          href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
-                          className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                          <Calendar
-                            width={18}
-                            height={18}
-                          />
-                        </Link>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Spiele anzeigen
-                      </Tooltip.Content>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:text-brand transition-colors"
-                          onPress={() => handleCopyAddress(ort)}>
-                          <Copy
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Adresse kopieren
-                      </Tooltip.Content>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:text-brand transition-colors"
-                          onPress={() => setEditingOrt(ort)}>
-                          <Pencil
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Bearbeiten
-                      </Tooltip.Content>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                          onPress={() => setDeletingOrt(ort)}>
-                          <TrashBin
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border text-danger rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Löschen
-                      </Tooltip.Content>
-                    </Tooltip>
-                  </div>
+                  <RowActions>
+                    <RowActionLink
+                      href={formatMapsLink(ort)}
+                      label="Auf Maps öffnen"
+                      external>
+                      <Globe
+                        width={18}
+                        height={18}
+                      />
+                    </RowActionLink>
+                    <RowActionLink
+                      href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
+                      label="Spiele anzeigen">
+                      <Calendar
+                        width={18}
+                        height={18}
+                      />
+                    </RowActionLink>
+                    <RowActionCopy
+                      label="Adresse kopieren"
+                      onPress={() => handleCopyAddress(ort)}
+                    />
+                    <RowActionEdit
+                      label="Bearbeiten"
+                      onPress={() => setEditingOrt(ort)}
+                    />
+                    <RowActionDelete
+                      label="Löschen"
+                      onPress={() => setDeletingOrt(ort)}
+                    />
+                  </RowActions>
                 </Table.Cell>
               </Table.Row>
-            ))}
+            )}
           </Table.Body>
         </Table.Content>
       </Table.ScrollContainer>
     </Table>
   );
 }
+
+/**
+ * Memoised deliberately, and load-bearing — this is the NEW-T1 fix.
+ *
+ * The parent view calls `useSearchParams()`, which subscribes it to the client router. Next keeps
+ * the previous route mounted in a hidden React Activity tree for instant back-navigation, so every
+ * navigation *elsewhere* re-renders this table while it is hidden. A react-aria collection that
+ * re-renders while hidden drops its rows and never rebuilds them on restore, leaving the table
+ * shell with neither rows nor `renderEmptyState`. Bisected against seven probe routes: the table
+ * alone is fine, `useSearchParams` alone is fine, the two together fail on the third visit.
+ *
+ * `memo` keeps that churn down, but note what it does *not* do: `spielortQuery` is read from the
+ * live router, and a hidden tree still sees the incoming route's params, so navigating to a URL
+ * with a different `q` (the "Einsätze anzeigen" link below does exactly that) changes the prop and
+ * the memo cannot bail out. Measured over 15 such round trips with the query varying each time:
+ * the rows survive. What actually carries the fix is the `items` + render-function form of
+ * `Table.Body` above; `memo` is the cheap second layer. **Do not pass an inline lambda or a
+ * freshly-built array here**, and do not convert `Table.Body` back to mapped children.
+ */
+export default memo(AdminSpielorteTable);

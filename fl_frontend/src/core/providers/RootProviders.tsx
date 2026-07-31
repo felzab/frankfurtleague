@@ -1,19 +1,29 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import { ThemeProvider } from "next-themes";
 
-import { Toast } from "@heroui/react";
+import { RouterProvider, Toast } from "@heroui/react";
 
 interface AppProvidersProps {
   children: React.ReactNode;
 }
 export default function RootProviders({ children }: AppProvidersProps) {
+  const router = useRouter();
+
   return (
-    <ThemeProvider
-      enableSystem={true}
-      defaultTheme="dark">
-      <Toast.Provider />
-      {children}
-    </ThemeProvider>
+    // RouterProvider teaches react-aria's `href` props (the topnav Dropdown.Items are the app's
+    // only consumers) to navigate through Next's client router. Without it, react-aria falls back
+    // to native <a> navigation -- a full page reload on every menu link, which is why the dropdown
+    // felt far slower than the footer's <Link>s.
+    <RouterProvider navigate={(href) => router.push(href)}>
+      <ThemeProvider
+        enableSystem={true}
+        defaultTheme="dark">
+        <Toast.Provider />
+        {children}
+      </ThemeProvider>
+    </RouterProvider>
   );
 }

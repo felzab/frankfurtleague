@@ -29,7 +29,7 @@ export default function TeamPopoverMenu({
       onPointerDown={(e) => e.stopPropagation()}>
       <Popover>
         <Popover.Trigger>
-          <button className="relative flex w-fit cursor-pointer items-center text-left transition-opacity outline-none hover:opacity-70">
+          <button className="hover:text-brand focus-visible:text-brand relative flex w-fit cursor-pointer items-center text-left transition-colors duration-200 outline-none">
             <Badge.Anchor className="w-fit">{children}</Badge.Anchor>
           </button>
         </Popover.Trigger>

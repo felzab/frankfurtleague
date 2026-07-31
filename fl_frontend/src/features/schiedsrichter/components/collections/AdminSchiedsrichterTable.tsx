@@ -1,12 +1,16 @@
-import Link from "next/link";
+import { memo } from "react";
 
-import { Calendar, Copy, Pencil, Person, TrashBin } from "@gravity-ui/icons";
+import { Calendar, Person } from "@gravity-ui/icons";
 
-import { Button, Table, toast, Tooltip } from "@heroui/react";
+import { Table, toast } from "@heroui/react";
+
+import { card } from "@/shared/components/ui/card";
+import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
+import { formatEuro } from "@/shared/utils/format";
 
 import type { FLSchiedsrichter } from "../../schemas";
 
-export default function AdminSchiedsrichterTable({
+function AdminSchiedsrichterTable({
   schiedsrichterQuery,
   filteredSchiedsrichter,
   setEditingSchiedsrichter,
@@ -17,9 +21,6 @@ export default function AdminSchiedsrichterTable({
   setEditingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
-  // Dividing by 100 assuming default_payment is stored in cents as an integer
-  const formatCurrency = (value: number) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(value);
-
   const handleCopyKontakt = (schiedsrichter: FLSchiedsrichter) => {
     // Collect available contact info cleanly
     const details = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
@@ -31,7 +32,7 @@ export default function AdminSchiedsrichterTable({
   };
 
   return (
-    <Table className="bg-surface border-border h-fit w-full rounded-2xl border p-0 shadow-sm">
+    <Table className={`${card()} h-fit w-full p-0`}>
       <Table.ScrollContainer className="scrollbar-hide">
         <Table.Content aria-label="Tabelle aller Schiedsrichter">
           <Table.Header>
@@ -54,7 +55,10 @@ export default function AdminSchiedsrichterTable({
             </Table.Column>
           </Table.Header>
 
+          {/* `items` + a render function, not mapped children: the static form stops committing its
+              row collection after a few client navigations away and back (ledger NEW-T1). */}
           <Table.Body
+            items={filteredSchiedsrichter}
             renderEmptyState={() => (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
                 <p className="text-fluid-sm text-foreground-muted font-medium">
@@ -62,9 +66,8 @@ export default function AdminSchiedsrichterTable({
                 </p>
               </div>
             )}>
-            {filteredSchiedsrichter.map((schiedsrichter) => (
+            {(schiedsrichter: FLSchiedsrichter) => (
               <Table.Row
-                key={schiedsrichter.id}
                 id={schiedsrichter.id}
                 className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
                 {/* 1. Name */}
@@ -101,96 +104,50 @@ export default function AdminSchiedsrichterTable({
                 {/* 4. Honorar */}
                 <Table.Cell className="px-6 py-4">
                   <span className="bg-muted text-foreground text-fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
-                    {formatCurrency(schiedsrichter.default_payment)}
+                    {formatEuro(schiedsrichter.default_payment)}
                   </span>
                 </Table.Cell>
 
                 {/* 5. Aktionen */}
                 <Table.Cell className="px-6 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Link
-                          href={`/admin/spielsuche?q=${encodeURIComponent(schiedsrichter.name)}`}
-                          className="text-foreground-muted hover:bg-muted/40 hover:text-brand focus-visible:ring-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors outline-none focus-visible:ring-2">
-                          <Calendar
-                            width={18}
-                            height={18}
-                          />
-                        </Link>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Einsätze anzeigen
-                      </Tooltip.Content>
-                    </Tooltip>
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:text-brand transition-colors"
-                          onPress={() => handleCopyKontakt(schiedsrichter)}>
-                          <Copy
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Kontaktdaten kopieren
-                      </Tooltip.Content>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:text-brand transition-colors"
-                          onPress={() => setEditingSchiedsrichter(schiedsrichter)}>
-                          <Pencil
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Bearbeiten
-                      </Tooltip.Content>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <Tooltip.Trigger>
-                        <Button
-                          isIconOnly
-                          variant="ghost"
-                          className="text-foreground-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                          onPress={() => setDeletingSchiedsrichter(schiedsrichter)}>
-                          <TrashBin
-                            width={18}
-                            height={18}
-                          />
-                        </Button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content
-                        placement="top"
-                        className="bg-surface border-border text-danger rounded-lg border px-2 py-1 text-xs shadow-md">
-                        Löschen
-                      </Tooltip.Content>
-                    </Tooltip>
-                  </div>
+                  <RowActions>
+                    <RowActionLink
+                      href={`/admin/spielsuche?q=${encodeURIComponent(schiedsrichter.name)}`}
+                      label="Einsätze anzeigen">
+                      <Calendar
+                        width={18}
+                        height={18}
+                      />
+                    </RowActionLink>
+                    <RowActionCopy
+                      label="Kontaktdaten kopieren"
+                      onPress={() => handleCopyKontakt(schiedsrichter)}
+                    />
+                    <RowActionEdit
+                      label="Bearbeiten"
+                      onPress={() => setEditingSchiedsrichter(schiedsrichter)}
+                    />
+                    <RowActionDelete
+                      label="Löschen"
+                      onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
+                    />
+                  </RowActions>
                 </Table.Cell>
               </Table.Row>
-            ))}
+            )}
           </Table.Body>
         </Table.Content>
       </Table.ScrollContainer>
     </Table>
   );
 }
+
+/**
+ * Memoised deliberately, and load-bearing — see the long note on `AdminSpielorteTable`. In short:
+ * the parent's `useSearchParams()` re-renders this table while it sits hidden in a React Activity
+ * tree during navigation elsewhere, and a react-aria collection that re-renders while hidden loses
+ * its rows for good. No inline lambdas here. The `query` prop is not stable across a navigation
+ * that changes `q` — `memo` cannot bail out then — so the `items` form of `Table.Body` is what
+ * actually carries the fix; keep it.
+ */
+export default memo(AdminSchiedsrichterTable);

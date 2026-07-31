@@ -28,7 +28,7 @@ export default function AboutView() {
           <h3 className="text-fluid-lg font-extrabold tracking-wide uppercase">Unser Ziel</h3>
         </div>
 
-        <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-6 shadow-xl backdrop-blur-sm lg:p-8">
+        <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-6 shadow-xl lg:p-8">
           <p className="text-fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
             Unser Ziel ist simpel: Die Finanzierung unserer Abschlussfeiern und Abibälle. Anstatt Geld über herkömmliche, wenig lukrative Wege
             zu sammeln, organisieren wir einen stadtweiten Ligabetrieb im Großfeldfußball. Jedes Spiel bringt durch Ticket- und Cateringverkäufe
@@ -49,7 +49,7 @@ export default function AboutView() {
           {QA_QUESTIONS.map((item) => (
             <Accordion.Item
               key={item.id}
-              className="soccer-field-card-bg soccer-field-card-border overflow-hidden rounded-2xl border shadow-lg backdrop-blur-sm">
+              className="soccer-field-card-bg soccer-field-card-border overflow-hidden rounded-2xl border shadow-xl">
               <Accordion.Heading>
                 <Accordion.Trigger className="text-fluid-base text-field-fg hover:bg-field-fg/5 flex w-full items-center justify-between gap-x-4 p-6 font-bold transition-colors outline-none">
                   <span>{item.q}</span>
@@ -73,7 +73,7 @@ export default function AboutView() {
 
       {/** Section 3: Active schools */}
       <section className="max-w-meta w-full">
-        <Card className="soccer-field-card-bg soccer-field-card-border rounded-2xl border shadow-2xl backdrop-blur-sm">
+        <Card className="soccer-field-card-bg soccer-field-card-border rounded-2xl border shadow-xl">
           <Card.Header className="flex items-center px-6 pt-6 pb-2">
             <Card.Title className="text-fluid-base text-field-fg font-extrabold tracking-widest uppercase">
               Aktive Schulen der Saison

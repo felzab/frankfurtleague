@@ -6,6 +6,8 @@ import { Ban } from "@gravity-ui/icons";
 
 import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
 
+import { formButton } from "@/shared/components/ui/formButtons";
+
 import { handleSignIn } from "../actions";
 
 export default function SignInForm() {
@@ -60,13 +62,13 @@ export default function SignInForm() {
               className="flex w-full gap-1">
               <Tabs.Tab
                 id="Admin"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200">
                 Admin
                 <Tabs.Indicator className="bg-brand-solid/80" />
               </Tabs.Tab>
               <Tabs.Tab
                 id="Spieler"
-                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all">
+                className="text-fluid-sm text-foreground-muted data-[selected=true]:text-brand-solid-foreground flex-1 rounded-lg py-2.5 text-center font-bold tracking-wide transition-all duration-200">
                 Spieler
                 <Tabs.Indicator className="bg-brand-solid/80" />
               </Tabs.Tab>
@@ -93,7 +95,7 @@ export default function SignInForm() {
                 }}>
                 <Label className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
                 <Input
-                  className="border-border bg-surface text-foreground placeholder:text-foreground-muted focus-visible:border-brand text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-all outline-none"
+                  className="border-border bg-surface text-foreground placeholder:text-foreground-muted focus-visible:border-brand text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-all duration-200 outline-none"
                   placeholder="name@beispiel.de"
                   type="email"
                   required
@@ -108,7 +110,7 @@ export default function SignInForm() {
                 type="submit"
                 variant="primary"
                 isDisabled={isPending}
-                className="text-fluid-xs sm:text-fluid-sm bg-brand-solid text-brand-solid-foreground shadow-brand/25 flex w-full items-center justify-center rounded-xl py-3.5 font-bold uppercase shadow-lg transition-all duration-200 hover:opacity-90 active:scale-95">
+                className={formButton({ intent: "submit", fullWidth: true })}>
                 {isPending ? "Wird gesendet..." : "Link senden"}
               </Button>
             </Form>
@@ -144,7 +146,9 @@ export default function SignInForm() {
                 isDisabled
                 type="submit"
                 variant="primary"
-                className="text-fluid-xs sm:text-fluid-sm border-border bg-surface text-foreground-muted/50 flex w-full cursor-not-allowed items-center justify-center rounded-xl border py-3.5 font-bold uppercase">
+                // Same recipe as the Admin tab: the disabled look is the recipe's own
+                // `disabled:opacity-50`, not a second hand-written "inert" appearance.
+                className={formButton({ intent: "submit", fullWidth: true })}>
                 Link senden
               </Button>
             </Form>

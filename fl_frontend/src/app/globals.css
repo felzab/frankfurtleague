@@ -20,6 +20,12 @@
 
     /* Accents & Feedback */
     --accent-brand: #82181a;
+
+    /* HeroUI's focus-ring color. Stock is a blue --accent; the owner wants brand everywhere a ring
+       still renders (buttons, tabs, menu items). Field-like controls suppress the ring entirely in
+       favour of their border turning brand -- see SearchBar / FIELD_INPUT. Declared once: the var()
+       resolves against the per-theme --accent-brand, so it flips with the theme. */
+    --focus: var(--accent-brand);
     /* Solid fills behind --fg-on-brand. Deliberately does NOT flip -- 10:1 in both themes --
        while --accent-brand does, for foreground use on dark surfaces. */
     --accent-brand-solid: #82181a;
@@ -189,7 +195,30 @@
   --width-sidemenu-collapsed: 72px;
   /* One hover magnitude for the whole app. It was three: [1.02] x27, [1.04] x1, 105 x1. */
   --scale-hover: 1.02;
+
+  /* The content loader's dots. Tailwind's `animate-bounce` is 1s at translateY(-25%) -- on a 10px
+     dot that is 2.5px of travel, invisible for the moment the loader is on screen. */
+  --animate-loader-dot: loader-dot 0.6s infinite ease-in-out;
+
+  @keyframes loader-dot {
+    0%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.55;
+    }
+    50% {
+      transform: translateY(-7px);
+      opacity: 1;
+    }
+  }
 }
+
+/* PROJECT RULE (no CSS here -- applied at the call sites): every scroll container reserves its
+   gutter with Tailwind's `scrollbar-gutter-stable`, so a scrollbar appearing (an accordion
+   expanding, an overlay locking the page) can never resize the content box and shift the layout.
+   `scrollbar-gutter` only applies to scroll containers -- for the viewport that is <html>, not
+   <body>, which is why the old body-level declaration did nothing. Consumers: <html> in
+   layout.tsx, both dashboard/admin <main>s, the sidemenu nav scroller, ModalShell's body. */
 
 /* Hides the scrollbar, and nothing else. It used to also set `scrollbar-gutter: stable`, which
    reserves the space the scrollbar would have taken -- the opposite concern, invisible from the
@@ -213,19 +242,53 @@
   background-size: 32px 32px;
 }
 
-/* One block neutralises all 194 animated properties in the app, rather than 194 `motion-reduce:`
-   variants that each new component would have to remember. Deliberately unlayered: unlayered rules
-   outrank every @layer, so this wins over base, components and utilities alike. Animations are
-   shortened rather than removed so animation/transition end events still fire. Where the animation
-   must stop entirely instead of merely running fast, the site opts in with `motion-safe:`. */
+/* Reduced motion, SOFTENED (owner decision 2026-07-31, amending Wave 5a's R4-5.1 block).
+   The original block zeroed every animation- and transition-duration, which made the whole site
+   motionless for anyone whose OS reports "reduce motion" -- including the owner, whose "all the
+   animations are gone / everything flickers" reports across two review rounds traced to exactly
+   this rule, not to any code change. The policy is now "remove movement, keep fades":
+
+   - Entry animations (`animate-in`) lose their translate/scale/rotate but keep the opacity fade:
+     tw-animate-css reads its movement from the --tw-enter-* custom properties, so zeroing them
+     turns every slide/zoom entry into a pure fade at its normal duration.
+   - The looping decorations (ping / pulse / bounce dots) stop entirely -- autonomous repeating
+     motion is the classic vestibular trigger. `animate-spin` deliberately stays: spinners are
+     loading feedback, not decoration.
+   - Hover scaling stops via its token (--scale-hover: 1) instead of a transition kill, so color
+     and opacity transitions remain smooth for everyone.
+
+   Deliberately unlayered: unlayered rules outrank every @layer. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-enter-scale: 1;
+    --tw-enter-rotate: 0;
     scroll-behavior: auto !important;
+  }
+
+  :root {
+    --scale-hover: 1;
+  }
+
+  /* Belt for the two press/hover movement utilities, in case the theme token is baked rather than
+     var()-referenced, plus the landing arrows' slide. */
+  .hover\:scale-hover:hover,
+  .active\:scale-95:active {
+    scale: none !important;
+  }
+
+  .group:hover .group-hover\:translate-x-1 {
+    translate: none !important;
+  }
+
+  .animate-ping,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-loader-dot {
+    animation: none !important;
   }
 }
 

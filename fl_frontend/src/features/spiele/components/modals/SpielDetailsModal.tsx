@@ -7,14 +7,20 @@ import { CircleInfo } from "@gravity-ui/icons";
 import { Modal, Separator } from "@heroui/react";
 
 import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
-import { buildMapsSearchUrl, formatSpielDatum } from "@/shared/utils/format";
+import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
 
-import { computeSpielStatus } from "../../utils";
+import { computeSpielStatus, formatSpielDisplay } from "../../utils";
 import SaisonPhaseChip from "../ui/SaisonPhaseChip";
 import SpielStatusChip from "../ui/SpielStatusChip";
 
 import type { FLSpiel } from "../../schemas";
 
+/**
+ * Deliberately NOT on `ModalShell` (owner decision, 2026-07-31): this is the one modal public users
+ * see, and its lighter `bg-surface p-6 shadow-sm` appearance is the wanted look. The Backdrop also
+ * stays mounted with an inner guard rather than early-returning — unmounting the whole tree on
+ * close skips HeroUI's enter/exit transitions, which read as a hard flicker.
+ */
 export default function SpielDetailsModal({
   spielData,
   isOpen,
@@ -26,7 +32,7 @@ export default function SpielDetailsModal({
   onClose: () => void;
   today: string;
 }) {
-  const spielDatum = formatSpielDatum(spielData?.datum ?? null, "/");
+  const { datum: spielDatum, uhrzeit: spielUhrzeit } = formatSpielDisplay(spielData ?? { datum: null, uhrzeit: null, ergebnis: null });
   // Searches the Spielort's stored maps_link, not an address -- the embedded copy carries no
   // FLAddress, so this query is genuinely different from the other two call sites.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
@@ -34,7 +40,11 @@ export default function SpielDetailsModal({
   return (
     <Modal.Backdrop
       isOpen={isOpen}
-      onOpenChange={onClose}
+      // HeroUI reports both directions; only the closing edge is ours to handle. Passing `onClose`
+      // straight in would forward the boolean as its first argument.
+      onOpenChange={(open: boolean) => {
+        if (!open) onClose();
+      }}
       variant="blur">
       <Modal.Container placement="top">
         <Modal.Dialog
@@ -72,7 +82,6 @@ export default function SpielDetailsModal({
                     teamName={spielData.team2.name}
                     teamId={spielData.team2.team_id}
                     teamShorthand={spielData.team2.shorthand}
-
                     teamIsDisqualified={false}>
                     <span className="text-fluid-xl hover:text-brand font-bold transition-colors duration-200">{spielData.team2.name}</span>
                   </TeamPopoverMenu>
@@ -90,7 +99,7 @@ export default function SpielDetailsModal({
                   {/** Uhrzeit */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Uhrzeit</h4>
-                    <p className="text-foreground font-bold">{spielData.uhrzeit ?? "/"}</p>
+                    <p className="text-foreground font-bold">{spielUhrzeit}</p>
                   </div>
                   {/** Ort */}
                   <div>
@@ -104,13 +113,13 @@ export default function SpielDetailsModal({
                         {spielData.ort.name}
                       </Link>
                     ) : (
-                      <p className="text-foreground font-bold">/</p>
+                      <p className="text-foreground font-bold">{PLACEHOLDER.entity}</p>
                     )}
                   </div>
                   {/** Schiedsrichter */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Schiedsrichter</h4>
-                    <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? "/"}</p>
+                    <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? PLACEHOLDER.entity}</p>
                   </div>
                 </div>
               </Modal.Body>

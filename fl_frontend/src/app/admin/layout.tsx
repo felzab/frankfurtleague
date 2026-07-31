@@ -6,7 +6,7 @@ import { getAdminSession } from "@/core/auth";
 import AdminSidemenu from "@/features/admin/components/AdminSidemenu";
 import AdminContextWrapper from "@/features/admin/components/providers/AdminContextWrapper";
 import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
-import PageLoader from "@/shared/components/ui/PageLoader";
+import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Second layer behind proxy.ts. Nothing else under /admin calls auth(), so before this the whole
@@ -20,8 +20,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="relative flex h-dvh w-full flex-col lg:flex-row">
       <AdminSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
 
-      <main className="bg-background relative flex flex-1 flex-col overflow-y-auto">
-        <Suspense fallback={<PageLoader />}>
+      <main className="bg-background relative flex flex-1 scrollbar-gutter-stable flex-col overflow-y-auto">
+        {/* NOT redundant with `loading.tsx` (unlike the dashboard's): Next nests that fallback
+            around the page segment only, i.e. INSIDE AdminContextWrapper. This boundary is what
+            covers the wrapper's own three FastAPI round-trips. Do not remove it. */}
+        <Suspense fallback={<ContentLoader />}>
           <AdminContextWrapper>{children}</AdminContextWrapper>
         </Suspense>
       </main>

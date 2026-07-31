@@ -2,6 +2,8 @@
 
 import { Badge, Table } from "@heroui/react";
 
+import { card } from "@/shared/components/ui/card";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import TeamPopoverMenu from "../TeamPopoverMenu";
@@ -9,6 +11,17 @@ import TeamPopoverMenu from "../TeamPopoverMenu";
 import type { FLGruppen } from "../../schemas";
 
 export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
+  if (typedObjectEntries(gruppenData).length === 0) {
+    return (
+      <div className="flex w-full flex-1 items-start justify-center p-6">
+        <EmptyState
+          title="Für diese Saison gibt es noch keine Tabelle."
+          hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
+        />
+      </div>
+    );
+  }
+
   return (
     /** Container for all the groups */
     <div className="relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8">
@@ -17,8 +30,11 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
         typedObjectEntries(gruppenData).map(([group, teamsData]) => (
           <div
             key={group}
-            className="bg-surface border-border max-w-page mb-6 flex w-full flex-col items-center rounded-2xl border p-3 shadow-sm sm:p-6">
-            <h3 className="text-fluid-xl text-foreground pb-6 font-extrabold tracking-wide uppercase">Gruppe {group}</h3>
+            className={`${card()} max-w-page mb-6 flex w-full flex-col items-start p-3 sm:p-6`}>
+            <div className="flex flex-col gap-1 pb-6">
+              <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
+              <h3 className="text-fluid-xl text-foreground font-black tracking-tight">Gruppe {group}</h3>
+            </div>
 
             <Table
               variant="secondary"
@@ -44,11 +60,16 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
                   </Table.Column>
                 </Table.Header>
 
-                <Table.Body>
+                <Table.Body
+                  renderEmptyState={() => (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                      <p className="text-fluid-sm text-foreground-muted font-medium">Für diese Gruppe sind noch keine Teams eingeteilt.</p>
+                    </div>
+                  )}>
                   {teamsData.map((teamData, index) => (
                     <Table.Row
                       key={teamData.id}
-                      className="border-border border-b last:border-0">
+                      className="border-border hover:bg-muted/40 border-b transition-colors last:border-0">
                       {/** Placement */}
                       <Table.Cell className="text-fluid-xs w-fit py-4 pl-2 font-bold lg:px-4">
                         {teamData.statistik.anzahl_gespielte_spiele === 0 ? "N/A" : index + 1}
@@ -72,9 +93,8 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
                           {teamData.is_disqualified && (
                             <Badge
                               size="sm"
-                              color="danger"
                               placement="top-right"
-                              className="text-fluid-xxs! translate-x-5 -translate-y-2 p-1 lg:translate-x-6">
+                              className="text-fluid-xxs! bg-danger/10 text-danger translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6">
                               DQ
                             </Badge>
                           )}

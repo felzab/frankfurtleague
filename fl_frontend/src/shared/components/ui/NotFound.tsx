@@ -20,7 +20,7 @@ export default function NotFound() {
         {/* Sleek System/VAR Badge */}
         <div className="bg-background border-border mb-6 flex items-center gap-2.5 rounded-full border px-3 py-1.5 shadow-sm sm:mb-8 sm:px-4">
           <div className="bg-danger h-2 w-2 animate-pulse rounded-full sm:h-2.5 sm:w-2.5" />
-          <span className="text-foreground text-[10px] font-black tracking-widest uppercase sm:text-xs">VAR Review</span>
+          <span className="text-foreground text-fluid-xxs sm:text-fluid-xs font-black tracking-widest uppercase">VAR Review</span>
         </div>
 
         {/* Theatrical Headline */}

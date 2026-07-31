@@ -54,7 +54,7 @@ export default function MetaTeamView() {
               {members.map((member) => (
                 <Card
                   key={member.id}
-                  className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl backdrop-blur-md sm:p-6">
+                  className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl sm:p-6">
                   <div>
                     <Card.Header className="flex flex-col items-start gap-1 p-0 pb-4">
                       <div className="bg-field-fg/10 text-field-fg flex size-11 items-center justify-center rounded-xl shadow-inner">

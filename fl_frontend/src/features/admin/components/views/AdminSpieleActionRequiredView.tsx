@@ -4,6 +4,8 @@ import { ChevronsDownWide } from "@gravity-ui/icons";
 
 import { Accordion } from "@heroui/react";
 
+import { card } from "@/shared/components/ui/card";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "../../utils";
@@ -27,7 +29,7 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
             <Accordion.Item
               key={category}
               /* Removed overflow-hidden so nothing gets clipped */
-              className="bg-surface border-border rounded-2xl border shadow-sm transition-all">
+              className={card()}>
               <Accordion.Heading>
                 <Accordion.Trigger className="hover:bg-muted/80 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors outline-none">
                   <div className="flex flex-col gap-y-1">
@@ -61,9 +63,10 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
                       />
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-6 text-center">
-                      <p className="text-fluid-sm text-success font-bold">Keine Spiele in dieser Kategorie!</p>
-                    </div>
+                    <EmptyState
+                      tone="positive"
+                      title="Keine Spiele in dieser Kategorie!"
+                    />
                   )}
                 </Accordion.Body>
               </Accordion.Panel>

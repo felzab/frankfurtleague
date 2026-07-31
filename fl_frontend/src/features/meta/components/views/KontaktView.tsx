@@ -88,7 +88,7 @@ export default function KontaktView() {
         {KONTAKT_CHANNELS.map((channel, i) => (
           <Card
             key={i}
-            className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl backdrop-blur-md sm:p-6">
+            className="soccer-field-card-bg soccer-field-card-border flex flex-col justify-between rounded-2xl border p-5 shadow-xl sm:p-6">
             <div>
               <Card.Header className="flex flex-row items-center gap-x-3.5 p-0 sm:gap-x-4">
                 <div className="bg-field-fg/10 flex size-11 shrink-0 items-center justify-center rounded-xl p-2 shadow-inner sm:size-12">
