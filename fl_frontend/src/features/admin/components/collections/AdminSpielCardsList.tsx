@@ -19,7 +19,9 @@ const importEditModal = () => import("@/features/spiele/components/modals/AdminE
  * starting state during the delay, and `fade-in` makes that state `opacity: 0` — so this renders
  * nothing at all for 300 ms and then fades in. On the normal path (chunk preloaded, modal opens in a
  * few ms) it is never seen, which is what keeps a loading state from becoming a flash. Verified in
- * `tw-animate-css`: `@utility delay-*` sets `animation-delay`, not `transition-delay`.
+ * the built CSS: `delay-300` emits two rules, Tailwind core's `transition-delay` and
+ * `tw-animate-css`'s `animation-delay`. Different properties, so both apply and the animation
+ * delay is the real one.
  */
 function EditModalLoading() {
   return (

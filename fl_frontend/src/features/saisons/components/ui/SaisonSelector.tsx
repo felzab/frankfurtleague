@@ -8,6 +8,7 @@ import { Description, ListBox, Select } from "@heroui/react";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { SaisonSlotSkeleton } from "@/shared/components/ui/SaisonSlotSkeleton";
 import useMounted from "@/shared/hooks/useMounted";
+import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { Key } from "@heroui/react";
@@ -19,6 +20,20 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
   const searchParams = useSearchParams();
   const isMounted = useMounted();
   const [isSwitching, startSwitching] = useTransition();
+
+  // The popover's open state is OURS, not react-aria's, and that is the fix for "the trigger stops
+  // responding after a few navigations" (NEW-R6, second round).
+  //
+  // Left uncontrolled, this was the third site matching the hazard `useNavigationClosedOverlay` was
+  // written for and the only one not wired to it. A react-aria overlay light-dismisses on an outside
+  // interaction, and a client-side navigation is not one — Next then parks the previous page in a
+  // hidden Activity tree with its state intact. So the popover could stay logically OPEN across a
+  // navigation while nothing was on screen. The next press then *closed* it (invisible, because it
+  // was never painted), the press after reopened it, and so on: the trigger looked completely dead
+  // while faithfully toggling, which is why it presented as intermittent and always after navigating.
+  //
+  // Forcing it closed on every pathname change means every press starts from a known state.
+  const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
   // Validated against the list, not taken raw from the URL. `?saison_id=` is user-editable, and an
   // id that is not in `saisons` used to leave the two halves of this component disagreeing: the
@@ -44,6 +59,11 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
       params.delete("saison_id");
     }
 
+    // Closed explicitly, not left to the navigation. `useNavigationClosedOverlay` watches the
+    // *pathname*, and switching season changes only the query string — so this is the one exit route
+    // the hook cannot cover, and without it the popover would stay open across the switch.
+    setIsOpen(false);
+
     // In a transition, so React keeps the current page interactive while the new season's data is
     // fetched instead of replacing streamed-in regions with their fallbacks. Without it, switching
     // season could flash the sidemenu's own skeletons — including this control's.
@@ -64,6 +84,8 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
         aria-label="Saison auswählen"
         value={activeSaisonId}
         onChange={handleSelectionChange}
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
         className="w-full">
         {/* Sleek, single-layer trigger with interactive border states */}
         <Select.Trigger

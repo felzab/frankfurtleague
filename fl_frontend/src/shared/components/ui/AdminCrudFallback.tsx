@@ -19,14 +19,20 @@ const BODY_CELL_WIDTHS = ["w-40", "w-36", "w-44", "w-28", "w-10"];
  * `useDebouncedUrlQuery`) suspends too, pushing the bailout back up to the boundary above and undoing
  * NEW-SC10/SC11.
  *
- * **Two things stop it reading as a flicker (NEW-R5).**
+ * **Three things stop it reading as a flicker (NEW-R5).**
  *
- * First, it is invisible unless the wait is real. `delay-200 fill-mode-both` applies the `enter`
+ * First — and this is the one that actually mattered — whatever replaces it animates in rather than
+ * appearing. `AdminCrudView` now carries the app's standard entrance, so the hand-over is a movement
+ * instead of a snap. A same-shaped skeleton was only ever half the problem.
+ *
+ * Second, it is invisible unless the wait is real. `delay-200 fill-mode-both` applies the `enter`
  * keyframe's opening state — `opacity: 0`, from `fade-in` — for the first 200 ms, so a navigation
  * whose data is already cached server-side swaps straight to the table and this is never painted.
- * Verified in `tw-animate-css`: `@utility delay-*` sets `animation-delay`, not `transition-delay`.
+ * Checked in the built CSS, not just the plugin source: `delay-200` emits **two** rules — Tailwind
+ * core's `transition-delay` and `tw-animate-css`'s `animation-delay`. They set different
+ * properties, so both apply and the animation delay is real; the transition one is inert here.
  *
- * Second, it is the same shape as what replaces it. It was five bare 56px bars in a plain column, so
+ * Third, it is the same shape as what replaces it. It was five bare 56px bars in a plain column, so
  * the swap to a bordered card with a header strip visibly resized the page. It now mirrors
  * `AdminSchiedsrichterTable` / `AdminSpielorteTable`: the same `card()` shell, a `bg-muted` header
  * strip with a bottom border, and rows on the same `px-6 py-4` rhythm.

@@ -19,7 +19,7 @@ import type { ReactNode } from "react";
  *
  * The heading, description and create trigger moved to `AdminCrudShell` (NEW-SC11), which the page
  * renders *above* the boundary this sits behind — they never depended on the resource list, so they
- * should not have waited on it. Returns a fragment: the surrounding column is the shell's.
+ * should not have waited on it. Returns its own `gap-8` column, which is also the animation host.
  *
  * **NEW-T1 constraint.** This component calls `useSearchParams()` via `useDebouncedUrlQuery`, so it
  * re-renders on every navigation — including while it sits in a hidden Activity tree, where a
@@ -55,7 +55,14 @@ export function AdminCrudView<TItem extends { id: string }>({
   const filteredItems = useFuzzySearch({ items, keys: searchKeys, query });
 
   return (
-    <>
+    // Animated in on arrival, the way every other view in the app is (NEW-R5, second round). The
+    // resized skeleton was only half the problem — the other half was that the real content simply
+    // *appeared*, so even a correctly-sized swap read as a snap. Now the search field and table
+    // arrive the way `SpielhistorieView` and the rest do, and the fallback (which a warm navigation
+    // never paints at all) hands over to a movement rather than to a jump.
+    // `gap-8` is repeated from `AdminCrudShell`'s column because this wrapper is now the flex item;
+    // without it the search field and table would collapse together.
+    <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-8 duration-400">
       <SearchBar
         label={searchLabel}
         placeholder={searchPlaceholder}
@@ -68,6 +75,6 @@ export function AdminCrudView<TItem extends { id: string }>({
 
       {renderEditModal({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
       {renderDeleteModal({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
-    </>
+    </div>
   );
 }
