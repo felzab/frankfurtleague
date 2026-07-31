@@ -12,7 +12,7 @@ import { FLLogo } from "../../ui/FLLogo";
  * open/collapse state — which is why its divergence from the other two `h-14` bars went unnoticed
  * (R4 §10.3). All three now live in files named after the header.
  */
-export default function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
+export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
   return (
     <div className="border-border flex h-14 shrink-0 items-center justify-between border-b px-4 lg:hidden">
       <div className="flex items-center gap-3">

@@ -6,6 +6,8 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Avatar, Button, Chip, Table } from "@heroui/react";
 
+import { card } from "@/shared/components/ui/card";
+
 import type { FLSpieler } from "../../schemas";
 
 export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpieler[] }) {
@@ -24,7 +26,7 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
       </Button>
 
       {/* Header Container */}
-      <div className="bg-surface border-border mb-2 flex w-full flex-col items-center rounded-2xl border p-4 shadow-sm sm:p-6">
+      <div className={`${card()} mb-2 flex w-full flex-col items-center p-4 sm:p-6`}>
         <div className="flex w-full flex-row items-center justify-between">
           <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h3>
           <Chip
@@ -38,7 +40,7 @@ export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: s
       </div>
 
       {/* Table Container */}
-      <div className="bg-surface border-border w-full overflow-x-auto rounded-2xl border p-4 shadow-sm sm:p-6">
+      <div className={`${card()} w-full overflow-x-auto p-4 sm:p-6`}>
         <Table
           variant="secondary"
           className="h-fit w-full text-left">

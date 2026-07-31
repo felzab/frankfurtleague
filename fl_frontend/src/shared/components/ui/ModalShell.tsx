@@ -32,9 +32,7 @@ export function ModalShell({
   onClose,
   heading,
   icon,
-  headerExtra,
   size,
-  dialogProps,
   children,
 }: {
   isOpen: boolean;
@@ -42,10 +40,7 @@ export function ModalShell({
   heading: string;
   /** Rendered to the left of the heading — the destructive confirmations' danger badge. */
   icon?: ReactNode;
-  /** Rendered as a second header row — the match modal's status chips. */
-  headerExtra?: ReactNode;
   size?: "form" | "confirm";
-  dialogProps?: { "aria-label"?: string };
   children: ReactNode;
 }) {
   const styles = modalShell({ size });
@@ -60,9 +55,7 @@ export function ModalShell({
       }}
       variant="blur">
       <Modal.Container placement="top">
-        <Modal.Dialog
-          {...dialogProps}
-          className={styles.dialog()}>
+        <Modal.Dialog className={styles.dialog()}>
           <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
 
           <Modal.Header className={styles.header()}>
@@ -70,7 +63,6 @@ export function ModalShell({
               {icon}
               <Modal.Heading className={styles.heading()}>{heading}</Modal.Heading>
             </div>
-            {headerExtra}
           </Modal.Header>
 
           <Modal.Body className={styles.body()}>{children}</Modal.Body>

@@ -4,6 +4,7 @@ import { Calendar, Globe, MapPin } from "@gravity-ui/icons";
 
 import { Table, toast } from "@heroui/react";
 
+import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
@@ -30,7 +31,7 @@ function AdminSpielorteTable({
   };
 
   return (
-    <Table className="bg-surface border-border h-fit w-full rounded-2xl border p-0 shadow-sm">
+    <Table className={`${card()} h-fit w-full p-0`}>
       <Table.ScrollContainer className="scrollbar-hide">
         <Table.Content aria-label="Tabelle aller Spielorte">
           <Table.Header>
@@ -146,8 +147,12 @@ function AdminSpielorteTable({
  * shell with neither rows nor `renderEmptyState`. Bisected against seven probe routes: the table
  * alone is fine, `useSearchParams` alone is fine, the two together fail on the third visit.
  *
- * Every prop must therefore stay referentially stable across those re-renders: `filteredSpielorte`
- * comes from `useFuzzySearch`'s memo, and the two setters are `useState` setters. **Do not pass an
- * inline lambda or a freshly-built array here** — it silently restores the bug.
+ * `memo` keeps that churn down, but note what it does *not* do: `spielortQuery` is read from the
+ * live router, and a hidden tree still sees the incoming route's params, so navigating to a URL
+ * with a different `q` (the "Einsätze anzeigen" link below does exactly that) changes the prop and
+ * the memo cannot bail out. Measured over 15 such round trips with the query varying each time:
+ * the rows survive. What actually carries the fix is the `items` + render-function form of
+ * `Table.Body` above; `memo` is the cheap second layer. **Do not pass an inline lambda or a
+ * freshly-built array here**, and do not convert `Table.Body` back to mapped children.
  */
 export default memo(AdminSpielorteTable);

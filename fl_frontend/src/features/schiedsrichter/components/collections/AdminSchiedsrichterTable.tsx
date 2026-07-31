@@ -4,6 +4,7 @@ import { Calendar, Person } from "@gravity-ui/icons";
 
 import { Table, toast } from "@heroui/react";
 
+import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { formatEuro } from "@/shared/utils/format";
 
@@ -31,7 +32,7 @@ function AdminSchiedsrichterTable({
   };
 
   return (
-    <Table className="bg-surface border-border h-fit w-full rounded-2xl border p-0 shadow-sm">
+    <Table className={`${card()} h-fit w-full p-0`}>
       <Table.ScrollContainer className="scrollbar-hide">
         <Table.Content aria-label="Tabelle aller Schiedsrichter">
           <Table.Header>
@@ -145,6 +146,8 @@ function AdminSchiedsrichterTable({
  * Memoised deliberately, and load-bearing — see the long note on `AdminSpielorteTable`. In short:
  * the parent's `useSearchParams()` re-renders this table while it sits hidden in a React Activity
  * tree during navigation elsewhere, and a react-aria collection that re-renders while hidden loses
- * its rows for good. Every prop must stay referentially stable; no inline lambdas here.
+ * its rows for good. No inline lambdas here. The `query` prop is not stable across a navigation
+ * that changes `q` — `memo` cannot bail out then — so the `items` form of `Table.Body` is what
+ * actually carries the fix; keep it.
  */
 export default memo(AdminSchiedsrichterTable);

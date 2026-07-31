@@ -1,6 +1,7 @@
 "use client";
 
 import { FormModal } from "@/shared/components/ui/FormModal";
+import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
 import AdminEditSchiedsrichterForm from "../forms/AdminEditSchiedsrichterForm";
 
@@ -15,7 +16,10 @@ export function AdminEditSchiedsrichterModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  if (!schiedsrichterData) return null;
+  // Retained, not early-returned: unmounting on close skips the exit transition.
+  const schiedsrichter = useRetainedValue(schiedsrichterData);
+
+  if (!schiedsrichter) return null;
 
   return (
     <FormModal
@@ -23,8 +27,8 @@ export function AdminEditSchiedsrichterModal({
       onClose={onClose}
       heading="Schiedsrichter bearbeiten">
       <AdminEditSchiedsrichterForm
-        key={schiedsrichterData.id}
-        schiedsrichterData={schiedsrichterData}
+        key={schiedsrichter.id}
+        schiedsrichterData={schiedsrichter}
         onClose={onClose}
       />
     </FormModal>

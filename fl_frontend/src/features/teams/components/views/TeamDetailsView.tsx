@@ -94,7 +94,7 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
       </Button>
 
       {/* Header Info Card */}
-      <div className="bg-surface border-border flex w-full flex-col gap-y-1.5 rounded-2xl border p-4 shadow-sm">
+      <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4`}>
         <h3 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h3>
 
         {/* Offizieller Schulname. No emptiness guard: both schemas now require it (R3a-B1.3). */}

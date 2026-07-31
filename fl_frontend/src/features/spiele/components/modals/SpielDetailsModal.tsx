@@ -40,7 +40,11 @@ export default function SpielDetailsModal({
   return (
     <Modal.Backdrop
       isOpen={isOpen}
-      onOpenChange={onClose}
+      // HeroUI reports both directions; only the closing edge is ours to handle. Passing `onClose`
+      // straight in would forward the boolean as its first argument.
+      onOpenChange={(open: boolean) => {
+        if (!open) onClose();
+      }}
       variant="blur">
       <Modal.Container placement="top">
         <Modal.Dialog

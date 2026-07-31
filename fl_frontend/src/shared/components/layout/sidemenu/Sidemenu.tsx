@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Separator } from "@heroui/react";
 
 import SidemenuDesktopHeader from "./SidemenuDesktopHeader";
-import SidemenuDrawerHeader from "./SidemenuDrawerHeader";
+import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import SidemenuFooter from "./SidemenuFooter";
 import SidemenuMobileHeader from "./SidemenuMobileHeader";
 import SidemenuNavItem from "./SidemenuNavItem";

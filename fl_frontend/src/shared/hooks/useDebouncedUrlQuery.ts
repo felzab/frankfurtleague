@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 /**
@@ -19,9 +19,16 @@ export function useDebouncedUrlQuery({ param = "q", delayMs = 300 }: { param?: s
   const urlValue = searchParams.get(param) || "";
   const [inputValue, setInputValue] = useState(urlValue);
 
+  // The last value this hook itself wrote to the URL. A `router.replace` on a route that awaits
+  // the request commits hundreds of ms later, by which time the user has usually typed more; without
+  // this guard the sync effect below would then rewind the field to the stale value and eat those
+  // keystrokes. Own writes are recognised and skipped; genuinely external changes still sync.
+  const lastWritten = useRef<string | null>(null);
+
   // Sync local input if the URL changes externally (e.g. browser back/forward buttons)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (urlValue === lastWritten.current) return;
+    lastWritten.current = null;
     setInputValue(urlValue);
   }, [urlValue]);
 
@@ -36,6 +43,7 @@ export function useDebouncedUrlQuery({ param = "q", delayMs = 300 }: { param?: s
       } else {
         params.delete(param);
       }
+      lastWritten.current = inputValue;
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }, delayMs);
 

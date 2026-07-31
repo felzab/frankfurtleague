@@ -20,7 +20,7 @@ import ThemeSwitch from "../../ui/ThemeSwitch";
  * would swallow the press. It therefore reports `aria-expanded` for free, which the topnav's
  * raw-`<svg>` trigger does not (Wave 6, R4-2.1).
  */
-export default function SidemenuOptionsMenu({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
+export function SidemenuOptionsMenu({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
   return (
     <Dropdown>
       <IconTooltip

@@ -26,7 +26,6 @@ export const formButton = tv({
       /** The "Neuen X anlegen" page-header buttons — taller to match the search bar beside them. */
       trigger: "bg-brand-solid text-brand-solid-foreground shadow-brand/25 h-12 font-bold shadow-lg lg:h-15",
     },
-    fullWidth: { true: "w-full" },
   },
   defaultVariants: { intent: "submit" },
 });

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRightToSquare, LayoutSideContentLeft, LayoutSideContentRight } from "@gravity-ui/icons";
 
 import { IconTooltip } from "../../ui/IconTooltip";
-import SidemenuOptionsMenu from "./SidemenuOptionsMenu";
+import { SidemenuOptionsMenu } from "./SidemenuOptionsMenu";
 
 export default function SidemenuFooter({
   isDesktopCollapsed,
@@ -42,7 +42,7 @@ export default function SidemenuFooter({
           <button
             onClick={onToggleDesktopMenu}
             className="text-foreground-muted hover:bg-muted hover:text-foreground hidden h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors lg:flex"
-            aria-label="Menü ein- oder ausklappen">
+            aria-label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}>
             {isDesktopCollapsed ? (
               <LayoutSideContentRight className="h-[18px] w-[18px]" />
             ) : (

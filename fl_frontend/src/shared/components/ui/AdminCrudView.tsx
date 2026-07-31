@@ -18,11 +18,13 @@ import type { ReactNode } from "react";
  * `renderTable` plus two modal renderers.
  *
  * **NEW-T1 constraint.** This component calls `useSearchParams()` via `useDebouncedUrlQuery`, so it
- * re-renders on every navigation — including while it sits in a hidden Activity tree. The table
- * passed to `renderTable` must therefore be `React.memo`'d and must receive referentially stable
- * props, or its react-aria collection stops committing rows. `filteredItems` is memoised here and
- * the two setters are `useState` setters; **do not add an inline lambda or a fresh array** to the
- * `renderTable` call.
+ * re-renders on every navigation — including while it sits in a hidden Activity tree, where a
+ * react-aria collection that re-renders can stop committing rows. The table passed to `renderTable`
+ * must therefore be `React.memo`'d and must use `Table.Body`'s `items` + render-function form.
+ * `filteredItems` is memoised here and the two setters are `useState` setters; **do not add an
+ * inline lambda or a fresh array** to the `renderTable` call. Note that `query` is inherently
+ * unstable — a navigation to a route with a different `q` changes it and defeats the memo — so the
+ * `items` form is the load-bearing half, not the memo.
  */
 export function AdminCrudView<TItem extends { id: string }>({
   title,

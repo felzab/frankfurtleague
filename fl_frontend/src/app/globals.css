@@ -213,15 +213,18 @@
   }
 }
 
+/* PROJECT RULE (no CSS here -- applied at the call sites): every scroll container reserves its
+   gutter with Tailwind's `scrollbar-gutter-stable`, so a scrollbar appearing (an accordion
+   expanding, an overlay locking the page) can never resize the content box and shift the layout.
+   `scrollbar-gutter` only applies to scroll containers -- for the viewport that is <html>, not
+   <body>, which is why the old body-level declaration did nothing. Consumers: <html> in
+   layout.tsx, both dashboard/admin <main>s, the sidemenu nav scroller, ModalShell's body. */
+
 /* Hides the scrollbar, and nothing else. It used to also set `scrollbar-gutter: stable`, which
    reserves the space the scrollbar would have taken -- the opposite concern, invisible from the
    name, silently inherited by all 11 consumers. The sites that want the gutter now say so with
    Tailwind's own `scrollbar-gutter-stable`. The !important flags are unnecessary: @utility output
    lands in the utilities layer, which already beats HeroUI's base/scrollbar.css. */
-/* Scroll-gutter rule for the whole app: EVERY scroll container reserves its gutter, so a
-   scrollbar appearing (an accordion expanding, an overlay locking the page) can never resize the
-   content box and shift the layout. `scrollbar-gutter` only applies to scroll containers -- for the
-   viewport that is <html>, not <body>, which is why the old body-level declaration did nothing. */
 @utility scrollbar-hide {
   &::-webkit-scrollbar {
     display: none;
