@@ -1,32 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 /**
- * Whether a CSS media query currently matches. `false` until the component has mounted, so the
- * caller must pick a query whose `false` branch is the safe one — for the sidemenu that is "not
- * inert", i.e. never wrongly inert.
+ * Whether a CSS media query currently matches. `false` on the server and until the first client
+ * snapshot, so the caller must pick a query whose `false` branch is the safe one — for the sidemenu
+ * that is "not inert", i.e. never wrongly inert.
  *
- * `useState` + `useEffect` rather than `useSyncExternalStore`. Both work; this one is kept because
- * the state update is unconditional after mount and therefore easy to reason about, and because the
- * server snapshot is expressed as the initial state rather than as a third callback.
+ * `useSyncExternalStore`, not `useState` + `useEffect`: the effect form has to call `setState` in
+ * the effect body to catch a query that already matched at mount (`change` only fires on a
+ * transition), which `react-hooks/set-state-in-effect` rejects as a cascading render. A media query
+ * is an external store, so this is the shape the rule is pointing at.
+ *
+ * Both callbacks are memoised on `query`. An inline `subscribe` would be a new function identity
+ * every render, and React tears down and re-subscribes whenever it changes.
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      const list = window.matchMedia(query);
+      list.addEventListener("change", onStoreChange);
+      return () => list.removeEventListener("change", onStoreChange);
+    },
+    [query],
+  );
 
-  useEffect(() => {
-    const list = window.matchMedia(query);
+  const getSnapshot = useCallback(() => window.matchMedia(query).matches, [query]);
 
-    // Set from the effect too, not just from the listener: `change` only fires on a *transition*,
-    // so a viewport that already matched at mount would otherwise never be reported.
-    setMatches(list.matches);
-
-    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
-    list.addEventListener("change", onChange);
-    return () => list.removeEventListener("change", onChange);
-  }, [query]);
-
-  return matches;
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }
 
 /**

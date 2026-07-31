@@ -9,7 +9,6 @@ import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter } from ".
 import { FLDeleteSchiedsrichterPayloadSchema, FLPatchSchiedsrichterPayloadSchema, FLPostSchiedsrichterPayloadSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
-
 import type { FLDeleteSchiedsrichterPayload, FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter } from "./schemas";
 
 export async function postSchiedsrichterAction(
