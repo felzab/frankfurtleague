@@ -54,7 +54,7 @@ export default function SpielCard({
               onPress={onOpenAdminModal}
               size="md"
               variant="tertiary"
-              className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-all duration-200 md:h-[38px] md:w-[38px]">
+              className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <PencilToSquare className="m-0 size-5" />
             </Button>
           )}
@@ -64,7 +64,7 @@ export default function SpielCard({
             onPress={onOpenInfoModal}
             size="md"
             variant="tertiary"
-            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-all duration-200 md:h-[38px] md:w-[38px]">
+            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
             <CircleExclamation className="m-0 size-5" />
           </Button>
         </div>

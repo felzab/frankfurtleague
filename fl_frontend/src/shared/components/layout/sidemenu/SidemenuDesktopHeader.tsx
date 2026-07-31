@@ -8,7 +8,7 @@ import { IconTooltip } from "../../ui/IconTooltip";
 export default function SidemenuDesktopHeader({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
   return (
     <div
-      className={`border-border hidden h-14 shrink-0 items-center border-b transition-all duration-300 lg:flex ${
+      className={`border-border hidden h-14 shrink-0 items-center border-b transition-[padding] duration-300 lg:flex ${
         isDesktopCollapsed ? "justify-center" : "justify-start px-4"
       }`}>
       <IconTooltip

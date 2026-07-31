@@ -16,6 +16,27 @@ import { tv } from "tailwind-variants";
  * `destructive` keeps `text-foreground` on `bg-danger` deliberately: that pairing is a contrast
  * decision the owner still has to make, tracked as NEW-C1 in Wave 6, not something to change here.
  */
+/**
+ * The CTA family — `<Link>`s and one-off buttons OUTSIDE forms: the landing-page hero, the
+ * error/404 panels, dashboard not-found. Deliberately a separate recipe from `formButton` (owner
+ * decision, 2026-07-31): restyling forms must never silently restyle the marketing pages, and the
+ * form base's disabled styling is dead weight on a link. Before this recipe the nine call sites
+ * disagreed on height (h-10/11/12), hover feedback (present or absent) and carried one dead
+ * `shadow-brand/30` with no shadow size to give it effect.
+ */
+export const ctaButton = tv({
+  base: "text-fluid-sm hover:scale-hover flex h-12 items-center justify-center rounded-xl px-6 font-bold transition-[transform,background-color,border-color] duration-200 active:scale-95",
+  variants: {
+    intent: {
+      primary: "bg-brand-solid hover:bg-brand-solid/90 text-brand-solid-foreground shadow-md",
+      outline: "border-border text-foreground hover:bg-muted/40 border bg-transparent",
+    },
+    /** The hero's two secondary CTAs, deliberately smaller than the primary pair beside them. */
+    size: { sm: "text-fluid-xs h-10 px-4" },
+  },
+  defaultVariants: { intent: "primary" },
+});
+
 export const formButton = tv({
   base: "text-fluid-sm hover:scale-hover rounded-xl px-6 py-3 font-semibold transition-[transform,color,background-color,border-color,opacity,box-shadow] duration-200 active:scale-95 disabled:pointer-events-none disabled:opacity-50",
   variants: {

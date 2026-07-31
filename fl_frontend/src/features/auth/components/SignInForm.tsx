@@ -126,8 +126,8 @@ export default function SignInForm() {
                   type="email">
                   <Label className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
                   <Input
-                    className="border-border bg-surface text-foreground placeholder:text-foreground-muted text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-all duration-200 outline-none"
-                    placeholder="name@beispiel.de"
+                    className="border-border bg-surface text-foreground placeholder:text-foreground-muted text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
+                    placeholder="z.B. name@beispiel.de"
                     type="email"
                     required
                     disabled={isPending}

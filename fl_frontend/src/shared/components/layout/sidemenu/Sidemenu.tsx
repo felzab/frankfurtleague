@@ -118,7 +118,7 @@ export default function Sidemenu<TIcon extends string>({
                 className="bg-muted h-[70px] w-full animate-pulse rounded-xl"
               />
             }>
-            <div className={`transition-all duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
+            <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
             </div>
           </Suspense>

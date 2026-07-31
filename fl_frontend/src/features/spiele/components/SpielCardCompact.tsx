@@ -37,7 +37,7 @@ export default function SpielCardCompact({ spielData, onOpenInfoModal }: { spiel
               onPress={onOpenInfoModal}
               size="sm"
               variant="tertiary"
-              className="bg-muted text-foreground hover:bg-muted/80 ml-auto h-[32px] w-[32px] p-0 transition-all duration-200">
+              className="bg-muted text-foreground hover:bg-muted/80 ml-auto h-[32px] w-[32px] p-0 transition-colors duration-200">
               <CircleExclamation className="m-0 size-4" />
             </Button>
           )}

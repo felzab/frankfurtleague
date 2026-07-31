@@ -38,7 +38,7 @@ export default function AdminSpieleActionRequiredView({ overviewSpiele, today }:
                   real heading wrapping the trigger (react-aria-components defaults it to `h3`), so
                   the category name did not need to become one — the level was the only thing wrong. */}
               <Accordion.Heading level={2}>
-                <Accordion.Trigger className="hover:bg-muted/80 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors">
+                <Accordion.Trigger className="hover:bg-muted/40 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors">
                   <div className="flex flex-col gap-y-1">
                     <div className="flex items-center gap-x-3">
                       <span className="text-fluid-base text-foreground font-extrabold tracking-tight">{label.name}</span>

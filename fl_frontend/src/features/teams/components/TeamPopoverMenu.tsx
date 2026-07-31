@@ -6,6 +6,7 @@ import { CircleInfo, Persons } from "@gravity-ui/icons";
 
 import { Badge, Popover, Separator } from "@heroui/react";
 
+import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 
 import { TBD_TEAM_SHORTHAND } from "../constants";
@@ -69,7 +70,7 @@ export default function TeamPopoverMenu({
           offset={10}>
           {/* max-w caps the panel: nothing else constrains it, so without this the dialog grows to
               the full team name and a long one pushes it past the viewport edge. */}
-          <Popover.Dialog className="bg-surface border-border text-foreground w-max max-w-[280px] rounded-xl border p-4 shadow-lg outline-none">
+          <Popover.Dialog className={`${overlayPanel()} w-max max-w-[280px] p-4 outline-none`}>
             <Popover.Arrow className="fill-surface" />
 
             <Popover.Heading className="text-fluid-base flex w-full flex-row items-center justify-between font-bold">
