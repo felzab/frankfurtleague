@@ -31,6 +31,11 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
     // The arrival animation lives here rather than on each panel (NEW-R3): this element mounts once
     // per page visit and never again on a tab press, so the rise plays exactly when it should — the
     // page settling into place — and cannot be replayed or interrupted by switching Spieltag.
+    // Note this is an ancestor of the `sticky` tab bar below. That is safe: a transformed ancestor
+    // redefines the containing block for `position: fixed`, not for `position: sticky`, which resolves
+    // against its nearest scrollport (`<main>`, further up and untransformed). And the animation only
+    // ever runs at mount, when the scroller is still at the top and nothing is stuck yet — measured
+    // at rest, the root's `transform` is `none` with zero live animations.
     <Tabs className="animate-in fade-in slide-in-from-bottom-4 relative flex w-full flex-1 flex-col items-center duration-400">
       {pageHeading}
 

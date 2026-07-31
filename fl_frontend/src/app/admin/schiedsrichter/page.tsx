@@ -18,13 +18,7 @@ export default function AdminSchiedsrichterPage() {
       title={SCHIEDSRICHTER_CRUD_COPY.title}
       description={SCHIEDSRICHTER_CRUD_COPY.description}
       createModal={<AdminCreateSchiedsrichterModal />}>
-      <Suspense
-        fallback={
-          <AdminCrudFallback
-            searchLabel={SCHIEDSRICHTER_CRUD_COPY.searchLabel}
-            searchPlaceholder={SCHIEDSRICHTER_CRUD_COPY.searchPlaceholder}
-          />
-        }>
+      <Suspense fallback={<AdminCrudFallback />}>
         <SchiedsrichterTable />
       </Suspense>
     </AdminCrudShell>

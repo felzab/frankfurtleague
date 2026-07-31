@@ -11,9 +11,9 @@ import useMounted from "@/shared/hooks/useMounted";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { Key } from "@heroui/react";
-import type { FLSaison } from "../schemas";
+import type { FLSaison } from "../../schemas";
 
-export default function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]; currentSaison: FLSaison }) {
+export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]; currentSaison: FLSaison }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -71,7 +71,7 @@ export default function SaisonSelector({ saisons, currentSaison }: { saisons: FL
           // user the press landed — a season switch is a server round-trip, so without it the only
           // feedback is the page changing some time later.
           aria-busy={isSwitching}
-          className={`select__trigger border-border/60 bg-surface/50 hover:bg-surface hover:border-border aria-expanded:border-brand aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-200 ${
+          className={`border-border/60 bg-surface/50 hover:bg-surface hover:border-border aria-expanded:border-brand aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-200 ${
             isSwitching ? "opacity-60" : ""
           }`}>
           <div className="flex flex-col items-start gap-0.5 text-left">

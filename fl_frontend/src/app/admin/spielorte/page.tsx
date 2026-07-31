@@ -15,13 +15,7 @@ export default function AdminSpielortePage() {
       title={SPIELORTE_CRUD_COPY.title}
       description={SPIELORTE_CRUD_COPY.description}
       createModal={<AdminCreateSpielortModal />}>
-      <Suspense
-        fallback={
-          <AdminCrudFallback
-            searchLabel={SPIELORTE_CRUD_COPY.searchLabel}
-            searchPlaceholder={SPIELORTE_CRUD_COPY.searchPlaceholder}
-          />
-        }>
+      <Suspense fallback={<AdminCrudFallback />}>
         <SpielorteTable />
       </Suspense>
     </AdminCrudShell>

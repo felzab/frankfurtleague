@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
-import { FLLogo } from "@/shared/components/ui/FLLogo";
+import { BrandLink } from "@/shared/components/ui/BrandLink";
 
 import { FooterCopyrightString } from "./FooterCopyrightString";
 
@@ -17,13 +17,7 @@ export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.
       <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-4">
         {/* Brand & Mission Column */}
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
-          <Link
-            href="/"
-            title="Startseite"
-            className="text-fluid-lg text-foreground flex items-center gap-2 font-bold tracking-tighter transition-opacity hover:opacity-80">
-            <FLLogo />
-            Frankfurt-League
-          </Link>
+          <BrandLink />
           <p className="text-fluid-xs text-foreground-muted max-w-sm">
             Die Frankfurter Oberstufenliga. Hier können Frankfurter Schulen gegeneinander antreten, um herauszufinden, welche die Beste ist.
           </p>

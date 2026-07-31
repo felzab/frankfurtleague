@@ -186,12 +186,15 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
         />
       </div>
 
-      <SpielDetailsModal
-        spielData={selectedSpiel}
-        today={today}
-        isOpen={selectedSpiel !== null}
-        onClose={() => setSelectedSpiel(null)}
-      />
+      {/* Guarded like `SpielCardsList`'s (R4 §16.4): no overlay tree until a card is opened. */}
+      {selectedSpiel && (
+        <SpielDetailsModal
+          spielData={selectedSpiel}
+          today={today}
+          isOpen={true}
+          onClose={() => setSelectedSpiel(null)}
+        />
+      )}
     </div>
   );
 }

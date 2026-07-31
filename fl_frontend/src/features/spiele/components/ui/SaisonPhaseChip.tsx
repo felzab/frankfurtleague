@@ -9,9 +9,9 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas";
 // below AA, and below what the two-value raw-palette version managed. /10 restores 4.72 and 4.87.
 const PHASE_CLASSES: Record<FLSaisonPhase, string> = {
   gruppenphase: "bg-phase-gruppenphase/10 text-phase-gruppenphase",
-  viertelfinale: "bg-phase-quarter/10 text-phase-quarter",
-  halbfinale: "bg-phase-semi/10 text-phase-semi",
-  finale: "bg-phase-final/10 text-phase-final",
+  viertelfinale: "bg-phase-viertelfinale/10 text-phase-viertelfinale",
+  halbfinale: "bg-phase-halbfinale/10 text-phase-halbfinale",
+  finale: "bg-phase-finale/10 text-phase-finale",
 };
 
 const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {

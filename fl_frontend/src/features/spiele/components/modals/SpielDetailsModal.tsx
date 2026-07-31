@@ -23,10 +23,10 @@ import type { FLSpiel } from "../../schemas";
  * is instantiated once per collection, so it also mounted ~11 idle overlay trees across the app on
  * first paint. The caller now guards the mount and the exit transition is the accepted cost.
  *
- * `spielData` stays nullable and the inner guard stays: the prop is typed for callers that may hold
- * a null selection, and the guard is what keeps the header and body off a null. With the caller's
- * guard in place it is no longer reachable with null, but it costs nothing and removes a trap for
- * whoever mounts this next.
+ * `spielData` stays nullable and the inner guard stays. All four call sites now guard the mount, so
+ * null should not arrive — but the prop is typed for a caller holding a null selection, and the guard
+ * is what keeps the header and body off it. Cheap, and it is the reason a missed call site degrades
+ * to an empty dialog rather than a crash: two of the four were missed when the guard first landed.
  */
 export default function SpielDetailsModal({
   spielData,

@@ -24,7 +24,7 @@ import { getAdminSession } from "@/core/auth";
  * — but from inside a stream, so the response is a 200 whose shell (nav labels only, no data) has
  * already been sent. It fails closed either way; it just fails closed later than it used to.
  */
-export default async function AdminAuthGuard({ children }: { children: React.ReactNode }) {
+export async function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   await connection();
   if (!(await getAdminSession())) redirect("/signin");
 

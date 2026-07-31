@@ -67,9 +67,9 @@
        palette. Values are Tailwind's sky/indigo/purple/rose 700 verbatim, i.e. exactly what the chip
        rendered before, and each is used both as the label colour and as a /15 tint behind it. */
     --accent-phase-gruppenphase: oklch(50% 0.134 242.749);
-    --accent-phase-quarter: oklch(45.7% 0.24 277.023);
-    --accent-phase-semi: oklch(49.6% 0.265 301.924);
-    --accent-phase-final: oklch(51.4% 0.222 16.935);
+    --accent-phase-viertelfinale: oklch(45.7% 0.24 277.023);
+    --accent-phase-halbfinale: oklch(49.6% 0.265 301.924);
+    --accent-phase-finale: oklch(51.4% 0.222 16.935);
 
     /* The soccer-field motif on /about, /team and /kontakt. Those three pages stay green in both
        themes -- that is the design, not an oversight -- but until these tokens existed the decision
@@ -120,9 +120,9 @@
 
     /* Tailwind's sky/indigo/purple/rose 400 -- the values the chip's `dark:` escapes used. */
     --accent-phase-gruppenphase: oklch(74.6% 0.16 232.661);
-    --accent-phase-quarter: oklch(67.3% 0.182 276.935);
-    --accent-phase-semi: oklch(71.4% 0.203 305.504);
-    --accent-phase-final: oklch(71.2% 0.194 13.428);
+    --accent-phase-viertelfinale: oklch(67.3% 0.182 276.935);
+    --accent-phase-halbfinale: oklch(71.4% 0.203 305.504);
+    --accent-phase-finale: oklch(71.2% 0.194 13.428);
 
     /* Deeper greens for the dark theme; the foreground stays white because the surface stays green. */
     --field-base: #0b3820;
@@ -187,9 +187,9 @@
   --color-danger-solid-foreground: var(--fg-on-danger);
   --color-success-solid-foreground: var(--fg-on-success);
   --color-phase-gruppenphase: var(--accent-phase-gruppenphase);
-  --color-phase-quarter: var(--accent-phase-quarter);
-  --color-phase-semi: var(--accent-phase-semi);
-  --color-phase-final: var(--accent-phase-final);
+  --color-phase-viertelfinale: var(--accent-phase-viertelfinale);
+  --color-phase-halbfinale: var(--accent-phase-halbfinale);
+  --color-phase-finale: var(--accent-phase-finale);
   --color-field-base: var(--field-base);
   --color-field-card: var(--field-card);
   --color-field-fg: var(--field-fg);

@@ -144,7 +144,7 @@ export function SidemenuOptionsMenu({
                     press dismisses the menu and the second never happens. The theme row above uses
                     the same escape hatch for the same structural reason.
                     Escaping is deliberately easy and undocumented-to-the-user: closing the menu,
-                    pressing Escape or clicking away all reset it (see the effect above). The only
+                    pressing Escape or clicking away all reset it (see the render-time reset above). The only
                     path to signing out is a second, deliberate press on a row that has visibly
                     changed. */}
                 <Dropdown.Item

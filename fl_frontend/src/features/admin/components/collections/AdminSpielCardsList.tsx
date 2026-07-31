@@ -75,7 +75,7 @@ export default function AdminSpielCardsList({ spiele, today }: { spiele: FLSpiel
           teams={teams}
           spielorte={spielorte}
           schiedsrichter={schiedsrichter}
-          isOpen={selectedAdminSpiel !== null}
+          isOpen={true}
           onClose={() => setSelectedAdminSpiel(null)}
         />
       )}
