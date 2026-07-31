@@ -163,7 +163,10 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
             <Card
               key={stat.label}
               variant="default"
-              className={`${card()}${stat.desktopOnly ? " hidden lg:block" : ""}`}>
+              // The separating space belongs in the template literal, not inside the string:
+              // prettier's Tailwind plugin trims class strings, so a leading space written as
+              // `" hidden lg:block"` is silently removed and the classes glue together.
+              className={`${card()} ${stat.desktopOnly ? "hidden lg:block" : ""}`}>
               <Card.Content className="py-4 text-center">
                 <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
                 <p className="text-fluid-lg text-foreground font-extrabold">{stat.value}</p>
