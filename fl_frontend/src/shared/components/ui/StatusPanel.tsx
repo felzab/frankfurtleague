@@ -21,7 +21,7 @@ const statusPanel = tv({
     dot: "h-2 w-2 animate-pulse rounded-full",
     badgeText: "text-foreground text-fluid-xxs sm:text-fluid-xs font-black tracking-widest uppercase",
     message: "text-foreground-muted leading-relaxed font-medium",
-    digest: "text-foreground-muted/60 mt-4 font-mono text-xs tracking-wider",
+    digest: "text-foreground-muted/60 text-fluid-xxs mt-4 font-mono tracking-wider",
   },
   variants: {
     variant: {

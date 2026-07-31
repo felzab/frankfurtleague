@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Autocomplete, Description, FieldError, Input, Label, ListBox, SearchField, TextField, useFilter } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
@@ -76,7 +76,7 @@ export function FormTeamPicker({
         value={teamPayload?.team_id ?? null}
         onChange={handleTeamSelection}
         disabledKeys={disabledTeamId ? [disabledTeamId] : []}>
-        <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
+        <Label className={FIELD_LABEL}>{label}</Label>
         <Autocomplete.Trigger className={FIELD_INPUT}>
           <Autocomplete.Value className="text-fluid-sm" />
           {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. */}
@@ -128,7 +128,7 @@ export function FormTeamPicker({
           className="w-full"
           value={tbdTeamName}
           onChange={handleTbdTeamNameChange}>
-          <Label className="text-fluid-xs text-foreground font-bold">TBD Beschreibung</Label>
+          <Label className={FIELD_LABEL}>TBD Beschreibung</Label>
           <Input
             placeholder="z.B. Sieger 26."
             className={FIELD_INPUT}

@@ -59,7 +59,7 @@ export default function KontaktView() {
     <div className="max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8">
       {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
-        <h1 className="text-fluid-2xl sm:text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
+        <h1 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
           Frankfurt-League Kontakt
         </h1>
         <p className="text-fluid-sm sm:text-fluid-sm text-field-fg/80 mt-2 font-medium">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>

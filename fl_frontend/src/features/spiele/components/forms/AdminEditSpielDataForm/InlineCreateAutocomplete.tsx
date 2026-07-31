@@ -5,7 +5,7 @@ import { Check, Plus } from "@gravity-ui/icons";
 import { Autocomplete, Button, CloseButton, Description, Label, ListBox, SearchField, toast, useFilter } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
@@ -202,7 +202,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
             selectionMode="single"
             value={selectedId}
             onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
-            <Label className="text-fluid-xs text-foreground font-bold">{label}</Label>
+            <Label className={FIELD_LABEL}>{label}</Label>
             <Autocomplete.Trigger className={FIELD_INPUT}>
               <Autocomplete.Value className="text-fluid-sm" />
               {/* HeroUI hardcodes aria-label="Clear selection" on this button and spreads props

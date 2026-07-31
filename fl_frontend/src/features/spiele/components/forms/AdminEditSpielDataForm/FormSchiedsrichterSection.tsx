@@ -2,7 +2,7 @@ import { Description, FieldError, Label, NumberField } from "@heroui/react";
 
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
 import { InlineCreateAutocomplete } from "./InlineCreateAutocomplete";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -106,7 +106,7 @@ export default function FormSchiedsrichterSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <Label className="text-fluid-xs text-foreground font-bold">Entschädigung</Label>
+        <Label className={FIELD_LABEL}>Entschädigung</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
           <NumberField.Input className="text-fluid-sm w-full py-0" />

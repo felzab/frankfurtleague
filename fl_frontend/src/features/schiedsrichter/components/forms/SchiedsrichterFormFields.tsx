@@ -2,7 +2,7 @@
 
 import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react";
 
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SchiedsrichterDraft } from "../../types";
@@ -37,7 +37,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         // `value`/`onChange` belong on the field, not the inner `<Input>`: that is RAC's controlled
         // API, and with them on the input react-aria's field state never sees a value at all.
         isInvalid={errors?.["name"] ? true : undefined}>
-        <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
+        <Label className={FIELD_LABEL}>Name</Label>
         <Input
           placeholder="z.B. Pierluigi Collina"
           className={FIELD_INPUT}
@@ -51,7 +51,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         value={draft.schule ?? ""}
         onChange={(next) => onChange({ ...draft, schule: next })}
         isInvalid={errors?.["schule"] ? true : undefined}>
-        <Label className="text-fluid-sm text-foreground font-bold">Schule / Verein </Label>
+        <Label className={FIELD_LABEL}>Schule / Verein </Label>
         <Input
           placeholder="z.B. Goethe-Gymnasium"
           className={FIELD_INPUT}
@@ -66,7 +66,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         value={draft.kontakt.email ?? ""}
         onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: next } })}
         isInvalid={errors?.["kontakt.email"] ? true : undefined}>
-        <Label className="text-fluid-sm text-foreground font-bold">E-Mail </Label>
+        <Label className={FIELD_LABEL}>E-Mail </Label>
         <Input
           placeholder="z.B. ref@beispiel.de"
           className={FIELD_INPUT}
@@ -81,7 +81,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
         value={draft.kontakt.telefon ?? ""}
         onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: next } })}
         isInvalid={errors?.["kontakt.telefon"] ? true : undefined}>
-        <Label className="text-fluid-sm text-foreground font-bold">Telefon</Label>
+        <Label className={FIELD_LABEL}>Telefon</Label>
         <Input
           placeholder="z.B. 0151 12345678"
           className={FIELD_INPUT}
@@ -104,7 +104,7 @@ export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>(
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>
-        <Label className="text-fluid-xs text-foreground font-bold">Standard Honorar</Label>
+        <Label className={FIELD_LABEL}>Standard Honorar</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
           <NumberField.Input className="text-fluid-sm w-full py-0" />

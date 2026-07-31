@@ -2,7 +2,7 @@ import { Description, FieldError, Label, NumberField } from "@heroui/react";
 
 import { postSpielortAction } from "@/features/spielorte/actions";
 import SpielortFormFields from "@/features/spielorte/components/forms/SpielortFormFields";
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { formatAddressFull } from "@/shared/utils/format";
 
 import { InlineCreateAutocomplete } from "./InlineCreateAutocomplete";
@@ -106,7 +106,7 @@ export default function FormSpielortSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <Label className="text-fluid-xs text-foreground font-bold">Mietpreis</Label>
+        <Label className={FIELD_LABEL}>Mietpreis</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
           <NumberField.Input className="text-fluid-sm w-full py-0" />

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Description, FieldError, Label, NumberField, Separator, Switch } from "@heroui/react";
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
-import { FIELD_ERROR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -112,7 +112,7 @@ export default function FormMatchupSection({
         value={team1Tore}
         onChange={hanldeToreTeam1Change}
         className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
-        <Label className="text-fluid-xs text-foreground font-bold">Team 1: Tore</Label>
+        <Label className={FIELD_LABEL}>Team 1: Tore</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
           <NumberField.Input className="w-[120px]" />
@@ -130,7 +130,7 @@ export default function FormMatchupSection({
         value={team2Tore}
         onChange={hanldeToreTeam2Change}
         className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
-        <Label className="text-fluid-xs text-foreground font-bold">Team 2: Tore</Label>
+        <Label className={FIELD_LABEL}>Team 2: Tore</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
           <NumberField.Input className="w-[120px]" />

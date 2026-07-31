@@ -12,7 +12,7 @@ import { QA_QUESTIONS } from "../../constants";
 
 export default function AboutView() {
   return (
-    <div className="relative flex w-full flex-col items-center gap-y-12 text-left">
+    <div className="relative flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8">
       {/** Headline */}
       <div className="flex flex-col items-center text-center">
         <h1 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">

@@ -52,8 +52,8 @@ export default function SignInForm() {
         {/* Header */}
         <div className="flex flex-col items-center pb-6 text-center">
           <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
-          <h1 className="text-fluid-2xl sm:text-fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h1>
-          <p className="text-fluid-sm sm:text-fluid-sm text-foreground-muted mt-1 font-medium">Verwalte oder sehe Daten ein</p>
+          <h1 className="text-fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h1>
+          <p className="text-fluid-sm text-foreground-muted mt-1 font-medium">Verwalte oder sehe Daten ein</p>
         </div>
 
         <div className="border-border mb-8 h-[1px] w-full" />

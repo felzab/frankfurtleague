@@ -12,6 +12,15 @@
  *
  * `transition-colors` stays, so the border animates into brand rather than snapping.
  */
+/**
+ * The one form-label appearance. The app had drifted to two sizes INSIDE the same modals — the
+ * entity forms' main fields at `fluid-sm` while their currency fields, the address grid and every
+ * match-form section sat at `fluid-xs` (audit, 2026-07-31). `fluid-xs` over a `fluid-sm` input is
+ * the Stripe/Linear convention: the value stays dominant. The sign-in form's uppercase-tracked
+ * label is that page's deliberate style and not this constant.
+ */
+export const FIELD_LABEL = "text-fluid-xs text-foreground font-bold";
+
 export const FIELD_INPUT = "border-border bg-surface text-foreground text-fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
 
 /**

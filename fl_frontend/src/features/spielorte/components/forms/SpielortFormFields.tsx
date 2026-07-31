@@ -3,7 +3,7 @@
 import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react";
 
 import AddressFields from "@/shared/components/ui/AddressFields";
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SpielortDraft } from "../../types";
@@ -32,7 +32,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({
         onChange={(next) => onChange({ ...draft, name: next })}
         // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
         isInvalid={errors?.["name"] ? true : undefined}>
-        <Label className="text-fluid-sm text-foreground font-bold">Name</Label>
+        <Label className={FIELD_LABEL}>Name</Label>
         <Input
           placeholder="z.B. Sportpark Nord"
           className={FIELD_INPUT}
@@ -60,7 +60,7 @@ export default function SpielortFormFields<T extends SpielortDraft>({
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>
-        <Label className="text-fluid-xs text-foreground font-bold">Standard Mietpreis</Label>
+        <Label className={FIELD_LABEL}>Standard Mietpreis</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
           <NumberField.Input className="text-fluid-sm w-full py-0" />

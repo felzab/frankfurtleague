@@ -76,7 +76,7 @@ export default function TeamPopoverMenu({
             <Popover.Heading className="text-fluid-base flex w-full flex-row items-center justify-between font-bold">
               <span className="truncate pr-2">{teamName}</span>
               {teamIsDisqualified && (
-                <span className="bg-danger/10 text-danger rounded-md px-2 py-0.5 text-xs font-extrabold uppercase">DQ</span>
+                <span className="bg-danger/10 text-danger text-fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">DQ</span>
               )}
             </Popover.Heading>
 

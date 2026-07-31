@@ -2,7 +2,7 @@
 
 import { FieldError, Input, Label, TextField } from "@heroui/react";
 
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLAddress } from "@/shared/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -48,7 +48,7 @@ export default function AddressFields({
           onChange={(next) => updateField("strasse", next)}
           isInvalid={errors?.[`${namePrefix}.strasse`] ? true : undefined}
           className="w-2/3">
-          <Label className="text-fluid-xs text-foreground font-bold">Straße</Label>
+          <Label className={FIELD_LABEL}>Straße</Label>
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.strasse`]}</FieldError>
         </TextField>
@@ -59,7 +59,7 @@ export default function AddressFields({
           onChange={(next) => updateField("hausnummer", next)}
           isInvalid={errors?.[`${namePrefix}.hausnummer`] ? true : undefined}
           className="w-1/3">
-          <Label className="text-fluid-xs text-foreground font-bold">Nr.</Label>
+          <Label className={FIELD_LABEL}>Nr.</Label>
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.hausnummer`]}</FieldError>
         </TextField>
@@ -73,7 +73,7 @@ export default function AddressFields({
           onChange={(next) => updateField("plz", next)}
           isInvalid={errors?.[`${namePrefix}.plz`] ? true : undefined}
           className="w-1/3">
-          <Label className="text-fluid-xs text-foreground font-bold">PLZ</Label>
+          <Label className={FIELD_LABEL}>PLZ</Label>
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.plz`]}</FieldError>
         </TextField>
@@ -84,7 +84,7 @@ export default function AddressFields({
           onChange={(next) => updateField("stadt", next)}
           isInvalid={errors?.[`${namePrefix}.stadt`] ? true : undefined}
           className="w-2/3">
-          <Label className="text-fluid-xs text-foreground font-bold">Stadt</Label>
+          <Label className={FIELD_LABEL}>Stadt</Label>
           <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.[`${namePrefix}.stadt`]}</FieldError>
         </TextField>
@@ -96,7 +96,7 @@ export default function AddressFields({
         value={value.stadtteil}
         onChange={(next) => updateField("stadtteil", next)}
         isInvalid={errors?.[`${namePrefix}.stadtteil`] ? true : undefined}>
-        <Label className="text-fluid-xs text-foreground font-bold">Stadtteil</Label>
+        <Label className={FIELD_LABEL}>Stadtteil</Label>
         <Input
           placeholder="z.B. Nordend"
           className={FIELD_INPUT}
