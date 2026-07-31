@@ -2,7 +2,8 @@ import { parseDate, parseTime } from "@internationalized/date";
 
 import { Calendar, DateField, DatePicker, Description, Label, TimeField } from "@heroui/react";
 
-import { formPanel, overlayPanel } from "@/shared/components/ui/formPanel";
+import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { overlayPanel } from "@/shared/components/ui/formPanel";
 
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
@@ -11,8 +12,10 @@ import type { FLSpiel } from "@/features/spiele/schemas";
 export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
   return (
     <div
-      className={`${formPanel()} gap-y-4`}
+      className="flex w-full flex-col gap-y-4"
       onKeyDownCapture={suppressEnterSubmit}>
+      <h3 className={FORM_SECTION_HEADING}>Termin</h3>
+
       {/** Spieldatum */}
       <DatePicker
         defaultValue={spielData.datum ? parseDate(spielData.datum) : null}

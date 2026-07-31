@@ -1,28 +1,17 @@
 import { tv } from "tailwind-variants";
 
 /**
- * The admin edit-form section panel (ledger V2-7). Five sites hand-wrote this surface and gave three
- * different answers to the same padding question — `p-4`, `p-2 lg:p-4`, `p-3 lg:p-4` — which is the
- * drift a recipe exists to stop. Unified on `p-3 lg:p-4`, the majority answer and the only one that
- * scales with the breakpoint.
+ * The floating surface inside a form — the date picker's calendar popover and both
+ * `Autocomplete.Popover`s (ledger V2-7).
  *
- * A `rounded-xl` form panel is a deliberately different tier from `card()`'s `rounded-2xl` surface:
- * panels nest *inside* the admin edit modal, and matching the modal's own radius would flatten the
- * nesting visually. Kept as its own recipe rather than a `card()` variant for that reason.
+ * `shadow-lg` rather than the `shadow-sm` used by in-flow surfaces: elevation is what tells the
+ * user this layer floats above the form rather than sitting in it.
  *
- * Gap is **not** in the recipe: `gap-y-2`/`gap-y-4`/`gap-y-6` track how much content each section
- * holds, so they are a caller decision, not drift.
- */
-export const formPanel = tv({
-  base: "bg-surface border-border flex h-fit w-full flex-col rounded-xl border p-3 shadow-sm lg:p-4",
-});
-
-/**
- * The floating counterpart — the date picker's popover and both `Autocomplete.Popover`s.
- *
- * Separate from `formPanel` on purpose: these are overlays, so they carry `shadow-lg` for elevation
- * and none of the in-flow layout (`flex h-fit w-full flex-col`). Folding them together would need a
- * variant that rewrites half the base, which is a sign they are two things, not one.
+ * This file used to export a `formPanel` recipe for bordered *section* panels too. That was
+ * superseded the same day (ledger NEW-F9): stacking bordered panels inside an already-bordered
+ * modal produced up to four concentric borders, all on `bg-surface`, so nothing but a hairline
+ * separated the layers. Sections are now grouped by a heading plus whitespace, per WAI form
+ * guidance, and only real inputs draw a border. Do not reintroduce a section-panel recipe.
  */
 export const overlayPanel = tv({
   base: "bg-surface border-border text-foreground rounded-xl border shadow-lg",

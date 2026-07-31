@@ -6,7 +6,7 @@ import { Autocomplete, Description, Input, Label, ListBox, SearchField, TextFiel
 
 import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
 import { FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
-import { formPanel, overlayPanel } from "@/shared/components/ui/formPanel";
+import { overlayPanel } from "@/shared/components/ui/formPanel";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
@@ -59,7 +59,7 @@ export function FormTeamPicker({
   };
 
   return (
-    <div className={`${formPanel()} gap-y-4`}>
+    <div className="flex w-full flex-col gap-y-4">
       <Autocomplete
         isRequired
         name={`${label}UI`}

@@ -58,9 +58,10 @@ export function EntityForm<TDraft>({
     <Form
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
       action={handleSubmit}>
-      <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400">
-        {renderFields(draft, setDraft)}
-      </div>
+      {/* No entrance animation: this mounts inside a modal that is already animating in, so its own
+          fade+slide ran on top of the modal's and read as a double entrance. Motion here is reserved
+          for state changes the user triggers (see the inline-create panel swap). */}
+      <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 
       <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3 pt-4">
         {/* `isDisabled={isPending}` on this one is Wave 6's R4-3.4, deliberately not done here. */}

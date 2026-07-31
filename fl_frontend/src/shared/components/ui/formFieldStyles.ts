@@ -9,3 +9,15 @@
  */
 export const FIELD_INPUT =
   "border-border bg-surface text-foreground text-fluid-sm focus-visible:border-brand focus-within:border-brand rounded-lg border px-3 py-2 transition-colors outline-none focus-visible:ring-0 focus-within:ring-0";
+
+/**
+ * Section label inside a form. Groups of fields are named with a heading and separated by
+ * whitespace/rules rather than wrapped in bordered panels — nesting bordered boxes inside an
+ * already-bordered modal reads as a layered cake and, per WAI form guidance, deep grouping hurts
+ * comprehension more than it helps.
+ *
+ * Only for groups whose members are heterogeneous ("Termin" = date + time). A group whose first
+ * field label already names it (Spielort, Schiedsrichter) gets no heading — that would render the
+ * same word twice and read it twice to a screen reader.
+ */
+export const FORM_SECTION_HEADING = "text-fluid-xs text-foreground font-bold tracking-wider uppercase";
