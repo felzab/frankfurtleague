@@ -111,7 +111,7 @@ No trailers, no issue-closing keywords, no emoji.
 ## Pull requests
 
 Every change reaches `main` through a PR, merged with a **merge commit** — `Merge pull request #46 from
-felixzabb/wave-8b-naming`. Not squash, not rebase.
+felzab/wave-8b-naming`. Not squash, not rebase.
 
 That is the right choice here **because the commit bodies are the documentation**. Squashing would
 collapse several carefully-written bodies into one and lose the structure; rebasing would discard the

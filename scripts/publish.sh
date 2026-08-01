@@ -89,7 +89,7 @@ build_one() {
     -t "$moving" -t "$pinned" \
     --label "org.opencontainers.image.revision=${SHA}" \
     --label "org.opencontainers.image.created=${BUILT_AT}" \
-    --label "org.opencontainers.image.source=https://github.com/felixzabb/frankfurtleague" \
+    --label "org.opencontainers.image.source=https://github.com/felzab/frankfurtleague" \
     --label "org.opencontainers.image.version=${QUALIFIER}" \
     "$context" \
     || die "${name} build failed — NOTHING has been pushed, prod is untouched."

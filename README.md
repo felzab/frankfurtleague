@@ -7,7 +7,7 @@
 **Die Oberstufenliga der Frankfurter Schulen** — fixtures, results, tables and playoffs for a school
 football league, at [frankfurtleague.de](https://frankfurtleague.de).
 
-[![verify](https://github.com/felixzabb/frankfurtleague/actions/workflows/verify.yml/badge.svg)](https://github.com/felixzabb/frankfurtleague/actions/workflows/verify.yml)
+[![verify](https://github.com/felzab/frankfurtleague/actions/workflows/verify.yml/badge.svg)](https://github.com/felzab/frankfurtleague/actions/workflows/verify.yml)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)

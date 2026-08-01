@@ -80,7 +80,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
 
             {/* GitHub */}
             <Link
-              href="https://github.com/felixzabb"
+              href="https://github.com/felzab"
               prefetch={false}
               target="_blank"
               rel="noopener noreferrer"

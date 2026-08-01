@@ -5,7 +5,7 @@
 **Please do not open a public issue for a suspected vulnerability.**
 
 Report it privately via **[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt)**, or by
-opening a [private security advisory](https://github.com/felixzabb/frankfurtleague/security/advisories/new)
+opening a [private security advisory](https://github.com/felzab/frankfurtleague/security/advisories/new)
 on this repository.
 
 Useful things to include, roughly in order of how much they help:
