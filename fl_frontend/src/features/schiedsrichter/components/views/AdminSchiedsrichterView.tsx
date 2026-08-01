@@ -3,7 +3,7 @@
 import { SCHIEDSRICHTER_CRUD_COPY } from "@/features/schiedsrichter/constants";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
-import AdminSchiedsrichterTable from "../collections/AdminSchiedsrichterTable";
+import { AdminSchiedsrichterTable } from "../collections/AdminSchiedsrichterTable";
 import { AdminDeleteSchiedsrichterModal } from "../modals/AdminDeleteSchiedsrichterModal";
 import { AdminEditSchiedsrichterModal } from "../modals/AdminEditSchiedsrichterModal";
 

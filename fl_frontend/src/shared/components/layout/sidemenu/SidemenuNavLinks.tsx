@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 
 import { Separator } from "@heroui/react";
 
-import SidemenuNavItem from "./SidemenuNavItem";
+import { SidemenuNavItem } from "./SidemenuNavItem";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 

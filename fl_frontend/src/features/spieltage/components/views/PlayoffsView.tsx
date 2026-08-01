@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 
-import SpielDetailsModal from "@/features/spiele/components/modals/SpielDetailsModal";
-import SpielCardUltraCompact from "@/features/spiele/components/SpielCardUltraCompact";
+import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
+import { SpielCardUltraCompact } from "@/features/spiele/components/ui/SpielCardUltraCompact";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
 
-export default function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
+export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
   // 1. The Single Modal State
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 

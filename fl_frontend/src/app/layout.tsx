@@ -2,7 +2,7 @@ import "./globals.css";
 
 import { Inter } from "next/font/google";
 
-import RootProviders from "@/core/providers/RootProviders";
+import { RootProviders } from "@/core/providers/RootProviders";
 
 import type { Metadata } from "next";
 

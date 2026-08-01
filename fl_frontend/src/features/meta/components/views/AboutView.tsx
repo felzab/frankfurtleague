@@ -5,12 +5,12 @@ import { Book, ChevronsDownWide, StarFill } from "@gravity-ui/icons";
 
 import { Accordion, Card } from "@heroui/react";
 
-import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { getTeams } from "@/features/teams/queries";
 
 import { QA_QUESTIONS } from "../../constants";
 
-export default function AboutView() {
+export function AboutView() {
   return (
     <div className="relative flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8">
       {/** Headline */}

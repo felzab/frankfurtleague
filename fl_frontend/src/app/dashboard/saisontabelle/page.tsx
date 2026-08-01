@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import SaisontabelleView from "@/features/teams/components/views/SaisontabelleView";
+import { SaisontabelleView } from "@/features/teams/components/views/SaisontabelleView";
 import { getTeams } from "@/features/teams/queries";
 
 import type { NextPageProps } from "@/shared/types/types";

@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { APIBadStatusError } from "@/core/errors";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import TeamSpielerView from "@/features/spieler/components/views/TeamSpielerView";
+import { TeamSpielerView } from "@/features/spieler/components/views/TeamSpielerView";
 import { getSpieler } from "@/features/spieler/queries";
 import { getTeams } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";

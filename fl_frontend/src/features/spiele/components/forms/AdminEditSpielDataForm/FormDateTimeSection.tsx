@@ -9,7 +9,7 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 
-export default function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
+export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
   return (
     <div
       className="flex w-full flex-col gap-y-4"

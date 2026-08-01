@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { BrandLink } from "../../ui/BrandLink";
-import TopNavLinksDropdown from "./TopNavLinksDropdown";
+import { TopNavLinksDropdown } from "./TopNavLinksDropdown";
 
 // Sync, and the dropdown is rendered bare: TopNavLinksDropdown is a static client component (no
 // hooks that need a request, no data), so the Suspense that used to wrap it guarded nothing and
@@ -9,7 +9,7 @@ import TopNavLinksDropdown from "./TopNavLinksDropdown";
 // `px-4` with no `sm:px-6`: the sidemenu's header is `px-4` at every width, so the two bars put the
 // wordmark in the same place. Crossing between a public route and the dashboard used to shift it 8px
 // to the left from `sm` up (NEW-R2).
-export default function TopNav() {
+export function TopNav() {
   return (
     <nav className="flex h-(--navbar-height) w-full items-center justify-between px-4">
       {/* Brand Logo Area */}

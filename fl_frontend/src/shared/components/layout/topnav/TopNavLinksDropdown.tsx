@@ -4,9 +4,9 @@ import { At, Bars, CircleInfo, Eye, Pencil, Persons } from "@gravity-ui/icons";
 
 import { Dropdown, Label, Separator } from "@heroui/react";
 
-import ThemeSwitch from "../../ui/ThemeSwitch";
+import { ThemeSwitch } from "../../ui/ThemeSwitch";
 
-export default function TopNavLinksDropdown() {
+export function TopNavLinksDropdown() {
   return (
     <>
       <Dropdown>

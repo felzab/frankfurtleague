@@ -6,11 +6,11 @@ import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import TeamPopoverMenu from "../TeamPopoverMenu";
+import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 
 import type { FLGruppen } from "../../schemas";
 
-export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
+export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
   /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
      `h1` whether or not the season has data. */
   const pageHeading = <h1 className="sr-only">Saisontabelle</h1>;

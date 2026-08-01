@@ -7,7 +7,7 @@ import { Button } from "@heroui/react";
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 
-export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <StatusPanel
       badgeLabel="Spielunterbrechung"

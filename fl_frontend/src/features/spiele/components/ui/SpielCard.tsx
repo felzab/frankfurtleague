@@ -4,16 +4,16 @@ import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
-import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { card } from "@/shared/components/ui/card";
 
-import { computeSpielStatus, formatSpielDisplay } from "../utils";
-import SaisonPhaseChip from "./ui/SaisonPhaseChip";
-import SpielStatusChip from "./ui/SpielStatusChip";
+import { computeSpielStatus, formatSpielDisplay } from "../../utils";
+import { SaisonPhaseChip } from "./SaisonPhaseChip";
+import { SpielStatusChip } from "./SpielStatusChip";
 
-import type { FLSpiel } from "../schemas";
+import type { FLSpiel } from "../../schemas";
 
-export default function SpielCard({
+export function SpielCard({
   spielData,
   onOpenInfoModal,
   onOpenAdminModal,

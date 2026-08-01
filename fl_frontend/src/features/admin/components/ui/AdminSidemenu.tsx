@@ -3,11 +3,11 @@
 import React from "react";
 
 import { signOutAction } from "@/features/auth/actions";
-import Sidemenu from "@/shared/components/layout/sidemenu/Sidemenu";
+import { Sidemenu } from "@/shared/components/layout/sidemenu/Sidemenu";
 
-import { ADMIN_SIDEMENU_ICONS, ADMIN_SIDEMENU_STRUCTURE } from "../constants";
+import { ADMIN_SIDEMENU_ICONS, ADMIN_SIDEMENU_STRUCTURE } from "../../constants";
 
-export default function AdminSidemenu({ saisonMetadataDisplay }: { saisonMetadataDisplay: React.ReactNode }) {
+export function AdminSidemenu({ saisonMetadataDisplay }: { saisonMetadataDisplay: React.ReactNode }) {
   return (
     <Sidemenu
       structure={ADMIN_SIDEMENU_STRUCTURE}

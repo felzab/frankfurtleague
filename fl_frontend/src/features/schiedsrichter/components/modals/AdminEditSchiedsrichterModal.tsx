@@ -3,7 +3,7 @@
 import { FormModal } from "@/shared/components/ui/FormModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
-import AdminEditSchiedsrichterForm from "../forms/AdminEditSchiedsrichterForm";
+import { AdminEditSchiedsrichterForm } from "../forms/AdminEditSchiedsrichterForm";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 

@@ -11,11 +11,11 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "../../utils";
-import AdminSpielCardsList from "../collections/AdminSpielCardsList";
+import { AdminSpielCardsList } from "../collections/AdminSpielCardsList";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 
-export default function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overviewSpiele: FLSpiel[]; today: string }) {
+export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overviewSpiele: FLSpiel[]; today: string }) {
   // Memoised by hand because the React Compiler is deliberately off (see `next.config.ts`). Without
   // it, every `Accordion` expand and collapse re-partitions the whole match list — six fresh arrays
   // and an O(n) pass with five predicates per match — to produce the identical result.

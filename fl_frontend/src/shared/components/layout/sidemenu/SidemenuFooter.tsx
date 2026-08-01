@@ -9,7 +9,7 @@ import { SidemenuOptionsMenu } from "./SidemenuOptionsMenu";
 
 import type { FormState } from "@/shared/types/types";
 
-export default function SidemenuFooter({
+export function SidemenuFooter({
   isDesktopCollapsed,
   onToggleDesktopMenu,
   onSignOut,

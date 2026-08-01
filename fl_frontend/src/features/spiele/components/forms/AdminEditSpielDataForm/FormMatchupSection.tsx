@@ -11,7 +11,7 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
-export default function FormMatchupSection({
+export function FormMatchupSection({
   teams,
   team1Payload,
   onTeam1Change,

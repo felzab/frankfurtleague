@@ -13,7 +13,25 @@ import { formatMapsLink } from "../../utils";
 
 import type { FLSpielort } from "../../schemas";
 
-function AdminSpielorteTable({
+/**
+ * Memoised deliberately, and load-bearing — this is the NEW-T1 fix.
+ *
+ * The parent view calls `useSearchParams()`, which subscribes it to the client router. Next keeps
+ * the previous route mounted in a hidden React Activity tree for instant back-navigation, so every
+ * navigation *elsewhere* re-renders this table while it is hidden. A react-aria collection that
+ * re-renders while hidden drops its rows and never rebuilds them on restore, leaving the table
+ * shell with neither rows nor `renderEmptyState`. Bisected against seven probe routes: the table
+ * alone is fine, `useSearchParams` alone is fine, the two together fail on the third visit.
+ *
+ * `memo` keeps that churn down, but note what it does *not* do: `spielortQuery` is read from the
+ * live router, and a hidden tree still sees the incoming route's params, so navigating to a URL
+ * with a different `q` (the "Einsätze anzeigen" link below does exactly that) changes the prop and
+ * the memo cannot bail out. Measured over 15 such round trips with the query varying each time:
+ * the rows survive. What actually carries the fix is the `items` + render-function form of
+ * `Table.Body` below; `memo` is the cheap second layer. **Do not pass an inline lambda or a
+ * freshly-built array here**, and do not convert `Table.Body` back to mapped children.
+ */
+export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   spielortQuery,
   filteredSpielorte,
   setEditingOrt,
@@ -143,24 +161,4 @@ function AdminSpielorteTable({
       </Table.ScrollContainer>
     </Table>
   );
-}
-
-/**
- * Memoised deliberately, and load-bearing — this is the NEW-T1 fix.
- *
- * The parent view calls `useSearchParams()`, which subscribes it to the client router. Next keeps
- * the previous route mounted in a hidden React Activity tree for instant back-navigation, so every
- * navigation *elsewhere* re-renders this table while it is hidden. A react-aria collection that
- * re-renders while hidden drops its rows and never rebuilds them on restore, leaving the table
- * shell with neither rows nor `renderEmptyState`. Bisected against seven probe routes: the table
- * alone is fine, `useSearchParams` alone is fine, the two together fail on the third visit.
- *
- * `memo` keeps that churn down, but note what it does *not* do: `spielortQuery` is read from the
- * live router, and a hidden tree still sees the incoming route's params, so navigating to a URL
- * with a different `q` (the "Einsätze anzeigen" link below does exactly that) changes the prop and
- * the memo cannot bail out. Measured over 15 such round trips with the query varying each time:
- * the rows survive. What actually carries the fix is the `items` + render-function form of
- * `Table.Body` above; `memo` is the cheap second layer. **Do not pass an inline lambda or a
- * freshly-built array here**, and do not convert `Table.Body` back to mapped children.
- */
-export default memo(AdminSpielorteTable);
+});

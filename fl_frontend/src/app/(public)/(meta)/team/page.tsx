@@ -1,4 +1,4 @@
-import MetaTeamView from "@/features/meta/components/views/MetaTeamView";
+import { MetaTeamView } from "@/features/meta/components/views/MetaTeamView";
 
 import type { Metadata } from "next";
 

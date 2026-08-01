@@ -10,7 +10,7 @@ import { card } from "@/shared/components/ui/card";
 
 import type { FLSpieler } from "../../schemas";
 
-export default function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpieler[] }) {
+export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpieler[] }) {
   const router = useRouter();
 
   return (

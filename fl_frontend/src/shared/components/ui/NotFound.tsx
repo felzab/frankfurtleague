@@ -7,7 +7,7 @@ import { Button } from "@heroui/react";
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 
-export default function NotFound() {
+export function NotFound() {
   return (
     <StatusPanel
       badgeLabel="VAR Review"

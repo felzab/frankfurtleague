@@ -1,7 +1,7 @@
 import { Description, FieldError, Label, NumberField } from "@heroui/react";
 
 import { postSpielortAction } from "@/features/spielorte/actions";
-import SpielortFormFields from "@/features/spielorte/components/forms/SpielortFormFields";
+import { SpielortFormFields } from "@/features/spielorte/components/forms/SpielortFormFields";
 import { FIELD_ERROR, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { formatAddressFull } from "@/shared/utils/format";
 
@@ -20,7 +20,7 @@ const EMPTY_DRAFT: SpielortDraft = {
   default_mietpreis: 0,
 };
 
-export default function FormSpielortSection({
+export function FormSpielortSection({
   spielorte,
   ortPayload,
   onOrtChange,

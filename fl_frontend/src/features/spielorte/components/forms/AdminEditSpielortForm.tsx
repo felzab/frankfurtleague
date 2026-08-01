@@ -1,12 +1,12 @@
 "use client";
 
 import { patchSpielortAction } from "@/features/spielorte/actions";
-import SpielortFormFields from "@/features/spielorte/components/forms/SpielortFormFields";
+import { SpielortFormFields } from "@/features/spielorte/components/forms/SpielortFormFields";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
-export default function AdminEditSpielortForm({ ortData, onClose }: { ortData: FLSpielort; onClose: () => void }) {
+export function AdminEditSpielortForm({ ortData, onClose }: { ortData: FLSpielort; onClose: () => void }) {
   return (
     <EntityForm<FLSpielort>
       initialDraft={ortData}

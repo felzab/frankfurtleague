@@ -1,9 +1,9 @@
 import { connection } from "next/server";
 
-import AdminSpielCardsList from "@/features/admin/components/collections/AdminSpielCardsList";
-import AdminContextWrapper from "@/features/admin/components/providers/AdminContextWrapper";
+import { AdminSpielCardsList } from "@/features/admin/components/collections/AdminSpielCardsList";
+import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import SpielsucheView from "@/features/spiele/components/views/SpielsucheView";
+import { SpielsucheView } from "@/features/spiele/components/views/SpielsucheView";
 import { getSpiele } from "@/features/spiele/queries";
 import { getGermanTodayStr } from "@/shared/utils/date";
 

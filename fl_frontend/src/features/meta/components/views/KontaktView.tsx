@@ -6,7 +6,7 @@ import { Card } from "@heroui/react";
 
 import { KONTAKT_CHANNELS } from "../../constants";
 
-export default function KontaktView() {
+export function KontaktView() {
   const getIcon = (id: string) => {
     switch (id) {
       case "email":

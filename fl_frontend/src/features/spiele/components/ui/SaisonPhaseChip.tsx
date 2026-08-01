@@ -118,7 +118,7 @@ const PHASE_LABELS: Record<FLSaisonPhase, string> = {
   finale: "Finale",
 };
 
-export default function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {
+export function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {
   return (
     <Chip
       size="sm"

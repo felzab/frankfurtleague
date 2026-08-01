@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 
-import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
+import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 
 import { useAdmin } from "../providers/AdminContextProvider";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 /** One import specifier, used by both the lazy component and the idle preload below. */
-const importEditModal = () => import("@/features/spiele/components/modals/AdminEditSpielDataModal");
+const importEditModal = () => import("@/features/spiele/components/modals/AdminEditSpielDataModal").then((m) => m.AdminEditSpielDataModal);
 
 /**
  * Shown only if the chunk is genuinely slow to arrive.
@@ -43,7 +43,7 @@ function EditModalLoading() {
 // chunk looked completely dead — no backdrop, no spinner, nothing — until the chunk resolved.
 const AdminEditSpielDataModal = dynamic(importEditModal, { ssr: false, loading: EditModalLoading });
 
-export default function AdminSpielCardsList({ spiele, today }: { spiele: FLSpiel[]; today: string }) {
+export function AdminSpielCardsList({ spiele, today }: { spiele: FLSpiel[]; today: string }) {
   const [selectedAdminSpiel, setSelectedAdminSpiel] = useState<FLSpiel | null>(null);
 
   // Fetch the editor's chunk once this list is on screen, so the first click does not pay for it.

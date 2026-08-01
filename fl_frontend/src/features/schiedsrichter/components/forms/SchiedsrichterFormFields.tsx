@@ -12,7 +12,7 @@ import type { SchiedsrichterDraft } from "../../types";
  * render what the server said about it. The two go together: `Form`'s `validationErrors` are looked
  * up by field name, so a mismatch here means a server error that lands nowhere (R4 §3.1).
  */
-export default function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
+export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
   draft,
   onChange,
   errors,

@@ -1,4 +1,4 @@
-import AboutView from "@/features/meta/components/views/AboutView";
+import { AboutView } from "@/features/meta/components/views/AboutView";
 
 import type { Metadata } from "next";
 

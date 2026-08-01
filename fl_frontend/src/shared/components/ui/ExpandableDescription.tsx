@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function ExpandableDescription({ text }: { text: string }) {
+export function ExpandableDescription({ text }: { text: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!text) return null;

@@ -4,8 +4,8 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { getSpiele } from "../../queries";
-import { SpielCardSkeletonGrid } from "../SpielCardSkeleton";
-import SpielCardsList from "./SpielCardsList";
+import { SpielCardSkeletonGrid } from "../ui/SpielCardSkeleton";
+import { SpielCardsList } from "./SpielCardsList";
 
 /**
  * The heading block above each section. Shared by the grid and its skeleton on purpose: the skeleton
@@ -50,7 +50,7 @@ export function RecentAndUpcomingSpieleGridSkeleton() {
   );
 }
 
-export default async function RecentAndUpcomingSpieleGrid() {
+export async function RecentAndUpcomingSpieleGrid() {
   await connection();
   const [upcomingSpieleRes, recentSpieleRes] = await Promise.all([
     getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(() => null),

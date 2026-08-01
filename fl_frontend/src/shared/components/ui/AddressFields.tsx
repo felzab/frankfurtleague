@@ -16,7 +16,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
  * in the enclosing payload is enough — react-aria's `Form` distributes `validationErrors` by field
  * name, so no error prop has to be threaded down.
  */
-export default function AddressFields({
+export function AddressFields({
   value,
   onChange,
   namePrefix = "address",

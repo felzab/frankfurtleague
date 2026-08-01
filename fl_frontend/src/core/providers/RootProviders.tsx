@@ -9,7 +9,7 @@ import { RouterProvider, Toast } from "@heroui/react";
 interface AppProvidersProps {
   children: React.ReactNode;
 }
-export default function RootProviders({ children }: AppProvidersProps) {
+export function RootProviders({ children }: AppProvidersProps) {
   const router = useRouter();
 
   return (

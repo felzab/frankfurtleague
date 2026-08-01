@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 
-export default function SidemenuNavItem({
+export function SidemenuNavItem({
   href,
   label,
   isActive,

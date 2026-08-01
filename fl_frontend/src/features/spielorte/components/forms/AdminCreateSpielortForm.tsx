@@ -1,7 +1,7 @@
 "use client";
 
 import { postSpielortAction } from "@/features/spielorte/actions";
-import SpielortFormFields from "@/features/spielorte/components/forms/SpielortFormFields";
+import { SpielortFormFields } from "@/features/spielorte/components/forms/SpielortFormFields";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 
 import type { FLAddress } from "@/shared/schemas";
@@ -14,7 +14,7 @@ const EMPTY_DRAFT: SpielortDraft = {
   default_mietpreis: 0,
 };
 
-export default function AdminCreateSpielortForm({ onClose }: { onClose: () => void }) {
+export function AdminCreateSpielortForm({ onClose }: { onClose: () => void }) {
   return (
     <EntityForm<SpielortDraft>
       initialDraft={EMPTY_DRAFT}

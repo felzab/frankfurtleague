@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import SpielhistorieView from "@/features/spiele/components/views/SpielhistorieView";
+import { SpielhistorieView } from "@/features/spiele/components/views/SpielhistorieView";
 import { getSpiele } from "@/features/spiele/queries";
 import { getGermanTodayStr } from "@/shared/utils/date";
 

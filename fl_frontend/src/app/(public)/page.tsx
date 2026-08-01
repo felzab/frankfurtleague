@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
-import RecentAndUpcomingSpieleGrid, {
+import {
+  RecentAndUpcomingSpieleGrid,
   RecentAndUpcomingSpieleGridSkeleton,
 } from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
 import { card } from "@/shared/components/ui/card";

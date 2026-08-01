@@ -11,7 +11,7 @@ import type { FLSpiel } from "../../schemas";
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
 const SEARCH_KEYS = ["team1.name", "team2.name", "ort.name", "ort.maps_link", "searchable_datum", "spiel_nr", "schiedsrichter.name"] as const;
 
-export default function SpielsucheView({
+export function SpielsucheView({
   spiele,
   today,
   ListComponent,

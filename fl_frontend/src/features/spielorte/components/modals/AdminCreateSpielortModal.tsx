@@ -7,7 +7,7 @@ import { Button, useOverlayState } from "@heroui/react";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
-import AdminCreateSpielortForm from "../forms/AdminCreateSpielortForm";
+import { AdminCreateSpielortForm } from "../forms/AdminCreateSpielortForm";
 
 export function AdminCreateSpielortModal() {
   const modalState = useOverlayState();

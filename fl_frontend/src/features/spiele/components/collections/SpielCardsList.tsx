@@ -2,20 +2,12 @@
 
 import { useState } from "react";
 
-import SpielDetailsModal from "../modals/SpielDetailsModal";
-import SpielCard from "../SpielCard";
+import { SpielDetailsModal } from "../modals/SpielDetailsModal";
+import { SpielCard } from "../ui/SpielCard";
 
 import type { FLSpiel } from "../../schemas";
 
-export default function SpielCardsList({
-  spiele,
-  today,
-  onAdminEdit,
-}: {
-  spiele: FLSpiel[];
-  today: string;
-  onAdminEdit?: (spiel: FLSpiel) => void;
-}) {
+export function SpielCardsList({ spiele, today, onAdminEdit }: { spiele: FLSpiel[]; today: string; onAdminEdit?: (spiel: FLSpiel) => void }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
   return (

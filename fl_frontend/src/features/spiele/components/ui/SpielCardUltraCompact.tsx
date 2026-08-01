@@ -2,14 +2,14 @@
 
 import { Card } from "@heroui/react";
 
-import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { card } from "@/shared/components/ui/card";
 
-import { formatSpielDisplay } from "../utils";
+import { formatSpielDisplay } from "../../utils";
 
-import type { FLSpiel } from "../schemas";
+import type { FLSpiel } from "../../schemas";
 
-export default function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpiel; onPress: () => void }) {
+export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpiel; onPress: () => void }) {
   const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
 
   return (

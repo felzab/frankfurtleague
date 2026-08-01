@@ -1,5 +1,5 @@
-import DashboardSidemenu from "@/features/dashboard/components/DashboardSidemenu";
-import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
+import { DashboardSidemenu } from "@/features/dashboard/components/ui/DashboardSidemenu";
+import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { SkipToContentLink } from "@/shared/components/ui/SkipToContentLink";
 
 import type { Metadata } from "next";

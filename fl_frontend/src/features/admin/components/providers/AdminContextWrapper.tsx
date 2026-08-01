@@ -19,7 +19,7 @@ import { AdminProvider } from "./AdminContextProvider";
  * `?saison_id=`, and without this the editor would offer the *current* season's teams for them.
  * Omitted means "whatever the backend defaults to", which is the current season (BE-1).
  */
-export default async function AdminContextWrapper({ children, saison_id }: { children: React.ReactNode; saison_id?: string }) {
+export async function AdminContextWrapper({ children, saison_id }: { children: React.ReactNode; saison_id?: string }) {
   await connection();
   const [schiedsrichterRes, spielorteRes, teamsRes] = await Promise.all([
     getSchiedsrichter(),

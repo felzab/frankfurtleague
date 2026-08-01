@@ -1,7 +1,7 @@
 import { Description, FieldError, Label, NumberField } from "@heroui/react";
 
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
+import { SchiedsrichterFormFields } from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
 import { FIELD_ERROR, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
 import { InlineCreateAutocomplete } from "./InlineCreateAutocomplete";
@@ -20,7 +20,7 @@ const EMPTY_DRAFT: SchiedsrichterDraft = {
   default_payment: 0,
 };
 
-export default function FormSchiedsrichterSection({
+export function FormSchiedsrichterSection({
   schiedsrichter,
   schiedsrichterPayload,
   onSchiedsrichterChange,

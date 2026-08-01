@@ -2,7 +2,7 @@
 
 import { Bars } from "@gravity-ui/icons";
 
-export default function SidemenuMobileHeader({ displayTitle, onToggleMenu }: { displayTitle: string; onToggleMenu: () => void }) {
+export function SidemenuMobileHeader({ displayTitle, onToggleMenu }: { displayTitle: string; onToggleMenu: () => void }) {
   return (
     <header className="bg-surface border-border box-content flex h-(--navbar-height) w-full shrink-0 items-center justify-between border-b px-4 lg:hidden">
       <div className="flex items-center gap-3">

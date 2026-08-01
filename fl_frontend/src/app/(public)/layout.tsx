@@ -1,6 +1,6 @@
-import ServerIsLive from "@/features/system/components/ServerIsLive";
-import Footer from "@/shared/components/layout/footer/Footer";
-import TopNav from "@/shared/components/layout/topnav/TopNav";
+import { ServerIsLive } from "@/features/system/components/ui/ServerIsLive";
+import { Footer } from "@/shared/components/layout/footer/Footer";
+import { TopNav } from "@/shared/components/layout/topnav/TopNav";
 import { SkipToContentLink } from "@/shared/components/ui/SkipToContentLink";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
