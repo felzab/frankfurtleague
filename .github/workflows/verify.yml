@@ -32,6 +32,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # CI runs `pnpm build` on the RUNNER HOST, not inside the image -- so none of the Dockerfile's
+    # ENV lines apply here. These three reproduce what the builder stage sets, and fl_frontend/
+    # Dockerfile is the authority for what that is. Keep them in step with it.
+    env:
+      # `next build` collects page data, which evaluates modules that read the environment. There is
+      # no .env in a clean checkout, so the startup gate correctly rejects every variable and the
+      # build dies on /api/revalidate. This does NOT weaken the gate: the env schema is still
+      # enforced for real by local.sh and on every deploy.
+      SKIP_ENV_VALIDATION: "true"
+      # Needed even with validation skipped: core/db.ts constructs a MongoClient at MODULE SCOPE, and
+      # `new MongoClient(undefined)` throws. Same placeholder the Dockerfile uses.
+      MONGODB_URI: mongodb://localhost:27017/placeholder
+      # The Dockerfile disables telemetry in its base stage; the runner is not that image.
+      NEXT_TELEMETRY_DISABLED: "1"
+
     steps:
       - uses: actions/checkout@v7
         with:
