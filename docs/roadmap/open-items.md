@@ -178,6 +178,46 @@ dependencies means re-locking and proving nothing broke — the 238 tests plus a
 since some of those packages are needed at runtime without ever being imported. Backend audit pass
 B4 owns it (`_auditing/prompts/backend-4-architecture.md`, check 7, "tooling config vs reality").
 
+## OPS-2 — nothing validates the contents of a restored `.env`
+
+**Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
+
+`deploy.sh` checks that `fl_backend/.env`, `fl_frontend/.env`, `nginx/prod.conf` and `certs/` all
+**exist** before it pulls anything, and Compose refuses to start a service whose `env_file` is
+missing. **Nothing checks that a value inside those files is well-formed**, and both `.env` files are
+gitignored — so every server restore recreates them by hand, unverified.
+
+**What that cost.** The restore produced a `MONGODB_URI` whose host had been truncated from
+`…mongodb.net` to `…mon>`, most likely a shell redirection swallowing part of the string as the file
+was written. Every preflight passed: file present, key present, URI syntactically parseable. pymongo
+then resolved an SRV record that cannot exist, the startup ping raised `ConfigurationError`, the
+backend crash-looped, nginx never started because it waits on `service_healthy`, and the site was
+down until the character was found by reading a stack trace.
+
+**What exists today** is manual: the shape checks in
+[`scripts/README.md`](../../scripts/README.md) under "Restoring a server checkout" — required names
+present, the Mongo host with credentials stripped, the three API keys 64 characters and matching.
+They reveal structure without printing a secret, and running them would have caught this in seconds.
+But they are a checklist someone has to remember, which is the same class of control that failed
+here.
+
+**The options, none obviously right:**
+
+| Option                                                  | Catches                                 | Cost                                                                                                              |
+| ------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Leave it manual                                         | Nothing automatically                   | Zero. The checklist exists and the failure is loud, contained and roughly ten minutes to diagnose once recognised |
+| Name-presence preflight in `deploy.sh`                  | A missing key                           | Small. **Would not have caught this incident** — the key was present and merely wrong                             |
+| Resolve the Mongo SRV record in `deploy.sh` before `up` | Exactly this class, plus a dead cluster | Adds a network dependency to a deploy step, and a DNS blip becomes a refused deploy                               |
+
+**The trade to weigh** is that the third option is the only one that would have helped, and it makes
+deployment fail for reasons unrelated to the deployment. Given the failure is already contained —
+nginx serves nothing rather than serving something broken — the honest question is whether a faster
+diagnosis is worth a new way for `deploy.sh` to refuse.
+
+**Trigger to revisit:** the second time a restore breaks this way, or any move to a setup where the
+site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
+(`_auditing/prompts/ops-1-build-deploy.md`, check 4) covers script failure modes and owns this.
+
 ## BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
