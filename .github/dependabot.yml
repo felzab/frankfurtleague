@@ -1,0 +1,81 @@
+version: 2
+
+# Dependency version updates for a single-maintainer repository.
+#
+# The governing constraint is noise, not coverage. Ungrouped weekly updates across four ecosystems
+# would open dozens of pull requests a month, each triggering the full `verify` gate, and the
+# realistic outcome is that none of them get read. So: monthly, grouped into one PR per ecosystem
+# for minor and patch bumps, with majors left as individual PRs because those are the ones that
+# actually need a human to look at a changelog.
+#
+# SECURITY updates are a separate mechanism and are NOT configured here -- they come from Dependabot
+# alerts (Settings -> Advanced Security), ignore this schedule, and open PRs as soon as an advisory
+# lands. Enable them there; this file only governs routine version updates.
+#
+# Commit messages follow the repository convention documented in docs/workflows/ -- `Scope: what
+# changed` -- so each ecosystem sets a prefix rather than taking Dependabot's default "Bump ...".
+
+updates:
+  # --- GitHub Actions -------------------------------------------------------------------------
+  # The highest-value ecosystem here and the cheapest to review: few dependencies, small diffs, and
+  # an outdated action is a supply-chain exposure that nothing else in the repo would surface.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "CI"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Frontend (pnpm) ------------------------------------------------------------------------
+  # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
+  # and are deliberately not managed here -- bumping the package manager is a decision, not a
+  # routine update (see the Wave 4 review note in the audit report).
+  - package-ecosystem: npm
+    directory: /fl_frontend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "Frontend deps"
+    groups:
+      frontend-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Backend (uv) ---------------------------------------------------------------------------
+  # Requires Dependabot's uv support, which reads uv.lock. If the first run reports the ecosystem
+  # as unsupported, check the log under Insights -> Dependency graph -> Dependabot before assuming
+  # the paths are wrong.
+  - package-ecosystem: uv
+    directory: /fl_backend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "Backend deps"
+    groups:
+      backend-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # --- Base images ----------------------------------------------------------------------------
+  # Both Dockerfiles pin their base image. A base-image bump is the one update here that the
+  # `--quick` PR gate cannot fully validate: it only proves the image builds on `main`, so treat a
+  # merged base-image PR as a reason to run the full gate locally before publishing.
+  - package-ecosystem: docker
+    directory: /fl_frontend
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "Frontend image"
+
+  - package-ecosystem: docker
+    directory: /fl_backend
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "Backend image"
