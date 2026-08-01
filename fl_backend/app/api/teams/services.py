@@ -2,7 +2,7 @@ from typing import Any, Mapping
 
 from app.api.teams.schemas import FLTeamsFilterParams
 
-SAISON_SPECIFIC_TEAM_DATA_DB_NAME = "saison_teams"
+SAISON_TEAMS_COLLECTION_NAME = "saison_teams"
 AS_NAME = "saison_data"
 
 
@@ -44,7 +44,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams) -> list[Mapping[str, Any]]
     pipeline.append(
         {
             "$lookup": {
-                "from": SAISON_SPECIFIC_TEAM_DATA_DB_NAME,
+                "from": SAISON_TEAMS_COLLECTION_NAME,
                 "let": {"base_team_id": "$_id"},
                 "pipeline": lookup_pipeline,
                 "as": AS_NAME,

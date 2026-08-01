@@ -79,6 +79,11 @@ export const handleFetchResponse = async ({
 };
 
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
+  // Non-deterministic, and generated inside all 11 `"use cache"` functions — deliberately safe, and
+  // left alone on purpose (R3a §A2.4). It reaches only the X-Correlation-ID header and the error
+  // constructors, never the returned value, so a cache entry is fully determined by the response.
+  // The two consequences are both wanted: a cache hit issues no request and so has no id to
+  // correlate, and thrown API errors are not persisted as cache entries.
   const traceId = `req_${crypto.randomUUID().substring(0, 8)}`; // Id for this fetch call
 
   const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, ...customOptions } = options;

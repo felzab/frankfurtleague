@@ -41,6 +41,15 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   cacheComponents: true,
+  // No `reactCompiler` here, and that is a measured decision rather than an oversight (NEW-P1,
+  // reversed by the owner 2026-07-31). Enabling it cost **+40 KB gzipped** on every page load
+  // (734,544 → 774,793) and +1.3 s of build, to write memoization this app needed in exactly two
+  // places — both now hand-written, in `AdminSpieleActionRequiredView` and `AdminContextProvider`.
+  // For scale: a payload finding worth 3.5 KB (NEW-P2) was rejected as not worth its cost in the
+  // same wave.
+  // **Reversal trigger:** Next enabling the compiler by default, or a React feature that requires
+  // it. Turning it back on is this one key plus `babel-plugin-react-compiler` as a devDependency;
+  // delete the two `useMemo`s at that point rather than leaving them beside the compiler's own.
 };
 
 export default nextConfig;

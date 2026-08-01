@@ -28,8 +28,8 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
    * in the light theme and 1.32:1 in dark — the draw marker was effectively invisible. The ring
    * stays on the tint accent: it is decoration around the dot, not a foreground.
    */
-  const getBadgeColor = (result: FLSpielErgebnisFor) => {
-    switch (result) {
+  const getBadgeColor = (ergebnisFor: FLSpielErgebnisFor) => {
+    switch (ergebnisFor) {
       case "W":
         return "bg-success-solid text-success-solid-foreground ring-success/30";
       case "D":
@@ -59,7 +59,7 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
       role="list"
       className="border-border relative ml-2 border-l-2 border-dashed">
       {sortByDate({ arr: spiele, key: "datum" }).map((spielData) => {
-        const result = computeErgebnisFor({ spiel: spielData, teamId });
+        const ergebnisFor = computeErgebnisFor({ spiel: spielData, teamId });
 
         return (
           <div
@@ -67,8 +67,8 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
             key={spielData.id}
             className="relative mb-8 pl-6">
             <div
-              className={`absolute top-4 left-[-11px] size-[20px] rounded-full ring-4 ${getBadgeColor(result)} flex items-center justify-center text-[10px] font-bold shadow-sm`}>
-              {result}
+              className={`absolute top-4 left-[-11px] size-[20px] rounded-full ring-4 ${getBadgeColor(ergebnisFor)} flex items-center justify-center text-[10px] font-bold shadow-sm`}>
+              {ergebnisFor}
             </div>
 
             <SpielCardCompact
@@ -140,35 +140,39 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
       <div className="flex flex-col gap-y-4">
         <h2 className="text-fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
 
+        {/* Five cards, one code path. "Punkte" used to sit outside the map with key={5} — one added
+            stat away from colliding with the map's own indices — and carried variant="secondary",
+            which renders identically to "default" (R4 §9.2). `desktopOnly` is the only real
+            difference between it and the other four. */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {[
-            { label: "Spiele", value: teamData.statistik.anzahl_gespielte_spiele },
+            { label: "Spiele", value: teamData.statistik.anzahl_gespielte_spiele, desktopOnly: false },
             {
               label: "S - U - N",
               value: `${teamData.statistik.siege} - ${teamData.statistik.unentschieden} - ${teamData.statistik.niederlagen}`,
+              desktopOnly: false,
             },
-            { label: "Tore", value: `${teamData.statistik.tore_geschossen}:${teamData.statistik.tore_kassiert}` },
-            { label: "Differenz", value: teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert },
-          ].map((stat, i) => (
+            { label: "Tore", value: `${teamData.statistik.tore_geschossen}:${teamData.statistik.tore_kassiert}`, desktopOnly: false },
+            {
+              label: "Differenz",
+              value: teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert,
+              desktopOnly: false,
+            },
+            { label: "Punkte", value: teamData.statistik.punkte, desktopOnly: true },
+          ].map((stat) => (
             <Card
-              key={i}
+              key={stat.label}
               variant="default"
-              className={card()}>
+              // The separating space belongs in the template literal, not inside the string:
+              // prettier's Tailwind plugin trims class strings, so a leading space written as
+              // `" hidden lg:block"` is silently removed and the classes glue together.
+              className={`${card()} ${stat.desktopOnly ? "hidden lg:block" : ""}`}>
               <Card.Content className="py-4 text-center">
                 <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
                 <p className="text-fluid-lg text-foreground font-extrabold">{stat.value}</p>
               </Card.Content>
             </Card>
           ))}
-          <Card
-            key={5}
-            variant="secondary"
-            className={`${card()} hidden lg:block`}>
-            <Card.Content className="py-4 text-center">
-              <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">Punkte</p>
-              <p className="text-fluid-lg text-foreground font-extrabold">{teamData.statistik.punkte}</p>
-            </Card.Content>
-          </Card>
         </div>
       </div>
 
@@ -182,12 +186,15 @@ export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamD
         />
       </div>
 
-      <SpielDetailsModal
-        spielData={selectedSpiel}
-        today={today}
-        isOpen={selectedSpiel !== null}
-        onClose={() => setSelectedSpiel(null)}
-      />
+      {/* Guarded like `SpielCardsList`'s (R4 §16.4): no overlay tree until a card is opened. */}
+      {selectedSpiel && (
+        <SpielDetailsModal
+          spielData={selectedSpiel}
+          today={today}
+          isOpen={true}
+          onClose={() => setSelectedSpiel(null)}
+        />
+      )}
     </div>
   );
 }

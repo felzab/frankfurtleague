@@ -1,9 +1,9 @@
 "use client";
 
+import { SPIELORTE_CRUD_COPY } from "@/features/spielorte/constants";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import AdminSpielorteTable from "../collections/AdminSpielorteTable";
-import { AdminCreateSpielortModal } from "../modals/AdminCreateSpielortModal";
 import { AdminDeleteSpielortModal } from "../modals/AdminDeleteSpielortModal";
 import { AdminEditSpielortModal } from "../modals/AdminEditSpielortModal";
 
@@ -15,11 +15,8 @@ const SEARCH_KEYS = ["name", "address.plz", "address.strasse", "address.stadttei
 export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {
   return (
     <AdminCrudView<FLSpielort>
-      title="Spielorte"
-      description="Verwalte alle Austragungsorte und deren Infrastruktur."
-      createModal={<AdminCreateSpielortModal />}
-      searchLabel="Spielorte suchen"
-      searchPlaceholder="Suchen nach Name, Straße, PLZ, Stadtteil..."
+      searchLabel={SPIELORTE_CRUD_COPY.searchLabel}
+      searchPlaceholder={SPIELORTE_CRUD_COPY.searchPlaceholder}
       items={spielorte}
       searchKeys={SEARCH_KEYS}
       renderTable={({ query, filteredItems, onEdit, onDelete }) => (

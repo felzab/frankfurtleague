@@ -1,15 +1,14 @@
 "use client";
 
 import React, { Suspense, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
-import { Separator } from "@heroui/react";
-
+import { SaisonSlotSkeleton } from "../../ui/SaisonSlotSkeleton";
 import SidemenuDesktopHeader from "./SidemenuDesktopHeader";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import SidemenuFooter from "./SidemenuFooter";
 import SidemenuMobileHeader from "./SidemenuMobileHeader";
-import SidemenuNavItem from "./SidemenuNavItem";
+import { SidemenuNavLinks, SidemenuNavLinksWithSaisonQuery } from "./SidemenuNavLinks";
 
 import type { FormState, SidemenuStructure } from "@/shared/types/types";
 
@@ -29,7 +28,6 @@ export default function Sidemenu<TIcon extends string>({
   /** Passed to the footer's options menu; only the admin shell supplies one. */
   onSignOut?: () => Promise<FormState>;
 }) {
-  const searchParams = useSearchParams();
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
@@ -49,18 +47,16 @@ export default function Sidemenu<TIcon extends string>({
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [isMobileOpen]);
 
-  const globalSaisonId = searchParams.get("saison_id");
-  const globalQuery = new URLSearchParams();
-  if (globalSaisonId) {
-    globalQuery.set("saison_id", globalSaisonId);
-  }
-  const queryString = globalQuery.toString();
-
   const _toggleMobileMenu = () => setIsMobileOpen(!isMobileOpen);
   const _toggleDesktopMenu = () => setIsDesktopCollapsed(!isDesktopCollapsed);
-  const _checkIsActive = (itemId: string) => {
-    const targetPath = `${linkPrefix}/${itemId}`;
-    return pathname === targetPath || pathname.startsWith(`${targetPath}/`);
+
+  const navLinkProps = {
+    structure,
+    linkPrefix,
+    iconDictionary,
+    isDesktopCollapsed,
+    pathname,
+    onMobileClose: () => setIsMobileOpen(false),
   };
 
   const baseSegment = pathname.replace(`${linkPrefix}/`, "").split("/")[0];
@@ -108,54 +104,32 @@ export default function Sidemenu<TIcon extends string>({
 
         {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex flex-1 scrollbar-gutter-stable flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
-          {/* The skeleton carries no text, so without a labelled status region a screen-reader user
-              gets silence while the season selector loads (R4 §4.6). */}
-          <Suspense
-            fallback={
-              <div
-                role="status"
-                aria-label="Saisonauswahl wird geladen"
-                className="bg-muted h-[70px] w-full animate-pulse rounded-xl"
-              />
-            }>
+          {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one
+              continuous state rather than skeleton → dead control → live control (NEW-R6). */}
+          <Suspense fallback={<SaisonSlotSkeleton />}>
             <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
             </div>
           </Suspense>
 
-          {/* Navigation Links */}
-          <div className="flex flex-col gap-5">
-            {structure.map((group) => (
-              <div
-                key={group.category_name}
-                className="flex flex-col gap-1">
-                {!isDesktopCollapsed ? (
-                  <span className="text-foreground-muted text-fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
-                ) : (
-                  <Separator className="bg-border my-1 w-1/2 self-center" />
-                )}
-
-                <div className="flex flex-col gap-[2px]">
-                  {group.sub_options.map((sub_option) => {
-                    const targetPath = `${linkPrefix}/${sub_option.id}`;
-                    const finalHref = queryString ? `${targetPath}?${queryString}` : targetPath;
-
-                    return (
-                      <SidemenuNavItem
-                        key={sub_option.id}
-                        href={finalHref}
-                        label={sub_option.label}
-                        isActive={_checkIsActive(sub_option.id)}
-                        isDesktopCollapsed={isDesktopCollapsed}
-                        icon={iconDictionary[sub_option.iconName]}
-                        onMobileClick={() => setIsMobileOpen(false)}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Navigation Links.
+              The boundary is what gives the dashboard and admin shells their static content
+              (NEW-SC10): `useSearchParams()` lives below it, in the -WithSaisonQuery variant, and it
+              hangs unconditionally during a prerender. With it above — which is where it used to be,
+              at the top of this component — the whole route root bailed out.
+              The fallback is the same list with an empty query string, so the shell holds real,
+              working nav links and the request-time pass only adds `?saison_id=` to their hrefs.
+              Nothing about it may call a dynamic hook, or the fallback suspends too and the bailout
+              simply moves back up. */}
+          <Suspense
+            fallback={
+              <SidemenuNavLinks
+                {...navLinkProps}
+                queryString=""
+              />
+            }>
+            <SidemenuNavLinksWithSaisonQuery {...navLinkProps} />
+          </Suspense>
         </div>
 
         <SidemenuFooter

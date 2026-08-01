@@ -22,7 +22,7 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
   });
 }
 
-export async function getCurrentSeason(): Promise<FLSaisonsSingleResponse> {
+export async function getCurrentSaison(): Promise<FLSaisonsSingleResponse> {
   "use cache";
 
   cacheTag("saisons", "saisons:current");

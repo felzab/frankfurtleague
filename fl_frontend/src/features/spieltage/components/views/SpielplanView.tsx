@@ -27,8 +27,16 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
   }
 
   return (
-    // Updated to flex-1 and flex-col so it handles height naturally without jumping
-    <Tabs className="relative flex w-full flex-1 flex-col items-center">
+    // Updated to flex-1 and flex-col so it handles height naturally without jumping.
+    // The arrival animation lives here rather than on each panel (NEW-R3): this element mounts once
+    // per page visit and never again on a tab press, so the rise plays exactly when it should — the
+    // page settling into place — and cannot be replayed or interrupted by switching Spieltag.
+    // Note this is an ancestor of the `sticky` tab bar below. That is safe: a transformed ancestor
+    // redefines the containing block for `position: fixed`, not for `position: sticky`, which resolves
+    // against its nearest scrollport (`<main>`, further up and untransformed). And the animation only
+    // ever runs at mount, when the scroller is still at the top and nothing is stuck yet — measured
+    // at rest, the root's `transform` is `none` with zero live animations.
+    <Tabs className="animate-in fade-in slide-in-from-bottom-4 relative flex w-full flex-1 flex-col items-center duration-400">
       {pageHeading}
 
       <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
@@ -60,11 +68,23 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
           {/* The entry animation lives here and NOT on `Tabs.Panel`. RAC keeps a deselected panel
               mounted until `panel.getAnimations()` all settle (`useExitAnimation`), and
               `getAnimations()` does not look at descendants — so an `animate-in` on the panel itself
-              made a fast tab switch hold the previous panel on screen for the rest of its 400ms
-              enter animation, which is the leftover-cards flicker. Identical visually. */}
+              made a fast tab switch hold the previous panel on screen for the rest of its enter
+              animation, which is the leftover-cards flicker. Identical visually.
+
+              The rise moved up to the `Tabs` root, which mounts once, so it no longer replays on
+              every press (NEW-R3). The switch animation is now `cards-cascade` (defined in
+              `globals.css`) and it sits on the CARDS, not on this container.
+
+              That took three goes, and the first two were aimed at the wrong thing. Timing was never
+              it: 400ms, 150ms and a fade-from-50% all flickered identically, which is the tell — if
+              very different durations look the same, duration is not the variable. The owner named
+              the real cause: every card lands at exactly the screen position the previous Spieltag's
+              card occupied, so animating this container fades the whole grid as one block and still
+              reads as the content mutating in place. Staggering the cards puts them in sequence
+              instead, and the eye follows a sequence rather than catching a single flash. */}
           <div
             role="list"
-            className="animate-in fade-in slide-in-from-bottom-4 grid w-full grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
+            className="cards-cascade grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}

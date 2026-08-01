@@ -1,16 +1,16 @@
 import { connection } from "next/server";
 
-import { getCurrentSeason, getSaisons } from "../../queries"; // Update with your actual queries
-import SaisonSelector from "../SaisonSelecter";
+import { getCurrentSaison, getSaisons } from "../../queries";
+import { SaisonSelector } from "./SaisonSelector";
 
 export default async function SaisonMetadataDisplay() {
   await connection();
-  const [currentSaisonRes, saisonsRes] = await Promise.all([getCurrentSeason(), getSaisons()]);
+  const [currentSaisonRes, saisonsRes] = await Promise.all([getCurrentSaison(), getSaisons()]);
 
   return (
     <SaisonSelector
-      seasons={saisonsRes.saisons}
-      currentSeason={currentSaisonRes.saison}
+      saisons={saisonsRes.saisons}
+      currentSaison={currentSaisonRes.saison}
     />
   );
 }

@@ -22,7 +22,7 @@ export default function SpielCardsList({
     <div className="contents">
       {spiele.map((spielData) => (
         <SpielCard
-          key={spielData.spiel_nr}
+          key={spielData.id}
           spielData={spielData}
           today={today}
           onOpenInfoModal={() => setSelectedSpiel(spielData)}
@@ -30,12 +30,22 @@ export default function SpielCardsList({
         />
       ))}
 
-      <SpielDetailsModal
-        spielData={selectedSpiel}
-        today={today}
-        isOpen={selectedSpiel !== null}
-        onClose={() => setSelectedSpiel(null)}
-      />
+      {/* Guarded, so a list that has never been clicked mounts no overlay at all (R4 §16.4). This
+          component is instantiated once per collection — six on the admin action-required accordion,
+          two on the landing grid, one each on spielsuche, spielhistorie and the active spielplan tab
+          — and each instance used to mount a full Modal.Backdrop / Container / Dialog tree plus its
+          react-aria overlay machinery on first paint, to show nothing.
+          The cost is the close animation: unmounting on `null` skips HeroUI's exit transition, so
+          the modal disappears rather than fading. Accepted by the owner, 2026-07-31, who valued the
+          mount saving over the transition. `AdminEditSpielDataModal` has always behaved this way. */}
+      {selectedSpiel && (
+        <SpielDetailsModal
+          spielData={selectedSpiel}
+          today={today}
+          isOpen={true}
+          onClose={() => setSelectedSpiel(null)}
+        />
+      )}
     </div>
   );
 }

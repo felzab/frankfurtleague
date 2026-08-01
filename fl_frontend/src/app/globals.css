@@ -66,10 +66,10 @@
        the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
        palette. Values are Tailwind's sky/indigo/purple/rose 700 verbatim, i.e. exactly what the chip
        rendered before, and each is used both as the label colour and as a /15 tint behind it. */
-    --accent-phase-group: oklch(50% 0.134 242.749);
-    --accent-phase-quarter: oklch(45.7% 0.24 277.023);
-    --accent-phase-semi: oklch(49.6% 0.265 301.924);
-    --accent-phase-final: oklch(51.4% 0.222 16.935);
+    --accent-phase-gruppenphase: oklch(50% 0.134 242.749);
+    --accent-phase-viertelfinale: oklch(45.7% 0.24 277.023);
+    --accent-phase-halbfinale: oklch(49.6% 0.265 301.924);
+    --accent-phase-finale: oklch(51.4% 0.222 16.935);
 
     /* The soccer-field motif on /about, /team and /kontakt. Those three pages stay green in both
        themes -- that is the design, not an oversight -- but until these tokens existed the decision
@@ -119,10 +119,10 @@
     --fg-on-danger: #ffffff;
 
     /* Tailwind's sky/indigo/purple/rose 400 -- the values the chip's `dark:` escapes used. */
-    --accent-phase-group: oklch(74.6% 0.16 232.661);
-    --accent-phase-quarter: oklch(67.3% 0.182 276.935);
-    --accent-phase-semi: oklch(71.4% 0.203 305.504);
-    --accent-phase-final: oklch(71.2% 0.194 13.428);
+    --accent-phase-gruppenphase: oklch(74.6% 0.16 232.661);
+    --accent-phase-viertelfinale: oklch(67.3% 0.182 276.935);
+    --accent-phase-halbfinale: oklch(71.4% 0.203 305.504);
+    --accent-phase-finale: oklch(71.2% 0.194 13.428);
 
     /* Deeper greens for the dark theme; the foreground stays white because the surface stays green. */
     --field-base: #0b3820;
@@ -186,10 +186,10 @@
   --color-warning-solid-foreground: var(--fg-on-warn);
   --color-danger-solid-foreground: var(--fg-on-danger);
   --color-success-solid-foreground: var(--fg-on-success);
-  --color-phase-group: var(--accent-phase-group);
-  --color-phase-quarter: var(--accent-phase-quarter);
-  --color-phase-semi: var(--accent-phase-semi);
-  --color-phase-final: var(--accent-phase-final);
+  --color-phase-gruppenphase: var(--accent-phase-gruppenphase);
+  --color-phase-viertelfinale: var(--accent-phase-viertelfinale);
+  --color-phase-halbfinale: var(--accent-phase-halbfinale);
+  --color-phase-finale: var(--accent-phase-finale);
   --color-field-base: var(--field-base);
   --color-field-card: var(--field-card);
   --color-field-fg: var(--field-fg);
@@ -438,6 +438,16 @@
   .animate-loader-dot {
     animation: none !important;
   }
+
+  /* The cascade keeps its fade — opacity is deliberately left alone throughout this block — but
+     loses the travel and the stagger, so it resolves as one quiet cross-fade. */
+  :root {
+    --card-enter-shift: 0;
+  }
+
+  .cards-cascade [role="listitem"] {
+    animation-delay: 0ms !important;
+  }
 }
 
 @layer components {
@@ -525,5 +535,54 @@
 
   .soccer-field-card-border {
     @apply border-field-border;
+  }
+
+  /**
+   * Tab-switch entrance for a card grid: the cards arrive in sequence instead of all at once.
+   *
+   * This is the third attempt at the spielplan's switch flicker, and the first that addresses what
+   * the owner actually described. The first two treated it as an animation-timing problem — 400ms,
+   * then 150ms, then a fade from 50% — and none helped, because the problem is not the curve. Every
+   * card lands at the exact screen position the previous Spieltag's card occupied, so a simultaneous
+   * swap reads as the content *mutating in place* however gently it is faded. A cascade separates
+   * them in time, and the eye follows a sequence instead of seeing one flash.
+   *
+   * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
+   * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the
+   * wrapper rather than the cards.
+   *
+   * Eight steps because the largest Spieltag holds eight matches; the last starts at 175ms, so the
+   * whole grid has settled inside half a second.
+   */
+  .cards-cascade [role="listitem"] {
+    animation: card-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .cards-cascade [role="listitem"]:nth-child(2) {
+    animation-delay: 25ms;
+  }
+  .cards-cascade [role="listitem"]:nth-child(3) {
+    animation-delay: 50ms;
+  }
+  .cards-cascade [role="listitem"]:nth-child(4) {
+    animation-delay: 75ms;
+  }
+  .cards-cascade [role="listitem"]:nth-child(5) {
+    animation-delay: 100ms;
+  }
+  .cards-cascade [role="listitem"]:nth-child(6) {
+    animation-delay: 125ms;
+  }
+  .cards-cascade [role="listitem"]:nth-child(7) {
+    animation-delay: 150ms;
+  }
+  .cards-cascade [role="listitem"]:nth-child(n + 8) {
+    animation-delay: 175ms;
+  }
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--card-enter-shift, 0.5rem));
   }
 }

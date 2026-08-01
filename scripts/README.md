@@ -14,6 +14,13 @@ Operational scripts for building, testing, running and deploying Frankfurt-Leagu
 | `selfcheck.sh`                 | any           | Test the scripts themselves                                      |
 | `_lib.sh`                      | —             | Shared helpers; sourced, never run directly                      |
 
+One script lives outside this directory, because it needs `sharp` from the frontend's own
+dependencies: **`fl_frontend/scripts/generate-brand-assets.mjs`**, run as `pnpm brand` from
+`fl_frontend/`. It regenerates every brand asset — favicon, app icons, both manifest sets, the
+Open Graph card and the `FLLogo` component — from one parameterised source. The mark's erosion is
+three numbers at the top of that file. **Re-run it rather than editing any of its outputs**, or
+the header mark and the icons drift apart.
+
 ```bash
 # ship a change
 ./scripts/verify.sh                     # dev:  everything must be green

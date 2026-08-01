@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.saisons.crud import pull_current_saison
 from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonsFilterOptions,
@@ -9,7 +10,7 @@ from app.api.saisons.schemas import (
 )
 from app.api.saisons.services import build_saisons_filter, build_saisons_sort
 from app.core.config import backend_config
-from app.core.crud import pull_many_from_db, pull_one_from_db
+from app.core.crud import pull_many_from_db
 from app.core.dependencies import SaisonsCollection
 from app.core.security import verify_access_base
 
@@ -41,10 +42,7 @@ async def get_current_saison(
     saisons_collection: SaisonsCollection,
 ) -> FLSaisonsSingleResponse:
 
-    saison_raw = await pull_one_from_db(
-        collection=saisons_collection,
-        db_filter={"status": "active"},
-    )
+    saison_raw = await pull_current_saison(saisons_collection=saisons_collection)
 
     saison = FLSaison.model_validate(saison_raw)
 

@@ -9,7 +9,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
 
-export default function PlayoffBracketView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
+export default function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
   // 1. The Single Modal State
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
@@ -110,12 +110,15 @@ export default function PlayoffBracketView({ playoffsSpieltage, today }: { playo
         </div>
       </div>
 
-      <SpielDetailsModal
-        spielData={selectedSpiel}
-        today={today}
-        isOpen={selectedSpiel !== null}
-        onClose={() => setSelectedSpiel(null)}
-      />
+      {/* Guarded like `SpielCardsList`'s (R4 §16.4): no overlay tree until a card is opened. */}
+      {selectedSpiel && (
+        <SpielDetailsModal
+          spielData={selectedSpiel}
+          today={today}
+          isOpen={true}
+          onClose={() => setSelectedSpiel(null)}
+        />
+      )}
     </div>
   );
 }

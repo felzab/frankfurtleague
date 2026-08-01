@@ -34,19 +34,19 @@ export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGrup
 
       {
         /** One Table generated for each group */
-        typedObjectEntries(gruppenData).map(([group, teamsData]) => (
+        typedObjectEntries(gruppenData).map(([gruppe, teamsData]) => (
           <div
-            key={group}
+            key={gruppe}
             className={`${card()} max-w-page mb-6 flex w-full flex-col items-start p-3 sm:p-6`}>
             <div className="flex flex-col gap-1 pb-6">
               <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
-              <h2 className="text-fluid-xl text-foreground font-black tracking-tight">Gruppe {group}</h2>
+              <h2 className="text-fluid-xl text-foreground font-black tracking-tight">Gruppe {gruppe}</h2>
             </div>
 
             <Table
               variant="secondary"
               className="h-fit w-full text-left">
-              <Table.Content aria-label={`Tabelle: Gruppe ${group}`}>
+              <Table.Content aria-label={`Tabelle: Gruppe ${gruppe}`}>
                 <Table.Header className="text-fluid-xxs text-foreground-muted font-semibold uppercase">
                   <Table.Column
                     isRowHeader
