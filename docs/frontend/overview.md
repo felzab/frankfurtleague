@@ -94,8 +94,11 @@ Where a page splits chrome from a data hole, it lives in the in-file async child
 
 ## Styling and the browser floor
 
-`src/app/globals.css` is the whole style entry point: the token layer, the `@theme` mapping, the two
-focus exceptions, and the HeroUI import block.
+`src/app/globals.css` is the style entry point for every route: the token layer, the `@theme` mapping,
+the two focus exceptions, and the HeroUI import block. **`src/app/admin/admin.css` is a second, smaller
+one**, imported by the admin layout and therefore loaded only under `/admin`. It holds the nine
+component stylesheets no public route can reach — the date/time pickers, the calendar and the
+autocomplete — which is 67 KB the public pages no longer download or parse (ADR-0023).
 
 **HeroUI is imported component-by-component, not as `@import "@heroui/styles"`.** This is HeroUI's own
 documented mechanism — the v3 release notes call it "ship only the CSS you use" — and it exists because
@@ -120,17 +123,26 @@ There is no supported way to drop it — do not spend time on that diagnostic.
 
 ### Adding a HeroUI component
 
-Importing the component in TSX is half the change. The other half:
+Importing the component in TSX is half the change. The other half, and **there are two stylesheets to
+check, not one**: `src/app/globals.css` loads everywhere, `src/app/admin/admin.css` loads only under
+`/admin` (ADR-0023).
 
-1. Add `@import "@heroui/styles/components/<name>.css" layer(components);` to the block in
-   `globals.css`, **at the position it occupies in
-   `node_modules/@heroui/styles/dist/components/index.css`** — not at the end. HeroUI's file states the
-   order is load-bearing: shared primitives first, then the components that compose them.
-2. Check what the component renders _underneath_ it. A picker is a popover plus a listbox plus a button,
+1. **Decide which file it belongs in.** It goes in `admin.css` only if no public route can reach it —
+   established from the import graph, following dynamic imports, not from folder names. `Select`,
+   `ListBox` and `CloseButton` all look admin-shaped and are not. **When in doubt, `globals.css`**: the
+   cost of guessing wrong that way is a few KB, the other way it is an unstyled admin form.
+2. Add `@import "@heroui/styles/components/<name>.css" layer(components);` **at the position it occupies
+   in `node_modules/@heroui/styles/dist/components/index.css`** — not at the end. HeroUI's file states
+   the order is load-bearing: shared primitives first, then the components that compose them.
+3. Check what the component renders _underneath_ it. A picker is a popover plus a listbox plus a button,
    and each has its own stylesheet. The quickest check is to render it and read `[data-slot]` in the DOM:
-   any slot whose CSS is missing shows up as an unstyled box.
-3. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
-   padding and a background that are not the browser defaults.
+   any slot whose CSS is missing shows up as an unstyled box. **Sub-components can be public even when
+   the parent is not** — that is why `close-button` and `list-box` stayed in `globals.css`.
+4. **Grep both files before you finish.** A component in neither renders unstyled; a component in both
+   ships to visitors who never see it.
+5. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
+   padding and a background that are not the browser defaults. For an `admin.css` entry that means
+   signing in and opening the admin page, because no public route will show the mistake.
 
 ## Metadata and indexing
 
