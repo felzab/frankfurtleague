@@ -30,12 +30,35 @@ UI-quality lens is now two passes, which is why the frontend has six.
 
 [`remediation-wave.md`](remediation-wave.md) is the session prompt for every remediation wave.
 
-## Running a programme
+## Running a programme, step by step
 
-The cycle per pass: run the prompt in a fresh session → verify the report file exists in
-`docs/audit/` → `/clear` → next pass. `/clear` between passes is mandatory — stale context from one
-pass makes the next one summarise instead of scan. If a session dies mid-pass, the resume protocol
-in `_shared-protocol.md` continues it from the last completed check.
+Every numbered step below is its own fresh session. `/clear` between sessions is mandatory — stale
+context from one pass makes the next one summarise instead of scan.
 
-After the last pass: `/audit:plan` builds the ledger, waves run via `/audit:wave`, and
-`/audit:finish` writes the final report and retires `docs/audit/`.
+```mermaid
+graph LR
+    a["1–n · /audit:pass<br/>one lens per session"] --> b["n+1 · /audit:plan<br/>ledger + Wave 0 questions"]
+    b --> c["you: answer Wave 0"]
+    c --> d["per wave · /audit:wave<br/>you: create PR, merge"]
+    d --> e["last · /audit:finish<br/>permanent report, audit/ cleared"]
+```
+
+1. **Run the passes** — `/audit:pass backend 1`, and when it hands off: check the report file exists
+   in `docs/audit/`, then `/clear`. Repeat for every pass in the table above, one session each, in
+   table order. A pass that dies mid-run is resumed by simply invoking it again — the resume
+   protocol in [`_shared-protocol.md`](_shared-protocol.md) continues from the last completed
+   check.
+2. **Plan** — `/audit:plan` reads the reports' summaries, builds the remediation ledger, and ends
+   by asking you the Wave 0 questions in one batch. **Answer them before any wave runs** — in the
+   frontend programme, two HIGH findings inverted on those answers.
+3. **Remediate** — `/audit:wave 1`, then `2`, `3`, … one wave per session, each on its own branch.
+   A wave ends with the branch pushed and a ready-to-paste PR title and body; your only actions are
+   **Create pull request** and **Merge** on GitHub, then start the next wave.
+4. **Close** — `/audit:finish` writes the permanent final report into
+   [`../reports/`](../reports/), harvests anything still open into `docs/roadmap/open-items.md`,
+   and — after your explicit confirmation — clears the local `docs/audit/` working folder.
+
+**At any point:** `/audit:status` reconstructs where the programme stands and resumes interrupted
+work — run it first whenever a session died, tokens ran out, or you are returning after a break.
+Everything under `docs/audit/` is gitignored and local-only; nothing about a running audit ever
+reaches the public repo.
