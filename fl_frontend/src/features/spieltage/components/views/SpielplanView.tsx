@@ -72,22 +72,19 @@ export default function SpielplanView({ spielplanData, today }: { spielplanData:
               animation, which is the leftover-cards flicker. Identical visually.
 
               The rise moved up to the `Tabs` root, which mounts once, so it no longer replays on
-              every press (NEW-R3). What is left here is the switch animation, and getting it to stop
-              reading as a flicker took two goes.
+              every press (NEW-R3). The switch animation is now `cards-cascade` (defined in
+              `globals.css`) and it sits on the CARDS, not on this container.
 
-              **`fade-in-50`, not `fade-in`, is the actual fix.** The flicker was never the duration —
-              400ms and 150ms both flickered. It is the gap: this div remounts on every press, so the
-              old panel is gone the instant the new one mounts, and a plain `fade-in` starts the new
-              one at `opacity: 0`. For the length of the animation there is nothing legible on
-              screen, which is exactly what a flash looks like. Starting at 50% means the grid is
-              readable from the first frame and merely settles, so there is no blank moment to see.
-
-              `slide-in-from-bottom-2` (0.5rem, half of `SpielhistorieView`'s) keeps the character of
-              the arrival animation the owner liked without the cards travelling far enough to read as
-              movement against the sticky tab bar directly above them. */}
+              That took three goes, and the first two were aimed at the wrong thing. Timing was never
+              it: 400ms, 150ms and a fade-from-50% all flickered identically, which is the tell — if
+              very different durations look the same, duration is not the variable. The owner named
+              the real cause: every card lands at exactly the screen position the previous Spieltag's
+              card occupied, so animating this container fades the whole grid as one block and still
+              reads as the content mutating in place. Staggering the cards puts them in sequence
+              instead, and the eye follows a sequence rather than catching a single flash. */}
           <div
             role="list"
-            className="animate-in fade-in-50 slide-in-from-bottom-2 grid w-full grid-cols-1 gap-5 duration-300 sm:grid-cols-2 xl:grid-cols-3">
+            className="cards-cascade grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}

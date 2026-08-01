@@ -4,7 +4,51 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { getSpiele } from "../../queries";
+import { SpielCardSkeletonGrid } from "../SpielCardSkeleton";
 import SpielCardsList from "./SpielCardsList";
+
+/**
+ * The heading block above each section. Shared by the grid and its skeleton on purpose: the skeleton
+ * only guarantees zero layout shift while the two render identical chrome, and one definition is the
+ * only way to keep that true.
+ */
+function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div className="mb-6 flex flex-col gap-1">
+      <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">{eyebrow}</span>
+      <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">{title}</h2>
+    </div>
+  );
+}
+
+const SECTION_GRID = "grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3";
+
+/**
+ * The loading state for this grid — the same two sections, filled with `SpielCardSkeleton`s.
+ *
+ * Rendered as the landing page's `Suspense` fallback. `limit: 6` below is why the count is six: the
+ * skeleton reserves exactly what the query can return, so the swap moves nothing.
+ */
+export function RecentAndUpcomingSpieleGridSkeleton() {
+  return (
+    <section className="flex w-full flex-col gap-14 pb-10">
+      <div className="flex w-full flex-col">
+        <SectionHeader
+          eyebrow="Matchdays"
+          title="Nächste Begegnungen"
+        />
+        <SpielCardSkeletonGrid />
+      </div>
+      <div className="flex w-full flex-col">
+        <SectionHeader
+          eyebrow="Rückblick"
+          title="Vergangene Spiele"
+        />
+        <SpielCardSkeletonGrid />
+      </div>
+    </section>
+  );
+}
 
 export default async function RecentAndUpcomingSpieleGrid() {
   await connection();
@@ -28,20 +72,17 @@ export default async function RecentAndUpcomingSpieleGrid() {
     <section className="flex w-full flex-col gap-14 pb-10">
       {/* UPCOMING GAMES SECTION */}
       <div className="flex w-full flex-col">
-        {/* Section Header */}
-        <div className="mb-6 flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchdays</span>
-          </div>
-          <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">Nächste Begegnungen</h2>
-        </div>
+        <SectionHeader
+          eyebrow="Matchdays"
+          title="Nächste Begegnungen"
+        />
 
         {upcomingSpieleRes.spiele.length === 0 ? (
           <EmptyState title="Aktuell sind keine Spiele angesetzt." />
         ) : (
           <div
             role="list"
-            className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            className={SECTION_GRID}>
             <SpielCardsList
               spiele={upcomingSpieleRes.spiele}
               today={today}
@@ -52,18 +93,17 @@ export default async function RecentAndUpcomingSpieleGrid() {
 
       {/* RECENT GAMES SECTION */}
       <div className="flex w-full flex-col">
-        {/* Section Header */}
-        <div className="mb-6 flex flex-col gap-1">
-          <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Rückblick</span>
-          <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">Vergangene Spiele</h2>
-        </div>
+        <SectionHeader
+          eyebrow="Rückblick"
+          title="Vergangene Spiele"
+        />
 
         {recentSpieleRes.spiele.length === 0 ? (
           <EmptyState title="Es wurde noch kein Spiel ausgetragen." />
         ) : (
           <div
             role="list"
-            className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            className={SECTION_GRID}>
             <SpielCardsList
               spiele={recentSpieleRes.spiele}
               today={today}

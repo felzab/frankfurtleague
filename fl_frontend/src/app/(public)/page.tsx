@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
-import RecentAndUpcomingSpieleGrid from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
+import RecentAndUpcomingSpieleGrid, {
+  RecentAndUpcomingSpieleGridSkeleton,
+} from "@/features/spiele/components/collections/RecentAndUpcomingSpieleGrid";
 import { card } from "@/shared/components/ui/card";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 
@@ -114,14 +116,13 @@ export default function LandingPage() {
 
       {/* GAMES CONTAINER */}
       <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
-        <Suspense
-          fallback={
-            <div
-              role="status"
-              className="flex w-full justify-center py-20">
-              <span className="text-fluid-sm text-foreground-muted animate-pulse italic">Spiele werden geladen...</span>
-            </div>
-          }>
+        {/* The fallback is the real layout in skeleton form, not a spinner. It used to be one centred
+            line, so while the matches loaded the page was a few hundred pixels shorter than it would
+            be: the footer rode up into view and then everything jumped down when the data landed.
+            `SpielCardSkeleton` is dimensionally identical to `SpielCard` — see the note there — so
+            two headed sections of six skeletons occupy exactly the space two sections of six cards
+            will, and nothing moves when they are replaced. */}
+        <Suspense fallback={<RecentAndUpcomingSpieleGridSkeleton />}>
           <RecentAndUpcomingSpieleGrid />
         </Suspense>
       </div>
