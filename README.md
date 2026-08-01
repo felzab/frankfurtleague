@@ -96,6 +96,8 @@ examples.
 
 Run `./scripts/verify.sh` before opening a PR. CI runs the same script.
 
+Full detail, including how to report a bug and where ideas go: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Status
 
 Actively maintained by one person. There is no public issue triage process and no support commitment.

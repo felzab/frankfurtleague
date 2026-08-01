@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `8d3111d`, 2026-08-01
+**Verified against:** `1893e6a`, 2026-08-01
 
 Findings and undecided questions with real analysis and no decision yet. Migrated here from the
 documentation programme's ledger when that file was retired (2026-08-01); each entry keeps its full
@@ -39,7 +39,7 @@ result edit rewrites team stats _within that season only_ — does not match the
 not season-scoped at all; its filter is `{"_id": team_id}`. The tag may still be right, but the
 recorded reason for it is not.
 
-**Confidence and limits.** This is a static reading of the code at `52b6ef5`, **not verified
+**Confidence and limits.** This is a static reading of the code at `ba71aca`, **not verified
 against a running system or real data**. Ways it could be wrong: `saison_teams` documents might be
 regenerated from `teams` by something outside this repository, or the deployed data might carry
 `statistik` in both places. Either would change the conclusion.
