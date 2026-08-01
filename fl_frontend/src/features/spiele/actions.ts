@@ -2,13 +2,11 @@
 
 import { updateTag } from "next/cache";
 
-import { z } from "zod";
-
 import { getAdminSession } from "@/core/auth";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData } from "./mutations";
-import { FLPatchSpielDataPayloadSchema } from "./schemas";
+import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -47,8 +45,9 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
   // Season comes from the loaded spiel, never from the patch body -- the backend's
   // PatchSpielDataPayload does not declare `saison_id` and Pydantic would silently drop it. A spiel
   // that somehow lacks a valid one still gets the base invalidation above, so the edit is never
-  // rejected over a cache concern.
-  const saisonId = z.string().length(4).safeParse(rawSaisonId);
+  // rejected over a cache concern. Validated with the spiel's own field schema rather than a second
+  // copy of the rule, so the two cannot drift apart.
+  const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
   if (saisonId.success) {
     updateTag(`spiele:saison_id:${saisonId.data}`);
     updateTag(`teams:saison_id:${saisonId.data}`);

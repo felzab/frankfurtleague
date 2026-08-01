@@ -30,4 +30,4 @@ if (process.env.NODE_ENV === "development") {
   client = new MongoClient(frontend_config.MONGODB_URI, options); // production mode
 }
 
-export default client;
+export { client };

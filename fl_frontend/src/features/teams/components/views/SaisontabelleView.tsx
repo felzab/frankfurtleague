@@ -1,3 +1,10 @@
+// Keeps "use client", unlike its two siblings in R3a §A4.3. The directive is not redundant here:
+// `Table.Body` below takes `renderEmptyState`, a render prop, and a Server Component cannot pass a
+// function to a Client Component -- doing so throws "Functions cannot be passed directly to Client
+// Components" on every render of /dashboard/saisontabelle. Verified against a probe route, because
+// neither tsc nor `next build` can see it: the page is dynamic, so the build never renders it.
+"use client";
+
 import { Badge, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";

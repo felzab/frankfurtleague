@@ -104,28 +104,48 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // The timer covers the body read too, not just the headers. It used to be cleared the moment
-  // `fetch` resolved -- which is when response *headers* arrive -- leaving `res.json()` unbounded, so
-  // a backend that sent headers and then stalled the body hung the render well past the 15 s budget
-  // and never raised APINetworkError.
-  let res: Response;
-  let rawData: unknown;
-  try {
-    res = await fetch(urlObj, { ...customOptions, headers, signal: controller.signal });
-    rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
-  } catch (error) {
-    // handleFetchResponse throws this for a bad status; it is already the right error, and wrapping
-    // it as a network failure would lose the status code.
-    if (error instanceof APIBadStatusError) throw error;
-
-    const isTimeout = error instanceof Error && error.name === "AbortError";
-    throw new APINetworkError({
+  // One shape for both failure points below. `isTimeout` is derived rather than passed because the
+  // abort signal covers the request and the body read alike.
+  const asNetworkError = (error: unknown) =>
+    new APINetworkError({
       message: "Network request failed. Please check your connection.",
-      isTimeout: isTimeout,
+      isTimeout: error instanceof Error && error.name === "AbortError",
       url: urlObj.toString(),
       traceId: traceId,
       originalError: error,
     });
+
+  // The timer is cleared in `finally` so it bounds the body read as well. Clearing it the moment
+  // `fetch` resolved -- which is when response *headers* arrive -- left `res.json()` unbounded, so a
+  // backend that sent headers and then stalled hung the render well past the 15 s budget.
+  let res: Response;
+  let rawData: unknown;
+  try {
+    try {
+      res = await fetch(urlObj, { ...customOptions, headers, signal: controller.signal });
+    } catch (error) {
+      throw asNetworkError(error);
+    }
+
+    try {
+      rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
+    } catch (error) {
+      // Already the right error, and re-wrapping it would lose the status code.
+      if (error instanceof APIBadStatusError) throw error;
+      // A stalled body aborts here rather than inside `fetch`.
+      if (error instanceof Error && error.name === "AbortError") throw asNetworkError(error);
+
+      // Anything else means the response arrived and its body would not parse. That is malformed
+      // data, not a connection problem -- reporting it as one points the reader at the wrong system,
+      // which is the same mistake `handleFetchResponse` already avoids for non-JSON error responses.
+      throw new APIMalformedDataError({
+        message: "API returned a body that could not be parsed as JSON.",
+        url: res.url,
+        statusCode: res.status,
+        endpoint: endpoint,
+        traceId: traceId,
+      });
+    }
   } finally {
     clearTimeout(timeoutId);
   }

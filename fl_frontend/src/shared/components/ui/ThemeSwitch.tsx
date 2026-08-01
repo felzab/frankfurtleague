@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 
 import { Switch } from "@heroui/react";
 
-import useMounted from "@/shared/hooks/useMounted";
+import { useMounted } from "@/shared/hooks/useMounted";
 
 /**
  * No focus classes on the control, deliberately (R4 §5.3).
