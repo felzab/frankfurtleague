@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `ba71aca`, 2026-08-01
+**Verified against:** `73a782b`, 2026-08-01
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -10,11 +10,11 @@ the contracts and constraints those procedures depend on.
 
 ## 1. Services
 
-| Service    | Image                             | Ports published | Resource limits                   | Health check                         |
-| ---------- | --------------------------------- | --------------- | --------------------------------- | ------------------------------------ |
-| `frontend` | `felzab/frankfurtleague:frontend` | none            | 1.5 CPU / 2 GB, 512 MB reserved   | `wget` on `/favicon.ico`             |
-| `backend`  | `felzab/frankfurtleague:backend`  | none            | 0.8 CPU / 512 MB, 128 MB reserved | `urllib` on `/api/v0/system/is_live` |
-| `nginx`    | `nginx:alpine`                    | **80, 443**     | 0.5 CPU / 256 MB, 128 MB reserved | none                                 |
+| Service    | Image                                            | Ports published | Resource limits                   | Health check                         |
+| ---------- | ------------------------------------------------ | --------------- | --------------------------------- | ------------------------------------ |
+| `frontend` | `ghcr.io/felzab/frankfurtleague-frontend:latest` | none            | 1.5 CPU / 2 GB, 512 MB reserved   | `wget` on `/favicon.ico`             |
+| `backend`  | `ghcr.io/felzab/frankfurtleague-backend:latest`  | none            | 0.8 CPU / 512 MB, 128 MB reserved | `urllib` on `/api/v0/system/is_live` |
+| `nginx`    | `nginx:alpine`                                   | **80, 443**     | 0.5 CPU / 256 MB, 128 MB reserved | none                                 |
 
 All three: `restart: unless-stopped`, `cap_drop: ALL`, `no-new-privileges:true`, JSON file logging
 capped at 3 × 10 MB. All on the `frankfurtleague-net` bridge network.
@@ -121,10 +121,10 @@ problems live.
 
 ## 8. Known-open
 
-| Item                                          | State                                                                                          |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Backend healthcheck hardcodes `/api/v0/`      | Works today; breaks silently on an API version bump                                            |
-| Registry tag pruning is manual                | Deliberate — a botched registry delete destroys rollback history. Keep ~5 sha tags per service |
-| Local sha tags accumulate ~750 MB per publish | Handled: `publish.sh` deletes local sha tags after a successful push                           |
-| No in-app sign-out                            | Session lifetime (8h) is the only revocation mechanism                                         |
-| Certificates                                  | Mounted from `./certs`; renewal is outside this repo                                           |
+| Item                                          | State                                                                                               |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Backend healthcheck hardcodes `/api/v0/`      | Works today; breaks silently on an API version bump                                                 |
+| Registry tag pruning is manual                | Deliberate — a botched delete destroys rollback history. Keep ~5 `sha-` tags per package (ADR-0017) |
+| Local sha tags accumulate ~750 MB per publish | Handled: `publish.sh` deletes local sha tags after a successful push                                |
+| No in-app sign-out                            | Session lifetime (8h) is the only revocation mechanism                                              |
+| Certificates                                  | Mounted from `./certs`; renewal is outside this repo                                                |

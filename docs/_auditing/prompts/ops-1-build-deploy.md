@@ -62,7 +62,7 @@ THE CHECKS, in priority order:
 
 6. **PUBLISH AND ROLLBACK.** `publish.sh` builds both images before pushing either (verify — this
    is the property that lets coupled FE/BE changes ship in one PR); tags carry the commit as an
-   OCI label; rollback by `-sha-` tag works and the retention guidance (~5 tags per service) is
+   OCI label; rollback by `:sha-` tag works and the retention guidance (~5 tags per package) is
    stated somewhere real. What happens if publish dies between the two pushes?
 
 7. **DEPLOY BEHAVIOUR.** `deploy.sh`: recreates in place, waits for health, confirms live headers;

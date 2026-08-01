@@ -8,7 +8,7 @@ Operational scripts for building, testing, running and deploying Frankfurt-Leagu
 | ------------------------------ | ------------- | ---------------------------------------------------------------- |
 | `verify.sh`                    | any           | Full pre-merge gate: checks, both test suites, both image builds |
 | `local.sh`                     | dev — Windows | Run the production image locally, behind nginx                   |
-| `publish.sh`                   | dev — Windows | Build, tag with the commit, push to Docker Hub                   |
+| `publish.sh`                   | dev — Windows | Build, tag with the commit, push to ghcr.io                      |
 | `deploy.sh`                    | prod — Linux  | Pull and restart, verify health, roll back                       |
 | `revalidate_reference_data.sh` | prod — Linux  | Drop the frontend cache for one reference resource               |
 | `selfcheck.sh`                 | any           | Test the scripts themselves                                      |
@@ -77,14 +77,14 @@ Each reveals structure without printing a secret.
 
 ```bash
 # prod (Linux) — required backend names. Prints only the names that are absent.
-for k in API_VERSION API_TRUSTED_HOSTS API_CORS_ALLOWED_ORIGINS MONGODB_URI DB_BASE_NAME          INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
+for k in API_VERSION API_TRUSTED_HOSTS API_CORS_ALLOWED_ORIGINS MONGODB_URI DB_BASE_NAME INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
   grep -q "^${k}=" fl_backend/.env || echo "MISSING: ${k}"
 done
 ```
 
 ```bash
 # prod (Linux) — required frontend names.
-for k in API_URL API_VERSION AUTH_URL AUTH_SECRET AUTH_RESEND_KEY ALLOWED_ADMIN_EMAILS          MONGODB_URI INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
+for k in API_URL API_VERSION AUTH_URL AUTH_SECRET AUTH_RESEND_KEY ALLOWED_ADMIN_EMAILS MONGODB_URI INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
   grep -q "^${k}=" fl_frontend/.env || echo "MISSING: ${k}"
 done
 ```
@@ -99,15 +99,13 @@ done
 
 ```bash
 # prod (Linux) — the three API keys are 64 characters and identical across both files.
+# `[:cntrl:]` strips a stray CR from a file written on Windows. ${#a} is a length, never a value.
 for k in INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
-  a=$(grep "^${k}=" fl_backend/.env  | cut -d= -f2- | tr -d '
-' | wc -c)
-  b=$(grep "^${k}=" fl_frontend/.env | cut -d= -f2- | tr -d '
-' | wc -c)
-  s=$(grep "^${k}=" fl_backend/.env  | cut -d= -f2- | md5sum | cut -c1-8)
-  t=$(grep "^${k}=" fl_frontend/.env | cut -d= -f2- | md5sum | cut -c1-8)
-  printf '%s len=%s/%s match=%s
-' "$k" "$((a-1))" "$((b-1))"     "$([ "$s" = "$t" ] && echo yes || echo NO)"
+  a=$(grep "^${k}=" fl_backend/.env  | cut -d= -f2- | tr -d '[:cntrl:]')
+  b=$(grep "^${k}=" fl_frontend/.env | cut -d= -f2- | tr -d '[:cntrl:]')
+  # Without this guard a key absent from both files reports len=0/0 match=yes, which reads as a pass.
+  if [ -z "$a" ] || [ -z "$b" ]; then echo "$k ABSENT from one or both files"; continue; fi
+  echo "$k len=${#a}/${#b} match=$([ "$a" = "$b" ] && echo yes || echo NO)"
 done
 ```
 
@@ -194,25 +192,29 @@ rebuildable from that commit.
 
 ### Tags
 
-Docker Hub's free plan allows one private repository, so both services share it and tag prefixes tell
-them apart. Each publish writes four tags:
+Each service has its own package on GitHub Container Registry, so the service name lives in the
+repository and the tag says only which build it is ([ADR-0017](../docs/_decisions/0017-ghcr-two-public-packages.md)).
+Each publish writes four tags, two per package:
 
-| Tag                     | Kind      | Used for               |
-| ----------------------- | --------- | ---------------------- |
-| `frontend`              | moving    | what `deploy.sh` pulls |
-| `frontend-sha-<commit>` | immutable | rollback target        |
-| `backend`               | moving    | what `deploy.sh` pulls |
-| `backend-sha-<commit>`  | immutable | rollback target        |
+| Package                                   | Tag            | Kind      | Used for               |
+| ----------------------------------------- | -------------- | --------- | ---------------------- |
+| `ghcr.io/felzab/frankfurtleague-frontend` | `latest`       | moving    | what `deploy.sh` pulls |
+| `ghcr.io/felzab/frankfurtleague-frontend` | `sha-<commit>` | immutable | rollback target        |
+| `ghcr.io/felzab/frankfurtleague-backend`  | `latest`       | moving    | what `deploy.sh` pulls |
+| `ghcr.io/felzab/frankfurtleague-backend`  | `sha-<commit>` | immutable | rollback target        |
 
-Ordered `<service>-<qualifier>` so that alphabetical listings group each service together.
+**Both packages are public**, which is what lets the server pull anonymously — there is no token on
+the production host to manage or expire. A pull failing there with an authentication or "not found"
+error almost always means a package was left private after a first push, not that credentials are
+missing.
 
 Every image also carries OCI labels — `org.opencontainers.image.revision`, `.created` and `.version` —
 recording the commit it was built from.
 
 ### Keeping old tags from piling up
 
-**Locally, `publish.sh` handles it.** After every push succeeds it deletes local `*-sha-*` tags other
-than the one it just built. That is safe because `deploy.sh` rolls back by _pulling_ a pinned tag, so
+**Locally, `publish.sh` handles it.** After every push succeeds it deletes local `:sha-*` tags in
+both packages other than the one it just built. That is safe because `deploy.sh` rolls back by _pulling_ a pinned tag, so
 the registry is the rollback mechanism and a local sha tag is only a build byproduct.
 
 Left alone they never expire on their own. Each publish re-points the moving tag, but the superseded
@@ -222,7 +224,7 @@ it. That is roughly **750 MB per publish**, with no upper bound.
 **In the registry, prune by hand.** This is deliberately not automated: a botched registry delete
 destroys rollback history, and rollback is the one thing that has to work on your worst day.
 
-Keep roughly the last five sha tags per service. To decide what goes:
+Keep roughly the last five `sha-` tags in each package. To decide what goes:
 
 1. **Never delete what is live.** Read it from the server, do not recall it:
 
@@ -232,8 +234,9 @@ Keep roughly the last five sha tags per service. To decide what goes:
 
    The `commit` line comes from the image's own OCI label, so it is true even if a tag was moved.
 
-2. **Never delete what the moving tag points at.** On Docker Hub, `frontend` and
-   `frontend-sha-<commit>` sharing a digest means they are the same image.
+2. **Never delete what the moving tag points at.** In the package's version list, `latest` and
+   `sha-<commit>` sharing a digest means they are the same image — deleting that version removes
+   both tags at once.
 
 3. **Map the rest back to history.** The suffix is the git short SHA, so a tag is one `git log`
    away from its commit:
@@ -244,8 +247,8 @@ Keep roughly the last five sha tags per service. To decide what goes:
 
    Anything older than the last five, and not live, is safe to remove.
 
-Then delete them in the Docker Hub UI: **Repository → Tags**, sort by _Last pushed_, and delete from
-the bottom. Deleting a tag never affects an image already pulled onto the server — only the ability to
+Then delete them from the package: **the package page → Package settings → Manage versions**, which
+lists versions newest first. Reach it from https://github.com/felzab?tab=packages. Deleting a tag never affects an image already pulled onto the server — only the ability to
 pull it again.
 
 ---
@@ -275,7 +278,7 @@ Tags matter only for going backwards — and you read them rather than recall th
 ```
 $ ./scripts/deploy.sh --status
 frontend:  healthy
-           image    felzab/frankfurtleague:frontend
+           image    ghcr.io/felzab/frankfurtleague-frontend:latest
            commit   1a2b3c4
            built    2026-07-30T09:12:44Z
 ```

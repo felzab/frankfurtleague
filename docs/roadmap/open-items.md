@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `1893e6a`, 2026-08-01
+**Verified against:** `73a782b`, 2026-08-01
 
 Findings and undecided questions with real analysis and no decision yet. Migrated here from the
 documentation programme's ledger when that file was retired (2026-08-01); each entry keeps its full
@@ -102,81 +102,6 @@ merely retired. It would also put the season's `rules.win_points` / `draw_points
 which matters if the statistics calculation is ever wired to read them instead of hardcoding 3/1/0.
 
 **Cost:** three CRUD surfaces plus admin UI for data that changes a few times a year.
-
-## OPS-1 — migrate the container images from Docker Hub to GitHub Container Registry
-
-**State: open, owner-raised 2026-08-01** alongside taking the repository public.
-
-**Today:** `publish.sh` pushes both images to **Docker Hub** on the free plan — one private
-repository, with tag prefixes separating the two services — and the registry is the **rollback
-mechanism**: `deploy.sh` rolls back by pulling pinned `-sha-` tags, which is why Docker Hub
-retention is deliberately manual (a botched registry delete destroys rollback). The images' OCI
-`source` label already points at the GitHub repo.
-
-**Why ghcr.io fits now:** one account and one auth story next to the now-public code, free for
-public images, per-service repositories (`frankfurtleague-frontend` / `-backend`) instead of
-tag-multiplexing one repo, and packages linked to the repository page.
-
-**What the migration touches:** `scripts/publish.sh` (registry host, image names, login),
-`scripts/deploy.sh` and both compose files (pull URLs; the server needs a `read:packages` token),
-`scripts/README.md` and `docs/ops/` (registry claims), and — the part not to lose — **rollback
-continuity**: the historical `-sha-` tags live on Docker Hub, so either re-push the last ~5 per
-service to ghcr before switching, or accept that rollback history restarts at the migration.
-A history rewrite of the git repo also means pre-rewrite OCI `revision` labels no longer match any
-commit — re-pushing old tags does not fix that; only new publishes carry valid labels.
-
-**The quota is the deciding constraint, and it points at public images.** GitHub Packages is free
-and unlimited for **public** packages, but a free personal account gets **500 MB of storage and
-1 GB/month transfer for private ones — shared with GitHub Actions artifacts** — and publishing is
-blocked once that is used up with no payment method on file. The two images measure ~370 MB and
-~379 MB uncompressed (roughly half that as compressed layers, deduplicated across `-sha-` tags), so
-private images plus a few rollback tags sit at or past the limit. Docker Hub's free plan is the more
-generous option for _private_ images, which is the whole reason `publish.sh` multiplexes both
-services into one private repo. **So migrating on the free tier effectively means making the images
-public** — defensible once the source is public, since no secret is baked into a layer and `.env`
-files are excluded from the build context, but it is a decision to take deliberately.
-Source: [GitHub Packages billing](https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-packages/about-billing-for-github-packages).
-
-**Concentration risk: assessed and accepted (owner, 2026-08-01).** After the migration a GitHub
-outage would block code, CI and image pulls at once, where today Hub and GitHub fail independently.
-The owner's position is that this project tolerates it — deploys are manual, unhurried, and nothing
-depends on shipping during an outage. Two things soften it further: the server's previously deployed
-images normally remain in its local Docker storage, so an emergency rollback can run from the local
-tag without reaching any registry, and keeping the last few Docker Hub `-sha-` tags until a ghcr
-rollback has been exercised once costs nothing.
-
-**Decision points remaining:** public or private images (see the quota above), and per-service repos
-versus keeping the tag-multiplexed layout.
-
-## BE-10 — the backend manifest declares 47 dependencies and imports 7
-
-**Found 2026-08-01**, when Dependabot's first `uv` run failed. Not in any report.
-
-`fl_backend/pyproject.toml` lists 47 runtime dependencies. Measured against every `import` in `app/`
-and `tests/`, exactly **seven** are imported: `fastapi`, `motor`, `pydantic`, `pydantic-core`,
-`pydantic-settings`, `pymongo`, `starlette`. A further handful are legitimate runtime-only
-dependencies that are installed but never imported — `uvicorn` (the server), `email-validator`
-(required by pydantic's `EmailStr`), `python-dotenv` (read by pydantic-settings), `tzdata`, and
-uvicorn's `httptools`/`websockets`/`watchfiles` extras.
-
-Everything else — `anyio`, `certifi`, `click`, `colorama`, `h11`, `httpcore`, `idna`, `jinja2`,
-`markdown-it-py`, `markupsafe`, `mdurl`, `pygments`, `rich`, `rich-toolkit`, `shellingham`,
-`sniffio`, `typer`, `typing-extensions`, `typing-inspection`, `urllib3`, `annotated-types`,
-`dnspython`, `pyyaml`, and the odder `style` / `detect-installer` / `fastar` / `annotated-doc` /
-`rignore` — is transitive. This is the signature of a manifest derived from `pip freeze` rather
-than written.
-
-**Why it is not cosmetic.** A manifest is meant to state what the project needs; the lockfile
-records what that resolves to. Declaring transitives inverts that: every upstream change can
-produce a conflict that has to be hand-resolved, the file no longer answers "what does this project
-actually depend on", and dependency tooling generates churn over packages nobody chose. The
-Dependabot failure is the first concrete cost — see the `ignore` entry now carrying the
-explanation in `.github/dependabot.yml`.
-
-**The fix is not mechanical**, which is why it is filed rather than done: pruning to the ~12 real
-dependencies means re-locking and proving nothing broke — the 238 tests plus a backend image build,
-since some of those packages are needed at runtime without ever being imported. Backend audit pass
-B4 owns it (`_auditing/prompts/backend-4-architecture.md`, check 7, "tooling config vs reality").
 
 ## OPS-2 — nothing validates the contents of a restored `.env`
 

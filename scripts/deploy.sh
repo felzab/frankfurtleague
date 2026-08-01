@@ -16,7 +16,7 @@
 #   6. on success, prints the live security headers; on failure, prints the rollback command
 #
 # USAGE:
-#   ./scripts/deploy.sh                    deploy the current :frontend / :backend tags
+#   ./scripts/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
 #   ./scripts/deploy.sh --status           report what is running right now, change nothing
 #   ./scripts/deploy.sh --help
@@ -68,8 +68,13 @@ if (( STATUS_ONLY )); then
     printf '       %-9s built    %s\n' "" "$(image_created_display "$img")"
   done
   step "Published builds available to roll back to"
-  docker image ls "$DOCKER_REPO" --format '       {{.Tag}}\t{{.CreatedSince}}' | sort | grep -- "-sha-" || \
-    info "none pinned locally — pull one first: docker pull ${DOCKER_REPO}:frontend-sha-XXXXXXX"
+  # Two calls, not one with both repos: `docker image ls` accepts at most one repository argument.
+  # Matched on the TAG, not the substring `-sha-`: since ADR-0017 the tag is `sha-1a2b3c4` with no
+  # service prefix, so the old substring match would report "none pinned" forever.
+  { docker image ls "$REPO_FRONTEND" --format '       {{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; \
+    docker image ls "$REPO_BACKEND"  --format '       {{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; } \
+    | sort | grep -E ':sha-' || \
+    info "none pinned locally — pull one first: docker pull ${REPO_FRONTEND}:sha-XXXXXXX"
   exit 0
 fi
 
@@ -82,17 +87,20 @@ require_dir  "certs"            "nginx mounts this read-only for the TLS certifi
 # --- pull -------------------------------------------------------------------------------------------
 if [[ -n "$PIN" ]]; then
   step "Pinning to ${PIN}"
-  docker pull "${DOCKER_REPO}:frontend-${PIN}" || die "No such published tag: frontend-${PIN}
-       List what exists: docker image ls '${DOCKER_REPO}'"
-  docker pull "${DOCKER_REPO}:backend-${PIN}"  || die "No such published tag: backend-${PIN}"
+  docker pull "${REPO_FRONTEND}:${PIN}" || die "No such published tag: ${REPO_FRONTEND}:${PIN}
+       List what exists locally: docker image ls '${REPO_FRONTEND}'
+       Published builds are at https://github.com/felzab?tab=packages"
+  docker pull "${REPO_BACKEND}:${PIN}"  || die "No such published tag: ${REPO_BACKEND}:${PIN}"
   # Point the moving tags at the pinned build, so compose (which references them) picks it up.
-  docker tag "${DOCKER_REPO}:frontend-${PIN}" "$IMAGE_FRONTEND"
-  docker tag "${DOCKER_REPO}:backend-${PIN}"  "$IMAGE_BACKEND"
-  ok "local :frontend and :backend now point at ${PIN}"
+  docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND"
+  docker tag "${REPO_BACKEND}:${PIN}"  "$IMAGE_BACKEND"
+  ok "both :latest tags now point at ${PIN} locally"
 else
   step "Pulling the current published images"
   docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
-       If this is an authentication error: docker login -u felzab"
+       The packages are public, so this server needs no login. An authentication or
+       'not found' error almost always means the package was left PRIVATE after a
+       first push — check https://github.com/felzab?tab=packages"
   docker pull "$IMAGE_BACKEND"  || die "pull failed for ${IMAGE_BACKEND}"
 fi
 
@@ -150,7 +158,7 @@ else
     warn "To roll back to what was working:  ./scripts/deploy.sh sha-${PREV_TAG}"
   else
     printf '\n'
-    warn "Rollback targets:  docker image ls '${DOCKER_REPO}'"
+    warn "Rollback targets:  docker image ls '${REPO_FRONTEND}'"
   fi
   exit 1
 fi

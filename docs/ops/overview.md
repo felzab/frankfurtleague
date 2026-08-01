@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `ba71aca`, 2026-08-01
+**Verified against:** `73a782b`, 2026-08-01
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no
@@ -89,11 +89,13 @@ will fail `docker compose build` rather than fail at runtime.
 
 Deployment is `pull` plus in-place container recreation, so the interruption is seconds rather than the
 full outage a `down`/`up` cycle would cause. nginx waits on the frontend's health, so an unhealthy
-deploy is never served. Rollback is pulling a pinned `-sha-<commit>` tag; the registry is the rollback
+deploy is never served. Rollback is pulling a pinned `:sha-<commit>` tag; the registry is the rollback
 mechanism.
 
-Both services share one Docker Hub repository (the free plan allows one private repo), distinguished by
-tag prefix. Every image carries OCI labels recording the commit it was built from — which is why
+Each service has its own **public** package on GitHub Container Registry —
+`ghcr.io/felzab/frankfurtleague-frontend` and `-backend` ([ADR-0017](../_decisions/0017-ghcr-two-public-packages.md)).
+Public is what lets the server pull anonymously, so production holds no registry credentials at all.
+Every image carries OCI labels recording the commit it was built from — which is why
 `deploy.sh --status` can report the live commit truthfully even if a tag was moved.
 
 ## Environments

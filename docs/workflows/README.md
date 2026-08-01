@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `b9f26b1`, 2026-08-01
+**Verified against:** `73a782b`, 2026-08-01
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -371,8 +371,8 @@ unhealthy deploy is never served.
 ```
 
 The `commit` line comes from the image's own OCI label, not the tag name — a tag can be moved, a label
-cannot. Rollback works by pulling a pinned `-sha-<commit>` tag, so **the registry is the rollback
-mechanism**; keep roughly the last five sha tags per service.
+cannot. Rollback works by pulling a pinned `:sha-<commit>` tag, so **the registry is the rollback
+mechanism**; keep roughly the last five `sha-` tags in each package (ADR-0017).
 
 ### The server
 

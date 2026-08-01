@@ -12,8 +12,8 @@
 #     that silently.
 #   • nginx waits on both upstreams being HEALTHY, not merely started, so an unhealthy deploy is
 #     never served to anyone.
-#   • The moving `:frontend` / `:backend` tags are what `deploy.sh` pulls with no argument. Rollback
-#     pins the immutable `-sha-<commit>` tag instead.
+#   • The moving `:latest` tag of each package is what `deploy.sh` pulls with no argument. Rollback
+#     pins the immutable `:sha-<commit>` tag instead. One package per service — see ADR-0017.
 #   • Keep this file and docker-compose.local.yml in step. A difference here is a difference the
 #     local stack will not have caught.
 #
@@ -33,8 +33,9 @@ services:
   frontend:
     env_file: ./fl_frontend/.env
     # A MOVING tag. `publish.sh` re-points it at every publish, so `deploy.sh` with no argument means
-    # "the latest thing I published". Rollback pins the immutable `frontend-sha-<commit>` tag instead.
-    image: felzab/frankfurtleague:frontend
+    # "the latest thing I published". Rollback pins the immutable `:sha-<commit>` tag instead.
+    # The package is public, so this pull needs no credentials on the server.
+    image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
     networks:
       - frankfurtleague-net
@@ -74,7 +75,7 @@ services:
 
   backend:
     env_file: ./fl_backend/.env
-    image: felzab/frankfurtleague:backend
+    image: ghcr.io/felzab/frankfurtleague-backend:latest
     restart: unless-stopped
     networks:
       - frankfurtleague-net

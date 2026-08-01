@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# scripts/publish.sh — build the images and push them to Docker Hub.
+# scripts/publish.sh — build the images and push them to GitHub Container Registry.
 # TARGET PLATFORM: Windows (your development machine).
 #
 # WHAT IT DOES, in order:
@@ -21,14 +21,14 @@
 #   and `docker image prune` never reclaims it. That is ~750 MB per publish, accumulating with no
 #   upper bound. Pruning happens only after every push has succeeded, so the copy that matters is
 #   already in the registry before anything local is touched.
-#   Docker Hub retention is deliberately NOT automated: a botched registry delete destroys rollback
-#   history, and rollback is the one thing that must work on your worst day. Prune it by hand,
-#   keeping roughly the last five. scripts/README.md has the procedure.
+#   Registry retention is deliberately NOT automated: a botched delete destroys rollback history,
+#   and rollback is the one thing that must work on your worst day. Prune it by hand, keeping
+#   roughly the last five per package. scripts/README.md has the procedure.
 #
-# TAGS PUSHED (Docker Hub free plan = one private repo, so tags separate the services):
-#   frankfurtleague:frontend                  moving pointer — what deploy.sh pulls by default
-#   frankfurtleague:frontend-sha-1a2b3c4      immutable — the rollback target
-#   ...and the same two for backend.
+# TAGS PUSHED (one package per service, so the tag says only which build it is — ADR-0017):
+#   ghcr.io/felzab/frankfurtleague-frontend:latest        moving pointer — what deploy.sh pulls
+#   ghcr.io/felzab/frankfurtleague-frontend:sha-1a2b3c4   immutable — the rollback target
+#   ...and the same two for the backend package.
 #
 # Every image also carries OCI labels recording the commit and build time, so the server can report
 # what is running without trusting the tag name.
@@ -71,8 +71,8 @@ else
   warn "Publishing an uncommitted tree as ${QUALIFIER} — this image cannot be rebuilt from git."
 fi
 
-TAG_FE="${DOCKER_REPO}:frontend-${QUALIFIER}"
-TAG_BE="${DOCKER_REPO}:backend-${QUALIFIER}"
+TAG_FE="${REPO_FRONTEND}:${QUALIFIER}"
+TAG_BE="${REPO_BACKEND}:${QUALIFIER}"
 
 step "Publishing ${QUALIFIER}  (branch ${BRANCH})"
 info "frontend -> ${IMAGE_FRONTEND} + ${TAG_FE}"
@@ -114,7 +114,8 @@ fi
 
 if (( DRY_RUN )); then
   printf '\n'; ok "Dry run complete — images built and labelled locally, nothing pushed."
-  info "Inspect with: docker image ls '${DOCKER_REPO}'"
+  info "Inspect with: docker image ls '${REPO_FRONTEND}'"
+  info "          and: docker image ls '${REPO_BACKEND}'"
   exit 0
 fi
 
@@ -124,7 +125,8 @@ for t in "$IMAGE_FRONTEND" "$TAG_FE" "$IMAGE_BACKEND" "$TAG_BE"; do
   # Progress deliberately NOT suppressed: a first push of a ~370 MB image is minutes of silence
   # otherwise, which is indistinguishable from a hang.
   docker push "$t" || die "push failed for ${t}.
-       If this is an authentication error, run: docker login -u felzab"
+       If this is an authentication error, log in with a token carrying write:packages:
+         docker login ghcr.io -u felzab"
 done
 ok "all four tags pushed"
 
@@ -133,8 +135,12 @@ ok "all four tags pushed"
 # is the only copy deploy.sh reads. `docker image rm` on a tag untags it, and deletes the underlying
 # image only when no other tag points at it — so the moving tags built above are never at risk.
 step "Pruning superseded local sha tags"
-superseded="$(docker image ls "$DOCKER_REPO" --format '{{.Repository}}:{{.Tag}}' \
-  | grep -E ':(frontend|backend)-sha-' \
+# `docker image ls` accepts at most ONE repository argument, so this is two calls rather than one
+# with both. Passing both fails, and the `|| true` below would swallow it — the prune would quietly
+# stop working and local sha tags would accumulate again with nothing to show for it.
+superseded="$( { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}'; \
+                 docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}'; } \
+  | grep -E ':sha-' \
   | grep -vxF -e "$TAG_FE" -e "$TAG_BE" || true)"
 
 if [[ -z "$superseded" ]]; then
@@ -149,7 +155,7 @@ else
       warn "could not remove ${old_tag} — left in place"
     fi
   done <<< "$superseded"
-  ok "local sha tags are now ${QUALIFIER} only — older builds remain on Docker Hub"
+  ok "local sha tags are now ${QUALIFIER} only — older builds remain in the registry"
 fi
 
 printf '\n'
