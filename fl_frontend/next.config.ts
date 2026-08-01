@@ -37,7 +37,9 @@ const nextConfig: NextConfig = {
     },
   },
   experimental: {
-    optimizePackageImports: ["@heroui/react", "@gravity-ui/icons", "@heroui/styles"],
+    // `@heroui/styles` is deliberately absent: it is consumed as CSS, so there are no named imports
+    // for this to barrel-optimise and listing it was a no-op (R1 §9).
+    optimizePackageImports: ["@heroui/react", "@gravity-ui/icons"],
   },
   output: "standalone",
   cacheComponents: true,

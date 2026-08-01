@@ -16,7 +16,7 @@
   "htmlWhitespaceSensitivity": "css",
   "embeddedLanguageFormatting": "auto",
   "plugins": ["@ianvs/prettier-plugin-sort-imports", "prettier-plugin-tailwindcss"],
-  "tailwindFunctions": ["tv", "cn", "clsx"],
+  "tailwindFunctions": ["tv"],
   "importOrder": [
     "^(node:(.*)$)",
     "",

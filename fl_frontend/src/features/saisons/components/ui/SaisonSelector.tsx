@@ -7,7 +7,7 @@ import { Description, ListBox, Select } from "@heroui/react";
 
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { SaisonSlotSkeleton } from "@/shared/components/ui/SaisonSlotSkeleton";
-import useMounted from "@/shared/hooks/useMounted";
+import { useMounted } from "@/shared/hooks/useMounted";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { formatSpielDatum } from "@/shared/utils/format";
 

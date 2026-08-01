@@ -10,9 +10,9 @@ import type { FLSchiedsrichterFilterParams } from "./types";
 export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = {}): Promise<FLSchiedsrichterListResponse> {
   "use cache";
 
-  const tags: string[] = ["schiedsrichter"];
-  if (filters.default_payment) tags.push(`spieler:default_payment:${filters.default_payment}`);
-  cacheTag(...tags);
+  // Base tag only (audit D2). The deleted granular tag was also misnamespaced (`spieler:`) and sat
+  // on a branch that never ran -- getSchiedsrichter is only ever called with no arguments.
+  cacheTag("schiedsrichter");
   cacheLife("days");
 
   return apiClient<FLSchiedsrichterListResponse>("/schiedsrichter", FLSchiedsrichterListResponseSchema, {

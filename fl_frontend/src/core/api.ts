@@ -79,7 +79,15 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   const traceId = `req_${crypto.randomUUID().substring(0, 8)}`; // Id for this fetch call
 
   const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, ...customOptions } = options;
-  const headers = { "X-Correlation-ID": traceId, ...getFetchHeaders(authType), ...customOptions.headers };
+
+  // Built through Headers rather than spread. `FetchOptions extends RequestInit`, so a caller may
+  // legitimately pass a `Headers` instance or a `string[][]` -- and spreading either loses the data
+  // silently: `{...new Headers({a: "1"})}` is `{}`, and `{...[["a","1"]]}` is `{0: [...]}`, a
+  // garbage header name. No caller passes `headers` today; the type is what invites it.
+  const headers = new Headers(getFetchHeaders(authType));
+  headers.set("X-Correlation-ID", traceId);
+  // Caller wins, matching the old spread order.
+  new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);
@@ -96,24 +104,51 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  let res: Response;
-  try {
-    res = await fetch(urlObj, { ...customOptions, headers, signal: controller.signal });
-    clearTimeout(timeoutId);
-  } catch (error) {
-    clearTimeout(timeoutId);
-
-    const isTimeout = error instanceof Error && error.name === "AbortError";
-    throw new APINetworkError({
+  // One shape for both failure points below. `isTimeout` is derived rather than passed because the
+  // abort signal covers the request and the body read alike.
+  const asNetworkError = (error: unknown) =>
+    new APINetworkError({
       message: "Network request failed. Please check your connection.",
-      isTimeout: isTimeout,
+      isTimeout: error instanceof Error && error.name === "AbortError",
       url: urlObj.toString(),
       traceId: traceId,
       originalError: error,
     });
-  }
 
-  const rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
+  // The timer is cleared in `finally` so it bounds the body read as well. Clearing it the moment
+  // `fetch` resolved -- which is when response *headers* arrive -- left `res.json()` unbounded, so a
+  // backend that sent headers and then stalled hung the render well past the 15 s budget.
+  let res: Response;
+  let rawData: unknown;
+  try {
+    try {
+      res = await fetch(urlObj, { ...customOptions, headers, signal: controller.signal });
+    } catch (error) {
+      throw asNetworkError(error);
+    }
+
+    try {
+      rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
+    } catch (error) {
+      // Already the right error, and re-wrapping it would lose the status code.
+      if (error instanceof APIBadStatusError) throw error;
+      // A stalled body aborts here rather than inside `fetch`.
+      if (error instanceof Error && error.name === "AbortError") throw asNetworkError(error);
+
+      // Anything else means the response arrived and its body would not parse. That is malformed
+      // data, not a connection problem -- reporting it as one points the reader at the wrong system,
+      // which is the same mistake `handleFetchResponse` already avoids for non-JSON error responses.
+      throw new APIMalformedDataError({
+        message: "API returned a body that could not be parsed as JSON.",
+        url: res.url,
+        statusCode: res.status,
+        endpoint: endpoint,
+        traceId: traceId,
+      });
+    }
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const validated = schema.safeParse(rawData);
   if (!validated.success) {

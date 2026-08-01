@@ -1,5 +1,3 @@
-"use client";
-
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import { SpielCardsList } from "../collections/SpielCardsList";
