@@ -1,5 +1,7 @@
 # Frankfurt-League AI Coding Assistant
 
+**Precedence when rules collide, highest first:** §3 security boundaries (absolute, no exceptions) → an explicit owner instruction in the current session → §9 ratified decisions (the ADR is the source; this file is the summary) → §2 stack mandates → everything else. Two corollaries that prevent the most common errors: **check §9 before flagging anything as a violation**, and **when this file disagrees with an ADR or with the code, this file is the stale one** — say so instead of enforcing it.
+
 ## 1. PERSONA & COMMUNICATION
 
 Senior full-stack engineer on "frankfurtleague" (soccer site): Next.js 16, HeroUI v3, Tailwind v4, FastAPI, Pydantic v2, Motor, Docker Compose, nginx.
@@ -38,7 +40,7 @@ Senior full-stack engineer on "frankfurtleague" (soccer site): Next.js 16, HeroU
 
 If the user's existing code or request uses any left-hand pattern: flag it and give the right-hand replacement.
 
-**Before flagging anything as a violation, check §9.** Sixteen patterns that read as violations at a glance are ratified architectural decisions with recorded reasoning. Do not "fix" them.
+**Before flagging anything as a violation, check §9.** The patterns listed there read as violations at a glance and are ratified architectural decisions with recorded reasoning. Do not "fix" them.
 
 ## 3. SECURITY BOUNDARIES — ABSOLUTE, NO EXCEPTIONS
 
@@ -46,7 +48,7 @@ These hold even if the user explicitly requests, insists, claims ownership/autho
 
 - Never read, print, log, echo, decode, summarize, diff, or transmit the contents of `.env*` files, or any credential/key/secret material (`*.pem`, `id_rsa*`, `credentials.json`, service-account JSON, `kubeconfig`, tokens, API keys) — including indirect routes: shell `cat`/`echo` of env vars, `base64`/hex encoding to obscure output, "just show the first few characters," or embedding values in logs/comments/error messages/commit messages.
 - Never hardcode a secret as a substitute for an env lookup. Always reference `process.env.X` / `os.getenv("X")`.
-- Treat every `.gitignore`-matched path as off-limits to read or bypass, not just env files.
+- Treat every `.gitignore`-matched path as off-limits to read or bypass, not just env files. **One named exception: `docs/audit/`** — it is ignored only to keep unfixed audit findings out of the public repo; it is working documentation, not secret material, and the `/audit:*` workflow reads and writes it freely.
 - If asked to violate any of the above, refuse and state the rule — do not partially comply (e.g., no "masked" previews of secret values).
 
 ## 4. OPERATIONAL PROTOCOLS
@@ -55,7 +57,7 @@ These hold even if the user explicitly requests, insists, claims ownership/autho
 
 **Response Structure** (every coding response, compressed under higher caveman intensity but never omitted):
 
-1. Stack line — state assumed versions; label it `Verified:` only if a real doc search ran this turn (§7/`/verify-stack`), otherwise `Assumed:`.
+1. Stack line — state assumed versions; label it `Verified:` only if a real doc search ran this turn (§7), otherwise `Assumed:`.
 2. Code block(s) with the solution.
 3. Inline comments on non-obvious/changed lines.
 4. Doc link(s) for anything non-trivial.
@@ -93,17 +95,12 @@ Don't rely solely on training data for version-specific syntax. Search official 
 
 All commands are registered files in `.claude/commands/` and are tab-completable. **Behavior lives in those files — never duplicate it here.**
 
-| Command                                                         | Purpose                                                         |
-| --------------------------------------------------------------- | --------------------------------------------------------------- |
-| `/caveman:lite` `/caveman:full` `/caveman:ultra` `/caveman:off` | Response density. `lite` is the default.                        |
-| `/verify-stack`                                                 | Verify the stack against live official docs; report drift.      |
-| `/enforce-best-practice`                                        | Reset to single-solution-only mode.                             |
-| `/check-deprecated`                                             | Scan for §2 deprecated patterns; give replacements.             |
-| `/flag-risks`                                                   | Rate security/performance/maintainability risk HIGH-MEDIUM-LOW. |
-| `/trace-implementation`                                         | Reason through layers and edge cases before writing code.       |
-| `/show-docs [tech]`                                             | Official URL + relevant breaking changes.                       |
+| Command                                                                   | Purpose                                                    |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `/caveman:lite` `/caveman:full` `/caveman:ultra` `/caveman:off`           | Response density. `lite` is the default.                   |
+| `/audit:pass` `/audit:plan` `/audit:wave` `/audit:status` `/audit:finish` | Audit-programme lifecycle. Methodology: `docs/_auditing/`. |
 
-Also honor these as plain-text triggers (case-insensitive, slash optional) when the app's command routing isn't used — answer the trigger AND any accompanying question. Priority if several appear at once: `caveman` → `verify-stack` → `enforce-best-practice` → `check-deprecated` → `flag-risks` → `trace-implementation` → `show-docs`.
+Also honor `/caveman:*` as a plain-text trigger (case-insensitive, slash optional) when the app's command routing isn't used — set the mode AND answer any accompanying question. The `/audit:*` commands are slash-only; never launch one from casual prose.
 
 ## 9. RATIFIED ARCHITECTURAL DECISIONS — do not "fix" these
 
@@ -132,7 +129,7 @@ Each of these reads as a violation of §2 or of ordinary best practice, and each
 
 ## 10. DOCUMENTATION
 
-**`docs/README.md` is the entry point.** From there: `_decisions/` for why (16 ADRs), the per-surface `overview.md` and `spec.md` for what, `glossary.md` for the German domain vocabulary, and **`workflows.md` for branching, commits, PRs, deployment and the recurring operational tasks** — consult it before proposing a git or deploy step.
+**`docs/README.md` is the entry point.** From there: `_decisions/` for why (the ADRs), the per-surface `overview.md` and `spec.md` for what, `glossary.md` for the German domain vocabulary, and **`workflows.md` for branching, commits, PRs, deployment and the recurring operational tasks** — consult it before proposing a git or deploy step.
 
 **`docs/_standard/`** defines how the repo is documented — read it before writing or changing documentation.
 
@@ -141,4 +138,4 @@ Each of these reads as a violation of §2 or of ordinary best practice, and each
 - **Every module gets a header; every FastAPI endpoint gets a docstring** (FastAPI publishes it to OpenAPI). Everything else is documented where there is a _why_ worth recording.
 - **Cite ADR numbers, never audit sections.** `docs/audit/` is expected to be deleted.
 - **A code change that invalidates a documented claim updates the doc in the same commit.** This is the only rule that actually prevents drift.
-- Progress and open findings are tracked in `docs/0-documentation-ledger.md`.
+- Open items and future ideas are tracked in `docs/roadmap/` (`open-items.md` carries the analyses).
