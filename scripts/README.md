@@ -55,6 +55,84 @@ a server that can fail a build.
 
 ---
 
+## Restoring a server checkout
+
+A clone cannot bring four things, because all four are gitignored or generated elsewhere:
+
+| Path               | What it is                         | Restored from                                          |
+| ------------------ | ---------------------------------- | ------------------------------------------------------ |
+| `fl_backend/.env`  | Backend configuration and secrets  | Password manager                                       |
+| `fl_frontend/.env` | Frontend configuration and secrets | Password manager                                       |
+| `certs/`           | TLS certificate and key            | The renewal process, which lives outside this repo     |
+| `nginx/prod.conf`  | Mounted read-only by nginx         | The repository — present after any clone or `git pull` |
+
+`deploy.sh` checks all four **exist** before it pulls anything, and Compose refuses to start a
+service whose `env_file` is missing. **Nothing checks that their contents are valid.** A malformed
+value passes every preflight and surfaces as a container that never becomes healthy — so run the
+checks below after restoring, before deploying.
+
+### Shape checks
+
+Each reveals structure without printing a secret.
+
+```bash
+# prod (Linux) — required backend names. Prints only the names that are absent.
+for k in API_VERSION API_TRUSTED_HOSTS API_CORS_ALLOWED_ORIGINS MONGODB_URI DB_BASE_NAME          INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
+  grep -q "^${k}=" fl_backend/.env || echo "MISSING: ${k}"
+done
+```
+
+```bash
+# prod (Linux) — required frontend names.
+for k in API_URL API_VERSION AUTH_URL AUTH_SECRET AUTH_RESEND_KEY ALLOWED_ADMIN_EMAILS          MONGODB_URI INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
+  grep -q "^${k}=" fl_frontend/.env || echo "MISSING: ${k}"
+done
+```
+
+```bash
+# prod (Linux) — the Mongo host, credentials stripped. Expect a real SRV hostname ending in a
+# public suffix, identical in both files.
+for f in fl_backend/.env fl_frontend/.env; do
+  printf '%s: ' "$f"; grep '^MONGODB_URI=' "$f" | sed 's|.*@||; s|/.*||'
+done
+```
+
+```bash
+# prod (Linux) — the three API keys are 64 characters and identical across both files.
+for k in INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
+  a=$(grep "^${k}=" fl_backend/.env  | cut -d= -f2- | tr -d '
+' | wc -c)
+  b=$(grep "^${k}=" fl_frontend/.env | cut -d= -f2- | tr -d '
+' | wc -c)
+  s=$(grep "^${k}=" fl_backend/.env  | cut -d= -f2- | md5sum | cut -c1-8)
+  t=$(grep "^${k}=" fl_frontend/.env | cut -d= -f2- | md5sum | cut -c1-8)
+  printf '%s len=%s/%s match=%s
+' "$k" "$((a-1))" "$((b-1))"     "$([ "$s" = "$t" ] && echo yes || echo NO)"
+done
+```
+
+Two values cannot be checked locally at all. `API_VERSION` has to match the version hardcoded in the
+backend healthcheck in `docker-compose.yml`, and `AUTH_URL` has to be the real public origin over
+https, or the session cookie loses its `Secure` flag.
+
+### Why this exists
+
+The re-clone on 2026-08-01 restored a `MONGODB_URI` whose host had been truncated from
+`…mongodb.net` to `…mon>` — most likely a shell redirection swallowing part of the string as the
+file was written. Every preflight passed: the file existed, the key was present, the URI parsed.
+pymongo then resolved an SRV name that cannot exist, the startup ping raised `ConfigurationError`,
+and the container crash-looped.
+
+Two things from that are worth carrying forward. **An empty health log with `"FailingStreak": 0`
+means the application died before the first probe** rather than failing its check — read the
+container log, not the healthcheck. And **a rollback cannot help when the host's configuration is
+the cause**, because every published tag fails identically against the same bad value.
+
+The containment worked as designed: nginx waits on `service_healthy` for both upstreams, so it never
+started and visitors got a refused connection rather than a page of 502s.
+
+---
+
 ## `verify.sh` — pre-merge gate
 
 ```bash
@@ -281,14 +359,15 @@ immediately rather than after a platform or Docker check.
 
 ## Troubleshooting
 
-| Symptom                                                  | Cause and fix                                                                 |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `failed to connect to the docker API at npipe:...`       | Docker Desktop is not running. Start it and wait for it to settle.            |
-| `Invalid environment variables: <NAMES>` then no traffic | The startup environment gate. Fix those names in the relevant `.env`.         |
-| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory. `git pull`. |
-| `EBUSY`, or `.next` locked during a build                | A `pnpm dev` is still running, or the folder is open in an editor.            |
-| Deploy reports healthy but the site is unreachable       | Check nginx: `docker compose logs nginx`.                                     |
-| A directory appeared named `something;C`                 | See the Windows note below.                                                   |
+| Symptom                                                   | Cause and fix                                                                                                                                  |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `failed to connect to the docker API at npipe:...`        | Docker Desktop is not running. Start it and wait for it to settle.                                                                             |
+| `Invalid environment variables: <NAMES>` then no traffic  | The startup environment gate. Fix those names in the relevant `.env`.                                                                          |
+| `not a directory` from nginx                              | A mounted config file was missing, so Docker created a directory. `git pull`.                                                                  |
+| `EBUSY`, or `.next` locked during a build                 | A `pnpm dev` is still running, or the folder is open in an editor.                                                                             |
+| Deploy reports healthy but the site is unreachable        | Check nginx: `docker compose logs nginx`.                                                                                                      |
+| Container unhealthy, health log empty, `FailingStreak: 0` | The app died before the first probe. Read `docker compose logs <service>`; usually a malformed `.env` value — see Restoring a server checkout. |
+| A directory appeared named `something;C`                  | See the Windows note below.                                                                                                                    |
 
 ### Windows
 
