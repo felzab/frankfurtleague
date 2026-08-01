@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `73a782b`, 2026-08-01
+**Verified against:** `e340056`, 2026-08-01
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -48,7 +48,17 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `/`              | `frontend:3000` | Catch-all                                                           |
 
 Server blocks: port 80 redirects to HTTPS and strips `www.`; a `default_server` block on 443 rejects
-unknown hosts with `ssl_reject_handshake`; the real server block serves `frankfurtleague.de`.
+unknown hosts with `ssl_reject_handshake`; a second HTTPS block serves `www.frankfurtleague.de` and
+301s to the apex; the real server block serves `frankfurtleague.de`.
+
+**The www block over HTTPS is not redundant with the port-80 redirect.** HSTS carries
+`includeSubDomains`, so a browser that has visited once forces `https://` on `www` and never issues
+the plaintext request the port-80 block would have caught. Without a `www` HTTPS block that request
+matches the catch-all and has its handshake rejected — observed 2026-08-01 as a public `525`.
+
+**A Cloudflare proxy sits in front of nginx** (see the [overview](overview.md)), so a visitor's TLS
+terminates there and an origin-side failure can surface as a Cloudflare status code that names
+neither nginx nor the block responsible.
 
 Proxy headers set globally: `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`,
 `X-Forwarded-Host`, `X-Forwarded-Port`, HTTP/1.1.
