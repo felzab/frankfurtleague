@@ -109,9 +109,14 @@ There is no `SECURITY.md` and no published disclosure policy yet.
 
 ## License
 
-**Not yet licensed.** No `LICENSE` file exists, which means default copyright applies and others have
-no right to use, copy or modify this code. Adding one is a prerequisite for open-sourcing this in any
-meaningful sense.
+**Source-available, not open source.** See [`LICENSE`](LICENSE).
+
+The source is published so it can be read, studied and contributed to. You may fork it to prepare a
+contribution and run it locally to test that contribution. You may **not** deploy it, host it, reuse
+parts of it in another project, or redistribute it. The name and the logo are not licensed at all.
+
+To ask for anything beyond that, get in touch via
+[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).
 
 ## Links
 

@@ -1,0 +1,68 @@
+Frankfurt-League — Source-Available License
+Copyright (c) 2026 Felix Zabudkin. All rights reserved.
+
+SPDX-License-Identifier: LicenseRef-Frankfurt-League-Source-Available
+
+This software is NOT open source. The source code is published so that it can be
+read, studied and contributed to. It is not published for reuse.
+
+1. PERMITTED
+
+   You may:
+
+   a. view, read and study this source code;
+   b. clone or fork this repository for the sole purpose of preparing a
+      contribution back to it;
+   c. run the software locally, on your own machine, solely to develop, test or
+      evaluate such a contribution;
+   d. quote short excerpts for the purpose of discussion, review, teaching or
+      commentary, with attribution.
+
+2. NOT PERMITTED
+
+   Without prior written permission from the copyright holder, you may NOT:
+
+   a. deploy, host, publish or otherwise make this software — or any modified or
+      derivative version of it, in whole or in part — available to any third
+      party, whether publicly or privately, and whether or not for a fee;
+   b. use this software, or any part of it, in any other project, product or
+      service;
+   c. copy, adapt or incorporate any portion of this source code into other
+      works, beyond the short excerpts permitted by 1(d);
+   d. redistribute this software or any derivative of it;
+   e. remove or alter this license, the copyright notice, or any attribution.
+
+   For the avoidance of doubt: running your own instance of this application, or
+   of anything substantially derived from it, is not permitted under any
+   circumstances without written permission.
+
+3. CONTRIBUTIONS
+
+   By submitting a contribution (a pull request, patch, or any other
+   modification) you grant the copyright holder a perpetual, worldwide,
+   non-exclusive, irrevocable, royalty-free licence to use, modify, sublicense
+   and distribute that contribution as part of this software, under this or any
+   future licence.
+
+   You confirm that you are entitled to grant that licence, and that your
+   contribution is your own work.
+
+4. NAME, BRANDING AND CONTENT
+
+   The names "Frankfurt-League" and "frankfurtleague", the logo, the brand
+   assets, and the league's data and written content are NOT licensed by this
+   document. No right to use them is granted, expressly or by implication.
+
+5. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+6. PERMISSION
+
+   To request permission for anything section 2 forbids, contact the copyright
+   holder via https://frankfurtleague.de/kontakt.
