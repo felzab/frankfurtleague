@@ -1,14 +1,14 @@
 "use client";
 
-import { tv } from "tailwind-variants";
-
 import { Modal } from "@heroui/react";
+
+import { tv } from "@/shared/utils/tv";
 
 import type { ReactNode } from "react";
 
 /**
  * The one modal appearance. Before this the 20-class dialog string was duplicated byte-for-byte at
- * five sites with two more near-variants (R4 §8.2), so the app had three unrelated modal looks and
+ * five sites with two more near-variants, so the app had three unrelated modal looks and
  * the only one the public ever saw was the odd one out.
  */
 const modalShell = tv({
@@ -44,7 +44,7 @@ export function ModalShell({
   size?: "form" | "confirm";
   /**
    * `"alertdialog"` for an irreversible action, so a screen reader signals it as one instead of
-   * announcing it exactly like the benign create/edit dialogs (R4 §1.3). It reaches react-aria's
+   * announcing it exactly like the benign create/edit dialogs. It reaches react-aria's
    * `useDialog`, which defaults to `"dialog"` and applies whatever it is given.
    */
   role?: "dialog" | "alertdialog";

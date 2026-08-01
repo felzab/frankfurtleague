@@ -57,8 +57,10 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
             </TeamPopoverMenu>
           </span>
 
+          {/* `-strong` for the same reason as in the other two cards: this is text, not a fill, and the
+              plain accents are too light to carry it on a light surface. */}
           <span
-            className={`text-fluid-base px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
+            className={`text-fluid-base px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
             {spielErgebnis}
           </span>
 

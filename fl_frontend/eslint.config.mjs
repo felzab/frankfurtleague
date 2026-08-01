@@ -4,104 +4,90 @@ import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+// Bans the stock `tv`, which merges `text-fluid-*` as a colour and silently drops a text colour set
+// beside it (see `src/shared/utils/tv.ts`). Spread into every `no-restricted-imports` block rather
+// than given its own: flat config resolves a rule by LAST match, so a separate block would replace
+// the layer-boundary patterns below instead of adding to them.
+const RESTRICTED_TV_IMPORT = {
+  name: "tailwind-variants",
+  importNames: ["tv", "createTV"],
+  message: "Import { tv } from '@/shared/utils/tv' — the stock one drops text colours next to a text-fluid-* size.",
+};
+
+const LAYER_BOUNDARY = {
+  core: {
+    group: ["@/features/**", "@/shared/**", "**/features/**", "**/shared/**"],
+    message: "core is infrastructure: it must not depend on shared or features.",
+  },
+  shared: {
+    group: ["@/features/**", "**/features/**"],
+    message: "shared must not import features. Inject via props/children (see Sidemenu.tsx:20).",
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
     rules: {
       "react/no-unescaped-entities": "off",
-      // The targeted half of the Posture B decision (ledger R3b-S9.1b). The enforced CSP keeps
-      // 'unsafe-inline' on script-src, so it does not mitigate script injection -- this does, at
-      // the only place injection could realistically enter this codebase. Measured at 0 existing
-      // violations, so it lands as `error` directly. If you ever genuinely need raw HTML, that is
-      // the moment to reconsider a nonce-based CSP, not the moment to disable this rule.
+
+      // Bans `dangerouslySetInnerHTML`. It is the compensating control for the CSP keeping
+      // 'unsafe-inline' on script-src, so the CSP does not mitigate script injection (ADR-0016).
       "react/no-danger": "error",
-      "@typescript-eslint/consistent-type-imports": [
-        "error",
-        {
-          prefer: "type-imports",
-          fixStyle: "separate-type-imports",
-        },
-      ],
+
+      // Keeps type-only imports out of the runtime graph, so a client component importing a type
+      // from a server-only module does not pull the module in with it.
+      "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "separate-type-imports" }],
+
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
-  // Layer boundaries (audit R2 §2.4). Scoped to `core` and `shared` only — `admin` is a
-  // sanctioned aggregator slice, so a blanket cross-feature ban would flag 47 sites of
-  // which 44 are correct. See CLAUDE.md §9 A7.
+
+  // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
+  // so a blanket cross-feature ban would flag mostly-correct sites (ADR-0012).
   {
     files: ["src/core/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["@/features/**", "@/shared/**", "**/features/**", "**/shared/**"],
-              message: "core is infrastructure: it must not depend on shared or features.",
-            },
-          ],
-        },
-      ],
-    },
+    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT], patterns: [LAYER_BOUNDARY.core] }] },
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["@/features/**", "**/features/**"],
-              message: "shared must not import features. Inject via props/children (see Sidemenu.tsx:20).",
-            },
-          ],
-        },
-      ],
-    },
+    ignores: ["src/shared/utils/tv.ts"],
+    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT], patterns: [LAYER_BOUNDARY.shared] }] },
+  },
+  // `tv.ts` builds the wrapper, so it keeps the layer boundary but not the tv ban.
+  {
+    files: ["src/shared/utils/tv.ts"],
+    rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.shared] }] },
+  },
+  {
+    files: ["src/features/**/*.{ts,tsx}", "src/app/**/*.{ts,tsx}"],
+    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT] }] },
   },
 
-  // R4 Phase 0.1 — catches unresolvable utilities such as `bg-surface-muted` (R4 §6.3), a bug
-  // class invisible to tsc, ESLint and the Tailwind Prettier plugin. Rule was named
-  // `no-unregistered-classes` when R4 was written; it is `no-unknown-classes` in v4.x.
   {
     files: ["src/**/*.{ts,tsx}"],
     plugins: { "better-tailwindcss": betterTailwindcss },
     settings: {
-      // detectComponentClasses picks up the `@layer components` classes in globals.css
-      // (soccer-field-base, corner-arc-*, penalty-area-*); without it they report as unknown.
+      // `detectComponentClasses` picks up the `@layer components` classes in globals.css; without it
+      // they report as unknown.
       "better-tailwindcss": { entryPoint: "src/app/globals.css", detectComponentClasses: true },
     },
     rules: {
-      // `error` as of Wave 5a. It is the only check in the toolchain that can see a class name
-      // resolving to nothing -- tsc, the Tailwind Prettier plugin and the browser all accept
-      // `bg-surface-muted` (R4 §6.3) and `animate-appearance-in` (a HeroUI v2 utility that did not
-      // survive v3) in silence, and both shipped.
+      // Catches a class name that resolves to nothing. It is the only check in the toolchain that
+      // can — tsc, the Prettier plugin and the browser all accept `bg-surface-muted` in silence.
       "better-tailwindcss/no-unknown-classes": "error",
 
-      // `error` as of Wave 7, at 0 existing violations. Partial cover for the defect that wave
-      // shipped: `${card()}${cond ? " hidden lg:block" : ""}` relied on a space INSIDE the string,
-      // and `prettier --write` -- which `verify.sh` runs first -- trims class strings, so the space
-      // vanished and the classes fused into `...cardclasseshidden`. tsc, the build and the browser
-      // all accept that silently.
-      // Know its limit, measured rather than assumed: this catches a literal abutting an
-      // interpolation (`text-sm${cond ? ... }`) but NOT two adjacent interpolations, which is
-      // exactly the shape that shipped -- it cannot see inside `card()`. The convention is what
-      // actually prevents it: **put the separating space in the template literal, never inside a
-      // class string.** This rule is the half of that a machine can enforce.
+      // Catches class strings fused by interpolation. Partial cover only: it sees a literal abutting
+      // an interpolation, not two adjacent interpolations. The convention is the real fix — **put the
+      // separating space in the template literal, never at the end of a class string.**
       "better-tailwindcss/no-concatenated-classes": "error",
     },
   },
 
-  // R4 Phase 0.2 — eslint-config-next already registers the `jsx-a11y` plugin (and enables 8 of its
-  // rules), so re-registering it is a flat-config error. Only the rule set is taken from here; the
-  // direct devDependency is what pins the version this list is derived from.
-  //
-  // `error` as of Wave 6, which cleared the inherited violations. The two that remain are suppressed
-  // at their sites with a stated reason (`TeamPopoverMenu`, `ExpandableDescription`): both are
-  // pointer conveniences over controls that are already keyboard-accessible, and giving either an
-  // interactive role would invent a second control for an action that already has one.
+  // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already
+  // registers it, and registering it twice is a flat-config error. Two violations remain, suppressed
+  // at their sites with a reason.
   {
     files: ["src/**/*.{ts,tsx}"],
     rules: jsxA11y.flatConfigs.recommended.rules,

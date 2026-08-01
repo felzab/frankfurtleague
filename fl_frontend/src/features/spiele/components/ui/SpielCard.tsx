@@ -83,8 +83,11 @@ export function SpielCard({
           </TeamPopoverMenu>
         </span>
 
+        {/* `-strong`, not the plain accents: this text sits on `bg-muted`, and the rule the tokens exist
+            to carry is "plain accent for fills, `-strong` for text on a tint". The plain pair measures
+            2.62:1 (success) and 3.83:1 (danger) here in the light theme. All three cards say `-strong`. */}
         <span
-          className={`text-fluid-base w-fit px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success" : "text-danger"}`}>
+          className={`text-fluid-base w-fit px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
           {spielErgebnis}
         </span>
 

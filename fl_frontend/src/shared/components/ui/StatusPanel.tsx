@@ -1,4 +1,4 @@
-import { tv } from "tailwind-variants";
+import { tv } from "@/shared/utils/tv";
 
 import type { ReactNode } from "react";
 

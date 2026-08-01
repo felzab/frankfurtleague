@@ -1,7 +1,15 @@
-import { tv } from "tailwind-variants";
+/**
+ * SHARED · card recipe
+ *
+ * The single source of the card appearance. Every card-shaped surface in the app resolves through this
+ * recipe rather than spelling out its own radius, border and hover — the reasoning, and what the
+ * variants mean, is on the export.
+ */
+
+import { tv } from "@/shared/utils/tv";
 
 /**
- * The one card appearance (ledger NEW-V1). Surveyed across all 8 `<Card>` mounts and the 4
+ * The one card appearance. Surveyed across all 8 `<Card>` mounts and the 4
  * card-shaped `<div>`s, the family agreed on nothing: the three `SpielCard` siblings, which render
  * on the same screens, split `rounded-2xl`/`rounded-xl`, `shadow-xs`/`shadow-sm`, and had three
  * different hover answers — one shadow-only, one none at all, one scale-plus-border. One gesture had

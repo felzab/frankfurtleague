@@ -1,10 +1,10 @@
-import { tv } from "tailwind-variants";
+import { tv } from "@/shared/utils/tv";
 
 /**
  * The app's "nothing here" language. Eight views rendered a blank region when their collection was
  * empty — `/dashboard/playoffs` most visibly, where an explicit `return null` produced a completely
- * empty content area for most of a season (R4 §12.2). The six that did say something used four
- * different visual treatments (R4 §12.3).
+ * empty content area for most of a season. The six that did say something used four
+ * different visual treatments.
  *
  * `tone="positive"` is the one justified deviation, preserved as a declared variant rather than an
  * accident: in the admin action-required view an empty category genuinely is good news.
