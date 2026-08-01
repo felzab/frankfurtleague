@@ -74,7 +74,7 @@ Consequence worth knowing: with a `saison_id` in play the join is strict, so a t
 empty statistics.
 
 > ⚠️ There is an unresolved read/write mismatch around `statistik` — see **Finding F4** in
-> [`0-documentation-ledger.md`](0-documentation-ledger.md). Read it before trusting the league table.
+> [`roadmap/open-items.md`](roadmap/open-items.md). Read it before trusting the league table.
 
 ### `Spieler` — player
 

@@ -33,8 +33,8 @@ Central, organised **per surface**. No per-file documentation — that job belon
 docs/
 ├── _standard/              this folder — how the repo is documented
 ├── _decisions/             ADRs — 0001-*.md, plus README.md and the index
-├── 0-documentation-ledger.md   what has been documented, and what is left
 ├── README.md               entry point
+├── roadmap/                open items and future ideas
 ├── glossary.md             the German domain vocabulary
 ├── frontend/
 │   ├── overview.md
@@ -46,7 +46,8 @@ docs/
 ├── ops/
 │   ├── overview.md
 │   └── spec.md
-└── audit/                  the historical five-pass audit + remediation ledger
+├── _auditing/              how audit programmes are run, plus their permanent final reports
+└── audit/                  gitignored, local-only — the working documents of a running audit
 ```
 
 A per-slice page exists **only where a slice deviates**. Twelve slices that follow the template cost
@@ -62,8 +63,7 @@ Two rules, which between them decide where anything new goes:
   surfaces and never read as a fourth one.
 - **A single cross-cutting reference document sits at the root as a file.** `glossary.md` and
   `workflows.md` belong to no surface and have no siblings, so wrapping either in a directory would add
-  a level of navigation for one file. `README.md` is the entry point and `0-documentation-ledger.md`
-  tracks the work.
+  a level of navigation for one file. `README.md` is the entry point.
 
 So the test for something new is: _does it belong to one surface?_ If yes, it goes in that surface's
 directory. If no, it is a root-level file — until there are two or three of them on one theme, at which
@@ -271,8 +271,8 @@ Four rules (DS8):
 
 3. **A code change that invalidates a documented claim updates the doc in the same commit.** This is
    the only rule that actually prevents drift, and it goes into CLAUDE.md.
-4. **The ledger tracks coverage and staleness** — [`../0-documentation-ledger.md`](../0-documentation-ledger.md) —
-   so progress survives a context reset and can span sessions.
+4. **Open items are tracked in [`../roadmap/open-items.md`](../roadmap/open-items.md)** — findings
+   recorded while documenting go there, with their analyses, rather than being acted on.
 
 ### Accuracy outranks volume
 

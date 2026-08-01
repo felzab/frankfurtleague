@@ -10,3 +10,9 @@ certs/
 # Prevent them by running docker/compose from PowerShell, per CLAUDE.md §5.
 *;C
 *;C/
+
+# Audit working documents (pass reports, remediation ledger, wave reports). Local-only by design:
+# the repo is public, and committing them would publish unfixed findings while they are being
+# remediated. The permanent record of a finished programme lives in docs/_auditing/reports/.
+# This is the one ignored path that is NOT secret material -- CLAUDE.md §3 names the exception.
+docs/audit/

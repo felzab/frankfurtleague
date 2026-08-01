@@ -1,6 +1,6 @@
 > **Part of the documentation standard** — see [`README.md`](README.md) for the whole of it.
 > Governs `docs/_decisions/`. The ADRs themselves are not written yet; extracting them is item **P3-1**
-> in [`../0-documentation-ledger.md`](../0-documentation-ledger.md).
+> in [`../roadmap/open-items.md`](../roadmap/open-items.md).
 
 # Architecture Decision Records
 

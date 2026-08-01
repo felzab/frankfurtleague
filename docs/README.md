@@ -7,15 +7,16 @@ Docker Compose behind nginx on a single host.
 
 ## Start here
 
-| If you want to                                                      | Read                                                     |
-| ------------------------------------------------------------------- | -------------------------------------------------------- |
-| Understand a part of the system                                     | the **overview** for that surface                        |
-| Look up an exact contract, or check whether something is still true | the **spec** for that surface                            |
-| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — 16 ADRs                   |
-| Branch, commit, open a PR, or deploy                                | [`workflows.md`](workflows.md)                           |
-| Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)                             |
-| Write or change documentation                                       | [`_standard/`](_standard/)                               |
-| See what is documented and what is left                             | [`0-documentation-ledger.md`](0-documentation-ledger.md) |
+| If you want to                                                      | Read                                   |
+| ------------------------------------------------------------------- | -------------------------------------- |
+| Understand a part of the system                                     | the **overview** for that surface      |
+| Look up an exact contract, or check whether something is still true | the **spec** for that surface          |
+| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — 16 ADRs |
+| Branch, commit, open a PR, or deploy                                | [`workflows.md`](workflows.md)         |
+| Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)           |
+| Write or change documentation                                       | [`_standard/`](_standard/)             |
+| Run an audit or remediation programme                               | [`_auditing/`](_auditing/)             |
+| See open items and future plans                                     | [`roadmap/`](roadmap/)                 |
 
 ### Coming back after a while?
 
@@ -58,7 +59,7 @@ here.
 
 ## Open findings
 
-Recorded while documenting, deliberately not acted on. Full detail in the ledger.
+Recorded while documenting, deliberately not acted on. Full analyses: [`roadmap/open-items.md`](roadmap/open-items.md).
 
 | #      | Finding                                                                                                                     | Severity                                                                 |
 | ------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -74,7 +75,12 @@ to revisit something once a revalidation route existed — it already did, and t
 
 - [`_decisions/`](_decisions/) — **16 ADRs**, one per architectural decision, append-only. Start at its
   [index](_decisions/README.md); it is the fastest summary of why the codebase is shaped as it is.
-- [`audit/`](audit/) — the five-pass audit and the remediation programme that preceded this
-  documentation. **Historical, and safe to delete:** every decision it held is now an ADR, and the two
-  open items it owned (BE-4, BE-9) have been moved into the ledger's Part 5. It stays in git history
-  either way.
+- [`_auditing/`](_auditing/) — how audit programmes are run: methodology, lessons, prompt library,
+  templates, and the permanent [final reports](_auditing/reports/) of completed programmes
+  (frontend: [2026-07](_auditing/reports/2026-07-frontend.md)). Driven by the `/audit:*` commands.
+- `audit/` — **gitignored and local-only**: the working documents (pass reports, remediation
+  ledger, wave reports) of whatever audit programme is currently running. Deliberately never
+  committed — the repo is public and unfixed findings must not publish. A finished programme's
+  permanent record is its final report in [`_auditing/reports/`](_auditing/reports/); the 2026-07
+  frontend programme's decisions are the 16 ADRs and its open items live in the
+  [`roadmap/open-items.md`](roadmap/open-items.md).

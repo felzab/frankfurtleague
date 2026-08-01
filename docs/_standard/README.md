@@ -13,8 +13,9 @@ to the top of `docs/`.
 | [`4-decisions.md`](4-decisions.md)     | Every decision _about the standard itself_ — DS1–DS11, with rationale and rejected alternatives |
 | [`templates/`](templates/)             | Copy-paste starting points: ADR, spec sheet, surface overview, module header                    |
 
-Work in progress is tracked in [`../0-documentation-ledger.md`](../0-documentation-ledger.md). That file
-tracks _what has been documented_; this folder defines _how_.
+The documentation programme that produced this standard is complete; open items it left behind
+live in [`../roadmap/open-items.md`](../roadmap/open-items.md). This folder defines _how_ the repo
+is documented.
 
 ---
 
