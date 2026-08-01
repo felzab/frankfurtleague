@@ -1,10 +1,10 @@
 # ADR-0021 — Static assets reach the edge uncompressed
 
-**Status:** Accepted
+**Status:** Superseded
 **Date:** 2026-08-01
 **Surface:** ops, frontend
 **Supersedes:** —
-**Superseded by:** —
+**Superseded by:** [ADR-0022](0022-origin-keeps-compressing.md)
 **Source:** Found while reading response headers after a PageSpeed re-run, when the deployed
 stylesheet measured 35.9 KiB against the 28.0 KiB the same file compresses to under brotli.
 

@@ -52,11 +52,11 @@ rest of this surface's documentation was written as though requests arrive at ng
   server block that caused it.
 - **The headers a visitor receives are whatever survives the proxy.** They match `prod.conf` today,
   verified 2026-08-01, but that is now a property to check rather than assume.
-- **Cloudflare compresses what arrives uncompressed and passes through everything else.** A response
-  that already carries a `Content-Encoding` is cached and served in that encoding forever, so the
-  origin gzipping an asset is what decides that the edge will never brotli it. `/_next/static/` is
-  therefore served uncompressed and `local.conf` deliberately differs from `prod.conf` here.
-  (ADR-0021.) Dynamic HTML is unaffected: it is not cached, and the edge recompresses it (`zstd`).
+- **Cloudflare compresses what arrives uncompressed and passes through everything else**, and its
+  own compression is _worse_ than nginx's gzip on the same file — measured at 38.7 KB (zstd, what
+  Chrome negotiates) against 35.9 KB. So the origin keeps compressing and passthrough is the wanted
+  behaviour, not a problem to route around. (ADR-0022, reversing ADR-0021 — the passthrough mechanism
+  described there is real; only the conclusion drawn from it was wrong.)
 
 The origin remains the authority for routing, rate limiting and the security headers; Cloudflare is a
 layer above it that this repository does not configure. Nothing here manages the Cloudflare account,
