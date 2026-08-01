@@ -43,10 +43,8 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   cacheComponents: true,
-  // Off so static chunks reach Cloudflare as identity and the edge can brotli them; the edge passes
-  // through anything already encoded. `gzip off` in prod.conf's /_next/static/ is the other half and
-  // neither works alone (ADR-0021).
-  compress: false,
+  // Left at the default `true` deliberately: Cloudflare's on-the-fly compression measured WORSE than
+  // this gzip on the same file, so the origin must keep encoding (ADR-0022, reversing ADR-0021).
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written (ADR-0020).
 };

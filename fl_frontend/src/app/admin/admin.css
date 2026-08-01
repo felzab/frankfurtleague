@@ -1,0 +1,31 @@
+/* ADMIN · the component styles only /admin renders
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Imported by `app/admin/layout.tsx`, which is what keeps it out of every public route's stylesheet.
+   Together these are ~87 KB uncompressed — a quarter of what the public pages used to download and
+   parse for a date picker they never show.
+
+   **A component belongs here only if NO public route can reach it.** That was established by walking
+   the import graph from every route entry, following dynamic imports, not by reading the folder
+   names: `Select` and `ListBox` look admin-shaped and are reached by public pages, and `CloseButton`
+   is imported only by an admin form but may be composed by the public `SpielDetailsModal`, so all
+   three stay in `globals.css`.
+
+   Order is HeroUI's own, as in globals.css. `@reference` gives `@apply` inside these files the theme
+   without emitting it twice — several of them use it, and without this the build fails. */
+
+@reference "../globals.css";
+
+/* Forms */
+@import "@heroui/styles/components/number-field.css" layer(components);
+
+/* Date & Time */
+@import "@heroui/styles/components/calendar.css" layer(components);
+@import "@heroui/styles/components/calendar-year-picker.css" layer(components);
+@import "@heroui/styles/components/date-field.css" layer(components);
+@import "@heroui/styles/components/time-field.css" layer(components);
+@import "@heroui/styles/components/date-input-group.css" layer(components);
+@import "@heroui/styles/components/date-picker.css" layer(components);
+
+/* Pickers */
+@import "@heroui/styles/components/combo-box.css" layer(components);
+@import "@heroui/styles/components/autocomplete.css" layer(components);

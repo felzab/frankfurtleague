@@ -1,3 +1,7 @@
+// The component styles only /admin renders. Imported here rather than in `globals.css` so the public
+// routes never download or parse them — see the header of that file.
+import "./admin.css";
+
 import { Suspense } from "react";
 
 import { AdminAuthGuard } from "@/features/admin/components/providers/AdminAuthGuard";
