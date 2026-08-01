@@ -48,7 +48,7 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
@@ -61,13 +61,13 @@ jobs:
         # apt update on every run.
         run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
         with:
           # Pinned rather than read from packageManager: that field lives in fl_frontend/package.json,
           # and the action looks at the repository root.
           version: 11.18.0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: 26
           cache: pnpm
@@ -77,7 +77,7 @@ jobs:
         working-directory: fl_frontend
         run: pnpm install --frozen-lockfile
 
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v7.6.0
         with:
           enable-cache: true
 

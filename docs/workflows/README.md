@@ -235,6 +235,13 @@ Settings → Actions → General:
 
 - **Actions permissions** — GitHub-authored actions allowed, plus an allowlist for the two
   third-party ones in use: `pnpm/action-setup@*` and `astral-sh/setup-uv@*`.
+- **Every action is pinned to an exact version**, never a floating major tag. A `@v7` tag moves
+  under you: what CI executed last week is not necessarily what it executes today, and the window
+  where a repointed tag changes your build is exactly the supply-chain risk pinning closes. The
+  trade accepted in return is that upstream patches no longer arrive on their own — they arrive as
+  a Dependabot pull request, which is what makes the pins sustainable rather than a thing that
+  rots. **When adding an action, pin it and verify the tag exists** by fetching its raw
+  `action.yml` (see the note under the verification gate).
 - **Fork pull request workflows** — _require approval for all outside collaborators_. On a public
   repository anyone can fork and open a pull request; without this, a stranger's first PR runs
   workflows unreviewed. Both workflows trigger on `pull_request` rather than `pull_request_target`,
