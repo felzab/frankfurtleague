@@ -61,6 +61,18 @@ updates:
       backend-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # pydantic-core is NOT an ordinary dependency: each pydantic release pins it with an exact
+      # `==`, so its version is owned by pydantic and cannot move independently. It is declared in
+      # pyproject.toml because app/shared/schemas/custom.py imports it directly (CoreSchema,
+      # core_schema), which is correct -- but that declaration made Dependabot treat it as
+      # updatable, and every attempt failed with an unsatisfiable resolution ("your project depends
+      # on pydantic>=2.13.4 and pydantic-core==2.47.0"). It would have failed on every run forever.
+      #
+      # Ignoring it loses nothing: pydantic-core still moves, it just moves when pydantic does,
+      # through pydantic's own pin. Do not remove this entry without also removing the direct
+      # dependency -- and do not remove the direct dependency while the import exists.
+      - dependency-name: pydantic-core
 
   # --- Base images ----------------------------------------------------------------------------
   # Both Dockerfiles pin their base image. A base-image bump is the one update here that the

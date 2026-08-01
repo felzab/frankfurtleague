@@ -170,10 +170,10 @@ CI runs the same script — `.github/workflows/verify.yml`, `--quick` on pull re
 on pushes to `main`.
 
 > **`pnpm format` reaches outside `fl_frontend`, via a hardcoded list of paths.** It currently covers
-> `../docs`, `../scripts`, `../.claude`, `../.github`, `../README.md` and both compose files. Moving,
-> renaming or adding a root-level file therefore requires editing `fl_frontend/package.json` — and a
-> path that no longer exists makes Prettier exit 2, which fails the whole gate. Moving `CLAUDE.md`
-> into `.claude/` broke `main` exactly this way.
+> `../docs`, `../scripts`, `../.claude`, `../.github`, `../README.md`, `../SECURITY.md`,
+> `../CONTRIBUTING.md` and both compose files. Moving, renaming or adding a root-level file therefore
+> requires editing `fl_frontend/package.json` — and a path that no longer exists makes Prettier exit 2,
+> which fails the whole gate. Moving `CLAUDE.md` into `.claude/` broke `main` exactly this way.
 >
 > **Verify with `./scripts/verify.sh --quick`, never with a hand-written `prettier` command.** Running
 > Prettier directly on the paths you happen to remember is what let that breakage through.
@@ -185,6 +185,81 @@ on pushes to `main`.
 > that has never existed, taken from a bad reading of a release page.
 
 Full detail: [`../scripts/README.md`](../../scripts/README.md).
+
+---
+
+## Repository settings
+
+**Configured 2026-08-01, and written down because nothing else records them.** Repository settings
+live only in GitHub's UI: they are unversioned, invisible in a checkout, and **deleting a repository
+destroys them** — which is not hypothetical here, since recreating the repo during the history
+rewrite reset every one of them to its default. This section is the checklist that restores them.
+
+### Merging
+
+Only **merge commits** are enabled; squash and rebase merging are switched off in
+Settings → General → Pull Requests. That is not a preference — squashing collapses the carefully
+written commit bodies that are this repository's most valuable artifact, and a single accidental
+squash-merge destroys them irreversibly. Disabling the option is what makes the convention
+enforceable rather than merely documented.
+
+### Ruleset on `main`
+
+Settings → Rules → Rulesets, one branch ruleset targeting the default branch, enforcement **Active**.
+
+| Rule                                  | Setting                        |
+| ------------------------------------- | ------------------------------ |
+| Restrict deletions                    | on                             |
+| Block force pushes                    | on                             |
+| Require a pull request before merging | on, **required approvals `0`** |
+| Require status checks to pass         | on, check: **`verify`**        |
+| Require linear history                | **off**                        |
+| Bypass list                           | **empty**                      |
+
+Three of those are counter-intuitive and must not be "corrected":
+
+- **Required approvals stays at `0`.** A single maintainer cannot approve their own pull request, so
+  any value above zero blocks every merge permanently.
+- **Linear history stays off.** It forbids merge commits, and with squash and rebase already
+  disabled, enabling it would leave no permitted merge method at all.
+- **The bypass list stays empty.** The accident this guards against — a force-push to `main` — is
+  the maintainer's own. To perform a deliberate history rewrite, set the ruleset to **Disabled**, do
+  it, and re-enable; that two-step is the intended escape hatch.
+
+`verify` is the only required check. CodeQL deliberately is **not** required: it reports two checks
+and an upstream query-pack problem would block merges for a reason unrelated to the change.
+
+### Actions
+
+Settings → Actions → General:
+
+- **Actions permissions** — GitHub-authored actions allowed, plus an allowlist for the two
+  third-party ones in use: `pnpm/action-setup@*` and `astral-sh/setup-uv@*`.
+- **Fork pull request workflows** — _require approval for all outside collaborators_. On a public
+  repository anyone can fork and open a pull request; without this, a stranger's first PR runs
+  workflows unreviewed. Both workflows trigger on `pull_request` rather than `pull_request_target`,
+  so a fork's run receives no secrets and no write token — keep it that way.
+- **Default workflow permissions** — read-only, and Actions may not create or approve pull requests.
+  Both workflows declare their own `permissions:` block, but a future one that forgets inherits this.
+
+### Security
+
+Settings → Security → Advanced Security:
+
+- **Secret scanning** and **push protection** — on. Note the limit: these match known provider token
+  formats, so they will not catch `INTERNAL_API_KEY_*` or `AUTH_SECRET`, which are arbitrary
+  strings. What protects those is `.env*` being gitignored and excluded from both Docker build
+  contexts.
+- **Dependabot alerts** and **Dependabot security updates** — on. These are separate from
+  `.github/dependabot.yml`, which governs only routine monthly version updates; without these
+  toggles a published advisory produces no notification at all.
+- **Code scanning** — configured entirely by `.github/workflows/codeql.yml` (advanced setup). **Do
+  not use the "Set up" button**: it writes a second, competing default configuration through the web
+  editor. The workflow file is the enablement.
+
+**Dependabot version updates need no toggle** — the presence of `.github/dependabot.yml` on the
+default branch is what enables them, which is why that settings entry links to the file instead of
+offering a switch.
 
 ---
 

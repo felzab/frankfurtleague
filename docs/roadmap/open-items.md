@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `8d3111d`, 2026-08-01
+**Verified against:** `1893e6a`, 2026-08-01
 
 Findings and undecided questions with real analysis and no decision yet. Migrated here from the
 documentation programme's ledger when that file was retired (2026-08-01); each entry keeps its full
@@ -39,7 +39,7 @@ result edit rewrites team stats _within that season only_ — does not match the
 not season-scoped at all; its filter is `{"_id": team_id}`. The tag may still be right, but the
 recorded reason for it is not.
 
-**Confidence and limits.** This is a static reading of the code at `52b6ef5`, **not verified
+**Confidence and limits.** This is a static reading of the code at `ba71aca`, **not verified
 against a running system or real data**. Ways it could be wrong: `saison_teams` documents might be
 regenerated from `teams` by something outside this repository, or the deployed data might carry
 `statistik` in both places. Either would change the conclusion.
@@ -147,6 +147,36 @@ rollback has been exercised once costs nothing.
 
 **Decision points remaining:** public or private images (see the quota above), and per-service repos
 versus keeping the tag-multiplexed layout.
+
+## BE-10 — the backend manifest declares 47 dependencies and imports 7
+
+**Found 2026-08-01**, when Dependabot's first `uv` run failed. Not in any report.
+
+`fl_backend/pyproject.toml` lists 47 runtime dependencies. Measured against every `import` in `app/`
+and `tests/`, exactly **seven** are imported: `fastapi`, `motor`, `pydantic`, `pydantic-core`,
+`pydantic-settings`, `pymongo`, `starlette`. A further handful are legitimate runtime-only
+dependencies that are installed but never imported — `uvicorn` (the server), `email-validator`
+(required by pydantic's `EmailStr`), `python-dotenv` (read by pydantic-settings), `tzdata`, and
+uvicorn's `httptools`/`websockets`/`watchfiles` extras.
+
+Everything else — `anyio`, `certifi`, `click`, `colorama`, `h11`, `httpcore`, `idna`, `jinja2`,
+`markdown-it-py`, `markupsafe`, `mdurl`, `pygments`, `rich`, `rich-toolkit`, `shellingham`,
+`sniffio`, `typer`, `typing-extensions`, `typing-inspection`, `urllib3`, `annotated-types`,
+`dnspython`, `pyyaml`, and the odder `style` / `detect-installer` / `fastar` / `annotated-doc` /
+`rignore` — is transitive. This is the signature of a manifest derived from `pip freeze` rather
+than written.
+
+**Why it is not cosmetic.** A manifest is meant to state what the project needs; the lockfile
+records what that resolves to. Declaring transitives inverts that: every upstream change can
+produce a conflict that has to be hand-resolved, the file no longer answers "what does this project
+actually depend on", and dependency tooling generates churn over packages nobody chose. The
+Dependabot failure is the first concrete cost — see the `ignore` entry now carrying the
+explanation in `.github/dependabot.yml`.
+
+**The fix is not mechanical**, which is why it is filed rather than done: pruning to the ~12 real
+dependencies means re-locking and proving nothing broke — the 238 tests plus a backend image build,
+since some of those packages are needed at runtime without ever being imported. Backend audit pass
+B4 owns it (`_auditing/prompts/backend-4-architecture.md`, check 7, "tooling config vs reality").
 
 ## BE-6 — `CustomObjectId` validates nothing in JSON mode
 
