@@ -52,14 +52,14 @@ jobs:
         language: [javascript-typescript, python]
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           # Same reasoning as verify.yml: the token is not needed after checkout, and leaving it in
           # .git/config exposes it to every later step.
           persist-credentials: false
 
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@v4.37.3
         with:
           languages: ${{ matrix.language }}
           build-mode: none
@@ -69,4 +69,4 @@ jobs:
           # To escalate: add `queries: security-extended` here.
 
       - name: Analyse
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@v4.37.3
