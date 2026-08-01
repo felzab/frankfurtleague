@@ -1,0 +1,72 @@
+name: codeql
+
+# Static analysis for the two first-party languages. Advanced setup rather than GitHub's default
+# setup, deliberately: default setup configures itself invisibly in repository settings, and this
+# repository already treats invisible configuration as a defect worth documenting. Here the query
+# suite, the schedule and the trigger set are version-controlled and reviewable like everything else.
+#
+# WHAT THIS DOES NOT COVER, so nobody mistakes a green run for an audit: CodeQL finds
+# pattern-matchable vulnerability classes -- injection, XSS, path traversal, unsafe deserialization.
+# It has no opinion about business logic. It cannot see that team statistics are written to one
+# collection and read from another (open item F4), nor an authorization gap that is a valid program
+# doing the wrong thing. Those belong to the audit programme in docs/_auditing/.
+#
+# Dependencies are NOT installed for either language. CodeQL analyses source for JavaScript/
+# TypeScript and Python, so `build-mode: none` is correct and a pnpm/uv install step would only add
+# minutes. Do not "fix" this by adding one.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Query packs are updated upstream, so a scheduled run finds newly published queries against code
+  # that has not changed. Off the hour by convention -- scheduled jobs cluster there and get delayed.
+  schedule:
+    - cron: "37 4 * * 1"
+
+# Least privilege, same reasoning as verify.yml. `security-events: write` is the one addition, and it
+# is what uploads results to the Security tab; without it the analysis runs and the findings vanish.
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  # Same rule as the verify gate: supersede an in-flight PR run, never a run on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      # One language failing should not hide the other language's results.
+      fail-fast: false
+      matrix:
+        # `javascript-typescript` covers fl_frontend, `python` covers fl_backend. The matrix is
+        # GitHub's own recommendation over a comma-separated list: separate databases, run in
+        # parallel, reported separately.
+        language: [javascript-typescript, python]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Same reasoning as verify.yml: the token is not needed after checkout, and leaving it in
+          # .git/config exposes it to every later step.
+          persist-credentials: false
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          # The default suite is deliberate. `security-extended` adds queries and false positives in
+          # roughly equal measure, and this codebase has already been through a manual security pass
+          # -- so start quiet and escalate on evidence, which is the same rule the audit method uses.
+          # To escalate: add `queries: security-extended` here.
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@v4

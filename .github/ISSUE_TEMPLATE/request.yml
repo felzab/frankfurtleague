@@ -1,0 +1,54 @@
+name: Feature or change request
+description: Something the site should be able to do, or should do differently
+title: "Area: "
+labels: [enhancement]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If the idea needs analysis before anyone can decide on it, it belongs in
+        [docs/roadmap/open-items.md](https://github.com/felzab/frankfurtleague/blob/main/docs/roadmap/open-items.md)
+        rather than here — that is where undecided questions keep their reasoning. Use this form for
+        something concrete enough to act on.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What are you trying to do, and what makes it hard today? Describe the problem rather than a
+        solution — the problem often has a cheaper answer than the one that prompted the request.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affects
+    attributes:
+      label: Who it affects
+      options:
+        - Just me
+        - Everyone visiting the site
+        - Admins
+        - One team or one season
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do instead today
+      description: If there is a workaround, even an annoying one.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How much it matters
+      options:
+        - Nice to have
+        - Annoying
+        - Blocking something
+    validations:
+      required: true

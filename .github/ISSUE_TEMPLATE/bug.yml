@@ -1,0 +1,74 @@
+name: Bug report
+description: Something on the site behaves wrongly
+title: "Area: "
+labels: [bug]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Not for security problems.** A suspected vulnerability goes to a
+        [private advisory](https://github.com/felzab/frankfurtleague/security/advisories/new)
+        or through [frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt) — never a public
+        issue. See [SECURITY.md](https://github.com/felzab/frankfurtleague/blob/main/SECURITY.md).
+
+        Keep the title in the shape `Area: symptom` — for example
+        `Spielplan: switching Spieltag leaves an empty grid on mobile`.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: One or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Numbered steps from a known starting point, including the URL or route.
+      placeholder: |
+        1. Open /dashboard/spielplan
+        2. Switch to Spieltag 4
+        3. …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Public pages
+        - Dashboard
+        - Admin
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: >
+        A screenshot or console error. **If an error page was shown, include its digest** — that
+        string is written to the server log, so it is the fastest route from your report to the
+        actual stack trace.
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      placeholder: Firefox 141, Android phone, dark theme
+    validations:
+      required: false

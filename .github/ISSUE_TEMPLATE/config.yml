@@ -1,0 +1,12 @@
+# The chooser shown before the issue forms. Blank issues stay enabled: a report that fits no form is
+# better filed shapelessly than not filed at all.
+blank_issues_enabled: true
+
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/felzab/frankfurtleague/security/advisories/new
+    about: Never file a suspected vulnerability as a public issue. Report it privately here, or through frankfurtleague.de/kontakt. See SECURITY.md for what is in scope.
+
+  - name: An idea that needs thinking through first
+    url: https://github.com/felzab/frankfurtleague/blob/main/docs/roadmap/open-items.md
+    about: Undecided questions with real trade-offs live in the roadmap with their full analysis, not in the tracker. Issues are for reports and actionable work.
