@@ -158,6 +158,15 @@ problems live.
 CI runs the same script — `.github/workflows/verify.yml`, `--quick` on pull requests and the full gate
 on pushes to `main`.
 
+> **`pnpm format` reaches outside `fl_frontend`, via a hardcoded list of paths.** It currently covers
+> `../docs`, `../scripts`, `../.claude`, `../.github`, `../README.md` and both compose files. Moving,
+> renaming or adding a root-level file therefore requires editing `fl_frontend/package.json` — and a
+> path that no longer exists makes Prettier exit 2, which fails the whole gate. Moving `CLAUDE.md`
+> into `.claude/` broke `main` exactly this way.
+>
+> **Verify with `./scripts/verify.sh --quick`, never with a hand-written `prettier` command.** Running
+> Prettier directly on the paths you happen to remember is what let that breakage through.
+
 > **When bumping an action version, verify the tag exists by fetching
 > `https://raw.githubusercontent.com/<owner>/<repo>/<tag>/action.yml`.** A 404 means the tag is not
 > there. Release _pages_ render dynamically and summarise unreliably; the raw file is unambiguous.
