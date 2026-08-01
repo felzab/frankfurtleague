@@ -196,9 +196,18 @@ writeFileSync(join(PUBLIC, "manifest", "manifest-192.png"), await png(maskableSv
 writeFileSync(join(PUBLIC, "manifest", "manifest-512.png"), await png(maskableSvg, 512));
 writeFileSync(join(PUBLIC, "manifest", "icon-192.png"), await png(displaySvg, 192));
 writeFileSync(join(PUBLIC, "manifest", "icon-512.png"), await png(displaySvg, 512));
+// `flatten` drops the alpha channel this SVG does not use. The artwork is a full-bleed MAROON
+// rectangle, so every pixel is already opaque -- but rasterising an SVG yields RGBA regardless, and
+// some link-preview renderers still mishandle a transparent PNG. Since the alpha carries nothing,
+// removing it costs nothing and takes a class of "the preview is blank" report off the table.
+// Only this asset is flattened: the icons genuinely need their transparency.
 writeFileSync(
   join(PUBLIC, "opengraph", "opengraph.png"),
-  await sharp(Buffer.from(openGraph()), { density: 192 }).resize(1200, 630).png({ compressionLevel: 9 }).toBuffer(),
+  await sharp(Buffer.from(openGraph()), { density: 192 })
+    .resize(1200, 630)
+    .flatten({ background: MAROON })
+    .png({ compressionLevel: 9 })
+    .toBuffer(),
 );
 
 // ─── The React component ──────────────────────────────────────────────────────

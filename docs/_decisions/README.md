@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Twenty-three decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Twenty-four decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -55,11 +55,12 @@ written.
 | [0021](0021-static-assets-reach-the-edge-uncompressed.md) | Static assets reach the edge uncompressed                    | ops, frontend          | **Superseded** | 2026-08-01 |
 | [0022](0022-origin-keeps-compressing.md)                  | The origin keeps compressing; the edge does not do it better | ops, frontend          | Accepted       | 2026-08-01 |
 | [0023](0023-admin-only-css-split.md)                      | Admin-only component CSS ships in its own stylesheet         | frontend               | Accepted       | 2026-08-01 |
+| [0024](0024-immutable-only-for-hashed-urls.md)            | `immutable` is only for content-hashed URLs                  | frontend, ops          | Accepted       | 2026-08-02 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 · frontend: all
+**By surface** — backend: 0001 · 0002 · 0014 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 · 0024 · frontend: all
 except 0017.
 
 ## Considered, and deliberately not made an ADR

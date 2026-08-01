@@ -21,11 +21,18 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/(.*\\.(?:svg|png|jpg|jpeg|webp|avif|ico))",
+        // Scoped to `public/`, which is everything under /icons — and NOT `immutable`, which is a
+        // promise that the bytes at a URL never change. That promise is only true for a
+        // content-hashed filename; these are stable URLs whose contents `pnpm brand` rewrites in
+        // place, so `immutable` made a changed asset unreachable for a month at every cache between
+        // here and the reader. It did exactly that to the Open Graph image (ADR-0024).
+        // `/_next/static` is untouched here: Next sets its own immutable header there, correctly,
+        // because those filenames carry a content hash.
+        source: "/icons/:path*",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=2629800, s-maxage=2629800, immutable",
+            value: "public, max-age=86400, must-revalidate",
           },
         ],
       },
