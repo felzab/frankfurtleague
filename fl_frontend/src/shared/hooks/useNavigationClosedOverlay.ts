@@ -1,5 +1,15 @@
 "use client";
 
+/**
+ * SHARED · route-closed overlay
+ *
+ * Overlay open-state that closes itself when the route changes. It exists because a client-side
+ * navigation is not an outside interaction, so react-aria's light dismiss never fires, and Next keeps
+ * the previous page mounted in a hidden Activity tree — an overlay left open is still open on return.
+ *
+ * Callers should *also* close explicitly on link press: that is immediate, whereas this effect only
+ * runs once the new pathname commits.
+ */
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 

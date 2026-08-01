@@ -210,9 +210,9 @@ no component tests and no end-to-end suite.
 
 ## 11. Known-open
 
-| #    | Item                                                                    | State                                                    |
-| ---- | ----------------------------------------------------------------------- | -------------------------------------------------------- |
-| F1   | `ausstehend` means `>= today` on the server and `> today` on the client | Open question of intent, not a filed bug. See the ledger |
-| F2   | Pydantic and Zod models are hand-mirrored, no generation step           | Accepted. The main drift risk                            |
-| —    | No in-app sign-out                                                      | Session lifetime (8h) is the only revocation mechanism   |
-| BE-9 | The `is_placeholder` "TBD" team affects bracket rendering               | Tracked in `docs/audit/0-remediation-ledger.md`          |
+| #    | Item                                                                    | State                                                               |
+| ---- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| F1   | `ausstehend` means `>= today` on the server and `> today` on the client | Open question of intent, not a filed bug. See the ledger            |
+| F2   | Pydantic and Zod models are hand-mirrored, no generation step           | Accepted. The main drift risk                                       |
+| —    | No in-app sign-out                                                      | Session lifetime (8h) is the only revocation mechanism              |
+| BE-9 | The `is_placeholder` "TBD" team affects bracket rendering               | Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md) |

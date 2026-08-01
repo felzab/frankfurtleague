@@ -22,13 +22,15 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   const teamsRes = await getTeams({ team_id: team_id, saison_id: await resolveSaisonId(props.searchParams) }).catch(() => null);
   const teamData = teamsRes?.format === "list" ? teamsRes.teams[0] : undefined;
 
-  if (!teamData) return { title: "Team nicht gefunden" };
+  // A branch that returns no canonical inherits the layout's (/dashboard), so an unknown team id
+  // would otherwise resolve to a page claiming to be the dashboard index. noindex says what it is.
+  if (!teamData) return { title: "Team nicht gefunden", robots: { index: false, follow: false } };
 
   return {
     // Becomes "<name> | Frankfurt-League" via dashboard/layout.tsx's title template.
     title: teamData.name,
     description: `Teamdaten, Statistiken und Saisonspiele von ${teamData.full_name || teamData.name} in der Frankfurt-League.`,
-    alternates: { canonical: `https://frankfurtleague.de/dashboard/teams/${team_id}` },
+    alternates: { canonical: `/dashboard/teams/${team_id}` },
   };
 }
 

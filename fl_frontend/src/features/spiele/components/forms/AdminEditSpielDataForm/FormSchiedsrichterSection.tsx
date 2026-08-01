@@ -43,7 +43,7 @@ export function FormSchiedsrichterSection({
   };
 
   // An emptied currency field arrives as NaN and must stay empty. Coercing it to 0 here is what let
-  // a cleared Honorar submit as 0 € without a word (ledger R4-3.1, from NEW-F13) — indistinguishable
+  // a cleared Honorar submit as 0 € without a word — indistinguishable
   // from a referee who genuinely works for free. `null` fails the payload schema instead, which is
   // the honest outcome. The `?? NaN` at the display boundary below is the other half and must stay:
   // RAC types `value?: number`, so `value={null}` is a type error.

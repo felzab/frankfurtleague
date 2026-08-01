@@ -11,9 +11,8 @@ export const metadata: Metadata = {
   title: "Teams",
   description:
     "Hier können alle Teams, die an der laufenden Saison der Frankfurt-League teilnehmen, mit allen wichtigen Informationen, gefunden werden.",
-  keywords: ["Frankfurt-League Teams", "Frankfurt-League Teaminfos", "Frankfurt-League Teamaufstellungen", "Teams"],
   alternates: {
-    canonical: "https://frankfurtleague.de/dashboard/teams",
+    canonical: "/dashboard/teams",
   },
 };
 

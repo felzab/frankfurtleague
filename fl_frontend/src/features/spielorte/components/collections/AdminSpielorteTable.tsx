@@ -14,7 +14,7 @@ import { formatMapsLink } from "../../utils";
 import type { FLSpielort } from "../../schemas";
 
 /**
- * Memoised deliberately, and load-bearing — this is the NEW-T1 fix.
+ * Memoised deliberately, and load-bearing: see the collection-identity note in `AdminCrudView`.
  *
  * The parent view calls `useSearchParams()`, which subscribes it to the client router. Next keeps
  * the previous route mounted in a hidden React Activity tree for instant back-navigation, so every
@@ -71,7 +71,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           </Table.Header>
 
           {/* `items` + a render function, not mapped children: the static form stops committing its
-              row collection after a few client navigations away and back (ledger NEW-T1). */}
+              row collection after a few client navigations away and back. */}
           <Table.Body
             items={filteredSpielorte}
             renderEmptyState={() => (

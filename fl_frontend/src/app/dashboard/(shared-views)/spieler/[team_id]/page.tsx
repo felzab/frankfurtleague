@@ -19,12 +19,13 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   const teamsRes = await getTeams({ team_id: team_id, compact: true, saison_id: await resolveSaisonId(props.searchParams) }).catch(() => null);
   const teamData = teamsRes?.format === "compact" ? teamsRes.teams[0] : undefined;
 
-  if (!teamData) return { title: "Kader nicht gefunden" };
+  // See teams/[team_id]: the miss must not inherit the layout's /dashboard canonical.
+  if (!teamData) return { title: "Kader nicht gefunden", robots: { index: false, follow: false } };
 
   return {
     title: `Kader ${teamData.name}`,
     description: `Der Kader von ${teamData.name} in der Frankfurt-League: alle Spielerinnen und Spieler der gewählten Saison.`,
-    alternates: { canonical: `https://frankfurtleague.de/dashboard/spieler/${team_id}` },
+    alternates: { canonical: `/dashboard/spieler/${team_id}` },
   };
 }
 

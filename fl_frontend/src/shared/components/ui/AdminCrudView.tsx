@@ -11,17 +11,17 @@ import type { ReactNode } from "react";
 /**
  * The data-dependent half of an admin CRUD page: search bar, table slot and the edit/delete modal
  * wiring. `AdminSchiedsrichterView` and `AdminSpielorteView` were 87% identical once domain nouns
- * were folded (R2 §3.1); they are now per-entity declarations over this.
+ * were folded; they are now per-entity declarations over this.
  *
  * Built generically at the owner's request (2026-07-30) rather than left as two thin siblings: R2's
  * point is that the third admin resource would otherwise be a third copy, and here it costs a
  * `renderTable` plus two modal renderers.
  *
- * The heading, description and create trigger moved to `AdminCrudShell` (NEW-SC11), which the page
+ * The heading, description and create trigger moved to `AdminCrudShell`, which the page
  * renders *above* the boundary this sits behind — they never depended on the resource list, so they
  * should not have waited on it. Returns its own `gap-8` column, which is also the animation host.
  *
- * **NEW-T1 constraint.** This component calls `useSearchParams()` via `useDebouncedUrlQuery`, so it
+ * **Collection-identity constraint.** This component calls `useSearchParams()` via `useDebouncedUrlQuery`, so it
  * re-renders on every navigation — including while it sits in a hidden Activity tree, where a
  * react-aria collection that re-renders can stop committing rows. The table passed to `renderTable`
  * must therefore be `React.memo`'d and must use `Table.Body`'s `items` + render-function form.
@@ -55,7 +55,7 @@ export function AdminCrudView<TItem extends { id: string }>({
   const filteredItems = useFuzzySearch({ items, keys: searchKeys, query });
 
   return (
-    // Animated in on arrival, the way every other view in the app is (NEW-R5, second round). The
+    // Animated in on arrival, the way every other view in the app is. The
     // resized skeleton was only half the problem — the other half was that the real content simply
     // *appeared*, so even a correctly-sized swap read as a snap. Now the search field and table
     // arrive the way `SpielhistorieView` and the rest do, and the fallback (which a warm navigation

@@ -54,7 +54,7 @@ export function SpielsucheView({
   return (
     <div className="relative flex w-full flex-1 flex-col items-center">
       {/* These routes have no visible page title by design, so the `h1` that anchors the heading
-          list is visually hidden. The text matches the route's own `metadata.title` (R4 §4.2). */}
+          list is visually hidden. The text matches the route's own `metadata.title`. */}
       <h1 className="sr-only">Spielsuche</h1>
 
       {/** Search Bar */}

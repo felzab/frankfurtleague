@@ -1,5 +1,5 @@
 /**
- * The bypass link every layout renders first (R4 §4.7).
+ * The bypass link every layout renders first.
  *
  * Without it a keyboard user on a dashboard route Tabs the logo, the season selector, all seven nav
  * items and both footer controls — eleven stops — before reaching the page content, and repeats the
@@ -7,7 +7,7 @@
  *
  * `sr-only` until focused, then `not-sr-only` plus absolute positioning so it appears over the
  * chrome rather than displacing it. The fill uses `brand-solid`/`brand-solid-foreground`, not
- * `brand`: the Wave 2 convention is that opaque fills behind text take the solid pair, and `brand`
+ * `brand`: the convention is that opaque fills behind text take the solid pair, and `brand`
  * is the light dark-mode value that would carry white text at ~2:1.
  */
 export function SkipToContentLink() {

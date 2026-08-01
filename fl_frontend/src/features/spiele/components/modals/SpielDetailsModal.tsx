@@ -18,8 +18,8 @@ import type { FLSpiel } from "../../schemas";
  * Deliberately NOT on `ModalShell` (owner decision, 2026-07-31): this is the one modal public users
  * see, and its lighter `bg-surface p-6 shadow-sm` appearance is the wanted look.
  *
- * **The stay-mounted arrangement this used to describe is gone (R4 §16.4, owner decision
- * 2026-07-31).** Keeping the Backdrop mounted preserved HeroUI's exit transition, but `SpielCardsList`
+ * **The stay-mounted arrangement this used to describe is gone (owner decision, 2026-07-31).**
+ * Keeping the Backdrop mounted preserved HeroUI's exit transition, but `SpielCardsList`
  * is instantiated once per collection, so it also mounted ~11 idle overlay trees across the app on
  * first paint. The caller now guards the mount and the exit transition is the accepted cost.
  *
@@ -55,14 +55,14 @@ export function SpielDetailsModal({
       variant="blur">
       <Modal.Container placement="top">
         {/* No `aria-label`: it outranked the heading, so opening a match announced
-            "Spieldetails-Dialog" and never said which match (R4 §1.1). `Modal.Heading` below names
+            "Spieldetails-Dialog" and never said which match. `Modal.Heading` below names
             the dialog "Spiel Nr. 42", which is the one thing it exists to convey. */}
         <Modal.Dialog className="border-border bg-surface rounded-2xl border p-6 shadow-sm">
           {spielData && (
             <>
               {/* The only modal a non-admin ever sees, and it had no close affordance at all —
                   dismissable only by Escape or an outside press, which leaves a touch user with
-                  motor difficulty nothing to aim at (R4 §1.4). Same trigger the admin shell uses. */}
+                  motor difficulty nothing to aim at. Same trigger the admin shell uses. */}
               <Modal.CloseTrigger className="text-foreground-muted hover:text-foreground transition-colors" />
 
               <Modal.Header className="gap-y-2 pb-4">

@@ -1,3 +1,11 @@
+/**
+ * SHARED · schema tests
+ *
+ * Covers the four cross-slice Zod schemas. `ExternalUrlSchema` carries the security-relevant cases —
+ * `z.url()` accepts `javascript:` and `data:`, so the rejections there are the point of the suite
+ * rather than an edge case.
+ */
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

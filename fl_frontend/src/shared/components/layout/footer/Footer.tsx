@@ -8,7 +8,7 @@ import { FooterCopyrightString } from "./FooterCopyrightString";
 // serverStatusSlot is injected by the composition root rather than imported, so this generic layout
 // primitive keeps zero feature dependencies. Same technique as Sidemenu's saisonMetadataDisplay.
 // Not async: it awaits nothing, so the `async` only produced a promise for React to unwrap. Tested
-// as a candidate cause of the PPR resume failure (ledger NEW-T2) and it is NOT the cause — the
+// as a candidate cause of the PPR resume failure and it is NOT the cause — the
 // aborts are unchanged either way. Kept because an async function with no await is still wrong.
 export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
   return (

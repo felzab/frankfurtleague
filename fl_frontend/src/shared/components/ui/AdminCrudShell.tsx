@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 /**
  * The static half of an admin CRUD page: heading, description, create trigger.
  *
- * Split out of `AdminCrudView` for NEW-SC11. None of this depends on the resource list, but it used
+ * Split out of `AdminCrudView`. None of this depends on the resource list, but it used
  * to be props on a client element the page built only *after* `await getSchiedsrichter()` — so the
  * page title waited on a FastAPI round-trip it had no need of. Rendered above the data boundary, it
  * paints as soon as the session check resolves and the table streams in behind it.
@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
  * **It does not reach the build-time static shell**, and cannot: `AdminAuthGuard` wraps all admin
  * page content, so nothing under `/admin` renders until the session is known. That is the intended
  * trade — one guard that a new route inherits automatically, rather than a per-page guard that can
- * be forgotten. See the Wave 7 report.
+ * be forgotten.
  */
 export function AdminCrudShell({
   title,

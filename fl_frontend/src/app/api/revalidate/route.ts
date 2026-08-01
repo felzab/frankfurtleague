@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
   // revalidateTag, not updateTag: updateTag throws in a Route Handler -- it exists for the
   // read-your-own-writes case in a Server Action, which this is not.
-  // Coarse base tag only; the granular tags were deleted under ledger decision D2.
+  // Coarse base tag only; the granular tags this could have used were deleted (ADR-0001).
   revalidateTag(parsed.data.resource, "max");
   logger.info("revalidate.ok", { resource: parsed.data.resource });
 

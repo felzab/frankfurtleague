@@ -1,7 +1,7 @@
 /**
  * The placeholder that stands in for the sidemenu's season selector.
  *
- * Used twice, and both matter (NEW-R6):
+ * Used twice, and both matter:
  * - as `Sidemenu`'s `Suspense` fallback, while `SaisonMetadataDisplay` fetches on the server;
  * - by `SaisonSelector` itself, until it has hydrated.
  *
@@ -12,7 +12,7 @@
  * watching, not a new one.
  *
  * It carries no text, so it needs the labelled status region or a screen-reader user gets silence
- * while it waits (R4 §4.6).
+ * while it waits.
  */
 export function SaisonSlotSkeleton() {
   return (

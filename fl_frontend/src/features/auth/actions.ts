@@ -102,12 +102,12 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
 }
 
 /**
- * Ends the admin's own session (ledger NEW-S1).
+ * Ends the admin's own session.
  *
  * `core/auth.ts` has exported `signOut` since Auth.js was wired up and nothing has ever called it,
  * so the only way to revoke a session was to delete the row from the `authjs` collection by hand —
- * which needs database access. Wave 3 cut the lifetime from 30 days to 8 hours (R3b-S5.2), bounding
- * the exposure without closing it.
+ * which needs database access. The session lifetime was cut from 30 days to 8 hours, bounding the
+ * exposure without closing it.
  *
  * `redirect: false` is load-bearing. The default path calls `redirect()` (next-auth `lib/actions.js`
  * — `if (options?.redirect ?? true) return redirect(res.redirect)`), which throws `NEXT_REDIRECT`;

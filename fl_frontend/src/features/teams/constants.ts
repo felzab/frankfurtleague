@@ -5,7 +5,7 @@
  * with `is_placeholder: true`, not a null reference — which is why a two-character shorthand has to
  * exist for it at all.
  *
- * That modelling is known to be wrong and is tracked as BE-9: the intended fix is a nullable opponent
+ * That modelling is known to be wrong and is an open backend item: the intended fix is a nullable opponent
  * on the Spiel, at which point this constant and the placeholder team both disappear.
  */
 

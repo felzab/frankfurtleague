@@ -8,9 +8,8 @@ export const metadata: Metadata = {
   title: { default: "Saisonübersicht", template: "%s | Frankfurt-League" },
   description:
     "Bei der Frankfurt-League Saisonübersicht können alle wichtigen Informationen zu der laufenden Saison, wie z. B. der Spielplan etc. eingesehen werden.",
-  keywords: ["Frankfurt-League Dashboard", "Frankfurt-League Saisonübersicht"],
   alternates: {
-    canonical: "https://frankfurtleague.de/dashboard",
+    canonical: "/dashboard",
   },
 };
 

@@ -13,38 +13,34 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-/** Metadata */
+/**
+ * Metadata
+ *
+ * `metadataBase` is what lets every route below spell its canonical as a PATH. A route that declares
+ * none inherits this file's, so an unset canonical points at the homepage rather than at nothing.
+ *
+ * `openGraph` deliberately carries no `title`, `description` or `url`. Next inherits the whole object
+ * when a child defines none and replaces it whole when a child does — there is no field-by-field
+ * merge — so anything page-specific named here is stamped onto every page in the app. Left out,
+ * og:title and og:description resolve from each page's own `title`/`description`. Only genuinely
+ * site-wide values belong in this block.
+ */
 export const metadata: Metadata = {
+  metadataBase: new URL("https://frankfurtleague.de"),
   title: {
     template: "%s | Frankfurt-League",
     default: "Frankfurt-League | Die Oberstufenliga",
   },
   description:
-    "Bei der Frankfurt-League treten Frankfurter Oberstufen gegeneinander an, um herauszufinden, welche von ihnen die Beste ist. Hier gibt's alle Infos",
-  keywords: [
-    "Frankfurt-League",
-    "Frankfurt-league",
-    "Frankfurt league",
-    "Frankfurtleague",
-    "frankfurtleague.de",
-    "Frankfurt-Fußball-League",
-    "Frankfurt-Fussball-League",
-    "Frankfurter",
-    "Oberstufen",
-    "Fussbal",
-    "Fußball",
-  ],
+    "Bei der Frankfurt-League treten Frankfurter Oberstufen gegeneinander an, um herauszufinden, welche von ihnen die Beste ist. Hier gibt's alle Infos.",
   alternates: {
-    canonical: "https://frankfurtleague.de",
+    canonical: "/",
   },
   openGraph: {
-    title: "Frankfurt-League",
-    description: "Die Frankfurt-League. Der Wettkamp der Oberstufen",
-    url: "https://frankfurtleague.de",
     siteName: "Frankfurt-League",
     images: [
       {
-        url: "https://frankfurtleague.de/icons/opengraph/opengraph.png",
+        url: "/icons/opengraph/opengraph.png",
         width: 1200,
         height: 630,
         alt: "FL-Preview",
@@ -52,6 +48,11 @@ export const metadata: Metadata = {
     ],
     locale: "de_DE",
     type: "website",
+  },
+  // Without this X falls back to a small square thumbnail. Title, description and image are inherited
+  // from `openGraph`, so the card only has to declare its shape.
+  twitter: {
+    card: "summary_large_image",
   },
 };
 

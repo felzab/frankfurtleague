@@ -10,7 +10,7 @@ import type { SchiedsrichterDraft } from "../../types";
 /**
  * Every field carries a `name` matching its path in the create/patch payload, and a `FieldError` to
  * render what the server said about it. The two go together: `Form`'s `validationErrors` are looked
- * up by field name, so a mismatch here means a server error that lands nowhere (R4 §3.1).
+ * up by field name, so a mismatch here means a server error that lands nowhere.
  */
 export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
   draft,

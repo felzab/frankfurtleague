@@ -2,7 +2,7 @@
 The custom string types.
 
 The date test is the one that matters: DATE_REGEX alone accepts 2026-02-31 and 2026-04-31, because a
-regex cannot know how many days a month has. Wave 4 added a real calendar check behind it.
+regex cannot know how many days a month has, so a real calendar check sits behind it.
 """
 
 import pytest
@@ -54,7 +54,7 @@ def test_accepts_times_with_seconds(value):
 
 
 # The frontend used to accept both of these and the backend never has, so the admin form could
-# submit a time the API answered with a 422. Wave 4 tightened the frontend to match; this pins the
+# submit a time the API answered with a 422. The frontend was tightened to match; this pins the
 # backend side of that contract.
 @pytest.mark.parametrize("value", ["14:30", "14:30:00.5", "24:00:00", "14:60:00", "2:30:00"])
 def test_rejects_times_without_seconds_or_out_of_range(value):

@@ -22,7 +22,7 @@ IFS=$'\n\t'
 
 # Resolve the repo root from this file's own location and move there. Every script therefore behaves
 # identically no matter which directory it was called from — the mistake that produced several
-# confusing "path not found" build failures during the Wave 3 session.
+# confusing "path not found" build failures before this was added.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Absolute path of the script that sourced this file, resolved BEFORE the cd below.
@@ -149,7 +149,7 @@ git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
 # Waits for a compose service to report healthy.
 #
 # This exists because "the container started" and "the app works" became different statements in
-# Wave 3: on a bad environment variable the frontend stays up but returns 500 on every route, so the
+# practice: on a bad environment variable the frontend stays up but returns 500 on every route, so the
 # healthcheck fails and nginx never serves traffic. That is deliberate fail-closed behaviour, and it
 # is invisible unless something actually waits for and reports the health state.
 wait_healthy() {

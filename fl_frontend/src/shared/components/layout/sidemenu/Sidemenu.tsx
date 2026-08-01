@@ -84,7 +84,7 @@ export function Sidemenu<TIcon extends string>({
           Closed, the drawer used to be only translated off-screen, and `translate-x` removes an
           element from neither the tab order nor the accessibility tree — so a phone user tabbing the
           page fell into 11-14 controls sitting 310px off the left edge, with focus invisible
-          (R4 §1.2). `invisible` fixes that in CSS: it takes the subtree out of both, and `lg:visible`
+. `invisible` fixes that in CSS: it takes the subtree out of both, and `lg:visible`
           restores it for the desktop rail, which is this same element above `lg`.
 
           Visibility rather than `inert`, which would need the breakpoint duplicated in JS as a
@@ -105,7 +105,7 @@ export function Sidemenu<TIcon extends string>({
         {/* MAIN SCROLLABLE CONTENT */}
         <div className="flex flex-1 scrollbar-gutter-stable flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
           {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one
-              continuous state rather than skeleton → dead control → live control (NEW-R6). */}
+              continuous state rather than skeleton → dead control → live control. */}
           <Suspense fallback={<SaisonSlotSkeleton />}>
             <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
               {!isDesktopCollapsed && <>{saisonMetadataDisplay}</>}
@@ -114,7 +114,7 @@ export function Sidemenu<TIcon extends string>({
 
           {/* Navigation Links.
               The boundary is what gives the dashboard and admin shells their static content
-              (NEW-SC10): `useSearchParams()` lives below it, in the -WithSaisonQuery variant, and it
+: `useSearchParams()` lives below it, in the -WithSaisonQuery variant, and it
               hangs unconditionally during a prerender. With it above — which is where it used to be,
               at the top of this component — the whole route root bailed out.
               The fallback is the same list with an empty query string, so the shell holds real,

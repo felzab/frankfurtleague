@@ -16,7 +16,7 @@ export default async function AdminSpielsuchePage(props: NextPageProps) {
   const spieleRes = await getSpiele({ saison_id: specifiedSaisonId });
 
   return (
-    // The wrapper lives here rather than in the layout (R4 §16.2), and takes the same season the
+    // The wrapper lives here rather than in the layout, and takes the same season the
     // matches above were fetched with, so the editor's team picker matches what is on screen.
     <AdminContextWrapper saison_id={specifiedSaisonId}>
       <SpielsucheView

@@ -1,7 +1,7 @@
 /**
  * Copies text to the clipboard, reporting success as a boolean rather than a rejected promise.
  *
- * The property access is inside the `try` on purpose (R4 §13.2). `navigator.clipboard` is
+ * The property access is inside the `try` on purpose. `navigator.clipboard` is
  * `undefined` outside a secure context — a plain-HTTP LAN origin, which is exactly how an admin
  * tests these buttons from a phone — so `navigator.clipboard.writeText(...)` throws a synchronous
  * `TypeError` *before* a promise exists. A `.catch()` on the call therefore never runs, and the

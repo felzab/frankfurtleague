@@ -1,7 +1,7 @@
 """
 FLTeam, FLTeamStatistik and FLGruppen.
 
-FLGruppen carries the only behavioural change of Wave 4's backend work, so it gets the most
+FLGruppen carries the only behavioural change in this area, so it gets the most
 attention here: it must always emit all four groups, and must refuse a team it cannot place.
 """
 

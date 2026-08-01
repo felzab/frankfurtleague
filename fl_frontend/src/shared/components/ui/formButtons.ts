@@ -1,21 +1,23 @@
-import { tv } from "tailwind-variants";
-
 /**
- * The submit / cancel / destructive / trigger button appearance, once (R4 §8.4, sweep rows
- * V2-1…V2-3). Six submit buttons had four appearances and five cancel buttons had two, because a
- * 7-class string was retyped at every site — which is also how the broken `hover:bg-surface-muted`
- * of R4 §6.3 got in.
+ * SHARED · button recipes
  *
- * The interaction states live in the base so the whole family agrees on them:
- * - `active:scale-95` — the press state existed at 5 stray sites and nowhere in the recipe (V2-2).
- * - `disabled:pointer-events-none disabled:opacity-50` — the app had zero `disabled:` styling
- *   anywhere (V2-3); react-aria renders `isDisabled` as the native `disabled` attribute, and
- *   `pointer-events-none` also stops the hover/active transforms from firing on a disabled button.
- * - Named transition properties, not `transition-all` (V2-4).
+ * Two families, deliberately kept apart (owner decision, 2026-07-31): `formButton` for controls inside
+ * a form, `ctaButton` for links and one-off buttons outside one. Restyling forms must never silently
+ * restyle the marketing pages, and the form base's `disabled:` handling is dead weight on a link.
  *
- * `destructive` keeps `text-foreground` on `bg-danger` deliberately: that pairing is a contrast
- * decision the owner still has to make, tracked as NEW-C1 in Wave 6, not something to change here.
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Interaction state lives in a family's `base`, never at a call site — that is what keeps one
+ *     gesture from acquiring several magnitudes across the app.
+ *   • Transition properties are named individually. `transition-all` is not used here: the
+ *     reduced-motion escape is declared once in `globals.css` and depends on knowing what moves.
+ *   • Opaque fills carry their paired `-solid-foreground`, never `text-foreground`. `--fg-base` flips
+ *     between themes and the fills do not, so a theme-flipping foreground on a fixed fill can only be
+ *     legible in one of the two.
  */
+
+import { tv } from "@/shared/utils/tv";
+
 /**
  * The CTA family — `<Link>`s and one-off buttons OUTSIDE forms: the landing-page hero, the
  * error/404 panels, dashboard not-found. Deliberately a separate recipe from `formButton` (owner
@@ -43,7 +45,12 @@ export const formButton = tv({
     intent: {
       submit: "bg-brand-solid text-brand-solid-foreground tracking-wide",
       cancel: "border-border text-foreground border bg-transparent",
-      destructive: "bg-danger text-foreground shadow-danger/25 tracking-wide shadow-lg",
+      // `-solid` + its paired foreground, the same pairing every other opaque feedback fill uses.
+      // `bg-danger` is a tint colour: under `text-foreground` it measured 4.10:1 in the light theme
+      // and 3.76:1 in the dark one, because `--fg-base` flips between themes while the fill does not.
+      // This pair holds one value in both themes and measures 6.47:1 (owner, 2026-08-01, closing the
+      // decision this line was waiting on).
+      destructive: "bg-danger-solid text-danger-solid-foreground shadow-danger/25 tracking-wide shadow-lg",
       /** The "Neuen X anlegen" page-header buttons — taller to match the search bar beside them. */
       trigger: "bg-brand-solid text-brand-solid-foreground shadow-brand/25 h-12 font-bold shadow-lg lg:h-15",
     },

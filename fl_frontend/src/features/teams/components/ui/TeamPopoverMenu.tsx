@@ -75,8 +75,10 @@ export function TeamPopoverMenu({
 
             <Popover.Heading className="text-fluid-base flex w-full flex-row items-center justify-between font-bold">
               <span className="truncate pr-2">{teamName}</span>
+              {/* `-strong` on the tint, matching the DQ badge in SaisontabelleView: at 11.8px the
+                  fill-grade accent measures 3.80:1 on this panel in the light theme. */}
               {teamIsDisqualified && (
-                <span className="bg-danger/10 text-danger text-fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">DQ</span>
+                <span className="bg-danger/10 text-danger-strong text-fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">DQ</span>
               )}
             </Popover.Heading>
 

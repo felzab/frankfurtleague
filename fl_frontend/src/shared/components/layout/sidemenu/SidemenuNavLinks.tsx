@@ -76,7 +76,7 @@ export function SidemenuNavLinks<TIcon extends string>({
 /**
  * The same list, with `?saison_id=` carried across every nav link.
  *
- * This exists only to isolate `useSearchParams()` below a Suspense boundary (ledger NEW-SC10).
+ * This exists only to isolate `useSearchParams()` below a Suspense boundary.
  * Verified in `next/dist/server/app-render/dynamic-rendering.js`: `useDynamicSearchParams` hangs
  * **unconditionally** in a `prerender-client` pass, so with no boundary above it the bailout reached
  * the route root and neither dashboard nor admin had a static shell worth the name — 5.4–6.7 KB

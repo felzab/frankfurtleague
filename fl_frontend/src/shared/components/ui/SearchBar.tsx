@@ -4,7 +4,7 @@ import { SearchField } from "@heroui/react";
 
 /**
  * The app's search input. Three views hand-rolled this from a `<div>` + icon + bare `Input` while
- * the same codebase used HeroUI's `SearchField` correctly three times (R4 §9.1). The hand-built
+ * the same codebase used HeroUI's `SearchField` correctly three times. The hand-built
  * version had no accessible name (its only name came from the placeholder, which disappears as soon
  * as you type), no clear button and no `type="search"` semantics.
  *

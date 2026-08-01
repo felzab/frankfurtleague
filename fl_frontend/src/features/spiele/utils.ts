@@ -42,7 +42,7 @@ export const computeSpielStatus = ({
 /**
  * The three presentation values every match card derives. Extracted because the three cards had
  * copy-pasted them and one had drifted: an unplayed match rendered `"- : -"` in the main card and
- * `"-:-"` in the compact and playoff cards, on the same screen (R2 §3.5).
+ * `"-:-"` in the compact and playoff cards, on the same screen.
  *
  * **This is derivation only. The three `SpielCard` components stay separate** — they are justified
  * variance, not copy-paste (ADR-0007).

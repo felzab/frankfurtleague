@@ -109,7 +109,7 @@ export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
                             <Badge
                               size="sm"
                               placement="top-right"
-                              className="text-fluid-xxs! bg-danger/10 text-danger translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6">
+                              className="text-fluid-xxs! bg-danger/10 text-danger-strong translate-x-5 -translate-y-2 rounded-md border-none p-1 font-extrabold uppercase lg:translate-x-6">
                               DQ
                             </Badge>
                           )}
@@ -121,11 +121,15 @@ export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
                         {teamData.statistik.anzahl_gespielte_spiele}
                       </Table.Cell>
 
-                      {/** Wins-Draws-Losses */}
+                      {/** Wins-Draws-Losses.
+                           `-strong`, not the plain accents: these are 13.9px text on a table row, and the
+                           fill-grade colours measure 3.02 (success), 1.76 (warning) and 4.43 (danger) there
+                           in the light theme. The rule is stated once, next to the tokens in globals.css:
+                           plain accent for fills, `-strong` for text. */}
                       <Table.Cell className="text-fluid-xs px-1 py-4 text-center font-medium lg:px-2">
-                        <span className="text-success font-semibold">{teamData.statistik.siege}</span>-
-                        <span className="text-warning font-semibold">{teamData.statistik.unentschieden}</span>-
-                        <span className="text-danger font-semibold">{teamData.statistik.niederlagen}</span>
+                        <span className="text-success-strong font-semibold">{teamData.statistik.siege}</span>-
+                        <span className="text-warning-strong font-semibold">{teamData.statistik.unentschieden}</span>-
+                        <span className="text-danger-strong font-semibold">{teamData.statistik.niederlagen}</span>
                       </Table.Cell>
 
                       {/** Goals for */}
@@ -136,9 +140,9 @@ export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
                       {/** Goal difference */}
                       <Table.Cell className="text-fluid-xs px-1 py-4 text-center font-bold lg:px-2">
                         {teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert > 0 ? (
-                          <span className="text-success">+{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
+                          <span className="text-success-strong">+{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
                         ) : (
-                          <span className="text-danger">{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
+                          <span className="text-danger-strong">{teamData.statistik.tore_geschossen - teamData.statistik.tore_kassiert}</span>
                         )}
                       </Table.Cell>
 

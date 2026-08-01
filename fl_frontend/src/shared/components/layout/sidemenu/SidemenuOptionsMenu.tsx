@@ -19,7 +19,7 @@ import type { FormState } from "@/shared/types/types";
  *
  * Dashboard and admin have no topnav, so the theme switch that lives in `TopNavLinksDropdown` was
  * unreachable on those routes entirely. This is a menu rather than a bare switch because the footer
- * is the natural home for several of these — it now also carries the admin sign-out (NEW-S1) — and
+ * is the natural home for several of these — it now also carries the admin sign-out — and
  * the item markup matches the topnav dropdown so they stay one pattern.
  *
  * Layout follows the standard sidebar-footer menu (shadcn's `SidebarFooter` + dropdown, as used in
@@ -30,7 +30,7 @@ import type { FormState } from "@/shared/types/types";
  * `Dropdown.Trigger` renders the button itself (it wraps react-aria's `Button`), so the styling and
  * the accessible name go on it directly — nesting a `<button>` inside would be invalid HTML and
  * would swallow the press. It therefore reports `aria-expanded` for free, which the topnav's
- * raw-`<svg>` trigger does not (Wave 6, R4-2.1).
+ * raw-`<svg>` trigger does not.
  */
 export function SidemenuOptionsMenu({
   isDesktopCollapsed,
@@ -130,7 +130,7 @@ export function SidemenuOptionsMenu({
             </Dropdown.Item>
           </Dropdown.Section>
 
-          {/* Admin only — the dashboard shell has no session to end (ledger NEW-S1). Until this
+          {/* Admin only — the dashboard shell has no session to end. Until this
               existed, `core/auth.ts`'s exported `signOut` had zero call sites and the only way to
               revoke a session was deleting its row from the `authjs` collection by hand. */}
           {onSignOut && (

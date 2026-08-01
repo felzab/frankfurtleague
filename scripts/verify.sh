@@ -13,9 +13,9 @@
 #
 # WHAT IT RUNS, cheapest-to-fail first:
 #   1. selfcheck.sh  — the scripts themselves (instant)
-#   2. pnpm verify   — formats, then types, lint, next build, unit tests (audit ledger Part 4)
+#   2. pnpm verify   — formats, then types, lint, next build, unit tests
 #   3. pnpm audit:prod — runtime dependency advisories only
-#   4. ruff + pytest  — fl_backend lint and schema-constraint tests (audit ledger BE-5)
+#   4. ruff + pytest  — fl_backend lint and schema-constraint tests
 #   5. docker build  — BOTH images, which pnpm verify does not cover
 #   6. an image check — is instrumentation.js actually inside the frontend image?
 #

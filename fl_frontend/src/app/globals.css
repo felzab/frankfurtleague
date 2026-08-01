@@ -1,5 +1,111 @@
+/* HeroUI is imported component-by-component rather than as `@import "@heroui/styles"`. That entry
+   pulls in every component the package ships, and **Tailwind does not tree-shake CSS imported from a
+   dependency**, so anything listed lands on the critical path of every page whether or not this app
+   renders it. This block is a faithful copy of HeroUI's own `index.css` minus the components the app
+   does not use; the difference is 715 KB of stylesheet versus 329 KB.
+
+   Three rules for editing this list:
+   1. **Order is load-bearing.** HeroUI's own file says so: shared primitives first, then components
+      that compose them. This block keeps HeroUI's order exactly -- add a component at the position it
+      occupies in `node_modules/@heroui/styles/dist/components/index.css`, never at the end.
+   2. **Import a component's CSS in the same change that first renders it.** A missing import does not
+      fail the build or the types; the component simply renders unstyled, and only on the page that
+      uses it.
+   3. A few entries are here for something other than a direct import: `disclosure`/`disclosure-group`
+      back `Accordion`, `combo-box` backs `Autocomplete` (globals.css styles its
+      `[data-slot="combo-box-input-group"]` further down), `spinner` is `Button`'s loading state,
+      `empty-state` is `ListBox`'s `renderEmptyState`, and `typography` is kept because §2 mandates
+      `Typography` as the replacement for `Text` -- dropping it would make the first use of a mandated
+      component silently unstyled. */
+@layer theme, base, components, utilities;
+
 @import "tailwindcss";
-@import "@heroui/styles";
+@import "tw-animate-css";
+
+@import "@heroui/styles/base/base.css" layer(base);
+@import "@heroui/styles/base/scrollbar.css" layer(base);
+
+/* Shared primitives — must come first. */
+@import "@heroui/styles/components/close-button.css" layer(components);
+@import "@heroui/styles/components/description.css" layer(components);
+@import "@heroui/styles/components/error-message.css" layer(components);
+@import "@heroui/styles/components/field-error.css" layer(components);
+@import "@heroui/styles/components/label.css" layer(components);
+
+/* Navigation */
+@import "@heroui/styles/components/accordion.css" layer(components);
+@import "@heroui/styles/components/disclosure-group.css" layer(components);
+@import "@heroui/styles/components/disclosure.css" layer(components);
+@import "@heroui/styles/components/link.css" layer(components);
+@import "@heroui/styles/components/tabs.css" layer(components);
+
+/* Buttons */
+@import "@heroui/styles/components/button.css" layer(components);
+
+/* Collections */
+@import "@heroui/styles/components/dropdown.css" layer(components);
+@import "@heroui/styles/components/list-box-item.css" layer(components);
+@import "@heroui/styles/components/list-box-section.css" layer(components);
+@import "@heroui/styles/components/list-box.css" layer(components);
+@import "@heroui/styles/components/menu-item.css" layer(components);
+@import "@heroui/styles/components/menu-section.css" layer(components);
+@import "@heroui/styles/components/menu.css" layer(components);
+
+/* Controls */
+@import "@heroui/styles/components/switch.css" layer(components);
+
+/* DataDisplay */
+@import "@heroui/styles/components/badge.css" layer(components);
+@import "@heroui/styles/components/chip.css" layer(components);
+@import "@heroui/styles/components/table.css" layer(components);
+@import "@heroui/styles/components/empty-state.css" layer(components);
+@import "@heroui/styles/components/skeleton.css" layer(components);
+@import "@heroui/styles/components/spinner.css" layer(components);
+@import "@heroui/styles/components/toast.css" layer(components);
+
+/* Forms */
+@import "@heroui/styles/components/input.css" layer(components);
+@import "@heroui/styles/components/input-group.css" layer(components);
+@import "@heroui/styles/components/number-field.css" layer(components);
+@import "@heroui/styles/components/textfield.css" layer(components);
+@import "@heroui/styles/components/search-field.css" layer(components);
+
+/* Date & Time */
+@import "@heroui/styles/components/calendar.css" layer(components);
+@import "@heroui/styles/components/calendar-year-picker.css" layer(components);
+@import "@heroui/styles/components/date-field.css" layer(components);
+@import "@heroui/styles/components/time-field.css" layer(components);
+@import "@heroui/styles/components/date-input-group.css" layer(components);
+@import "@heroui/styles/components/date-picker.css" layer(components);
+
+/* Layout */
+@import "@heroui/styles/components/card.css" layer(components);
+@import "@heroui/styles/components/header.css" layer(components);
+@import "@heroui/styles/components/separator.css" layer(components);
+@import "@heroui/styles/components/surface.css" layer(components);
+
+/* Media */
+@import "@heroui/styles/components/avatar.css" layer(components);
+
+/* Overlays */
+@import "@heroui/styles/components/modal.css" layer(components);
+@import "@heroui/styles/components/popover.css" layer(components);
+@import "@heroui/styles/components/tooltip.css" layer(components);
+
+/* Pickers */
+@import "@heroui/styles/components/combo-box.css" layer(components);
+@import "@heroui/styles/components/select.css" layer(components);
+@import "@heroui/styles/components/autocomplete.css" layer(components);
+
+/* Typography */
+@import "@heroui/styles/components/typography.css" layer(components);
+
+/* Utilities */
+@import "@heroui/styles/components/scroll-shadow.css" layer(components);
+
+@import "@heroui/styles/themes/default/index.css";
+@import "@heroui/styles/utilities";
+@import "@heroui/styles/variants";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -41,16 +147,22 @@
     /* Text-grade companions to the four feedback accents, in the same relationship as
        --accent-brand-solid is to --accent-brand: the accents above are tuned for FILLS and icons,
        and are too light to carry small bold text on a light surface. Measured on a /15 tint over
-       --bg-surface: `text-success` is 2.58:1 and `text-warning` 1.61:1, versus 4.29 and 4.22 for
-       these. Use `-strong` for any text on a tinted background; use the plain accent for fills. */
-    --accent-success-strong: #047857;
+       --bg-surface: `text-success` is 2.58:1 and `text-warning` 1.61:1, versus 6.11 and 5.96 for
+       these. Use `-strong` for any text on a tinted background; use the plain accent for fills.
+
+       Success and warning are the 800 step of their scale, not the 700 the other two use. **Measure
+       against --bg-muted**, the darkest of the three light surfaces and the one that decides these
+       values: the 700s clear 4.5:1 on --bg-base and --bg-surface but reach only 4.35 and 3.99 here,
+       while the 800s measure 6.10 and 5.63. Amber-800 reading browner than amber-700 is an accepted
+       cost, not an oversight (owner, 2026-08-01). */
+    --accent-success-strong: #065f46;
     --accent-info-strong: #1d4ed8;
-    --accent-warn-strong: #b45309;
+    --accent-warn-strong: #92400e;
     --accent-danger-strong: #b91c1c;
 
     /* Fill-grade companions, in exactly the relationship --accent-brand-solid has to --accent-brand:
        one deep value that does NOT flip, so a white foreground is legible on it in both themes
-       (ledger NEW-C1). The plain accents above are tuned as tints, and white on them measured
+. The plain accents above are tuned as tints, and white on them measured
        3.30:1 light / 2.28:1 dark for success, 1.92 / 1.32 for warning -- the draw badge was very
        nearly invisible in dark mode. These measure 5.45 / 4.55 / 5.96, identical in both themes.
        Use `-solid` for an opaque badge behind text, the plain accent for a tint, `-strong` for text
@@ -370,8 +482,8 @@
   border-color: var(--accent-brand);
 }
 
-/* Collection options: NO focus highlight at all (owner decision, 2026-07-31, superseding Wave 6's
-   neutral fill and the brand fill before it).
+/* Collection options: NO focus highlight at all (owner decision, 2026-07-31, superseding a neutral
+   fill and, before that, a brand one).
 
    The highlight was correct in principle — react-aria moves the focused key onto the first match as
    you type in a combobox so Enter can pick it, and that needs a visible state — but not achievable
@@ -390,7 +502,7 @@
    is open. Revisit if a reliable per-element signal appears — do NOT reintroduce a rule keyed off
    `data-focus-visible`, which is what this block exists to prevent. */
 
-/* Reduced motion, SOFTENED (owner decision 2026-07-31, amending Wave 5a's R4-5.1 block).
+/* Reduced motion, SOFTENED (owner decision 2026-07-31).
    The original block zeroed every animation- and transition-duration, which made the whole site
    motionless for anyone whose OS reports "reduce motion" -- including the owner, whose "all the
    animations are gone / everything flickers" reports across two review rounds traced to exactly

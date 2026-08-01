@@ -33,7 +33,7 @@ updates:
   # --- Frontend (pnpm) ------------------------------------------------------------------------
   # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
   # and are deliberately not managed here -- bumping the package manager is a decision, not a
-  # routine update (see the Wave 4 review note in the audit report).
+  # routine update.
   - package-ecosystem: npm
     directory: /fl_frontend
     schedule:

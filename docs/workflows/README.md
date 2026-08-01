@@ -135,14 +135,14 @@ The convention is consistent across the whole history and is **not** Conventiona
 Scope: what changed
 ```
 
-Sentence case after the scope. The scope is a real area of the codebase or the programme — `Wave 8c`,
-`Backend`, `Brand`, `Ledger`, `Wave 7 review`. Real examples:
+Sentence case after the scope. The scope is a real area of the codebase — `Frontend`, `Backend`,
+`Ops`, `Docs`, `Repo`, `Brand`. Real examples:
 
 ```
-Wave 8b: named component exports, and one folder rule for all of them
+Frontend: named component exports, and one folder rule for all of them
 Backend: pick up the resolved dependency upgrades
 Brand: the header mark gets the full treatment, not the clean one
-Wave 7 review: remove the React Compiler, hand-write the two memos
+Ops: ghcr publishing needs a classic token, and the failure is misleading
 ```
 
 Note the frequent two-clause subject joined by ", and" — one commit, two related changes, both named.
@@ -215,8 +215,8 @@ Worth including, because this repo's history shows they matter:
 
 Do not restate the diff.
 
-**A PR body must stand alone.** `docs/audit/` is gitignored, so a reviewer sees neither the
-remediation ledger nor the wave reports — never point at them from a body.
+**A PR body must stand alone.** `docs/audit/` is gitignored, so a reviewer sees none of it — never
+point at anything under it from a body. Open items live in [`docs/roadmap/open-items.md`](../roadmap/open-items.md).
 
 **Copy-paste form: [`message-templates.md`](message-templates.md)**, which also covers issues.
 
@@ -416,7 +416,7 @@ expires — 8 hours. To revoke now, delete the session row from the `authjs` dat
 ### Season rollover
 
 > **Derived from the data model, not from an observed rollover.** There is no write path for seasons
-> (ledger BE-4), so this is done directly in MongoDB and is not covered by any script or validation.
+> (open item BE-4), so this is done directly in MongoDB and is not covered by any script or validation.
 
 A new season needs, at minimum:
 
@@ -428,7 +428,7 @@ A new season needs, at minimum:
    `is_disqualified`. A team with no row for the season disappears from that season's results entirely
    — the join is strict.
 4. **A junction row for the "TBD" placeholder team**, which is easy to miss and is one of the reasons
-   the placeholder is a known modelling flaw (ledger BE-9, Part 5).
+   the placeholder is a known modelling flaw (open item BE-9).
 5. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.
 
 Then run the revalidation script for `saisons` and `spieltage`.

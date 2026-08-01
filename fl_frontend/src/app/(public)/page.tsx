@@ -34,7 +34,10 @@ export default function LandingPage() {
                   silently at the season rollover — the rest of the page will already be showing next
                   season's fixtures while this badge still says the old year. Wire it to
                   `getCurrentSaison()` if this page ever gains a data fetch of its own. */}
-              <div className="border-brand/30 bg-brand/15 text-fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
+              {/* `/10`, not `/15`: the label is 13.9px bold, i.e. normal-size text under WCAG, so it needs
+                  4.5:1 against its own tint. A 10% tint measures 4.70:1 in the dark theme and 7.69:1 in
+                  the light one; 15% drops the dark reading to 4.42:1. Re-measure if --accent-brand moves. */}
+              <div className="border-brand/30 bg-brand/10 text-fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
                 <span className="bg-brand-solid size-2 animate-ping rounded-full" />
                 Saison 2026
               </div>

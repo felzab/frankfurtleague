@@ -17,7 +17,7 @@ type DeleteResult = { success: boolean; message?: string; error?: string };
 /**
  * The two-step destructive confirmation, once. `AdminDeleteSchiedsrichterModal` and
  * `AdminDeleteSpielortModal` were 133 and 125 lines that differed in six string literals, the
- * payload key and the action name (R2 §3.1).
+ * payload key and the action name.
  */
 export function ConfirmDeleteModal({
   isOpen,
@@ -80,7 +80,7 @@ export function ConfirmDeleteModal({
       heading={heading}
       size="confirm"
       // Irreversible, and the copy below says so — but a plain dialog is announced exactly like the
-      // create/edit ones, so the destructive nature never reached a screen reader (R4 §1.3).
+      // create/edit ones, so the destructive nature never reached a screen reader.
       role="alertdialog"
       icon={
         <div className="bg-danger/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">

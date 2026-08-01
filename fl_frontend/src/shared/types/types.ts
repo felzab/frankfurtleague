@@ -1,3 +1,10 @@
+/**
+ * SHARED · cross-slice types
+ *
+ * The three shapes more than one slice speaks: the sidemenu structure, the server-action result, and
+ * the App Router page props. A type used by exactly one slice belongs in that slice's own `types.ts`.
+ */
+
 import type { FieldErrors } from "../utils/validation";
 
 /**
@@ -33,7 +40,7 @@ export type FormState = {
   /**
    * Per-field validation messages, keyed by the field's dotted payload path. `error` stays the
    * transport-level fallback — a network failure or a 500 belongs to no field. Without this channel
-   * a rejected submit could only ever produce a toast that named nothing (R4 §3.1).
+   * a rejected submit could only ever produce a toast that named nothing.
    */
   fieldErrors?: FieldErrors;
   /**
@@ -45,9 +52,8 @@ export type FormState = {
 } | null;
 
 /**
- * Bulletproof generic type for Next.js 15+ App Router Pages.
- * * @template TParams - Dynamic route parameters (e.g., folder `[id]`)
- * @template TSearchParams - URL query string (e.g., `?saison_id=2026`)
+ * Both members are Promises because App Router route props are async from Next 15 onwards — a page
+ * that destructures them synchronously type-checks against an older shape and fails at request time.
  */
 export type NextPageProps<TParams = Record<string, string | string[]>, TSearchParams = { [key: string]: string | string[] | undefined }> = {
   params: Promise<TParams>;

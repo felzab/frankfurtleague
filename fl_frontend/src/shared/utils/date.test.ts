@@ -1,3 +1,11 @@
+/**
+ * SHARED · date tests
+ *
+ * Covers the string-comparison date helpers. `getGermanTodayStr` is tested across the day boundary in
+ * both CET and CEST with a mocked clock, because the bug it guards — the frontend and backend
+ * disagreeing about "today" for an hour a day — is invisible outside those windows.
+ */
+
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 

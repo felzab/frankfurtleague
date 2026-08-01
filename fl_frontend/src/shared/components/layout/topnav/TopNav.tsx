@@ -13,7 +13,7 @@ import { TopNavLinksDropdown } from "./TopNavLinksDropdown";
 // to the PPR shell. The whole nav is part of the static shell now.
 // `px-4` with no `sm:px-6`: the sidemenu's header is `px-4` at every width, so the two bars put the
 // wordmark in the same place. Crossing between a public route and the dashboard used to shift it 8px
-// to the left from `sm` up (NEW-R2).
+// to the left from `sm` up.
 //
 // The menu's six links live here rather than inside the client component (R3a §A4.2): they are
 // static markup with no interactivity of their own, so this file renders them on the server and

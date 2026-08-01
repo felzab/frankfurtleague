@@ -1,5 +1,19 @@
 "use client";
 
+/**
+ * SHARED · debounced URL query
+ *
+ * The one implementation of "type into a box, filter from the URL". It replaced three copies that had
+ * each grown their own `eslint-disable`.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • The URL is the source of truth: consumers filter on `urlValue`, the field displays `inputValue`.
+ *     Filtering on the input instead makes browser back/forward stop working.
+ *   • The hook's own writes are recorded and skipped by the sync effect. A `router.replace` on a route
+ *     that awaits the request commits hundreds of ms later, and without that guard the sync rewinds
+ *     the field and eats whatever was typed in between.
+ */
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -7,8 +21,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
  * Two-way binds a URL search param to a debounced local input. The URL stays the source of truth:
  * `urlValue` is what consumers filter on, `inputValue` is what the field displays.
  *
- * Replaces three copies of this effect pair, each of which carried its own `eslint-disable`
- * (R2 §3.2). The suppression is legitimate here and nowhere else: the sync effect exists precisely
+ * Replaces three copies of this effect pair, each of which carried its own `eslint-disable`.
+ * The suppression is legitimate here and nowhere else: the sync effect exists precisely
  * to mirror external URL changes (browser back/forward) into local state.
  */
 export function useDebouncedUrlQuery({ param = "q", delayMs = 300 }: { param?: string; delayMs?: number } = {}) {

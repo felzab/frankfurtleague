@@ -1,3 +1,10 @@
+/**
+ * SPIELORTE · maps-link tests
+ *
+ * Covers `formatMapsLink`, including the partially filled address: the query has to stay usable when
+ * only some address parts are present rather than producing stray separators.
+ */
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

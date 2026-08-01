@@ -117,7 +117,7 @@ export function SignInForm() {
                 className="flex flex-col gap-y-5">
                 {/* No `aria-label` on the field or the input: both outranked the visible <Label>, so
                   the accessible name was "email" while the screen read "EMAIL-ADRESSE" — and a
-                  voice-control user saying the visible text matched nothing (R4 §3.2). `TextField`
+                  voice-control user saying the visible text matched nothing. `TextField`
                   associates the label itself. */}
                 <TextField
                   className="flex w-full flex-col gap-y-2"

@@ -9,8 +9,11 @@ export async function ServerIsLive() {
     return null;
   });
 
+  // `-strong` and no `opacity-80`: at 10.6px this is the smallest text in the app, and the plain accent
+  // faded to 80% measures 3.02:1 on --bg-surface in the light theme. Fading a token undoes the contrast
+  // it exists to carry — pick a lighter token instead if this ever needs to recede.
   return (
-    <span className={`text-fluid-xxs text-right opacity-80 ${ping?.acknowledged ? "text-success" : "text-danger"}`}>
+    <span className={`text-fluid-xxs text-right ${ping?.acknowledged ? "text-success-strong" : "text-danger-strong"}`}>
       {`Serverstatus: ${ping?.acknowledged ? "online" : "oFLine"}`}
     </span>
   );

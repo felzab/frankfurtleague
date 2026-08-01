@@ -1,4 +1,4 @@
-"""FLAddress — the constraints Wave 4 moved here from the frontend's FLAddressSchema."""
+"""FLAddress — the constraints moved here from the frontend's FLAddressSchema."""
 
 import pytest
 from pydantic import ValidationError

@@ -13,7 +13,7 @@ export function AdminSidemenu({ saisonMetadataDisplay }: { saisonMetadataDisplay
       structure={ADMIN_SIDEMENU_STRUCTURE}
       linkPrefix="/admin"
       // Only the admin shell sits behind a session, so it is the only one with anything to sign out
-      // of (ledger NEW-S1). Injected rather than imported inside the sidemenu, which lives in
+      // of. Injected rather than imported inside the sidemenu, which lives in
       // `shared` and must not reach into `features`.
       onSignOut={signOutAction}
       saisonMetadataDisplay={saisonMetadataDisplay}

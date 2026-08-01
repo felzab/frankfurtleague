@@ -1,6 +1,6 @@
-import "server-only";
-
 /**
+ * CORE · magic-link email
+ *
  * The magic-link email. **This file is the one place to edit what admins receive.**
  *
  * Auth.js ships a default template and, until this existed, that is what went out: an English
@@ -9,8 +9,8 @@ import "server-only";
  * below — see `buildMagicLinkEmail`.
  *
  * It lives in `core/` rather than beside the rest of the auth feature because `core/auth.ts` is what
- * consumes it, and `core` may not import from `features` (the Wave 1 layer rule, which caught this
- * on the first attempt).
+ * consumes it, and `core` may not import from `features` — the ESLint layer boundary, which caught
+ * this on the first attempt.
  *
  * ## How to customise it
  *
@@ -31,6 +31,8 @@ import "server-only";
  *   wrappers: this is an authentication email, and both leak that the address is an allowlisted
  *   admin to anyone who can see the traffic.
  */
+
+import "server-only";
 
 const BRAND_NAME = "Frankfurt-League";
 

@@ -24,7 +24,7 @@ import type { FLTeam } from "../../schemas";
 function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel[]; teamId: string; onOpenSpiel: (spiel: FLSpiel) => void }) {
   /**
    * The W/D/L dots are 10px bold glyphs on an opaque fill, so they need the `-solid` fills rather
-   * than the tint-grade accents (ledger NEW-C1). On the plain accents a white "D" measured 1.92:1
+   * than the tint-grade accents. On the plain accents a white "D" measured 1.92:1
    * in the light theme and 1.32:1 in dark — the draw marker was effectively invisible. The ring
    * stays on the tint accent: it is decoration around the dot, not a foreground.
    */
@@ -42,7 +42,7 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
   };
 
   // Without this the empty case renders the dashed rail with no items -- a bare vertical line
-  // under the "Saisonspiele" heading (R4 §12.2).
+  // under the "Saisonspiele" heading.
   if (spiele.length === 0) {
     return (
       <EmptyState
@@ -53,7 +53,7 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
   }
 
   return (
-    // Same list semantics as the six card grids (R4 §4.4): this is a repeated collection too, so a
+    // Same list semantics as the six card grids: this is a repeated collection too, so a
     // screen-reader user gets a count and a position here as well.
     <div
       role="list"
@@ -107,7 +107,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
       <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4`}>
         <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h1>
 
-        {/* Offizieller Schulname. No emptiness guard: both schemas now require it (R3a-B1.3). */}
+        {/* Offizieller Schulname. No emptiness guard: both schemas now require it. */}
         <p className="text-fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
 
         <div className="flex flex-col gap-y-1 pt-2">
@@ -142,7 +142,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
 
         {/* Five cards, one code path. "Punkte" used to sit outside the map with key={5} — one added
             stat away from colliding with the map's own indices — and carried variant="secondary",
-            which renders identically to "default" (R4 §9.2). `desktopOnly` is the only real
+            which renders identically to "default". `desktopOnly` is the only real
             difference between it and the other four. */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {[
@@ -186,7 +186,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
         />
       </div>
 
-      {/* Guarded like `SpielCardsList`'s (R4 §16.4): no overlay tree until a card is opened. */}
+      {/* Guarded like `SpielCardsList`'s: no overlay tree until a card is opened. */}
       {selectedSpiel && (
         <SpielDetailsModal
           spielData={selectedSpiel}

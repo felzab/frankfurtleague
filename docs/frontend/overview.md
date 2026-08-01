@@ -92,6 +92,60 @@ performance. (ADR-0009.)
 The requirement is that `connection()` precede the fetch — not that it sit in the page's default export.
 Where a page splits chrome from a data hole, it lives in the in-file async child that does the fetching.
 
+## Styling and the browser floor
+
+`src/app/globals.css` is the whole style entry point: the token layer, the `@theme` mapping, the two
+focus exceptions, and the HeroUI import block.
+
+**HeroUI is imported component-by-component, not as `@import "@heroui/styles"`.** This is HeroUI's own
+documented mechanism — the v3 release notes call it "ship only the CSS you use" — and it exists because
+that package's entry pulls in every component it ships while **Tailwind does not tree-shake CSS imported
+from a dependency**. The difference here is 715 KB of stylesheet against 329 KB, the surplus being
+`range-calendar`, `color-swatch-picker`, `checkbox`, `radio` and two button-group variants that this app
+never renders.
+
+The cost of that mechanism is one maintenance rule, and it is the whole reason the block carries a
+header: **a component whose CSS is not imported renders unstyled and fails nothing** — not `tsc`, not
+`next build`, not ESLint. See [Adding a HeroUI component](#adding-a-heroui-component) below.
+
+`browserslist` in `package.json` is Tailwind v4's own support matrix (Chrome/Edge 111, Firefox 128,
+Safari and iOS 16.4). It is not a guess about the audience: the stylesheet uses `oklch()`, `color-mix()`
+and `@property`, so a browser below that line cannot render this app at all. Raising the floor is worth
+roughly 35 KB gzipped across the client chunks in reduced syntax down-levelling.
+
+**It does not remove the polyfills PageSpeed reports under "Legacy JavaScript".** Those come from
+`next/dist/build/polyfills/polyfill-module.js`, which Next injects unconditionally and browserslist does
+not govern. Real size 1,380 bytes; Lighthouse's "14 KiB" is an estimate, and the audit is unscored.
+There is no supported way to drop it — do not spend time on that diagnostic.
+
+### Adding a HeroUI component
+
+Importing the component in TSX is half the change. The other half:
+
+1. Add `@import "@heroui/styles/components/<name>.css" layer(components);` to the block in
+   `globals.css`, **at the position it occupies in
+   `node_modules/@heroui/styles/dist/components/index.css`** — not at the end. HeroUI's file states the
+   order is load-bearing: shared primitives first, then the components that compose them.
+2. Check what the component renders _underneath_ it. A picker is a popover plus a listbox plus a button,
+   and each has its own stylesheet. The quickest check is to render it and read `[data-slot]` in the DOM:
+   any slot whose CSS is missing shows up as an unstyled box.
+3. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
+   padding and a background that are not the browser defaults.
+
+## Metadata and indexing
+
+Every route sets its own `title`, `description` and canonical; `metadataBase` in the root layout is what
+lets the canonicals be paths. Two consequences worth knowing before editing metadata:
+
+- **A route that sets no metadata inherits the root layout's, canonical included** — including the
+  canonical URL, so an unset canonical claims to be the homepage rather than claiming nothing.
+- **`openGraph` is inherited or replaced whole, never merged field-by-field.** The root layout therefore
+  declares only the genuinely site-wide parts (`siteName`, `images`, `locale`, `type`); og:title and
+  og:description resolve from each page's own title and description.
+- **No route ships a `keywords` array.** Google has ignored the tag since 2009 and Bing reads an
+  overstuffed one as a spam signal, so the twelve arrays that existed were maintenance with no reader.
+  Ranking terms belong in the title and description. (ADR-0018.)
+
 ## Authentication
 
 Auth.js with a Resend magic-link provider and a MongoDB adapter. Two things are unusual and intentional.

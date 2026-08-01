@@ -22,7 +22,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
   const [isSwitching, startSwitching] = useTransition();
 
   // The popover's open state is OURS, not react-aria's, and that is the fix for "the trigger stops
-  // responding after a few navigations" (NEW-R6, second round).
+  // responding after a few navigations".
   //
   // Left uncontrolled, this was the third site matching the hazard `useNavigationClosedOverlay` was
   // written for and the only one not wired to it. A react-aria overlay light-dismisses on an outside
@@ -74,7 +74,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
 
   // Until React has attached to this subtree the trigger below is inert: the selector streams in as
   // finished markup long before hydration reaches it, and a press in that window opens nothing (the
-  // owner's "clicking it does literally nothing" — NEW-R6). Showing the placeholder instead means the
+  // owner's "clicking it does literally nothing"). Showing the placeholder instead means the
   // control only appears once it works. The server renders this branch too, so there is no mismatch.
   if (!isMounted) return <SaisonSlotSkeleton />;
 

@@ -9,7 +9,7 @@ import { Switch } from "@heroui/react";
 import { useMounted } from "@/shared/hooks/useMounted";
 
 /**
- * No focus classes on the control, deliberately (R4 §5.3).
+ * No focus classes on the control, deliberately.
  *
  * `Switch.Control` is a plain `<span>`, so `focus-visible:` on it can never fire — the focusable
  * element is the hidden input. HeroUI already handles that: `.switch:focus-visible .switch__control`

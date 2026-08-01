@@ -1,3 +1,10 @@
+/**
+ * SCHIEDSRICHTER · view and form types
+ *
+ * The types the slice's components speak, as distinct from the wire schemas in `schemas.ts`. The
+ * form draft is *derived* from the payload schema rather than restated, so the two cannot drift.
+ */
+
 import type { FLPostSchiedsrichterPayload } from "./schemas";
 
 /**

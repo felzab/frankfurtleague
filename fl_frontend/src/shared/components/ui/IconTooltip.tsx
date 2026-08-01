@@ -6,11 +6,11 @@ import type { ReactNode } from "react";
 
 /**
  * The one tooltip appearance. The content style was written 13 times in two drifted variants
- * (R4 §8.3) — different radius, padding, and one of them on the stock type scale in a codebase that
+ * — different radius, padding, and one of them on the stock type scale in a codebase that
  * uses the fluid scale everywhere. The sidemenu variant wins because the fluid scale is the app's
  * convention.
  *
- * `isEnabled` resolves R4 §9.3's three-way structural split: the collapsed-sidemenu tooltips were
+ * `isEnabled` resolves a three-way structural split: the collapsed-sidemenu tooltips were
  * conditional at two sites, unconditional at a third and an early-return at a fourth, all for the
  * same behaviour. Callers now pass the condition instead of branching on it.
  */

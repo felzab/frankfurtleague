@@ -7,8 +7,8 @@ import { BrandLink } from "../../ui/BrandLink";
 /**
  * The drawer's own header bar. Lifted out of `Sidemenu.tsx`, where it was inlined inside a 154-line
  * client component that also owns route matching, query-string composition and two pieces of
- * open/collapse state — which is why its divergence from the other two header bars went unnoticed
- * (R4 §10.3). All three now live in files named after the header.
+ * open/collapse state — which is why its divergence from the other two header bars went unnoticed.
+ * All three now live in files named after the header.
  */
 export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
   return (
