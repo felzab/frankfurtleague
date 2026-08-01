@@ -118,7 +118,7 @@ PHASE 4 — CLOSE OUT, identical every wave, in this order:
    after a row or section was written, REVISE it in place — never append a
    correction below text that still says the old thing.
 6. Push the branch. Then print, in one copy-paste block: the PR title in the
-   repo convention (`Scope: what changed`, docs/workflows.md) and the PR body —
+   repo convention (`Scope: what changed`, docs/workflows/) and the PR body —
    what the branch achieves, what was verified and how, what was deliberately
    left undone, every resolved divergence, and ADR links where a ratified
    decision was touched. The PR body must STAND ALONE: docs/audit/ is

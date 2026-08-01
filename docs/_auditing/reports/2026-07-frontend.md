@@ -525,7 +525,7 @@ finding identifiers, kept for greppability against commit messages and PR titles
 
 ## 7. Left open
 
-Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md) unless
+Tracked in [`docs/roadmap/open-items.md`](../../roadmap/open-items.md) unless
 noted:
 
 - **BE-4** — no write path for `saisons`/`spieler`/`spieltage`; edits are direct-in-Mongo with

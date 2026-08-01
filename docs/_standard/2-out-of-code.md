@@ -35,6 +35,7 @@ docs/
 ├── _decisions/             ADRs — 0001-*.md, plus README.md and the index
 ├── README.md               entry point
 ├── roadmap/                open items and future ideas
+├── workflows/              how work ships, plus the commit/PR/issue templates
 ├── glossary.md             the German domain vocabulary
 ├── frontend/
 │   ├── overview.md
@@ -62,8 +63,9 @@ Two rules, which between them decide where anything new goes:
   **cross-cutting meta** — about the docs and the decisions themselves — so they sort above the three
   surfaces and never read as a fourth one.
 - **A single cross-cutting reference document sits at the root as a file.** `glossary.md` and
-  `workflows.md` belong to no surface and have no siblings, so wrapping either in a directory would add
-  a level of navigation for one file. `README.md` is the entry point.
+  belongs to no surface and has no siblings, so wrapping it in a directory would add a level of
+  navigation for one file. `README.md` is the entry point. `workflows/` went the other way once it
+  gained a second document on the same theme, which is this rule working as intended.
 
 So the test for something new is: _does it belong to one surface?_ If yes, it goes in that surface's
 directory. If no, it is a root-level file — until there are two or three of them on one theme, at which
@@ -262,7 +264,7 @@ Four rules (DS8):
 
 1. **Every claim cites** a file/line or an ADR.
 2. **Every page that describes current state carries** a `**Verified against:** <commit>, <date>` line
-   near the top — the overviews, the specs, the glossary, `workflows.md`, `README.md`.
+   near the top — the overviews, the specs, the glossary, `workflows/`, `README.md`.
 
    **ADRs do not**, and must not: an ADR is dated to when the decision was _taken_ and describes what
    was true then, so "verified against" would imply a re-check that never happens. Its `Date` field is

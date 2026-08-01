@@ -78,7 +78,7 @@ docs/            the documentation set
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | [Glossary](docs/glossary.md)             | The domain vocabulary is **German** and load-bearing — `Spiel`, `Spieltag`, `Saison`, `Schiedsrichter`. Read this first                 |
 | [Decisions](docs/_decisions/)            | 16 ADRs. Why the codebase is shaped the way it is, including the alternatives that lost                                                 |
-| [Workflows](docs/workflows.md)           | Branching, commits, PRs, deployment, rollback                                                                                           |
+| [Workflows](docs/workflows/)             | Branching, commits, PRs, deployment, rollback                                                                                           |
 | Per surface                              | [frontend](docs/frontend/overview.md) · [backend](docs/backend/overview.md) · [ops](docs/ops/overview.md) — an overview and a spec each |
 | [`scripts/README.md`](scripts/README.md) | The operational manual for every script                                                                                                 |
 
@@ -91,7 +91,7 @@ files, a `connection()` call that appears to defeat static rendering. Each has a
 Short-lived topic branches off `main`, one PR each, merged with a merge commit.
 
 Commit messages carry real weight here — they explain _why_ and record what was verified, and they are
-kept rather than squashed. [`docs/workflows.md`](docs/workflows.md) shows the convention with real
+kept rather than squashed. [`docs/workflows/`](docs/workflows/) shows the convention with real
 examples.
 
 Run `./scripts/verify.sh` before opening a PR. CI runs the same script.

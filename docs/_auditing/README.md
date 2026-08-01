@@ -145,7 +145,7 @@ session's job, in this order, no variation:
 3. Write the wave report (template in `wave-reports.md`), trim the ledger rows, run the Part 4c sweep.
 4. Commit everything; push the branch.
 5. Print, in one block the owner can copy: the **PR title** (`Scope: what changed`, per
-   `docs/workflows.md`) and the **PR body** (what the branch achieves, what was verified and how,
+   `docs/workflows/`) and the **PR body** (what the branch achieves, what was verified and how,
    what was deliberately left undone, resolved divergences, ADR links where a ratified decision was
    touched). `gh` is not installed — never attempt `gh pr create`; the block is the deliverable.
 

@@ -129,7 +129,7 @@ Each of these reads as a violation of §2 or of ordinary best practice, and each
 
 ## 10. DOCUMENTATION
 
-**`docs/README.md` is the entry point.** From there: `_decisions/` for why (the ADRs), the per-surface `overview.md` and `spec.md` for what, `glossary.md` for the German domain vocabulary, and **`workflows.md` for branching, commits, PRs, deployment and the recurring operational tasks** — consult it before proposing a git or deploy step.
+**`docs/README.md` is the entry point.** From there: `_decisions/` for why (the ADRs), the per-surface `overview.md` and `spec.md` for what, `glossary.md` for the German domain vocabulary, and **`workflows/` for branching, commits, PRs, deployment, the recurring operational tasks, and the commit/PR/issue templates** — consult it before proposing a git or deploy step.
 
 **`docs/_standard/`** defines how the repo is documented — read it before writing or changing documentation.
 

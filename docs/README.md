@@ -7,17 +7,17 @@ Docker Compose behind nginx on a single host.
 
 ## Start here
 
-| If you want to                                                      | Read                                           |
-| ------------------------------------------------------------------- | ---------------------------------------------- |
-| Understand a part of the system                                     | the **overview** for that surface              |
-| Look up an exact contract, or check whether something is still true | the **spec** for that surface                  |
-| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — 16 ADRs         |
-| Branch, commit, open a PR, or deploy                                | [`workflows.md`](workflows.md)                 |
-| Write a commit message, a PR or an issue                            | [`message-templates.md`](message-templates.md) |
-| Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)                   |
-| Write or change documentation                                       | [`_standard/`](_standard/)                     |
-| Run an audit or remediation programme                               | [`_auditing/`](_auditing/)                     |
-| See open items and future plans                                     | [`roadmap/`](roadmap/)                         |
+| If you want to                                                      | Read                                                               |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Understand a part of the system                                     | the **overview** for that surface                                  |
+| Look up an exact contract, or check whether something is still true | the **spec** for that surface                                      |
+| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — 16 ADRs                             |
+| Branch, commit, open a PR, or deploy                                | [`workflows/`](workflows/)                                         |
+| Write a commit message, a PR or an issue                            | [`workflows/message-templates.md`](workflows/message-templates.md) |
+| Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)                                       |
+| Write or change documentation                                       | [`_standard/`](_standard/)                                         |
+| Run an audit or remediation programme                               | [`_auditing/`](_auditing/)                                         |
+| See open items and future plans                                     | [`roadmap/`](roadmap/)                                             |
 
 ### Coming back after a while?
 
@@ -32,7 +32,7 @@ confidently:
 3. **The [ADR index](_decisions/README.md)** — sixteen one-line summaries. This is the fastest
    available answer to "why is it like this", and the reason you will not re-litigate settled
    questions.
-4. **[`workflows.md`](workflows.md)** — how to actually ship a change.
+4. **[`workflows/`](workflows/)** — how to actually ship a change, and the message templates.
 
 The specs are reference, not reading. Look things up in them; do not read them through.
 

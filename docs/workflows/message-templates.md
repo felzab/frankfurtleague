@@ -1,11 +1,9 @@
 # Message templates
 
-**Verified against:** `7e5ea28`, 2026-08-01
+**Verified against:** `b9f26b1`, 2026-08-01
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
-Cross-cutting, like the glossary — this belongs to no single surface.
-
-**This page is the form; [`workflows.md`](workflows.md) is the reasoning.** That page documents the
+**This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
 conventions as they are actually practised and argues why they are right for this repo (no
 Conventional Commits, no branch prefixes, merge commits rather than squash). Nothing is restated
 here — if you want to know _why_ a commit subject looks like this, read that page.
@@ -168,9 +166,9 @@ working through PRs. They matter now that the repository is public.
 Two boundaries decide whether something is an issue at all:
 
 - **A suspected vulnerability is never a public issue.** It goes through
-  [`SECURITY.md`](../SECURITY.md) — the contact form or a private security advisory.
+  [`SECURITY.md`](../../SECURITY.md) — the contact form or a private security advisory.
 - **An idea that needs analysis before a decision is not an issue either.** It belongs in
-  [`docs/roadmap/open-items.md`](roadmap/open-items.md), where entries keep their full reasoning
+  [`docs/roadmap/open-items.md`](../roadmap/open-items.md), where entries keep their full reasoning
   until they are decided. Issues are for reports and for actionable work; the roadmap is for
   undecided questions.
 

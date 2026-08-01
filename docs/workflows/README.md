@@ -1,9 +1,11 @@
 # Workflows
 
-**Verified against:** `52b6ef5`, 2026-08-01
+**Verified against:** `b9f26b1`, 2026-08-01
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
-Cross-cutting, like the glossary — this belongs to no single surface.
+Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
+[`message-templates.md`](message-templates.md) holds the copy-paste forms for everything this page
+argues about; keep the reasoning here and the shapes there.
 
 Everything below the "Assessment" heading is **observed from git history and the scripts**, not invented.
 Where something is a recommendation rather than current practice, it says so.
@@ -182,7 +184,7 @@ on pushes to `main`.
 > This is not hypothetical — the first CI run failed instantly on `astral-sh/setup-uv@v9`, a version
 > that has never existed, taken from a bad reading of a release page.
 
-Full detail: [`../scripts/README.md`](../scripts/README.md).
+Full detail: [`../scripts/README.md`](../../scripts/README.md).
 
 ---
 
@@ -239,7 +241,7 @@ the machine is outside the repo.
 
 Those three resources have no write path, are cached for a day, and nothing invalidates them
 automatically. Forgetting is not harmful — the cache expires within 24 hours regardless.
-See [ADR-0015](_decisions/0015-backend-triggered-revalidation-route.md).
+See [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md).
 
 ### After changing anything about the brand mark
 
