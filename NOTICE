@@ -1,0 +1,57 @@
+Frankfurt-League
+Copyright (c) 2026 Felix Zabudkin
+
+The source code in this repository is licensed under the Elastic License 2.0.
+See LICENSE for the full terms.
+
+--------------------------------------------------------------------------------
+NOT COVERED BY THAT LICENSE
+--------------------------------------------------------------------------------
+
+The Elastic License 2.0 grants rights over "the Software". The following are
+published in this repository for transparency and for the operation of this
+project only. They are NOT part of "the Software" for licensing purposes, and no
+right to use, copy, adapt or redistribute them is granted by that license or by
+this notice.
+
+1. NAMES
+
+   "Frankfurt-League" and "frankfurtleague", in any capitalisation or spacing,
+   and any confusingly similar name.
+
+   The Elastic License 2.0 grants no trademark rights. This notice records that
+   no such rights are granted by any other means either.
+
+2. LOGO AND BRAND ASSETS
+
+   The Frankfurt-League mark and every asset derived from it, including but not
+   limited to:
+
+     fl_frontend/src/app/icon.svg
+     fl_frontend/src/app/favicon.ico
+     fl_frontend/src/app/apple-icon.png
+     fl_frontend/public/icons/**
+     fl_frontend/src/shared/components/ui/FLLogo.tsx
+     fl_frontend/scripts/generate-brand-assets.mjs
+
+   The generator is listed deliberately: it is the source the mark is produced
+   from, and excluding the outputs while licensing the generator would be an
+   exclusion in name only.
+
+3. LEAGUE DATA AND WRITTEN CONTENT
+
+   Fixtures, results, tables, team and player records, and the league's written
+   copy — including the page text in fl_frontend/src/features/meta/constants.ts.
+
+   Most of this data lives in the database rather than this repository and is
+   therefore outside the Software regardless. This clause covers what does
+   appear here.
+
+--------------------------------------------------------------------------------
+
+If you want to use any of the above, ask: https://frankfurtleague.de/kontakt
+
+Contributions to this repository are accepted on the basis that you grant the
+copyright holder a perpetual, worldwide, non-exclusive, irrevocable, royalty-free
+licence to use, modify, sublicense and distribute your contribution as part of
+this project, and that the contribution is your own work.

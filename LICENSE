@@ -1,68 +1,51 @@
-Frankfurt-League — Source-Available License
-Copyright (c) 2026 Felix Zabudkin. All rights reserved.
+Elastic License 2.0
+SPDX-License-Identifier: Elastic-2.0
+Source: https://www.elastic.co/licensing/elastic-license
 
-SPDX-License-Identifier: LicenseRef-Frankfurt-League-Source-Available
+The terms below are the Elastic License 2.0, reproduced verbatim. Some things in
+this repository are NOT part of "the software" for the purposes of this license —
+see the NOTICE file, which lists them.
 
-This software is NOT open source. The source code is published so that it can be
-read, studied and contributed to. It is not published for reuse.
+Acceptance
+By using the software, you agree to all of the terms and conditions below.
 
-1. PERMITTED
+Copyright License
+The licensor grants you a non-exclusive, royalty-free, worldwide, non-sublicensable, non-transferable license to use, copy, distribute, make available, and prepare derivative works of the software, in each case subject to the limitations and conditions below.
 
-   You may:
+Limitations
+You may not provide the software to third parties as a hosted or managed service, where the service provides users with access to any substantial set of the features or functionality of the software.
 
-   a. view, read and study this source code;
-   b. clone or fork this repository for the sole purpose of preparing a
-      contribution back to it;
-   c. run the software locally, on your own machine, solely to develop, test or
-      evaluate such a contribution;
-   d. quote short excerpts for the purpose of discussion, review, teaching or
-      commentary, with attribution.
+You may not move, change, disable, or circumvent the license key functionality in the software, and you may not remove or obscure any functionality in the software that is protected by the license key.
 
-2. NOT PERMITTED
+You may not alter, remove, or obscure any licensing, copyright, or other notices of the licensor in the software. Any use of the licensor’s trademarks is subject to applicable law.
 
-   Without prior written permission from the copyright holder, you may NOT:
+Patents
+The licensor grants you a license, under any patent claims the licensor can license, or becomes able to license, to make, have made, use, sell, offer for sale, import and have imported the software, in each case subject to the limitations and conditions in this license. This license does not cover any patent claims that you cause to be infringed by modifications or additions to the software. If you or your company make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
 
-   a. deploy, host, publish or otherwise make this software — or any modified or
-      derivative version of it, in whole or in part — available to any third
-      party, whether publicly or privately, and whether or not for a fee;
-   b. use this software, or any part of it, in any other project, product or
-      service;
-   c. copy, adapt or incorporate any portion of this source code into other
-      works, beyond the short excerpts permitted by 1(d);
-   d. redistribute this software or any derivative of it;
-   e. remove or alter this license, the copyright notice, or any attribution.
+Notices
+You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms.
 
-   For the avoidance of doubt: running your own instance of this application, or
-   of anything substantially derived from it, is not permitted under any
-   circumstances without written permission.
+If you modify the software, you must include in any modified copies of the software prominent notices stating that you have modified the software.
 
-3. CONTRIBUTIONS
+No Other Rights
+These terms do not imply any licenses other than those expressly granted in these terms.
 
-   By submitting a contribution (a pull request, patch, or any other
-   modification) you grant the copyright holder a perpetual, worldwide,
-   non-exclusive, irrevocable, royalty-free licence to use, modify, sublicense
-   and distribute that contribution as part of this software, under this or any
-   future licence.
+Termination
+If you use the software in violation of these terms, such use is not licensed, and your licenses will automatically terminate. If the licensor provides you with a notice of your violation, and you cease all violation of this license no later than 30 days after you receive that notice, your licenses will be reinstated retroactively. However, if you violate these terms after such reinstatement, any additional violation of these terms will cause your licenses to terminate automatically and permanently.
 
-   You confirm that you are entitled to grant that licence, and that your
-   contribution is your own work.
+No Liability
+As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.
 
-4. NAME, BRANDING AND CONTENT
+Definitions
+The licensor is the entity offering these terms, and the software is the software the licensor makes available under these terms, including any portion of it.
 
-   The names "Frankfurt-League" and "frankfurtleague", the logo, the brand
-   assets, and the league's data and written content are NOT licensed by this
-   document. No right to use them is granted, expressly or by implication.
+you refers to the individual or entity agreeing to these terms.
 
-5. NO WARRANTY
+your company is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization. control means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise. Control can be direct or indirect.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+your licenses are all the licenses granted to you for the software under these terms.
 
-6. PERMISSION
+use means anything you do with the software requiring one of your licenses.
 
-   To request permission for anything section 2 forbids, contact the copyright
-   holder via https://frankfurtleague.de/kontakt.
+trademark means trademarks, service marks, and similar rights.
+

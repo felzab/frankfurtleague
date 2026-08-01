@@ -102,18 +102,19 @@ Actively maintained by one person. There is no public issue triage process and n
 
 ## Security
 
-Do not open a public issue for a suspected vulnerability. Report it privately via
-[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).
-
-There is no `SECURITY.md` and no published disclosure policy yet.
+Do not open a public issue for a suspected vulnerability. See [`SECURITY.md`](SECURITY.md) for what is
+in scope and how to report it privately.
 
 ## License
 
-**Source-available, not open source.** See [`LICENSE`](LICENSE).
+**[Elastic License 2.0](LICENSE)** (`Elastic-2.0`) — source-available, not open source.
 
-The source is published so it can be read, studied and contributed to. You may fork it to prepare a
-contribution and run it locally to test that contribution. You may **not** deploy it, host it, reuse
-parts of it in another project, or redistribute it. The name and the logo are not licensed at all.
+You may use, copy, modify and redistribute the code, including commercially. You may **not** offer it
+to third parties as a hosted or managed service, and you must keep the copyright notices intact and
+mark any modifications.
+
+**The name, the logo and the league's data are not covered by that licence** and are not licensed at
+all — see [`NOTICE`](NOTICE). Use of the trademarks is subject to applicable law.
 
 To ask for anything beyond that, get in touch via
 [frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).
