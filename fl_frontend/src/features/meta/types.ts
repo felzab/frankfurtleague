@@ -13,7 +13,7 @@ export interface TeamMember {
   tag: "orga" | "web" | "vorstand";
 }
 
-export interface QA_QUESTION {
+export interface QaQuestion {
   id: string;
   q: string;
   a: string;

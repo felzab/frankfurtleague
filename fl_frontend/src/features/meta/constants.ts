@@ -1,4 +1,4 @@
-import type { KontaktChannel, TeamMember } from "./types";
+import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
 export const TEAM_MEMBERS: TeamMember[] = [
   { id: 1, name: "David", role: "Vorstand", desc: "Ligaleitung & Orga", tag: "vorstand" },
@@ -57,7 +57,7 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
   },
 ];
 
-export const QA_QUESTIONS = [
+export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "finanzierung",
     q: "Wie genau funktioniert die Finanzierung der Abibälle?",

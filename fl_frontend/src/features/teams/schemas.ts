@@ -3,8 +3,6 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
 
-import { FLSpielerSchema } from "../spieler/schemas";
-
 export const FLTeamStatistikSchema = z.object({
   anzahl_gespielte_spiele: z.int().nonnegative(),
   siege: z.int().nonnegative(),
@@ -44,11 +42,6 @@ export const FLTeamCompactSchema = z.object({
   is_disqualified: z.boolean(),
 });
 export type FLTeamCompact = z.infer<typeof FLTeamCompactSchema>;
-
-export const FLTeamWithSpielerSchema = z.object({
-  spieler: z.array(FLSpielerSchema),
-});
-export type FLTeamWithSpieler = z.infer<typeof FLTeamWithSpielerSchema>;
 
 export const FLGruppenSchema = z.object({
   A: z.array(FLTeamSchema),

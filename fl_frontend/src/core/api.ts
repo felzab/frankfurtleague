@@ -7,7 +7,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./err
 
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
-export const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;
+const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VERSION}`;
 
 // BaseAPIResponseSchema deliberately lives in ./schemas, not here. Import it from "@/core/schemas".
 // Re-exporting it from this module would defeat the point: the importer would pull in this file,
@@ -19,7 +19,7 @@ export interface FetchOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined | null>; // Allow these types
 }
 
-export const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): Record<string, string> => {
+const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): Record<string, string> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -43,15 +43,7 @@ export const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "ba
 };
 
 /** Boilerplate function which handles fetch responses */
-export const handleFetchResponse = async ({
-  res,
-  traceId,
-  endpoint,
-}: {
-  res: Response;
-  traceId: string;
-  endpoint: string;
-}): Promise<unknown> => {
+const handleFetchResponse = async ({ res, traceId, endpoint }: { res: Response; traceId: string; endpoint: string }): Promise<unknown> => {
   if (res.ok) {
     if (res.status === 204 || res.headers.get("content-length") === "0") return null;
     return res.json();

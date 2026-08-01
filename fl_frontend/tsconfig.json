@@ -3,7 +3,11 @@
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "types": ["node"],
-    "allowJs": true,
+    // Explicitly false, not omitted: `next build` writes its suggested defaults for any key that is
+    // absent from compilerOptions (a presence check, not a value check), so deleting this line makes
+    // every build re-add `"allowJs": true` and reformat the whole file. Declared false, it is left
+    // alone -- and a stray .js import is a compile error rather than unchecked code, since checkJs is off.
+    "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
     "noUnusedLocals": true,
@@ -30,6 +34,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "**/*.mts"],
+  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
   "exclude": ["node_modules"]
 }
