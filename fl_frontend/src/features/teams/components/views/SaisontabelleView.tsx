@@ -1,5 +1,3 @@
-"use client";
-
 import { Badge, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";

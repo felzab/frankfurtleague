@@ -79,7 +79,15 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   const traceId = `req_${crypto.randomUUID().substring(0, 8)}`; // Id for this fetch call
 
   const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, ...customOptions } = options;
-  const headers = { "X-Correlation-ID": traceId, ...getFetchHeaders(authType), ...customOptions.headers };
+
+  // Built through Headers rather than spread. `FetchOptions extends RequestInit`, so a caller may
+  // legitimately pass a `Headers` instance or a `string[][]` -- and spreading either loses the data
+  // silently: `{...new Headers({a: "1"})}` is `{}`, and `{...[["a","1"]]}` is `{0: [...]}`, a
+  // garbage header name. No caller passes `headers` today; the type is what invites it.
+  const headers = new Headers(getFetchHeaders(authType));
+  headers.set("X-Correlation-ID", traceId);
+  // Caller wins, matching the old spread order.
+  new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${BASE_FETCH_URL}${cleanEndpoint}`);
@@ -96,12 +104,19 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  // The timer covers the body read too, not just the headers. It used to be cleared the moment
+  // `fetch` resolved -- which is when response *headers* arrive -- leaving `res.json()` unbounded, so
+  // a backend that sent headers and then stalled the body hung the render well past the 15 s budget
+  // and never raised APINetworkError.
   let res: Response;
+  let rawData: unknown;
   try {
     res = await fetch(urlObj, { ...customOptions, headers, signal: controller.signal });
-    clearTimeout(timeoutId);
+    rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
   } catch (error) {
-    clearTimeout(timeoutId);
+    // handleFetchResponse throws this for a bad status; it is already the right error, and wrapping
+    // it as a network failure would lose the status code.
+    if (error instanceof APIBadStatusError) throw error;
 
     const isTimeout = error instanceof Error && error.name === "AbortError";
     throw new APINetworkError({
@@ -111,9 +126,9 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       traceId: traceId,
       originalError: error,
     });
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
 
   const validated = schema.safeParse(rawData);
   if (!validated.success) {

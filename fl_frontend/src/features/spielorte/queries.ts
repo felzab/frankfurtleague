@@ -10,9 +10,8 @@ import type { FLSpielorteFilterParams } from "./types";
 export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promise<FLSpielorteListResponse> {
   "use cache";
 
-  const tags: string[] = ["spielorte"];
-  if (filters.is_inactive !== undefined) tags.push(`spielorte:is_inactive:${filters.is_inactive}`);
-  cacheTag(...tags);
+  // Base tag only (audit D2). The spielorte actions already invalidate this tag on every write.
+  cacheTag("spielorte");
   cacheLife("days");
 
   return apiClient<FLSpielorteListResponse>("/spielorte", FLSpielorteListResponseSchema, {

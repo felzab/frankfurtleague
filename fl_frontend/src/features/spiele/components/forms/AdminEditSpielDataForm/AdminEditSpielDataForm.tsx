@@ -78,7 +78,7 @@ export function AdminEditSpielDataForm({
     };
 
     startTransition(async () => {
-      const res = await patchAdminSpielDataAction(payload);
+      const res = await patchAdminSpielDataAction(payload, spielData.saison_id);
 
       if (!res.success) {
         setFieldErrors(res.fieldErrors ?? {});

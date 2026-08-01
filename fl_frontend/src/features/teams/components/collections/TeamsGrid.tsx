@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 
 import { EmptyState } from "@/shared/components/ui/EmptyState";
