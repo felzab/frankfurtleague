@@ -1,3 +1,19 @@
+"""
+SCHIEDSRICHTER · read endpoint
+
+Referees. Read-only here; create, update and delete are admin-authorized and live in the admin router.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • Deletion is SOFT (`is_inactive`), for the same reason as venues: matches embed a copy of the
+    referee, and a hard delete would orphan every match they officiated.
+  • `payment` is the fee in whole euros, with no default. It is NOT propagated when a referee is
+    renamed -- the fee recorded on a match is what was agreed for that match, and rewriting it would
+    rewrite history.
+  • The frontend calls this with no arguments, always. The filter parameters exist but are unused in
+    practice, which is worth knowing before optimising for them.
+"""
+
 from fastapi import APIRouter, Depends
 
 from app.api.schiedsrichter.schemas import (
@@ -20,11 +36,17 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSchiedsrichterListResponse)
+@router.get("", response_model=FLSchiedsrichterListResponse, summary="List Schiedsrichter")
 async def get_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     filters: FLSchiedsrichterFilterParams = Depends(),
 ) -> FLSchiedsrichterListResponse:
+    """
+    List referees.
+
+    Deactivated referees are soft-deleted rather than removed, so they remain retrievable for the
+    historical matches that embed them.
+    """
 
     db_filter = build_schiedsrichter_filter(filters=filters)
     db_sort = build_schiedsrichter_sort(sort_by=filters.sort_by, order=filters.order)

@@ -1,3 +1,13 @@
+"""
+SAISONS · models
+
+The season model, its filter options and the two response shapes.
+
+The 4-character id constraint is the load-bearing part: `FLSpiel.saison_id` and `FLSpieltag.saison_id`
+both require exactly that of whatever they reference, so a longer id validates here and then breaks
+every match and matchday pointing at it on read.
+"""
+
 from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter

@@ -11,7 +11,7 @@ export default async function AdminOverviewPage() {
 
   return (
     // No saison_id: this view is always the current season's outstanding work, so the backend's
-    // default (BE-1) is exactly right.
+    // default (ADR-0002) is exactly right.
     <AdminContextWrapper>
       <AdminSpieleActionRequiredView
         overviewSpiele={adminRes.spiele}

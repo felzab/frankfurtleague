@@ -10,6 +10,17 @@ import { card } from "@/shared/components/ui/card";
 
 import type { FLSpieler } from "../../schemas";
 
+/**
+ * A team's squad list.
+ *
+ * Every field except `vorname` renders through a fallback, and that is not defensiveness — `FLSpieler`
+ * declares surname, number, level and position as nullable, because a squad entry is routinely created
+ * before those are known. Removing a fallback renders a literal "null" the first time someone adds a
+ * player mid-season.
+ *
+ * `"use client"` is required: the back button needs `useRouter`, and `Table.Body` takes a
+ * `renderEmptyState` render prop, which a Server Component may not pass.
+ */
 export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; teamSpieler: FLSpieler[] }) {
   const router = useRouter();
 

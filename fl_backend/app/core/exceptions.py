@@ -1,3 +1,21 @@
+"""
+CORE · application exceptions
+
+Every failure carries an `error_code` alongside its message, so a log line names a specific failure
+rather than a status class. The codes are listed in the backend spec and are part of the API contract.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • A new failure mode gets a new error code, never a reused one -- the codes are what make logs
+    greppable.
+  • `DatabaseUnavailableException` carries `Retry-After`; `RequestAuthorizationException` carries
+    `WWW-Authenticate`. Both headers are part of the response contract, not decoration.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/backend/spec.md -- the error-code table
+"""
+
 from typing import Any, Mapping, Optional
 
 from fastapi import HTTPException, status

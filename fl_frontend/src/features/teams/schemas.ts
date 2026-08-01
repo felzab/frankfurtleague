@@ -1,3 +1,23 @@
+/**
+ * TEAMS · models
+ *
+ * Mirrors `fl_backend/app/api/teams/schemas.py`. No generation step — a constraint changed there must
+ * be changed here in the same commit.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • `FLTeam` looks like one document and is two: the season-independent team record plus a
+ *     `saison_teams` junction row, flattened by the backend. `gruppe`, `statistik` and
+ *     `is_disqualified` come from the junction, which is why they are season-dependent.
+ *   • The grouped response requires ALL FOUR group keys. A season with an empty group once omitted one
+ *     and this parse failed, taking down the table page.
+ *   • `website_url` is scheme-restricted, because it is rendered into an href on a public page.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/glossary.md — "Team", for the junction model and a known issue affecting statistik
+ */
+
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";

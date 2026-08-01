@@ -1,3 +1,33 @@
+"""
+APP · FastAPI application
+
+Wires the whole service together: logging, exception handlers, three middlewares, nine routers.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • Middleware order is significant. Starlette applies them in reverse registration order, so
+    CorrelationIdMiddleware -- registered last -- runs first and a trace id exists before anything
+    else can log.
+  • `setup_custom_logger()` runs at import time, before the app exists, so startup failures are
+    themselves logged in the right format.
+  • Every router is registered here. A router that is written but not included serves nothing and
+    fails silently -- there is no error for a route that was never mounted.
+
+ KNOWN GAP ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  CORS `allow_methods` lists GET/POST/PATCH but the admin router exposes two DELETE endpoints. No
+  impact today: the only client calls server-side, where CORS does not apply. It would bite the moment
+  a browser called this API directly.
+
+  The app declares no `title` or `description`, so /openapi.json carries no service-level prose. The
+  Swagger UI is also not publicly routed -- nginx sends /api here, but FastAPI's own /docs sits at the
+  app root, which nginx sends to Next.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/backend/overview.md
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware

@@ -1,3 +1,30 @@
+"""
+SPIELE · models
+
+The Spiel read model, the admin patch payload, and the three embedded field models they share.
+
+These are HAND-MIRRORED by `fl_frontend/src/features/spiele/schemas.ts` in Zod. There is no generation
+step, so a constraint changed here must be changed there in the same commit. This is the main drift risk
+in the codebase and the first thing to check when behaviour looks impossible.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • The three embedded field models are declared BEFORE the payload and FLSpiel that reference them --
+    see the note below, this has bitten before.
+  • Money fields (`mietpreis`, `payment`) carry NO default. The admin patch writes the payload back
+    wholesale with `$set`, so a default lets a request omitting the field silently overwrite a real
+    value with 0.
+  • `ergebnis` is pattern-constrained rather than free text, and uses `[0-9]` rather than `\\d`: the
+    backend's regex engine treats `\\d` as Unicode-aware, and `Number("٢")` in JavaScript is NaN, so the
+    two ends would disagree about what a digit is.
+  • `saison_id` is exactly 4 characters, matching FLSaison.id.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/backend/spec.md -- section 4, the field-constraint table
+  docs/glossary.md -- Ergebnis, Tore, saison_phase
+"""
+
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, model_validator

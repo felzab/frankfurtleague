@@ -1,3 +1,28 @@
+"""
+TEAMS · aggregation pipeline
+
+Builds the read pipeline for `GET /teams`. The shape exists because a team document is
+SEASON-INDEPENDENT: name, shorthand, address and description live on `teams`, while everything scoped to
+a season -- `gruppe`, `statistik`, `is_disqualified` -- lives on the `saison_teams` junction and is joined
+here. `FLTeam` flattens the two back together, which is why the model looks like one document and is not.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • With a `saison_id` the join is STRICT (`preserveNullAndEmptyArrays: False`). A team with no junction
+    row for that season disappears from results entirely rather than returning with unset `gruppe` and
+    `statistik`, which would fail response validation.
+  • The base `$match` runs BEFORE the `$lookup`, on purpose -- filtering after the join costs memory.
+  • `compact` omits the heavy string fields. It is a projection choice, not a different entity.
+
+ ⚠ KNOWN ISSUE ────────────────────────────────────────────────────────────────────────────────────────────
+
+  `statistik` is READ here from the junction, but the admin result edit WRITES it to the base `teams`
+  collection (`app/api/admin/services.py`). Nothing in this service copies between them, and nothing in
+  this repository writes to `saison_teams` at all. If that reading is right, editing a result does not
+  move the league table. Unverified against a running system -- do not "fix" either side before
+  checking. Full evidence: docs/0-documentation-ledger.md, Finding F4.
+"""
+
 from typing import Any, Mapping
 
 from app.api.teams.schemas import FLTeamsFilterParams

@@ -1,3 +1,28 @@
+"""
+ADMIN · team statistics arithmetic
+
+The two helpers behind `patch_spiel_data`. Statistics are maintained as `$inc` DELTAS rather than
+recomputed from scratch, so both functions have to be exactly right or the error accumulates silently
+across every subsequent edit.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • `get_stats_contribution` returns ALL ZEROS for an unplayed match, including `anzahl_gespielte_spiele`.
+    That is what makes a first-time result entry correct: the old contribution is zero across every
+    field, so the delta equals the new contribution.
+  • Two cases, and they are not interchangeable. Same team in the slot -> apply (new - old). Team
+    changed -> revert the old team in full, apply the new team in full.
+  • Points are hardcoded 3/1/0. `FLSaison.rules` carries `win_points`/`draw_points` per season and is
+    NOT read here. The two agree today; they are not wired together.
+
+ ⚠ KNOWN ISSUE ────────────────────────────────────────────────────────────────────────────────────────────
+
+  This writes `statistik` to the base `teams` collection, filtered by `_id` alone. `GET /teams` READS
+  `statistik` from the `saison_teams` junction (`app/api/teams/services.py`). Nothing copies between
+  them. Unverified against a running system -- do not "fix" either side before checking.
+  Full evidence: docs/0-documentation-ledger.md, Finding F4.
+"""
+
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 

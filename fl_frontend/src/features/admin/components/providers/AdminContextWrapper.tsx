@@ -17,7 +17,7 @@ import { AdminProvider } from "./AdminContextProvider";
  * `saison_id` is the season the caller is already showing. It matters because the picker must offer
  * the teams of the season being edited: `/admin/spielsuche` can list a past season's matches via
  * `?saison_id=`, and without this the editor would offer the *current* season's teams for them.
- * Omitted means "whatever the backend defaults to", which is the current season (BE-1).
+ * Omitted means "whatever the backend defaults to", which is the current season (ADR-0002).
  */
 export async function AdminContextWrapper({ children, saison_id }: { children: React.ReactNode; saison_id?: string }) {
   await connection();

@@ -1,3 +1,25 @@
+/**
+ * API · reference-data revalidation
+ *
+ * Backend-triggered cache invalidation for the three reference resources with no frontend write
+ * surface. They are cached for a day, so an out-of-band edit is served stale until it expires.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • NOT reachable from a browser, and that is the whole protection. nginx sends `/api` to FastAPI
+ *     and only `/api/auth` to Next, so the only caller is inside the compose network. **Adding an
+ *     nginx location for this path publishes it.**
+ *   • The caller names a RESOURCE from a fixed enum, never a tag. Anything else is rejected before it
+ *     reaches the cache.
+ *   • `revalidateTag`, not `updateTag` — the latter throws in a Route Handler, where there is no
+ *     read-your-own-writes to serve.
+ *   • Logs name the rejected field, never the submitted value.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/spec.md — section 5 · docs/ops/spec.md — invariant I2
+ */
+
 import { timingSafeEqual } from "node:crypto";
 
 import { revalidateTag } from "next/cache";
@@ -10,18 +32,8 @@ import { logger } from "@/core/logging";
 
 import type { NextRequest } from "next/server";
 
-/**
- * Backend-triggered cache invalidation for the three reference resources that have no frontend
- * write surface (R3a §A1.4 / ledger Q5). They are cached with `cacheLife("days")`, so an
- * out-of-band edit -- Compass, an ad-hoc script -- is served stale for up to 24 hours.
- *
- * **This route is not reachable from a browser, and that is the point.** nginx sends `/api` to
- * FastAPI and only `/api/auth` to Next, so no external request ever arrives here. The only caller
- * is something already inside the compose network, at `http://frontend:3000/api/revalidate` --
- * see `scripts/revalidate_reference_data.sh`. Do not add an nginx location for this path.
- */
-
 // The caller names a resource, never a tag. Anything else is rejected before it reaches the cache.
+// The only caller is `scripts/revalidate_reference_data.sh`, from inside the compose network.
 const RevalidatePayloadSchema = z.object({
   resource: z.enum(["saisons", "spieler", "spieltage"]),
 });

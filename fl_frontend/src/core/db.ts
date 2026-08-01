@@ -1,3 +1,21 @@
+/**
+ * CORE · MongoDB client
+ *
+ * The one direct database connection the frontend owns. It exists solely for the Auth.js adapter,
+ * which targets the separate `authjs` database and has no HTTP transport.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • ONLY `core/auth.ts` may import this. Application data goes through FastAPI without exception —
+ *     a second consumer here would be a real violation, not a precedent.
+ *   • The development branch caches the client on `global` deliberately: without it, every hot reload
+ *     opens a new connection pool and the database runs out of connections within a session.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/overview.md — the authentication section
+ */
+
 // This approach is taken from https://github.com/vercel/next.js/tree/canary/examples/with-mongodb
 import "server-only";
 

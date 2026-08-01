@@ -1,3 +1,19 @@
+/**
+ * SPIELER · cached read
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Base tag only. `spieler` has no frontend write surface, so no action can invalidate a granular
+ *     tag on it.
+ *   • Squads are edited directly in the database, so a change is served stale for up to a day unless
+ *     `POST /api/revalidate` is called — `scripts/revalidate_reference_data.sh spieler` does that.
+ *   • Only `vorname` is guaranteed present on a player; surname, number and position may all be null.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/spec.md — section 5, out-of-band invalidation
+ */
+
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
@@ -10,8 +26,9 @@ import type { FLSpielerFilterParams } from "./types";
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
   "use cache";
 
-  // Base tag only (audit D2): `spieler` has no frontend write surface, so no action can invalidate
-  // a granular tag on it. Revisit only if a backend-triggered revalidation route arrives.
+  // Base tag only: `spieler` has no frontend write surface, so no action can invalidate a granular
+  // tag on it. The out-of-band revalidation route now exists and clears this coarse tag; granularity
+  // would only be worth adding if a full refresh proves too blunt in practice.
   cacheTag("spieler");
   cacheLife("days");
 

@@ -1,3 +1,16 @@
+/**
+ * SAISONS · models
+ *
+ * Mirrors `fl_backend/app/api/saisons/schemas.py`.
+ *
+ * `FLSaisonPhaseSchema` lives here rather than in `spiele` because a phase is a property of the
+ * season's structure; `spiele` and `spieltage` both import it, so there is one definition and the
+ * three cannot drift.
+ *
+ * Note the phase enum has exactly four values. `"playoffs"` is NOT one of them — it is a query-only
+ * alias the backend compiles to "not gruppenphase", and it never appears on a document.
+ */
+
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";

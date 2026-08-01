@@ -11,6 +11,20 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
+/**
+ * The two team pickers, the goal fields, and the derived outcome readout.
+ *
+ * **`NaN` is the empty goal value in the UI; `null` is the empty goal value in the payload.** HeroUI's
+ * `NumberField` represents "no value" as `NaN`, while `FLSpielTeamField.tore` is `int | null`. The two
+ * conversions at that boundary (`?? NaN` on the way in, `isNaN(val) ? null : val` on the way out) are
+ * the reason this component holds no state for the scores itself. Getting either direction wrong turns
+ * an unplayed match into a 0:0 one, which the backend then counts as a real draw in both teams'
+ * statistics.
+ *
+ * Switching the result toggle OFF restores the goals the form was OPENED with, not `null`. Editing a
+ * recorded result and changing your mind should leave the stored score intact — clearing it would
+ * silently retract a played match's result, and the statistics arithmetic would then reverse it.
+ */
 export function FormMatchupSection({
   teams,
   team1Payload,
@@ -48,6 +62,8 @@ export function FormMatchupSection({
     }
   };
 
+  // `?? NaN`, not `?? 0`: NumberField renders an empty box for NaN and a literal "0" for 0, and the
+  // readout below distinguishes "no result yet" from "nil-nil" on exactly this test.
   const team1Name = team1Payload?.name || "Team1";
   const team1Tore = team1Payload?.tore ?? NaN;
   const team2Name = team2Payload?.name || "Team2";
@@ -58,6 +74,11 @@ export function FormMatchupSection({
       className="flex w-full flex-col gap-y-6"
       onKeyDownCapture={suppressEnterSubmit}>
       <h3 className={FORM_SECTION_HEADING}>Begegnung</h3>
+
+      {/* Each picker disables whichever team the other side already holds, so a match cannot be a team
+          against itself — EXCEPT when that team is the "TBD" placeholder, which legitimately occupies
+          both sides of an unresolved playoff fixture. Passing `null` leaves everything selectable.
+          Matched on the shorthand rather than an id because the placeholder is identified by it. */}
 
       {/** Team 1 */}
       <FormTeamPicker

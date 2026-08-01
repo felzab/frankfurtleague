@@ -1,3 +1,13 @@
+"""
+SPIELORTE · models
+
+The venue read model plus the three admin payloads.
+
+`maps_link` is absent from every payload on purpose: it is derived server-side from name and address,
+so a client cannot set it. `mietpreis` carries no default -- the admin patch writes payloads back
+wholesale, so a default would let an omitted field overwrite a real rent with 0.
+"""
+
 from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter

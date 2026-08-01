@@ -1,3 +1,18 @@
+"""
+SPIELER · aggregation pipeline
+
+Builds the read pipeline for `GET /spieler`. Players follow the same two-document shape as teams: the
+`spieler` record holds what does not change between seasons, and a `saison_spieler` junction holds what
+does. The pipeline joins them and flattens the result into `FLSpieler`.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • Season-specific filters are injected INSIDE the `$lookup` sub-pipeline, not applied after the join.
+    Filtering afterwards would materialise every season's row for every player first.
+  • Filter values keep their ObjectId type through `model_dump(context={"keep_oid": True})`. Dumping
+    without that context turns ids into strings, which then match nothing.
+"""
+
 from typing import Any, Mapping
 
 from app.api.spieler.schemas import FLSpielerFilterParams

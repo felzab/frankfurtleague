@@ -1,3 +1,13 @@
+"""
+CORE · request middleware
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • The trace id is taken from the frontend's `X-Correlation-ID` header when present, and only
+    generated when absent. Generating unconditionally would break correlation across the two services,
+    which is the entire point of the header.
+"""
+
 import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -7,9 +17,7 @@ from app.core.logging import trace_id_var
 
 
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
-    """
-    Injects a Trace ID into every request context for distributed logging.
-    """
+    """Injects a Trace ID into every request context for distributed logging."""
 
     async def dispatch(self, request: Request, call_next):
         # 1. Extract from Next.js, or generate a fresh one

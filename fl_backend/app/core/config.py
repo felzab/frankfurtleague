@@ -1,3 +1,23 @@
+"""
+CORE · backend configuration
+
+Every environment variable the service reads, declared once as a pydantic-settings model. Anything not
+listed here is not configuration -- it is a hardcoded constant somewhere, which is usually a defect.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • Secrets are `SecretStr`, so they do not appear in a repr, a traceback or a log line. Reach the value
+    only through `.get_secret_value()`, and only where it is actually used.
+  • Fields without a default are REQUIRED at boot: the process refuses to start rather than running
+    half-configured. The three API keys are among them.
+  • `api_version` is what every router prefixes itself with. Bumping it changes every path -- and the
+    container healthcheck in docker-compose.yml hardcodes `/api/v0/`, so it must be updated too.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/ops/spec.md -- the healthcheck note, and the environment section
+"""
+
 from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator

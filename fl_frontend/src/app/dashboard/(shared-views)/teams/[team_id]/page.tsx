@@ -14,7 +14,7 @@ import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
   // connection() for the same reason the page has one: the Docker builder stage has no reachable
-  // FastAPI, so an unguarded getTeams() here would fail `docker compose build` (CLAUDE.md §9 A1/A6).
+  // FastAPI, so an unguarded getTeams() here would fail `docker compose build` (ADR-0009, ADR-0011).
   await connection();
   const team_id = await resolveTeamId(props.params);
 

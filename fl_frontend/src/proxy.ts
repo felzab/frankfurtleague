@@ -1,3 +1,23 @@
+/**
+ * CORE · admin route guard
+ *
+ * Runs before every `/admin` request. Defence in depth only — `app/admin/layout.tsx` calls
+ * `getAdminSession()` independently, so page rendering fails closed even if this matcher stops
+ * matching.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • The matcher stays scoped to `/admin`. `auth()` resolves the session, which is a Mongo round
+ *     trip, so it must never sit in front of a public page load.
+ *   • No `callbackUrl` on the redirect. Nothing consumes one, and honouring it later introduces an
+ *     open redirect unless the value is allowlisted.
+ *   • This file is `proxy.ts`, not `middleware.ts` — the latter is the deprecated name.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/overview.md — the authentication section
+ */
+
 import { NextResponse } from "next/server";
 
 import { auth } from "./core/auth";

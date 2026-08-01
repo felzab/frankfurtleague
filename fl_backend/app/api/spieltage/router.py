@@ -1,3 +1,18 @@
+"""
+SPIELTAGE · read endpoint
+
+Matchdays: named blocks of fixtures inside a season, with a date range. Reference data -- read-only
+through the API, edited directly in MongoDB.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • Ordering is by `order_val`, NOT by date. That is the default sort and the one the bracket depends
+    on; sorting by `beginn` reorders the playoff rounds wrongly when dates overlap.
+  • Omitting `saison_id` means the current season, resolved in the handler because a field default
+    cannot query the database.
+  • A Spieltag is not a Spiel. It groups matches; `anzahl_spiele` records how many it should contain.
+"""
+
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_current_saison_id
@@ -18,14 +33,20 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSpieltageListResponse)
+@router.get("", response_model=FLSpieltageListResponse, summary="List Spieltage")
 async def get_spieltage(
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpieltageFilterParams = Depends(),
 ) -> FLSpieltageListResponse:
+    """
+    List matchdays for a season, ordered by `order_val` rather than by date.
 
-    # Omitting `saison_id` means "the current season", not "every season" (BE-1). Resolved here
+    Omitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias
+    for "any phase except gruppenphase".
+    """
+
+    # Omitting `saison_id` means "the current season", not "every season" (ADR-0002). Resolved here
     # rather than as a field default because a default cannot reach the database.
     if filters.saison_id is None:
         filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)

@@ -1,3 +1,24 @@
+"""
+SPIELE · filter and sort construction
+
+Translates `FLSpieleFilterParams` into a Mongo filter document and a sort specification. Pure -- no I/O,
+no collection access -- which is what makes the query semantics testable on their own.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • `saison_phase="playoffs"` compiles to `!= "gruppenphase"`. It is a query alias and never a stored
+    value.
+  • `spiel_status` compiles to a date or cancellation filter. Note `ausstehend` is `>= today`, so it
+    INCLUDES today -- the frontend's own status derivation excludes it and labels those matches
+    `heute`. The two definitions differ deliberately; see the glossary before changing either.
+  • `unbekannt` has no branch and therefore filters nothing: passing it returns everything.
+  • `team_id` matches either side of the fixture, so it needs `$or` rather than a field equality.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/glossary.md -- spiel_status, for the two definitions side by side
+"""
+
 from typing import Any
 
 from app.api.spiele.schemas import FLSpieleFilterParams

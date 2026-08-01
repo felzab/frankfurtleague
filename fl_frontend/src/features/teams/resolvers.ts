@@ -1,3 +1,17 @@
+/**
+ * TEAMS · route-parameter resolution
+ *
+ * Bridges a dynamic route segment to a validated team id. Kept out of `queries.ts` because it is not
+ * caching code, and folding it in would put a non-caching function inside a `"use cache"` module.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • PARSE, do not cast. The type says `string`, but nothing checks what is actually in the URL, and
+ *     the value is forwarded to the backend under the base API key. An unvalidated segment becomes a
+ *     backend request plus a distinct cache entry per variant — an unbounded cache-fill vector.
+ *   • A bad team id ends the render. Unlike a season, there is no sensible fallback team.
+ */
+
 import { notFound } from "next/navigation";
 
 import { CustomObjectIdStringSchema } from "@/shared/schemas";

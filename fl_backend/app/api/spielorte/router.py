@@ -1,3 +1,19 @@
+"""
+SPIELORTE · read endpoint
+
+Venues. This router only reads; creation, update and deletion live in the admin router because they are
+admin-authorized.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • Deletion is SOFT (`is_inactive`). A match embeds a copy of its venue, so a hard delete would orphan
+    every historical match played there. Inactive venues stay readable.
+  • `maps_link` is free text -- a Google Maps search string built from name and address -- NOT a URL.
+    It carries no scheme validation, so it must never be rendered into an href.
+  • `mietpreis` is whole euros and has no default. The admin patch writes the payload back wholesale,
+    so a default would silently overwrite a real rent with 0.
+"""
+
 from fastapi import APIRouter, Depends
 
 from app.api.spielorte.schemas import (
@@ -17,11 +33,17 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSpielorteListResponse)
+@router.get("", response_model=FLSpielorteListResponse, summary="List Spielorte")
 async def get_spielorte(
     spielorte_collection: SpielorteCollection,
     filters: FLSpielorteFilterParams = Depends(),
 ) -> FLSpielorteListResponse:
+    """
+    List venues.
+
+    Deactivated venues are soft-deleted rather than removed, so they remain retrievable for historical
+    matches. `maps_link` is a Maps search string, not a URL.
+    """
 
     db_filter = build_spielorte_filter(filters=filters)
     db_sort = build_spielorte_sort(sort_by=filters.sort_by, order=filters.order)

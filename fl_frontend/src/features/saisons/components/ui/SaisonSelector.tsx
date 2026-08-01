@@ -51,7 +51,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
     const selectedId = key.toString();
     const params = new URLSearchParams(searchParams.toString());
 
-    // The current season is the backend's default (BE-1), so it is represented by the ABSENCE of the
+    // The current season is the backend's default (ADR-0002), so it is represented by the ABSENCE of the
     // parameter rather than by its value. Keeps the common URL clean and shareable.
     if (selectedId !== currentSaison.id) {
       params.set("saison_id", selectedId);

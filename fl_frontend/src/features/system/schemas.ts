@@ -1,3 +1,11 @@
+/**
+ * SYSTEM · models
+ *
+ * Mirrors `fl_backend/app/api/system/schemas.py`. `status` is a literal rather than a string: a probe
+ * that could report anything other than ok would need callers to interpret it, and failure is already
+ * carried by the status code.
+ */
+
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";

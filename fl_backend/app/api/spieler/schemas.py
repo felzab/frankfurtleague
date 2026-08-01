@@ -1,3 +1,12 @@
+"""
+SPIELER · models
+
+Only `vorname` is required. Everything else may be null while a squad entry is still being filled in,
+so every consumer must handle a missing surname, number or position. `nummer` is a STRING, not an int.
+
+Mirrored by FLSpielerSchema in the frontend.
+"""
+
 from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter

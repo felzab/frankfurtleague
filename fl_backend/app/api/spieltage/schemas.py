@@ -1,3 +1,12 @@
+"""
+SPIELTAGE · models
+
+`order_val` is the ordering the bracket depends on, and it is the default sort -- not `beginn`.
+Matchdays routinely share dates, so ordering by date interleaves playoff rounds unpredictably.
+
+`FLSaisonPhase` is imported from the spiele slice rather than redeclared, so the two cannot drift.
+"""
+
 from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter

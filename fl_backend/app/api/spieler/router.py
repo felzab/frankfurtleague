@@ -1,3 +1,18 @@
+"""
+SPIELER · read endpoint
+
+Squad lists. Reference data: read-only through the API, edited directly in MongoDB.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • This is the ONE read endpoint that does not default `saison_id` to the current season. It is
+    normally called with a `team_id`, which already narrows the result -- a season default would add a
+    lookup on the hot path and narrow nothing.
+  • Only `vorname` is required on a player. Everything else may be null while a squad is being filled
+    in, so consumers must handle missing surnames, numbers and positions.
+  • `nummer` is a STRING, not an integer.
+"""
+
 from fastapi import APIRouter, Depends
 
 from app.api.spieler.schemas import (
@@ -17,8 +32,14 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSpielerListResponse)
+@router.get("", response_model=FLSpielerListResponse, summary="List Spieler")
 async def get_spieler(spieler_collection: SpielerCollection, filters: FLSpielerFilterParams = Depends()) -> FLSpielerListResponse:
+    """
+    List players, normally for one team.
+
+    Unlike the other resources, omitting `saison_id` does NOT resolve to the current season here --
+    callers narrow by `team_id` instead. Only `vorname` is guaranteed present on a player.
+    """
 
     pipeline = build_spieler_pipeline(filters=filters)
     spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=pipeline)

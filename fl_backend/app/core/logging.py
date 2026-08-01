@@ -1,3 +1,19 @@
+"""
+CORE · structured logging
+
+One logger for the whole service, emitting one JSON document per line in production and colourised
+human output in development.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • The trace id is a ContextVar, not a parameter. It is set from the `X-Correlation-ID` header the
+    frontend sends, so one user action can be followed across both services in the logs.
+  • Nothing writes to stdout directly. A stray `print` or bare `console`-style write breaks the
+    one-document-per-line contract that makes the output machine-readable.
+  • Log the field name, never the submitted value, when reporting a validation failure -- payloads
+    routinely carry email addresses and other personal data.
+"""
+
 import json
 import logging
 import logging.config

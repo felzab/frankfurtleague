@@ -1,3 +1,22 @@
+"""
+CORE · database access helpers
+
+Every raw MongoDB call in the application goes through one of these six functions. Nothing else calls
+Motor directly, which is what keeps session and transaction handling in one place.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • `patch_one_in_db` returns the document as it was BEFORE the update (ReturnDocument.BEFORE). The
+    Spiel write path derives its statistics deltas from that. Changing the default silently corrupts
+    every team's table -- no error is raised.
+  • The two read helpers cap results at 1024 documents. `aggregate_many_from_db` caps the cursor only;
+    a pipeline should carry its own `$limit`.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/backend/spec.md -- invariant I2
+"""
+
 from typing import Any, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection

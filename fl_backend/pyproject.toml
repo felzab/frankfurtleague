@@ -69,6 +69,14 @@ select = [
     "F",  # pyflakes
     "I",  # isort (alphabetizes your imports!)
     "B",  # flake8-bugbear
+    # Docstring FORMATTING only (docs/_standard, decision DS4). Deliberately NOT the D1xx
+    # missing-docstring family: requiring a docstring on every symbol manufactures boilerplate, and
+    # the standard asks for prose where there is a reason to record, not coverage for its own sake.
+    "D200",  # one-line docstring should fit on one line
+    "D205",  # blank line required between summary line and description
+    "D209",  # multi-line docstring closing quotes on their own line
+    "D210",  # no surrounding whitespace in docstrings
+    "D419",  # docstring is empty
 ]
 ignore = ["B008"]
 [tool.ruff.format]

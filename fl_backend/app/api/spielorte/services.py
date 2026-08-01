@@ -1,3 +1,12 @@
+"""
+SPIELORTE · filter and sort construction
+
+Pure translation of `FLSpielorteFilterParams` into a Mongo filter and sort. No I/O.
+
+Note that soft-deleted venues are excluded by an explicit `is_inactive` filter rather than by default:
+an admin form listing venues to edit still needs to see them.
+"""
+
 from typing import Any
 
 from app.api.spielorte.schemas import FLSpielorteFilterParams

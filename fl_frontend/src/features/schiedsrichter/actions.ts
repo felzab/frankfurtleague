@@ -1,5 +1,22 @@
 "use server";
 
+/**
+ * SCHIEDSRICHTER · server actions
+ *
+ * Full CRUD over referees. The `"use server"` directive stays the first line, above this block.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Every action begins with `getAdminSession()` and CHECKS the result.
+ *   • The patch action invalidates `spiele` as well as `schiedsrichter`, because the backend fans the
+ *     new name into every match embedding it. Note it fans out the NAME only — a match keeps the fee
+ *     that was agreed for it.
+ *   • Delete is a soft delete server-side.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/spec.md — section 3, the action inventory
+ */
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";

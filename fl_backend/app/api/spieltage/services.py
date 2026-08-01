@@ -1,3 +1,12 @@
+"""
+SPIELTAGE · filter and sort construction
+
+Pure translation of `FLSpieltageFilterParams` into a Mongo filter and sort. No I/O.
+
+Every sort is tie-broken, because matchdays routinely share a date: `order_val` is the primary ordering
+the bracket depends on, and a sort by date alone would interleave playoff rounds unpredictably.
+"""
+
 from typing import Any
 
 from app.api.spieltage.schemas import FLSpieltageFilterParams

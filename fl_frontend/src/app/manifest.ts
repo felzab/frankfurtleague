@@ -1,3 +1,12 @@
+/**
+ * APP · web app manifest
+ *
+ * The icons referenced here are GENERATED, not hand-maintained. Re-run `pnpm brand` in `fl_frontend`
+ * rather than editing any icon or manifest entry by hand — the generator produces the favicon, app
+ * icons, both manifest sets, the Open Graph card and the logo component from one source, and editing
+ * an output makes the header mark and the icons drift apart.
+ */
+
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
