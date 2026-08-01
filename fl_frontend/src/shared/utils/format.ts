@@ -1,3 +1,17 @@
+/**
+ * SHARED · display formatting
+ *
+ * Everything that turns a stored value into something a German-speaking reader sees: currency, dates,
+ * times, addresses, and the placeholders that stand in for absent data.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • One placeholder per category, taken from `PLACEHOLDER`. A component inventing its own is how the
+ *     same missing result came to read three different ways on one screen.
+ *   • Dates are formatted from the `YYYY-MM-DD` string with an explicit Europe/Berlin instant, never
+ *     from a bare `new Date(...)` — the viewer's zone would otherwise shift the day.
+ */
+
 import type { FLAddress } from "../schemas";
 
 /**
@@ -6,7 +20,7 @@ import type { FLAddress } from "../schemas";
  * Before this the same absent value read three different ways depending on which component you were
  * looking at: a result was `"- : -"` on the main match card and `"-:-"` on the compact ones — both
  * on screen at once in some flows — while `SpielDetailsModal` printed `"/"` for a date the cards
- * showed as `"TBD"` and a time they showed as `"--:--"` (R2 §3.5, R4 §14.3). The rule now is that a
+ * showed as `"TBD"` and a time they showed as `"--:--"`. The rule now is that a
  * category looks the same everywhere it appears.
  */
 export const PLACEHOLDER = {
@@ -21,7 +35,7 @@ const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" 
 
 /**
  * Formats a euro amount for display. Module-level formatter, constructed once: both admin tables
- * previously built a fresh `Intl.NumberFormat` *per row* (R2 §3.4, R4 §18.5).
+ * previously built a fresh `Intl.NumberFormat` *per row*.
  */
 export const formatEuro = (value: number): string => EUR.format(value);
 

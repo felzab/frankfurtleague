@@ -18,7 +18,7 @@ type SubmitResult = { success: boolean; message?: string; error?: string; fieldE
 
 /**
  * The create/edit form skeleton, once. `AdminCreate*Form` and `AdminEdit*Form` came in four files
- * that were 76–78% identical (R2 §3.1): the same `useTransition`, the same `<Form action>`, the same
+ * that were 76–78% identical: the same `useTransition`, the same `<Form action>`, the same
  * draft state, the same toast handling and the same button pair. Only the initial draft, the server
  * action, its success guard and the success string ever differed.
  *
@@ -79,7 +79,7 @@ export function EntityForm<TDraft>({
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 
       <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3 pt-4">
-        {/* Disabled while the mutation is in flight (R4 §3.4): pressing it unmounted the modal out
+        {/* Disabled while the mutation is in flight: pressing it unmounted the modal out
             from under a running transition, whose `toast.success` and draft reset then fired against
             a dead tree — so the record was created and the user was never told. */}
         <Button

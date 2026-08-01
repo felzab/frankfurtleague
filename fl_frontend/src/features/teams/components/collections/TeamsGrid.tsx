@@ -8,7 +8,7 @@ import type { FLTeamCompact } from "../../schemas";
 
 export function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]; urlPrefix: string }) {
   // Season-scoped: an empty list usually means this season has no teams yet, not that none exist
-  // anywhere -- selecting a future season in the SaisonSelector produces exactly that (R4 §12.5).
+  // anywhere -- selecting a future season in the SaisonSelector produces exactly that.
   if (teams.length === 0) {
     return (
       <EmptyState

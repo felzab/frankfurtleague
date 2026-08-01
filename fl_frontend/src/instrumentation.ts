@@ -1,3 +1,19 @@
+/**
+ * APP · instrumentation
+ *
+ * Next's instrumentation entry point: the startup environment gate and the server error hook.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • This file lives in `src/`, never the repo root. Both compile; only `src/` is traced into
+ *     `output: "standalone"`, so from the root neither `register()` nor `onRequestError` runs in the
+ *     container — and nothing reports that they did not.
+ *   • The runtime guard excludes Edge rather than requiring Node. `NEXT_RUNTIME` is unset in the
+ *     standalone server, so a `!== "nodejs"` test returns early and validates nothing.
+ *   • Importing `core/config` *is* the gate. Do not wrap it in `try`/`catch` — the failure happens
+ *     while Next loads the module, before `register()` is entered.
+ */
+
 export { onRequestError as onRequestError } from "./core/instrumentation";
 
 /**

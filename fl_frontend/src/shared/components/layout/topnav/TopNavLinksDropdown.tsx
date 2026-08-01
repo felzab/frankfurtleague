@@ -14,13 +14,13 @@ import { Dropdown } from "@heroui/react";
 export function TopNavLinksDropdown({ children }: { children: React.ReactNode }) {
   return (
     <Dropdown>
-      {/* The label and the styling belong on the trigger, not on the icon (R4 §2.1).
+      {/* The label and the styling belong on the trigger, not on the icon.
           `Dropdown.Trigger` already renders a react-aria `Button` — verified in HeroUI 3.2.2,
           `dropdown.js` — so it is the element that carries the role and the `aria-expanded`
           MenuTrigger wires up. The old markup labelled the inner `<svg>` and gave it `tabIndex={0}`,
           which named a graphic and put a second tab stop inside the button while leaving the
           button itself nameless. Do not wrap a `<Button>` in here: that nests a button in a button
-          (ledger NEW-F8). */}
+. */}
       <Dropdown.Trigger
         aria-label="Navigationsmenü öffnen"
         className="text-foreground hover:bg-muted rounded-md p-1 transition-colors">

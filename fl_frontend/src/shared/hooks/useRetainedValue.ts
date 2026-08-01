@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * SHARED · retained overlay value
+ *
+ * One hook, existing so that closing an overlay does not blank its contents mid-transition. Callers
+ * render the value this returns and drive `isOpen` from the live one — the pair is what makes the
+ * exit animation possible, and using the retained value for both would leave the overlay open.
+ */
 import { useState } from "react";
 
 /**

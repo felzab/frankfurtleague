@@ -65,7 +65,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
           </Table.Header>
 
           {/* `items` + a render function, not mapped children: the static form stops committing its
-              row collection after a few client navigations away and back (ledger NEW-T1). */}
+              row collection after a few client navigations away and back. */}
           <Table.Body
             items={filteredSchiedsrichter}
             renderEmptyState={() => (

@@ -10,7 +10,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
 /**
  * The shared address editor.
  *
- * `namePrefix` is what lets it report validation at all (R4 §3.3). It had no error channel of any
+ * `namePrefix` is what lets it report validation at all. It had no error channel of any
  * kind: five fields, no `name`, no error slot, so a server-side "PLZ muss genau 5 Ziffern haben"
  * could only ever surface as a toast that named no field. Naming each input after its dotted path
  * in the enclosing payload is enough — react-aria's `Form` distributes `validationErrors` by field

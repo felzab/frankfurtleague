@@ -49,7 +49,7 @@ export function AdminSpielCardsList({ spiele, today }: { spiele: FLSpiel[]; toda
   // Fetch the editor's chunk once this list is on screen, so the first click does not pay for it.
   // It is a big chunk — the whole of `@internationalized/date`, HeroUI's Calendar/DatePicker/
   // TimeField and three Autocompletes live in it and nothing else in the app pulls them — which is
-  // why the first open was noticeably slow (NEW-R4).
+  // why the first open was noticeably slow.
   // In an effect, so it starts after this page has painted: it is off the critical path and cannot
   // delay the route's own load. Kept lazy rather than imported statically because that would put all
   // of the above back into the initial admin bundle, which is the one thing `dynamic()` is here to

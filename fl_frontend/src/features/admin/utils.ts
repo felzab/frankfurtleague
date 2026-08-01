@@ -1,3 +1,18 @@
+/**
+ * ADMIN · action-required derivation
+ *
+ * Sorts matches into the categories the action-required view renders. Pure derivation, no I/O — it is
+ * a separate module from `queries.ts` so that non-caching code stays out of a `"use cache"` file
+ * (ADR-0004).
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Declaration order in `ACTION_REQUIRED_LABELS` is render order; the view maps its entries
+ *     straight into the accordion.
+ *   • The category union stays a literal union, not an index signature. The accumulator below is
+ *     fully keyed, so a mistyped category is a compile error rather than a crash on `undefined`.
+ */
+
 import type { FLSpiel } from "../spiele/schemas";
 
 /**

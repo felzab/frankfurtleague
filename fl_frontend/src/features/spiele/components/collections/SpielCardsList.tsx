@@ -22,7 +22,7 @@ export function SpielCardsList({ spiele, today, onAdminEdit }: { spiele: FLSpiel
         />
       ))}
 
-      {/* Guarded, so a list that has never been clicked mounts no overlay at all (R4 §16.4). This
+      {/* Guarded, so a list that has never been clicked mounts no overlay at all. This
           component is instantiated once per collection — six on the admin action-required accordion,
           two on the landing grid, one each on spielsuche, spielhistorie and the active spielplan tab
           — and each instance used to mount a full Modal.Backdrop / Container / Dialog tree plus its

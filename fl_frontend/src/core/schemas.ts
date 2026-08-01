@@ -1,3 +1,11 @@
+/**
+ * CORE · API response envelope
+ *
+ * Pure Zod, deliberately free of any server-only dependency: ten feature `schemas.ts` modules
+ * value-import this envelope, so anything imported here is inherited by all of them. Keep it that way
+ * — the reason it does not live in `api.ts` is on the export.
+ */
+
 import z from "zod";
 
 /**

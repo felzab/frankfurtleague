@@ -108,7 +108,7 @@ export function AdminEditSpielDataForm({
 
       {/** Cancel Spiel */}
       {/* No `aria-label`: "Spiel absagen" below sits inside the switch's own <label>, so an
-          aria-label would only override the visible text with a copy of itself (cf. R4 §3.2). */}
+          aria-label would only override the visible text with a copy of itself. */}
       <div className="flex w-full flex-col gap-y-1">
         <Switch
           size="md"

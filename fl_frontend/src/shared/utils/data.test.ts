@@ -1,3 +1,10 @@
+/**
+ * SHARED · collection-join tests
+ *
+ * Covers `joinCollections`, including the aliasing case: two left rows sharing an id must not share
+ * one array instance, or a mutation through one row silently reaches the other.
+ */
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -10,7 +17,7 @@ const spieltage = [
 ];
 
 // Named rather than indexed off the array, so no test needs a non-null assertion to
-// reference one — those would become load-bearing under Wave 4's noUncheckedIndexedAccess.
+// reference one — those would become load-bearing under `noUncheckedIndexedAccess`.
 const spielA = { id: "s1", spieltag_id: "st1" };
 const spielB = { id: "s2", spieltag_id: "st1" };
 const spielC = { id: "s3", spieltag_id: "st2" };

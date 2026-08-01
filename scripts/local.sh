@@ -6,7 +6,7 @@
 # WHY THIS EXISTS, and why `pnpm dev` is not enough:
 #   `next dev` runs the app from source. It never produces the standalone build, never runs the
 #   startup environment gate, never goes through nginx, and never applies the security headers.
-#   Wave 3 found two defects that EVERY dev-mode check passed:
+#   Two defects got through EVERY dev-mode check because of that:
 #     - instrumentation.ts at the repo root compiles fine and is then dropped from the image,
 #       silently disabling the env gate and all production error logging;
 #     - a module-scope read of AUTH_URL that only fails in the builder stage, where there is no .env.

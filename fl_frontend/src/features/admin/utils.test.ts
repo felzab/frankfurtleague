@@ -1,3 +1,10 @@
+/**
+ * ADMIN · action-required tests
+ *
+ * Covers the categorisation behind the admin action-required view, including that one match can land
+ * in several categories at once and that the label map stays exhaustive over the category union.
+ */
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

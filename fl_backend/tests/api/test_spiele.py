@@ -2,8 +2,8 @@
 FLSpiel and its embedded field models.
 
 `ergebnis` is the important one. It is parsed as structured data by the frontend, which derives
-win/draw/loss from it — an unconstrained value rendered as a loss for BOTH teams (audit R3a-B1.2).
-BE-2 added `ge=0` to `tore`; Wave 4 added the pattern that makes `\\d+` provably safe.
+win/draw/loss from it — an unconstrained value rendered as a loss for BOTH teams.
+`ge=0` on `tore` and the pattern that makes `\\d+` provably safe both guard that.
 """
 
 import pytest

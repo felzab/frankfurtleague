@@ -1,3 +1,11 @@
+/**
+ * SPIELE · derivation tests
+ *
+ * Covers the three values every match card derives. `formatSpielDisplay` is tested for placeholder
+ * agreement specifically: the drift it replaced had one card rendering "- : -" while two others
+ * rendered "-:-" on the same screen, which no type can catch.
+ */
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

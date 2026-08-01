@@ -39,20 +39,19 @@ result. Name what could not be verified and why.
 The **scope** is a real area of the codebase or of the programme in progress. Real examples from
 this history:
 
-| Scope           | Used for                                          |
-| --------------- | ------------------------------------------------- |
-| `Backend`       | a change confined to `fl_backend`                 |
-| `Repo`          | repository-level files — licence, config, tooling |
-| `Docs`          | `docs/` content                                   |
-| `Brand`         | the brand mark and everything generated from it   |
-| `Wave 8c`       | one phase of a remediation programme              |
-| `Wave 7 review` | the review round that followed a merged wave      |
+| Scope     | Used for                                          |
+| --------- | ------------------------------------------------- |
+| `Backend` | a change confined to `fl_backend`                 |
+| `Repo`    | repository-level files — licence, config, tooling |
+| `Docs`    | `docs/` content                                   |
+| `Brand`   | the brand mark and everything generated from it   |
+| `Ops`     | deployment, images, nginx, CI                     |
 
 A **two-clause subject joined by ", and"** is idiomatic here when one commit makes two related
 changes, and is better than splitting a coherent change in two:
 
 ```
-Wave 8b: named component exports, and one folder rule for all of them
+Frontend: named component exports, and one folder rule for all of them
 Repo: switch to the Elastic License 2.0, and add a NOTICE and SECURITY policy
 ```
 
@@ -121,9 +120,9 @@ to remember.
 
 Every change reaches `main` through a PR, merged with a merge commit.
 
-**A PR body must stand alone.** `docs/audit/` is gitignored, so a reviewer on GitHub can see neither
-the remediation ledger nor the wave reports — never point at them from a PR body, and never assume
-the reader has the working documents.
+**A PR body must stand alone.** `docs/audit/` is gitignored, so a reviewer on GitHub sees none of it —
+never point at anything under it from a PR body, and never assume the reader has the working
+documents. Open items live in [`../roadmap/open-items.md`](../roadmap/open-items.md).
 
 ### Title
 

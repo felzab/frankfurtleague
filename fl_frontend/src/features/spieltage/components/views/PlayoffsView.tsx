@@ -26,7 +26,7 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
 
   // Was `return null`, which rendered a completely blank content area — and this is the expected
   // state for most of a season, because the playoff Spieltage do not exist until the group phase
-  // finishes (R4 §12.2).
+  // finishes.
   /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
      `h1` whether or not the season has data. */
   const pageHeading = <h1 className="sr-only">Finalrunden</h1>;
@@ -121,7 +121,7 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
         </div>
       </div>
 
-      {/* Guarded like `SpielCardsList`'s (R4 §16.4): no overlay tree until a card is opened. */}
+      {/* Guarded like `SpielCardsList`'s: no overlay tree until a card is opened. */}
       {selectedSpiel && (
         <SpielDetailsModal
           spielData={selectedSpiel}

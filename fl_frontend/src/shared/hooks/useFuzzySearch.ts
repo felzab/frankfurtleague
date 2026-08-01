@@ -1,5 +1,18 @@
 "use client";
 
+/**
+ * SHARED · fuzzy search
+ *
+ * The app's single Fuse configuration and the only place a search index is built.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Both stages stay memoized — the index and the result. Two of the three call sites this replaced
+ *     rebuilt the index on every keystroke render.
+ *   • The returned array must keep its identity across renders. A react-aria collection fed from it
+ *     stops committing rows otherwise, which is why callers pass a module-scope `keys` array rather
+ *     than an inline literal.
+ */
 import { useMemo } from "react";
 
 import Fuse from "fuse.js";
@@ -14,14 +27,14 @@ const FUSE_DEFAULTS = {
 } as const;
 
 /**
- * One Fuse configuration, memoized in both stages (R2 §3.3, R4 §16.3). Two of the three former call
+ * One Fuse configuration, memoized in both stages. Two of the three former call
  * sites rebuilt the index and re-ran the search on every keystroke render.
  *
  * `emptyQuery` is an explicit option because the call sites genuinely disagree and both are
  * intended: the admin views list everything until you type ("all"), while `/dashboard/spielsuche`
  * deliberately shows "Noch keine Eingabe..." until you do ("none").
  *
- * Memoizing the result is also what keeps `NEW-T1` fixed: the returned array must hold its identity
+ * Memoizing the result is what keeps the collection stable: the returned array must hold its identity
  * across the re-renders `useSearchParams` triggers while the view sits in a hidden Activity tree, or
  * a react-aria collection fed from it stops committing its rows. Pass a module-scope `keys` array
  * for the same reason.

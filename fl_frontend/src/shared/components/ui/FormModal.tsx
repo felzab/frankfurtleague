@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 
 /**
  * A form-sized modal: heading plus a scrolling body. Absorbs the four admin create/edit modals and
- * `AdminEditSpielDataModal`, which differed only in their heading and their children (R2 §3.1).
+ * `AdminEditSpielDataModal`, which differed only in their heading and their children.
  */
 export function FormModal({
   isOpen,

@@ -24,7 +24,7 @@ export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overv
   return (
     <div className="relative flex w-full flex-1 flex-col items-center px-4 pt-6 pb-12 sm:px-8">
       {/* The route's design has no visible page title, so the `h1` that anchors the heading list is
-          visually hidden (R4 §4.2). Its text matches the sidemenu entry that leads here. */}
+          visually hidden. Its text matches the sidemenu entry that leads here. */}
       <h1 className="sr-only">Übersicht: Spiele mit Handlungsbedarf</h1>
 
       <Accordion className="text-foreground max-w-page flex w-full flex-col gap-y-4">
@@ -48,7 +48,7 @@ export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overv
                     <div className="flex items-center gap-x-3">
                       <span className="text-fluid-base text-foreground font-extrabold tracking-tight">{label.name}</span>
                       {/* The `-solid` fills hold one deep value in both themes, so white stays legible
-                          on them (NEW-C1). The plain `danger`/`success` accents are tuned as tints and
+                          on them. The plain `danger`/`success` accents are tuned as tints and
                           measured 3.30:1 light / 2.28:1 dark behind this 12px bold count. */}
                       <span
                         className={`text-fluid-xxs inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 font-extrabold shadow-sm ${

@@ -1,3 +1,12 @@
+/**
+ * SHARED · format tests
+ *
+ * Covers the display formatters and the shared placeholders. The cases that matter are the ones a
+ * reader would not think to write: `formatSpielDatum` is pinned against both German DST offsets and
+ * against a viewer in another timezone, because the failure it guards is a date rendering one day off
+ * for some users and not others.
+ */
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 

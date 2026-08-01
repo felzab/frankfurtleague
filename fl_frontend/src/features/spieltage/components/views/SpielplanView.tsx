@@ -13,7 +13,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
      `h1` whether or not the season has data. */
   const pageHeading = <h1 className="sr-only">Spielplan</h1>;
 
-  // Without this the empty case renders a bordered, empty 44px tab bar and no panels (R4 §12.2).
+  // Without this the empty case renders a bordered, empty 44px tab bar and no panels.
   if (!spielplanData?.spieltage?.length) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
@@ -28,7 +28,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
 
   return (
     // Updated to flex-1 and flex-col so it handles height naturally without jumping.
-    // The arrival animation lives here rather than on each panel (NEW-R3): this element mounts once
+    // The arrival animation lives here rather than on each panel: this element mounts once
     // per page visit and never again on a tab press, so the rise plays exactly when it should — the
     // page settling into place — and cannot be replayed or interrupted by switching Spieltag.
     // Note this is an ancestor of the `sticky` tab bar below. That is safe: a transformed ancestor
@@ -72,7 +72,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
               animation, which is the leftover-cards flicker. Identical visually.
 
               The rise moved up to the `Tabs` root, which mounts once, so it no longer replays on
-              every press (NEW-R3). The switch animation is now `cards-cascade` (defined in
+              every press. The switch animation is now `cards-cascade` (defined in
               `globals.css`) and it sits on the CARDS, not on this container.
 
               That took three goes, and the first two were aimed at the wrong thing. Timing was never

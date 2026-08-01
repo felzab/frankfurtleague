@@ -8,7 +8,7 @@ export function SpielhistorieView({ spielhistorieData, today }: { spielhistorieD
   /* Rendered in both branches, not just the populated one: the route must keep its only `h1`
      whether or not the season has data — losing it in the empty state takes the heading away
      exactly when there is least else to orient by. Visually hidden because the design has no page
-     title; the text matches the route's own `metadata.title` (R4 §4.2). */
+     title; the text matches the route's own `metadata.title`. */
   const pageHeading = <h1 className="sr-only">Spielhistorie</h1>;
 
   if (spielhistorieData.length === 0) {

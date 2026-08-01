@@ -24,7 +24,7 @@ export function SidemenuNavItem({
     <Link
       onClick={onMobileClick}
       // The active item was signalled by colour and weight alone, which assistive tech cannot see —
-      // seven identically-structured links with no way to tell which is the current page (R4 §4.3).
+      // seven identically-structured links with no way to tell which is the current page.
       aria-current={isActive ? "page" : undefined}
       className={`flex h-[36px] w-full items-center rounded-md transition-colors ${
         isDesktopCollapsed ? "justify-center px-0" : "justify-start gap-2.5 px-3"

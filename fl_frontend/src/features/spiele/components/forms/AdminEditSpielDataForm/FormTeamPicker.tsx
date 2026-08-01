@@ -24,7 +24,7 @@ import type { Key } from "@heroui/react";
  * The local `tbdTeamName` state therefore has to survive re-selection of the same placeholder, which is
  * why it is held here rather than derived from `teamPayload` on each render.
  *
- * This whole mechanism disappears when the nullable-opponent migration lands (BE-9).
+ * This whole mechanism disappears when the nullable-opponent migration lands.
  */
 export function FormTeamPicker({
   label,

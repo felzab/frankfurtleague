@@ -61,7 +61,7 @@ export type FLSpielSchiedsrichterField = z.infer<typeof FLSpielSchiedsrichterFie
 /**
  * The edit form's in-progress shapes. An emptied currency field is `null` while the admin is typing
  * — it must not silently become 0, which is what shipped a 0 € Mietpreis whenever someone cleared
- * the box (ledger R4-3.1, from NEW-F13). The strict schemas above still reject `null`, so a cleared
+ * the box. The strict schemas above still reject `null`, so a cleared
  * field fails validation with the German message on it rather than saving a wrong number.
  */
 export type FLSpielOrtFieldDraft = Omit<FLSpielOrtField, "mietpreis"> & { mietpreis: number | null };
@@ -92,7 +92,7 @@ export const FLSpielSchema = z.object({
   saison_phase: FLSaisonPhaseSchema,
   // The backend sends this (FLSpiel.saison_id, min_length=4, max_length=4). Until it was declared
   // here, zod's default strip mode discarded it silently -- which is why the admin patch action has
-  // no season id to invalidate a granular cache tag with (ledger R3a-A2.1, D2).
+  // no season id to invalidate a granular cache tag with.
   saison_id: z.string().length(4),
 });
 export type FLSpiel = z.infer<typeof FLSpielSchema>;

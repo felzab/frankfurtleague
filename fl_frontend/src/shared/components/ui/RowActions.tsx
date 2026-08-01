@@ -13,14 +13,14 @@ import type { ReactNode } from "react";
 /**
  * The admin tables' row-action cluster. Shared because the two tables' actions were identical down
  * to the class strings — and because the two shapes had drifted apart in a way that was a real
- * interaction bug, not just duplication (R4 §8.4): the `<Link>` actions got a 40×40 hit area, a
+ * interaction bug, not just duplication: the `<Link>` actions got a 40×40 hit area, a
  * hover background and a focus ring, while the `<Button>` actions in the same row got none of the
  * three. They share one style here, so the targets match.
  *
  * The data columns are deliberately NOT shared — they genuinely differ per entity, and a
  * config-driven table is where that kind of abstraction stops paying (owner decision, 2026-07-30).
  *
- * `label` and `ariaLabel` are two different things and both are required (R4 §4.1). `label` is the
+ * `label` and `ariaLabel` are two different things and both are required. `label` is the
  * tooltip, which react-aria wires as `aria-describedby` — a description, announced after the name
  * and dropped entirely by screen readers in forms mode. It never names the control. `ariaLabel`
  * carries the record name so the five icons in a row are distinguishable from each other and from

@@ -51,7 +51,7 @@ class TestSaisonsFilter:
 
 
 class TestSpieleFilter:
-    # BE-1 resolves an omitted `saison_id` to the current season in the router, so by the time the
+    # The router resolves an omitted `saison_id` to the current season, so by the time the
     # builder runs the field is always set. Both spellings are asserted because the builder is
     # reachable with either.
     def test_passes_saison_id_through_under_its_own_name(self):

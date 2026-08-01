@@ -9,7 +9,7 @@ import { AdminProvider } from "./AdminContextProvider";
 /**
  * Loads the three lookup lists the match editor needs, and provides them to the client.
  *
- * Mounted by the two routes that can open that editor, **not** by `admin/layout.tsx` (R4 §16.2).
+ * Mounted by the two routes that can open that editor, **not** by `admin/layout.tsx`.
  * From the layout it ran on all four admin routes, and two of them — schiedsrichter and spielorte —
  * never render the editor, so they serialised every referee (with `kontakt.email` and
  * `kontakt.telefon`), every venue (with its full address) and every team into a payload nothing read.

@@ -1,7 +1,7 @@
 """
 FLKontakt — email and phone validation.
 
-Before Wave 4 the backend applied **none**: both fields were a bare optional string, so the only
+The backend once applied **none**: both fields were a bare optional string, so the only
 check anywhere was the frontend's. These tests pin the rules now that the backend owns them.
 """
 

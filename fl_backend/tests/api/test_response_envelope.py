@@ -6,7 +6,7 @@ Every response model extends BaseAPIResponse, and the frontend's BaseAPIResponse
 so a future model added without the envelope fails here rather than at a browser.
 
 The models in `test_declares_the_envelope_on_every_untyped_route` were bare `JSONResponse`
-bodies until Wave 4 — their `{"acknowledged": 1}` shape was real but undeclared, so the frontend
+bodies for a long time — their `{"acknowledged": 1}` shape was real but undeclared, so the frontend
 schemas for them were guesses.
 """
 

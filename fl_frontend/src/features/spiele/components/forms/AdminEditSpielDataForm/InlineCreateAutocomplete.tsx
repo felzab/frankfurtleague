@@ -20,7 +20,7 @@ type CreateResult = { success: boolean; created_id?: string | null; message?: st
 
 /**
  * The pick-or-create-inline control, once. `FormSchiedsrichterSection` and `FormSpielortSection`
- * were a 499-line, 75%-identical pair — the largest single duplication in the codebase (R2 §3.8).
+ * were a 499-line, 75%-identical pair — the largest single duplication in the codebase.
  * Everything that varies here is data; the structure never was.
  *
  * Resolved divergence: the two copies disagreed on Enter. The Schiedsrichter copy submitted the
@@ -28,7 +28,7 @@ type CreateResult = { success: boolean; created_id?: string | null; message?: st
  * and `submitInlineOnEnter` suppresses the event before doing so, so it can never reach
  * `AdminEditSpielDataForm`'s outer `<Form action>`.
  *
- * A record created inline is selected immediately (R4 §13.4) — the section exists to attach one to
+ * A record created inline is selected immediately — the section exists to attach one to
  * the match, and reporting "angelegt" while leaving the picker empty led admins to save a match
  * with no referee. `items` still comes from the last server render, so the new record is held in
  * `createdItems` and merged into the collection: `Autocomplete.Value` renders from

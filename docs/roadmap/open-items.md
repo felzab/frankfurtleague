@@ -149,8 +149,7 @@ Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
 Unreachable through FastAPI today, which validates already-parsed dicts — which is precisely why
 the existing tests certify a guarantee that holds in only one of the two modes. If anything ever
-routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found by
-Wave 4's final review (2026-07-30). Seeded into backend audit pass B2's validation-mode check.
+routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
 ## BE-7 — `typing` imports instead of `collections.abc`
 

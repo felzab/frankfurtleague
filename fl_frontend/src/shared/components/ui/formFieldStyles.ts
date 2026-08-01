@@ -1,5 +1,5 @@
 /**
- * The one text-field appearance (R4 §8.5). The style existed in two drifting copies across 12
+ * The one text-field appearance. The style existed in two drifting copies across 12
  * fields: the four `AddressFields` had a brand-coloured focus border and the seven others had no
  * focus feedback at all — inside a single form, so a keyboard user saw the ring appear on
  * Straße/Nr./PLZ/Stadt and vanish on Name.
@@ -55,7 +55,7 @@ export const TAB_INDICATOR = "bg-brand-solid rounded-lg shadow-sm";
 /**
  * The one field-error appearance. Every `<FieldError>` in the app uses it, so a rejected value looks
  * the same wherever it is rejected — five of the six forms previously had no field-level error
- * surface at all and reported failures only through a toast that named no field (R4 §3.1).
+ * surface at all and reported failures only through a toast that named no field.
  */
 export const FIELD_ERROR = "text-fluid-xxs text-danger mt-1 font-bold";
 

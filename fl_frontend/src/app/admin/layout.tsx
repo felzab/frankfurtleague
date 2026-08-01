@@ -6,7 +6,7 @@ import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMe
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { SkipToContentLink } from "@/shared/components/ui/SkipToContentLink";
 
-// Not async, and that is the point (NEW-SC11). The auth guard used to be awaited here, before any
+// Not async, and that is the point. The auth guard used to be awaited here, before any
 // JSX, which made the entire admin shell — sidemenu, nav, chrome — a dynamic hole. It now lives in
 // AdminAuthGuard below the Suspense boundary, so this layout prerenders and only the session check
 // and the page's own data are resolved per request. See AdminAuthGuard for the security note.

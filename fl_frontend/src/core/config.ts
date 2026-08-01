@@ -50,7 +50,7 @@ export const frontend_config = createEnv({
     // anything. Requiring it only meant every deployment had to supply a value for nothing.
     // Setting it in the environment stays harmless. What actually stops a forged Host header is
     // AUTH_URL being mandatory and https-pinned, plus the catch-all default_server block in
-    // nginx.conf. See ledger R3b-S9.3 / NEW-S3.
+    // nginx.conf, which owns the enforced policy (ADR-0016).
     AUTH_SECRET: z.string(),
     AUTH_RESEND_KEY: z.string(),
 
