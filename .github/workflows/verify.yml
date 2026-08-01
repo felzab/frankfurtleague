@@ -77,7 +77,7 @@ jobs:
         working-directory: fl_frontend
         run: pnpm install --frozen-lockfile
 
-      - uses: astral-sh/setup-uv@v7.6.0
+      - uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
 
