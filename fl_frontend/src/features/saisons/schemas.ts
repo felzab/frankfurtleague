@@ -7,8 +7,6 @@ export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error
 export const FLSaisonPhaseSchema = z.enum(["gruppenphase", "viertelfinale", "halbfinale", "finale"], { error: "FLSaisonPhase is invalid" });
 export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
 
-export const FLSaisonsSortOptionsSchema = z.enum(["_id", "start_date", "end_date"], { error: "FLSaisonsSortOptions is invalid" });
-
 export const FLSaisonRulesSchema = z.object({
   win_points: z.int().positive(),
   draw_points: z.int().nonnegative(),
@@ -39,6 +37,3 @@ export const FLSaisonsSingleResponseSchema = BaseAPIResponseSchema.extend({
   saison: FLSaisonSchema,
 });
 export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSchema>;
-
-export const FLSaisonsResponseSchema = z.discriminatedUnion("format", [FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema]);
-export type FLSaisonsResponse = z.infer<typeof FLSaisonsResponseSchema>;
