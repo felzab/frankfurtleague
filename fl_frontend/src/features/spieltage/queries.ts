@@ -10,10 +10,9 @@ import type { FLSpieltageFilterParams } from "./types";
 export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
   "use cache";
 
-  const tags: string[] = ["spieltage"];
-  if (filters.saison_id) tags.push(`spieltage:saison_id:${filters.saison_id}`);
-  if (filters.saison_phase) tags.push(`spieltage:phase:${filters.saison_phase}`);
-  cacheTag(...tags);
+  // Base tag only (audit D2): `spieltage` has no frontend write surface, so its granular tags could
+  // never be invalidated. Per CLAUDE.md §6, granular tags belong on `spiele` and `teams` alone.
+  cacheTag("spieltage");
   cacheLife("days");
 
   return apiClient<FLSpieltageListResponse>("/spieltage", FLSpieltageListResponseSchema, {

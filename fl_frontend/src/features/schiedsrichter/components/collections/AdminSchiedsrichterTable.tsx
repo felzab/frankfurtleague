@@ -11,7 +11,15 @@ import { formatEuro } from "@/shared/utils/format";
 
 import type { FLSchiedsrichter } from "../../schemas";
 
-function AdminSchiedsrichterTable({
+/**
+ * Memoised deliberately, and load-bearing — see the long note on `AdminSpielorteTable`. In short:
+ * the parent's `useSearchParams()` re-renders this table while it sits hidden in a React Activity
+ * tree during navigation elsewhere, and a react-aria collection that re-renders while hidden loses
+ * its rows for good. No inline lambdas here. The `query` prop is not stable across a navigation
+ * that changes `q` — `memo` cannot bail out then — so the `items` form of `Table.Body` is what
+ * actually carries the fix; keep it.
+ */
+export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   schiedsrichterQuery,
   filteredSchiedsrichter,
   setEditingSchiedsrichter,
@@ -146,14 +154,4 @@ function AdminSchiedsrichterTable({
       </Table.ScrollContainer>
     </Table>
   );
-}
-
-/**
- * Memoised deliberately, and load-bearing — see the long note on `AdminSpielorteTable`. In short:
- * the parent's `useSearchParams()` re-renders this table while it sits hidden in a React Activity
- * tree during navigation elsewhere, and a react-aria collection that re-renders while hidden loses
- * its rows for good. No inline lambdas here. The `query` prop is not stable across a navigation
- * that changes `q` — `memo` cannot bail out then — so the `items` form of `Table.Body` is what
- * actually carries the fix; keep it.
- */
-export default memo(AdminSchiedsrichterTable);
+});

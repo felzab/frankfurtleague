@@ -6,7 +6,7 @@ import Resend from "next-auth/providers/resend";
 
 import { buildMagicLinkEmail } from "./authEmail";
 import { frontend_config } from "./config";
-import client from "./db";
+import { client } from "./db";
 import { logger } from "./logging";
 
 import type { Session } from "next-auth";

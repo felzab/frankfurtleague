@@ -2,14 +2,14 @@
 
 import { FormModal } from "@/shared/components/ui/FormModal";
 
-import AdminEditSpielDataForm from "../forms/AdminEditSpielDataForm/AdminEditSpielDataForm";
+import { AdminEditSpielDataForm } from "../forms/AdminEditSpielDataForm/AdminEditSpielDataForm";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
-export default function AdminEditSpielDataModal({
+export function AdminEditSpielDataModal({
   spielData,
   teams,
   spielorte,

@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 
 import { Switch } from "@heroui/react";
 
-import useMounted from "@/shared/hooks/useMounted";
+import { useMounted } from "@/shared/hooks/useMounted";
 
 /**
  * No focus classes on the control, deliberately (R4 §5.3).
@@ -16,13 +16,13 @@ import useMounted from "@/shared/hooks/useMounted";
  * rings the track in var(--focus) off the root's state. The old `ring-0 outline-none` here was
  * cancelling exactly that ring, which is why the switch had no focus indication at all.
  */
-export default function ThemeSwitch() {
-  const _toggleTheme = () => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark");
-  };
-
+export function ThemeSwitch() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const mounted = useMounted();
+
+  const handleToggleTheme = () => {
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
+  };
 
   if (!mounted) {
     return (
@@ -40,7 +40,7 @@ export default function ThemeSwitch() {
     <Switch
       aria-label="Darstellungsmodus umschalten"
       isSelected={theme === "light"}
-      onChange={_toggleTheme}>
+      onChange={handleToggleTheme}>
       <Switch.Content>
         <Switch.Control>
           <Switch.Thumb>

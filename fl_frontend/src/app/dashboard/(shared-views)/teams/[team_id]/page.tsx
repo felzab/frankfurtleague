@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { APIBadStatusError } from "@/core/errors";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
-import TeamDetailsView from "@/features/teams/components/views/TeamDetailsView";
+import { TeamDetailsView } from "@/features/teams/components/views/TeamDetailsView";
 import { getTeams } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { getGermanTodayStr } from "@/shared/utils/date";

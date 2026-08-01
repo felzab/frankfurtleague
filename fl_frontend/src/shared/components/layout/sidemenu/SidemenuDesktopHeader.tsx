@@ -3,7 +3,7 @@
 import { BrandLink } from "../../ui/BrandLink";
 import { IconTooltip } from "../../ui/IconTooltip";
 
-export default function SidemenuDesktopHeader({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
+export function SidemenuDesktopHeader({ isDesktopCollapsed }: { isDesktopCollapsed: boolean }) {
   return (
     <div
       className={`border-border box-content hidden h-(--navbar-height) shrink-0 items-center border-b transition-[padding] duration-300 lg:flex ${

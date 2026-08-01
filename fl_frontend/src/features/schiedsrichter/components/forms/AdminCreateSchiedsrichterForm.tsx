@@ -3,7 +3,7 @@
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 
-import SchiedsrichterFormFields from "./SchiedsrichterFormFields";
+import { SchiedsrichterFormFields } from "./SchiedsrichterFormFields";
 
 import type { FLKontakt } from "@/shared/schemas";
 
@@ -16,7 +16,7 @@ const EMPTY_DRAFT: SchiedsrichterDraft = {
   kontakt: { telefon: "", email: "" },
 };
 
-export default function AdminCreateSchiedsrichterForm({ onClose }: { onClose: () => void }) {
+export function AdminCreateSchiedsrichterForm({ onClose }: { onClose: () => void }) {
   return (
     <EntityForm<SchiedsrichterDraft>
       initialDraft={EMPTY_DRAFT}

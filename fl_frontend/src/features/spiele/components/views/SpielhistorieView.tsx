@@ -1,12 +1,10 @@
-"use client";
-
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
-import SpielCardsList from "../collections/SpielCardsList";
+import { SpielCardsList } from "../collections/SpielCardsList";
 
 import type { FLSpiel } from "../../schemas";
 
-export default function SpielhistorieView({ spielhistorieData, today }: { spielhistorieData: FLSpiel[]; today: string }) {
+export function SpielhistorieView({ spielhistorieData, today }: { spielhistorieData: FLSpiel[]; today: string }) {
   /* Rendered in both branches, not just the populated one: the route must keep its only `h1`
      whether or not the season has data — losing it in the empty state takes the heading away
      exactly when there is least else to orient by. Visually hidden because the design has no page

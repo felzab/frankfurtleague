@@ -10,11 +10,11 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
-import { handleSignIn } from "../actions";
+import { handleSignIn } from "../../actions";
 
 import type { FormState } from "@/shared/types/types";
 
-export default function SignInForm() {
+export function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
   // The action no longer navigates, so this panel is what the user sees after a submit. It says the

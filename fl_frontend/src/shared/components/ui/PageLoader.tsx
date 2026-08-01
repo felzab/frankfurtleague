@@ -1,4 +1,4 @@
-export default function PageLoader() {
+export function PageLoader() {
   return (
     // `role="status"` so the wait and its end are announced — nothing in the app was a live region,
     // so a screen-reader user heard silence through the whole navigation (R4 §4.6).

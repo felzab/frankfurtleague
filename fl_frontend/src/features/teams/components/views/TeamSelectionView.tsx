@@ -1,4 +1,4 @@
-import TeamsGrid from "../collections/TeamsGrid";
+import { TeamsGrid } from "../collections/TeamsGrid";
 
 import type { FLTeamCompact } from "../../schemas";
 

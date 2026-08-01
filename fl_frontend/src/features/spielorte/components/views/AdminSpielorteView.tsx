@@ -3,7 +3,7 @@
 import { SPIELORTE_CRUD_COPY } from "@/features/spielorte/constants";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
-import AdminSpielorteTable from "../collections/AdminSpielorteTable";
+import { AdminSpielorteTable } from "../collections/AdminSpielorteTable";
 import { AdminDeleteSpielortModal } from "../modals/AdminDeleteSpielortModal";
 import { AdminEditSpielortModal } from "../modals/AdminEditSpielortModal";
 

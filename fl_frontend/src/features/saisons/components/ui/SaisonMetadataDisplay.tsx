@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { getCurrentSaison, getSaisons } from "../../queries";
 import { SaisonSelector } from "./SaisonSelector";
 
-export default async function SaisonMetadataDisplay() {
+export async function SaisonMetadataDisplay() {
   await connection();
   const [currentSaisonRes, saisonsRes] = await Promise.all([getCurrentSaison(), getSaisons()]);
 

@@ -9,9 +9,9 @@ import { Badge, Popover, Separator } from "@heroui/react";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 
-import { TBD_TEAM_SHORTHAND } from "../constants";
+import { TBD_TEAM_SHORTHAND } from "../../constants";
 
-export default function TeamPopoverMenu({
+export function TeamPopoverMenu({
   teamName,
   teamId,
   teamShorthand,

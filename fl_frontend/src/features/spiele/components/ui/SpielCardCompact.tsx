@@ -4,15 +4,15 @@ import { CircleExclamation } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";
 
-import TeamPopoverMenu from "@/features/teams/components/TeamPopoverMenu";
+import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { card } from "@/shared/components/ui/card";
 
-import { formatSpielDisplay } from "../utils";
-import SaisonPhaseChip from "./ui/SaisonPhaseChip";
+import { formatSpielDisplay } from "../../utils";
+import { SaisonPhaseChip } from "./SaisonPhaseChip";
 
-import type { FLSpiel } from "../schemas";
+import type { FLSpiel } from "../../schemas";
 
-export default function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FLSpiel; onOpenInfoModal?: () => void }) {
+export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FLSpiel; onOpenInfoModal?: () => void }) {
   const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
 
   return (

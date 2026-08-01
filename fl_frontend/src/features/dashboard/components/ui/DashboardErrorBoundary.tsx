@@ -3,7 +3,7 @@
 import { startTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import DashboardError from "./DashboardError";
+import { DashboardError } from "./DashboardError";
 
 /**
  * The shared body of `app/admin/error.tsx` and `app/dashboard/error.tsx`, which were identical but
@@ -11,7 +11,7 @@ import DashboardError from "./DashboardError";
  * file per segment, so both route files still exist; only the implementation is shared.
  */
 // No console.error here -- see the note in src/app/error.tsx.
-export default function DashboardErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export function DashboardErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
 
   const handleRetry = () => {

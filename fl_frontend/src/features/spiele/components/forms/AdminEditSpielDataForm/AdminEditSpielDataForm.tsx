@@ -8,10 +8,10 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 
 import { patchAdminSpielDataAction } from "../../../actions";
-import FormDateTimeSection from "./FormDateTimeSection";
-import FormMatchupSection from "./FormMatchupSection";
-import FormSchiedsrichterSection from "./FormSchiedsrichterSection";
-import FormSpielortSection from "./FormSpielortSection";
+import { FormDateTimeSection } from "./FormDateTimeSection";
+import { FormMatchupSection } from "./FormMatchupSection";
+import { FormSchiedsrichterSection } from "./FormSchiedsrichterSection";
+import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpiel, FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -24,7 +24,7 @@ import type { FLTeam } from "@/features/teams/schemas";
  * direction the write path was moved out of `admin` to avoid. The aggregator supplies them
  * instead, which is what an aggregator slice is for.
  */
-export default function AdminEditSpielDataForm({
+export function AdminEditSpielDataForm({
   spielData,
   teams,
   spielorte,
@@ -78,7 +78,7 @@ export default function AdminEditSpielDataForm({
     };
 
     startTransition(async () => {
-      const res = await patchAdminSpielDataAction(payload);
+      const res = await patchAdminSpielDataAction(payload, spielData.saison_id);
 
       if (!res.success) {
         setFieldErrors(res.fieldErrors ?? {});

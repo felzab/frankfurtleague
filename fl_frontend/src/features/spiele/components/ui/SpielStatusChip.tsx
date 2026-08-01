@@ -48,7 +48,7 @@ const STATUS_LABELS: Record<FLSpielStatus, string> = {
   abgesagt: "Abgesagt",
 };
 
-export default function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus }) {
+export function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus }) {
   return (
     <Chip
       size="sm"

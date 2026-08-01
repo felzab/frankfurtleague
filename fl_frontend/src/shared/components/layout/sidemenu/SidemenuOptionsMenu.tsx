@@ -10,7 +10,7 @@ import { Dropdown, Label, Separator, toast } from "@heroui/react";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 
 import { IconTooltip } from "../../ui/IconTooltip";
-import ThemeSwitch from "../../ui/ThemeSwitch";
+import { ThemeSwitch } from "../../ui/ThemeSwitch";
 
 import type { FormState } from "@/shared/types/types";
 

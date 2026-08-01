@@ -3,9 +3,9 @@
 import React from "react";
 
 import { DASHBOARD_SIDEMENU_ICONS, DASHBOARD_SIDEMENU_STRUCTURE } from "@/features/dashboard/constants";
-import Sidemenu from "@/shared/components/layout/sidemenu/Sidemenu";
+import { Sidemenu } from "@/shared/components/layout/sidemenu/Sidemenu";
 
-export default function DashboardSidemenu({ saisonMetadataDisplay }: { saisonMetadataDisplay: React.ReactNode }) {
+export function DashboardSidemenu({ saisonMetadataDisplay }: { saisonMetadataDisplay: React.ReactNode }) {
   return (
     <Sidemenu
       structure={DASHBOARD_SIDEMENU_STRUCTURE}

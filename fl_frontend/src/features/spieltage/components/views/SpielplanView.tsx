@@ -2,13 +2,13 @@
 
 import { Tabs } from "@heroui/react";
 
-import SpielCardsList from "@/features/spiele/components/collections/SpielCardsList";
+import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 
 import type { FLSpielplan } from "../../schemas";
 
-export default function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
+export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
   /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
      `h1` whether or not the season has data. */
   const pageHeading = <h1 className="sr-only">Spielplan</h1>;

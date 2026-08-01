@@ -9,8 +9,8 @@ import { Modal, Separator } from "@heroui/react";
 import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, formatSpielDisplay } from "../../utils";
-import SaisonPhaseChip from "../ui/SaisonPhaseChip";
-import SpielStatusChip from "../ui/SpielStatusChip";
+import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
+import { SpielStatusChip } from "../ui/SpielStatusChip";
 
 import type { FLSpiel } from "../../schemas";
 
@@ -28,7 +28,7 @@ import type { FLSpiel } from "../../schemas";
  * is what keeps the header and body off it. Cheap, and it is the reason a missed call site degrades
  * to an empty dialog rather than a crash: two of the four were missed when the guard first landed.
  */
-export default function SpielDetailsModal({
+export function SpielDetailsModal({
   spielData,
   isOpen,
   onClose,

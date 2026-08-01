@@ -2,14 +2,14 @@
 
 import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react";
 
-import AddressFields from "@/shared/components/ui/AddressFields";
+import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SpielortDraft } from "../../types";
 
 /** Field names match their path in the create/patch payload — see `SchiedsrichterFormFields`. */
-export default function SpielortFormFields<T extends SpielortDraft>({
+export function SpielortFormFields<T extends SpielortDraft>({
   draft,
   onChange,
   errors,

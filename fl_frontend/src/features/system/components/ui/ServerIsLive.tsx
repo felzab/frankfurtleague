@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 
-import { checkIsLive } from "../queries";
+import { checkIsLive } from "../../queries";
 
-export default async function ServerIsLive() {
+export async function ServerIsLive() {
   await connection();
 
   const ping = await checkIsLive().catch(() => {

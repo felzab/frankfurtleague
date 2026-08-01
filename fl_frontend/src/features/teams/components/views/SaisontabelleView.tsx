@@ -1,3 +1,8 @@
+// Keeps "use client", unlike its two siblings in R3a §A4.3. The directive is not redundant here:
+// `Table.Body` below takes `renderEmptyState`, a render prop, and a Server Component cannot pass a
+// function to a Client Component -- doing so throws "Functions cannot be passed directly to Client
+// Components" on every render of /dashboard/saisontabelle. Verified against a probe route, because
+// neither tsc nor `next build` can see it: the page is dynamic, so the build never renders it.
 "use client";
 
 import { Badge, Table } from "@heroui/react";
@@ -6,11 +11,11 @@ import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import TeamPopoverMenu from "../TeamPopoverMenu";
+import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 
 import type { FLGruppen } from "../../schemas";
 
-export default function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
+export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
   /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
      `h1` whether or not the season has data. */
   const pageHeading = <h1 className="sr-only">Saisontabelle</h1>;

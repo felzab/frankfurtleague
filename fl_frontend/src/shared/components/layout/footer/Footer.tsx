@@ -10,7 +10,7 @@ import { FooterCopyrightString } from "./FooterCopyrightString";
 // Not async: it awaits nothing, so the `async` only produced a promise for React to unwrap. Tested
 // as a candidate cause of the PPR resume failure (ledger NEW-T2) and it is NOT the cause — the
 // aborts are unchanged either way. Kept because an async function with no await is still wrong.
-export default function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
+export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
   return (
     <footer className="max-w-page mx-auto flex h-full w-full flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
       {/* Main Footer Grid */}

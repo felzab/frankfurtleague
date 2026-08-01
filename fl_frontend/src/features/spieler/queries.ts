@@ -10,14 +10,9 @@ import type { FLSpielerFilterParams } from "./types";
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
   "use cache";
 
-  const tags: string[] = ["spieler"];
-  if (filters.team_id) tags.push(`spieler:team_id:${filters.team_id}`);
-  if (filters.stufe) tags.push(`spieler:stufe:${filters.stufe}`);
-  if (filters.saison_id) tags.push(`spieler:saison_id:${filters.saison_id}`);
-
-  // Check '!== undefined' because 'false' is a valid filter value
-  if (filters.is_nachgetragen !== undefined) tags.push(`teams:is_nachgetragen:${filters.is_nachgetragen}`);
-  cacheTag(...tags);
+  // Base tag only (audit D2): `spieler` has no frontend write surface, so no action can invalidate
+  // a granular tag on it. Revisit only if a backend-triggered revalidation route arrives.
+  cacheTag("spieler");
   cacheLife("days");
 
   return apiClient<FLSpielerListResponse>("/spieler", FLSpielerListResponseSchema, {

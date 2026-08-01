@@ -8,7 +8,7 @@ import { typedObjectEntries } from "@/shared/utils/type";
 
 import { GROUPED_MEMBERS, TAG_TITLES } from "../../constants";
 
-export default function MetaTeamView() {
+export function MetaTeamView() {
   return (
     <div className="max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8">
       {/** Headline */}

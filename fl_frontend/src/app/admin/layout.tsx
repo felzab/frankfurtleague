@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 
-import AdminSidemenu from "@/features/admin/components/AdminSidemenu";
 import { AdminAuthGuard } from "@/features/admin/components/providers/AdminAuthGuard";
-import SaisonMetadataDisplay from "@/features/saisons/components/ui/SaisonMetadataDisplay";
+import { AdminSidemenu } from "@/features/admin/components/ui/AdminSidemenu";
+import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { SkipToContentLink } from "@/shared/components/ui/SkipToContentLink";
 

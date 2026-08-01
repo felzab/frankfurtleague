@@ -1,3 +1,3 @@
 "use client";
 
-export { default } from "@/features/dashboard/components/DashboardErrorBoundary";
+export { DashboardErrorBoundary as default } from "@/features/dashboard/components/ui/DashboardErrorBoundary";

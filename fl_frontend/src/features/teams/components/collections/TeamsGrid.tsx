@@ -1,14 +1,12 @@
-"use client";
-
 import Link from "next/link";
 
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
-import TeamCard from "../TeamCard";
+import { TeamCard } from "../ui/TeamCard";
 
 import type { FLTeamCompact } from "../../schemas";
 
-export default function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]; urlPrefix: string }) {
+export function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]; urlPrefix: string }) {
   // Season-scoped: an empty list usually means this season has no teams yet, not that none exist
   // anywhere -- selecting a future season in the SaisonSelector produces exactly that (R4 §12.5).
   if (teams.length === 0) {

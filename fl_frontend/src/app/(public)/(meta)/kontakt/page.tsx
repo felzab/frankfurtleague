@@ -1,4 +1,4 @@
-import KontaktView from "@/features/meta/components/views/KontaktView";
+import { KontaktView } from "@/features/meta/components/views/KontaktView";
 
 import type { Metadata } from "next";
 

@@ -4,17 +4,17 @@ import React, { Suspense, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { SaisonSlotSkeleton } from "../../ui/SaisonSlotSkeleton";
-import SidemenuDesktopHeader from "./SidemenuDesktopHeader";
+import { SidemenuDesktopHeader } from "./SidemenuDesktopHeader";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
-import SidemenuFooter from "./SidemenuFooter";
-import SidemenuMobileHeader from "./SidemenuMobileHeader";
+import { SidemenuFooter } from "./SidemenuFooter";
+import { SidemenuMobileHeader } from "./SidemenuMobileHeader";
 import { SidemenuNavLinks, SidemenuNavLinksWithSaisonQuery } from "./SidemenuNavLinks";
 
 import type { FormState, SidemenuStructure } from "@/shared/types/types";
 
 // Generic over the icon key: the structure and the dictionary are checked against each other, so
 // iconDictionary[iconName] is a total lookup and cannot miss.
-export default function Sidemenu<TIcon extends string>({
+export function Sidemenu<TIcon extends string>({
   structure,
   linkPrefix,
   saisonMetadataDisplay,
@@ -47,8 +47,8 @@ export default function Sidemenu<TIcon extends string>({
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [isMobileOpen]);
 
-  const _toggleMobileMenu = () => setIsMobileOpen(!isMobileOpen);
-  const _toggleDesktopMenu = () => setIsDesktopCollapsed(!isDesktopCollapsed);
+  const handleToggleMobileMenu = () => setIsMobileOpen(!isMobileOpen);
+  const handleToggleDesktopMenu = () => setIsDesktopCollapsed(!isDesktopCollapsed);
 
   const navLinkProps = {
     structure,
@@ -67,13 +67,13 @@ export default function Sidemenu<TIcon extends string>({
     <>
       <SidemenuMobileHeader
         displayTitle={displayTitle}
-        onToggleMenu={_toggleMobileMenu}
+        onToggleMenu={handleToggleMobileMenu}
       />
 
       {/* MOBILE BACKDROP — a dismiss shortcut for pointers, not a control. It is `aria-hidden` and
           not focusable on purpose; the keyboard paths are the close button and Escape above. */}
       <div
-        onClick={_toggleMobileMenu}
+        onClick={handleToggleMobileMenu}
         aria-hidden="true"
         className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
           isMobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
@@ -134,7 +134,7 @@ export default function Sidemenu<TIcon extends string>({
 
         <SidemenuFooter
           isDesktopCollapsed={isDesktopCollapsed}
-          onToggleDesktopMenu={_toggleDesktopMenu}
+          onToggleDesktopMenu={handleToggleDesktopMenu}
           onSignOut={onSignOut}
         />
       </aside>

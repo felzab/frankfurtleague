@@ -1,18 +1,12 @@
 "use client";
 
 import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import SchiedsrichterFormFields from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
+import { SchiedsrichterFormFields } from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 
-export default function AdminEditSchiedsrichterForm({
-  schiedsrichterData,
-  onClose,
-}: {
-  schiedsrichterData: FLSchiedsrichter;
-  onClose: () => void;
-}) {
+export function AdminEditSchiedsrichterForm({ schiedsrichterData, onClose }: { schiedsrichterData: FLSchiedsrichter; onClose: () => void }) {
   return (
     <EntityForm<FLSchiedsrichter>
       initialDraft={schiedsrichterData}

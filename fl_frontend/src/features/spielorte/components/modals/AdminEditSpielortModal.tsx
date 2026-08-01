@@ -3,7 +3,7 @@
 import { FormModal } from "@/shared/components/ui/FormModal";
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
-import AdminEditSpielortForm from "../forms/AdminEditSpielortForm";
+import { AdminEditSpielortForm } from "../forms/AdminEditSpielortForm";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 

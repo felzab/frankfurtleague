@@ -1,6 +1,6 @@
 "use client";
 
-import Error from "@/shared/components/ui/Error";
+import { Error } from "@/shared/components/ui/Error";
 
 // No console.error here: server errors are already redacted by Next to a message plus a digest, and
 // client errors are the user's own code. The digest shown to the user is written server-side by

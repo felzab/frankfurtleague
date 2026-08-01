@@ -8,12 +8,12 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";
 
-import SpielDetailsModal from "@/features/spiele/components/modals/SpielDetailsModal";
-import SpielCardCompact from "@/features/spiele/components/SpielCardCompact";
+import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
+import { SpielCardCompact } from "@/features/spiele/components/ui/SpielCardCompact";
 import { computeErgebnisFor } from "@/features/spiele/utils";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
-import ExpandableDescription from "@/shared/components/ui/ExpandableDescription";
+import { ExpandableDescription } from "@/shared/components/ui/ExpandableDescription";
 import { sortByDate } from "@/shared/utils/date";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
 
@@ -82,7 +82,7 @@ function SaisonSpieleTimeline({ spiele, teamId, onOpenSpiel }: { spiele: FLSpiel
   );
 }
 
-export default function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLTeam; teamSpiele: FLSpiel[]; today: string }) {
+export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLTeam; teamSpiele: FLSpiel[]; today: string }) {
   const router = useRouter();
   // One modal for the whole timeline, PlayoffsView-style.
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
