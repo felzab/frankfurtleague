@@ -1,0 +1,94 @@
+name: verify
+
+# The gate that `scripts/verify.sh` has always been, now actually run.
+#
+# Pull requests run --quick (no image build) because the image build takes minutes and most PRs
+# cannot break packaging. Pushes to main run the full gate, including both image builds and the
+# instrumentation.js check -- the two things `pnpm verify` has been green for while the image was
+# broken.
+#
+# If you touch src/core/config.ts, src/core/auth.ts or src/instrumentation.ts, the PR run is NOT
+# sufficient on its own. Those are where packaging problems live.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege. This workflow only reads the repository -- it publishes nothing, comments on
+# nothing, and needs no write scope. Declaring it here overrides whatever the repository default is,
+# so a permissive default cannot silently widen what a compromised dependency could reach.
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  # Supersede an in-flight run on a PR, but never on main: a main run is the record of whether that
+  # commit is deployable, and cancelling it leaves that question unanswered.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The token is not needed after checkout. Leaving it in .git/config would expose it to
+          # every later step, including anything a dependency's install script decides to run.
+          persist-credentials: false
+
+      - name: Ensure shellcheck is available
+        # selfcheck.sh check 9 falls back to pulling koalaman/shellcheck via Docker when there is no
+        # local binary, which is slow and needs the daemon. The GitHub runner image normally ships
+        # shellcheck already, so install only if it is genuinely missing rather than paying for an
+        # apt update on every run.
+        run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+
+      - uses: pnpm/action-setup@v6
+        with:
+          # Pinned rather than read from packageManager: that field lives in fl_frontend/package.json,
+          # and the action looks at the repository root.
+          version: 11.18.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: fl_frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: fl_frontend
+        run: pnpm install --frozen-lockfile
+
+      - uses: astral-sh/setup-uv@v9
+        with:
+          enable-cache: true
+
+      - name: Create the backend virtualenv
+        # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
+        # uv fetches the interpreter that pyproject.toml's requires-python demands.
+        working-directory: fl_backend
+        run: uv sync --dev
+
+      # Two steps rather than one with a conditional inside the shell. A `${{ }}` expression
+      # interpolated into a `run:` block is the standard script-injection shape, and avoiding it
+      # entirely is cheaper than auditing which contexts happen to be safe.
+      - name: Run the gate (pull request)
+        if: github.event_name == 'pull_request'
+        run: ./scripts/verify.sh --quick
+
+      - name: Run the gate (main)
+        if: github.event_name == 'push'
+        run: ./scripts/verify.sh
+
+      - name: Fail if the gate reformatted anything
+        # verify.sh step 2 runs `pnpm format` in WRITE mode, so a run can leave changes behind. That
+        # is deliberate on a developer machine and unacceptable in CI: it means the committed tree
+        # was not formatted. Diff rather than assume.
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::The gate reformatted files. Run 'cd fl_frontend && pnpm format' and commit the result."
+            exit 1
+          fi
