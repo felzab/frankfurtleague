@@ -54,10 +54,9 @@ rest of this surface's documentation was written as though requests arrive at ng
   verified 2026-08-01, but that is now a property to check rather than assume.
 - **Cloudflare compresses what arrives uncompressed and passes through everything else.** A response
   that already carries a `Content-Encoding` is cached and served in that encoding forever, so the
-  origin gzipping an asset is what decides that the edge will never brotli it. This is why
-  `next.config.ts` sets `compress: false` and why `prod.conf`'s `/_next/static/` block turns gzip
-  off — see the comments at both sites. Dynamic HTML is unaffected: it is not cached, and the edge
-  recompresses it (observed as `zstd`).
+  origin gzipping an asset is what decides that the edge will never brotli it. `/_next/static/` is
+  therefore served uncompressed and `local.conf` deliberately differs from `prod.conf` here.
+  (ADR-0021.) Dynamic HTML is unaffected: it is not cached, and the edge recompresses it (`zstd`).
 
 The origin remains the authority for routing, rate limiting and the security headers; Cloudflare is a
 layer above it that this repository does not configure. Nothing here manages the Cloudflare account,

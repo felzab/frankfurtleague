@@ -43,11 +43,9 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   cacheComponents: true,
-  // Next compresses with gzip by default, and that is the WRONG layer here: Cloudflare will not
-  // recompress a response that already carries a `Content-Encoding`, so a gzipped chunk is cached
-  // and served as gzip forever — measured at 35.9 KiB where brotli reaches ~28 KiB on the same file.
-  // Off, the chunk reaches the edge as identity and Cloudflare picks brotli or zstd per client.
-  // nginx compresses whatever is left (see `nginx/prod.conf`), so nothing is ever served raw.
+  // Off so static chunks reach Cloudflare as identity and the edge can brotli them; the edge passes
+  // through anything already encoded. `gzip off` in prod.conf's /_next/static/ is the other half and
+  // neither works alone (ADR-0021).
   compress: false,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written (ADR-0020).
