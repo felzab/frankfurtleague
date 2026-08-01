@@ -52,10 +52,24 @@ rest of this surface's documentation was written as though requests arrive at ng
   server block that caused it.
 - **The headers a visitor receives are whatever survives the proxy.** They match `prod.conf` today,
   verified 2026-08-01, but that is now a property to check rather than assume.
+- **Cloudflare compresses what arrives uncompressed and passes through everything else.** A response
+  that already carries a `Content-Encoding` is cached and served in that encoding forever, so the
+  origin gzipping an asset is what decides that the edge will never brotli it. This is why
+  `next.config.ts` sets `compress: false` and why `prod.conf`'s `/_next/static/` block turns gzip
+  off — see the comments at both sites. Dynamic HTML is unaffected: it is not cached, and the edge
+  recompresses it (observed as `zstd`).
 
 The origin remains the authority for routing, rate limiting and the security headers; Cloudflare is a
 layer above it that this repository does not configure. Nothing here manages the Cloudflare account,
 its DNS records or its SSL mode.
+
+**Edge settings that are deliberately off**, recorded because each looks like free performance and is
+not: **Rocket Loader** rewrites and defers script execution, which React hydration and Next's
+streaming depend on the ordering of; **Cloudflare Fonts** removes third-party font requests and this
+site has none, because `next/font` self-hosts Inter at build time; **Shared Dictionary Compression**
+deltas a file against an older version of itself, and every chunk here is content-hashed so a rebuild
+produces a new filename rather than a new version. **Early Hints** is the one worth having on — the
+HTML already emits a `Link: rel=preload` header for the font that it can promote to a 103.
 
 ## Routing, and the one rule that matters
 
