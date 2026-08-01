@@ -155,8 +155,14 @@ image builds, then a check that `instrumentation.js` survived into the frontend 
 `src/core/config.ts`, `src/core/auth.ts` or `src/instrumentation.ts` — those are where packaging
 problems live.
 
-**Nothing enforces this.** There is no CI and no git hook; running it is a discipline. See the
-assessment below.
+CI runs the same script — `.github/workflows/verify.yml`, `--quick` on pull requests and the full gate
+on pushes to `main`.
+
+> **When bumping an action version, verify the tag exists by fetching
+> `https://raw.githubusercontent.com/<owner>/<repo>/<tag>/action.yml`.** A 404 means the tag is not
+> there. Release _pages_ render dynamically and summarise unreliably; the raw file is unambiguous.
+> This is not hypothetical — the first CI run failed instantly on `astral-sh/setup-uv@v9`, a version
+> that has never existed, taken from a bad reading of a release page.
 
 Full detail: [`../scripts/README.md`](../scripts/README.md).
 
