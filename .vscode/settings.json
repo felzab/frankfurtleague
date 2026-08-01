@@ -10,12 +10,16 @@
   // localResourceRoots are the extension contributions plus the open workspace
   // folders, so a stylesheet in the user settings folder cannot be loaded.
   // ==========================================================================
-  // Open .md in VS Code's built-in rich Markdown editor. Note this is
-  // "vscode.markdown.editor" (an editor you type into), NOT
-  // "vscode.markdown.preview.editor" (a read-only render), which would make
-  // Markdown files impossible to edit.
-  // Marked Experimental by Microsoft. To get plain text back for one file:
-  // right-click the tab -> Reopen Editor With... -> Text Editor.
+  // Open .md as the built-in PREVIEW -- a rendered read-only view, styled by
+  // markdown.css below -- rather than as text. Deliberate: the Markdown here is
+  // read far more often than it is written, and the whole point of this block is
+  // that reading it is pleasant.
+  // To edit a file: right-click the tab -> Reopen Editor With... -> Text Editor.
+  // That plain-text view is what the "[markdown]" block at the bottom of this
+  // file configures, so editing keeps its own sensible defaults.
+  // The other value here is "vscode.markdown.editor", a rich editor you type
+  // into directly. Not used -- it is the write-first choice, and it would not
+  // pick up the stylesheet.
   "workbench.editorAssociations": {
     "*.md": "vscode.markdown.preview.editor"
   },
