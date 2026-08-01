@@ -33,6 +33,76 @@ Two properties of this pipeline are deliberate and worth stating up front:
 
 ---
 
+## The cycle, command by command
+
+The whole loop, in the order you actually type it. Everything below is dev (Windows, Git Bash)
+except where marked; the sections after this one explain _why_ each step is shaped as it is.
+
+```bash
+# 1 — start from a current main, always
+git checkout main
+git pull --ff-only origin main
+git checkout -b short-kebab-name
+```
+
+```bash
+# 2 — work, then commit. Small commits, each with a real body (see Commits below)
+git add -A
+git commit          # opens the editor; a one-line -m loses the part that matters
+```
+
+```bash
+# 3 — the gate, before pushing. Not --quick if you touched config, auth,
+#     instrumentation or packaging
+./scripts/verify.sh
+```
+
+```bash
+# 4 — push and open the PR
+git push -u origin short-kebab-name
+```
+
+`gh` is deliberately not installed, so the pull request is created in the browser — the push prints
+a `pull/new/…` link straight to the form. Title and body follow
+[`message-templates.md`](message-templates.md). Merge it there with the **merge commit** button, and
+delete the remote branch when GitHub offers.
+
+```bash
+# 5 — bring the merge back down and clean up
+git checkout main
+git pull --ff-only origin main
+git branch -d short-kebab-name
+```
+
+**`--ff-only` is the point of step 5.** Because every change reaches `main` through GitHub, your
+local `main` is only ever strictly behind — a fast-forward is always possible. If it somehow is not,
+`--ff-only` refuses instead of silently inventing a merge commit, which is exactly the moment you
+want to stop and look. `git pull` without it would paper over the surprise.
+
+`git fetch` followed by `git reset --hard origin/main` reaches the same place and is what you want
+only when local `main` has drifted and you are certain it holds nothing of value. It discards
+without asking; prefer `--ff-only` and let it fail.
+
+### When a push to `main` is rejected
+
+```
+! [remote rejected] main -> main (push declined due to repository rule violations)
+```
+
+That is the ruleset working, not a problem: `main` takes changes only through a pull request with a
+passing `verify`. If you have already committed to local `main`, nothing is lost — move the commits
+onto a branch and rewind:
+
+```bash
+git branch short-kebab-name        # mark the commits
+git reset --hard origin/main       # rewind main to the remote
+git push -u origin short-kebab-name
+```
+
+Then open the PR as usual. The commits are intact on the branch; only the branch pointer moved.
+
+---
+
 ## Branching
 
 `main` is the only long-lived branch. There is no `develop`, no release branches, and no long-running
