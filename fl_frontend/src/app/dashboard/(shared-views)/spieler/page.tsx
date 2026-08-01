@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { TeamSelectionView } from "@/features/teams/components/views/TeamSelectionView";
 import { getTeams } from "@/features/teams/queries";
+import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
   title: "Spieler",
   description:
     "Hier können alle Spieler, die an der laufenden Saison der Frankfurt-League teilnehmen, mit ihrer Teamzugehörigkeit gefunden werden.",
+  openGraph: openGraphFor("/dashboard/spieler"),
   alternates: {
     canonical: "/dashboard/spieler",
   },
