@@ -248,8 +248,35 @@ Left alone they never expire on their own. Each publish re-points the moving tag
 image keeps its own sha tag — so it never becomes dangling, and `docker image prune` never reclaims
 it. That is roughly **750 MB per publish**, with no upper bound.
 
-**In the registry, prune by hand.** This is deliberately not automated: a botched registry delete
-destroys rollback history, and rollback is the one thing that has to work on your worst day.
+**In the registry, pruning is now optional.** It used to be necessary: Docker Hub's free private
+repository had finite storage. Public packages on ghcr are free and unlimited, so nothing forces a
+delete — the only reason left is keeping the rollback list readable, and that is a matter of taste
+rather than capacity. **When you do prune, do it by hand.** This is deliberately not automated: a
+botched registry delete destroys rollback history, and rollback is the one thing that has to work on
+your worst day.
+
+To establish that a version is genuinely orphaned rather than merely untagged, list every digest the
+tags you are keeping depend on, and delete only what is absent from that set:
+
+```bash
+# dev — every digest reachable from the tags you intend to keep
+for t in latest sha-e340056; do
+  docker manifest inspect ghcr.io/felzab/frankfurtleague-frontend:"$t" \
+    | grep -o 'sha256:[a-f0-9]\{64\}'
+done | sort -u
+```
+
+> **Untagged versions are not junk — do not bulk-delete them.** Each package shows untagged entries
+> alongside the tagged ones. They are **BuildKit provenance attestations**: a signed record of how
+> and where the image was built, which GitHub lists without a tag because they carry none. Confirmed
+> 2026-08-01 — `docker manifest inspect` on `:latest` returns an OCI image _index_ whose second
+> entry has `"architecture": "unknown", "os": "unknown"`, the standard marker for one.
+>
+> **The tagged image references them by digest, so deleting one corrupts the tag it belongs to** and
+> a later `docker pull` fails on a missing manifest. Delete a version only when it is untagged **and**
+> its creation date matches a publish you have genuinely superseded — never one created at the same
+> moment as a tag still in use. Building with `--provenance=false` would stop them appearing, at the
+> cost of the provenance record itself; on a public repository that is the wrong trade.
 
 Keep roughly the last five `sha-` tags in each package. To decide what goes:
 

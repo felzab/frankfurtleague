@@ -136,6 +136,16 @@ and reading the surrounding code. Conclusions:
 
 ## 4. Verify against the installed library, not general knowledge
 
+**The same rule applies to hosting-platform behaviour, and more sharply.** Over one session on
+2026-08-01 the assistant mis-stated GitHub's feature gating four times: that rulesets might be
+unavailable on a private free repo (they were available), how secret scanning is gated, that a
+fine-grained token would suffice for ghcr (`docker login` succeeded and the _push_ failed on
+scopes), and that a first push would auto-link the package to its repository via the OCI `source`
+label (it did not). Platform features move faster than any training data and the checks are
+seconds long — open the settings page, run the command, fetch the raw file. **State platform gating
+only after checking it, or say plainly that it needs checking.** The cost of guessing is not just a
+wrong answer: two of those four became documentation that had to be corrected afterwards.
+
 **Rule: before building on an assumption about a library, read its source in `node_modules` or
 measure the running system.** The programme's costliest wrong turns were all plausible-sounding
 library beliefs:
