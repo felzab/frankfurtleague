@@ -77,7 +77,7 @@ docs/            the documentation set
 |                                          |                                                                                                                                         |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | [Glossary](docs/glossary.md)             | The domain vocabulary is **German** and load-bearing — `Spiel`, `Spieltag`, `Saison`, `Schiedsrichter`. Read this first                 |
-| [Decisions](docs/_decisions/)            | 16 ADRs. Why the codebase is shaped the way it is, including the alternatives that lost                                                 |
+| [Decisions](docs/_decisions/)            | 17 ADRs. Why the codebase is shaped the way it is, including the alternatives that lost                                                 |
 | [Workflows](docs/workflows/)             | Branching, commits, PRs, deployment, rollback                                                                                           |
 | Per surface                              | [frontend](docs/frontend/overview.md) · [backend](docs/backend/overview.md) · [ops](docs/ops/overview.md) — an overview and a spec each |
 | [`scripts/README.md`](scripts/README.md) | The operational manual for every script                                                                                                 |

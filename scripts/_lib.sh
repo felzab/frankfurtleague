@@ -36,17 +36,24 @@ unset _caller
 cd "$REPO_ROOT"
 
 # --- Image naming -----------------------------------------------------------------------------------
-# Docker Hub's free plan allows ONE private repository, so both services share it and are told apart
-# by tag prefix. Tags are ordered <service>-<qualifier> rather than <qualifier>-<service> on purpose:
-# Docker Hub and `docker image ls` sort alphabetically, so this groups every frontend tag together.
+# One package per service on GitHub Container Registry, so the service name lives in the REPOSITORY
+# and the tag says only which build it is (ADR-0017):
 #
-#   frankfurtleague:frontend                 <- moving pointer, what prod runs by default
-#   frankfurtleague:frontend-sha-1a2b3c4     <- immutable, one per published commit
-DOCKER_REPO="felzab/frankfurtleague"
+#   ghcr.io/felzab/frankfurtleague-frontend:latest          <- moving pointer, what prod runs
+#   ghcr.io/felzab/frankfurtleague-frontend:sha-1a2b3c4     <- immutable, one per published commit
+#
+# The packages are PUBLIC, which is what makes anonymous pulls work: the server needs no docker
+# login and no token that can expire mid-deploy. A pull failing with an authentication error almost
+# always means a package was left private, not that credentials are missing.
+REGISTRY="ghcr.io"
 # shellcheck disable=SC2034  # consumed by the scripts that source this file
-IMAGE_FRONTEND="${DOCKER_REPO}:frontend"
+REPO_FRONTEND="${REGISTRY}/felzab/frankfurtleague-frontend"
 # shellcheck disable=SC2034  # consumed by the scripts that source this file
-IMAGE_BACKEND="${DOCKER_REPO}:backend"
+REPO_BACKEND="${REGISTRY}/felzab/frankfurtleague-backend"
+# shellcheck disable=SC2034  # consumed by the scripts that source this file
+IMAGE_FRONTEND="${REPO_FRONTEND}:latest"
+# shellcheck disable=SC2034  # consumed by the scripts that source this file
+IMAGE_BACKEND="${REPO_BACKEND}:latest"
 
 # --- Output ----------------------------------------------------------------------------------------
 # Colour only when writing to a terminal, so redirected logs stay clean of escape codes.

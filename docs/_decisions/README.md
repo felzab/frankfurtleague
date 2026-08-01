@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Sixteen decisions, extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Seventeen decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -48,11 +48,12 @@ written.
 | [0014](0014-keep-the-system-endpoints.md)            | Keep the unused system endpoints and their API key           | frontend, backend, ops | Accepted | 2026-07-29 |
 | [0015](0015-backend-triggered-revalidation-route.md) | Backend-triggered revalidation through an in-network route   | frontend, ops          | Accepted | 2026-07-30 |
 | [0016](0016-single-enforced-csp.md)                  | One enforced CSP, with `react/no-danger` as the control      | ops, frontend          | Accepted | 2026-07-30 |
+| [0017](0017-ghcr-two-public-packages.md)             | ghcr.io, two public packages, one per service                | ops                    | Accepted | 2026-08-01 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · frontend: all
+**By surface** — backend: 0001 · 0002 · 0014 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · 0017 · frontend: all
 except none.
 
 ## Considered, and deliberately not made an ADR

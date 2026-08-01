@@ -11,7 +11,7 @@ Docker Compose behind nginx on a single host.
 | ------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Understand a part of the system                                     | the **overview** for that surface                                  |
 | Look up an exact contract, or check whether something is still true | the **spec** for that surface                                      |
-| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — 16 ADRs                             |
+| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — 17 ADRs                             |
 | Branch, commit, open a PR, or deploy                                | [`workflows/`](workflows/)                                         |
 | Write a commit message, a PR or an issue                            | [`workflows/message-templates.md`](workflows/message-templates.md) |
 | Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)                                       |
@@ -29,7 +29,7 @@ confidently:
 2. **The three surface overviews** — [frontend](frontend/overview.md),
    [backend](backend/overview.md), [ops](ops/overview.md). What each part is and why it is shaped that
    way.
-3. **The [ADR index](_decisions/README.md)** — sixteen one-line summaries. This is the fastest
+3. **The [ADR index](_decisions/README.md)** — seventeen one-line summaries. This is the fastest
    available answer to "why is it like this", and the reason you will not re-litigate settled
    questions.
 4. **[`workflows/`](workflows/)** — how to actually ship a change, and the message templates.
@@ -74,7 +74,7 @@ to revisit something once a revalidation route existed — it already did, and t
 
 ## Also here
 
-- [`_decisions/`](_decisions/) — **16 ADRs**, one per architectural decision, append-only. Start at its
+- [`_decisions/`](_decisions/) — **17 ADRs**, one per architectural decision, append-only. Start at its
   [index](_decisions/README.md); it is the fastest summary of why the codebase is shaped as it is.
 - [`_auditing/`](_auditing/) — how audit programmes are run: methodology, lessons, prompt library,
   templates, and the permanent [final reports](_auditing/reports/) of completed programmes
@@ -83,5 +83,5 @@ to revisit something once a revalidation route existed — it already did, and t
   ledger, wave reports) of whatever audit programme is currently running. Deliberately never
   committed — the repo is public and unfixed findings must not publish. A finished programme's
   permanent record is its final report in [`_auditing/reports/`](_auditing/reports/); the 2026-07
-  frontend programme's decisions are the 16 ADRs and its open items live in the
+  frontend programme's decisions are the ADRs and its open items live in the
   [`roadmap/open-items.md`](roadmap/open-items.md).
