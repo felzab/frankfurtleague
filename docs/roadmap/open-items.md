@@ -125,8 +125,28 @@ service to ghcr before switching, or accept that rollback history restarts at th
 A history rewrite of the git repo also means pre-rewrite OCI `revision` labels no longer match any
 commit — re-pushing old tags does not fix that; only new publishes carry valid labels.
 
-**Decision points for the owner:** public or private images (a public repo does not force public
-images), and per-service repos versus keeping the tag-multiplexed layout.
+**The quota is the deciding constraint, and it points at public images.** GitHub Packages is free
+and unlimited for **public** packages, but a free personal account gets **500 MB of storage and
+1 GB/month transfer for private ones — shared with GitHub Actions artifacts** — and publishing is
+blocked once that is used up with no payment method on file. The two images measure ~370 MB and
+~379 MB uncompressed (roughly half that as compressed layers, deduplicated across `-sha-` tags), so
+private images plus a few rollback tags sit at or past the limit. Docker Hub's free plan is the more
+generous option for _private_ images, which is the whole reason `publish.sh` multiplexes both
+services into one private repo. **So migrating on the free tier effectively means making the images
+public** — defensible once the source is public, since no secret is baked into a layer and `.env`
+files are excluded from the build context, but it is a decision to take deliberately.
+Source: [GitHub Packages billing](https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-packages/about-billing-for-github-packages).
+
+**Concentration risk: assessed and accepted (owner, 2026-08-01).** After the migration a GitHub
+outage would block code, CI and image pulls at once, where today Hub and GitHub fail independently.
+The owner's position is that this project tolerates it — deploys are manual, unhurried, and nothing
+depends on shipping during an outage. Two things soften it further: the server's previously deployed
+images normally remain in its local Docker storage, so an emergency rollback can run from the local
+tag without reaching any registry, and keeping the last few Docker Hub `-sha-` tags until a ghcr
+rollback has been exercised once costs nothing.
+
+**Decision points remaining:** public or private images (see the quota above), and per-service repos
+versus keeping the tag-multiplexed layout.
 
 ## BE-6 — `CustomObjectId` validates nothing in JSON mode
 

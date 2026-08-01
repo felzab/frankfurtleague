@@ -100,7 +100,11 @@ What makes them work, and what to keep doing:
   because the collection API could need client-rendered descendants. It does work ..."
 - They name the rejected alternative when there was one.
 
-No trailers, no issue-closing keywords, no emoji.
+No issue-closing keywords and no emoji. No trailers either, with one exception: assistant-authored
+commits carry a `Co-Authored-By:` line as their last line.
+
+**Copy-paste form: [`message-templates.md`](message-templates.md).** That page holds the shape; this
+one holds the reasoning.
 
 > **Since 2026-08-01, one rule constrains commits:** a change that invalidates a documented claim
 > updates the doc **in the same commit**. That is the only mechanism preventing documentation drift, and
@@ -138,6 +142,11 @@ Worth including, because this repo's history shows they matter:
 - **A link to the ADR** if the change touches a ratified decision.
 
 Do not restate the diff.
+
+**A PR body must stand alone.** `docs/audit/` is gitignored, so a reviewer sees neither the
+remediation ledger nor the wave reports — never point at them from a body.
+
+**Copy-paste form: [`message-templates.md`](message-templates.md)**, which also covers issues.
 
 ---
 
@@ -295,19 +304,18 @@ class of failure that hurts most when you can least afford it.
 **Rollback by pinned tag, verified from the image's own label.** Reading what is live rather than
 recalling it is the correct instinct.
 
-### The one real gap: nothing runs the gate
+### The gap that was closed, and the one that replaced it
 
-`verify.sh` is thorough and it is **entirely manual**. There is no `.github/workflows/`, no git hook, no
-enforcement of any kind. A tired evening merge that skipped it is indistinguishable from one that did
-not.
+This section used to read "nothing runs the gate": `verify.sh` was thorough and entirely manual, with
+no CI of any kind. **That is fixed** — `.github/workflows/verify.yml` runs the same script, `--quick`
+on pull requests and the full gate on pushes to `main`, so a tired evening merge that skipped it is
+no longer indistinguishable from one that did not.
 
-**Recommendation: add a GitHub Actions workflow that runs `verify.sh` on pull requests.** The script
-already exists, already exits non-zero correctly, and already orders itself cheapest-to-fail-first. The
-work is a workflow file, not a testing strategy. This is the highest-value process change available and
-it is small.
-
-Caveats worth knowing before doing it: the image-build steps are slow in CI, so `--quick` on PRs with
-the full run on `main` is a reasonable split; and the backend steps need `uv sync --dev`.
+**The residual is enforcement rather than execution.** CI _runs_ on a PR; nothing _requires_ it to
+have passed before the merge button works. That is a branch-protection rule on `main` (require the
+status check, and require a PR), and it is worth setting up — particularly now, since the repository
+was deleted and recreated during the 2026-08-01 history rewrite, which discards any protection rules
+that existed before.
 
 ### What is fine as-is, and should not be "fixed"
 
@@ -317,11 +325,18 @@ more than a machine-readable prefix would, and adopting the convention would add
 
 **No branch prefixes.** See Branching — they earn their keep at a scale this repo is not at.
 
-**Merge commits rather than squash.** Squashing would destroy the commit bodies, which are the point.
-
-**No PR template.** With one maintainer and bodies this consistent, a template would be filled in from
-habit rather than read.
+**Merge commits rather than squash** — and the reason is worth restating whenever it is questioned:
+squashing would collapse several carefully written bodies into one.
 
 **Manual deploy rather than continuous deployment.** Deploying on merge would remove the deliberate
 gap between "merged" and "live" — and for a site whose owner is also its only operator, that gap is
 worth more than the automation.
+
+### One assessment that was reversed
+
+Until 2026-08-01 this page argued **against** message templates: with one maintainer and bodies this
+consistent, a template would be filled in from habit rather than read. That reasoning was sound for
+a private repository and stopped being sound when this one went public — the audience for an issue
+form is people who have never read any of this. [`message-templates.md`](message-templates.md) is
+the result. It stays a reference you copy from rather than a form GitHub enforces, which keeps the
+original objection answered for the PR case while serving the new audience for the issue case.
