@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `73a782b`, 2026-08-01
+**Verified against:** `e340056`, 2026-08-01
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no
@@ -16,6 +16,7 @@ server that can fail a build.
 ```mermaid
 graph TB
     internet["Internet"]
+    cf["Cloudflare<br/>proxy — terminates public TLS"]
 
     subgraph net["Docker network: frankfurtleague-net"]
         nginx["nginx:alpine<br/>:80 :443 — the only published ports"]
@@ -25,7 +26,8 @@ graph TB
 
     mongo[("MongoDB<br/>external")]
 
-    internet --> nginx
+    internet --> cf
+    cf --> nginx
     nginx -->|"/api"| be
     nginx -->|"/api/auth · /signin · /_next/static · /"| fe
     fe -->|"server-side fetch"| be
@@ -36,6 +38,24 @@ graph TB
 **Only nginx publishes ports.** The two application containers are reachable solely from inside the
 compose network, which is what makes `POST /api/revalidate` an internal endpoint without any additional
 gate.
+
+**There is a Cloudflare proxy in front, and this page did not say so until 2026-08-01.** It was found
+by reading response headers (`Server: cloudflare`, `CF-RAY`) while debugging something unrelated, which
+is a poor way to discover a whole tier. Three consequences it is worth stating explicitly, because the
+rest of this surface's documentation was written as though requests arrive at nginx directly:
+
+- **A visitor's TLS session terminates at Cloudflare, not at nginx.** The cipher suites, session
+  settings and OCSP stapling configured in `nginx/prod.conf` govern the Cloudflare-to-origin hop, not
+  what a browser negotiates.
+- **An origin failure can surface as a Cloudflare error code**, not as anything nginx logged. A
+  rejected TLS handshake at the origin appeared publicly as `525`, which names neither nginx nor the
+  server block that caused it.
+- **The headers a visitor receives are whatever survives the proxy.** They match `prod.conf` today,
+  verified 2026-08-01, but that is now a property to check rather than assume.
+
+The origin remains the authority for routing, rate limiting and the security headers; Cloudflare is a
+layer above it that this repository does not configure. Nothing here manages the Cloudflare account,
+its DNS records or its SSL mode.
 
 ## Routing, and the one rule that matters
 
@@ -60,7 +80,9 @@ tool.
 ## Security posture
 
 - **TLS 1.2/1.3 only**, with OCSP stapling and a fixed strong cipher list; client cipher preference.
-- **HTTP redirects to HTTPS** and drops the `www.` prefix.
+- **HTTP redirects to HTTPS** and drops the `www.` prefix — and so does a dedicated `www` block on
+  443, which is not redundant: HSTS carries `includeSubDomains`, so a returning browser forces
+  `https://` on `www` and never sends the plaintext request the port-80 block would have caught.
 - **A catch-all `default_server` rejects unknown hosts at TLS time** (`ssl_reject_handshake`). Without
   it, any `Host` header would reach Next — and the proxy forwards the host verbatim. This makes host
   safety independent of the environment file rather than relying on `AUTH_URL` being set.
