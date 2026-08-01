@@ -59,6 +59,7 @@ assert len(RESPONSE_MODELS) >= MINIMUM_EXPECTED_RESPONSE_MODELS, (
 
 @pytest.mark.parametrize("name,model", RESPONSE_MODELS, ids=lambda v: v if isinstance(v, str) else HIDDEN_PARAM)
 def test_every_response_model_carries_the_envelope(name, model):
+    """Discovered rather than listed: any `*Response` added to the API is covered without editing this file."""
     assert issubclass(model, BaseAPIResponse), f"{name} does not extend BaseAPIResponse"
     assert model.model_fields["acknowledged"].default == 1
 
@@ -72,12 +73,17 @@ def test_every_response_model_carries_the_envelope(name, model):
     ],
 )
 def test_declares_the_envelope_on_every_untyped_route(model, expected):
+    """The three routes that return a hand-built JSONResponse: their shape is now declared, not implied."""
     assert model().model_dump() == expected
 
 
 def test_system_info_reports_the_api_version_as_a_number():
-    # The frontend schema was z.string().nonempty() against an int, so getSystemInfo could never
-    # have succeeded. It is z.int().nonnegative() now -- nonnegative because the version is 0.
+    """
+    `api_version` serialises as an int, and `0` survives the round trip.
+
+    The frontend schema was `z.string().nonempty()` against an int, so `getSystemInfo` could never
+    have succeeded. Zero matters specifically: it is the current version and is falsy.
+    """
     dumped = SystemInfoResponse(api_version=0).model_dump()
 
     assert dumped == {"acknowledged": 1, "api_version": 0}
