@@ -190,6 +190,33 @@ Builds both images **before** pushing either, so a failed backend build cannot l
 pull a frontend that expects it. Refuses a dirty working tree by default: a tag naming a commit must be
 rebuildable from that commit.
 
+### Authentication — it needs a classic token
+
+```bash
+docker login ghcr.io -u felzab
+```
+
+**A fine-grained personal access token is not enough, even though it appears to work.** Verified on
+2026-08-01: `docker login ghcr.io` _succeeds_ with a fine-grained repo token, and the push then fails
+with
+
+```
+error from registry: permission_denied: The token provided does not match expected scopes.
+```
+
+ghcr accepts credentials at the login endpoint and only evaluates package write permission at push
+time — and a first push is a _create_ in your account's namespace, which repository scopes do not
+cover. Use a **classic** token (Settings → Developer settings → Tokens (classic)) with
+**`write:packages`**, which auto-selects `read:packages`. Nothing else is needed: the packages are
+public and the repository is public, so no `repo` scope. Add `delete:packages` only if you ever want
+to prune versions from the command line rather than the UI.
+
+If a previous login stored a different token, `docker logout ghcr.io` first — otherwise Docker reuses
+it and the push fails again with the same message.
+
+**The server needs none of this.** Public packages pull anonymously; there is no token on the
+production host.
+
 ### Tags
 
 Each service has its own package on GitHub Container Registry, so the service name lives in the

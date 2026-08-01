@@ -60,7 +60,11 @@ says so at the failure site.
 there is no token on the production host to manage, rotate, or discover has expired mid-deploy. This
 is the largest practical gain and it removes a whole class of failure.
 
-**Publishing needs a token with `write:packages`**, held only on the development machine.
+**Publishing needs a CLASSIC token with `write:packages`**, held only on the development machine.
+A fine-grained token is not sufficient and fails in a misleading way: `docker login ghcr.io`
+succeeds with one, and the push then fails with `permission_denied: The token provided does not
+match expected scopes`. Permission is evaluated at push time, and a first push creates a package
+in the account namespace rather than writing to a repository.
 
 **Everything is on one provider now.** A GitHub outage blocks code, CI and image pulls
 simultaneously, where Docker Hub and GitHub previously failed independently. Assessed and accepted:
