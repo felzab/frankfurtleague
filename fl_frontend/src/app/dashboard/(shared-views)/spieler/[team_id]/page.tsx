@@ -7,6 +7,7 @@ import { TeamSpielerView } from "@/features/spieler/components/views/TeamSpieler
 import { getSpieler } from "@/features/spieler/queries";
 import { getTeams } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
+import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -25,6 +26,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   return {
     title: `Kader ${teamData.name}`,
     description: `Der Kader von ${teamData.name} in der Frankfurt-League: alle Spielerinnen und Spieler der gewählten Saison.`,
+    openGraph: openGraphFor(`/dashboard/spieler/${team_id}`),
     alternates: { canonical: `/dashboard/spieler/${team_id}` },
   };
 }

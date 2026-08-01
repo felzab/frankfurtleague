@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { SaisontabelleView } from "@/features/teams/components/views/SaisontabelleView";
 import { getTeams } from "@/features/teams/queries";
+import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
   title: "Saisontabelle",
   description:
     "Die Saisontabelle gibt Auskunft über den Stand jedes einzelnen Teams in seiner jeweiligen Gruppe in der laufenden Saison der Frankfurt-League.",
+  openGraph: openGraphFor("/dashboard/saisontabelle"),
   alternates: {
     canonical: "/dashboard/saisontabelle",
   },

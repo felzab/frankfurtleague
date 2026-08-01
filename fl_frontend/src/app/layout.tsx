@@ -3,6 +3,7 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 
 import { RootProviders } from "@/core/providers/RootProviders";
+import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
@@ -19,11 +20,11 @@ const inter = Inter({
  * `metadataBase` is what lets every route below spell its canonical as a PATH. A route that declares
  * none inherits this file's, so an unset canonical points at the homepage rather than at nothing.
  *
- * `openGraph` deliberately carries no `title`, `description` or `url`. Next inherits the whole object
- * when a child defines none and replaces it whole when a child does — there is no field-by-field
- * merge — so anything page-specific named here is stamped onto every page in the app. Left out,
- * og:title and og:description resolve from each page's own `title`/`description`. Only genuinely
- * site-wide values belong in this block.
+ * `openGraph` comes from `openGraphFor(path)`, and every route calls it with its own path. Next
+ * inherits the whole object when a child defines none and replaces it whole when a child does — there
+ * is no field-by-field merge — so a route cannot add `url` without restating the rest, which is what
+ * the helper exists to prevent. `title` and `description` stay out of it deliberately: left unset they
+ * resolve from each page's own, which is what a social card should say.
  */
 export const metadata: Metadata = {
   metadataBase: new URL("https://frankfurtleague.de"),
@@ -36,19 +37,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
-  openGraph: {
-    siteName: "Frankfurt-League",
-    images: [
-      {
-        url: "/icons/opengraph/opengraph.png",
-        width: 1200,
-        height: 630,
-        alt: "FL-Preview",
-      },
-    ],
-    locale: "de_DE",
-    type: "website",
-  },
+  openGraph: openGraphFor("/"),
   // Without this X falls back to a small square thumbnail. Title, description and image are inherited
   // from `openGraph`, so the card only has to declare its shape.
   twitter: {

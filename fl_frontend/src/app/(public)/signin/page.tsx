@@ -1,4 +1,5 @@
 import { SignInForm } from "@/features/auth/components/forms/SignInForm";
+import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
   title: "Anmelden",
   description: "Anmeldung zum Administrationsbereich der Frankfurt-League.",
   robots: { index: false, follow: false },
+  openGraph: openGraphFor("/signin"),
   alternates: { canonical: "/signin" },
 };
 

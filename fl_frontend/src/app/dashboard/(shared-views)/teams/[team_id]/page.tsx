@@ -8,6 +8,7 @@ import { TeamDetailsView } from "@/features/teams/components/views/TeamDetailsVi
 import { getTeams } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -30,6 +31,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
     // Becomes "<name> | Frankfurt-League" via dashboard/layout.tsx's title template.
     title: teamData.name,
     description: `Teamdaten, Statistiken und Saisonspiele von ${teamData.full_name || teamData.name} in der Frankfurt-League.`,
+    openGraph: openGraphFor(`/dashboard/teams/${team_id}`),
     alternates: { canonical: `/dashboard/teams/${team_id}` },
   };
 }

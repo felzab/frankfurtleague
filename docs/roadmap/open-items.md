@@ -189,3 +189,45 @@ real scope, not an afternoon.
 **The natural moment is when BE-4's season write path is built**, because that is when season setup
 becomes a real flow and the placeholder's junction rows would otherwise need to be created there
 too — or the first time a season is created and the missing TBD row breaks a bracket.
+
+---
+
+## OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+
+**Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
+
+`app/robots.ts` disallows nine named AI crawlers, `meta-externalagent` among them. That file is a
+**request**: robots.txt is advisory and a crawler chooses whether to obey it.
+
+Cloudflare is separately enforcing something stronger. Measured against the live site:
+
+| User-Agent                | page | image |
+| ------------------------- | ---- | ----- |
+| `WhatsApp/2.x`            | 200  | 200   |
+| `facebookexternalhit/1.1` | 200  | 200   |
+| `Twitterbot/1.0`          | 200  | 200   |
+| `meta-externalagent/1.1`  | 403  | 403   |
+
+The 403 carries `Server: cloudflare` and a `CF-RAY`, and `nginx/prod.conf` contains zero user-agent
+or `deny` rules — so the block is an edge setting, made in a dashboard this repository does not
+configure and does not record.
+
+**Why it matters, and why it is not urgent.** Link previews on Meta's products are fetched by
+`facebookexternalhit`, which is served normally, so nothing is broken today. The risk is that Meta
+has been consolidating its crawlers: if preview fetching ever moves behind `meta-externalagent`, every
+WhatsApp and Facebook preview for this site stops working, the failure is silent, and nothing in the
+repository would explain it. The 403 is invisible from the codebase.
+
+**What a rework has to decide, rather than assume:**
+
+- Whether the AI opt-out belongs in robots.txt, at the edge, or both — and if both, which one is the
+  source of truth when they disagree. They already disagree in kind: one asks, one enforces.
+- Whether blocking an agent Meta also uses for product features is the intended trade. The opt-out
+  was aimed at training, not at previews.
+- Whether the edge configuration should be recorded here at all, given `docs/ops/overview.md` states
+  that this repository does not configure Cloudflare. A setting that can break a user-visible feature
+  and leaves no trace in the repo is the argument for writing it down somewhere.
+
+**Cheap early-warning:** re-run the four-agent table above after any Cloudflare bot-protection change,
+and whenever previews are reported broken. It takes one `curl` per agent and distinguishes an edge
+block from a markup problem immediately — which is exactly the distinction that cost time this round.

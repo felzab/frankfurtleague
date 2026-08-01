@@ -1,6 +1,7 @@
 import { DashboardSidemenu } from "@/features/dashboard/components/ui/DashboardSidemenu";
 import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { SkipToContentLink } from "@/shared/components/ui/SkipToContentLink";
+import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
   title: { default: "Saisonübersicht", template: "%s | Frankfurt-League" },
   description:
     "Bei der Frankfurt-League Saisonübersicht können alle wichtigen Informationen zu der laufenden Saison, wie z. B. der Spielplan etc. eingesehen werden.",
+  openGraph: openGraphFor("/dashboard"),
   alternates: {
     canonical: "/dashboard",
   },
