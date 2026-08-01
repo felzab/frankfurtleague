@@ -10,10 +10,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Spieler",
   description:
-    "Hier können alle Spieler, die an der laufenden Saison der Frankfurt-League teilnehmen, in zugehörigkeit zu ihrem Team gefunden werden.",
-  keywords: ["Frankfurt-League Spieler", "Frankfurt-League Teams", "Frankfurt-League Teamaufstellungen", "Spieler"],
+    "Hier können alle Spieler, die an der laufenden Saison der Frankfurt-League teilnehmen, mit ihrer Teamzugehörigkeit gefunden werden.",
   alternates: {
-    canonical: "https://frankfurtleague.de/dashboard/spieler",
+    canonical: "/dashboard/spieler",
   },
 };
 

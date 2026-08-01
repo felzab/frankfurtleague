@@ -11,9 +11,8 @@ export const metadata: Metadata = {
   title: "Saisontabelle",
   description:
     "Die Saisontabelle gibt Auskunft über den Stand jedes einzelnen Teams in seiner jeweiligen Gruppe in der laufenden Saison der Frankfurt-League.",
-  keywords: ["Frankfurt-League Saisontabelle", "Frankfurt-League Tabelle", "Saisontabelle"],
   alternates: {
-    canonical: "https://frankfurtleague.de/dashboard/saisontabelle",
+    canonical: "/dashboard/saisontabelle",
   },
 };
 

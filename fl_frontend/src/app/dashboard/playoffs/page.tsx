@@ -17,9 +17,8 @@ export const metadata: Metadata = {
   title: "Finalrunden",
   description:
     "Die Finalrunden-Übersicht gibt Auskunft über die letzten KO Runden der Frankfurt-League. Finde heraus, wer um die Meisterschaft spielt.",
-  keywords: ["Frankfurt-League Playoffs", "Frankfurt-League Finalrunden", "Frankfurt-League Finale", "Playoffs", "Finalrunden"],
   alternates: {
-    canonical: "https://frankfurtleague.de/dashboard/playoffs",
+    canonical: "/dashboard/playoffs",
   },
 };
 

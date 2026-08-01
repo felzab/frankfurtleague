@@ -86,13 +86,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.4,
     },
-    {
-      url: `${baseUrl}/signin`,
-      lastModified: CONTENT_LAST_MODIFIED,
-      changeFrequency: "daily",
-      priority: 0.7,
-    },
     // /admin is deliberately absent: robots.ts:12 disallows it, next.config.ts redirects it, and
     // proxy.ts bounces anonymous visitors to /signin -- it can never yield an indexable page.
+    // /signin is absent for the neighbouring reason: it is `robots: { index: false }`, and a sitemap
+    // entry for a noindex URL only spends crawl budget.
   ];
 }
