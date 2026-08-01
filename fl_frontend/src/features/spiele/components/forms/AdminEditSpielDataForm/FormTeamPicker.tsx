@@ -12,6 +12,20 @@ import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
 
+/**
+ * One side of a fixture: a team picker, plus a free-text name field that appears only for "TBD".
+ *
+ * **The placeholder team gets an editable name, and that is the point of the second field.** An
+ * unresolved playoff slot is a real team document shared by every such fixture, so its stored name is
+ * useless on a bracket — every slot would read "TBD". The admin types what the slot actually means
+ * ("Sieger HF1"), and that string is written to the match's EMBEDDED team name while `team_id` still
+ * points at the shared placeholder. Nothing about the placeholder document changes.
+ *
+ * The local `tbdTeamName` state therefore has to survive re-selection of the same placeholder, which is
+ * why it is held here rather than derived from `teamPayload` on each render.
+ *
+ * This whole mechanism disappears when the nullable-opponent migration lands (BE-9).
+ */
 export function FormTeamPicker({
   label,
   fieldName,

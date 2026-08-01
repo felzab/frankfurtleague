@@ -1,4 +1,10 @@
 
+# TLS certificates. Mounted read-only into nginx from ./certs on the server (docker-compose.yml).
+# The directory does not exist in a development checkout -- this is here so that a private key can
+# never be committed by someone who creates it locally. Nothing in this repository should ever
+# contain one.
+certs/
+
 # Docker Desktop on Windows creates these when a bind-mount path is mangled by
 # Git Bash MSYS path conversion (":" separators become ";C:\..."). Empty and useless.
 # Prevent them by running docker/compose from PowerShell, per CLAUDE.md §5.

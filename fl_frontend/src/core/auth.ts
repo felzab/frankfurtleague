@@ -1,3 +1,25 @@
+/**
+ * CORE · authentication
+ *
+ * Auth.js with a Resend magic-link provider. Admin is an email ALLOWLIST, not a stored role — checked
+ * at sign-in and again when the session is built.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • This is the ONE place the frontend touches MongoDB directly. It targets the separate `authjs`
+ *     database and no business entity. All application data goes through FastAPI without exception.
+ *   • `getAdminSession()` is the single definition of the admin policy. It neither throws nor
+ *     redirects, so its return value must be checked — calling it bare guards nothing.
+ *   • `useSecureCookies` is a string test, not `new URL(...)`. This is evaluated at module scope and
+ *     the Docker builder stage has no AUTH_URL at all, so constructing a URL here fails the image
+ *     build.
+ *   • There is no in-app sign-out, so session lifetime is the only revocation mechanism.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/overview.md — the authentication section
+ */
+
 import "server-only";
 
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
@@ -77,7 +99,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // defaults cannot silently drop the flag. config.ts already refuses a non-loopback http:// value.
   // Deliberately a string test and not `new URL(...)`: this is evaluated at module scope, and the
   // Docker builder stage has no AUTH_URL at all (SKIP_ENV_VALIDATION=true, no .env), so
-  // constructing a URL here throws and fails `docker compose build`. See CLAUDE.md §9 A1.
+  // constructing a URL here throws and fails `docker compose build`. See ADR-0009.
   useSecureCookies: (frontend_config.AUTH_URL ?? "").toLowerCase().startsWith("https://"),
 
   logger: {

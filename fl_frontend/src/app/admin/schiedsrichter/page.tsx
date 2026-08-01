@@ -11,7 +11,7 @@ import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 // Not async: the chrome no longer waits on the referee list (NEW-SC11). The page title used to be a
 // prop on a client element built after `await getSchiedsrichter()`, so a static heading sat behind a
 // FastAPI round-trip. `connection()` moves down into SchiedsrichterTable with the fetch it guards —
-// CLAUDE.md §9 A1's requirement is that nothing fetches at build time, and that still holds.
+// ADR-0009's requirement is that nothing fetches at build time, and that still holds.
 export default function AdminSchiedsrichterPage() {
   return (
     <AdminCrudShell

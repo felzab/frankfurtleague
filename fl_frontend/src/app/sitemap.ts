@@ -1,3 +1,13 @@
+/**
+ * APP · sitemap
+ *
+ * Lists only public, crawlable routes. Admin and dashboard routes are deliberately absent.
+ *
+ * `lastModified` is a FIXED date, bumped by hand when page content actually changes. Calling
+ * `new Date()` here is a dynamic read that made this the one dynamic route in the app — and an
+ * always-now timestamp tells a crawler nothing, since it can never mean "unchanged".
+ */
+
 import type { MetadataRoute } from "next";
 
 // Evaluated once at module load, not per request. `new Date()` here is a dynamic read under

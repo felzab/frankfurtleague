@@ -1,3 +1,24 @@
+"""
+CORE · database lifecycle and collection providers
+
+One Motor client, created in the FastAPI lifespan and attached to `app.state`. Collections are reached
+through the typed dependencies in `dependencies.py`, never constructed ad hoc.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • The application REFUSES TO START if MongoDB is unreachable: lifespan pings the server and re-raises
+    anything that fails. A container that starts without a database is a container that serves errors,
+    and the healthcheck would rather it never come up.
+  • `get_teams_collection` returns `db.teams`, which is the SEASON-INDEPENDENT team document. Everything
+    season-scoped (gruppe, statistik, is_disqualified) lives in the separate `saison_teams` collection
+    and is joined at read time. See the warning in `app/api/teams/services.py`.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/backend/spec.md -- invariant I9
+  docs/glossary.md -- "Team", for the junction model
+"""
+
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request

@@ -1,3 +1,26 @@
+"""
+TEAMS · models
+
+Three response shapes discriminated by a `format` field, plus the statistics model and the four-group
+container.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • `FLTeam` is FLATTENED from two documents: the season-independent `teams` record and the
+    `saison_teams` junction row. `gruppe`, `statistik` and `is_disqualified` come from the junction,
+    which is why they exist on a model that otherwise looks like a single collection.
+  • `FLGruppen` always emits all four group keys, even empty ones. Building the map from the teams
+    present once omitted "D" for a season with nobody in it, and the frontend schema requires all four.
+  • Statistics fields are all `ge=0`. They are maintained by `$inc` deltas rather than recomputed, so
+    a sign error surfaces here as a validation failure rather than as a quietly wrong table.
+  • The `format` discriminator is what lets one endpoint return three shapes. Adding a fourth shape
+    means adding a literal, not widening an existing model.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  app/api/teams/services.py -- the join, and a known issue affecting statistik
+"""
+
 from typing import Annotated, Literal, Mapping, Union, get_args
 
 from pydantic import BaseModel, Field, RootModel, TypeAdapter

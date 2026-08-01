@@ -9,6 +9,18 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 
+/**
+ * Date and time of the fixture.
+ *
+ * **The only UNCONTROLLED section of the edit form.** Every sibling section lifts its state up to
+ * `AdminEditSpielDataForm`; these two fields use `defaultValue` and a `name`, and the parent reads
+ * them off `FormData` at submit time instead.
+ *
+ * That is deliberate rather than an oversight: date and time have no cross-field behaviour to
+ * coordinate — unlike the teams (which disable each other) or the goals (which drive the outcome
+ * readout) — so controlling them would add state that only ever mirrors the input. If a rule is ever
+ * added that depends on the date, this section has to become controlled like the rest.
+ */
 export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
   return (
     <div

@@ -1,3 +1,9 @@
+"""
+SAISONS · filter and sort construction
+
+Pure translation of `FLSaisonsFilterOptions` into a Mongo filter and sort. No I/O.
+"""
+
 from typing import Any
 
 from app.api.saisons.schemas import FLSaisonsFilterOptions

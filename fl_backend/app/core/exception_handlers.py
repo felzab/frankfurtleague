@@ -1,3 +1,16 @@
+"""
+CORE · exception handlers
+
+Turns every exception into a response. Registered once from `app/main.py`.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • The RESPONSE BODY carries only a trace id. Messages, error codes, validation details and stack
+    traces go to the log, never to the client -- the caller correlates by trace id. Adding the detail
+    to the body would leak schema internals to anyone who can reach the API.
+  • Every handler logs before it returns. A swallowed exception with no log line is invisible.
+"""
+
 from bson.errors import InvalidId
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError

@@ -1,3 +1,13 @@
+/**
+ * SPIELORTE · models
+ *
+ * Mirrors `fl_backend/app/api/spielorte/schemas.py`.
+ *
+ * `maps_link` appears on the read model but on no payload: the backend derives it from name and
+ * address, so a client cannot set it. Money fields carry German user-facing messages because these
+ * schemas back admin form inputs directly.
+ */
+
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";

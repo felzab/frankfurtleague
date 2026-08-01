@@ -1,3 +1,19 @@
+/**
+ * CORE · structured logging
+ *
+ * JSON in production, readable output in development, selected by `LOG_FORMAT`.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • One JSON document per line in production. A raw `console.log` of an object breaks that contract
+ *     and makes the stream unparseable downstream.
+ *   • Log the field NAME, never the submitted value, when reporting a validation failure. Payloads
+ *     here routinely carry email addresses.
+ *   • `traceId` is the join key to the backend's logs for the same request.
+ *   • `core/config.ts` must not import this module — config is read here, so logging is unavailable
+ *     while config itself is failing.
+ */
+
 import { frontend_config } from "./config";
 
 export interface LogMeta extends Record<string, unknown> {

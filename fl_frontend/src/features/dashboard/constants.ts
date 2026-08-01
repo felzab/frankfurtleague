@@ -1,3 +1,10 @@
+/**
+ * DASHBOARD · navigation structure
+ *
+ * The public dashboard sidemenu, and the icon dictionary it is validated against. Kept in one file so
+ * the two cannot disagree.
+ */
+
 import { Calendar, ClockArrowRotateLeft, LayoutHeaderCells, Magnifier, Medal, Person, Persons } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";

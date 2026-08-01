@@ -9,6 +9,17 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
 
+/**
+ * The playoff bracket: one column per round, scrolling horizontally.
+ *
+ * **One modal instance for the whole bracket, driven by which Spiel is selected** — not a modal per
+ * card. A bracket renders a few dozen cards, and giving each its own modal mounts a few dozen dialogs
+ * with their own focus traps and portals for the one that might open.
+ *
+ * Layout note worth keeping: the columns are sized in container-query units (`cqw`), not viewport
+ * units. With `vw`, each column claims a share of the *viewport*, which the content area does not have
+ * once the sidebar appears — so the bracket overflowed its own scroller at desktop widths.
+ */
 export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: FLSpieltagWithSpiele[]; today: string }) {
   // 1. The Single Modal State
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);

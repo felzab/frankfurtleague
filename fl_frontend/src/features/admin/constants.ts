@@ -1,3 +1,10 @@
+/**
+ * ADMIN · navigation structure
+ *
+ * The admin sidemenu, and the icon dictionary it is validated against. Kept in one file precisely so
+ * the two cannot disagree.
+ */
+
 import { ExclamationShape, Magnifier, MapPin, Person } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";

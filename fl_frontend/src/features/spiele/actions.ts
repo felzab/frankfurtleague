@@ -1,5 +1,30 @@
 "use server";
 
+/**
+ * SPIELE · server action
+ *
+ * The only writer in the slice, and the only place Spiel cache tags are invalidated.
+ *
+ * NOTE: the `"use server"` directive stays the first line of the file, above this block. A directive
+ * prologue must not be preceded by anything a bundler might treat as a statement, and getting it
+ * wrong fails at request time rather than at build time.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Base tags invalidate unconditionally; granular tags only when a season id parses. The base tags
+ *     are not redundant — the default read path sends no `saison_id`, so the most-hit entries carry
+ *     only those.
+ *   • `saison_id` arrives as an argument and must never move onto the patch body: the backend model
+ *     does not declare it and Pydantic would drop it silently.
+ *   • A failed season-id parse never fails the edit. An admin's work is not rejected over a cache
+ *     concern.
+ *   • Every action here starts with `getAdminSession()` and checks its return value — it neither
+ *     throws nor redirects.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/spec.md — invariants I2, I3, I4, I7
+ */
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
@@ -36,7 +61,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     return { success: false, error: "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten" };
   }
 
-  // The base tags are not redundant with the granular ones below, and must stay. Since BE-1 the
+  // The base tags are not redundant with the granular ones below, and must stay. Since ADR-0002 the
   // default read path sends no `saison_id` at all, so the most common cache entries carry only
   // `spiele` / `teams`; invalidating by season alone would leave exactly those entries stale.
   updateTag("spiele");

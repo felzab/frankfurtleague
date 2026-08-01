@@ -1,3 +1,13 @@
+"""
+SHARED · postal address
+
+German addresses, embedded on teams and venues.
+
+The backend is the SOURCE OF TRUTH for these constraints and the frontend mirrors them, so a bad value
+is rejected at both ends. `hausnummer` may be empty -- not every venue has one -- which is why its
+pattern allows the empty string rather than being made optional.
+"""
+
 from pydantic import BaseModel, Field
 
 

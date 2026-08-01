@@ -8,6 +8,16 @@ import {
 import { card } from "@/shared/components/ui/card";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 
+/**
+ * The public landing page.
+ *
+ * Static marketing chrome, with the one data-dependent region — the recent/upcoming grid — isolated
+ * behind `Suspense`. That split is the whole point of the page's structure: the shell is prerendered
+ * and the data hole streams in, so the page paints without waiting on the backend.
+ *
+ * The skeleton reserves exactly six cards per section because the query behind it is capped at six,
+ * which is what makes the swap shift nothing.
+ */
 export default function LandingPage() {
   return (
     <>
@@ -20,6 +30,10 @@ export default function LandingPage() {
             <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
             <div className="relative z-10 flex flex-col gap-4">
+              {/* Hardcoded season label. It is NOT derived from the current season, so it goes stale
+                  silently at the season rollover — the rest of the page will already be showing next
+                  season's fixtures while this badge still says the old year. Wire it to
+                  `getCurrentSaison()` if this page ever gains a data fetch of its own. */}
               <div className="border-brand/30 bg-brand/15 text-fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
                 <span className="bg-brand-solid size-2 animate-ping rounded-full" />
                 Saison 2026

@@ -1,3 +1,13 @@
+"""
+SCHIEDSRICHTER · models
+
+The referee read model plus the three admin payloads.
+
+`is_inactive` is absent from every payload: deactivation goes through the delete endpoint rather than a
+patch, so there is one route to it. `payment` carries no default, for the same reason as a venue's
+`mietpreis` -- the patch writes wholesale.
+"""
+
 from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter

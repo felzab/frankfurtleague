@@ -29,23 +29,27 @@ class _ObjectId(BaseModel):
 
 @pytest.mark.parametrize("value", ["2026-01-01", "2026-12-31", "2024-02-29", "2026-02-28"])
 def test_accepts_real_calendar_dates(value):
+    """Ordinary dates plus a real leap day, 2024-02-29 — the positive side of the calendar check."""
     assert _Date.model_validate({"value": value}).value == value
 
 
 @pytest.mark.parametrize("value", ["2026-02-31", "2026-04-31", "2026-02-30", "2025-02-29"])
 def test_rejects_dates_that_pass_the_regex_but_do_not_exist(value):
+    """The point of the whole module: shapes DATE_REGEX allows but the calendar does not, including 2025-02-29."""
     with pytest.raises(ValidationError):
         _Date.model_validate({"value": value})
 
 
 @pytest.mark.parametrize("value", ["2026-1-1", "26-01-01", "2026/01/01", "2026-13-01", "", "today"])
 def test_rejects_malformed_dates(value):
+    """Wrong padding, wrong separator, wrong order, out-of-range month, and empty."""
     with pytest.raises(ValidationError):
         _Date.model_validate({"value": value})
 
 
 @pytest.mark.parametrize("value", ["00:00:00", "09:05:00", "23:59:59"])
 def test_accepts_times_with_seconds(value):
+    """Midnight, a single-digit hour zero-padded, and the last second of the day."""
     assert _Time.model_validate({"value": value}).value == value
 
 
@@ -54,6 +58,7 @@ def test_accepts_times_with_seconds(value):
 # backend side of that contract.
 @pytest.mark.parametrize("value", ["14:30", "14:30:00.5", "24:00:00", "14:60:00", "2:30:00"])
 def test_rejects_times_without_seconds_or_out_of_range(value):
+    """Missing seconds and fractional seconds — the two shapes the frontend used to send and the API answered with 422."""
     with pytest.raises(ValidationError):
         _Time.model_validate({"value": value})
 
@@ -72,6 +77,7 @@ def test_rejects_times_without_seconds_or_out_of_range(value):
     ],
 )
 def test_accepts_http_and_https_urls(value):
+    """Both schemes, plus port, userinfo and an uppercase scheme — which a case-sensitive regex once rejected."""
     assert _Url.model_validate({"value": value}).value == value
 
 
@@ -109,6 +115,7 @@ def test_accepts_http_and_https_urls(value):
     ],
 )
 def test_rejects_non_http_schemes_and_bare_hosts(value):
+    """The security case: javascript:, data: and vbscript:, plus hosts a start-anchored regex wrongly accepted."""
     with pytest.raises(ValidationError):
         _Url.model_validate({"value": value})
 
@@ -125,16 +132,19 @@ def test_rejects_non_http_schemes_and_bare_hosts(value):
     ],
 )
 def test_accepts_internationalised_domains(value):
+    """Umlaut domains in both unicode and punycode form — rejecting these would break every team listing."""
     assert _Url.model_validate({"value": value}).value == value
 
 
 # Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects.
 def test_object_id_round_trips_as_a_24_hex_string():
+    """Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects."""
     parsed = _ObjectId.model_validate({"value": "6890a1b2c3d4e5f607182930"})
     assert str(parsed.value) == "6890a1b2c3d4e5f607182930"
 
 
 @pytest.mark.parametrize("value", ["not-an-objectid", "6890a1b2c3d4e5f60718293", ""])
 def test_rejects_malformed_object_ids(value):
+    """Non-hex, one character short, and empty."""
     with pytest.raises(ValidationError):
         _ObjectId.model_validate({"value": value})

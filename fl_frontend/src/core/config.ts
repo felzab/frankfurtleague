@@ -1,4 +1,26 @@
-// src/core/env.ts
+/**
+ * CORE · environment validation
+ *
+ * The startup gate. Every server environment variable is declared and validated here; a missing or
+ * malformed one stops the process before it serves traffic.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Validation failure prints NAMES ONLY, never values. The default handler prints the whole issue
+ *     array, which is one schema change away from echoing a secret into a container log.
+ *   • `AUTH_URL` must be https unless it points at loopback. `@auth/core` derives the session cookie's
+ *     `Secure` flag from that protocol, so a stray `http://` ships an admin cookie in plaintext. Gated
+ *     on hostname rather than NODE_ENV because the local stack runs the production image over http.
+ *   • `SKIP_ENV_VALIDATION=true` bypasses the gate and is used by the Docker builder stage, which has
+ *     no real environment.
+ *   • This module cannot use `core/logging.ts` — logging reads this module, so it is unavailable while
+ *     this is failing.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/spec.md — section 8, the full variable table
+ */
+
 import "server-only";
 
 import { createEnv } from "@t3-oss/env-nextjs";

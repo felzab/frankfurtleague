@@ -1,3 +1,24 @@
+/**
+ * SPIELE · derivations
+ *
+ * Pure derivation over a Spiel — no I/O and no caching, which is why it stays out of `queries.ts`
+ * rather than being folded in. Parsing `ergebnis` lives here because its format is declared by
+ * `FLSpielSchema`: it is Spiel domain knowledge, not something a `teams` view should re-implement.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • `computeSpielStatus` treats cancellation as overriding the date. The server treats the two as
+ *     independent filters, and its `ausstehend` includes today while this excludes it — see the
+ *     glossary before assuming either side is wrong.
+ *   • `computeErgebnisFor` returns "?" for anything it cannot read with certainty, including a team id
+ *     that is neither side. A two-way branch would score an unknown team as team2 and render a
+ *     confident loss for a team that did not play.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/glossary.md — spiel_status, for the two definitions and why they differ
+ */
+
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSpiel, FLSpielStatus } from "./schemas";
@@ -24,7 +45,7 @@ export const computeSpielStatus = ({
  * `"-:-"` in the compact and playoff cards, on the same screen (R2 §3.5).
  *
  * **This is derivation only. The three `SpielCard` components stay separate** — they are justified
- * variance, not copy-paste (CLAUDE.md §9 A5).
+ * variance, not copy-paste (ADR-0007).
  */
 export const formatSpielDisplay = (spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis">) => ({
   datum: formatSpielDatum(spiel.datum),

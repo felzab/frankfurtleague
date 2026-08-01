@@ -1,3 +1,19 @@
+/**
+ * SHARED · scalar schemas
+ *
+ * The primitive types every slice's models are built from: ids, dates, times, phone numbers,
+ * addresses and external URLs.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Each of these MIRRORS a backend constraint in `app/shared/schemas/custom.py`. The backend is the
+ *     source of truth; a looser schema here accepts values the API then rejects with a 422, and makes
+ *     the client-side error message a lie about what was allowed.
+ *   • External URLs are scheme-restricted. A bare URL check accepts `javascript:` and `data:`, which
+ *     become XSS sinks once rendered into an href.
+ *   • Error messages are German and user-facing — these schemas back admin form fields directly.
+ */
+
 import { z } from "zod";
 
 const PHONE_REGEX = new RegExp(/^([+]?[\s0-9\-().]{3,20})$/);

@@ -1,3 +1,13 @@
+/**
+ * META · static page content
+ *
+ * The people, questions and contact channels rendered on the about, team and contact pages.
+ *
+ * This is CONTENT held in code, not data: it has no database backing and no admin surface, so editing
+ * these arrays and redeploying is the only way to change those pages. Deliberate — the content changes
+ * once or twice a year and a CRUD surface for it would cost more than it saves.
+ */
+
 import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
 export const TEAM_MEMBERS: TeamMember[] = [

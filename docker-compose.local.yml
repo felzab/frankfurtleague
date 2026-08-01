@@ -1,3 +1,24 @@
+# OPS · local stack
+#
+# The production images, built from source, on your machine, behind nginx. Started by
+# `./scripts/local.sh`; serves on http://localhost:3000.
+#
+# It exists because `pnpm dev` cannot see a whole class of problem -- it exercises neither the
+# standalone build, the startup environment gate, nginx, nor the security headers. This is the only
+# place a packaging failure is visible BEFORE a deploy.
+#
+#  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────
+#
+#   • Mirrors docker-compose.yml except that it BUILDS rather than pulls, and overrides the two URLs
+#     that differ off-server. A difference beyond those two is a difference production will not have
+#     caught.
+#   • `AUTH_URL` must stay on loopback. `config.ts` refuses a non-loopback http:// value, because
+#     @auth/core derives the session cookie's Secure flag from that protocol.
+#
+#  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────
+#
+#   scripts/README.md -- the three environments and what each does not cover
+
 x-logging: &default-logging
   driver: "json-file"
   options:
@@ -11,8 +32,12 @@ services:
       dockerfile: Dockerfile
     env_file: ./fl_frontend/.env
     environment:
-      # Has to be redefined here, because the backend is not reachable through localhost, because it's running in the docker compose network
+      # Overrides whatever .env holds, because inside the compose network the backend is not on
+      # localhost -- it is reachable by service name.
       - API_URL=http://backend:8000
+      # http://, not https://, and localhost specifically: config.ts refuses a non-loopback http URL
+      # because @auth/core derives the session cookie's Secure flag from this protocol. Loopback is
+      # the one exemption, and it exists for exactly this stack.
       - AUTH_URL=http://localhost:3000
     restart: unless-stopped
     networks:

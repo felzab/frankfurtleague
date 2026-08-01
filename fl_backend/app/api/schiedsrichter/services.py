@@ -1,3 +1,12 @@
+"""
+SCHIEDSRICHTER · filter and sort construction
+
+Pure translation of `FLSchiedsrichterFilterParams` into a Mongo filter and sort. No I/O.
+
+In practice the frontend always calls the endpoint with no arguments, so these branches are effectively
+unexercised -- worth knowing before treating them as tested behaviour.
+"""
+
 from typing import Any
 
 from app.api.schiedsrichter.schemas import FLSchiedsrichterFilterParams

@@ -1,3 +1,27 @@
+/**
+ * SPIELE · models
+ *
+ * The Zod read model, the admin patch payload composed from it, and the draft types the edit form uses
+ * while a field is mid-edit.
+ *
+ * These are HAND-MIRRORED by `fl_backend/app/api/spiele/schemas.py` in Pydantic. There is no generation
+ * step, so a constraint changed there must be changed here in the same commit. This is the main drift
+ * risk in the codebase and the first thing to check when behaviour looks impossible.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • The patch payload composes from the read model's field schemas rather than redeclaring them, so
+ *     the write shape cannot drift from the read shape.
+ *   • Zod's default `strip` mode discards undeclared fields silently. A field the backend sends but
+ *     this schema omits is lost with no error — that is how `saison_id` went missing.
+ *   • Draft types exist so an emptied currency field is `null` rather than silently `0`. The strict
+ *     schemas still reject `null`, so a cleared field fails with a German message on the field.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/backend/spec.md — section 4, the field-constraint table both sides must satisfy
+ */
+
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
@@ -81,7 +105,7 @@ export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
 /**
  * The admin edit payload, composed from the field schemas above rather than redeclaring them, so
  * the write shape cannot drift from the read shape. It lived in `features/admin` until the write
- * path moved here (ledger NEW-F9); the composition is now intra-slice, which is what made the move
+ * path moved here (ADR-0005); the composition is now intra-slice, which is what made the move
  * worth doing.
  */
 export const FLPatchSpielDataPayloadSchema = z.object({

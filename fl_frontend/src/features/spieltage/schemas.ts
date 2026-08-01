@@ -1,3 +1,14 @@
+/**
+ * SPIELTAGE · models
+ *
+ * Mirrors `fl_backend/app/api/spieltage/schemas.py`.
+ *
+ * `order_val` is the ordering the bracket depends on — not `beginn`. Matchdays routinely share dates.
+ *
+ * The phase enum is imported from `saisons` and the Spiel model from `spiele` rather than redeclared,
+ * so the three cannot drift apart.
+ */
+
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
