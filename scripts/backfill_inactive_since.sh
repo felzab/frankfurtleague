@@ -3,6 +3,12 @@
 # scripts/backfill_inactive_since.sh — put `inactive_since: null` on every document that lacks it.
 # TARGET PLATFORM: Linux (the production server).
 #
+# DELETE THIS FILE ONCE IT HAS RUN. It is a MIGRATION, not an operational tool: it belongs to exactly
+# one deploy and is dead weight afterwards, unlike everything else in this directory. Nothing here is
+# recurring. Removing it means this file, its row and section in scripts/README.md, and its four
+# mentions in selfcheck.sh -- `grep -rn backfill_inactive_since` finds every one. Git history keeps it,
+# which is where a completed migration belongs.
+#
 # WHEN TO RUN IT:
 #   ONCE, and BEFORE deploying the image that introduces the field. `inactive_since` is REQUIRED by
 #   the Pydantic models and by the `$jsonSchema` validators the backend applies on every boot

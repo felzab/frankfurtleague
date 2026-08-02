@@ -370,6 +370,11 @@ Forgetting to run it is not harmful; the cache expires within 24 hours regardles
 
 ## `backfill_inactive_since.sh` — add the field before the image that requires it
 
+> **Delete this script once it has run**, along with this section and its row in the table above. It is
+> a **migration**, not an operational tool — it belongs to one deploy and everything else in this
+> directory is recurring. `grep -rn backfill_inactive_since` finds every reference; there are three
+> files. Git history keeps it, which is where a completed migration belongs.
+
 ```bash
 ./scripts/backfill_inactive_since.sh            # report what would change, write nothing
 ./scripts/backfill_inactive_since.sh --apply
