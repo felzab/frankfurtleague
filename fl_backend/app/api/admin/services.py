@@ -15,12 +15,18 @@ across every subsequent edit.
   • Points are hardcoded 3/1/0. `FLSaison.rules` carries `win_points`/`draw_points` per season and is
     NOT read here. The two agree today; they are not wired together.
 
- ⚠ KNOWN ISSUE ────────────────────────────────────────────────────────────────────────────────────────────
+ ⚠ KNOWN ISSUE -- CONFIRMED ───────────────────────────────────────────────────────────────────────────────
 
   This writes `statistik` to the base `teams` collection, filtered by `_id` alone. `GET /teams` READS
   `statistik` from the `saison_teams` junction (`app/api/teams/services.py`). Nothing copies between
-  them. Unverified against a running system -- do not "fix" either side before checking.
-  Full evidence: docs/0-documentation-ledger.md, Finding F4.
+  them, so A RESULT EDIT DOES NOT MOVE THE LEAGUE TABLE. Confirmed against the live database on
+  2026-08-02: no `teams` document carries `statistik`, while every junction row does and matches a
+  recomputation from `spiele` exactly.
+
+  The destination is settled (`saison_teams`, filtered by team AND season). The fix is deliberately
+  NOT made here yet, because open item DB-1 decides whether `statistik` stays stored at all or
+  becomes derived -- and the two answers produce different code.
+  Full evidence: docs/roadmap/open-items.md, item F4.
 """
 
 from bson import ObjectId

@@ -79,7 +79,8 @@ are dropped from the increment document to save database work.
 `anzahl_gespielte_spiele`. That is what makes a first-time result entry correct: the old side is zero
 across every field, so the delta equals the new contribution.
 
-> ⚠️ **The statistics written here are not the statistics served.** See invariant I1 and Finding F4.
+> ⚠️ **The statistics written here are not the statistics served — confirmed, not suspected.** A
+> result edit does not move the league table. See invariant I1 and Finding F4.
 
 ## 4. Invariants
 
@@ -103,7 +104,7 @@ across every field, so the delta equals the new contribution.
 
 | Symptom                                          | Cause                                                   | Remedy                                              |
 | ------------------------------------------------ | ------------------------------------------------------- | --------------------------------------------------- |
-| League table does not change after a result edit | Statistics written to `teams`, read from `saison_teams` | See F4 — unresolved                                 |
+| League table does not change after a result edit | Statistics written to `teams`, read from `saison_teams` | Expected today — F4, confirmed and unfixed          |
 | Team table drifts after result edits             | `ReturnDocument.AFTER` on the match write               | Restore the pre-write read (I2)                     |
 | Venue rent becomes 0 after an unrelated edit     | A Pydantic default was added to `mietpreis`             | Remove it (I6)                                      |
 | A team vanishes from `/teams`                    | No `saison_teams` row for that season                   | Create the junction row (I11)                       |
@@ -124,11 +125,11 @@ across every field, so the delta equals the new contribution.
 
 ## 7. Known-open
 
-| #    | Item                                                            | State                                                                                                                                                                                                                           |
-| ---- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F4   | Team statistics write/read mismatch                             | **Open, unverified in a running system.** [`../roadmap/open-items.md`](../roadmap/open-items.md) §F4                                                                                                                            |
-| —    | Season `rules.win_points` / `draw_points` are stored but unused | `get_stats_contribution` hardcodes 3 and 1. They agree today; they are not wired together                                                                                                                                       |
-| —    | CORS `allow_methods` omits `DELETE`                             | `app/main.py:30` lists `GET, POST, PATCH` while the admin router exposes two DELETEs. No impact today: the only client calls server-side, where CORS does not apply. It would bite the moment a browser called the API directly |
-| —    | OpenAPI carries no prose                                        | No `title`, `description`, or endpoint docstrings. The Swagger UI is also not publicly routed — nginx sends `/api` here but FastAPI's `/docs` sits at the app root, which nginx sends to Next                                   |
-| BE-4 | No write path for `saisons` / `spieler` / `spieltage`           | Edited out of band; the frontend cache is cleared by a script. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                                                              |
-| BE-9 | The `is_placeholder` "TBD" team                                 | Should become a nullable opponent reference. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                                                                                |
+| #    | Item                                                            | State                                                                                                                                                                                                                               |
+| ---- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F4   | Team statistics write/read mismatch                             | **Confirmed against the live database 2026-08-02; fix open.** The destination is settled (`saison_teams`, by team and season); DB-1 decides stored-versus-derived first. [`../roadmap/open-items.md`](../roadmap/open-items.md) §F4 |
+| —    | Season `rules.win_points` / `draw_points` are stored but unused | `get_stats_contribution` hardcodes 3 and 1. They agree today; they are not wired together                                                                                                                                           |
+| —    | CORS `allow_methods` omits `DELETE`                             | `app/main.py:30` lists `GET, POST, PATCH` while the admin router exposes two DELETEs. No impact today: the only client calls server-side, where CORS does not apply. It would bite the moment a browser called the API directly     |
+| —    | OpenAPI carries no prose                                        | No `title`, `description`, or endpoint docstrings. The Swagger UI is also not publicly routed — nginx sends `/api` here but FastAPI's `/docs` sits at the app root, which nginx sends to Next                                       |
+| BE-4 | No write path for `saisons` / `spieler` / `spieltage`           | Edited out of band; the frontend cache is cleared by a script. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                                                                  |
+| BE-9 | The `is_placeholder` "TBD" team                                 | Should become a nullable opponent reference. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                                                                                    |
