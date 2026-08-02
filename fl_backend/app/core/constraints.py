@@ -86,6 +86,12 @@ ABSENT_INDEX_NAME = "fl_constraints_probe_index"
 _STRING_OR_NULL = ["string", "null"]
 _INT_OR_NULL = ["int", "null"]
 
+# Soft deletion, on the six collections that have one. A `YYYY-MM-DD` string naming the day the row was
+# retired, or null while it is live -- one field rather than a boolean beside a date, because the pair
+# can contradict itself and no validator here could catch that (ADR-0032). The DATE is what makes a
+# scheduled purge possible; the boolean alone could only say "eventually" (open item BE-12).
+_INACTIVE_SINCE = {"bsonType": _STRING_OR_NULL}
+
 # The three enumerations that are already closed sets in Python. Spelled out rather than derived from
 # the `Literal`s: importing the models here would make this module depend on every API slice, and the
 # values are stored strings whose spelling is the contract.
@@ -179,8 +185,9 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "start_date": {"bsonType": "string"},
                 "end_date": {"bsonType": "string"},
                 "status": {"bsonType": "string", "enum": _SAISON_STATUS},
-                # Exactly one season is `active`, and no validator can express that. It stays BE-4's
-                # to enforce when the season write path is built.
+                # Exactly one season is `active`, and no validator can express that. `PATCH
+                # /admin/activate_saison` is the only path to the value and enforces it in one
+                # transaction (ADR-0033); nothing else may write `status` at all.
                 "rules": _object(
                     required=("win_points", "draw_points"),
                     properties={"win_points": {"bsonType": "int"}, "draw_points": {"bsonType": "int"}},
@@ -193,7 +200,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             # `gruppe`, `is_disqualified` and `statistik` are absent because a team document does not
             # carry them: the first two are season-scoped and live on `saison_teams`, and the third is
             # derived from `spiele` on every read and stored nowhere (ADR-0026).
-            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "is_placeholder", "address"),
+            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "is_placeholder", "address", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -203,6 +210,10 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "website_url": {"bsonType": "string"},
                 "is_placeholder": {"bsonType": "bool"},
                 "address": _ADDRESS,
+                # A retired club, not a club out of one season -- that is `saison_teams`, and it has no
+                # equivalent because a team never leaves a season except by disqualification (ADR-0033).
+                # `uniq_shorthand` keeps indexing a retired club, so its two letters stay reserved.
+                "inactive_since": _INACTIVE_SINCE,
             },
         )
     },
@@ -211,6 +222,12 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             # Transcribed from the documents, not from a model: this junction is the one collection
             # with no Pydantic model of its own. The four fields are what the team pipeline reads, and
             # there is no `statistik` -- that was unset from all 17 rows on 2026-08-02 (ADR-0026).
+            #
+            # There is no `inactive_since` either, and that is the deliberate part. Once a season's
+            # squads are settled a team never leaves it; the only way out is disqualification, which is
+            # the field below (ADR-0033). So no row here is ever retired, and `uniq_saison_id_team_id`
+            # is never held by a dead one -- which is why creating here is a plain insert while
+            # `saison_spieler` has to revive.
             required=("_id", "saison_id", "team_id", "gruppe", "is_disqualified"),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -227,17 +244,20 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # Two fields and a name. Everything else a squad list shows -- team, number, stufe,
             # position -- is season-scoped and lives on `saison_spieler`.
-            required=("_id", "vorname", "nachname"),
+            required=("_id", "vorname", "nachname", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "vorname": {"bsonType": "string"},
                 "nachname": {"bsonType": _STRING_OR_NULL},
+                # The person has left the league entirely. A player who merely left ONE squad is
+                # retired on the junction row below instead, and the two are independent.
+                "inactive_since": _INACTIVE_SINCE,
             },
         )
     },
     "saison_spieler": {
         "$jsonSchema": _object(
-            required=("_id", "spieler_id", "saison_id", "team_id", "is_nachgetragen", "stufe", "position", "nummer"),
+            required=("_id", "spieler_id", "saison_id", "team_id", "is_nachgetragen", "stufe", "position", "nummer", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "spieler_id": {"bsonType": "objectId"},
@@ -254,6 +274,10 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "position": {"bsonType": _STRING_OR_NULL},
                 # A STRING, not an int. Squad numbers are worn, not counted.
                 "nummer": {"bsonType": _STRING_OR_NULL},
+                # This row is retired, and `uniq_spieler_id_saison_id` keeps indexing it -- so a player
+                # returning to the same season is REVIVED rather than inserted a second time
+                # (ADR-0032). The create endpoint does that; a plain insert would be a duplicate key.
+                "inactive_since": _INACTIVE_SINCE,
             },
         )
     },
@@ -295,7 +319,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
     },
     "spieltage": {
         "$jsonSchema": _object(
-            required=("_id", "name", "beginn", "ende", "anzahl_spiele", "order_val", "saison_phase", "saison_id"),
+            required=("_id", "name", "beginn", "ende", "anzahl_spiele", "order_val", "saison_phase", "saison_id", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -309,12 +333,15 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "order_val": {"bsonType": "int"},
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
+                # Retiring a matchday does not touch the matches pointing at it: `spiele.spieltag_id`
+                # keeps resolving, which is the whole reason this is soft rather than a delete.
+                "inactive_since": _INACTIVE_SINCE,
             },
         )
     },
     "spielorte": {
         "$jsonSchema": _object(
-            required=("_id", "name", "address", "maps_link", "default_mietpreis", "is_inactive"),
+            required=("_id", "name", "address", "maps_link", "default_mietpreis", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -323,13 +350,13 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # in FLSpielort.
                 "maps_link": {"bsonType": "string"},
                 "default_mietpreis": {"bsonType": "int"},
-                "is_inactive": {"bsonType": "bool"},
+                "inactive_since": _INACTIVE_SINCE,
             },
         )
     },
     "schiedsrichter": {
         "$jsonSchema": _object(
-            required=("_id", "name", "schule", "default_payment", "kontakt", "is_inactive"),
+            required=("_id", "name", "schule", "default_payment", "kontakt", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -338,7 +365,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # Both halves are null on every referee today. That is personal data, so unused is the
                 # safe state -- the shape is required to be present, never to be filled in.
                 "kontakt": _KONTAKT,
-                "is_inactive": {"bsonType": "bool"},
+                "inactive_since": _INACTIVE_SINCE,
             },
         )
     },

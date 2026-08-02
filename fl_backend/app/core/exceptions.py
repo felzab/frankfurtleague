@@ -70,3 +70,24 @@ class DocumentNotFoundException(BaseAPIException):
             error_code=error_code,
             message=message,
         )
+
+
+class DocumentConflictException(BaseAPIException):
+    """
+    The write is well-formed and the current state refuses it.
+
+    409 rather than 422, because nothing about the payload is wrong -- the same request would have
+    succeeded a moment earlier, or will succeed once something else changes. The two things that raise
+    it: a unique index the write would violate (a second team taking a shorthand, a second squad row for
+    a player in one season), and a delete whose target is still referenced.
+
+    Kept distinct from `DocumentNotFoundException` deliberately. Both are "the database said no", and a
+    caller retrying a 404 is confused while a caller retrying a 409 is wrong.
+    """
+
+    def __init__(self, error_code: str, message: str = "The request conflicts with the current state of the resource"):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            error_code=error_code,
+            message=message,
+        )

@@ -17,15 +17,19 @@ admin-authorized.
 from fastapi import APIRouter, Depends
 
 from app.api.spielorte.schemas import (
+    FLSpielort,
     FLSpielorteFilterParams,
     FLSpielorteListAdapter,
     FLSpielorteListResponse,
+    FLSpielorteSingleResponse,
 )
 from app.api.spielorte.services import build_spielorte_filter, build_spielorte_sort
 from app.core.config import backend_config
-from app.core.crud import pull_many_from_db
+from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SpielorteCollection
+from app.core.routing import by_id
 from app.core.security import verify_access_base
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{backend_config.api_version}/spielorte",
@@ -57,3 +61,15 @@ async def get_spielorte(
     spielorte = FLSpielorteListAdapter.validate_python(spielorte_raw)
 
     return FLSpielorteListResponse(spielorte=spielorte)
+
+
+@router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
+async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
+    """
+    Return one venue by its id, deactivated ones included — a caller holding an id was given it by
+    something, and a historical match's venue is exactly the case worth answering.
+    """
+
+    spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
+
+    return FLSpielorteSingleResponse(spielort=FLSpielort(**spielort_raw))

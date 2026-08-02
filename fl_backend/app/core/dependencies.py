@@ -1,7 +1,7 @@
 """
 CORE · injectable dependencies
 
-Typed aliases for the seven collections, plus the German-time providers. Endpoints declare what they
+Typed aliases for the nine collections, plus the German-time providers. Endpoints declare what they
 need rather than reaching for it, which is what makes them testable without a database.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -27,6 +27,8 @@ from motor.motor_asyncio import (
 from app.core.db import (
     get_database,
     get_db_client,
+    get_saison_spieler_collection,
+    get_saison_teams_collection,
     get_saisons_collection,
     get_schiedsrichter_collection,
     get_spiele_collection,
@@ -53,6 +55,10 @@ SaisonsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saisons_collec
 SpielorteCollection = Annotated[AsyncIOMotorCollection, Depends(get_spielorte_collection)]
 
 SchiedsrichterCollection = Annotated[AsyncIOMotorCollection, Depends(get_schiedsrichter_collection)]
+
+SaisonTeamsCollection = Annotated[AsyncIOMotorCollection, Depends(get_saison_teams_collection)]
+
+SaisonSpielerCollection = Annotated[AsyncIOMotorCollection, Depends(get_saison_spieler_collection)]
 
 
 def get_germany_now() -> datetime:

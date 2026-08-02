@@ -12,7 +12,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, TypeAdapter
 
 from app.api.spiele.schemas import FLSaisonPhase
-from app.shared.schemas.custom import CustomDateString, CustomObjectId
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -26,6 +26,9 @@ class FLSpieltag(BaseModel):
     order_val: int = Field(ge=0)
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=4, max_length=4)
+    # The day this matchday was retired, or null while it is live (ADR-0032). Retiring one leaves its
+    # matches alone -- `spiele.spieltag_id` still resolves, which is why this is not a delete.
+    inactive_since: CustomOptionalDateString
 
 
 FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])
@@ -34,11 +37,43 @@ FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])
 class FLSpieltageFilterParams(BaseModel):
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
+    include_inactive: bool = False
 
     limit: int = Field(default=1024, ge=1, le=1024)
     sort_by: Literal["beginn", "ende", "anzahl_spiele", "order_val"] = Field(default="order_val")
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
+class FLPostSpieltagPayload(BaseModel):
+    name: str = Field(min_length=1)
+    beginn: CustomDateString
+    ende: CustomDateString
+    anzahl_spiele: int = Field(gt=0)
+    order_val: int = Field(ge=0)
+    saison_phase: FLSaisonPhase
+    saison_id: str = Field(min_length=4, max_length=4)
+
+
+class FLPatchSpieltagPayload(BaseModel):
+    name: str = Field(min_length=1)
+    beginn: CustomDateString
+    ende: CustomDateString
+    anzahl_spiele: int = Field(gt=0)
+    order_val: int = Field(ge=0)
+    saison_phase: FLSaisonPhase
+    # `saison_id` is absent: moving a matchday between seasons would strand its matches, which carry
+    # their own `saison_id` and are not rewritten here.
+
+
 class FLSpieltageListResponse(BaseAPIResponse):
     spieltage: list[FLSpieltag]
+
+
+class FLSpieltageSingleResponse(BaseAPIResponse):
+    spieltag: FLSpieltag
+
+
+class FLSpieltagWriteResponse(BaseAPIResponse):
+    spieltag_id: CustomObjectId
+    # Absent on create, where the document is echoed by its id alone.
+    updated_document: FLSpieltag | None = None

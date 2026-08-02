@@ -3,8 +3,8 @@ SPIELORTE · filter and sort construction
 
 Pure translation of `FLSpielorteFilterParams` into a Mongo filter and sort. No I/O.
 
-Note that soft-deleted venues are excluded by an explicit `is_inactive` filter rather than by default:
-an admin form listing venues to edit still needs to see them.
+Soft-deleted venues are excluded unless `include_inactive` asks for them, so an admin list can offer
+the retired ones for reactivation while every public read sees only what is live.
 """
 
 from typing import Any
@@ -19,11 +19,12 @@ def build_spielorte_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
 
 
 def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
-    query = filters.model_dump(
-        include={"is_inactive"},
-        exclude_none=True,
-        by_alias=True,
-        context={"keep_oid": True},
-    )
+    query: dict[str, Any] = {}
+
+    # Matching null rather than testing for absence: `inactive_since` is a REQUIRED field carrying
+    # null while the venue is live (ADR-0032), so `{"inactive_since": None}` is an equality test. It
+    # would also match a document missing the key entirely, which the validator does not permit.
+    if not filters.include_inactive:
+        query["inactive_since"] = None
 
     return query

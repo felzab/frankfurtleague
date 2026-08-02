@@ -9,6 +9,10 @@ container.
   • `FLTeam` is FLATTENED from more than one source: the season-independent `teams` record, the
     `gruppe` and `is_disqualified` of the `saison_teams` junction row, and a `statistik` computed from
     the season's matches. That is why fields exist here that no single collection carries.
+  • There is ONE team shape. A reduced `compact` projection existed alongside this one and was
+    removed: it saved 26 KiB across all 17 teams on responses cached for days, cost nothing in query
+    work, and bought that with a second hand-mirrored model pair -- against F2, the codebase's main
+    drift risk. It also lacked `gruppe`, which is the shape of the bug `FLGruppen` records below.
   • `FLGruppen` always emits all four group keys, even empty ones. Building the map from the teams
     present once omitted "D" for a season with nobody in it, and the frontend schema requires all four.
   • Statistics fields are all `ge=0` and default to 0. The default is load-bearing: a team whose season
@@ -16,8 +20,8 @@ container.
   • `statistik_scope` decides WHICH matches those seven numbers count, and it defaults to
     `"gruppenphase"`. The response shape is identical either way, so a caller that gets the scope wrong
     gets a plausible table rather than an error -- which is why the safe value is the default.
-  • The `format` discriminator is what lets one endpoint return three shapes. Adding a fourth shape
-    means adding a literal, not widening an existing model.
+  • The `format` discriminator is what lets one endpoint return a list or the four groups. Adding a
+    shape means adding a literal, not widening an existing model.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -30,7 +34,7 @@ from typing import Annotated, Literal, Mapping, Union, get_args
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.custom import CustomExternalUrl, CustomObjectId
+from app.shared.schemas.custom import CustomExternalUrl, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLGruppenNames = Literal["A", "B", "C", "D"]
@@ -70,20 +74,13 @@ class FLTeam(BaseModel):
     # in the frontend. See validate_external_url for why this is not AnyHttpUrl.
     website_url: CustomExternalUrl
     address: FLAddress
-
-
-class FLTeamCompact(BaseModel):
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
-
-    name: str = Field(min_length=1)
-    statistik: FLTeamStatistik
-    shorthand: str = Field(min_length=2, max_length=2)
-    address: FLAddress
-    is_disqualified: bool
+    # The day this CLUB left the league, or null while it plays (ADR-0032). Not the same thing as
+    # leaving one season: a team never leaves a season except by disqualification, which is
+    # `is_disqualified` above and lives on the junction (ADR-0033).
+    inactive_since: CustomOptionalDateString
 
 
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
-FLTeamCompactListAdapter = TypeAdapter(list[FLTeamCompact])
 
 
 class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
@@ -129,14 +126,50 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
         return cls(grouped)
 
 
+class FLPostTeamPayload(BaseModel):
+    name: str = Field(min_length=1)
+    shorthand: str = Field(min_length=2, max_length=2)
+    description: str
+    full_name: str = Field(min_length=1)
+    website_url: CustomExternalUrl
+    address: FLAddress
+    # Not on the payload: `is_placeholder`. There is exactly one placeholder team and it is a known
+    # modelling flaw (open item BE-9); an endpoint that could mint a second one would entrench it.
+
+
+class FLPatchTeamPayload(BaseModel):
+    name: str = Field(min_length=1)
+    shorthand: str = Field(min_length=2, max_length=2)
+    description: str
+    full_name: str = Field(min_length=1)
+    website_url: CustomExternalUrl
+    address: FLAddress
+
+
+class FLPostSaisonTeamPayload(BaseModel):
+    """One team's membership of one season. `team_id` comes from the path, `saison_id` from here."""
+
+    saison_id: str = Field(min_length=4, max_length=4)
+    gruppe: FLGruppenNames
+
+
+class FLPatchSaisonTeamPayload(BaseModel):
+    gruppe: FLGruppenNames
+    # A bare boolean today. FB-2 replaces it with a record carrying a reason and a date, and this is
+    # the field that becomes it -- there is no second copy anywhere, because FLSpiel joins the flag
+    # rather than storing it (ADR-0028).
+    is_disqualified: bool
+
+
 class FLTeamsFilterParams(BaseModel):
-    team_id: CustomObjectId | None = Field(default=None, validation_alias="team_id", serialization_alias="_id")
+    # No `team_id`. One team by its id is an identity and is addressed by `GET /teams/{team_id}`;
+    # what stays here narrows a list.
     saison_id: str | None = None
     gruppe: FLGruppenNames | None = None
     is_disqualified: bool | None = None
     in_gruppen: bool | None = None
-    compact: bool | None = None
     include_placeholders: bool = False  # Exclude placeholders by default
+    include_inactive: bool = False  # Exclude clubs that have left the league by default
 
     # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
     # playoff-polluted one (ADR-0029). The all-games figures are an explicit ask.
@@ -147,14 +180,25 @@ class FLTeamsFilterParams(BaseModel):
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
+class FLTeamSingleFilterParams(BaseModel):
+    """
+    What `GET /teams/{team_id}` accepts, which is deliberately far less than the list endpoint.
+
+    A separate model rather than reusing `FLTeamsFilterParams`, because three of that model's fields
+    are meaningless or actively harmful here. `compact` drops the very fields `FLTeam` requires, so a
+    caller passing it would get a 500 from response validation; `in_gruppen` groups a set of one; and
+    `limit`/`sort_by`/`order` order a list that cannot have more than one member. Only the two that
+    choose WHICH SEASON'S figures to derive survive -- and those are genuine, because a team's `gruppe`
+    and `statistik` do not exist outside a season (ADR-0026, ADR-0029).
+    """
+
+    saison_id: str | None = None
+    statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
+
+
 class FLTeamsListResponse(BaseAPIResponse):
     format: Literal["list"] = "list"
     teams: list[FLTeam]
-
-
-class FLTeamsCompactListResponse(BaseAPIResponse):
-    format: Literal["compact"] = "compact"
-    teams: list[FLTeamCompact]
 
 
 class FLTeamsGroupedResponse(BaseAPIResponse):
@@ -162,8 +206,46 @@ class FLTeamsGroupedResponse(BaseAPIResponse):
     gruppen: FLGruppen
 
 
+class FLTeamsSingleResponse(BaseAPIResponse):
+    """
+    One team, from `GET /teams/{team_id}`.
+
+    Deliberately not part of `FLTeamsResponse`: that union discriminates the three shapes ONE endpoint
+    can return, and this is a different endpoint returning exactly one shape. It also offers no
+    `compact` variant -- compactness drops heavy string fields to keep a list small, and a list of one
+    does not need it.
+    """
+
+    format: Literal["single"] = "single"
+    team: FLTeam
+
+
+class FLPostTeamResponse(BaseAPIResponse):
+    created_id: CustomObjectId
+
+
+class FLPatchTeamResponse(BaseAPIResponse):
+    updated_document: FLTeam
+    # How many embedded copies the rename reached. Reported rather than assumed: the fan-out is the
+    # half of this endpoint that fails silently, so the count is the thing worth seeing.
+    fanned_out_to_spiele: int
+
+
+class FLDeleteTeamResponse(BaseAPIResponse):
+    updated_document: FLTeam
+
+
+class FLSaisonTeamResponse(BaseAPIResponse):
+    """A junction row, which has no read model of its own -- so it is echoed as it was written."""
+
+    saison_id: str
+    team_id: CustomObjectId
+    gruppe: FLGruppenNames
+    is_disqualified: bool
+
+
 # Pydantic uses the 'format' field to decide which model to validate against
 FLTeamsResponse = Annotated[
-    Union[FLTeamsListResponse, FLTeamsGroupedResponse, FLTeamsCompactListResponse],
+    Union[FLTeamsListResponse, FLTeamsGroupedResponse],
     Field(discriminator="format"),
 ]

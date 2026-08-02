@@ -16,7 +16,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-from pymongo.errors import PyMongoError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.core.exceptions import BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
@@ -57,6 +57,32 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
     )
 
 
+async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyError):
+    """
+    A unique index refused the write. 409, not the 500 a bare `PyMongoError` would produce.
+
+    Registered because the write path can hit a unique index on an ordinary, well-formed request: a
+    second team claiming a shorthand, or a second squad row for a player in one season. Those are
+    states, not malformed payloads, and a 500 would tell the admin the server is broken when the
+    server is in fact enforcing the rule (ADR-0027).
+
+    The index NAME is logged rather than returned. It names the rule that was broken -- which is the
+    useful thing when reading the log -- and it also names a collection and its fields, which the
+    response body's trace-id-only contract exists to keep off the wire.
+    """
+    fl_logger.warning(f"Unique index refused a write: {failure_message_of(exc)}")
+
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"trace_id": get_trace_id()},
+    )
+
+
+def failure_message_of(exc: DuplicateKeyError) -> str:
+    """The server's own `errmsg`, which names the index; `str(exc)` flattens it to a code."""
+    return exc.details.get("errmsg", str(exc)) if exc.details else str(exc)
+
+
 async def motor_db_exception_handler(request: Request, exc: PyMongoError):
     # Log the full database crash
     fl_logger.error(f"Database crash: {str(exc) or NO_DATA_TEXT}", exc_info=True)
@@ -89,6 +115,11 @@ def register_exception_handlers(app: FastAPI):
     app.add_exception_handler(BaseAPIException, base_api_exception_handler)  # type: ignore
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore
     app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)  # type: ignore
+    # DuplicateKeyError is a PyMongoError subclass, and Starlette resolves a handler by walking
+    # `type(exc).__mro__` for the first class it has one for -- so this wins over the line below by
+    # being more specific, not by being registered first. Without it, a refused unique index is
+    # reported to the admin as a 500 database crash.
+    app.add_exception_handler(DuplicateKeyError, duplicate_key_exception_handler)  # type: ignore
     app.add_exception_handler(PyMongoError, motor_db_exception_handler)  # type: ignore
     app.add_exception_handler(InvalidId, invalid_bson_oid_exception_handler)  # type: ignore
     app.add_exception_handler(Exception, global_catch_all_exception_handler)

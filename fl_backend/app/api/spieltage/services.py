@@ -30,4 +30,9 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
     if filters.saison_phase == "playoffs":
         query["saison_phase"] = {"$ne": "gruppenphase"}
 
+    # Retired matchdays stay out unless asked for (ADR-0032). Their matches are unaffected either way:
+    # this filters `spieltage`, and `GET /spiele` never joins it.
+    if not filters.include_inactive:
+        query["inactive_since"] = None
+
     return query

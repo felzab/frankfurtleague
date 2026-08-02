@@ -22,15 +22,19 @@ from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_current_saison_id
 from app.api.spiele.schemas import (
+    FLSpiel,
     FLSpieleFilterParams,
     FLSpieleListResponse,
+    FLSpieleSingleResponse,
     FLSpielListAdapter,
 )
 from app.api.spiele.services import build_spiele_filter, build_spiele_sort
 from app.core.config import backend_config
-from app.core.crud import pull_many_from_db
+from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, get_german_date_str
+from app.core.routing import by_id
 from app.core.security import verify_access_base
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{backend_config.api_version}/spiele",
@@ -71,3 +75,17 @@ async def get_spiele(
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
     return FLSpieleListResponse(spiele=spiele)
+
+
+@router.get(by_id("spiel_id"), response_model=FLSpieleSingleResponse, summary="One Spiel")
+async def get_spiel(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleSingleResponse:
+    """
+    Return one match by its id.
+
+    No season is resolved and no status is derived: the match carries its own `saison_id`, and
+    `spiel_status` is a property of a query rather than of a match.
+    """
+
+    spiel_raw = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id})
+
+    return FLSpieleSingleResponse(spiel=FLSpiel.model_validate(spiel_raw))

@@ -22,10 +22,15 @@ def build_schiedsrichter_filter(
     filters: FLSchiedsrichterFilterParams,
 ) -> dict[str, Any]:
     query = filters.model_dump(
-        include={"default_payment", "is_inactive"},
+        include={"default_payment"},
         exclude_none=True,
         by_alias=True,
         context={"keep_oid": True},
     )
+
+    # Not part of the dump: `include_inactive` is a switch whose False means "add a filter", so a
+    # by-value dump would write `include_inactive: False` into the query as a field to match.
+    if not filters.include_inactive:
+        query["inactive_since"] = None
 
     return query

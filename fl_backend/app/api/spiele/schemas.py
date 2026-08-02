@@ -72,7 +72,8 @@ class FLSpielSchiedsrichterField(BaseModel):
 
 
 class FLPatchSpielDataPayload(BaseModel):
-    spiel_id: CustomObjectId
+    # No `spiel_id`: the match being changed is named by the path (RFC 5789 -- the Request-URI
+    # identifies the resource, the body describes the change).
     is_canceled: bool
 
     team1: FLSpielTeamField
@@ -131,3 +132,11 @@ class FLSpieleFilterParams(BaseModel):
 
 class FLSpieleListResponse(BaseAPIResponse):
     spiele: list[FLSpiel]
+
+
+class FLSpieleSingleResponse(BaseAPIResponse):
+    spiel: FLSpiel
+
+
+class FLPatchSpielDataResponse(BaseAPIResponse):
+    """The `{"acknowledged": 1}` body patch_spiel_data returns, declared rather than implied."""

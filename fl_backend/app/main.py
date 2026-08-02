@@ -32,14 +32,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from app.api.admin.router import router as admin_router
+from app.api.saisons.admin_router import router as saisons_admin_router
 from app.api.saisons.router import router as saisons_router
+from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
 from app.api.schiedsrichter.router import router as schiedsrichter_router
+from app.api.spiele.admin_router import router as spiele_admin_router
 from app.api.spiele.router import router as spiele_router
+from app.api.spieler.admin_router import router as spieler_admin_router
 from app.api.spieler.router import router as spieler_router
+from app.api.spielorte.admin_router import router as spielorte_admin_router
 from app.api.spielorte.router import router as spielorte_router
+from app.api.spieltage.admin_router import router as spieltage_admin_router
 from app.api.spieltage.router import router as spieltage_router
 from app.api.system.router import router as system_router
+from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.router import router as teams_router
 from app.core.config import backend_config
 from app.core.db import lifespan
@@ -64,15 +70,29 @@ app.add_middleware(
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=backend_config.api_trusted_hosts_list)
 app.add_middleware(CorrelationIdMiddleware)
 
-app.include_router(admin_router)
-app.include_router(spiele_router)
 app.include_router(system_router)
+
+# Reads, under `verify_access_base`.
+app.include_router(spiele_router)
 app.include_router(teams_router)
 app.include_router(spieltage_router)
 app.include_router(spieler_router)
 app.include_router(saisons_router)
 app.include_router(spielorte_router)
 app.include_router(schiedsrichter_router)
+
+# Writes, under `verify_access_admin`. A separate router per slice rather than one admin router: the
+# guard stays attached at router level, so an endpoint cannot be added to the wrong authorization by
+# forgetting a decorator -- it would have to be added to the wrong FILE. Order relative to the reads
+# above is NOT significant; the `objectid` convertor keeps `/spiele/action_required` from being
+# captured by `/spiele/{spiel_id}` (see app/core/routing.py).
+app.include_router(spiele_admin_router)
+app.include_router(teams_admin_router)
+app.include_router(spieltage_admin_router)
+app.include_router(spieler_admin_router)
+app.include_router(saisons_admin_router)
+app.include_router(spielorte_admin_router)
+app.include_router(schiedsrichter_admin_router)
 
 
 @app.get("/")

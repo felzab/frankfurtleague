@@ -19,12 +19,15 @@ from app.api.spieler.schemas import (
     FLSpielerFilterParams,
     FLSpielerListAdapter,
     FLSpielerListResponse,
+    FLSpielerSingleResponse,
 )
 from app.api.spieler.services import build_spieler_pipeline
 from app.core.config import backend_config
-from app.core.crud import aggregate_many_from_db
+from app.core.crud import aggregate_many_from_db, pull_one_from_db
 from app.core.dependencies import SpielerCollection
+from app.core.routing import by_id
 from app.core.security import verify_access_base
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{backend_config.api_version}/spieler",
@@ -46,3 +49,24 @@ async def get_spieler(spieler_collection: SpielerCollection, filters: FLSpielerF
 
     spieler = FLSpielerListAdapter.validate_python(spieler_raw)
     return FLSpielerListResponse(spieler=spieler)
+
+
+@router.get(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="One Spieler")
+async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection: SpielerCollection) -> FLSpielerSingleResponse:
+    """
+    Return one player — the person only.
+
+    Deliberately **not** the flattened squad shape the list returns. Team, number, position and stufe
+    are season-scoped and live on a junction row, so a player addressed without a season has none of
+    them; picking a season here would make the answer depend on a default the caller never asked for.
+    A squad entry is read through `GET /spieler?team_id=…&saison_id=…`, which is a filter and stays one.
+    """
+
+    spieler_raw = await pull_one_from_db(collection=spieler_collection, db_filter={"_id": spieler_id})
+
+    return FLSpielerSingleResponse(
+        spieler_id=spieler_raw["_id"],
+        vorname=spieler_raw["vorname"],
+        nachname=spieler_raw.get("nachname"),
+        inactive_since=spieler_raw.get("inactive_since"),
+    )
