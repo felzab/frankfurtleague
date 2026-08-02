@@ -11,6 +11,7 @@
  *     nginx location for this path publishes it.**
  *   • The caller names a RESOURCE from a fixed enum, never a tag. Anything else is rejected before it
  *     reaches the cache.
+ *   • A resource clears every tag whose CONTENT depends on it, not only its own — see `AFFECTED_TAGS`.
  *   • `revalidateTag`, not `updateTag` — the latter throws in a Route Handler, where there is no
  *     read-your-own-writes to serve.
  *   • Logs name the rejected field, never the submitted value.
@@ -37,6 +38,31 @@ import type { NextRequest } from "next/server";
 const RevalidatePayloadSchema = z.object({
   resource: z.enum(["saisons", "spieler", "spieltage"]),
 });
+
+type RevalidateResource = z.infer<typeof RevalidatePayloadSchema>["resource"];
+
+/**
+ * Which cached reads a resource edit actually invalidates — not the same question as which resource
+ * was edited.
+ *
+ * A season edit reaches three other resources, because a season is not just a row that `/saisons`
+ * serves. It decides which season an omitted `saison_id` means (ADR-0002), so `/spiele`, `/spieltage`
+ * and `/teams` all answer differently the moment `status: "active"` moves; and its `rules.win_points`
+ * and `rules.draw_points` score the league table `/teams` derives from the matches (ADR-0026), so
+ * changing the points scheme changes every table with no team document written. Clearing only
+ * `saisons` leaves those serving the old answer for a day.
+ *
+ * The others reach nothing: `/spieler` takes a team, never a season, and a matchday is referenced by
+ * matches without being copied into them.
+ *
+ * Over-invalidation is the intended trade. This runs by hand, a few times a year, after an edit made
+ * in Compass — the cost is a handful of cold reads and the alternative is a stale public page.
+ */
+const AFFECTED_TAGS: Record<RevalidateResource, readonly string[]> = {
+  saisons: ["saisons", "spiele", "spieltage", "teams"],
+  spieler: ["spieler"],
+  spieltage: ["spieltage"],
+};
 
 function isAuthorized(header: string | null): boolean {
   const expected = frontend_config.INTERNAL_API_KEY_SYSTEM;
@@ -65,9 +91,11 @@ export async function POST(request: NextRequest) {
 
   // revalidateTag, not updateTag: updateTag throws in a Route Handler -- it exists for the
   // read-your-own-writes case in a Server Action, which this is not.
-  // Coarse base tag only: this resource has no granular tags to reach for (ADR-0001).
-  revalidateTag(parsed.data.resource, "max");
-  logger.info("revalidate.ok", { resource: parsed.data.resource });
+  // Coarse base tags only: none of these resources has granular tags to reach for (ADR-0001).
+  const tags = AFFECTED_TAGS[parsed.data.resource];
+  for (const tag of tags) revalidateTag(tag, "max");
+
+  logger.info("revalidate.ok", { resource: parsed.data.resource, tags });
 
   return new NextResponse(null, { status: 204 });
 }

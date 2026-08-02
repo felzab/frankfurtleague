@@ -22,12 +22,12 @@ sessions · **XL** — a programme touching data, schemas and UI end to end.
 
 **Status vocabulary**, a closed set of five:
 
-| Status       | Means                                                                                                                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Open**     | Nothing decided, nothing blocking. Pick it up whenever.                                                                                                                                           |
-| **Decided**  | The argument is settled and recorded as an ADR; the work is not done. The entry is now an instruction, not a question.                                                                            |
-| **Blocked**  | Waiting on another entry that is still in this file. The `Depends on` column names which — a dependency marked _soft_ there is an ordering preference, not a block.                               |
-| **Standing** | No scheduled action — a caution, or a finding with a recorded trigger rather than a plan.                                                                                                         |
+| Status       | Means                                                                                                                                                                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Open**     | Nothing decided, nothing blocking. Pick it up whenever.                                                                                                                                                                                                                  |
+| **Decided**  | The argument is settled and recorded as an ADR; the work is not done. The entry is now an instruction, not a question.                                                                                                                                                   |
+| **Blocked**  | Waiting on another entry that is still in this file. The `Depends on` column names which — a dependency marked _soft_ there is an ordering preference, not a block.                                                                                                      |
+| **Standing** | No scheduled action — a caution, or a finding with a recorded trigger rather than a plan.                                                                                                                                                                                |
 | **Closed**   | Concluded, awaiting removal. **This status exists for exactly one commit.** See [Closing an entry](README.md#closing-an-entry-two-commits-not-one) — the removal is the next commit and cites it. |
 
 **Every status is re-derived whenever any entry is closed**, not only the entry that moved — `Blocked`
@@ -52,8 +52,8 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 12  | FE-1  | Date ranges instead of specific dates                  | FE (+BE)    | XL     | Open        | — (batch with 11, 13)   |
 | 13  | FE-2  | Optional per-game notes                                | FE (+BE)    | S      | Open        | — (batch with 11, 12)   |
 | 14  | FE-3  | TeamDetailsView rework                                 | FE          | M      | Blocked     | FB-1, FB-2              |
-| 15  | F7    | Hardcoded season badge on the landing page             | FE          | S      | Open        | — (before rollover)     |
-| 16  | BE-10 | Cache the current-season default                       | BE          | S      | Open        | —                       |
+| 15  | BE-10 | Nothing caches the season document, read every request | BE          | S      | Open        | —                       |
+| 16  | F7    | Hardcoded season badge on the landing page             | FE          | S      | Open        | — (before rollover)     |
 | 17  | OPS-4 | One output standard for `scripts/`                     | Ops         | M      | Open        | —                       |
 | 18  | F1    | Two definitions of `ausstehend`                        | FE, BE      | S      | Open        | — (latest with FE-1)    |
 | 19  | F2    | Pydantic and Zod models are hand-mirrored              | FE, BE      | —      | Standing    | standing caution        |
@@ -498,9 +498,45 @@ disqualification record. Doing the visual rework first would mean reworking it t
 
 ## Tier 4 — independent items, schedule freely
 
-Nothing here blocks or is blocked. Ordered by urgency: F7 has a real deadline.
+Nothing here blocks or is blocked. Ordered by urgency: BE-10 is now on the hot path of every public
+request, and F7 has a real deadline.
 
-### 15 · F7 — The landing page's season badge is hardcoded
+### 15 · BE-10 — Nothing caches the season document, and every request reads it
+
+**Owner's item, 2026-08-02. Widened the same day, when the league table started being scored with the
+season's `rules`.**
+
+The backend defaults `saison_id` to the current season when none is passed
+([ADR-0002](../_decisions/0002-omitted-season-means-current.md)) and **looks it up every time**.
+`pull_current_saison` (`fl_backend/app/api/saisons/crud.py`) is the single resolution point, and
+`/spiele`, `/spieltage`, `/teams` and `/saisons/current` all route through it, so most public traffic
+pays a Mongo query for an answer that changes once a year.
+
+**Two things make this worse than it was when the item was written.**
+
+- **The query is no longer only for the default.** Since
+  [ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md), `GET /teams` needs the
+  season's `rules.win_points` / `draw_points` to score the derived table, so it reads the season
+  document on **every** call — including calls that name a season explicitly, which previously touched
+  the `saisons` collection not at all. `pull_saison_id_and_rules` already folds both halves into one
+  query, which is the cheap part of the fix and is done; the round trip itself is what remains.
+- **`rules` is about as static as data gets.** It has never changed, and a season that changed its
+  points scheme mid-season would be a different competition. The same is true of which season is
+  active — twice a year at most, and by hand.
+
+The consideration that makes it non-trivial is still **invalidation**. Seasons are edited directly in
+Mongo today (BE-4), so no code path observes the active season flipping or the points changing — a
+naive process-lifetime cache serves the old answer until a restart. The candidates: a TTL measured in
+minutes, which bounds the staleness without needing an event; a hook on the ADR-0015 revalidation
+route, which already exists and already fans a `saisons` edit out to the frontend's `spiele`,
+`spieltage` and `teams` caches, so the backend cache is the one participant missing; or BE-4's future
+write path. **Prefer the second if it can be made to work** — it is the only one where the existing
+operational step (`./scripts/revalidate_reference_data.sh saisons`) already fires at exactly the right
+moment, and it makes the frontend and backend caches invalidate from one action rather than two.
+
+**Path:** independent; BE-4 would later give it a third invalidation hook. Nothing blocks it.
+
+### 16 · F7 — The landing page's season badge is hardcoded
 
 `fl_frontend/src/app/(public)/page.tsx` renders "Saison 2026" as a literal. It is not derived from
 the current season, so at the rollover the badge will still name the old year while the fixtures
@@ -511,23 +547,6 @@ at the line; wiring it to `getCurrentSaison()` would give this page a data fetch
 currently have — a real trade-off rather than an obvious fix.
 
 **Path:** independent, but deadline-bound — decide before the next season rollover.
-
-### 16 · BE-10 — Cache the current-season default
-
-**Owner's item, 2026-08-02.** The backend handles defaulting the `saison_id` when none is passed to
-an endpoint ([ADR-0002](../_decisions/0002-omitted-season-means-current.md)) — but it **looks the
-current season up every time**. `pull_current_saison` (`fl_backend/app/api/saisons/crud.py`) is the
-single resolution point, and `/spiele`, `/spieltage`, `/teams` and `/saisons/current` all route
-through it, so most public traffic pays a Mongo query for an answer that changes once a year. Find
-a caching solution.
-
-The consideration that makes it non-trivial: **invalidation**. Seasons are edited directly in Mongo
-today (BE-4), so no code path observes the active season flipping — a naive process-lifetime cache
-serves the old season after rollover until a restart. A TTL, or a hook on the ADR-0015
-revalidation route, or BE-4's future write path are the candidate invalidation sources; the choice
-is the actual work here, not the caching itself.
-
-**Path:** independent; BE-4 would later give it a clean invalidation hook.
 
 ### 17 · OPS-4 — One output standard for `scripts/`
 

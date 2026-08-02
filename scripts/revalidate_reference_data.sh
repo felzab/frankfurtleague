@@ -9,6 +9,11 @@
 #   the site keeps serving the old values for up to 24 hours. Everything else — matches, venues,
 #   referees — the admin UI already invalidates when you save.
 #
+#   `saisons` clears more than itself, and that is why it matters most: a season decides which season
+#   an omitted saison_id means, and its rules.win_points/draw_points score the league table, which is
+#   computed from the matches rather than stored. So the route also clears spiele, spieltage and teams.
+#   Run this after a rollover or a points-scheme change, or the public pages keep yesterday's answer.
+#
 # HOW IT WORKS:
 #   The request runs INSIDE the frontend container. /api/revalidate is not exposed through nginx —
 #   nginx routes /api to the backend — so the route is reachable only on the container network, and
