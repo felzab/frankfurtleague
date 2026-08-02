@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `ba71aca`, 2026-08-01
+**Verified against:** `179f802`, 2026-08-02
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -74,10 +74,10 @@ A granular tag is worth having only if **(a)** its resource can be written from 
 
 Two granular tags satisfy both and exist:
 
-| Tag                  | Why it earns its place                                                                                                                       |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spiele:saison_id:*` | Editing one match in one season must not evict every other season's cached lists, and the patch action knows exactly which season it touched |
-| `teams:saison_id:*`  | The same backend call also rewrites team statistics, so team caches must go too                                                              |
+| Tag                  | Why it earns its place                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spiele:saison_id:*` | Editing one match in one season must not evict every other season's cached lists, and the patch action knows exactly which season it touched                |
+| `teams:saison_id:*`  | The same edit changes that season's league table, which `/teams` derives from the matches — so team caches must go too, though no team document was written |
 
 Twenty others were removed. The reasoning, by group:
 
@@ -89,7 +89,7 @@ Twenty others were removed. The reasoning, by group:
   and the new one; the action holds only the new one. A tag that is right half the time is worse than
   no tag, because the wrong half is invisible.
 - **Five keyed on team dimensions no mutation touches** — group, disqualification, and similar. The
-  only mutation reaching teams is the statistics update.
+  only thing an app mutation changes about a team is its league table, and that is a result edit.
 - **Two sat on an unreachable branch** — the declaring query is only ever called with no arguments.
 
 **Base tags are not made redundant by the granular ones.** Because the default read path sends no

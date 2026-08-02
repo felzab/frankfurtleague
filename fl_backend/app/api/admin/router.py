@@ -7,9 +7,8 @@ Eight endpoints, and the only write path the product has. Everything else in `ap
 
   • `verify_access_admin` is attached at ROUTER level. Any endpoint added to this file is guarded by
     construction -- do not move the guard onto individual endpoints.
-  • `patch_spiel_data` runs inside one transaction and depends on `patch_one_in_db` returning the
-    PRE-WRITE document: the statistics deltas are computed from the old goal counts. Switching it to
-    `ReturnDocument.AFTER` corrupts every team's table without raising anything.
+  • `patch_spiel_data` writes ONLY the match document. Team statistics are derived from the matches
+    on read (ADR-0026), so there is no second write to keep in step and no team to look up here.
   • `ergebnis` is DERIVED from the two `tore` values, never accepted from the client.
   • The payload is written wholesale with `$set`, so a field absent from the payload is overwritten,
     not preserved. This is why the money fields carry no Pydantic default.
@@ -30,7 +29,6 @@ from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
 
 from app.api.admin.schemas import FLPatchSpielDataResponse
-from app.api.admin.services import get_stats_contribution, update_team_statistik
 from app.api.schiedsrichter.schemas import (
     FLDeleteSchiedsrichterPayload,
     FLDeleteSchiedsrichterResponse,
@@ -40,7 +38,7 @@ from app.api.schiedsrichter.schemas import (
     FLPostSchiedsrichterResponse,
     FLSchiedsrichter,
 )
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpieleListResponse, FLSpielListAdapter
+from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpieleListResponse, FLSpielListAdapter
 from app.api.spielorte.schemas import (
     FLDeleteSpielortPayload,
     FLDeleteSpielortResponse,
@@ -57,7 +55,6 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpieleCollection,
     SpielorteCollection,
-    TeamsCollection,
     get_german_date_str,
 )
 from app.core.exceptions import DocumentNotFoundException
@@ -97,18 +94,20 @@ async def get_spiele_action_required(spiele_collection: SpieleCollection, today:
     return FLSpieleListResponse(spiele=spiele)
 
 
-@router.patch("/update_spiel_data", response_model=FLPatchSpielDataResponse, summary="Update a Spiel and both teams' statistics")
+@router.patch("/update_spiel_data", response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
 async def patch_spiel_data(
     spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
     db: DBClient,
     spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
 ) -> JSONResponse:
     """
-    Update one Spiel and adjust both teams' statistics, in a single transaction.
+    Update one Spiel.
 
     `ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written
     wholesale, so every field must be present -- an omitted field is overwritten, not preserved.
+
+    The league table follows on its own: team statistics are computed from the match documents by
+    `GET /teams`, so a result entered here is reflected the next time that table is read.
 
     `saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic
     would discard it. The frontend passes it separately, for cache invalidation only.
@@ -118,10 +117,11 @@ async def patch_spiel_data(
         f"{spiel_data.team1.tore}:{spiel_data.team2.tore}" if spiel_data.team1.tore is not None and spiel_data.team2.tore is not None else None
     )
 
+    # One document, and still a transaction: the write stays atomic with whatever this endpoint grows
+    # next, and a session costs nothing here (ADR-0026 removed the second write, not the guarantee).
     async with await db.start_session() as session:
         async with session.start_transaction():
-            # Update the spiel data
-            old_game_data_raw = await patch_one_in_db(
+            patched_spiel_raw = await patch_one_in_db(
                 collection=spiele_collection,
                 filter={"_id": spiel_data.spiel_id},
                 update={
@@ -132,39 +132,13 @@ async def patch_spiel_data(
                 },
                 session=session,
             )
-            if old_game_data_raw is None:
+            # `find_one_and_update` returns None only when nothing matched, so this is the 404 branch
+            # rather than an error check -- the document is not read for its contents.
+            if patched_spiel_raw is None:
                 raise DocumentNotFoundException(
                     filter={"_id": spiel_data.spiel_id},
                     error_code="DB-COMMON-001",
                 )
-
-            old_game_data = FLSpiel(**old_game_data_raw)
-
-            # Get the contributions to the statistics for the new and old spiel state
-            old_contribution_team1 = get_stats_contribution(old_game_data.team1.tore, old_game_data.team2.tore)
-            old_contribution_team2 = get_stats_contribution(old_game_data.team2.tore, old_game_data.team1.tore)
-
-            new_contribution_team1 = get_stats_contribution(spiel_data.team1.tore, spiel_data.team2.tore)
-            new_contribution_team2 = get_stats_contribution(spiel_data.team2.tore, spiel_data.team1.tore)
-
-            # Update Team1
-            await update_team_statistik(
-                teams_collection=teams_collection,
-                old_team_id=old_game_data.team1.team_id,
-                new_team_id=spiel_data.team1.team_id,
-                old_team_contribution=old_contribution_team1,
-                new_team_contribution=new_contribution_team1,
-                session=session,
-            )
-            # Update Team2
-            await update_team_statistik(
-                teams_collection=teams_collection,
-                old_team_id=old_game_data.team2.team_id,
-                new_team_id=spiel_data.team2.team_id,
-                old_team_contribution=old_contribution_team2,
-                new_team_contribution=new_contribution_team2,
-                session=session,
-            )
 
     return JSONResponse(
         content={

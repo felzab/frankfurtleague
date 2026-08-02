@@ -9,9 +9,10 @@ through the typed dependencies in `dependencies.py`, never constructed ad hoc.
   • The application REFUSES TO START if MongoDB is unreachable: lifespan pings the server and re-raises
     anything that fails. A container that starts without a database is a container that serves errors,
     and the healthcheck would rather it never come up.
-  • `get_teams_collection` returns `db.teams`, which is the SEASON-INDEPENDENT team document. Everything
-    season-scoped (gruppe, statistik, is_disqualified) lives in the separate `saison_teams` collection
-    and is joined at read time. See the warning in `app/api/teams/services.py`.
+  • `get_teams_collection` returns `db.teams`, which is the SEASON-INDEPENDENT team document. `gruppe`
+    and `is_disqualified` are season-scoped and live in the separate `saison_teams` collection, joined
+    at read time; `statistik` is season-scoped as well and is derived from `spiele` in the same
+    pipeline rather than stored anywhere (ADR-0026). See `app/api/teams/services.py`.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 

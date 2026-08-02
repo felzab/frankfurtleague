@@ -6,16 +6,16 @@
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
- *   • `FLTeam` looks like one document and is two: the season-independent team record plus a
- *     `saison_teams` junction row, flattened by the backend. `gruppe`, `statistik` and
- *     `is_disqualified` come from the junction, which is why they are season-dependent.
+ *   • `FLTeam` looks like one document and is not: the season-independent team record, plus `gruppe`
+ *     and `is_disqualified` from a `saison_teams` junction row, plus a `statistik` the backend
+ *     computes from that season's matches. All three sources are why those fields are season-dependent.
  *   • The grouped response requires ALL FOUR group keys. A season with an empty group once omitted one
  *     and this parse failed, taking down the table page.
  *   • `website_url` is scheme-restricted, because it is rendered into an href on a public page.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
- *   docs/glossary.md — "Team", for the junction model and a known issue affecting statistik
+ *   docs/glossary.md — "Team", for the junction model and "Statistik", for how the table is derived
  */
 
 import z from "zod";

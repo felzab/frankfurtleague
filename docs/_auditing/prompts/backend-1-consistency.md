@@ -11,13 +11,14 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 to `docs/audit/b1-consistency.md`.
 
 This pass runs FIRST because its defect class is the worst one: writes that silently do not reach
-their readers corrupt data invisibly, forever. **The motivating example is real and open — finding
-F4 in `docs/roadmap/open-items.md`**: the admin result edit writes team statistics to the
-`teams` collection while the teams endpoint serves statistics from the `saison_teams` junction, and
-nothing copies between them. F4 was **confirmed against the live database on 2026-08-02**, so its
-existence is settled — do not re-derive it. Read its evidence table first; it is the template for
-what a finding in this pass looks like, and check 1 places it in the full write→read map rather than
-re-establishing it.
+their readers corrupt data invisibly, forever. **The motivating example is real, and it is closed.**
+The admin result edit wrote team statistics to the `teams` collection while the teams endpoint served
+them from the `saison_teams` junction, with nothing copying between them — undetected from the commit
+that introduced the junction until 2026-08-02. The fix was not a redirected write:
+[ADR-0026](../../_decisions/0026-team-statistics-are-derived-from-spiele.md) deleted both stored copies
+and made the table derived. **What the pass should take from it is the method, not the finding:** the
+field name matched on both sides and the document did not, so a write→read map built from field names
+would have shown no gap at all.
 
 CONTEXT — derive, do not assume: enumerate the collections from `app/core/db.py`, the write sites by
 grepping for the crud helpers and raw Motor calls (`update_*`, `insert_*`, `delete_*`, `$set`,
@@ -34,8 +35,8 @@ THE CHECKS, in priority order:
    collection and fields it writes | the filter it writes under (note especially: is it
    season-scoped?) | every read site that serves those fields | does the read project from the same
    document the write touched? | GAP yes/no. Derive the read side from the aggregation pipelines and
-   projections, not from field names — F4 exists precisely because the field name matches and the
-   document does not. Report the full table, not only gap rows.
+   projections, not from field names — the statistics gap survived for months precisely because the
+   field name matched and the document did not. Report the full table, not only gap rows.
 
 2. **DENORMALISATION INVENTORY.** Every embedded copy of another collection's data (the `ort`,
    `schiedsrichter` and team fields embedded in `spiele` documents, and anything else found): which
@@ -45,21 +46,21 @@ THE CHECKS, in priority order:
    for each non-fan-out: is the resulting staleness recorded and intended, or silent? A copy that
    can drift with no record of the decision is a finding.
 
-3. **MULTI-DOCUMENT WRITE ATOMICITY.** For every endpoint performing more than one write (the
-   result edit writes the match AND team statistics; enumerate all others): what happens when write
-   N succeeds and write N+1 fails? Are Motor sessions/transactions used anywhere? Is the partial
-   state reachable, observable, repairable? Is any write retried by infrastructure in a way that
-   double-applies an `$inc`? Do not prescribe transactions reflexively — state the actual partial
-   states and their cost, and present remedies (transaction, ordering that fails safe, recompute
-   endpoint) as options with trade-offs.
+3. **MULTI-DOCUMENT WRITE ATOMICITY.** Enumerate every endpoint performing more than one write —
+   the venue and referee patches fan out into `spiele`, and the result edit is now single-document.
+   What happens when write N succeeds and write N+1 fails? Are Motor sessions/transactions used
+   anywhere? Is the partial state reachable, observable, repairable? Do not prescribe transactions
+   reflexively — state the actual partial states and their cost, and present remedies (transaction,
+   ordering that fails safe, recompute endpoint) as options with trade-offs.
 
-4. **STATISTICS DERIVATION INTEGRITY.** The stats model is delta-based (`$inc` computed from a
-   pre-write read). Audit: the pre-write read actually precedes the write it feeds
-   (`ReturnDocument` semantics); a repeated identical PATCH does not double-count; a _correction_
-   edit (result 2:1 → 1:1) reverses the old contribution before applying the new; cancellation and
-   un-cancellation; whether a full recompute from `spiele` is possible at all today. Also: the
-   write's filter scope versus the season-scoped read (this is F4's second face — the write is
-   filtered by `_id` only).
+4. **STATISTICS DERIVATION INTEGRITY.** The table is now computed by an aggregation on every read
+   (ADR-0026), which removes the delta class of defect and introduces a read-time one. Audit the
+   pipeline in `teams/services.py` against the season's real data: does a match land on exactly one
+   side of exactly one team; is a team with no counting match served zeros rather than dropped; does
+   a malformed `spiel` document now break `GET /teams`, which was independent of it before; and is
+   the `ergebnis`-present rule (`is_canceled` deliberately not consulted) actually what the `$match`
+   expresses. There is no integration test executing this pipeline — see the known-open row in
+   `docs/backend/spec.md` — so measuring it read-only against live data is the available evidence.
 
 5. **QUERY AND FILTER CONSTRUCTION.** Every `model_dump(include=…)` names real _fields_ (never
    aliases) — Pydantic's `include` silently matches nothing on an unknown name; this shipped as
@@ -90,9 +91,10 @@ ALREADY DECIDED — report against these rather than re-litigating them. Checks 
 on questions the database structure review settled on 2026-08-02:
 
 - [ADR-0026](../../_decisions/0026-team-statistics-are-derived-from-spiele.md) — statistics are
-  derived from `spiele`, never stored. Check 4's "is a full recompute from `spiele` possible at all
-  today?" is answered: yes, and it reproduced every stored figure exactly. A match counts when it has
-  an `ergebnis`; a cancelled match with a result is a forfeit and counts.
+  derived from `spiele`, never stored, and this is **built**, not planned. A match counts when it has
+  an `ergebnis`; a cancelled match with a result is a forfeit and counts; points come from the
+  season's `rules`. A table recomputed per request reads as an obvious thing to cache — proposing that
+  is the ADR reversed, not a finding.
 - [ADR-0028](../../_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md) — the rule
   check 2's denormalisation inventory should measure against. Embedded names are display copies owed
   a fan-out; `mietpreis` and `payment` are point-in-time records and are _not_ stale copies of
@@ -100,11 +102,10 @@ on questions the database structure review settled on 2026-08-02:
 - [ADR-0027](../../_decisions/0027-the-database-enforces-its-own-invariants.md) — no validators and
   no secondary indexes is a known state with scheduled work (DB-2), not a finding to raise again.
 
-SEEDED PRIOR FINDINGS to re-verify and place, not re-derive from scratch: **F4** (check 1), **F1**
-(the two definitions of `ausstehend` — server includes today, client excludes it; a cross-surface
-_semantic_ divergence: verify current state and report under check 5 as a decision to confirm, since
-the landing-page behaviour may be intended), **BE-8** (fixed — confirm the regression net still
-pins it).
+SEEDED PRIOR FINDINGS to re-verify and place, not re-derive from scratch: **F1** (the two definitions
+of `ausstehend` — server includes today, client excludes it; a cross-surface _semantic_ divergence:
+verify current state and report under check 5 as a decision to confirm, since the landing-page
+behaviour may be intended), **BE-8** (fixed — confirm the regression net still pins it).
 
 CROSS-SURFACE QUESTIONS: whether a given consistency gap is a defect or an accepted workflow
 (Compass edits, seasonal setup rituals) is owner knowledge. Collect such questions per the shared

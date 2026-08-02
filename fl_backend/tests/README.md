@@ -12,14 +12,22 @@ nothing would notice. That gap is ledger row **BE-5**.
 
 ## What it covers, and what it deliberately does not
 
-**Covers:** Pydantic model validation only. Every constrained model accepts a valid payload, rejects
-the specific bad value each constraint exists to stop, and still accepts the legitimate edge cases
-that look like bad values (an empty `stadtteil`, a null `ergebnis` for an unplayed match, an integral
-float `mietpreis`). Plus `FLGruppen.from_teams`, the one piece of real behaviour in the schema layer.
+**Covers:** Pydantic model validation, chiefly. Every constrained model accepts a valid payload,
+rejects the specific bad value each constraint exists to stop, and still accepts the legitimate edge
+cases that look like bad values (an empty `stadtteil`, a null `ergebnis` for an unplayed match, an
+integral float `mietpreis`). Plus `FLGruppen.from_teams`, the one piece of real behaviour in the
+schema layer, and `build_team_pipeline` — a pure function that returns a dict, so it fits the "no
+database" boundary below while pinning rules that are otherwise only enforced by MongoDB.
 
-**Does not cover:** routers, services, CRUD, authentication, or the database. There are **no HTTP
-calls and no database connection** — every test is a dict in and a model out, which is why the whole
+**Does not cover:** routers, CRUD, authentication, or the database. There are **no HTTP calls and no
+database connection** — every test is a dict in and a model or a pipeline out, which is why the whole
 suite runs in well under a second and needs no fixtures beyond Python objects.
+
+**The gap that boundary leaves, named because it is load-bearing.** Since
+[ADR-0026](../../docs/_decisions/0026-team-statistics-are-derived-from-spiele.md) the league table is
+computed by an aggregation pipeline, and `test_teams_pipeline.py` can assert what the pipeline *says*
+but never what MongoDB *computes* from it. Executing it needs a database fixture this suite does not
+have. Tracked in [`docs/roadmap/open-items.md`](../../docs/roadmap/open-items.md).
 
 That boundary is deliberate. A broader backend suite belongs with the planned `fl_backend` audit,
 which will want one strategy across all layers rather than a schema suite designed twice.
@@ -35,6 +43,7 @@ tests/
     test_custom.py               date/time/URL/ObjectId custom types
   api/                           mirrors app/api/
     test_teams.py                FLTeam, FLTeamStatistik, FLGruppen
+    test_teams_pipeline.py       build_team_pipeline — the derived league table's rules
     test_spiele.py               FLSpiel, its embedded fields, the admin patch payload
     test_reference_models.py     spielorte, schiedsrichter, spieler, spieltage, saisons
     test_response_envelope.py    every *Response model carries `acknowledged`

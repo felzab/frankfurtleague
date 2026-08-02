@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `ba71aca`, 2026-08-01
+**Verified against:** `179f802`, 2026-08-02
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB. It is a **read-mostly API with one real write path**: nine routers,
@@ -61,8 +61,9 @@ container that serves errors, and the healthcheck would rather it never come up.
 
 All raw database access goes through six helpers in `core/crud.py`. One of them carries a trap worth
 knowing before you read any write code: **`patch_one_in_db` returns the document as it was _before_ the
-update** — its `return_document` defaults to `ReturnDocument.BEFORE`. The Spiel write path depends on
-that to compute statistics deltas.
+update** — its `return_document` defaults to `ReturnDocument.BEFORE`. The venue and referee patches
+pass `ReturnDocument.AFTER` explicitly, because they fan the new values out into every match embedding
+them; a caller that forgets would fan out the values it just replaced.
 
 ## Time
 
@@ -80,9 +81,9 @@ and document not found (404).
 
 ## Testing
 
-`fl_backend/tests/` holds 102 test functions which expand to **238 cases** under parametrisation, run by
-`pytest`. They test **schema constraints** — that the models reject what they should — and need no
-running server or database.
+`fl_backend/tests/` holds 111 test functions which expand to **247 cases** under parametrisation, run by
+`pytest`. They test **schema constraints** — that the models reject what they should — plus the rules
+encoded in `build_team_pipeline`, and need no running server or database.
 
 Tests live in a separate `tests/` tree rather than beside the code, unlike the frontend. That is
 Python's convention and it has a reason: a `tests` package inside `app/` would be importable as
@@ -93,6 +94,10 @@ That focus is the point: the frontend mirrors roughly forty backend validation c
 rather than enforcing them itself, and those constraints had no regression net until these tests
 existed. `pnpm verify` on the frontend runs nothing against the backend, so `scripts/verify.sh` runs
 ruff and pytest as a separate step.
+
+**What the no-database boundary excludes, and it matters more since ADR-0026:** the league table is
+computed by an aggregation pipeline, so the tests can assert what the pipeline _says_ and never what
+MongoDB _returns_ for it. See [`../../fl_backend/tests/README.md`](../../fl_backend/tests/README.md).
 
 ## Read next
 

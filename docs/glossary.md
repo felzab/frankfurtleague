@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `ba71aca`, 2026-08-01
+**Verified against:** `179f802`, 2026-08-02
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -26,9 +26,11 @@ fail to parse on read.
 
 `status` is `past` · `active` · `future` — English, unlike almost everything else in the model.
 
-`rules` carries `win_points` and `draw_points` per season, so scoring is season-configurable. Note that
-`get_stats_contribution` (`fl_backend/app/api/admin/services.py`) **hardcodes 3 and 1** rather than
-reading these. The two agree today; they are not wired together.
+`rules` carries `win_points` and `draw_points` per season, so scoring is season-configurable — and it
+is live: `GET /teams` scores its derived league table with these two numbers
+([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)). A defeat scores nothing, and
+there is deliberately no `loss_points` to say otherwise. Editing either value changes every table for
+that season on the next read.
 
 ### `Spiel` — match, game
 
@@ -57,31 +59,22 @@ badly here, so prefer the German in code and conversation.
 **In code:** `teams` collection · `FLTeam` (`fl_backend/app/api/teams/schemas.py`).
 
 **Pitfalls — the most important structural fact in the data model.** A team document is
-**season-independent**. Everything season-specific lives in a separate junction collection,
-`saison_teams`, joined at read time by `build_team_pipeline`
-(`fl_backend/app/api/teams/services.py`):
+**season-independent**. What is season-specific comes from somewhere else, assembled at read time by
+`build_team_pipeline` (`fl_backend/app/api/teams/services.py`):
 
-| On the `teams` document                                                                     | On the `saison_teams` junction                        |
-| ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `name`, `full_name`, `shorthand`, `description`, `website_url`, `address`, `is_placeholder` | `saison_id`, `gruppe`, `statistik`, `is_disqualified` |
+| On the `teams` document                                                                     | On the `saison_teams` junction           | Computed from `spiele` |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------- |
+| `name`, `full_name`, `shorthand`, `description`, `website_url`, `address`, `is_placeholder` | `saison_id`, `gruppe`, `is_disqualified` | `statistik`            |
 
 So a team's group, table position and disqualification are **properties of a team-in-a-season**, not of
-the team. `FLTeam` flattens the two back together, which is why the model looks like one document and
+the team. `FLTeam` flattens all of it back together, which is why the model looks like one document and
 is not.
 
-Consequence worth knowing: with a `saison_id` in play the join is strict, so a team with no
-`saison_teams` row for that season **disappears from results entirely** rather than appearing with
-empty statistics.
-
-> ⚠️ There is a **confirmed** read/write mismatch around `statistik`: the application writes it to
-> `teams` and reads it from `saison_teams`, so a result edit does not move the league table. The
-> junction's figures are accurate only because they are maintained by hand. See **Finding F4** in
-> [`roadmap/open-items.md`](roadmap/open-items.md) before trusting the league table.
->
-> The fix is decided but not built:
-> [ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md) removes `statistik` from the
-> junction entirely and derives it from `spiele` on read. The rest of the table above is unaffected —
-> `gruppe` and `is_disqualified` stay season-scoped on the junction.
+Two consequences worth knowing. With a `saison_id` in play the junction join is strict, so a team with
+no `saison_teams` row for that season **disappears from results entirely** rather than appearing with
+an empty table. And `statistik` has no stored home at all — the third column is a computation, not a
+collection ([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)), so there is
+nothing to keep in step and nothing to back-fill.
 
 ### `Spieler` — player
 
@@ -213,23 +206,26 @@ Soft-delete flag on venues and referees. There is no hard delete for either.
 `FLTeamStatistik`: `anzahl_gespielte_spiele` (matches played), `siege` (wins), `niederlagen` (losses),
 `unentschieden` (draws), `tore_geschossen`, `tore_kassiert`, `punkte` (points).
 
-**Pitfalls.** Stored on the `saison_teams` junction today, so statistics are per team **per season**.
-All fields are constrained `ge=0`, which matters because they are maintained by `$inc` deltas rather
-than recomputed — see the write path in `fl_backend/app/api/admin/router.py`. Those deltas land on the
-base `teams` collection instead, so **nothing in the application maintains the figures that are
-served**; they are edited by hand. Confirmed 2026-08-02 — see **Finding F4**.
+**Not stored anywhere.** The seven numbers are **derived from the `spiele` documents on every read**
+([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)), per team and per season, by
+the same pipeline that serves `GET /teams`. There is no field to update, which is why no write path
+mentions them.
 
-**Where this is going**, decided 2026-08-02 in
-[ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md): the stored field goes away
-and the seven numbers are **derived from the `spiele` documents on read**. Two rules the derivation
-fixes in place, both of which are today accidents of the `$inc` arithmetic rather than choices:
+**The counting rules, which are decisions rather than implementation details:**
 
 - **A match contributes exactly when it carries an `ergebnis`.** An unplayed match contributes
   nothing, including to `anzahl_gespielte_spiele`.
 - **A cancelled match with a result still counts — that is a forfeit.** `is_canceled` is deliberately
   not consulted. Three matches in season 2026 are in this state.
+- **Points come from the season's `rules.win_points` / `draw_points`**, never a hardcoded 3/1/0. A
+  defeat scores nothing, because `FLSaisonRules` has no `loss_points`.
 
-Points will come from the season's `rules.win_points` / `draw_points` rather than a hardcoded 3/1/0.
+Every field is `ge=0` and defaults to 0, so a team whose season holds no counting match is served a
+zeroed object rather than an absent one.
+
+**The table counts every phase**, playoff matches included. Narrowing the Saisontabelle to the
+Gruppenphase is open item FB-1 in [`roadmap/open-items.md`](roadmap/open-items.md); under the derived
+table it is one `$match` stage rather than a schema change.
 
 ### `Mietpreis` — rental price
 

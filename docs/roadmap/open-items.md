@@ -38,7 +38,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 | #   | ID    | Item                                                   | Surfaces    | Effort | Status      | Depends on              |
 | --- | ----- | ------------------------------------------------------ | ----------- | ------ | ----------- | ----------------------- |
-| 1   | F4    | Statistics written to one document, read from another  | BE, DB      | M      | **Decided** | — (ADR-0026; fix open)  |
+| 1   | F4    | Statistics written to one document, read from another  | BE, DB      | M      | **Closed**  | — (ADR-0026; built)     |
 | 2   | FB-1  | Saisontabelle must count only Gruppenphase games       | FE, BE      | M      | Blocked     | F4                      |
 | 3   | LOG-1 | Logging and error handling, surveyed then standardised | FE, BE, Ops | L      | Open        | — (parallel-safe)       |
 | 4   | DB-2  | The database enforces its own invariants               | DB, BE, Ops | M      | **Decided** | — (ADR-0027; work open) |
@@ -174,6 +174,31 @@ its motivating check. Referenced from `docs/backend/spec.md` (invariant I1, §7)
 **Path:** the structure review that blocked it is concluded (ADR-0026). Still blocks FB-1 until the
 read path computes the table correctly, and informs FE-3 (which displays the full statistics FB-1
 separates out).
+
+#### Concluded 2026-08-02 — built, and proved a no-op on the numbers
+
+[ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md) is implemented; no new
+decision was taken, so there is no second ADR. `build_team_pipeline` derives the seven fields from the
+season's `spiele` in a `$lookup`, scored with `FLSaison.rules`; `update_team_statistik`,
+`get_stats_contribution` and the whole `$inc` path are deleted, and `app/api/admin/services.py` with
+them. `patch_spiel_data` keeps its transaction for the match document alone.
+
+**Verified against the live database through the production image**, before and after: the
+Saisontabelle page renders byte-identically across all 16 teams, and four team detail pages reproduce
+every one of the seven fields exactly, `tore_kassiert` included. So the switch changed no number
+anywhere, which is what the 2026-08-02 recomputation predicted.
+
+Where the rest of this entry's content went:
+
+- The counting rules — `ergebnis` decides, `is_canceled` is not consulted, points from the season —
+  are stated in the pipeline, in `docs/glossary.md` under "Statistik", and as invariants I1a and I1b
+  in `docs/backend/spec.md`.
+- The "do not cache or store this" constraint is a row in CLAUDE.md §9, as the ADR asked.
+- The `teams:saison_id:*` cache tag's rationale is now true and says so in
+  `fl_frontend/src/features/teams/queries.ts`.
+- Two things this could not do are carried out as new entries below: **BE-11**, the missing
+  integration coverage the ADR asked for, and **DB-3**, deleting the now-dead `statistik` field from
+  the `saison_teams` documents — a Compass edit, not a code change.
 
 ### 2 · FB-1 — The Saisontabelle must count only Gruppenphase games
 

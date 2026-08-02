@@ -424,9 +424,11 @@ A new season needs, at minimum:
    constrained to that length, and a longer id breaks every match and matchday pointing at it.
 2. Its `status` set to `active`, and the outgoing season moved off `active`. Exactly one active season
    is assumed; nothing enforces it.
-3. A **`saison_teams` junction row per participating team**, carrying `gruppe`, `statistik` and
-   `is_disqualified`. A team with no row for the season disappears from that season's results entirely
-   — the join is strict.
+3. A **`saison_teams` junction row per participating team**, carrying `gruppe` and `is_disqualified`.
+   A team with no row for the season disappears from that season's results entirely — the join is
+   strict. No `statistik`: the league table is derived from the season's matches
+   ([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)), so a new season starts
+   at zero without anything being written.
 4. **A junction row for the "TBD" placeholder team**, which is easy to miss and is one of the reasons
    the placeholder is a known modelling flaw (open item BE-9).
 5. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.

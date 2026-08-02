@@ -128,15 +128,15 @@ item P2-9.
 
 ```python
 """
-SPIELE · read endpoint & statistics helper
+SPIELE · read endpoint
 
-Serves `GET /spiele`, and computes one match's contribution to a team's table for the admin write path.
+Serves `GET /spiele`, and compiles the filter parameters into a Mongo query.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
   • The current-season resolution stays in the handler; a Pydantic field default cannot query the DB.
-  • `get_stats_contribution` returns all zeros for an unplayed match, played count included — the delta
-    arithmetic in `update_team_statistik` depends on it.
+  • `saison_phase="playoffs"` is an alias compiled to "not gruppenphase". It is not a stored value, so
+    it must never be written into a document.
 
  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -244,13 +244,12 @@ async def get_spiele(...) -> FLSpieleListResponse:
 No `Args:` / `Returns:` blocks. Prose, and only the part the signature cannot carry.
 
 ```python
-def get_stats_contribution(tore_self: int | None, tore_opponent: int | None) -> FLTeamStatistik:
+def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules) -> Mapping[str, Any]:
     """
-    One match's contribution to one team's statistics.
+    The `$lookup` deriving one team's seven statistics from the season's matches (ADR-0026).
 
-    Returns all zeros for an unplayed match -- including `anzahl_gespielte_spiele`, which is the part
-    that matters. `update_team_statistik` subtracts the old contribution from the new one, so a
-    first-time result entry needs the old side to be zero across every field.
+    A match counts exactly when it carries an `ergebnis`. `is_canceled` is deliberately not consulted:
+    a cancelled match with a result is a forfeit, and a forfeit counts.
     """
 ```
 
