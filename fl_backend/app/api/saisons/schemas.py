@@ -44,7 +44,7 @@ class FLSaisonsFilterOptions(BaseModel):
 
     status: FLSaisonStatus | None = None
 
-    limit: int = Field(1024, ge=1, le=1024)
+    limit: int = Field(default=1024, ge=1, le=1024)
     sort_by: FLSaisonsSortOptions = Field(default="_id")
     order: Literal["asc", "desc"] = Field(default="asc")
 

@@ -10,6 +10,8 @@ Deliberately structural. A test asserting the exact stage list would fail on eve
 refactor; these locate the stage they care about by name and assert only the rule.
 """
 
+from typing import Any, Mapping
+
 import pytest
 
 from app.api.saisons.schemas import FLSaisonRules
@@ -18,21 +20,23 @@ from app.api.teams.services import STATISTIK_AS_NAME, build_team_pipeline
 
 STANDARD_RULES = FLSaisonRules(win_points=3, draw_points=1)
 
+Pipeline = list[Mapping[str, Any]]
 
-def build(**filter_overrides) -> list:
+
+# Keyword parameters rather than **kwargs forwarded into the model: the filters a test varies are a
+# closed set of three, and spelling them out is what lets a typo be a type error here instead of a
+# silently ignored key inside Pydantic.
+def build(*, rules: FLSaisonRules = STANDARD_RULES, saison_id: str = "2026", compact: bool = False) -> Pipeline:
     """A pipeline for season 2026 under 3/1/0, unless a test says otherwise."""
-    rules = filter_overrides.pop("rules", STANDARD_RULES)
-    filters = FLTeamsFilterParams(saison_id="2026", **filter_overrides)
-
-    return build_team_pipeline(filters=filters, rules=rules)
+    return build_team_pipeline(filters=FLTeamsFilterParams(saison_id=saison_id, compact=compact), rules=rules)
 
 
-def statistik_stage(pipeline: list) -> dict:
+def statistik_stage(pipeline: Pipeline) -> Mapping[str, Any]:
     """The `$lookup` into `spiele`, found by its `as` name rather than by position."""
     return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == STATISTIK_AS_NAME)
 
 
-def projection(pipeline: list) -> dict:
+def projection(pipeline: Pipeline) -> Mapping[str, Any]:
     return next(stage["$project"] for stage in pipeline if "$project" in stage)
 
 

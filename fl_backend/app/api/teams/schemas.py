@@ -33,13 +33,17 @@ FLGruppenNames = Literal["A", "B", "C", "D"]
 
 
 class FLTeamStatistik(BaseModel):
-    anzahl_gespielte_spiele: int = Field(0, ge=0)
-    siege: int = Field(0, ge=0)
-    niederlagen: int = Field(0, ge=0)
-    unentschieden: int = Field(0, ge=0)
-    tore_geschossen: int = Field(0, ge=0)
-    tore_kassiert: int = Field(0, ge=0)
-    punkte: int = Field(0, ge=0)
+    # `default=` by keyword, never `Field(0, ge=0)`. Pydantic treats the two identically; the type
+    # checker does not. Pyright reads a field specifier's default by ARGUMENT NAME, so a positional
+    # one leaves it believing the field is required -- and every construction that omits it is then
+    # flagged in the editor while the tests and ruff stay silent.
+    anzahl_gespielte_spiele: int = Field(default=0, ge=0)
+    siege: int = Field(default=0, ge=0)
+    niederlagen: int = Field(default=0, ge=0)
+    unentschieden: int = Field(default=0, ge=0)
+    tore_geschossen: int = Field(default=0, ge=0)
+    tore_kassiert: int = Field(default=0, ge=0)
+    punkte: int = Field(default=0, ge=0)
 
 
 class FLTeam(BaseModel):
@@ -125,7 +129,7 @@ class FLTeamsFilterParams(BaseModel):
     compact: bool | None = None
     include_placeholders: bool = False  # Exclude placeholders by default
 
-    limit: int = Field(1024, ge=1, le=1024)
+    limit: int = Field(default=1024, ge=1, le=1024)
     sort_by: Literal["name"] = Field(default="name")
     order: Literal["asc", "desc"] = Field(default="asc")
 

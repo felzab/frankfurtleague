@@ -50,7 +50,7 @@ FLSpielorteListAdapter = TypeAdapter(list[FLSpielort])
 class FLSpielorteFilterParams(BaseModel):
     is_inactive: bool | None = False  # Exclude incactive Spielorte by default
 
-    limit: int = Field(1024, ge=1, le=1024)
+    limit: int = Field(default=1024, ge=1, le=1024)
     sort_by: Literal["name",] = Field(default="name")
     order: Literal["asc", "desc"] = Field(default="asc")
 

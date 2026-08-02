@@ -117,6 +117,10 @@ Dev = Windows 11. Prod = Linux (bash/sh). Label every terminal command with its 
 - Match existing code conventions unless they're deprecated (§2) — then flag and give a migration path/codemod.
 - Preserve project structure unless a breaking change forces restructuring.
 
+### Backend conventions
+
+- **A Pydantic field's default is passed by keyword — `Field(default=0, ge=0)`, never `Field(0, ge=0)`.** The two are identical to Pydantic and different to the type checker: Pyright reads a field specifier's default by argument name, so a positional one leaves it believing the field is required, and every construction omitting it is flagged in the editor while `ruff` and `pytest` stay green. There is no lint rule for this; it is the reason all seven `FLTeamStatistik` fields and all seven `limit` fields spell it out.
+
 ### Frontend conventions
 
 - **Adding a HeroUI component is a two-part change, and the second part fails silently.** HeroUI's CSS is imported **per component**, across **two stylesheets**: `src/app/globals.css` (every route) and `src/app/admin/admin.css` (only `/admin`). A component imported in TSX but missing from both renders unstyled — `tsc`, `next build` and ESLint all pass. **Whenever a HeroUI component is added, or the owner is weighing adding one, restate the checklist in [`docs/frontend/overview.md` § Adding a HeroUI component](../docs/frontend/overview.md#adding-a-heroui-component) before writing code**: decide which of the two files it belongs in (`admin.css` only if NO public route can reach it — verify from the import graph, not folder names; when in doubt use `globals.css`), add it at HeroUI's own position in `node_modules/@heroui/styles/dist/components/index.css`, import the sub-components it renders underneath (a picker is a popover + listbox + button, and those sub-components are often public even when the parent is not), **grep both files**, and verify computed styles in the browser. Why: [ADR-0019](../docs/_decisions/0019-per-component-heroui-css.md), [ADR-0023](../docs/_decisions/0023-admin-only-css-split.md).
