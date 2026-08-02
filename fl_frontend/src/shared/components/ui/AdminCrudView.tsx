@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { useDebouncedUrlQuery } from "../../hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
+import { PAGE_RISE } from "./motion";
 import { SearchBar } from "./SearchBar";
 
 import type { ReactNode } from "react";
@@ -58,11 +59,11 @@ export function AdminCrudView<TItem extends { id: string }>({
     // Animated in on arrival, the way every other view in the app is. The
     // resized skeleton was only half the problem — the other half was that the real content simply
     // *appeared*, so even a correctly-sized swap read as a snap. Now the search field and table
-    // arrive the way `SpielhistorieView` and the rest do, and the fallback (which a warm navigation
-    // never paints at all) hands over to a movement rather than to a jump.
+    // arrive the way every other route shell does, and the fallback (which a warm navigation never
+    // paints at all) hands over to a movement rather than to a jump.
     // `gap-8` is repeated from `AdminCrudShell`'s column because this wrapper is now the flex item;
     // without it the search field and table would collapse together.
-    <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-col gap-8 duration-400">
+    <div className={`${PAGE_RISE} flex flex-col gap-8`}>
       <SearchBar
         label={searchLabel}
         placeholder={searchPlaceholder}

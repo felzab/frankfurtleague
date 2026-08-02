@@ -546,6 +546,17 @@
     animation: none !important;
   }
 
+  /* The skeleton shimmer, which is the same category as the four above: an autonomous sweep that
+     repeats for as long as the placeholder is on screen. Targeted at the pseudo-elements because
+     that is where HeroUI puts it — `.skeleton--shimmer` itself carries no animation, so listing the
+     class alongside the others would do nothing. Stopping it leaves a flat grey block rather than a
+     frozen gradient: the sweep rests at `-translate-x-full`, i.e. entirely outside its
+     `overflow-hidden` parent. */
+  .skeleton--shimmer::after,
+  .skeleton--shimmer::before {
+    animation: none !important;
+  }
+
   /* The cascade keeps its fade — opacity is deliberately left alone throughout this block — but
      loses the travel and the stagger, so it resolves as one quiet cross-fade. */
   :root {
@@ -645,21 +656,35 @@
   }
 
   /**
-   * Tab-switch entrance for a card grid: the cards arrive in sequence instead of all at once.
+   * TIER 2 OF TWO. The entrance for a card grid: the cards arrive in sequence instead of all at
+   * once. Tier 1 is the page rise, which is a Tailwind class string rather than CSS and therefore
+   * lives in `shared/components/ui/motion.ts` — **read that file before changing this one**, since
+   * the two exist as a pair and the constants there are what the call sites import.
    *
-   * This is the third attempt at the spielplan's switch flicker, and the first that addresses what
-   * the owner actually described. The first two treated it as an animation-timing problem — 400ms,
-   * then 150ms, then a fade from 50% — and none helped, because the problem is not the curve. Every
-   * card lands at the exact screen position the previous Spieltag's card occupied, so a simultaneous
-   * swap reads as the content *mutating in place* however gently it is faded. A cascade separates
-   * them in time, and the eye follows a sequence instead of seeing one flash.
+   * This began as the third attempt at the spielplan's tab-switch flicker, and it was the first that
+   * addressed what the owner actually described. The first two treated it as an animation-timing
+   * problem — 400ms, then 150ms, then a fade from 50% — and none helped, because the problem is not
+   * the curve. Every card lands at the exact screen position the previous Spieltag's card occupied,
+   * so a simultaneous swap reads as the content *mutating in place* however gently it is faded. A
+   * cascade separates them in time, and the eye follows a sequence instead of seeing one flash.
+   *
+   * It is now the entrance for **every** `SpielCard` collection, not just the spielplan's (owner,
+   * 2026-08-02): the landing page's two grids, spielhistorie, spielsuche and the admin
+   * action-required panels. Those five previously used the tier-1 block fade or nothing, so grids of
+   * identical cards one nav click apart arrived differently. Spielsuche gains the most — it
+   * re-renders on every debounced keystroke, which is the same land-where-the-last-one-was
+   * situation as the tab switch.
+   *
+   * The playoff bracket is the one deliberate exception; the reason is on `PlayoffsView`.
    *
    * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
    * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the
-   * wrapper rather than the cards.
+   * wrapper rather than the cards. `:nth-child` still counts correctly through it, because
+   * `display: contents` does not change parentage.
    *
-   * Eight steps because the largest Spieltag holds eight matches; the last starts at 175ms, so the
-   * whole grid has settled inside half a second.
+   * Eight steps, then a shared delay for the rest: the largest Spieltag holds eight matches, and the
+   * unbounded lists (spielhistorie, spielsuche) must not stagger a hundredth card by two and a half
+   * seconds. The last step starts at 175ms, so any grid has settled inside half a second.
    */
   .cards-cascade [role="listitem"] {
     animation: card-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) both;

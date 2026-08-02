@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
 import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
@@ -75,9 +76,13 @@ export function SpielsucheView({
         ) : filteredResults.length === 0 ? (
           <p className="text-fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Keine Ergebnisse für "{spielQuery}"</p>
         ) : (
+          // The cascade is doing more work here than elsewhere: results are re-filtered on every
+          // debounced keystroke, so this grid re-enters constantly. A block fade made each new
+          // result set read as the previous one mutating in place — the same failure the spielplan's
+          // tab switch had, for the same reason (cards landing where the last set's cards were).
           <div
             role="list"
-            className="animate-in fade-in slide-in-from-bottom-4 max-w-page grid w-full grid-cols-1 gap-5 duration-400 sm:grid-cols-2 xl:grid-cols-3">
+            className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
             <ListComponent
               spiele={filteredResults}
               today={today}

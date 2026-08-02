@@ -7,8 +7,21 @@ import { Accordion, Card } from "@heroui/react";
 
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { getTeams } from "@/features/teams/queries";
+import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 import { QA_QUESTIONS } from "../../constants";
+
+/**
+ * Chip-shaped placeholders for the participating-schools list.
+ *
+ * The widths are school names of plausible lengths, varied so the row does not read as a barcode.
+ * Eight of them, because a season fields roughly that many teams — under-reserving here only costs a
+ * short reflow inside a card that is already the last thing on the page.
+ *
+ * `tone="field"` and not the default grey: this list sits on the green pitch card, where `bg-muted`
+ * would read as a hole punched in it. Same reasoning as the real chips' `bg-field-fg/10`.
+ */
+const TEAM_CHIP_SKELETON_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36", "w-24", "w-32", "w-28"];
 
 export function AboutView() {
   return (
@@ -83,13 +96,25 @@ export function AboutView() {
             </Card.Title>
           </Card.Header>
           <Card.Content className="p-6">
+            {/* The fallback is the chip row in placeholder form, not the words "Teams laden...".
+                That line was a single short run of text where a wrapped row of chips was about to
+                appear, so the card grew by roughly its own height when the names landed. */}
             <Suspense
               fallback={
-                <span
+                <div
                   role="status"
-                  className="text-fluid-sm text-field-fg/70">
-                  Teams laden...
-                </span>
+                  aria-label="Teams werden geladen"
+                  className="flex flex-wrap justify-center gap-2">
+                  {TEAM_CHIP_SKELETON_WIDTHS.map((width, i) => (
+                    // Same type sizes, padding and border as the real chip, so each placeholder is
+                    // exactly one chip tall at every breakpoint.
+                    <span
+                      key={i}
+                      className={`${skeletonBlock({ tone: "field" })} text-fluid-xxs sm:text-fluid-xs border-field-fg/25 inline-block rounded-xl border px-3.5 py-1.5 ${width}`}>
+                      &nbsp;
+                    </span>
+                  ))}
+                </div>
               }>
               <ParticipatingTeamsDisplay />
             </Suspense>

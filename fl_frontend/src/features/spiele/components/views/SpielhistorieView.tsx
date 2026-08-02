@@ -1,4 +1,5 @@
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 
 import { SpielCardsList } from "../collections/SpielCardsList";
 
@@ -27,9 +28,12 @@ export function SpielhistorieView({ spielhistorieData, today }: { spielhistorieD
     <>
       {pageHeading}
 
+      {/* The cascade, not the block fade this used to carry: a grid of `SpielCard`s is tier 2 in
+          `motion.ts`, and the spielplan's identical grid has cascaded since the tab-switch fix. The
+          two sat side by side in the same nav with visibly different arrivals. */}
       <div
         role="list"
-        className="animate-in fade-in slide-in-from-bottom-4 max-w-page mx-auto grid w-full grid-cols-1 gap-5 px-4 pt-6 pb-12 duration-400 sm:grid-cols-2 sm:px-8 xl:grid-cols-3">
+        className={`${CARDS_CASCADE} max-w-page mx-auto grid w-full grid-cols-1 gap-5 px-4 pt-6 pb-12 sm:grid-cols-2 sm:px-8 xl:grid-cols-3`}>
         <SpielCardsList
           spiele={spielhistorieData}
           today={today}

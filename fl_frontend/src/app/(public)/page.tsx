@@ -14,9 +14,6 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
  * Static marketing chrome, with the one data-dependent region — the recent/upcoming grid — isolated
  * behind `Suspense`. That split is the whole point of the page's structure: the shell is prerendered
  * and the data hole streams in, so the page paints without waiting on the backend.
- *
- * The skeleton reserves exactly six cards per section because the query behind it is capped at six,
- * which is what makes the swap shift nothing.
  */
 export default function LandingPage() {
   return (
@@ -138,8 +135,9 @@ export default function LandingPage() {
             line, so while the matches loaded the page was a few hundred pixels shorter than it would
             be: the footer rode up into view and then everything jumped down when the data landed.
             `SpielCardSkeleton` is dimensionally identical to `SpielCard` — see the note there — so
-            two headed sections of six skeletons occupy exactly the space two sections of six cards
-            will, and nothing moves when they are replaced. */}
+            the reserved rows are exactly as tall as the real ones. The skeleton deliberately shows
+            fewer than the six cards the query can return; `VISIBILITY` in that file explains why
+            under-reserving is the safe direction to be wrong in. */}
         <Suspense fallback={<RecentAndUpcomingSpieleGridSkeleton />}>
           <RecentAndUpcomingSpieleGrid />
         </Suspense>

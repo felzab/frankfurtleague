@@ -14,6 +14,7 @@ import { computeErgebnisFor } from "@/features/spiele/utils";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { ExpandableDescription } from "@/shared/components/ui/ExpandableDescription";
+import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { sortByDate } from "@/shared/utils/date";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
 
@@ -92,7 +93,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
   const teamMapUrl = buildMapsSearchUrl(formattedTeamAddress);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-y-8 pb-12 duration-400">
+    <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 pb-12`}>
       {/* Back Navigation Button */}
       <Button
         onPress={() => {

@@ -50,8 +50,6 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   cacheComponents: true,
-  // Left at the default `true` deliberately: Cloudflare's on-the-fly compression measured WORSE than
-  // this gzip on the same file, so the origin must keep encoding (ADR-0022, reversing ADR-0021).
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written (ADR-0020).
 };

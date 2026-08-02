@@ -5,6 +5,7 @@ import { Tabs } from "@heroui/react";
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
+import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSpielplan } from "../../schemas";
 
@@ -27,7 +28,8 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
   }
 
   return (
-    // Updated to flex-1 and flex-col so it handles height naturally without jumping.
+    // `flex-1` and `flex-col` so the panel takes its height from its content rather than from a
+    // fixed value, which is what stops the page jumping between Spieltage of different sizes.
     // The arrival animation lives here rather than on each panel: this element mounts once
     // per page visit and never again on a tab press, so the rise plays exactly when it should — the
     // page settling into place — and cannot be replayed or interrupted by switching Spieltag.
@@ -36,7 +38,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
     // against its nearest scrollport (`<main>`, further up and untransformed). And the animation only
     // ever runs at mount, when the scroller is still at the top and nothing is stuck yet — measured
     // at rest, the root's `transform` is `none` with zero live animations.
-    <Tabs className="animate-in fade-in slide-in-from-bottom-4 relative flex w-full flex-1 flex-col items-center duration-400">
+    <Tabs className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
       {pageHeading}
 
       <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
@@ -49,7 +51,8 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
               <Tabs.Tab
                 key={spieltagData.id}
                 id={spieltagData.id}
-                /* shrink-0 removed! whitespace-nowrap handles the sizing naturally. */
+                /* `whitespace-nowrap` is what keeps a Spieltag label on one line, and it does so by
+                   widening the tab — so the tab needs no `shrink-0` of its own inside the scroller. */
                 className={`${TAB_ITEM} flex h-11 items-center px-5 whitespace-nowrap md:px-6`}>
                 {spieltagData.name}
                 <Tabs.Indicator className={TAB_INDICATOR} />
@@ -84,7 +87,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
               instead, and the eye follows a sequence rather than catching a single flash. */}
           <div
             role="list"
-            className="cards-cascade grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
             {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}

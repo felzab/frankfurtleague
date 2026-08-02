@@ -9,6 +9,7 @@ import { Badge, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
@@ -33,8 +34,13 @@ export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
   }
 
   return (
-    /** Container for all the groups */
-    <div className="relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8">
+    /** Container for all the groups.
+        This route had no entrance at all while its four siblings in the same nav each had one, so
+        the tables snapped into place where every other page eased in (owner, 2026-08-02). The rise
+        goes on the container rather than on each group panel: the panels are a short stack, not a
+        collection, and staggering two or three full-width tables reads as the page assembling
+        itself rather than arriving. */
+    <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8`}>
       {pageHeading}
 
       {

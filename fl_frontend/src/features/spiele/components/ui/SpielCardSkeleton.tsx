@@ -1,71 +1,66 @@
 import { card } from "@/shared/components/ui/card";
+import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 /**
- * A `SpielCard`-shaped placeholder, exact rather than approximate.
+ * A `SpielCard`-shaped placeholder: exact in its box model, deliberately vague in its contents.
  *
- * **Why it can be exact** (owner's observation, and it holds): a `SpielCard`'s height depends only on
- * the viewport, never on its data. Every text run in it is single-line by construction — the team
- * names are `truncate` inside `min-w-0` tracks, so they cannot wrap — and the two buttons are a fixed
- * 35/38px. So the height is nothing but `text-fluid-*` metrics plus fixed padding.
+ * **Why the height can be exact** (owner's observation, and it holds): a `SpielCard`'s height depends
+ * only on the viewport, never on its data. Every text run in it is single-line by construction — the
+ * team names are `truncate` inside `min-w-0` tracks, so they cannot wrap — and the two buttons are a
+ * fixed 35/38px. So the height is nothing but `text-fluid-*` metrics plus fixed padding.
  *
  * This mirrors that box model **by reusing the same classes**, not by re-deriving sizes: the same
  * `card()` shell, the same `gap-y-6 px-4 py-3 lg:px-5 lg:py-4`, the same three rows, and text runs
  * that keep their real `text-fluid-*` class with a non-breaking space inside. The line box is
  * therefore computed by the same rules as the real card's, at every breakpoint, with no magic numbers
- * to drift. Six skeletons occupy exactly the space six cards will.
+ * to drift.
  *
- * **Keep it in step with `SpielCard`.** If a row is added there, add it here — the whole value of
- * this component is that the swap causes no layout shift, and that guarantee is only as good as the
- * structural match.
+ * **Why it shows four shapes and not eight** (owner, 2026-08-02). It used to hint at every element the
+ * real card would contain — two date lines, three bars inside the matchup band, two chips each with
+ * its own icon circle — which read as clutter rather than as anticipation. A placeholder is not a
+ * wireframe: it should say "a card is coming" and stop. So the rows keep their exact geometry while
+ * the shapes inside them collapse to one bar, one square, one filled band and one pill.
+ *
+ * **The `invisible` spans are load-bearing.** They carry no ink but they carry the line boxes, which
+ * is what keeps this dimensionally identical to `SpielCard` now that the visible blocks no longer
+ * cover every row. Deleting one silently shortens the card and reintroduces the layout shift this
+ * component exists to prevent.
+ *
+ * **Keep it in step with `SpielCard`.** If a row is added there, add its spacer here.
  */
 export function SpielCardSkeleton() {
   return (
     <div
       aria-hidden="true"
       className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4`}>
-      {/* Row 1 — date/time stack and the two icon buttons. */}
+      {/* Row 1 — the date/time stack and the two icon buttons. */}
       <div className="flex w-full flex-row items-center justify-between">
-        {/* No `gap-*`: the real stack has none, and 4px here is 4px of layout shift. */}
-        <div className="flex flex-col">
-          <span className="text-fluid-sm bg-muted inline-block w-24 animate-pulse rounded font-bold">&nbsp;</span>
-          <span className="text-fluid-xs bg-muted inline-block w-16 animate-pulse rounded font-medium">&nbsp;</span>
+        {/* No `gap-*`: the real stack has none, and 4px here is 4px of layout shift. The two lines
+            become one bar centred over them, rather than two bars stacked. */}
+        <div className="relative flex flex-col">
+          <span className="text-fluid-sm invisible font-bold">&nbsp;</span>
+          <span className="text-fluid-xs invisible font-medium">&nbsp;</span>
+          <span className={`${skeletonBlock()} text-fluid-sm absolute top-1/2 left-0 w-24 -translate-y-1/2 rounded-md`}>&nbsp;</span>
         </div>
         <div className="flex w-full items-center justify-end gap-x-2">
-          <span className="bg-muted h-[35px] w-[35px] animate-pulse rounded-xl md:h-[38px] md:w-[38px]" />
+          <span className={`${skeletonBlock()} h-[35px] w-[35px] rounded-xl md:h-[38px] md:w-[38px]`} />
         </div>
       </div>
 
-      {/* Row 2 — the matchup band. Same grid tracks, so the middle column sits where the score does. */}
-      <div className="bg-muted grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl p-2">
-        <span className="flex min-w-0 justify-end">
-          <span className="text-fluid-xs lg:text-fluid-sm bg-foreground-muted/20 inline-block w-20 animate-pulse rounded font-bold sm:w-24">
-            &nbsp;
-          </span>
-        </span>
-        <span className="text-fluid-base bg-foreground-muted/20 mx-3 inline-block w-8 animate-pulse rounded font-extrabold lg:mx-4">
-          &nbsp;
-        </span>
-        <span className="flex min-w-0 justify-start">
-          <span className="text-fluid-xs lg:text-fluid-sm bg-foreground-muted/20 inline-block w-20 animate-pulse rounded font-bold sm:w-24">
-            &nbsp;
-          </span>
-        </span>
+      {/* Row 2 — the matchup band, kept as one filled rectangle rather than three bars inside a tint.
+          Its height comes from the score line, which is the tallest of the band's three cells in
+          `SpielCard`, so a single `text-fluid-base` spacer reproduces it exactly. */}
+      <div className={`${skeletonBlock()} flex w-full items-center rounded-xl p-2`}>
+        <span className="text-fluid-base invisible font-extrabold">&nbsp;</span>
       </div>
 
-      {/* Row 3 — the two status chips. Each real chip wraps a flex row holding a `size-3.5` icon
-          beside the label, and that 14px icon can out-measure the `text-fluid-xxs` line box, so the
-          placeholder carries the same icon-sized block rather than assuming the text wins. */}
+      {/* Row 3 — the two status chips collapse to one pill. Dropping their `size-3.5` icons costs no
+          height: the `text-fluid-xxs` line box is 16-19px and already out-measures the 14px icon, so
+          this row is text-metric-bound either way. `w-44` is the two chips plus their gap. */}
       <div className="flex h-fit w-full flex-row items-center justify-center gap-x-2">
-        {[20, 24].map((width) => (
-          <span
-            key={width}
-            className="bg-muted animate-pulse rounded-lg px-1.5 py-0.5">
-            <span className="text-fluid-xxs flex items-center gap-1 font-extrabold">
-              <span className="bg-foreground-muted/20 size-3.5 shrink-0 rounded-full" />
-              <span className={`bg-foreground-muted/20 inline-block rounded ${width === 20 ? "w-14" : "w-16"}`}>&nbsp;</span>
-            </span>
-          </span>
-        ))}
+        <span className={`${skeletonBlock()} rounded-lg px-1.5 py-0.5`}>
+          <span className="text-fluid-xxs invisible block w-44 font-extrabold">&nbsp;</span>
+        </span>
       </div>
     </div>
   );

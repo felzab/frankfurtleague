@@ -8,6 +8,7 @@ import { Accordion } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "../../utils";
@@ -37,7 +38,8 @@ export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overv
           return (
             <Accordion.Item
               key={category}
-              /* Removed overflow-hidden so nothing gets clipped */
+              /* `card()` and nothing else — in particular no `overflow-hidden`, which would clip the
+                 team popovers the cards inside this panel open. */
               className={card()}>
               {/* `level={2}` sits these six under the page `h1`. `Accordion.Heading` already emits a
                   real heading wrapping the trigger (react-aria-components defaults it to `h3`), so
@@ -71,9 +73,12 @@ export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overv
               <Accordion.Panel>
                 <Accordion.Body className="border-border flex w-full flex-col items-center border-t px-2 py-6 lg:px-6">
                   {hasItems ? (
+                    // Cascades like every other `SpielCard` grid. It reads especially well here
+                    // because the trigger is an accordion expanding: the cards arrive into the space
+                    // the panel is opening rather than being there the instant it does.
                     <div
                       role="list"
-                      className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                      className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
                       <AdminSpielCardsList
                         spiele={spiele}
                         today={today}

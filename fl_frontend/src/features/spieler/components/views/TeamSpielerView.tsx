@@ -7,6 +7,7 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 import { Avatar, Button, Chip, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
+import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSpieler } from "../../schemas";
 
@@ -25,7 +26,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
   const router = useRouter();
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col duration-400">
+    <div className={`${PAGE_RISE} flex w-full flex-col`}>
       {/* Back Navigation Button */}
       <Button
         onPress={() => {
