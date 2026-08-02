@@ -196,26 +196,31 @@ def test_no_validator_constrains_a_range_or_a_format(collection: str):
 
 
 @pytest.mark.parametrize(
-    ("code", "expected"),
+    ("code", "errmsg", "expected"),
     [
-        (8000, "REJECTED THE CREDENTIALS"),  # what Atlas returns for a rejected SCRAM credential
-        (18, "REJECTED THE CREDENTIALS"),  # the driver's own AuthenticationFailed
-        (13, "NOT ALLOWED"),
-        (26, "refused the command"),
+        # Atlas, measured 2026-08-02. BOTH of the first two arrive as AtlasError 8000 with nothing but
+        # the message to separate them, which is why an earlier code-only rule reported the second as a
+        # rejected password and sent the reader to change the wrong thing.
+        (8000, "bad auth : Authentication failed.", "REJECTED THE CREDENTIALS"),
+        (8000, "user is not allowed to do action [collMod] on [fl_main.spiele]", "NOT ALLOWED"),
+        # A self-managed mongod, which does use the specific codes.
+        (18, "Authentication failed.", "REJECTED THE CREDENTIALS"),
+        (13, "not authorized on fl_main to execute command", "NOT ALLOWED"),
+        (26, "ns does not exist", "refused the command"),
     ],
 )
-def test_a_driver_failure_is_diagnosed_rather_than_traced(code: int, expected: str):
+def test_a_driver_failure_is_diagnosed_rather_than_traced(code: int, errmsg: str, expected: str):
     """
     A rejected password and a missing privilege are different problems that arrive identically.
 
-    Both surface as an `OperationFailure`, and a traceback puts sixty frames of driver internals
-    between the reader and the one line telling them apart — which sends someone to the Atlas role
-    editor to fix a password. This is the mapping that names which of the two they have.
+    Both surface as an `OperationFailure`, and on Atlas they surface with the SAME error code — so the
+    message is the only discriminator, and a traceback puts sixty frames of driver internals between
+    the reader and it. This is the mapping that names which of the two they have.
 
-    The second assertion is a hard rule, not a nicety: a diagnostic that quotes the connection string
-    is one nobody can paste into a bug report.
+    The last assertion is a hard rule rather than a nicety: a diagnostic that quotes the connection
+    string is one nobody can paste into a bug report.
     """
-    failure = OperationFailure("failed", code, {"errmsg": "failed", "code": code})
+    failure = OperationFailure(errmsg, code, {"errmsg": errmsg, "code": code})
     diagnosis = diagnose_failure(failure)
 
     assert expected in diagnosis

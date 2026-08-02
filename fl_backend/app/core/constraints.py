@@ -54,13 +54,17 @@ from pymongo.errors import OperationFailure
 # "yes".
 NAMESPACE_NOT_FOUND = 26
 
-# "You are authenticated and may not do this", as distinct from the codes below.
+# "You are authenticated and may not do this", and "we do not know who you are", as mongod spells them.
 UNAUTHORIZED = 13
+AUTHENTICATION_FAILED = 18
 
-# "We do not know who you are." 18 is the driver-level code; 8000 is what Atlas returns for a rejected
-# SCRAM credential, and it arrives as a generic AtlasError, so matching on the code is the only way to
-# tell it apart from an authorization failure.
-AUTHENTICATION_FAILED = frozenset({18, 8000})
+# Atlas does NOT use those codes. It funnels refusals of both kinds through one generic `AtlasError`,
+# code 8000 -- measured on 2026-08-02, where a rejected password and a missing `collMod` grant came back
+# with the identical code and completely different messages. So the message is the only discriminator
+# that works on both a self-managed mongod and Atlas, and matching on the code alone reports a missing
+# privilege as a bad password and sends the reader to fix the wrong thing.
+AUTHENTICATION_PHRASES = ("authentication failed", "bad auth")
+AUTHORIZATION_PHRASES = ("not allowed to do action", "not authorized on")
 
 # Aimed at by the privilege probe, and deliberately NEVER created. The probe answers its question from
 # whether the command is refused for authorization or for a missing namespace, so `--check` writes
@@ -484,8 +488,8 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
     except OperationFailure as failure:
         if failure.code == NAMESPACE_NOT_FOUND:
             return "granted"
-        if failure.code == UNAUTHORIZED:
-            return f"DENIED -- {failure.details.get('errmsg', failure) if failure.details else failure}"
+        if classify_failure(failure) == "authorization":
+            return f"DENIED -- {failure_message(failure)}"
         # Anything else is a different problem wearing the same exception -- a rejected credential
         # above all. Reporting that as "denied" would send the reader to the Atlas role editor to fix
         # a password.
@@ -494,6 +498,33 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
     # collMod cannot succeed against a collection that is not there. If it ever does, the namespace
     # exists and the probe is no longer a probe.
     raise RuntimeError(f"'{ABSENT_COLLECTION_NAME}' exists in this database; the collMod probe needs a namespace that does not.")
+
+
+def failure_message(failure: OperationFailure) -> str:
+    """The server's own `errmsg`, which carries the detail the exception's `str` flattens away."""
+    return failure.details.get("errmsg", str(failure)) if failure.details else str(failure)
+
+
+def classify_failure(failure: OperationFailure) -> str:
+    """
+    `"authentication"`, `"authorization"` or `"other"` -- read from the MESSAGE, not the code.
+
+    On a self-managed mongod the codes are enough (18 and 13). On Atlas they are not: both refusals
+    arrive as `AtlasError` 8000, so a code-only rule reports a missing `collMod` grant as a rejected
+    password. That is not hypothetical -- it happened on 2026-08-02, and the message was the only
+    thing in the reply that distinguished them.
+    """
+    message = failure_message(failure).lower()
+
+    # Checked before authentication, because "not authorized" contains neither phrase below but an
+    # Atlas authorization message can mention the word "auth" in the namespace it names.
+    if failure.code == UNAUTHORIZED or any(phrase in message for phrase in AUTHORIZATION_PHRASES):
+        return "authorization"
+
+    if failure.code == AUTHENTICATION_FAILED or any(phrase in message for phrase in AUTHENTICATION_PHRASES):
+        return "authentication"
+
+    return "other"
 
 
 def diagnose_failure(failure: OperationFailure) -> str:
@@ -508,9 +539,10 @@ def diagnose_failure(failure: OperationFailure) -> str:
     Never quotes the connection string. It names the FILE and the VARIABLE, because the value is a
     secret and a diagnostic that prints one is a diagnostic nobody can paste into a bug report.
     """
-    message = failure.details.get("errmsg", str(failure)) if failure.details else str(failure)
+    message = failure_message(failure)
+    kind = classify_failure(failure)
 
-    if failure.code in AUTHENTICATION_FAILED:
+    if kind == "authentication":
         return (
             "  The database REJECTED THE CREDENTIALS. This is not a permissions problem, and no role\n"
             "  change will fix it.\n\n"
@@ -522,11 +554,14 @@ def diagnose_failure(failure: OperationFailure) -> str:
             f"  Server said: {message}"
         )
 
-    if failure.code == UNAUTHORIZED:
+    if kind == "authorization":
         return (
-            "  The credentials are accepted and the user is NOT ALLOWED to do this.\n\n"
+            "  The credentials are ACCEPTED and this user is NOT ALLOWED to do this. Nothing about\n"
+            "  the connection string is wrong.\n\n"
             "  Check the roles on the database user in Atlas. `collMod` is a dbAdmin action that\n"
-            "  readWrite does not carry; everything else here needs readWrite on this database.\n\n"
+            "  readWrite does not carry, and it must be granted across the WHOLE database rather than\n"
+            "  one named collection -- every collection here gets a validator, including ones that do\n"
+            "  not exist yet. Everything else needs readWrite on this database.\n\n"
             f"  Server said: {message}"
         )
 
