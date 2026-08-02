@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `f0dde20`, 2026-08-02
+**Verified against:** `3a460d7`, 2026-08-02
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -30,6 +30,7 @@ number in their prefix — which is why the open file's highest BE is BE-11 rath
 | 3   | OPS-1 | Container images published to Docker Hub, and where they should live        | Ops      | M      | —           | [`b2e80f2`](https://github.com/felzab/frankfurtleague/commit/b2e80f2) |
 | 4   | DB-1  | Review the database structure against the models, and decide what is stored | DB, BE   | L      | —           | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
 | 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`        | BE, DB   | M      | DB-1        | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
+| 6   | FB-1  | The Saisontabelle counted playoff results as league results                 | FE, BE   | M      | —           | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
 
 ## What each one produced
 
@@ -45,3 +46,6 @@ no row here — its commit is the whole story.
   then; derive what is true now). It also opened DB-2, which carries the work ADR-0027 decided.
 - **F4** → implemented ADR-0026 and opened BE-11 and DB-3 for the two things the implementation could
   not finish: integration coverage for the derived table, and deleting the field it orphaned.
+- **FB-1** → [ADR-0029](../_decisions/0029-the-league-table-counts-the-gruppenphase.md), the two
+  statistics scopes and the decision that an omitted one means the group table. It opened nothing, and
+  it took the data question out of FE-3, which is now a purely visual item.
