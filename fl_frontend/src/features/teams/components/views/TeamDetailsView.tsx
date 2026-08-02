@@ -141,10 +141,9 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
       <div className="flex flex-col gap-y-4">
         <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
 
-        {/* Five cards, one code path. "Punkte" used to sit outside the map with key={5} — one added
-            stat away from colliding with the map's own indices — and carried variant="secondary",
-            which renders identically to "default". `desktopOnly` is the only real
-            difference between it and the other four. */}
+        {/* Five cards, one code path — including "Punkte", which differs from the other four only by
+            `desktopOnly`. Lifting it out of the map would mean a hand-written key alongside the map's
+            own indices, and a variant that renders identically to the default. */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {[
             { label: "Spiele", value: teamData.statistik.anzahl_gespielte_spiele, desktopOnly: false },

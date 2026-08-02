@@ -109,6 +109,8 @@ Dev = Windows 11. Prod = Linux (bash/sh). Label every terminal command with its 
 
 **Nothing else may hold port 3000 while the local stack runs.** nginx binds `0.0.0.0:3000`, so a `next dev` left running makes `local.sh` come up without a reachable site — the symptom is "this site can't be reached" with the script having reported success for the containers it did start. Stop the dev server before `local.sh`, and never tell the owner to run one while the other is up.
 
+**You may start the local stack yourself — but only through `./scripts/local.sh`, and you MUST stop it.** Never leave a `next dev`, a preview server or the stack running at the end of a turn: `local.sh` prints `node.exe is running` and refuses to be useful, and the owner cannot run their own instance. Stop the stack with `./scripts/local.sh --down` and any dev server before you hand back.
+
 ## 6. REPOSITORY INTEGRATION
 
 - Check `fl_frontend/package.json` and `fl_backend/pyproject.toml` for actual installed versions before advising.
@@ -173,6 +175,7 @@ Each of these reads as a violation of §2 or of ordinary best practice, and each
 **`docs/_standard/`** defines how the repo is documented — read it before writing or changing documentation.
 
 - **In code:** module header, then symbol docs, then inline comments. **Never restate a type** — the signature already says it. Document intent, constraints, rejected alternatives and traps.
+- **Comments describe what the code IS, never what it WAS (owner, 2026-08-02).** No "used to", "previously", "there used to be", "this was reverted", no narration of a past edit, and no comment documenting the absence of something that is not there. The diff is in git and the reasoning belongs in an ADR; a history note in a file ages badly, lengthens the file without clarifying the code, and quietly becomes wrong. Rejected alternatives ARE worth recording — phrase them in the present as a constraint ("never X, because Y"), not as a story about what changed.
 - **A directive (`"use server"`, `"use client"`) stays the first line of the file**, above any header block.
 - **Every module gets a header; every FastAPI endpoint gets a docstring** (FastAPI publishes it to OpenAPI). Everything else is documented where there is a _why_ worth recording.
 - **Cite ADR numbers, never audit sections.** `docs/audit/` is expected to be deleted.

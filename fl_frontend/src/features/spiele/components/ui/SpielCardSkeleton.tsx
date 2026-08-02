@@ -15,16 +15,16 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
  * therefore computed by the same rules as the real card's, at every breakpoint, with no magic numbers
  * to drift.
  *
- * **Why it shows four shapes and not eight** (owner, 2026-08-02). It used to hint at every element the
- * real card would contain — two date lines, three bars inside the matchup band, two chips each with
- * its own icon circle — which read as clutter rather than as anticipation. A placeholder is not a
- * wireframe: it should say "a card is coming" and stop. So the rows keep their exact geometry while
- * the shapes inside them collapse to one bar, one square, one filled band and one pill.
+ * **Four shapes, deliberately** (owner, 2026-08-02). A placeholder is not a wireframe: hinting at
+ * every element the real card contains — both date lines, all three bars in the matchup band, two
+ * chips with their icon circles — reads as clutter rather than anticipation. It should say "a card
+ * is coming" and stop. So the rows keep their exact geometry while the shapes inside them stay at
+ * one bar, one square, one filled band and one pill.
  *
- * **The `invisible` spans are load-bearing.** They carry no ink but they carry the line boxes, which
- * is what keeps this dimensionally identical to `SpielCard` now that the visible blocks no longer
- * cover every row. Deleting one silently shortens the card and reintroduces the layout shift this
- * component exists to prevent.
+ * **The `invisible` spans are load-bearing.** They carry no ink but they do carry the line boxes,
+ * and because the visible blocks do not cover every row, they are what keeps this dimensionally
+ * identical to `SpielCard`. Deleting one silently shortens the card and reintroduces the layout
+ * shift this component exists to prevent.
  *
  * **Keep it in step with `SpielCard`.** If a row is added there, add its spacer here.
  */

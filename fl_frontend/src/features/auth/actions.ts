@@ -70,8 +70,8 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
   }
 
   try {
-    // `redirect: false` is the other half of NEUTRAL_RESULT, and without it the neutral response was
-    // decorative. With the default, an allowlisted address ends in `redirect()` to
+    // `redirect: false` is the other half of NEUTRAL_RESULT, and the neutral response is decorative
+    // without it. Under the default, an allowlisted address ends in `redirect()` to
     // /api/auth/verify-request while a rejected one falls into the AccessDenied branch below and
     // stays put -- so the browser NAVIGATING was itself the membership oracle this action exists to
     // close, readable by anyone watching the address bar. `redirect: false` makes `signIn` return

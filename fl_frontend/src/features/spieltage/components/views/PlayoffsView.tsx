@@ -52,9 +52,9 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
     <div className={`${PAGE_RISE} flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12`}>
       {pageHeading}
 
-      {/* Viewport scroller. @container + cqw below: the columns used to be sized in vw, so once the
-          sidebar appears they each claim a share of the viewport the content area does not have and
-          the bracket overflows into the scroller. cqw measures this element instead. */}
+      {/* Viewport scroller. `@container` + `cqw` below, never `vw`: a `vw` column claims a share of
+          the VIEWPORT, which the content area does not have once the sidebar appears, so the bracket
+          overflows its own scroller. `cqw` measures this element instead. */}
       <div className="scrollbar-hide @container w-full snap-x snap-mandatory overflow-x-auto px-4 md:px-8">
         {/* Tree track */}
         <div className="mx-auto flex h-fit w-max flex-row items-stretch gap-8">

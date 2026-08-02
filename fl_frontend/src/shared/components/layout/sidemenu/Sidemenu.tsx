@@ -81,11 +81,11 @@ export function Sidemenu<TIcon extends string>({
       />
 
       {/* CLOUDFLARE STYLE SIDEBAR
-          Closed, the drawer used to be only translated off-screen, and `translate-x` removes an
-          element from neither the tab order nor the accessibility tree — so a phone user tabbing the
-          page fell into 11-14 controls sitting 310px off the left edge, with focus invisible
-. `invisible` fixes that in CSS: it takes the subtree out of both, and `lg:visible`
-          restores it for the desktop rail, which is this same element above `lg`.
+          `invisible` is load-bearing when the drawer is closed. `translate-x` alone moves the panel
+          off-screen but removes it from neither the tab order nor the accessibility tree, so a phone
+          user tabbing the page falls into 11-14 controls sitting 310px off the left edge with focus
+          invisible. `invisible` takes the subtree out of both, and `lg:visible` restores it for the
+          desktop rail, which is this same element above `lg`.
 
           Visibility rather than `inert`, which would need the breakpoint duplicated in JS as a
           matchMedia string. It also survives before hydration, and it does not cut the slide-out
@@ -113,10 +113,10 @@ export function Sidemenu<TIcon extends string>({
           </Suspense>
 
           {/* Navigation Links.
-              The boundary is what gives the dashboard and admin shells their static content
-: `useSearchParams()` lives below it, in the -WithSaisonQuery variant, and it
-              hangs unconditionally during a prerender. With it above — which is where it used to be,
-              at the top of this component — the whole route root bailed out.
+              The boundary is what gives the dashboard and admin shells their static content:
+              `useSearchParams()` lives below it, in the -WithSaisonQuery variant, and it hangs
+              unconditionally during a prerender. Hoisting that hook above the boundary — to the top
+              of this component, say — bails out the whole route root.
               The fallback is the same list with an empty query string, so the shell holds real,
               working nav links and the request-time pass only adds `?saison_id=` to their hrefs.
               Nothing about it may call a dynamic hook, or the fallback suspends too and the bailout

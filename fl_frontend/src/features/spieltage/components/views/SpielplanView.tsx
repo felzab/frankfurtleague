@@ -68,23 +68,20 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
           key={spieltagData.id}
           id={spieltagData.id}
           className="max-w-page w-full px-4 pt-0 pb-4 outline-none sm:px-8">
-          {/* The entry animation lives here and NOT on `Tabs.Panel`. RAC keeps a deselected panel
-              mounted until `panel.getAnimations()` all settle (`useExitAnimation`), and
-              `getAnimations()` does not look at descendants — so an `animate-in` on the panel itself
-              made a fast tab switch hold the previous panel on screen for the rest of its enter
-              animation, which is the leftover-cards flicker. Identical visually.
+          {/* The switch animation belongs on the CARDS, never on `Tabs.Panel` or on this container.
 
-              The rise moved up to the `Tabs` root, which mounts once, so it no longer replays on
-              every press. The switch animation is now `cards-cascade` (defined in
-              `globals.css`) and it sits on the CARDS, not on this container.
+              Two independent reasons, and both matter. RAC keeps a deselected panel mounted until
+              `panel.getAnimations()` all settle (`useExitAnimation`), and `getAnimations()` does not
+              look at descendants — so an `animate-in` on the panel itself makes a fast tab switch
+              hold the previous panel on screen for the rest of its enter animation, which reads as
+              leftover cards. And animating this container fades the whole grid as one block, which
+              still reads as the content mutating in place, because every card lands at exactly the
+              screen position the previous Spieltag's card occupied. Only staggering the cards puts
+              them in sequence, and the eye follows a sequence rather than catching one flash.
 
-              That took three goes, and the first two were aimed at the wrong thing. Timing was never
-              it: 400ms, 150ms and a fade-from-50% all flickered identically, which is the tell — if
-              very different durations look the same, duration is not the variable. The owner named
-              the real cause: every card lands at exactly the screen position the previous Spieltag's
-              card occupied, so animating this container fades the whole grid as one block and still
-              reads as the content mutating in place. Staggering the cards puts them in sequence
-              instead, and the eye follows a sequence rather than catching a single flash. */}
+              So `cards-cascade` (defined in `globals.css`) goes on the grid below, and the one-off
+              rise sits on the `Tabs` root, which mounts once per visit and so never replays on a
+              press. */}
           <div
             role="list"
             className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>

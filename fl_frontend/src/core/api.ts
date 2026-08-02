@@ -92,9 +92,9 @@ const handleFetchResponse = async ({ res, traceId, endpoint }: { res: Response; 
 };
 
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
-  // Non-deterministic, and generated inside all 11 `"use cache"` functions — deliberately safe, and
-  // left alone on purpose (R3a §A2.4). It reaches only the X-Correlation-ID header and the error
-  // constructors, never the returned value, so a cache entry is fully determined by the response.
+  // Non-deterministic, and generated inside all 11 `"use cache"` functions — deliberately safe. It
+  // reaches only the X-Correlation-ID header and the error constructors, never the returned value, so
+  // a cache entry is fully determined by the response.
   // The two consequences are both wanted: a cache hit issues no request and so has no id to
   // correlate, and thrown API errors are not persisted as cache entries.
   const traceId = `req_${crypto.randomUUID().substring(0, 8)}`; // Id for this fetch call
@@ -107,7 +107,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // garbage header name. No caller passes `headers` today; the type is what invites it.
   const headers = new Headers(getFetchHeaders(authType));
   headers.set("X-Correlation-ID", traceId);
-  // Caller wins, matching the old spread order.
+  // Caller wins: a per-call header overrides the defaults above.
   new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;

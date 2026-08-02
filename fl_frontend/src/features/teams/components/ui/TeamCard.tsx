@@ -8,12 +8,11 @@ import type { FLTeamCompact } from "../../schemas";
  * The three stat chips take their colour from THIS app's palette via `className`, not from HeroUI's
  * `color`/`variant` props — the same way `SpielStatusChip` and `SaisonPhaseChip` already do.
  *
- * They used to say `variant="soft" color="success"`, which resolves against HeroUI's own theme
- * tokens (`--success-soft`), and **this app never maps those**. `globals.css` overrides exactly one
- * HeroUI raw token, `--focus`; everything else in the palette is declared in the `--accent-*` /
- * `--color-*` namespaces that HeroUI's components do not read. So these chips rendered in HeroUI's
- * stock green while every other chip in the app rendered in the project's — two different greens
- * one nav click apart — and the sibling chips on `TeamSpielerView` came out in HeroUI's stock blue.
+ * **Never `variant`/`color` on a Chip here.** Those props resolve against HeroUI's own theme tokens
+ * (`--success-soft` and friends), and **this app maps none of them**: `globals.css` overrides exactly
+ * one HeroUI raw token, `--focus`, and declares everything else in the `--accent-*` / `--color-*`
+ * namespaces HeroUI's components never read. A chip set that way renders in HeroUI's stock palette —
+ * a different green from every other chip in the app, or a stock blue.
  *
  * The `-strong` companion for the label, the plain accent at 15% for the tint: the rule is stated
  * once beside the tokens in `globals.css`, and it is what keeps small text on a tint above 4.5:1.

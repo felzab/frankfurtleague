@@ -9,15 +9,16 @@ import { ThemeSwitch } from "../../ui/ThemeSwitch";
 import { TopNavLinksDropdown } from "./TopNavLinksDropdown";
 
 // Sync, and the dropdown is rendered bare: TopNavLinksDropdown holds no hooks that need a request
-// and no data, so the Suspense that used to wrap it guarded nothing and only added a resumable slot
-// to the PPR shell. The whole nav is part of the static shell now.
-// `px-4` with no `sm:px-6`: the sidemenu's header is `px-4` at every width, so the two bars put the
-// wordmark in the same place. Crossing between a public route and the dashboard used to shift it 8px
-// to the left from `sm` up.
+// and no data, so a Suspense boundary around it would guard nothing and only add a resumable slot to
+// the PPR shell. The whole nav is part of the static shell.
 //
-// The menu's six links live here rather than inside the client component (R3a §A4.2): they are
-// static markup with no interactivity of their own, so this file renders them on the server and
-// passes them down. `ThemeSwitch` is the one genuinely interactive leaf and stays a client island.
+// `px-4` with no `sm:px-6`: the sidemenu's header is `px-4` at every width, so the two bars put the
+// wordmark in the same place. A responsive step here shifts it 8px from `sm` up when crossing
+// between a public route and the dashboard.
+//
+// The menu's six links live here rather than inside the client component: they are static markup
+// with no interactivity of their own, so this file renders them on the server and passes them down.
+// `ThemeSwitch` is the one genuinely interactive leaf and stays a client island.
 export function TopNav() {
   return (
     <nav className="flex h-(--navbar-height) w-full items-center justify-between px-4">

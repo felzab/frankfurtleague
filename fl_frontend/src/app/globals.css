@@ -188,6 +188,10 @@
     --field-fg: #ffffff;
     /* Alpha lives in the token because this is the one field value that differs per theme. */
     --field-border: color-mix(in srgb, #ffffff 40%, transparent);
+    /* The band that travels across a loading placeholder. A skeleton is `--bg-muted`, and the sweep
+       has to be lighter than that by enough to register at a glance — hence one value per theme
+       rather than a shared alpha: 55% white reads on the light grey, 9% on the dark one. */
+    --skeleton-sweep: color-mix(in srgb, #ffffff 55%, transparent);
   }
 
   [data-theme="dark"] {
@@ -236,6 +240,8 @@
     --field-card: #124529;
     --field-fg: #ffffff;
     --field-border: color-mix(in srgb, #ffffff 20%, transparent);
+    /* Far lower alpha than the light theme: the same 55% would read as a white bar, not a sheen. */
+    --skeleton-sweep: color-mix(in srgb, #ffffff 9%, transparent);
   }
 
   /* The focus indicator for everything HeroUI does not already style.
@@ -304,26 +310,20 @@
 
   /** Fluid text sizes.
    *
-   * **Declared OUTSIDE Tailwind's `--text-*` namespace on purpose, and this is load-bearing.**
-   * A `--text-<name>` token makes Tailwind emit a `text-<name>` utility, and that name is what broke
-   * 51 call sites. This scale used to be `--text-fluid-*`, i.e. classes spelled `text-fluid-xxs`.
-   * tailwind-merge decides what a `text-*` class means from the value it recognises: `text-xs` is a
-   * font size, `text-brand` is a colour. `text-fluid-xxs` matched neither, so it was filed as a
-   * COLOUR — the same conflict group as `text-foreground-muted` sitting beside it — and whichever
-   * came first was silently deleted by any HeroUI component that runs `className` through its own
-   * tailwind-variants instance.
+   * **Declared OUTSIDE Tailwind's `--text-*` namespace, and that is load-bearing.** A `--text-<name>`
+   * token makes Tailwind emit a `text-<name>` utility, and a `text-*` class is one tailwind-merge
+   * believes it understands: it reads the value to decide the group, so `text-xs` is a font size and
+   * `text-brand` is a colour. A size it does not recognise falls into the COLOUR group, where it
+   * competes with the real colour class beside it and one of the two is dropped. Every HeroUI
+   * component that accepts a `className` runs it through its own tailwind-variants instance, so this
+   * happens inside the library, where no configuration of ours reaches (ADR-0025).
    *
-   * `src/shared/utils/tv.ts` used to register the scale with its own tailwind-merge, which fixed it
-   * for THIS app's recipes. It could never fix a library's: `@heroui/styles` builds its recipes with
-   * `tv` from `tailwind-variants` at module scope, and each captures its merge config at creation.
-   * Measured against the real package — registering the scale before importing HeroUI, and mutating
-   * `tailwind-variants`' exported `defaultConfig` — both leave HeroUI's merge unchanged.
+   * These tokens therefore generate no utility at all; the `fluid-*` utilities further down read
+   * them. `fluid-xxs` matches no tailwind-merge group in any instance — a class a library cannot
+   * classify is a class it cannot drop.
    *
-   * So the fix is the class NAME, not the config. These tokens generate no utility at all; the
-   * `fluid-*` utilities further down read them. `fluid-xxs` matches no tailwind-merge group in any
-   * instance, which is exactly why it survives every merge — a class a library cannot classify is a
-   * class it cannot drop. **Never reintroduce a `--text-*` token for this scale**, and never spell a
-   * size `text-fluid-*` again; that utility no longer exists, so it would silently style nothing.
+   * **Never give this scale a `--text-*` token, and never spell a size `text-fluid-*`.** No such
+   * utility exists, so it applies no size and silently inherits one.
    */
   /* 10px to 12px */
   --fl-type-xxs: clamp(0.625rem, 0.58rem + 0.2vw, 0.75rem);
@@ -361,9 +361,9 @@
   --fl-type-4xl: clamp(2.25rem, 1.73rem + 2.6vw, 3.5rem);
   --fl-type-4xl--leading: 1.1;
 
-  /* Page-width archetypes. Four independent caps used to be spelled as arbitrary values across 21
-     sites, which is how /dashboard/spielplan ended up clamping its tab strip 200px narrower than
-     the grid the tabs control. Pick one per page archetype.
+  /* Page-width archetypes. Pick one per page archetype rather than spelling a cap inline: a page and
+     the toolbar above it must resolve to the SAME number, and on /dashboard/spielplan a difference
+     of 200px between the tab strip and the grid it controls is visible.
      NOT named `prose`: Tailwind ships --max-width-prose, and both namespaces feed max-w-*. */
   --container-page: 1400px; /* dashboard + admin content */
   --container-toolbar: 1200px; /* sticky tab and search bars */
@@ -400,27 +400,21 @@
    gutter with Tailwind's `scrollbar-gutter-stable`, so a scrollbar appearing (an accordion
    expanding, an overlay locking the page) can never resize the content box and shift the layout.
    `scrollbar-gutter` only applies to scroll containers -- for the viewport that is <html>, not
-   <body>, which is why the old body-level declaration did nothing. Consumers: <html> in
-   layout.tsx, both dashboard/admin <main>s, the sidemenu nav scroller, ModalShell's body. */
+   <body>, so the declaration belongs on <html>. Consumers: <html> in layout.tsx, both
+   dashboard/admin <main>s, the sidemenu nav scroller, ModalShell's body. */
 
-/* Hides the scrollbar, and nothing else. It used to also set `scrollbar-gutter: stable`, which
-   reserves the space the scrollbar would have taken -- the opposite concern, invisible from the
-   name, silently inherited by all 11 consumers. The sites that want the gutter now say so with
-   Tailwind's own `scrollbar-gutter-stable`. The !important flags are unnecessary: @utility output
-   lands in the utilities layer, which already beats HeroUI's base/scrollbar.css. */
-/* THE app's type scale, and the only way to spell it. `fluid-sm`, not `fluid-sm`.
+/* THE app's type scale, and the only way to spell it: `fluid-sm`, never `text-fluid-sm`.
  *
  * Each carries its font size AND its line height, so a size is one class rather than two, exactly as
- * a Tailwind `text-*` utility does. The reason they are not `text-*` is in the token block above and
- * is worth reading before touching either: the `text-` prefix is what let a library's tailwind-merge
- * mistake a size for a colour and delete it.
+ * a Tailwind `text-*` utility does. Why they are deliberately not `text-*` is in the token block
+ * above, and is worth reading before touching either.
  *
- * Written out nine times rather than as one `@utility fluid-*` functional utility. The functional
- * form would work, but it resolves its value through `--value()` at build time and would silently
- * emit nothing for a typo'd step, where nine explicit blocks fail loudly by simply not existing.
+ * Written out nine times rather than as one functional `@utility fluid-*`. The functional form
+ * resolves its value through `--value()` at build time and emits nothing for a step that does not
+ * exist, so a typo would style silently; nine explicit blocks make an unknown step a class that
+ * matches no rule at all.
  *
- * Adding a step means: a `--fl-type-*` token pair above, a block here, and nothing else — there is
- * no merge config to keep in step any more, which was the point of moving off `--text-*`. */
+ * Adding a step means a `--fl-type-*` token pair above and a block here. Nothing else. */
 @utility fluid-xxs {
   font-size: var(--fl-type-xxs);
   line-height: var(--fl-type-xxs--leading);
@@ -466,6 +460,11 @@
   line-height: var(--fl-type-4xl--leading);
 }
 
+/* Hides the scrollbar, and nothing else — it deliberately does NOT reserve the scrollbar's space.
+   That is the opposite concern and is spelled at the call site with Tailwind's own
+   `scrollbar-gutter-stable`, so a consumer of this utility never inherits a gutter it did not ask
+   for. No `!important` needed: @utility output lands in the utilities layer, which already beats
+   HeroUI's base/scrollbar.css. */
 @utility scrollbar-hide {
   &::-webkit-scrollbar {
     display: none;
@@ -476,7 +475,7 @@
 
 /* Makes a dotted background. currentColor rather than a white literal: the dots then invert with
    whatever text colour the consumer sets, instead of being invisible on any light surface. The
-   !important flags are gone -- @utility output lands in the utilities layer, which already outranks
+   No `!important` needed: @utility output lands in the utilities layer, which already outranks
    components and base. */
 @utility dotted-bg {
   background-image: radial-gradient(color-mix(in srgb, currentColor 16%, transparent) 1px, transparent 1px);
@@ -578,10 +577,10 @@
    `data-focus-visible`, which is what this block exists to prevent. */
 
 /* Reduced motion, SOFTENED (owner decision 2026-07-31).
-   The original block zeroed every animation- and transition-duration, which made the whole site
-   motionless for anyone whose OS reports "reduce motion" -- including the owner, whose "all the
-   animations are gone / everything flickers" reports across two review rounds traced to exactly
-   this rule, not to any code change. The policy is now "remove movement, keep fades":
+   The policy is "remove movement, keep fades", NOT "remove motion". Zeroing every animation- and
+   transition-duration is the obvious implementation and the wrong one: it makes the site
+   motionless rather than calm, and the result reads as flickering, because state changes land with
+   no transition at all. So each category is handled on its own terms:
 
    - Entry animations (`animate-in`) lose their translate/scale/rotate but keep the opacity fade:
      tw-animate-css reads its movement from the --tw-enter-* custom properties, so zeroing them
@@ -649,6 +648,15 @@
 }
 
 @layer components {
+  /* The sheen that crosses a loading placeholder.
+     HeroUI's own sweep is a gradient whose midpoint is `--surface-tertiary`, and these blocks are
+     painted `--bg-muted` — 2.4% apart in lightness in the dark theme and 3.5% in the light one, so
+     the animation runs and cannot be seen. `--skeleton-sweep` gives it an amplitude worth painting.
+     Same layer as HeroUI's rule and declared after it, so source order settles it without `!`. */
+  .skeleton--shimmer::after {
+    background-image: linear-gradient(90deg, transparent 0%, var(--skeleton-sweep) 50%, transparent 100%);
+  }
+
   /* UI Overrides */
   .table__column {
     @apply bg-background/90! text-foreground fluid-xxs;
@@ -741,20 +749,17 @@
    * lives in `shared/components/ui/motion.ts` — **read that file before changing this one**, since
    * the two exist as a pair and the constants there are what the call sites import.
    *
-   * This began as the third attempt at the spielplan's tab-switch flicker, and it was the first that
-   * addressed what the owner actually described. The first two treated it as an animation-timing
-   * problem — 400ms, then 150ms, then a fade from 50% — and none helped, because the problem is not
-   * the curve. Every card lands at the exact screen position the previous Spieltag's card occupied,
-   * so a simultaneous swap reads as the content *mutating in place* however gently it is faded. A
-   * cascade separates them in time, and the eye follows a sequence instead of seeing one flash.
+   * **The stagger is the whole mechanism; the timing is not.** On a tab switch every card lands at
+   * the exact screen position the previous Spieltag's card occupied, so a simultaneous swap reads as
+   * the content *mutating in place* however gently it is faded — tuning the duration or the starting
+   * opacity does not help, because duration is not the variable. Separating the cards in time is
+   * what fixes it: the eye follows a sequence instead of catching a single flash.
    *
-   * It is now the entrance for **every card collection**, not just the spielplan's (owner,
-   * 2026-08-02): the landing page's two grids, spielhistorie, spielsuche, the admin action-required
-   * panels, and `TeamsGrid` — which backs both /dashboard/teams and /dashboard/spieler and had no
-   * entrance whatsoever. Those six previously used the tier-1 block fade or nothing, so grids of
-   * cards one nav click apart arrived differently. Spielsuche gains the most — it re-renders on
-   * every debounced keystroke, which is the same land-where-the-last-one-was situation as the tab
-   * switch.
+   * It is the entrance for **every card collection**: the spielplan's panels, the landing page's two
+   * grids, spielhistorie, spielsuche, the admin action-required panels, and `TeamsGrid`. Grids of
+   * cards one nav click apart must arrive the same way, which is why this is keyed off
+   * `role="listitem"` rather than off a card type. Spielsuche leans on it hardest — it re-renders on
+   * every debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
    *
    * Two collections are deliberate exceptions, both because their cards are positioned against
    * chrome that does not animate with them: the playoff bracket (CSS bracket lines) and

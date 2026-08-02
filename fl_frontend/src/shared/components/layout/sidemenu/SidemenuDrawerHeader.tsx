@@ -13,8 +13,8 @@ import { BrandLink } from "../../ui/BrandLink";
 export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
   return (
     <div className="border-border box-content flex h-(--navbar-height) shrink-0 items-center justify-between border-b px-4 lg:hidden">
-      {/* One `BrandLink`, where this used to be a `size-8` logo stuffed into a `h-7 w-7` brand-coloured
-          box — it overflowed its own container — with the wordmark as a sibling outside the link. */}
+      {/* One `BrandLink` carries both the mark and the wordmark, so the whole lockup is inside the
+          link and the mark sizes itself rather than overflowing a fixed box. */}
       <BrandLink />
       <button
         onClick={onClose}

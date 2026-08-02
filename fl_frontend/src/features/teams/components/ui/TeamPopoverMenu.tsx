@@ -60,7 +60,7 @@ export function TeamPopoverMenu({
             tab stops with two differently-shaped focus outlines. Keyboard activation is Pressable's.
 
             That also retires the old `type="button"` note: a div cannot submit a form, so the hazard
-            of mounting this inside `AdminEditSpielDataForm` is gone by construction. */}
+            of mounting this inside `AdminEditSpielDataForm` cannot arise by construction. */}
         <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
           <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
         </Popover.Trigger>

@@ -11,12 +11,11 @@ import type { ReactNode } from "react";
 
 /**
  * The data-dependent half of an admin CRUD page: search bar, table slot and the edit/delete modal
- * wiring. `AdminSchiedsrichterView` and `AdminSpielorteView` were 87% identical once domain nouns
- * were folded; they are now per-entity declarations over this.
+ * wiring. `AdminSchiedsrichterView` and `AdminSpielorteView` are per-entity declarations over it,
+ * and are ~87% identical once the domain nouns are folded out.
  *
- * Built generically at the owner's request (2026-07-30) rather than left as two thin siblings: R2's
- * point is that the third admin resource would otherwise be a third copy, and here it costs a
- * `renderTable` plus two modal renderers.
+ * Generic rather than two thin siblings (owner decision, 2026-07-30): a third admin resource would
+ * otherwise be a third copy, and here it costs a `renderTable` plus two modal renderers.
  *
  * The heading, description and create trigger moved to `AdminCrudShell`, which the page
  * renders *above* the boundary this sits behind — they never depended on the resource list, so they
@@ -56,13 +55,11 @@ export function AdminCrudView<TItem extends { id: string }>({
   const filteredItems = useFuzzySearch({ items, keys: searchKeys, query });
 
   return (
-    // Animated in on arrival, the way every other view in the app is. The
-    // resized skeleton was only half the problem — the other half was that the real content simply
-    // *appeared*, so even a correctly-sized swap read as a snap. Now the search field and table
-    // arrive the way every other route shell does, and the fallback (which a warm navigation never
-    // paints at all) hands over to a movement rather than to a jump.
-    // `gap-8` is repeated from `AdminCrudShell`'s column because this wrapper is now the flex item;
-    // without it the search field and table would collapse together.
+    // Animated in on arrival, the way every other route shell is: a correctly-sized skeleton swap
+    // still reads as a snap if the real content simply *appears*, so the fallback (which a warm
+    // navigation never paints at all) hands over to a movement rather than to a jump.
+    // `gap-8` is repeated from `AdminCrudShell`'s column because this wrapper is the flex item;
+    // without it the search field and table collapse together.
     <div className={`${PAGE_RISE} flex flex-col gap-8`}>
       <SearchBar
         label={searchLabel}

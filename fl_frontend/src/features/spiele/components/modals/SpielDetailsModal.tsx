@@ -18,15 +18,15 @@ import type { FLSpiel } from "../../schemas";
  * Deliberately NOT on `ModalShell` (owner decision, 2026-07-31): this is the one modal public users
  * see, and its lighter `bg-surface p-6 shadow-sm` appearance is the wanted look.
  *
- * **The stay-mounted arrangement this used to describe is gone (owner decision, 2026-07-31).**
- * Keeping the Backdrop mounted preserved HeroUI's exit transition, but `SpielCardsList`
- * is instantiated once per collection, so it also mounted ~11 idle overlay trees across the app on
- * first paint. The caller now guards the mount and the exit transition is the accepted cost.
+ * **The caller guards the mount; this component does not stay mounted (owner decision, 2026-07-31).**
+ * Keeping the Backdrop mounted would preserve HeroUI's exit transition, but `SpielCardsList` is
+ * instantiated once per collection, so it would also mount ~11 idle overlay trees across the app on
+ * first paint. Losing the exit transition is the accepted cost.
  *
- * `spielData` stays nullable and the inner guard stays. All four call sites now guard the mount, so
+ * `spielData` is nullable and the inner guard is deliberate. All four call sites guard the mount, so
  * null should not arrive — but the prop is typed for a caller holding a null selection, and the guard
- * is what keeps the header and body off it. Cheap, and it is the reason a missed call site degrades
- * to an empty dialog rather than a crash: two of the four were missed when the guard first landed.
+ * is what keeps the header and body off it. It is cheap, and it is why a call site that forgets to
+ * guard degrades to an empty dialog rather than a crash.
  */
 export function SpielDetailsModal({
   spielData,

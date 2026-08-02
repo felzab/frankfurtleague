@@ -15,9 +15,8 @@ import { tv } from "tailwind-variants";
  * would pull React onto a subtree whose entire job is to be thrown away — every placeholder in this
  * app is either a `Suspense` fallback or a pre-hydration stand-in, i.e. markup that is replaced
  * before it can ever be interactive. `.skeleton` / `.skeleton--shimmer` are exactly the classes that
- * component emits, `skeleton.css` is already imported in `globals.css` (ADR-0019) — where it was
- * previously paying for nothing, because nothing rendered a `<Skeleton>` — and applying them
- * directly keeps every placeholder zero-JS.
+ * component emits and `skeleton.css` is already imported in `globals.css` (ADR-0019), so applying
+ * them directly costs no extra CSS and keeps every placeholder zero-JS.
  *
  * **Do not nest one of these inside another.** HeroUI's `.skeleton--shimmer:has(.skeleton)` rule
  * swaps the per-block sweep for a single `mix-blend-mode: overlay` sweep across the parent and

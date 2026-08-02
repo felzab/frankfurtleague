@@ -17,7 +17,7 @@ import type { FormState } from "@/shared/types/types";
 export function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
-  // The action no longer navigates, so this panel is what the user sees after a submit. It says the
+  // The action does not navigate, so this panel is what the user sees after a submit. It says the
   // same thing for an allowlisted and a non-allowlisted address -- that neutrality is the whole
   // point, and it is why the copy is conditional ("falls ... freigegeben") rather than a promise.
   //

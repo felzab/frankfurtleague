@@ -9,8 +9,8 @@
  * TIER 1 — the page rise. A view settling into place: fade plus a 16px lift over 400ms.
  *
  * For an element that **mounts once per visit** and is the shell of a route: a tab root, a bracket,
- * a details page, an admin CRUD column. It was previously spelled out at eight call sites, which is
- * how `SaisontabelleView` ended up with no entrance at all while its four siblings had one.
+ * a details page, an admin CRUD column. Named rather than spelled out at each call site, so a view
+ * cannot quietly end up with no entrance while its siblings have one.
  *
  * **Not for a collection of cards** — see `CARDS_CASCADE` for why a block fade fails there. And not
  * on a container whose children already cascade, unless the two genuinely play at different moments:

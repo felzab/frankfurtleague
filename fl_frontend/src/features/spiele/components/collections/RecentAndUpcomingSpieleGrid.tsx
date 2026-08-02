@@ -30,10 +30,10 @@ const SECTION_GRID = `${CARDS_CASCADE} grid w-full grid-cols-1 gap-4 sm:grid-col
  * The floor for a section with no cards in it — one `SpielCard` row, near enough (a card measures
  * ~176px at every breakpoint).
  *
- * This is the fix for the owner's footer report. A failed or empty section used to shrink to a single
- * centred line, so the page ended up several hundred pixels shorter than the viewport expected and
- * the footer rode up into view. Reserving a card row keeps the page roughly the height it would have
- * had, which is the same property `SpielCardSkeleton` gives the loading state.
+ * Without it, a failed or empty section shrinks to a single centred line, the page ends up several
+ * hundred pixels shorter than the viewport expects, and the footer rides up into view. Reserving a
+ * card row keeps the page roughly the height it would have had -- the same property
+ * `SpielCardSkeleton` gives the loading state.
  */
 const SECTION_MIN_HEIGHT = "min-h-44";
 
@@ -68,10 +68,10 @@ export function RecentAndUpcomingSpieleGridSkeleton() {
  * One section's contents: the cards, or a panel explaining why there are none.
  *
  * **The two sections resolve independently**, which is the point of extracting this. A single
- * `if (!upcoming || !recent)` guard used to replace the *entire* region — both headings included —
- * with one small box the moment either request failed. So a healthy set of past results was thrown
- * away because the upcoming query timed out, and the reader lost even the labels telling them what
- * was missing. Each section now answers for itself and the headings always survive.
+ * `if (!upcoming || !recent)` guard would replace the *entire* region — both headings included — the
+ * moment either request failed, discarding a healthy set of past results because the upcoming query
+ * timed out, and taking with it the labels that say what is missing. Each section answers for
+ * itself, so the headings always survive.
  *
  * `res === null` is a failed fetch (the caller catches into `null`); an empty `spiele` is a
  * successful fetch with nothing in it. Different messages, because they are different situations —

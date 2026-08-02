@@ -3,7 +3,7 @@
  *
  * `AdminEditSpielDataForm` nests controls inside a `<Form action>`, where Enter would otherwise
  * trigger the browser's implicit submit. These two handlers are the single definition of that guard;
- * it previously existed at six sites in three spellings.
+ * one definition serves all six sites that need it.
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *

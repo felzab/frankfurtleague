@@ -17,11 +17,9 @@ import type { FLAddress } from "../schemas";
 /**
  * The app's missing-data placeholders, one per category (owner decision, 2026-07-30).
  *
- * Before this the same absent value read three different ways depending on which component you were
- * looking at: a result was `"- : -"` on the main match card and `"-:-"` on the compact ones — both
- * on screen at once in some flows — while `SpielDetailsModal` printed `"/"` for a date the cards
- * showed as `"TBD"` and a time they showed as `"--:--"`. The rule now is that a
- * category looks the same everywhere it appears.
+ * The rule is that a category looks the same everywhere it appears. Spelled at the call site
+ * instead, the same absent value reads differently per component — a result as `"- : -"` on the main
+ * match card and `"-:-"` on the compact ones, both on screen at once in some flows.
  */
 export const PLACEHOLDER = {
   datum: "TBD",
@@ -34,8 +32,8 @@ export const PLACEHOLDER = {
 const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
 /**
- * Formats a euro amount for display. Module-level formatter, constructed once: both admin tables
- * previously built a fresh `Intl.NumberFormat` *per row*.
+ * Formats a euro amount for display. The formatter is module-level and constructed once, so the
+ * admin tables do not build a fresh `Intl.NumberFormat` per row.
  */
 export const formatEuro = (value: number): string => EUR.format(value);
 

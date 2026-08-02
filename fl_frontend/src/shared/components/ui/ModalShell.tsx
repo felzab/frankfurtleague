@@ -7,9 +7,9 @@ import { Modal } from "@heroui/react";
 import type { ReactNode } from "react";
 
 /**
- * The one modal appearance. Before this the 20-class dialog string was duplicated byte-for-byte at
- * five sites with two more near-variants, so the app had three unrelated modal looks and
- * the only one the public ever saw was the odd one out.
+ * The one modal appearance. It exists so the 20-class dialog string is declared once rather than
+ * copied to each of the five sites that need it — the way three unrelated modal looks arise, with
+ * the only one the public ever sees being the odd one out.
  */
 const modalShell = tv({
   slots: {

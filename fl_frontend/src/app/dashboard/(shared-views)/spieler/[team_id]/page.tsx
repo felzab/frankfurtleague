@@ -46,9 +46,9 @@ export default async function TeamSpielerPage(props: NextPageProps<{ team_id: st
     getSpieler({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
 
-  // A missing team is a 404; a response in the wrong shape is a broken contract. See the sibling
-  // teams/[team_id] page: the shape check used to be unreachable behind the notFound(), so a
-  // contract violation was reported to the user as a missing team and never logged.
+  // A missing team is a 404; a response in the wrong shape is a broken contract. Checked in that
+  // order so each reaches the right place — folding the shape check into the notFound() below makes
+  // it unreachable, and reports a contract violation to the user as a missing team, unlogged.
   if (!teamsRes) {
     notFound();
   }

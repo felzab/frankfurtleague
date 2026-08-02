@@ -30,8 +30,8 @@ export function KontaktView() {
       case "threads":
         return (
           // bg-field-fg, not bg-foreground as in the Footer: this icon sits on the green field card,
-          // where the foreground is always white. The light-theme variant used to render the BLACK
-          // logo here, on emerald.
+          // where the foreground is always white in both themes. Following the Footer here would put
+          // the black logo on emerald in the light theme.
           // inline-block for the same reason as the Footer's copy — this one is a flex item today,
           // which blockifies it, but that is the parent's business and not something to depend on.
           <span

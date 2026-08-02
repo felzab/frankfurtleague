@@ -25,8 +25,8 @@ export const CustomDateStringSchema = z.iso.date({ error: "Bitte gib ein gültig
  *
  * Not `z.iso.time()`, which also accepts `"14:30"` and `"14:30:00.5"`. The backend's
  * `CustomTimeString` requires seconds and rejects a fractional part, so the looser schema let the
- * admin form submit a value the API answered with a 422 — and made the error message here a lie
- * about what it accepted (audit R3a §B1.4).
+ * looser schema would let the admin form submit a value the API answers with a 422, and would make
+ * the error message here a lie about what it accepts.
  */
 export const CustomTimeStringSchema = z
   .string()

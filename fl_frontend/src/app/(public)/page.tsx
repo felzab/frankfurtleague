@@ -131,13 +131,13 @@ export default function LandingPage() {
 
       {/* GAMES CONTAINER */}
       <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
-        {/* The fallback is the real layout in skeleton form, not a spinner. It used to be one centred
-            line, so while the matches loaded the page was a few hundred pixels shorter than it would
-            be: the footer rode up into view and then everything jumped down when the data landed.
-            `SpielCardSkeleton` is dimensionally identical to `SpielCard` — see the note there — so
-            the reserved rows are exactly as tall as the real ones. The skeleton deliberately shows
-            fewer than the six cards the query can return; `VISIBILITY` in that file explains why
-            under-reserving is the safe direction to be wrong in. */}
+        {/* The fallback is the real layout in skeleton form rather than a spinner, so the page holds
+            roughly its final height while the matches load. A short fallback leaves the page a few
+            hundred pixels shorter than it will be, which pulls the footer into view and then jumps
+            everything down when the data lands. `SpielCardSkeleton` is dimensionally identical to
+            `SpielCard` — see the note there — so the reserved rows are exactly as tall as the real
+            ones. It deliberately reserves fewer than the six cards the query can return;
+            `VISIBILITY` in that file explains why under-reserving is the safe direction. */}
         <Suspense fallback={<RecentAndUpcomingSpieleGridSkeleton />}>
           <RecentAndUpcomingSpieleGrid />
         </Suspense>

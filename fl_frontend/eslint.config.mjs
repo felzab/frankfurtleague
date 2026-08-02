@@ -4,18 +4,6 @@ import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
-// There used to be a `RESTRICTED_TV_IMPORT` here, banning `tv`/`createTV` from `tailwind-variants`
-// so every recipe went through `src/shared/utils/tv.ts`. Both are gone (ADR-0025).
-//
-// That wrapper existed to register the type scale with tailwind-merge, because the scale was spelled
-// `text-fluid-*` and stock tailwind-merge files an unrecognised `text-*` value as a COLOUR — so a
-// recipe combining a size with a text colour silently lost one of them. The scale is now `fluid-*`
-// and matches no tailwind-merge group in any instance, so there is nothing to register, the wrapper
-// had no configuration left to hold, and a rule pointing at it would have guarded nothing.
-//
-// Recipes import `tv` from `tailwind-variants` directly. Do not reintroduce the ban without a
-// concrete merge configuration for it to protect.
-
 const LAYER_BOUNDARY = {
   core: {
     group: ["@/features/**", "@/shared/**", "**/features/**", "**/shared/**"],

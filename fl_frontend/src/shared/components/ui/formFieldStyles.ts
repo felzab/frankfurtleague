@@ -54,8 +54,8 @@ export const TAB_INDICATOR = "bg-brand-solid rounded-lg shadow-sm";
 
 /**
  * The one field-error appearance. Every `<FieldError>` in the app uses it, so a rejected value looks
- * the same wherever it is rejected — five of the six forms previously had no field-level error
- * surface at all and reported failures only through a toast that named no field.
+ * the same wherever it is rejected — and every form has a field-level surface, rather than reporting
+ * failures only through a toast that names no field.
  */
 export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
 

@@ -1,8 +1,8 @@
 /* ADMIN · the component styles only /admin renders
    ────────────────────────────────────────────────────────────────────────────────────────────────
    Imported by `app/admin/layout.tsx`, which is what keeps it out of every public route's stylesheet.
-   Together these are ~87 KB uncompressed — a quarter of what the public pages used to download and
-   parse for a date picker they never show.
+   Together these are ~87 KB uncompressed — a quarter of a public page's stylesheet, for a date
+   picker no public page shows.
 
    **A component belongs here only if NO public route can reach it.** That was established by walking
    the import graph from every route entry, following dynamic imports, not by reading the folder

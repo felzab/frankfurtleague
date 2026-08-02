@@ -1,4 +1,4 @@
-// Keeps "use client", unlike its two siblings in R3a §A4.3. The directive is not redundant here:
+// The "use client" directive is NOT redundant here, unlike on its two sibling views:
 // `Table.Body` below takes `renderEmptyState`, a render prop, and a Server Component cannot pass a
 // function to a Client Component -- doing so throws "Functions cannot be passed directly to Client
 // Components" on every render of /dashboard/saisontabelle. Verified against a probe route, because
@@ -96,7 +96,7 @@ export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
                       {/** Team name */}
                       {/* `overflow-visible` stays — the DQ badge is translated outside this cell on
                           purpose. Truncation therefore has to live on the span below, not here; the
-                          `truncate` that used to sit on this cell was inert for the same reason. */}
+                          a `truncate` on this cell would be inert for the same reason. */}
                       <Table.Cell className="fluid-xs overflow-visible px-1 py-4 lg:min-w-[200px] lg:px-4">
                         <TeamPopoverMenu
                           teamName={teamData.name}
