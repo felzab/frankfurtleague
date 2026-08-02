@@ -18,8 +18,26 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
+from fastapi import FastAPI
 from pydantic import BaseModel, ValidationError
 from pymongo.database import Database
+
+from app.core.config import BackendConfig
+from app.main import create_app
+from tests.config import build_test_config
+
+
+@pytest.fixture(scope="session")
+def test_config() -> BackendConfig:
+    """The suite's settings. Built in `tests/config.py`, which says why they are not a fixture alone."""
+    return build_test_config()
+
+
+@pytest.fixture(scope="session")
+def app(test_config: BackendConfig) -> FastAPI:
+    """The application under test, built from `test_config` rather than from the environment."""
+    return create_app(test_config)
+
 
 # 24-hex ObjectId strings. Fixed rather than generated: a failing test should point at the same
 # value every run.
@@ -131,6 +149,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "full_name": "Carl-Schurz-Schule",
             "website_url": "https://carl-schurz-schule.de",
             "address": address(),
+            "inactive_since": None,
         }
     )
 
@@ -184,7 +203,7 @@ def spielort(address: PayloadFactory) -> PayloadFactory:
             "name": "Sportplatz Ost",
             "maps_link": "Sportplatz Ost, Frankfurt",
             "default_mietpreis": 80,
-            "is_inactive": False,
+            "inactive_since": None,
         }
     )
 
@@ -198,7 +217,7 @@ def schiedsrichter(kontakt: PayloadFactory) -> PayloadFactory:
             "schule": None,
             "default_payment": 20,
             "kontakt": kontakt(),
-            "is_inactive": False,
+            "inactive_since": None,
         }
     )
 
@@ -215,6 +234,7 @@ def spieler() -> PayloadFactory:
             "position": "Sturm",
             "is_nachgetragen": False,
             "team_id": TEAM_ID,
+            "inactive_since": None,
         }
     )
 
@@ -231,6 +251,7 @@ def spieltag() -> PayloadFactory:
             "order_val": 0,
             "saison_phase": "gruppenphase",
             "saison_id": "2026",
+            "inactive_since": None,
         }
     )
 

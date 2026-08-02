@@ -63,8 +63,9 @@ strategy across those layers rather than a suite designed twice — and which no
 
 ```
 tests/
-  conftest.py                    factory fixtures — one per model, returning a valid payload,
-                                 plus the session-scoped mongod container   [db tier only]
+  conftest.py                    the suite's own env, then factory fixtures — one per model,
+                                 returning a valid payload — plus the session-scoped mongod
+                                 container   [db tier only]
   shared/                        mirrors app/shared/schemas/
     test_addresses.py
     test_kontakt.py
@@ -80,11 +81,22 @@ tests/
     test_spiele.py               FLSpiel, its embedded fields, the admin patch payload
     test_reference_models.py     spielorte, schiedsrichter, spieler, spieltage, saisons
     test_response_envelope.py    every *Response model carries `acknowledged`
+    test_admin_guard.py          every non-GET operation is admin-guarded
 ```
 
 Both `*_execution.py` files pair with a structural sibling, and neither of a pair replaces the other:
 the structural one fails when a rule is **deleted**, the executing one when a rule is present but
 **wrong**.
+
+**The suite never reads `fl_backend/.env`, and it cannot.** `tests/config.py` constructs a
+`BackendConfig` from explicit init arguments, which outrank every other source in pydantic-settings, and
+`create_app(config)` builds the application under test from it. Nothing sets an environment variable and
+nothing depends on import order.
+
+That is a property of the application rather than of the suite: `app/main.py` exports a factory and
+builds nothing on import, and `app/asgi.py` is the only module that constructs the real app from the
+real environment. So a checkout with no `.env` runs the whole suite — which is what CI is — and a
+failure means the code, never the machine.
 
 **The container fixture lives in the root `conftest.py`**, not in `api/`, because two suites want a
 database now. It is session-scoped, so one `mongod` serves both. It yields the *container* rather than

@@ -19,17 +19,24 @@ export type FLTeamsSortingOptions = "name";
  */
 export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
 
+/** What narrows the LIST. One team by its id is an identity — `getTeam(id)` — not a filter (ADR-0034). */
 export type FLTeamsFilterParams = {
-  team_id?: string;
   saison_id?: string;
   gruppe?: string;
   is_disqualified?: boolean;
   in_gruppen?: boolean;
-  compact?: boolean;
   include_placeholders?: boolean;
+  // Retired clubs are excluded unless an admin picker asks for them (ADR-0032).
+  include_inactive?: boolean;
   statistik_scope?: FLTeamStatistikScope;
 
   limit?: number;
   sort_by?: FLTeamsSortingOptions;
   order?: "asc" | "desc";
+};
+
+/** What `GET /teams/{team_id}` accepts: only the two choosing which season's figures to derive. */
+export type FLTeamSingleFilterParams = {
+  saison_id?: string;
+  statistik_scope?: FLTeamStatistikScope;
 };

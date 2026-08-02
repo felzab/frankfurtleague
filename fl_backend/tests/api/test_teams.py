@@ -8,7 +8,7 @@ attention here: it must always emit all four groups, and must refuse a team it c
 import pytest
 from pydantic import ValidationError
 
-from app.api.teams.schemas import FLGruppen, FLTeam, FLTeamCompact, FLTeamsGroupedResponse
+from app.api.teams.schemas import FLGruppen, FLTeam, FLTeamRecord, FLTeamsGroupedResponse
 
 
 def test_accepts_a_valid_team(team):
@@ -64,30 +64,9 @@ def test_rejects_negative_statistics(team, statistik, field):
 
 @pytest.mark.parametrize("shorthand", ["C", "CSS", ""])
 def test_rejects_a_shorthand_that_is_not_two_characters(team, shorthand):
-    """Exactly two, both bounds. The compact cards render this instead of the full name, so the width is fixed."""
+    """Exactly two, both bounds. The narrow cards render this instead of the full name, so the width is fixed."""
     with pytest.raises(ValidationError):
         FLTeam.model_validate(team(shorthand=shorthand))
-
-
-class TestFLTeamCompact:
-    """
-    The compact projection.
-
-    It needs its own positive baseline: without one, the rejection test below would keep passing if
-    the fixture stopped satisfying FLTeamCompact for some unrelated reason, and the constraint it
-    names would go untested.
-    """
-
-    def test_accepts_the_team_fixture(self, team):
-        """The projection's own positive baseline — the fixture must keep satisfying the compact model."""
-        parsed = FLTeamCompact.model_validate(team())
-
-        assert parsed.name == "Carl-Schurz"
-        assert parsed.shorthand == "CS"
-
-    def test_shares_the_name_constraint(self, team, assert_rejects):
-        """The compact model inherits the same non-empty name rule rather than relaxing it."""
-        assert_rejects(FLTeamCompact, team(name=""), "name")
 
 
 class TestFLGruppen:
@@ -167,3 +146,43 @@ class TestFLGruppen:
 
         with pytest.raises(ValueError, match="not one of A/B/C/D"):
             FLGruppen.from_teams([unplaceable])
+
+
+class TestFLTeamRecord:
+    """
+    The STORED club document, which is what every write endpoint echoes.
+
+    It exists because `FLTeam` cannot be echoed by a write: `gruppe`, `is_disqualified` and `statistik`
+    come from a junction row and a derived lookup, and re-reading a club through that pipeline 404s
+    when it has no `saison_teams` row for the current season -- the normal state for a club being
+    created, retired or reactivated.
+    """
+
+    def test_accepts_a_stored_club_document(self, team):
+        """The positive baseline. The shared fixture is a superset, so this also pins that `_id` still round-trips."""
+        parsed = FLTeamRecord.model_validate(team())
+
+        assert str(parsed.id) == "6890a1b2c3d4e5f607182930"
+        assert parsed.inactive_since is None
+
+    def test_accepts_a_document_carrying_none_of_the_season_scoped_fields(self, team, address):
+        """
+        The case the write path actually produces, and the whole reason this model exists.
+
+        A club with no junction row for the current season has no `gruppe`, no `is_disqualified` and no
+        `statistik` anywhere -- validating it against `FLTeam` would fail on all three.
+        """
+        stored = {key: value for key, value in team().items() if key not in {"gruppe", "is_disqualified", "statistik"}}
+
+        assert FLTeamRecord.model_validate(stored).name == "Carl-Schurz"
+
+        with pytest.raises(ValidationError):
+            FLTeam.model_validate(stored)
+
+    def test_carries_the_retirement_date(self, team):
+        """`inactive_since` is what a soft delete writes, so the model a delete echoes has to carry it (ADR-0032)."""
+        assert FLTeamRecord.model_validate(team(inactive_since="2026-03-01")).inactive_since == "2026-03-01"
+
+    def test_shares_the_name_constraint(self, team, assert_rejects):
+        """The stored shape inherits the same non-empty name rule rather than relaxing it."""
+        assert_rejects(FLTeamRecord, team(name=""), "name")

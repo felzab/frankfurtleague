@@ -1,8 +1,9 @@
 """
-TEAMS · read endpoint
+TEAMS · read endpoints
 
-Serves `GET /teams` in three shapes, discriminated by a `format` field on the response: a plain list, a
-compact projection, and the four groups. Pydantic picks the model from that discriminator.
+`GET /teams` in two shapes, discriminated by a `format` field on the response -- a plain list, or the
+four groups -- plus `GET /teams/{team_id}` for one team. Writing them is `admin_router.py`, a separate
+module so the two authorization levels never share a file.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -28,27 +29,31 @@ from fastapi import APIRouter, Depends
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.teams.schemas import (
     FLGruppen,
-    FLTeamCompactListAdapter,
+    FLTeam,
     FLTeamListAdapter,
-    FLTeamsCompactListResponse,
     FLTeamsFilterParams,
     FLTeamsGroupedResponse,
+    FLTeamSingleFilterParams,
     FLTeamsListResponse,
     FLTeamsResponse,
+    FLTeamsSingleResponse,
 )
 from app.api.teams.services import build_team_pipeline
-from app.core.config import backend_config
+from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import SaisonsCollection, TeamsCollection
+from app.core.exceptions import DocumentNotFoundException
+from app.core.routing import by_id
 from app.core.security import verify_access_base
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{backend_config.api_version}/teams",
+    prefix=f"/api/v{API_VERSION}/teams",
     dependencies=[Depends(verify_access_base)],
 )
 
 
-@router.get("", response_model=FLTeamsResponse, summary="List teams, compact or grouped")
+@router.get("", response_model=FLTeamsResponse, summary="List teams, flat or grouped")
 async def get_teams(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -57,9 +62,8 @@ async def get_teams(
     """
     List teams for a season.
 
-    The response shape depends on the query: `compact=true` returns a reduced projection,
-    `in_gruppen=true` returns the four groups keyed A-D, and otherwise a plain list. Check the
-    `format` field to tell them apart.
+    The response shape depends on the query: `in_gruppen=true` returns the four groups keyed A-D, and
+    otherwise a plain list. Check the `format` field to tell them apart.
 
     Omitting `saison_id` returns the **current** season. Group and disqualification are season-scoped
     and come from a junction collection, so a team with no entry for the requested season is absent
@@ -87,11 +91,50 @@ async def get_teams(
         pipeline=pipeline,
     )
 
-    if filters.compact:
-        return FLTeamsCompactListResponse(teams=FLTeamCompactListAdapter.validate_python(teams_raw))
-
     teams = FLTeamListAdapter.validate_python(teams_raw)
     if filters.in_gruppen:
         return FLTeamsGroupedResponse(gruppen=FLGruppen.from_teams(teams=teams))
 
     return FLTeamsListResponse(teams=teams)
+
+
+@router.get(by_id("team_id"), response_model=FLTeamsSingleResponse, summary="One team")
+async def get_team(
+    team_id: CustomRouteObjectId,
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    filters: FLTeamSingleFilterParams = Depends(),
+) -> FLTeamsSingleResponse:
+    """
+    Return one team, with its group and its statistics for a season.
+
+    The path names **which team**; the query still names **which season's figures to compute**, because
+    `gruppe` and `statistik` are season-scoped — the former joined from a junction, the latter derived
+    from that season's matches on every read (ADR-0026). So `saison_id` and `statistik_scope` remain
+    query parameters here and are not a redundant second identifier.
+
+    404 when the id names no team, and equally when it names a team with no junction row for the
+    requested season — the join is strict, and a team that did not play that season has no group and no
+    table position to report.
+    """
+
+    saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
+
+    # Placeholders and retired clubs are addressable by id even though both are hidden from the list.
+    # A caller holding an id was given it by something, and answering 404 for a document that plainly
+    # exists is the less useful of the two lies.
+    pipeline_filters = FLTeamsFilterParams(
+        saison_id=saison_id,
+        statistik_scope=filters.statistik_scope,
+        include_placeholders=True,
+        include_inactive=True,
+    )
+
+    teams_raw = await aggregate_many_from_db(
+        collection=teams_collection,
+        pipeline=build_team_pipeline(filters=pipeline_filters, rules=saison_rules, team_id=team_id),
+    )
+    if not teams_raw:
+        raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
+
+    return FLTeamsSingleResponse(team=FLTeam.model_validate(teams_raw[0]))

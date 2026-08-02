@@ -1,10 +1,14 @@
 """
 SAISONS · read endpoints
 
-Seasons are reference data: read-only through the API, edited directly in MongoDB.
+Writing them is `admin_router.py`, which is a separate module so the two authorization levels never
+share a file.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
+  • `/current` is declared BEFORE `/{saison_id}` and must stay there. Route matching is by declaration
+    order, so with them swapped the literal path is captured by the id parameter and "current" is
+    looked up as a season id -- a 404 on the endpoint most of the site depends on.
   • A season id is exactly 4 characters. `FLSpiel.saison_id` and `FLSpieltag.saison_id` both require
     that of whatever they reference, so a longer id here would validate and then break every match and
     matchday pointing at it.
@@ -30,13 +34,13 @@ from app.api.saisons.schemas import (
     FLSaisonsSingleResponse,
 )
 from app.api.saisons.services import build_saisons_filter, build_saisons_sort
-from app.core.config import backend_config
-from app.core.crud import pull_many_from_db
+from app.core.config import API_VERSION
+from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection
 from app.core.security import verify_access_base
 
 router = APIRouter(
-    prefix=f"/api/v{backend_config.api_version}/saisons",
+    prefix=f"/api/v{API_VERSION}/saisons",
     dependencies=[Depends(verify_access_base)],
 )
 
@@ -80,3 +84,21 @@ async def get_current_saison(
     saison = FLSaison.model_validate(saison_raw)
 
     return FLSaisonsSingleResponse(saison=saison)
+
+
+# Declared after `/current`, and that is not cosmetic: routes match in declaration order, so with these
+# swapped "current" is captured as a saison id and the endpoint most of the site depends on 404s. The
+# `objectid` convertor that protects the other resources cannot help here -- a season id is a
+# four-character string, not an ObjectId, so the parameter genuinely could match "current".
+@router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
+async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
+    """
+    Return one season by its four-character id.
+
+    404 when no season carries that id, rather than an empty list — which is the reason this exists
+    separately from `GET /saisons` rather than as a filter on it.
+    """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+
+    return FLSaisonsSingleResponse(saison=FLSaison.model_validate(saison_raw))

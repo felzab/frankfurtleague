@@ -294,6 +294,47 @@ inventing numbers.
 
 ---
 
+## Two rules about what a comment may say (DS14, DS15)
+
+### Name only what exists
+
+**A comment describes what the code IS. Never what it WAS, and never that something is absent.** Full
+argument: [DS14](4-decisions.md#ds14--documentation-names-only-what-exists).
+
+A rejected alternative is worth recording and does not break this rule — write it in the **present, as
+a constraint**, aimed at the reader about to propose it again:
+
+```python
+# ❌  A reduced `compact` variant used to branch here and was removed: it trimmed 26 KiB.
+# ✅  Never branch a reduced variant off it: measured 2026-08-02, the trim is 26 KiB across all 17
+#     teams and no query work at all -- both lookups above run either way (ADR-0034).
+```
+
+A **measurement with a date is not history** and stays. What is banned is the change, not the timestamp.
+
+Greppable, and the grep is worth running over a branch diff before committing — reading the hits is
+required, because "the former … the latter" is ordinary English:
+
+```bash
+git diff main...HEAD -U0 | grep -niE "former|used to|was removed|no longer|previously|moved here"
+```
+
+### Point at the ADR; do not restate it
+
+**A header section running past about five lines, or repeated in a second file, is an ADR that has not
+been written yet.** State the rule in one or two lines, cite the number, and let the argument live in
+the ADR. Full argument: [DS15](4-decisions.md#ds15--a-module-header-points-at-the-adr-it-does-not-restate-it).
+
+The claim must be stated in full (DS12); the **argument** is what gets cited (DS5). A reader who never
+opens the ADR must still know not to violate the rule — what they lose is _why_, never _what_.
+
+```python
+#  ✅  • `/teams/{team_id}/saisons/{saison_id}` addresses a JUNCTION ROW, not a season document. A GET
+#         added here must return junction rows (ADR-0034).
+```
+
+---
+
 ## Enforcement
 
 Deliberately minimal.

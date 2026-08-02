@@ -22,7 +22,6 @@ from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import (
-    FLTeamCompactListAdapter,
     FLTeamListAdapter,
     FLTeamsFilterParams,
     FLTeamStatistik,
@@ -42,6 +41,7 @@ def rows(
     *,
     scope: FLTeamStatistikScope | None = None,
     rules: FLSaisonRules = STANDARD_RULES,
+    team_id: Any | None = None,
     **filters: Any,
 ) -> list[dict[str, Any]]:
     """
@@ -50,12 +50,15 @@ def rows(
     `scope` is not defaulted, for the same reason the structural suite does not default it: the
     default lives on the model and is itself the decision (ADR-0029). A test that wants the default
     must get it from the model.
+
+    `team_id` is a separate parameter rather than one of `**filters` because that is what it is on the
+    pipeline: `GET /teams/{team_id}` passes it as an argument, not as a filter field (ADR-0034).
     """
     params = FLTeamsFilterParams(saison_id=SAISON, **filters)
     if scope is not None:
         params.statistik_scope = scope
 
-    return list(league.database.teams.aggregate(build_team_pipeline(filters=params, rules=rules)))
+    return list(league.database.teams.aggregate(build_team_pipeline(filters=params, rules=rules, team_id=team_id)))
 
 
 def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
@@ -236,16 +239,9 @@ def test_the_result_validates_as_the_response_model(league: SeededLeague):
     assert next(team for team in teams if team.name == "Ohne").statistik.punkte == 0
 
 
-def test_the_compact_shape_validates_and_still_carries_statistik(league: SeededLeague):
-    """`compact` drops the prose fields, never the table -- the Saisontabelle is a compact caller."""
-    teams = FLTeamCompactListAdapter.validate_python(rows(league, compact=True))
-
-    assert next(team for team in teams if team.name == "Helmholtz").statistik.anzahl_gespielte_spiele == 3
-
-
 def test_a_single_team_query_returns_only_that_team(league: SeededLeague):
-    """The `team_id` filter runs on the base collection before either lookup, so it must still join correctly."""
-    only = rows(league, team_id=str(league.team_oids["Bock"]))
+    """`GET /teams/{team_id}` narrows the BASE collection before either lookup, so it must still join correctly."""
+    only = rows(league, team_id=league.team_oids["Bock"])
 
     assert [row["name"] for row in only] == ["Bock"]
     assert only[0]["statistik"]["anzahl_gespielte_spiele"] == 2

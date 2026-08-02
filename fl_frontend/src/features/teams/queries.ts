@@ -30,10 +30,10 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 
-import { FLTeamsResponseSchema } from "./schemas";
+import { FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
 
-import type { FLTeamsResponse } from "./schemas";
-import type { FLTeamsFilterParams } from "./types";
+import type { FLTeamsResponse, FLTeamsSingleResponse } from "./schemas";
+import type { FLTeamsFilterParams, FLTeamSingleFilterParams } from "./types";
 
 export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
   "use cache";
@@ -49,6 +49,28 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
   cacheLife("days");
 
   return apiClient<FLTeamsResponse>("/teams", FLTeamsResponseSchema, {
+    params: filters,
+  });
+}
+
+/**
+ * One team by its id, for the pages whose subject IS that team (ADR-0034).
+ *
+ * Tagged exactly as `getTeams` is, because it reads the same documents through the same derivation —
+ * a result edit moves this response too, and it is the `teams` tag that clears it.
+ *
+ * Throws `APIBadStatusError` with `statusCode: 404` when the id matches no team — the two detail pages
+ * catch exactly that and rethrow everything else, so a backend outage never reads as a missing team.
+ */
+export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams = {}): Promise<FLTeamsSingleResponse> {
+  "use cache";
+
+  const tags: string[] = ["teams"];
+  if (filters.saison_id) tags.push(`teams:saison_id:${filters.saison_id}`);
+  cacheTag(...tags);
+  cacheLife("days");
+
+  return apiClient<FLTeamsSingleResponse>(`/teams/${teamId}`, FLTeamsSingleResponseSchema, {
     params: filters,
   });
 }

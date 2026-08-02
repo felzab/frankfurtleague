@@ -5,9 +5,9 @@ import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 
 import { TeamCard } from "../ui/TeamCard";
 
-import type { FLTeamCompact } from "../../schemas";
+import type { FLTeam } from "../../schemas";
 
-export function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]; urlPrefix: string }) {
+export function TeamsGrid({ teams, urlPrefix }: { teams: FLTeam[]; urlPrefix: string }) {
   // Season-scoped: an empty list usually means this season has no teams yet, not that none exist
   // anywhere -- selecting a future season in the SaisonSelector produces exactly that.
   if (teams.length === 0) {

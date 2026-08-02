@@ -2,7 +2,7 @@ import { Card, Chip } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 
-import type { FLTeamCompact } from "../../schemas";
+import type { FLTeam } from "../../schemas";
 
 /**
  * The three stat chips take their colour from THIS app's palette via `className`, not from HeroUI's
@@ -22,13 +22,13 @@ import type { FLTeamCompact } from "../../schemas";
 const STAT_CHIP_CLASSES = "bg-success/15 text-success-strong";
 
 /** `value` rather than a precomputed number so the three rows stay one declaration each. */
-const STAT_CHIPS: { label: string; value: (team: FLTeamCompact) => number }[] = [
+const STAT_CHIPS: { label: string; value: (team: FLTeam) => number }[] = [
   { label: "Punkte", value: (team) => team.statistik.punkte },
   { label: "Siege", value: (team) => team.statistik.siege },
   { label: "Tore", value: (team) => team.statistik.tore_geschossen },
 ];
 
-export function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
+export function TeamCard({ teamData }: { teamData: FLTeam }) {
   return (
     <Card
       variant="default"

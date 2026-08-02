@@ -75,9 +75,10 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "website_url": "https://lessing-gymnasium.example.de",
             "is_placeholder": False,
             "address": dict(ADDRESS),
+            "inactive_since": None,
         },
         "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "is_disqualified": False},
-        "spieler": {"_id": SPIELER_OID, "vorname": "Max", "nachname": "Mustermann"},
+        "spieler": {"_id": SPIELER_OID, "vorname": "Max", "nachname": "Mustermann", "inactive_since": None},
         "saison_spieler": {
             "spieler_id": SPIELER_OID,
             "saison_id": SAISON_ID,
@@ -86,6 +87,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "stufe": "Q2",
             "position": "Sturm",
             "nummer": "10",
+            "inactive_since": None,
         },
         "spiele": {
             "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LE"},
@@ -110,6 +112,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "order_val": 0,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
+            "inactive_since": None,
         },
         "spielorte": {
             "_id": SPIELORT_OID,
@@ -117,7 +120,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "address": dict(ADDRESS),
             "maps_link": "Sportplatz Ost, Frankfurt",
             "default_mietpreis": 80,
-            "is_inactive": False,
+            "inactive_since": None,
         },
         "schiedsrichter": {
             "_id": SCHIEDSRICHTER_OID,
@@ -125,7 +128,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "schule": None,
             "default_payment": 20,
             "kontakt": {"telefon": None, "email": None},
-            "is_inactive": False,
+            "inactive_since": None,
         },
     }
 

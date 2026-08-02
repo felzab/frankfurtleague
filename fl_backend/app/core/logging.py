@@ -20,7 +20,7 @@ import logging.config
 import sys
 from contextvars import ContextVar
 
-from app.core.config import backend_config
+from app.core.config import BackendConfig
 
 FL_LOGGER_NAME = "frankfurtleague"
 
@@ -85,8 +85,8 @@ class LevelAwareFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-def setup_custom_logger():
-    selected_formatter = "level_aware" if backend_config.log_format == "console" else "json_formatter"
+def setup_custom_logger(config: BackendConfig):
+    selected_formatter = "level_aware" if config.log_format == "console" else "json_formatter"
     logging_config = {
         "version": 1,
         "disable_existing_loggers": False,
@@ -111,14 +111,14 @@ def setup_custom_logger():
                 "filters": ["trace_id_filter"],
             },
         },
-        "root": {"handlers": ["console"], "level": backend_config.log_level_app},
+        "root": {"handlers": ["console"], "level": config.log_level_app},
         "loggers": {
             FL_LOGGER_NAME: {
-                "level": backend_config.log_level_app,
+                "level": config.log_level_app,
                 "propagate": True,  # This stops the double-printing!
             },
-            "motor": {"level": backend_config.log_level_db, "propagate": True},
-            "pymongo": {"level": backend_config.log_level_db, "propagate": True},
+            "motor": {"level": config.log_level_db, "propagate": True},
+            "pymongo": {"level": config.log_level_db, "propagate": True},
             "uvicorn": {"level": "INFO", "propagate": True},
             "uvicorn.access": {"level": "INFO", "propagate": True},  # Incoming requests
             "uvicorn.error": {"level": "INFO", "propagate": True},  # Startup/Shutdown

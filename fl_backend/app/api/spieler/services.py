@@ -25,12 +25,18 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
 
     pipeline: list[Mapping[str, Any]] = []
 
-    # Dump the filters model, excluding null and sorting/pagination fields while keeping oids as oids
+    # Dump the filters model, excluding null and sorting/pagination fields while keeping oids as oids.
+    # `include_inactive` is excluded too: it is a switch whose False means "add a filter", so dumping
+    # it by value would write `include_inactive: False` into the query as a field to match on.
     active_filters = filters.model_dump(
         exclude_none=True,
-        exclude={"limit", "sort_by", "order"},
+        exclude={"limit", "sort_by", "order", "include_inactive"},
         context={"keep_oid": True},
     )
+
+    # Retired PEOPLE, filtered on the base collection before the join (ADR-0032).
+    if not filters.include_inactive:
+        pipeline.append({"$match": {"inactive_since": None}})
 
     # Build the Sub-Pipeline for early filtering
     lookup_pipeline: list[Mapping[str, Any]] = [
@@ -38,6 +44,11 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
         # spieler_id from saison_spieler matches to _id from spieler
         {"$match": {"$expr": {"$eq": ["$spieler_id", "$$base_spieler_id"]}}}
     ]
+
+    # Retired SQUAD ROWS, which is a different fact from a retired person: a player who left one
+    # team's squad still plays. Filtered inside the join, so it narrows before anything is unwound.
+    if not filters.include_inactive:
+        lookup_pipeline.append({"$match": {"inactive_since": None}})
 
     # Inject season-specific filters directly into the join.
     # No 'saison_data.' prefix is needed because we are querying the season collection directly.
@@ -81,6 +92,9 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
                 "_id": 1,
                 "vorname": 1,
                 "nachname": 1,
+                # The PERSON's retirement, not the squad row's. The row's own `inactive_since` is a
+                # filter above and is deliberately not surfaced: a returned row is always a live one.
+                "inactive_since": 1,
                 "saison_id": f"${AS_NAME}.saison_id",
                 "team_id": f"${AS_NAME}.team_id",
                 "is_nachgetragen": f"${AS_NAME}.is_nachgetragen",

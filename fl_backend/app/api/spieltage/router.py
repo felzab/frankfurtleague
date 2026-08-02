@@ -17,18 +17,22 @@ from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_current_saison_id
 from app.api.spieltage.schemas import (
+    FLSpieltag,
     FLSpieltageFilterParams,
     FLSpieltageListResponse,
+    FLSpieltageSingleResponse,
     FLSpieltagListAdapter,
 )
 from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort
-from app.core.config import backend_config
-from app.core.crud import pull_many_from_db
+from app.core.config import API_VERSION
+from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpieltageCollection
+from app.core.routing import by_id
 from app.core.security import verify_access_base
+from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{backend_config.api_version}/spieltage",
+    prefix=f"/api/v{API_VERSION}/spieltage",
     dependencies=[Depends(verify_access_base)],
 )
 
@@ -63,3 +67,17 @@ async def get_spieltage(
     spieltage = FLSpieltagListAdapter.validate_python(spieltage_raw)
 
     return FLSpieltageListResponse(spieltage=spieltage)
+
+
+@router.get(by_id("spieltag_id"), response_model=FLSpieltageSingleResponse, summary="One Spieltag")
+async def get_spieltag(spieltag_id: CustomRouteObjectId, spieltage_collection: SpieltageCollection) -> FLSpieltageSingleResponse:
+    """
+    Return one matchday by its id.
+
+    Addressed directly, so no season is resolved and a retired matchday is returned rather than
+    hidden — a caller holding an id was given it by something.
+    """
+
+    spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
+
+    return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(spieltag_raw))

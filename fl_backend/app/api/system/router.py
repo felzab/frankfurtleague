@@ -27,13 +27,13 @@ from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse, SystemInfoResponse
-from app.core.config import backend_config
+from app.core.config import API_VERSION
 from app.core.db import get_database
 from app.core.exceptions import DatabaseUnavailableException
 from app.core.security import verify_access_system
 
 # Router is unprotected by default, to allow for ping endpoint to be publically accesible
-router = APIRouter(prefix=f"/api/v{backend_config.api_version}/system")
+router = APIRouter(prefix=f"/api/v{API_VERSION}/system")
 
 
 @router.get("/is_live", response_model=CheckIsLiveResponse, summary="Liveness probe")
@@ -66,6 +66,6 @@ async def system_info(request: Request) -> JSONResponse:
     """Report the running API version. Requires the system key; not intended for public consumption."""
 
     return JSONResponse(
-        content={"acknowledged": 1, "api_version": backend_config.api_version},
+        content={"acknowledged": 1, "api_version": API_VERSION},
         status_code=status.HTTP_200_OK,
     )

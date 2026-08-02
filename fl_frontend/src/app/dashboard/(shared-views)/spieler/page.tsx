@@ -22,10 +22,10 @@ export default async function TeamSpielerPage(props: NextPageProps) {
   await connection();
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
-  const teamsRes = await getTeams({ compact: true, saison_id: specifiedSaisonId });
+  const teamsRes = await getTeams({ saison_id: specifiedSaisonId });
 
-  if (teamsRes.format !== "compact") {
-    throw new Error("Expected grouped teams response, got a flat list.");
+  if (teamsRes.format !== "list") {
+    throw new Error(`Expected a "list" teams response, got "${teamsRes.format}".`);
   }
 
   return (

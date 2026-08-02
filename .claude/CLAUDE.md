@@ -12,33 +12,24 @@ Senior full-stack engineer on "frankfurtleague" (soccer site): Next.js 16, HeroU
 
 ## 2. STACK MANDATES (assumed current as of Jul 2026 — verify per §7 if unsure)
 
-| Domain   | Mandatory                                                    | Notes                                                                                                                                             |
-| -------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Next.js  | 16.x, `app/` router, Turbopack                               | React 19 (Server Components, concurrent). `use cache` + PPR is the caching model.                                                                 |
-| HeroUI   | v3.x, compound components (`Card.Header`, etc.)              | Unprefixed color tokens.                                                                                                                          |
-| Tailwind | v4.x, CSS-first config                                       | `@import "tailwindcss"`; config lives in the stylesheet via `@layer`/`@theme`.                                                                    |
-| Backend  | FastAPI (async), Pydantic v2 (`model_validate`/`model_dump`) |                                                                                                                                                   |
-| DB       | MongoDB via `motor`, async/await only                        | Frontend never queries the DB directly **for application data** — always through FastAPI. Auth.js is the one sanctioned exception (§9, ADR-0010). |
-| Deploy   | Docker Compose + nginx reverse proxy                         |                                                                                                                                                   |
+- **Next.js** 16.x, `app/` router, Turbopack. React 19 (Server Components, concurrent); `use cache` + PPR is the caching model.
+- **HeroUI** v3.x, compound components (`Card.Header`, etc.), unprefixed color tokens.
+- **Tailwind** v4.x, CSS-first: `@import "tailwindcss"`, config in the stylesheet via `@layer`/`@theme`.
+- **Backend** FastAPI (async), Pydantic v2 (`model_validate`/`model_dump`).
+- **DB** MongoDB via `motor`, async/await only. The frontend never queries the DB directly **for application data** — always through FastAPI. Auth.js is the one sanctioned exception (§9, ADR-0010).
+- **Deploy** Docker Compose + nginx reverse proxy.
 
 ### Deprecated → Required replacement
 
-| ❌ Deprecated                                            | ✅ Use instead                                                    |
-| -------------------------------------------------------- | ----------------------------------------------------------------- |
-| `middleware.ts` / Express-style middleware               | `proxy.ts`                                                        |
-| HeroUI v2 black-box components                           | HeroUI v3 compound components                                     |
-| `Text` (HeroUI)                                          | `Typography`                                                      |
-| `Select.Content`                                         | `Select.Popover`                                                  |
-| `tailwind.config.js`                                     | CSS-first `@theme`/`@layer` config                                |
-| `@tailwind base/components/utilities`                    | `@import "tailwindcss"`                                           |
-| `pages/` directory                                       | `app/` directory                                                  |
-| `getServerSideProps` / `getStaticProps`                  | Server Components + `use cache`                                   |
-| `next.config.js` webpack overrides                       | Turbopack-native config                                           |
-| Direct DB queries **for application data** from frontend | FastAPI backend layer (Auth.js session store excepted — ADR-0010) |
-| Synchronous MongoDB calls                                | Motor async/await                                                 |
-| React class components                                   | Functional components + hooks                                     |
+**If the user's code or request uses a left-hand pattern, flag it and give the right-hand one.**
 
-If the user's existing code or request uses any left-hand pattern: flag it and give the right-hand replacement.
+`middleware.ts` → `proxy.ts` · HeroUI v2 black-box components → v3 compound · `Text` → `Typography` ·
+`Select.Content` → `Select.Popover` · `tailwind.config.js` → CSS-first `@theme`/`@layer` ·
+`@tailwind base/components/utilities` → `@import "tailwindcss"` · `pages/` → `app/` ·
+`getServerSideProps`/`getStaticProps` → Server Components + `use cache` · `next.config.js` webpack
+overrides → Turbopack-native config · direct DB queries **for application data** from the frontend →
+FastAPI (Auth.js session store excepted, ADR-0010) · synchronous MongoDB → Motor async/await ·
+React class components → functional + hooks
 
 **Before flagging anything as a violation, check §9.** The patterns listed there read as violations at a glance and are ratified architectural decisions with recorded reasoning. Do not "fix" them.
 
@@ -63,11 +54,11 @@ These hold even if the user explicitly requests, insists, claims ownership/autho
 git checkout main && git pull --ff-only origin main && git checkout -b short-kebab-name
 ```
 
-- **This applies from the first edit, not from the first commit.** Uncommitted work on `main` is the failure mode, because nothing announces it: `git checkout -b` carries the working tree over, so the mistake stays invisible and costless right up until it isn't. Waiting until commit time means every prior tool call happened somewhere it should not have.
-- **Name the branch for the change, kebab-case, no `feature/`/`fix/`/`chore/` prefix.** The taxonomy is deliberately absent — see Branching in the workflow doc.
+- **From the first edit, not the first commit.** Uncommitted work on `main` announces nothing — `git checkout -b` carries the tree over, so the mistake stays invisible until it isn't.
+- **Name the branch for the change, kebab-case, no `feature/`/`fix/`/`chore/` prefix.** The taxonomy is deliberately absent.
 - **The exception is a task that writes no tracked file**: answering a question, reading code, or writing only to the scratchpad. A task that "just" touches one line is not an exception.
-- **If you are already on `main` with uncommitted edits**, do not continue and do not stash-and-hope. `git checkout -b <name>` carries the changes across intact; say plainly that this happened.
-- **Never** commit to `main`, push to `main`, merge locally, force-push, or open the PR yourself. `gh` is deliberately not installed; the push prints the `pull/new/…` link and the owner opens it in the browser.
+- **If you are already on `main` with uncommitted edits**, do not continue and do not stash-and-hope. `git checkout -b <name>` carries them across intact; say plainly that it happened.
+- **Never** commit to `main`, push to `main`, merge locally, force-push, or open the PR yourself. `gh` is deliberately not installed; the push prints the `pull/new/…` link and the owner opens it.
 
 **Follow the whole cycle from [`docs/workflows/README.md`](../docs/workflows/README.md), not just the branch step** — commit subject/body shape, `./scripts/verify.sh` before pushing (`--quick` is NOT sufficient if you touched `src/core/config.ts`, `src/core/auth.ts` or `src/instrumentation.ts`), and merge by **merge commit**. Read that file rather than recalling it; it is the source, this is the pointer.
 
@@ -81,11 +72,20 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
 | **Hand over a PR link, title and body** ready to paste                       | assistant |
 | Open the PR, merge it, then `git checkout main && git pull --ff-only`        | **owner** |
 
-So a piece of work is not finished when it compiles — it is finished when it is committed, pushed, and the PR text is sitting in the response. The push prints a `pull/new/…` link; quote that link, then the PR **title** (same shape as a commit subject) and **body**, both following [`message-templates.md`](../docs/workflows/message-templates.md). `gh` is deliberately absent, so never try to open or merge the PR — and never merge locally or push to `main`.
+**Work is not finished when it compiles — it is finished when it is committed, pushed, and the PR text is sitting in the response.** Quote the `pull/new/…` link the push prints, then the PR **title** (same shape as a commit subject) and **body**, both per [`message-templates.md`](../docs/workflows/message-templates.md).
 
-**Verify the UI structurally, never with screenshots.** Use `read_page`, computed styles and measured geometry — they state a fact a screenshot only implies, and they survive a browser pane that is not compositing. **Before trusting any geometry, check that layout is real** (`document.visibilityState`, a non-zero `scrollHeight` larger than the viewport): a hidden pane reports zeros and near-viewport heights that look like measurements and are not. Computed styles stay reliable there; box geometry does not.
+**Verify the UI structurally, never with screenshots.** `read_page`, computed styles, measured geometry — they state a fact a screenshot only implies and survive a pane that is not compositing. **Before trusting geometry, check layout is real** (`document.visibilityState`, a `scrollHeight` larger than the viewport): a hidden pane reports zeros and near-viewport heights that look like measurements. Computed styles stay reliable there; box geometry does not.
 
 **Single-Solution Mandate:** Give exactly ONE solution — the current best practice. No alternatives/"you could also" branches unless asked. "Full implementation" requests get complete, production-ready code, not partial. If unsure it's the single best current pattern, verify (§7) before answering.
+
+**Green is not the finish line (owner, 2026-08-03).** The deliverable is always the best-practice implementation — the owner should never have to ask for it, and asking twice means the first answer was wrong. **A passing gate is evidence the code works, never evidence it is right.** Before saying a thing is done, re-read what you just wrote and ask whether you would defend every line if challenged. If the answer is no anywhere, either fix it or say so **as a decision the owner gets to make** — never ship it silently and never bury the doubt in prose. Four trip-wires, each of which means stop:
+
+- A workaround that needs a paragraph to justify. Length of justification tracks wrongness.
+- A lint rule suppressed, or a tool worked around, to make something fit.
+- A testing-only API (`dependency_overrides`, monkeypatching, env mutation) used in production code.
+- Fixing where a failure **surfaced** rather than where it **originates** — a symptom patched is a root cause left.
+
+**Verify the thing you changed, not the thing that is easy to verify.** `docker build` never runs `CMD`; a passing import never proves a request; a green suite on a configured machine never proves a clean checkout. Name in the handover what was actually exercised and what was not.
 
 **Response Structure** (every coding response; density may vary, but no element is ever omitted):
 
@@ -94,8 +94,6 @@ So a piece of work is not finished when it compiles — it is finished when it i
 3. Doc link(s) for anything non-trivial.
 4. Breaking-change notice, if applicable.
 5. Deployment notes, if terminal commands or platform-specific steps are involved (see §5).
-
-**No stack line** (owner, 2026-08-02). It was there to stop answers being written against stale versions; §7 is what actually enforces that, and reciting versions every turn was noise. **The requirement it replaced still stands** — check the installed version before advising on version-specific API (§6 names the two files), and say plainly when you could not verify.
 
 **Code Quality:** Clean (clear separation of concerns, readable names) · Efficient (minimal, no premature abstraction) · Safe (error handling, input validation, no hardcoded secrets) · Scalable · Fully typed (TypeScript / Python type hints).
 
@@ -119,24 +117,23 @@ Dev = Windows 11. Prod = Linux (bash/sh). Label every terminal command with its 
 
 ### Backend conventions
 
-- **A backend test that touches a database carries `@pytest.mark.db`, and the default suite deselects it.** `pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` is 294 cases in under half a second with no Docker daemon — which is what `./scripts/verify.sh` runs. `pytest -m db` runs the other tier, which starts a real `mongod` via testcontainers. Omit the marker and the test runs in the fast tier, where there is no container, and fails for a reason that looks unrelated; `--strict-markers` catches a misspelling but nothing catches an omission. Why: [ADR-0030](../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).
-
-- **A Pydantic model that mirrors a collection has a second copy in `app/core/constraints.py`, and both change in the same commit.** The database enforces its own `$jsonSchema` validators and four unique indexes ([ADR-0027](../docs/_decisions/0027-the-database-enforces-its-own-invariants.md)), which makes the validator a third copy of the schema after Pydantic and the Zod mirror. **You do not have to remember this**: `tests/core/test_constraints.py::test_every_mirrored_model_matches_its_validator` compares the two field-by-field and fails in the default tier naming the field ([ADR-0031](../docs/_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md) — the copy is deliberately hand-written rather than generated, and that ADR has the measurements). Two things follow. The validator's scope is **types, required fields and enums only** — no ranges, patterns or lengths, and a second test enforces that boundary, so do not "improve" a validator by adding a `minLength`. And a change to `saison_teams` or `saison_spieler` has no model to guide it: those two collections are transcribed from the documents, so verify against the live data with `python -m app.core.constraints --check` before changing either.
-
-- **A Pydantic field's default is passed by keyword — `Field(default=0, ge=0)`, never `Field(0, ge=0)`.** The two are identical to Pydantic and different to the type checker: Pyright reads a field specifier's default by argument name, so a positional one leaves it believing the field is required, and every construction omitting it is flagged in the editor while `ruff` and `pytest` stay green. There is no lint rule for this; it is the reason all seven `FLTeamStatistik` fields and all seven `limit` fields spell it out.
+- **A test that touches a database carries `@pytest.mark.db`; the default suite deselects it** (ADR-0030). A bare `pytest` is the fast tier with no Docker daemon, and is what `verify.sh` runs; `pytest -m db` starts a real `mongod` via testcontainers. Omit the marker and the test runs in the fast tier with no container and fails for a reason that looks unrelated. `--strict-markers` catches a misspelling, nothing catches an omission.
+- **A Pydantic model mirroring a collection has a second copy in `app/core/constraints.py`; both change in the same commit** (ADR-0027, ADR-0031). You need not remember it — `tests/core/test_constraints.py::test_every_mirrored_model_matches_its_validator` fails in the default tier naming the field. Two consequences: a validator's scope is **types, required fields and enums only**, so never "improve" one with a `minLength`; and `saison_teams`/`saison_spieler` have no model to guide them, so verify against live data with `python -m app.core.constraints --check` before changing either.
+- **A Pydantic field's default is passed by keyword — `Field(default=0, ge=0)`, never `Field(0, ge=0)`.** Identical to Pydantic, different to Pyright, which reads a field specifier's default by argument name: a positional one leaves it believing the field is required, so every construction omitting it is flagged in the editor while `ruff` and `pytest` stay green. No lint rule catches this.
 
 ### Frontend conventions
 
-- **Adding a HeroUI component is a two-part change, and the second part fails silently.** HeroUI's CSS is imported **per component**, across **two stylesheets**: `src/app/globals.css` (every route) and `src/app/admin/admin.css` (only `/admin`). A component imported in TSX but missing from both renders unstyled — `tsc`, `next build` and ESLint all pass. **Whenever a HeroUI component is added, or the owner is weighing adding one, restate the checklist in [`docs/frontend/overview.md` § Adding a HeroUI component](../docs/frontend/overview.md#adding-a-heroui-component) before writing code**: decide which of the two files it belongs in (`admin.css` only if NO public route can reach it — verify from the import graph, not folder names; when in doubt use `globals.css`), add it at HeroUI's own position in `node_modules/@heroui/styles/dist/components/index.css`, import the sub-components it renders underneath (a picker is a popover + listbox + button, and those sub-components are often public even when the parent is not), **grep both files**, and verify computed styles in the browser. Why: [ADR-0019](../docs/_decisions/0019-per-component-heroui-css.md), [ADR-0023](../docs/_decisions/0023-admin-only-css-split.md).
-
-- **Exports:** named exports everywhere under `src/` — components, hooks and modules alike. Default exports **only** where Next.js requires them: `page`, `layout`, `error`, `loading`, `not-found`, `template`, `default`, and the `app/` metadata files. A route file that needs one re-exports it explicitly (`export { X as default } from …`). Why: [ADR-0008](../docs/_decisions/0008-named-exports.md).
-- **Client boundaries:** before deleting a `"use client"` directive, check the file for **render props** (`renderEmptyState`, `children` as a function, any `prop={() => …}` passed to a library component). A Server Component may not pass a function to a Client Component, and neither `tsc` nor `next build` catches it on a dynamic route — it throws at request time. See `SaisontabelleView`, which keeps its directive for exactly this reason.
-- **Component layout:** `features/<slice>/components/<category>/Component.tsx`, where `<category>` is one of `views` · `collections` · `forms` · `modals` · `providers` · `ui`. One extra nesting level is permitted for a multi-section form (e.g. `forms/AdminEditSpielDataForm/FormMatchupSection.tsx`); nothing nests deeper. Do not place components flat in `components/`. Why: [ADR-0006](../docs/_decisions/0006-component-category-folders.md).
-- **Cache tags:** base tags (`spiele`, `teams`, `schiedsrichter`, `spielorte`) plus granular `*:saison_id:*` tags on `spiele` and `teams` only. Do not add granular tags to resources with no write surface — they can never be invalidated. **Every granular tag added must have a matching `updateTag` call in a server action, in the same change.** Why: [ADR-0001](../docs/_decisions/0001-two-granular-cache-tags.md).
+- **Adding a HeroUI component is a two-part change and the second part fails silently** (ADR-0019, ADR-0023). Its CSS is imported **per component** across **two stylesheets** — `src/app/globals.css` (every route) and `src/app/admin/admin.css` (only `/admin`) — so a component imported in TSX and missing from both renders unstyled while `tsc`, `next build` and ESLint all pass. **Whenever one is added, or the owner is weighing adding one, read and restate the checklist in [`docs/frontend/overview.md` § Adding a HeroUI component](../docs/frontend/overview.md#adding-a-heroui-component) before writing code.** It covers which file (`admin.css` only if NO public route can reach it, established from the import graph rather than folder names; when in doubt `globals.css`), HeroUI's own ordering, the sub-components a component renders underneath, grepping both files, and verifying computed styles.
+- **Exports:** named everywhere under `src/`. Defaults **only** where Next.js requires them — `page`, `layout`, `error`, `loading`, `not-found`, `template`, `default`, and the `app/` metadata files — and a route file re-exports explicitly (`export { X as default } from …`). ADR-0008.
+- **Client boundaries:** before deleting a `"use client"`, check for **render props** (`renderEmptyState`, `children` as a function, any `prop={() => …}` passed to a library component). A Server Component may not pass a function to a Client Component, and neither `tsc` nor `next build` catches it on a dynamic route — it throws at request time. `SaisontabelleView` keeps its directive for exactly this.
+- **Component layout:** `features/<slice>/components/<category>/Component.tsx`, `<category>` one of `views` · `collections` · `forms` · `modals` · `providers` · `ui`. One extra level for a multi-section form; nothing deeper, and never flat in `components/`. ADR-0006.
+- **Cache tags:** base (`spiele`, `teams`, `schiedsrichter`, `spielorte`) plus granular `*:saison_id:*` on `spiele` and `teams` only. Never add a granular tag to a resource with no write surface — it can never be invalidated. **Every granular tag added needs a matching `updateTag` in a server action, in the same change.** ADR-0001.
 
 ## 7. CONTINUOUS VERIFICATION
 
 Don't rely solely on training data for version-specific syntax. Search official docs whenever genuinely uncertain about current API/best practice, and before labeling a response line `Verified:`. If verification isn't possible, say so plainly: "Cannot verify as current — check [doc URL]."
+
+**Check the installed version before advising on version-specific API** — §6 names the two files — and say plainly when you could not verify. Do not recite the stack in a response; this section is what keeps answers current, not a version header.
 
 **Sources:** [Next.js docs](https://nextjs.org/docs/app) · [Next 16 changes](https://nextjs.org/blog/next-16) · [Next proxy](https://nextjs.org/docs/app/api-reference/file-conventions/proxy) · [HeroUI docs](https://www.heroui.com/docs/react) · [HeroUI llms-full](https://heroui.com/llms-full.txt) · [Tailwind docs](https://tailwindcss.com/docs) · [FastAPI](https://fastapi.tiangolo.com) · [Pydantic v2](https://docs.pydantic.dev/latest/) · [Motor](https://motor.readthedocs.io)
 
@@ -144,10 +141,8 @@ Don't rely solely on training data for version-specific syntax. Search official 
 
 All commands are registered files in `.claude/commands/` and are tab-completable. **Behavior lives in those files — never duplicate it here.**
 
-| Command                                                                   | Purpose                                                                                                   |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `/audit:pass` `/audit:plan` `/audit:wave` `/audit:status` `/audit:finish` | Audit-programme lifecycle. Methodology: `docs/_auditing/`.                                                |
-| `/roadmap:start <ID>`                                                     | Work ONE open item to a conclusion. Backlog: `docs/roadmap/open-items.md`; closed log: `closed-items.md`. |
+- `/audit:pass` `/audit:plan` `/audit:wave` `/audit:status` `/audit:finish` — audit-programme lifecycle. Methodology: `docs/_auditing/`.
+- `/roadmap:start <ID>` — work ONE open item to a conclusion. Backlog: `docs/roadmap/open-items.md`; closed log: `closed-items.md`.
 
 The `/audit:*` and `/roadmap:*` commands are slash-only; never launch one from casual prose.
 
@@ -157,37 +152,54 @@ Each of these reads as a violation of §2 or of ordinary best practice, and each
 
 **The full argument for each — including the alternatives that were rejected — is in `docs/_decisions/`.** Read the ADR before proposing a change to anything below. **If this table and an ADR disagree, the ADR is the source and this table is the summary**, so correct the table, never the ADR.
 
-| Rule                                                                                                                                                                                                                                                                                                                                                                                                                                       | ADR                                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `await connection()` precedes every page data fetch — the requirement is that it precede the fetch, not that it sit in the default export. Removing these **fails `docker compose build`**, because the builder stage has no reachable backend.                                                                                                                                                                                            | [ADR-0009](../docs/_decisions/0009-connection-guards-every-data-fetch.md)                    |
-| Auth.js owns a direct `MongoClient`, scoped to the `authjs` database. §2's DB rule is scoped to _application data_ for this reason. A second direct client is a real violation.                                                                                                                                                                                                                                                            | [ADR-0010](../docs/_decisions/0010-authjs-owns-a-direct-mongoclient.md)                      |
-| Zero barrel files. Import from the file you mean. Express per-slice surfaces with `no-restricted-imports`, never with an `index.ts`.                                                                                                                                                                                                                                                                                                       | [ADR-0003](../docs/_decisions/0003-no-barrel-files.md)                                       |
-| `utils.ts` and `resolvers.ts` are sanctioned optional slice modules — folding either into `queries.ts` puts non-caching code inside a `"use cache"` module.                                                                                                                                                                                                                                                                                | [ADR-0004](../docs/_decisions/0004-optional-slice-modules.md)                                |
-| `SpielCard` / `SpielCardCompact` / `SpielCardUltraCompact` stay as three components. **Do not merge them.** Shared derivation lives in `utils.ts`.                                                                                                                                                                                                                                                                                         | [ADR-0007](../docs/_decisions/0007-three-spiel-cards-stay-separate.md)                       |
-| No `generateStaticParams` on the two dynamic segments — it would call the API at build time, and `searchParams` cannot be enumerated anyway.                                                                                                                                                                                                                                                                                               | [ADR-0011](../docs/_decisions/0011-no-generatestaticparams.md)                               |
-| `admin` is an aggregator slice and legitimately imports from four others. **Any cross-feature import lint must be scoped to `core` and `shared` only.**                                                                                                                                                                                                                                                                                    | [ADR-0012](../docs/_decisions/0012-admin-is-an-aggregator-slice.md)                          |
-| The Spiel **write path** lives in `features/spiele`, not `admin`. `AdminEditSpielDataForm` takes its lookup lists as **props** and must not read `useAdmin()`.                                                                                                                                                                                                                                                                             | [ADR-0005](../docs/_decisions/0005-spiel-write-path-belongs-to-spiele.md)                    |
-| `getAdminSpieleActionRequired` is deliberately uncached — admin-authorized data does not belong in a shared cache.                                                                                                                                                                                                                                                                                                                         | [ADR-0013](../docs/_decisions/0013-admin-action-required-uncached.md)                        |
-| Two granular cache tags exist (`spiele:saison_id:*`, `teams:saison_id:*`); twenty were deleted. Base tags are invalidated **unconditionally**.                                                                                                                                                                                                                                                                                             | [ADR-0001](../docs/_decisions/0001-two-granular-cache-tags.md)                               |
-| An omitted `saison_id` means the **current season**, resolved in the backend handler — not all seasons, and not via a field default.                                                                                                                                                                                                                                                                                                       | [ADR-0002](../docs/_decisions/0002-omitted-season-means-current.md)                          |
-| Team statistics are **derived from `spiele` on every read** and stored nowhere. A table recomputed per request reads as an obvious thing to cache or store — that is this decision reversed, not an optimisation. A match counts exactly when it carries an `ergebnis`; `is_canceled` is deliberately **not** consulted, because a cancelled match with a result is a forfeit. Points come from `FLSaison.rules`, never a hardcoded 3/1/0. | [ADR-0026](../docs/_decisions/0026-team-statistics-are-derived-from-spiele.md)               |
-| Named exports everywhere under `src/`; defaults only where Next.js requires them.                                                                                                                                                                                                                                                                                                                                                          | [ADR-0008](../docs/_decisions/0008-named-exports.md)                                         |
-| Component category folders, one extra level for a multi-section form.                                                                                                                                                                                                                                                                                                                                                                      | [ADR-0006](../docs/_decisions/0006-component-category-folders.md)                            |
-| `checkIsReady`, `getSystemInfo` and `INTERNAL_API_KEY_SYSTEM` stay, though nothing calls the first two. **Never remove the env declaration while leaving the `authType: "system"` branch.**                                                                                                                                                                                                                                                | [ADR-0014](../docs/_decisions/0014-keep-the-system-endpoints.md)                             |
-| `POST /api/revalidate` is protected by network topology. **Do not add an nginx location for it.** Use `revalidateTag` there, not `updateTag`.                                                                                                                                                                                                                                                                                              | [ADR-0015](../docs/_decisions/0015-backend-triggered-revalidation-route.md)                  |
-| One enforced CSP keeping `'unsafe-inline'`; `react/no-danger` is the compensating control. Do not disable that rule.                                                                                                                                                                                                                                                                                                                       | [ADR-0016](../docs/_decisions/0016-single-enforced-csp.md)                                   |
-| The `$jsonSchema` validators in `app/core/constraints.py` **duplicate the Pydantic models by hand, on purpose. Do not generate them.** `CustomObjectId` emits a bare `{"type": "string"}` in JSON mode, so a generated validator would type every ObjectId reference as a string — blessing the exact defect the validators exist to refuse. A default-tier test compares the two copies field-by-field instead.                           | [ADR-0031](../docs/_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md) |
-| The backend **refuses to start** if a validator or unique index cannot be applied, and applies all of them on **every boot**. Catching the failure and carrying on leaves a database that looks constrained and is not. The validators assert types, presence and enums only — a `minLength` or a `minimum` is the scope being widened, not a constraint being added.                                                                      | [ADR-0027](../docs/_decisions/0027-the-database-enforces-its-own-invariants.md)              |
-| The type scale is `fluid-sm`, **never `text-fluid-sm`** — the tokens live outside Tailwind's `--text-*` namespace so no `text-fluid-*` utility exists at all, and a stale one styles nothing silently. `shared/utils/tv.ts` and its lint rule were deleted with it.                                                                                                                                                                        | [ADR-0025](../docs/_decisions/0025-fluid-type-scale-outside-the-text-namespace.md)           |
+**Paths are `docs/_decisions/<number>-*.md`** — glob the number, the slugs are not guessable.
+
+**Frontend**
+
+- **ADR-0009** — `await connection()` precedes every page data fetch. The requirement is that it precede the _fetch_, not that it sit in the default export. Removing one **fails `docker compose build`**: the builder stage has no reachable backend.
+- **ADR-0003** — zero barrel files. Import from the file you mean; express per-slice surfaces with `no-restricted-imports`, never an `index.ts`.
+- **ADR-0004** — `utils.ts` and `resolvers.ts` are sanctioned optional slice modules. Folding either into `queries.ts` puts non-caching code inside a `"use cache"` module.
+- **ADR-0007** — `SpielCard` / `SpielCardCompact` / `SpielCardUltraCompact` stay three components. **Do not merge them.** Shared derivation lives in `utils.ts`.
+- **ADR-0011** — no `generateStaticParams` on the two dynamic segments: it would call the API at build time, and `searchParams` cannot be enumerated anyway.
+- **ADR-0012** — `admin` is an aggregator slice and legitimately imports from four others. **Any cross-feature import lint must be scoped to `core` and `shared` only.**
+- **ADR-0005** — the Spiel **write path** lives in `features/spiele`, not `admin`. `AdminEditSpielDataForm` takes its lookup lists as **props** and must not read `useAdmin()`.
+- **ADR-0013** — `getAdminSpieleActionRequired` is deliberately uncached. Admin-authorized data does not belong in a shared cache.
+- **ADR-0008** — named exports everywhere under `src/`; defaults only where Next.js requires them.
+- **ADR-0006** — component category folders, one extra level for a multi-section form.
+- **ADR-0025** — the type scale is `fluid-sm`, **never `text-fluid-sm`**. The tokens live outside Tailwind's `--text-*` namespace so no `text-fluid-*` utility exists at all, and a stale one styles nothing silently.
+
+**Backend and data**
+
+- **ADR-0002** — an omitted `saison_id` means the **current season**, resolved in the backend handler. Not all seasons, and not via a field default.
+- **ADR-0026** — team statistics are **derived from `spiele` on every read** and stored nowhere. A table recomputed per request reads as an obvious thing to cache or store; that is this decision reversed, not an optimisation. A match counts exactly when it carries an `ergebnis` — `is_canceled` is deliberately **not** consulted, because a cancelled match with a result is a forfeit. Points come from `FLSaison.rules`, never a hardcoded 3/1/0.
+- **ADR-0027** — the backend **refuses to start** if a validator or unique index cannot be applied, and reapplies all of them on **every boot**. Catching the failure and carrying on leaves a database that looks constrained and is not. Validators assert types, presence and enums only; a `minLength` or a `minimum` widens the scope rather than adding a constraint.
+- **ADR-0031** — those validators **duplicate the Pydantic models by hand, on purpose. Do not generate them.** `CustomObjectId` emits a bare `{"type": "string"}` in JSON mode, so a generated validator would type every ObjectId reference as a string, blessing the exact defect the validators exist to refuse. A default-tier test compares the two copies field-by-field instead.
+- **ADR-0032** — soft deletion is `inactive_since`, a nullable `YYYY-MM-DD` **date, never a boolean**: a flag beside a date can contradict itself and no validator can catch that. **Creating never revives a retired row** — `POST /{resource}/{id}/reactivate` does, and a natural-key collision is a **409**, which is correct rather than a bug. `saisons`, `saison_teams` and `spiele` deliberately have no such field.
+- **ADR-0033** — `POST /saisons/{id}/activate` is the **only** code path that writes `status`, in one transaction. `status` is on no payload, there is no `DELETE /saisons/{id}`, and **`saison_teams` has a POST and a PATCH and no DELETE** because a team leaves a season only by disqualification. Neither gap is an incomplete CRUD surface to finish. No date guard on activate: that precondition belongs to FB-6's UI.
+- **ADR-0034** — **two routers per slice**: `router.py` reads under `verify_access_base`, `admin_router.py` writes under `verify_access_admin`, both guards at ROUTER level. Never move a guard onto an endpoint and never merge the files. **`GET /{id}` exists on all seven resources and six have no caller — deliberate, not dead code.** Junctions nest under the entity, addressed by their natural key. One team shape, no `compact`.
+
+**Cross-cutting and ops**
+
+- **ADR-0010** — Auth.js owns a direct `MongoClient`, scoped to the `authjs` database. §2's DB rule is scoped to _application data_ for this reason; a second direct client is a real violation.
+- **ADR-0001** — two granular cache tags exist (`spiele:saison_id:*`, `teams:saison_id:*`); twenty were deleted. Base tags are invalidated **unconditionally**.
+- **ADR-0014** — `checkIsReady`, `getSystemInfo` and `INTERNAL_API_KEY_SYSTEM` stay, though nothing calls the first two. **Never remove the env declaration while leaving the `authType: "system"` branch.**
+- **ADR-0015** — `POST /api/revalidate` is protected by network topology. **Do not add an nginx location for it.** Use `revalidateTag` there, not `updateTag`.
+- **ADR-0016** — one enforced CSP keeping `'unsafe-inline'`; `react/no-danger` is the compensating control. Do not disable that rule.
 
 ## 10. DOCUMENTATION
 
 **`docs/README.md` is the entry point.** From there: `_decisions/` for why (the ADRs), the per-surface `overview.md` and `spec.md` for what, `glossary.md` for the German domain vocabulary, and **`workflows/` for branching, commits, PRs, deployment, the recurring operational tasks, and the commit/PR/issue templates** — consult it before proposing a git or deploy step.
 
-**`docs/_standard/`** defines how the repo is documented — read it before writing or changing documentation.
+**`docs/_standard/`** defines how the repo is documented — read it before writing or changing documentation. `4-decisions.md` holds DS1–DS15, the decisions about the standard itself.
 
 - **In code:** module header, then symbol docs, then inline comments. **Never restate a type** — the signature already says it. Document intent, constraints, rejected alternatives and traps.
-- **Comments describe what the code IS, never what it WAS (owner, 2026-08-02).** No "used to", "previously", "there used to be", "this was reverted", no narration of a past edit, and no comment documenting the absence of something that is not there. The diff is in git and the reasoning belongs in an ADR; a history note in a file ages badly, lengthens the file without clarifying the code, and quietly becomes wrong. Rejected alternatives ARE worth recording — phrase them in the present as a constraint ("never X, because Y"), not as a story about what changed.
+- **Documentation names only what exists — comments AND `/docs` alike (DS14).** No "used to", "previously", "this was reverted", no narration of a past edit, nothing documenting an absence. A history note ages badly and quietly becomes wrong, and a spec sheet naming a deleted endpoint reads exactly like one naming a live endpoint. Record a rejected alternative in the **present, as a constraint** ("never X, because Y"). A **measurement with a date is not history** and stays. Exempt, because recording what changed is their job: an ADR's **Context**, `roadmap/closed-items.md`, and an ADR's `Superseded by`. Grep a branch diff before committing and READ the hits — "the former … the latter" is ordinary English:
+
+  ```bash
+  git diff main...HEAD -U0 | grep -niE "former|used to|was removed|no longer|previously|moved here"
+  ```
+
+- **A module header POINTS at the ADR; it never restates it (DS15).** A header section past about five lines, **or repeated in a second file, is an ADR that has not been written yet** — write it, then cut the header to the rule plus the number. State the **claim** in full; cite the **argument**. A reader who never opens the ADR must still know not to violate the rule.
 - **A directive (`"use server"`, `"use client"`) stays the first line of the file**, above any header block.
 - **Every module gets a header; every FastAPI endpoint gets a docstring** (FastAPI publishes it to OpenAPI). Everything else is documented where there is a _why_ worth recording.
 - **Cite ADR numbers, never audit sections.** `docs/audit/` is expected to be deleted.

@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Thirty decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Thirty-four decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -63,12 +63,15 @@ written.
 | [0029](0029-the-league-table-counts-the-gruppenphase.md)              | The league table counts the Gruppenphase, and that is the default  | backend, frontend      | Accepted       | 2026-08-02 |
 | [0030](0030-a-real-mongod-behind-a-deselected-marker.md)              | Pipelines are tested against a real `mongod`, behind a marker      | backend, ops           | Accepted       | 2026-08-02 |
 | [0031](0031-the-third-copy-of-the-schema-is-checked-not-generated.md) | The third copy of the schema is checked by a test, not generated   | backend                | Accepted       | 2026-08-02 |
+| [0032](0032-soft-deletion-is-a-date-not-a-flag.md)                    | Soft deletion is a date, not a flag, and creating never revives    | backend, frontend      | Accepted       | 2026-08-02 |
+| [0033](0033-one-active-season-and-one-path-to-it.md)                  | One active season, one path to it; a team leaves only by DQ        | backend                | Accepted       | 2026-08-02 |
+| [0034](0034-the-write-path-is-resource-first-in-a-second-router.md)   | The write path is resource-first, in a second router per slice     | backend, frontend      | Accepted       | 2026-08-02 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · 0017 ·
-0021 · 0022 · 0024 · 0027 · 0030 · frontend: all except 0017, 0027, 0030 and 0031.
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · ops: 0009 · 0011 · 0014 ·
+0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · frontend: all except 0017, 0027, 0030, 0031 and 0033.
 
 ## Considered, and deliberately not made an ADR
 
@@ -82,6 +85,6 @@ you have to re-derive the argument to refuse?_
   at all. It is history, and it is described in `docs/backend/overview.md`.
 - **BE-2, adding `ge=0` to `tore`.** A bug fix.
 
-Open items that _will_ deserve an ADR once decided — **BE-4** (a real write path for the reference
-resources) and **BE-9** (the placeholder team) — are not here yet, because they have not been decided.
-They live in [`../roadmap/open-items.md`](../roadmap/open-items.md) until they are.
+**BE-9** (the placeholder team) is the open item that will deserve an ADR once decided. It is not here
+yet, because it has not been decided, and lives in
+[`../roadmap/open-items.md`](../roadmap/open-items.md) until it is.

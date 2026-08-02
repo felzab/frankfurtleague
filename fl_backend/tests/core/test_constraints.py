@@ -31,7 +31,7 @@ from app.api.spieler.schemas import FLSpieler
 from app.api.spieler.services import SAISON_SPIELER_COLLECTION_NAME
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
-from app.api.teams.schemas import FLTeam
+from app.api.teams.schemas import FLTeam, FLTeamRecord
 from app.api.teams.services import SAISON_TEAMS_COLLECTION_NAME
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose_failure
 from app.shared.schemas.addresses import FLAddress
@@ -97,6 +97,10 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel], frozenset[str
     # `gruppe` and `is_disqualified` are joined from saison_teams; `statistik` is derived from spiele
     # and stored nowhere at all (ADR-0026). None of the three is on a teams document.
     ("teams", (), FLTeam, frozenset({"gruppe", "is_disqualified", "statistik"})),
+    # The same collection twice, on purpose. `FLTeam` is the READ shape and is allowed to carry three
+    # fields no document has; `FLTeamRecord` is what a write echoes, so its field set must match the
+    # validator EXACTLY -- an empty `not_stored` is the assertion.
+    ("teams", (), FLTeamRecord, frozenset()),
     ("teams", ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
     ("spieler", (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen"})),

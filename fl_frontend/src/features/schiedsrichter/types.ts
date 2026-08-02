@@ -23,10 +23,11 @@ export type FLSchiedsrichterSortingOptions = "name" | "default_payment";
 
 export type FLSchiedsrichterFilterParams = {
   default_payment?: number;
-  // Declared by the backend's FLSchiedsrichterFilterParams (bool | None = False). No caller passes
-  // it yet -- getSchiedsrichter is only ever called with no arguments -- so soft-deleted referees
-  // are currently unreachable from the frontend.
-  is_inactive?: boolean;
+  // A switch, not a value to match on: retirement is a date (ADR-0032), and a caller wanting the
+  // retired referees wants them ALONGSIDE the live ones. No caller passes it yet --
+  // getSchiedsrichter is only ever called with no arguments -- so retired referees are currently
+  // unreachable from the frontend.
+  include_inactive?: boolean;
 
   limit?: number;
   sort_by?: FLSchiedsrichterSortingOptions;

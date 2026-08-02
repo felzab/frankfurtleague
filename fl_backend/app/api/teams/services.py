@@ -26,24 +26,12 @@ model looks like one document and is not.
     no junction row for that season disappears from results entirely rather than returning with unset
     `gruppe`, which would fail response validation.
   • The base `$match` runs BEFORE both lookups, on purpose -- filtering after a join costs memory.
-  • `compact` omits the heavy string fields. It is a projection choice, not a different entity.
 
  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
 
-  ADR-0029  the league table counts the Gruppenphase, and that is the default
-
-  Two tables come out of one pipeline because the statistics are derived rather than stored. The
-  scope defaults to the narrow one on purpose: both scopes return the same SHAPE, so a caller that
-  forgets the parameter gets a table that looks right, and the version that looks right while being
-  wrong is the one that counts playoff games as league results.
-
-  ADR-0026  team statistics are derived from `spiele`, never stored
-
-  This recomputes the whole table on every request, the `compact` shape included, and that reads as an
-  obvious candidate for a cached or stored copy. It is not an optimisation waiting to happen: it is
-  that decision being reversed. A season is 31 matches and the entire database is about 130 KB, so the
-  lookup costs nothing measurable, while the second copy it removes was wrong for months without
-  anything noticing.
+  ADR-0026  team statistics are derived from `spiele`, never stored -- so caching or storing the
+            table here is that decision reversed, not an optimisation
+  ADR-0029  the league table counts the Gruppenphase, and that is the default scope
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -152,7 +140,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
     }
 
 
-def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules) -> list[Mapping[str, Any]]:
+def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team_id: Any | None = None) -> list[Mapping[str, Any]]:
     # Not a filter that may be omitted: the statistics below are per season, so without one this would
     # match no match at all and hand back a table of zeros that looks like a real answer. The router
     # resolves it (ADR-0002) before calling.
@@ -164,15 +152,22 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules) -> l
     # ==========================================
     # STAGE 1: PRE-LOOKUP FILTER (Base Collection)
     # ==========================================
-    base_match = {}
+    base_match: dict[str, Any] = {}
 
     # Custom boolean logic for placeholders
     if not filters.include_placeholders:
         base_match["is_placeholder"] = False
 
-    # If querying a specific team, filter the base collection's _id immediately
-    if getattr(filters, "team_id", None):
-        base_match["_id"] = filters.team_id
+    # Clubs that have left the league (ADR-0032). Not the same as a team disqualified FOR a season --
+    # that is `is_disqualified` on the junction, filtered inside the lookup below, and a disqualified
+    # team stays in the table.
+    if not filters.include_inactive:
+        base_match["inactive_since"] = None
+
+    # An argument rather than a filter field: `GET /teams/{team_id}` addresses one document, and the
+    # difference between "this team" and "teams matching" is the difference between a path and a query.
+    if team_id is not None:
+        base_match["_id"] = team_id
 
     # Apply the base match BEFORE the lookup to save memory
     if base_match:
@@ -226,31 +221,30 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules) -> l
     # ==========================================
     # STAGE 5: PROJECTION
     # ==========================================
-    projection_stage = {
-        "_id": 1,
-        "name": 1,
-        "shorthand": 1,
-        "address": 1,
-        # The lookup yields one grouped document, or none at all for a team with no counting match --
-        # `$group` emits nothing for an empty input rather than a row of zeros.
-        "statistik": {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
-        "is_disqualified": f"${AS_NAME}.is_disqualified",
-    }
-
-    # Memory optimization: Only project heavy string fields if NOT compact
-    if not getattr(filters, "compact", False):
-        projection_stage.update(
-            {
+    # One projection, because there is one team shape. Never branch a reduced variant off it: measured
+    # 2026-08-02, the trim is 26 KiB across all 17 teams and no query work at all -- both lookups above
+    # run either way -- in exchange for a second hand-mirrored model pair (ADR-0034).
+    pipeline.append(
+        {
+            "$project": {
+                "_id": 1,
+                "name": 1,
+                "shorthand": 1,
+                "address": 1,
                 "is_placeholder": 1,
                 "description": 1,
                 "full_name": 1,
                 "website_url": 1,
+                "inactive_since": 1,
+                # The lookup yields one grouped document, or none at all for a team with no counting
+                # match -- `$group` emits nothing for an empty input rather than a row of zeros.
+                "statistik": {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
                 "saison_id": f"${AS_NAME}.saison_id",
                 "gruppe": f"${AS_NAME}.gruppe",
+                "is_disqualified": f"${AS_NAME}.is_disqualified",
             }
-        )
-
-    pipeline.append({"$project": projection_stage})
+        }
+    )
 
     # ==========================================
     # STAGE 6: SORTING & LIMITING

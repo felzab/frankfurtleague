@@ -1,23 +1,27 @@
 """
 CORE · backend configuration
 
-Every environment variable the service reads, declared once as a pydantic-settings model. Anything not
-listed here is not configuration -- it is a hardcoded constant somewhere, which is usually a defect.
+Every environment variable the service reads, declared once as a pydantic-settings model, plus the one
+thing that deliberately is NOT one. Anything absent from both is a hardcoded constant somewhere, which
+is usually a defect.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
   • Secrets are `SecretStr`, so they do not appear in a repr, a traceback or a log line. Reach the value
     only through `.get_secret_value()`, and only where it is actually used.
   • Fields without a default are REQUIRED at boot: the process refuses to start rather than running
-    half-configured. The three API keys are among them.
-  • `api_version` is what every router prefixes itself with. Bumping it changes every path -- and the
-    container healthcheck in docker-compose.yml hardcodes `/api/v0/`, so it must be updated too.
+    half-configured. The three API keys are among them, and none of them may ever gain a default --
+    a default key is a key, and a service that starts with one is a service anyone can call.
+  • `API_VERSION` is a CONSTANT, not a setting. See below.
+  • Nothing constructs the settings at import time. `get_config()` is what builds them, so importing a
+    module that merely *mentions* configuration cannot fail.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  docs/ops/spec.md -- the healthcheck note, and the environment section
+  docs/ops/spec.md -- the environment section
 """
 
+from functools import lru_cache
 from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator
@@ -25,10 +29,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "Critical"]
 
+# The version every router prefixes itself with, and it is a property of THIS CODE rather than of a
+# deployment. As an environment variable it was a footgun with three warnings around it: the container
+# healthcheck in docker-compose.yml hardcodes `/api/v0/`, so the two could disagree and a service would
+# then answer nothing on the path its own healthcheck probes. Worse, a deployment could set `2` and
+# serve `/api/v2/` from code implementing v0 -- announcing a contract it does not honour.
+#
+# Bumping it is a code change, made here, in the same commit as the compose healthcheck it must match.
+# The FRONTEND keeps its own `API_VERSION` env var, and that one is legitimate: a client genuinely does
+# choose which version of an API to call.
+API_VERSION = 0
+
 
 class BackendConfig(BaseSettings):
     # API config
-    api_version: int = Field(description="The currently used version of this API")
     api_trusted_hosts: str = Field(description="The trusted hosts for this API")
     api_cors_allowed_origins: str = Field(description="The allowed CORS origins for this API")
 
@@ -73,4 +87,18 @@ class BackendConfig(BaseSettings):
         return value
 
 
-backend_config = BackendConfig()  # type: ignore[call-arg]
+@lru_cache
+def get_config() -> BackendConfig:
+    """
+    The settings, built once and reused — FastAPI's documented pattern for configuration.
+
+    A FUNCTION rather than a module-level instance, and that is the whole point. Building it at import
+    time meant that importing any module which touches configuration read the environment as a side
+    effect: the test suite could not import a router without a fully populated `.env`, and it failed
+    during COLLECTION, naming eight missing fields instead of anything to do with the test.
+
+    `lru_cache` makes it a singleton without making it a global. Endpoints take it as
+    `Depends(get_config)`, so a test can replace it through `app.dependency_overrides` rather than by
+    mutating `os.environ` and hoping about import order.
+    """
+    return BackendConfig()  # type: ignore[call-arg]

@@ -2,7 +2,7 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import { TeamsGrid } from "../collections/TeamsGrid";
 
-import type { FLTeamCompact } from "../../schemas";
+import type { FLTeam } from "../../schemas";
 
 export function TeamSelectionView({
   title,
@@ -13,7 +13,7 @@ export function TeamSelectionView({
   title: string;
   description: string;
   urlPrefix: string;
-  teams: FLTeamCompact[];
+  teams: FLTeam[];
 }) {
   return (
     /* Backs BOTH /dashboard/teams and /dashboard/spieler, which is why its having no entrance was

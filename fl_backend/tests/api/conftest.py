@@ -83,6 +83,10 @@ def _team(name: str, shorthand: str) -> dict[str, Any]:
             "stadtteil": "Ostend",
             "stadt": "Frankfurt am Main",
         },
+        # A club still in the league (ADR-0032). Present rather than omitted on purpose: Mongo matches
+        # a missing field against `None`, so a seed without it passes the base filter and then fails
+        # response validation -- which reads as a projection bug rather than as a seeding one.
+        "inactive_since": None,
     }
 
 

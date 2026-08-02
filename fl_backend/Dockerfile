@@ -52,4 +52,7 @@ COPY --chown=fl_api_user:fl_api . .
 USER fl_api_user
 EXPOSE 8000
 
-CMD ["tini", "--", "fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
+# app/asgi.py, not app/main.py: main.py exports the `create_app` FACTORY and builds nothing on
+# import, so importing it needs no environment. asgi.py is the one module that constructs the real
+# application from the real environment, and it is the only thing that loads it.
+CMD ["tini", "--", "fastapi", "run", "app/asgi.py", "--host", "0.0.0.0", "--port", "8000"]
