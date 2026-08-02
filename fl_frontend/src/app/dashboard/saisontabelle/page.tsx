@@ -22,7 +22,10 @@ export default async function SaisontabellePage(props: NextPageProps) {
   await connection();
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
-  const teamsRes = await getTeams({ in_gruppen: true, saison_id: specifiedSaisonId });
+  // `statistik_scope` is spelled out although "gruppenphase" is also the backend's default: this page
+  // is the reason that default exists (ADR-0029), and a table pinned by the page that renders it does
+  // not quietly change meaning if the default is ever revisited.
+  const teamsRes = await getTeams({ in_gruppen: true, saison_id: specifiedSaisonId, statistik_scope: "gruppenphase" });
 
   if (teamsRes.format !== "grouped") {
     throw new Error("Expected grouped teams response, got a flat list.");

@@ -29,6 +29,13 @@ computed by an aggregation pipeline, and `test_teams_pipeline.py` can assert wha
 but never what MongoDB *computes* from it. Executing it needs a database fixture this suite does not
 have. Tracked in [`docs/roadmap/open-items.md`](../../docs/roadmap/open-items.md).
 
+The same gap now covers a second rule.
+[ADR-0029](../../docs/_decisions/0029-the-league-table-counts-the-gruppenphase.md) added a
+`statistik_scope`, so the pipeline encodes *which* matches count as well as how they are counted — and
+a scope that filtered on the wrong phase would still return a well-formed table. The tests pin that
+the phase appears in the `$match` under `"gruppenphase"`, is absent under `"gesamt"`, and that nothing
+else about the pipeline differs between the two.
+
 That boundary is deliberate. A broader backend suite belongs with the planned `fl_backend` audit,
 which will want one strategy across all layers rather than a schema suite designed twice.
 

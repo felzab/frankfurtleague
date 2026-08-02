@@ -148,6 +148,11 @@ then goal difference.
 and compiled by `build_spiele_filter` to `saison_phase != "gruppenphase"`. It never appears on a stored
 document, and you will not find it in the data.
 
+`GET /teams` reads the same field but does **not** take this filter. It takes `statistik_scope`, a
+closed set of two — see "Statistik" below, and
+[ADR-0029](_decisions/0029-the-league-table-counts-the-gruppenphase.md) for why a general phase filter
+was rejected there.
+
 ### `spiel_status` — match status
 
 `ausstehend` (upcoming) · `vergangen` (past) · `heute` (today) · `abgesagt` (cancelled) ·
@@ -223,9 +228,19 @@ mentions them.
 Every field is `ge=0` and defaults to 0, so a team whose season holds no counting match is served a
 zeroed object rather than an absent one.
 
-**The table counts every phase**, playoff matches included. Narrowing the Saisontabelle to the
-Gruppenphase is open item FB-1 in [`roadmap/open-items.md`](roadmap/open-items.md); under the derived
-table it is one `$match` stage rather than a schema change.
+**There are two tables, and which one you get is `statistik_scope`**
+([ADR-0029](_decisions/0029-the-league-table-counts-the-gruppenphase.md)):
+
+| Scope                      | Counts                           | Where it is shown                                        |
+| -------------------------- | -------------------------------- | -------------------------------------------------------- |
+| `gruppenphase` _(default)_ | Gruppenphase matches only        | `/dashboard/saisontabelle`, and every other team surface |
+| `gesamt`                   | Every phase, playoff matches too | `/dashboard/teams/[team_id]` — the team's own page       |
+
+**Pitfall.** Both scopes return the same seven fields, so a caller that omits the parameter gets a
+plausible table rather than an error. That is why the default is the narrow one: the Saisontabelle is a
+**group** standing and a playoff result must not move it. A page wanting season-wide figures has to ask.
+The two therefore disagree by design — Helmholtz's group row and its own page differ by one
+Viertelfinale — and each page carries a line of copy saying which it shows.
 
 ### `Mietpreis` — rental price
 

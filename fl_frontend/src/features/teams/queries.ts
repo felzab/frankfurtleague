@@ -17,6 +17,9 @@
  *   • A team is season-independent; gruppe and is_disqualified come from a junction the backend joins
  *     at read time, and statistik is computed from that season's matches. A team with no junction row
  *     for the requested season is simply absent.
+ *   • `statistik_scope` is part of the cache KEY, not the tag set. The two scopes are two entries of
+ *     the same resource, and the `teams` tag clears both — which is what a result edit needs, since a
+ *     playoff result moves one of them and a Gruppenphase result moves both.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *

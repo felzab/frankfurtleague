@@ -52,6 +52,9 @@ export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
             <div className="flex flex-col gap-1 pb-6">
               <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
               <h2 className="fluid-xl text-foreground font-black tracking-tight">Gruppe {gruppe}</h2>
+              {/* Not decoration: a team's own page shows its whole season, playoffs included, so the two
+                  pages disagree by design and only this line says why (ADR-0029). */}
+              <p className="fluid-xxs text-foreground-muted font-medium">Gewertet werden nur Spiele der Gruppenphase.</p>
             </div>
 
             <Table

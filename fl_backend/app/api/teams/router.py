@@ -11,6 +11,8 @@ compact projection, and the four groups. Pydantic picks the model from that disc
     season a team ever played in.
   • The season is resolved to a DOCUMENT, not just an id, because the derived table is scored with
     that season's own `rules` (ADR-0026). One query answers both.
+  • `statistik_scope` defaults to `gruppenphase`, so the shape a caller gets by saying nothing is the
+    league table (ADR-0029). `gesamt` is the opt-in, not the other way round.
   • The grouped response always contains all four group keys, even when a group is empty. It once built
     the map from the teams present, so a season with nobody in group D omitted "D" and the frontend
     parse failed, taking down /dashboard/saisontabelle.
@@ -63,6 +65,10 @@ async def get_teams(
     and come from a junction collection, so a team with no entry for the requested season is absent
     from the response entirely. Statistics are season-scoped as well, and are computed from that
     season's matches on every read rather than stored.
+
+    `statistik_scope` chooses which matches those statistics count. It defaults to `gruppenphase` —
+    the league table, which playoff results must not move. Pass `gesamt` for a team's figures across
+    every phase of the season. Both scopes return the same fields.
     """
 
     # Omitting `saison_id` means "the current season", not "every season" (ADR-0002). Resolved here

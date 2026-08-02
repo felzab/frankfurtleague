@@ -47,6 +47,12 @@ Eleven `"use cache"` functions.
 **Uncached, deliberately:** `getAdminSpieleActionRequired` (admin). Admin-authorized data does not
 belong in a shared cache.
 
+**`getTeams` caches two tables per season, not one.** `statistik_scope` is part of the cache key
+([ADR-0029](../_decisions/0029-the-league-table-counts-the-gruppenphase.md)): the Saisontabelle asks
+for `gruppenphase` and a team's own page asks for `gesamt`, and those are separate entries. No
+granular tag for it — the coarse `teams` tag clears both, which is right in both directions, since a
+Gruppenphase result moves both tables and a playoff result moves only one.
+
 ## 3. Server actions
 
 Seven admin actions plus one auth action. Every admin action begins with `getAdminSession()` and

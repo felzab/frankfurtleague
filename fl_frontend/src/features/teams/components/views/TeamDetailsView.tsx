@@ -139,7 +139,12 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
 
       {/* Saison Stats Section */}
       <div className="flex flex-col gap-y-4">
-        <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
+        <div className="flex flex-col gap-y-1">
+          <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
+          {/* The counterpart to the Saisontabelle's line: this page counts every phase, the table
+              counts the Gruppenphase, and without both lines the differing numbers read as a bug. */}
+          <p className="fluid-xxs text-foreground-muted font-medium">Alle Spiele der Saison, inklusive Playoffs.</p>
+        </div>
 
         {/* Five cards, one code path — including "Punkte", which differs from the other four only by
             `desktopOnly`. Lifting it out of the map would mean a hand-written key alongside the map's

@@ -41,7 +41,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 | #   | ID    | Item                                                   | Surfaces    | Effort | Status      | Depends on              |
 | --- | ----- | ------------------------------------------------------ | ----------- | ------ | ----------- | ----------------------- |
-| 1   | FB-1  | Saisontabelle must count only Gruppenphase games       | FE, BE      | M      | Open        | — (the table is right)  |
+| 1   | FB-1  | Saisontabelle must count only Gruppenphase games       | FE, BE      | M      | **Closed**  | — (the table is right)  |
 | 2   | BE-11 | The derived league table has no integration coverage   | BE          | S      | Open        | — (before FB-1, soft)   |
 | 3   | DB-3  | Delete the dead `statistik` field from `saison_teams`  | DB          | S      | **Decided** | — (ADR-0026; work open) |
 | 4   | LOG-1 | Logging and error handling, surveyed then standardised | FE, BE, Ops | L      | Open        | — (parallel-safe)       |
@@ -110,6 +110,22 @@ Details worth having in hand when it is worked:
 **Path:** unblocked. The table it filters is now computed correctly on every read, so the ordering
 that held this back is gone. Feeds FE-3 (which shows the full statistics this item narrows away from
 the Saisontabelle). Worth doing after BE-11, which puts a net under the pipeline this edits.
+
+**Closed 2026-08-02 by [ADR-0029](../_decisions/0029-the-league-table-counts-the-gruppenphase.md)** —
+the league table counts the Gruppenphase, and an omitted `statistik_scope` means exactly that.
+`GET /teams` takes a closed set of two scopes; the Saisontabelle asks for `gruppenphase` and
+`/dashboard/teams/[team_id]` asks for `gesamt`, so the all-games figures this item narrows away stay
+visible on the team's own page. Verified against the live database through the production image: the
+four teams with a played Viertelfinale dropped from 4 matches to 3 in the group tables, and every
+team's own page reproduced its previous figures unchanged.
+
+Where the non-decision findings went. **The two-scope model is now FE-3's input, not its question** —
+its Path line below is rewritten accordingly, and the data half of that item is done. **BE-11 was not
+done first**, contrary to this entry's suggested ordering; the phase rule is pinned by three new
+structural tests in `tests/api/test_teams_pipeline.py` and the gap those tests cannot close is
+recorded in `fl_backend/tests/README.md`, so BE-11's scope is unchanged and its urgency is higher.
+**`AFFECTED_TAGS` in the revalidation route needed no edit** — the scope reads `spiele.saison_phase`,
+and every match write already invalidates `teams` unconditionally.
 
 ### 2 · BE-11 — The derived league table has no integration coverage
 

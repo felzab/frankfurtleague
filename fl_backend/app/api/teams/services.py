@@ -15,6 +15,9 @@ model looks like one document and is not.
   • A match counts towards the table exactly when it carries an `ergebnis`. `is_canceled` is
     deliberately NOT consulted: a cancelled match with a recorded result is a FORFEIT, and a forfeit
     counts. Three matches in season 2026 are in that state.
+  • WHICH matches are in scope is `filters.statistik_scope`, and it defaults to the Gruppenphase. The
+    league table is a group standing, so a playoff result must not move it; `"gesamt"` is the same
+    pipeline without the phase filter, and is what a team's own page asks for.
   • Points come from the season's own `rules`, so the pipeline cannot be built from the filters
     alone -- it takes an `FLSaisonRules` as well.
   • A resolved `saison_id` is REQUIRED. The statistics are per season, so building without one would
@@ -27,6 +30,13 @@ model looks like one document and is not.
 
  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
 
+  ADR-0029  the league table counts the Gruppenphase, and that is the default
+
+  Two tables come out of one pipeline because the statistics are derived rather than stored. The
+  scope defaults to the narrow one on purpose: both scopes return the same SHAPE, so a caller that
+  forgets the parameter gets a table that looks right, and the version that looks right while being
+  wrong is the one that counts playoff games as league results.
+
   ADR-0026  team statistics are derived from `spiele`, never stored
 
   This recomputes the whole table on every request, the `compact` shape included, and that reads as an
@@ -38,13 +48,14 @@ model looks like one document and is not.
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
   docs/_decisions/0026-team-statistics-are-derived-from-spiele.md -- the decision, and what it rejected
+  docs/_decisions/0029-the-league-table-counts-the-gruppenphase.md -- the scope, and why it defaults
   docs/glossary.md -- "Statistik", the same counting rules in domain terms
 """
 
 from typing import Any, Mapping
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik
+from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 
 SAISON_TEAMS_COLLECTION_NAME = "saison_teams"
 SPIELE_COLLECTION_NAME = "spiele"
@@ -56,15 +67,20 @@ STATISTIK_AS_NAME = "statistik_data"
 ZERO_STATISTIK: Mapping[str, int] = {field_name: 0 for field_name in FLTeamStatistik.model_fields}
 
 
-def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules) -> Mapping[str, Any]:
+def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
     """
     The `$lookup` deriving one team's seven statistics from the season's matches (ADR-0026).
 
     A match counts exactly when it carries an `ergebnis`. `is_canceled` is deliberately not consulted:
     a cancelled match with a result is a forfeit, and a forfeit counts.
+
+    `scope` decides which matches are in scope at all (ADR-0029): `"gruppenphase"` is the league table
+    and narrows to that phase, `"gesamt"` is every phase and is what a team's own page shows.
     """
 
     is_this_team_in_slot_one = {"$eq": ["$team1.team_id", "$$team_oid"]}
+
+    phase_match: Mapping[str, Any] = {"saison_phase": "gruppenphase"} if scope == "gruppenphase" else {}
 
     return {
         "$lookup": {
@@ -74,6 +90,11 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules) -> Mappin
                 {
                     "$match": {
                         "saison_id": saison_id,
+                        # The phase rule (ADR-0029), and the only difference between the two tables.
+                        # Absent entirely under "gesamt" rather than negated -- there is no
+                        # `saison_phase` value meaning "any", and an `$in` over all four would have to
+                        # be widened by hand the day a fifth phase is added.
+                        **phase_match,
                         # The counting rule, in one place. Note what is absent: `is_canceled` (ADR-0026).
                         "ergebnis": {"$ne": None},
                         # `ergebnis` is derived from these two by the admin write path, so this restates
@@ -200,7 +221,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules) -> l
     # STAGE 4: DERIVED STATISTICS
     # ==========================================
     # After the strict unwind, so the matches are only summed for teams that survive the join.
-    pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules))
+    pipeline.append(build_statistik_lookup_stage(saison_id=filters.saison_id, rules=rules, scope=filters.statistik_scope))
 
     # ==========================================
     # STAGE 5: PROJECTION
