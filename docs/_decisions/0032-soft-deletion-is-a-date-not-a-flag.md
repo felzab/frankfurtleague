@@ -77,9 +77,13 @@ that item start with a migration.
 one of them, so its validator in `app/core/constraints.py` was written against the live documents and
 verified with `python -m app.core.constraints --check` (ADR-0031).
 
-**The field is required, so it must exist on every live document before the image that requires it
-runs.** `scripts/backfill_inactive_since.sh` sets it to `null` across the six collections, and it is
-ordered before the deploy for that reason.
+**The field is required, so it had to exist on every live document before the image requiring it ran.**
+Setting it to `null` across the six collections is a one-off `updateMany` per collection, filtered on
+`{"$exists": false}` so it is idempotent and cannot overwrite a real date. It was run by hand against
+the live database **before** the deploy — the reverse order leaves a backend whose response models
+require a field the documents lack, and every read of a team, player, matchday, venue or referee
+returns 500. No migration tooling exists in this repository and none was added for it: a one-off that
+ships as a script is a permanent file with one day's purpose.
 
 ## Alternatives considered
 

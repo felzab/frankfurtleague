@@ -11,7 +11,6 @@ Operational scripts for building, testing, running and deploying Frankfurt-Leagu
 | `publish.sh`                   | dev — Windows | Build, tag with the commit, push to ghcr.io                      |
 | `deploy.sh`                    | prod — Linux  | Pull and restart, verify health, roll back                       |
 | `revalidate_reference_data.sh` | prod — Linux  | Drop the frontend cache for one reference resource               |
-| `backfill_inactive_since.sh`   | prod — Linux  | One-off: add `inactive_since` before the image that requires it  |
 | `selfcheck.sh`                 | any           | Test the scripts themselves                                      |
 | `_lib.sh`                      | —             | Shared helpers; sourced, never run directly                      |
 
@@ -365,43 +364,6 @@ The request runs inside the frontend container, because `/api/revalidate` is not
 and the API key is read from the container's own environment. The key never reaches your shell history.
 
 Forgetting to run it is not harmful; the cache expires within 24 hours regardless.
-
----
-
-## `backfill_inactive_since.sh` — add the field before the image that requires it
-
-> **Delete this script once it has run**, along with this section and its row in the table above. It is
-> a **migration**, not an operational tool — it belongs to one deploy and everything else in this
-> directory is recurring. `grep -rn backfill_inactive_since` finds every reference; there are three
-> files. Git history keeps it, which is where a completed migration belongs.
-
-```bash
-./scripts/backfill_inactive_since.sh            # report what would change, write nothing
-./scripts/backfill_inactive_since.sh --apply
-```
-
-**A one-off, and the ORDER matters.** `inactive_since` is required by the Pydantic models and by the
-`$jsonSchema` validators the backend applies on every boot
-([ADR-0032](../docs/_decisions/0032-soft-deletion-is-a-date-not-a-flag.md),
-[ADR-0027](../docs/_decisions/0027-the-database-enforces-its-own-invariants.md)). Deploying first gives
-you a backend that refuses to serve documents it has not been told about — every read of a team,
-player, matchday, venue or referee failing response validation at once. This is the "edit the data
-first, then deploy" case in [`../docs/workflows/README.md`](../docs/workflows/README.md).
-
-It touches six collections and is **idempotent**: it matches `{"inactive_since": {"$exists": false}}`,
-so a second run changes nothing and it can never overwrite a real retirement date. Nothing about the
-running site changes when you apply it — the deployed image does not read the field.
-
-Like the revalidation script, it runs inside the backend container, so `MONGODB_URI` is read from the
-container's own environment and never reaches your shell history.
-
-After the deploy, confirm the database agrees with the new validators:
-
-```bash
-docker compose exec -T backend python -m app.core.constraints --check
-```
-
-Exit 0 means clean. Run it from the **new** image — the deployed one does not know the field exists.
 
 ---
 

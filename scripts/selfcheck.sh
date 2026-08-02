@@ -27,7 +27,7 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-RUNNABLE=(local.sh verify.sh publish.sh deploy.sh revalidate_reference_data.sh backfill_inactive_since.sh)
+RUNNABLE=(local.sh verify.sh publish.sh deploy.sh revalidate_reference_data.sh)
 FAILURES=0
 note_fail() { warn "$*"; FAILURES=$(( FAILURES + 1 )); }
 
@@ -39,8 +39,7 @@ done
 step "2. Line endings are LF"
 # A shell script with CRLF fails outright on Linux:
 #   bash: ./deploy.sh: /usr/bin/env bash^M: bad interpreter: No such file or directory
-# deploy.sh, revalidate_reference_data.sh and backfill_inactive_since.sh RUN on the Linux server,
-# so this is not cosmetic.
+# deploy.sh and revalidate_reference_data.sh RUN on the Linux server, so this is not cosmetic.
 # .gitattributes (`* text=auto eol=lf`) means git stores LF and a fresh Linux checkout is safe, but a
 # file copied directly, or an editor writing CRLF, bypasses that. Windows tolerates CRLF, so this is
 # precisely the class of defect that is invisible on the machine that introduces it.
@@ -124,7 +123,7 @@ done
 step "7. Machine-specific scripts declare a target platform"
 # Only the scripts that MUST run on one machine. verify.sh and selfcheck.sh only read and build, so
 # pinning them to one OS would be an artificial restriction that also blocks CI.
-for f in local.sh publish.sh deploy.sh revalidate_reference_data.sh backfill_inactive_since.sh; do
+for f in local.sh publish.sh deploy.sh revalidate_reference_data.sh; do
   if grep -q "require_platform" "scripts/$f"; then info "$f"; else note_fail "$f has no require_platform guard"; fi
 done
 
@@ -132,7 +131,7 @@ step "8. Documented flags match accepted flags"
 # Catches drift between a script's --help header and its case statement. Compared by READING both,
 # never by running the script: an earlier version of this check invoked each flag for real, which
 # meant `local.sh --fresh` tore down the local stack as a side effect of a documentation test.
-for f in local.sh verify.sh publish.sh deploy.sh revalidate_reference_data.sh backfill_inactive_since.sh; do
+for f in local.sh verify.sh publish.sh deploy.sh revalidate_reference_data.sh; do
   # Header only: take the contiguous comment block and STOP at the first line of code. Reading a
   # fixed line range instead compared the code against itself, because the case statement fell
   # inside the range -- so the check passed while a genuinely undocumented flag was present.
