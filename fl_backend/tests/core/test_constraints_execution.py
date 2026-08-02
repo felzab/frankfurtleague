@@ -33,6 +33,7 @@ from app.core.constraints import (
     probe_collmod_privilege,
     probe_privileges,
     report_duplicates,
+    report_identity,
     report_violations,
 )
 
@@ -451,3 +452,34 @@ def test_the_check_mode_finds_what_the_validators_would_reject(mongo_container: 
     assert failing == 1
     assert len(examples) == 1
     assert duplicate_groups == 1
+
+
+def test_the_identity_report_names_the_user_and_its_roles(mongo_container: Any):
+    """
+    The instrument for "the role is right and on the wrong user", which no privilege probe can see.
+
+    A correct role attached to the wrong credential refuses exactly like a broken role, so the report
+    has to name who the server thinks it is talking to. Asserted against a user built for the purpose,
+    since the container's root user carries roles the test would have to hardcode.
+    """
+    username = f"named_{secrets.token_hex(4)}"
+    password = secrets.token_hex(16)
+
+    async def body(database: AsyncIOMotorDatabase) -> tuple[str, list[str]]:
+        await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
+        named = AsyncIOMotorClient(
+            host=mongo_container.get_container_host_ip(),
+            port=int(mongo_container.get_exposed_port(27017)),
+            username=username,
+            password=password,
+            authSource=DATABASE_NAME,
+        )
+        try:
+            return await report_identity(named[DATABASE_NAME])
+        finally:
+            named.close()
+            await database.command("dropUser", username)
+
+    identity, roles = on_a_database(mongo_container, body, constrained=False)
+    assert identity == username
+    assert f"readWrite@{DATABASE_NAME}" in roles

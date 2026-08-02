@@ -525,6 +525,27 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
     raise RuntimeError(f"'{target}' unexpectedly has an index named '{ABSENT_INDEX_NAME}'; the collMod probe must not modify anything.")
 
 
+async def report_identity(db: AsyncIOMotorDatabase) -> tuple[str, list[str]]:
+    """
+    Who the SERVER thinks this connection is, and which roles it actually carries.
+
+    Deliberately not how the privilege probes work: asking `connectionStatus` which roles you hold and
+    inferring what you may do requires knowing which role carries which action, which is the inference
+    those probes exist to avoid. This answers a different question -- whether the role you attached in
+    a dashboard reached the credential your application authenticates with -- and for that it is the
+    only direct instrument there is. A correct role on the wrong user looks identical to a broken role
+    from every other angle.
+
+    Requires no privileges of its own, which is what makes it usable exactly when nothing else is.
+    """
+    info = (await db.command("connectionStatus")).get("authInfo", {})
+
+    users = ", ".join(user.get("user", "?") for user in info.get("authenticatedUsers", []))
+    roles = [f"{role.get('role')}@{role.get('db')}" for role in info.get("authenticatedUserRoles", [])]
+
+    return users or "(not authenticated)", roles
+
+
 async def probe_read_privilege(db: AsyncIOMotorDatabase) -> str:
     """Whether this connection may `find`, asked with a count over a collection this module manages."""
     try:
@@ -640,6 +661,13 @@ async def _run(check: bool) -> int:
             return 0
 
         print(f"Database '{backend_config.db_base_name}', checked against {len(COLLECTION_VALIDATORS)} validators. Nothing is written.\n")
+
+        # Printed before the privileges, because a correct role attached to the wrong user produces
+        # exactly the same refusals as a role that does not work -- and only this line separates them.
+        # The username is not a secret; the password it pairs with is never read, printed or logged.
+        identity, roles = await report_identity(database)
+        print(f"  Authenticated as: {identity}")
+        print(f"  Roles the server sees: {', '.join(roles) or '(none)'}\n")
 
         print("  Privileges — every action this module needs, asked separately")
         privileges = await probe_privileges(database)
