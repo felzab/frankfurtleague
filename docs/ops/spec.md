@@ -123,6 +123,11 @@ The backend step exists because `pnpm verify` runs nothing against `fl_backend`,
 mirrors roughly forty backend validation constraints rather than enforcing them — so those constraints
 had no regression net at all. It needs the backend virtualenv (`cd fl_backend && uv sync --dev`).
 
+It runs the **default** test tier only. The `db`-marked tests need a `mongod`
+([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)) and deliberately stay
+out of the gate, so `--quick` needs no Docker daemon; they run in the `backend-db` CI job instead,
+concurrently with `verify` and therefore at no cost to how long a pull request waits.
+
 The image steps exist because code that compiles can still fail to build inside the image, or be
 omitted from the standalone output entirely.
 

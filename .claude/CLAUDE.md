@@ -119,6 +119,8 @@ Dev = Windows 11. Prod = Linux (bash/sh). Label every terminal command with its 
 
 ### Backend conventions
 
+- **A backend test that touches a database carries `@pytest.mark.db`, and the default suite deselects it.** `pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` is 250 cases in under half a second with no Docker daemon — which is what `./scripts/verify.sh` runs. `pytest -m db` runs the other tier, which starts a real `mongod` via testcontainers. Omit the marker and the test runs in the fast tier, where there is no container, and fails for a reason that looks unrelated; `--strict-markers` catches a misspelling but nothing catches an omission. Why: [ADR-0030](../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).
+
 - **A Pydantic field's default is passed by keyword — `Field(default=0, ge=0)`, never `Field(0, ge=0)`.** The two are identical to Pydantic and different to the type checker: Pyright reads a field specifier's default by argument name, so a positional one leaves it believing the field is required, and every construction omitting it is flagged in the editor while `ruff` and `pytest` stay green. There is no lint rule for this; it is the reason all seven `FLTeamStatistik` fields and all seven `limit` fields spell it out.
 
 ### Frontend conventions

@@ -1,13 +1,18 @@
 """
 `build_team_pipeline` — the derived league table (ADR-0026).
 
-The arithmetic itself runs inside MongoDB and this suite has no database, so what is pinned here is
-the set of RULES the pipeline encodes: which matches count, which phase they come from, where the
-points come from, and what a team with no matches is served. Those are the parts a later edit can get
-wrong silently — the aggregation would still run, and the table would just be a different table.
+What is pinned here is the set of RULES the pipeline encodes: which matches count, which phase they
+come from, where the points come from, and what a team with no matches is served. Those are the parts
+a later edit can get wrong silently — the aggregation would still run, and the table would just be a
+different table.
 
-Deliberately structural. A test asserting the exact stage list would fail on every harmless
-refactor; these locate the stage they care about by name and assert only the rule.
+Deliberately structural, and deliberately without a database. A test asserting the exact stage list
+would fail on every harmless refactor; these locate the stage they care about by name and assert only
+the rule.
+
+`test_teams_pipeline_execution.py` is the other half and does not replace this one: it runs the
+pipeline against a real `mongod` (ADR-0030). This file fails when a rule is DELETED — `is_canceled`
+reappearing, the phase filter vanishing — and that one fails when a rule is present but WRONG.
 """
 
 from typing import Any, Mapping

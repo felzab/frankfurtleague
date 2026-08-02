@@ -239,6 +239,10 @@ problems live.
 CI runs the same script — `.github/workflows/verify.yml`, `--quick` on pull requests and the full gate
 on pushes to `main`.
 
+That workflow carries a **second job**, `backend-db`, running the backend tests that need a real
+`mongod` ([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)). It is not part
+of `verify.sh` and runs concurrently, so it adds nothing to how long a pull request waits.
+
 > **`pnpm format` reaches outside `fl_frontend`, via a hardcoded list of paths.** It currently covers
 > `../docs`, `../scripts`, `../.claude`, `../.github`, `../README.md`, `../SECURITY.md`,
 > `../CONTRIBUTING.md` and both compose files. Moving, renaming or adding a root-level file therefore

@@ -15,7 +15,8 @@
 #   1. selfcheck.sh  — the scripts themselves (instant)
 #   2. pnpm verify   — formats, then types, lint, next build, unit tests
 #   3. pnpm audit:prod — runtime dependency advisories only
-#   4. ruff + pytest  — fl_backend lint and schema-constraint tests
+#   4. ruff + pytest  — fl_backend lint and the DEFAULT test tier (the db-marked tests need a
+#                       mongod and stay out, so this path needs no Docker — see ADR-0030)
 #   5. docker build  — BOTH images, which pnpm verify does not cover
 #   6. an image check — is instrumentation.js actually inside the frontend image?
 #
@@ -64,7 +65,7 @@ else
   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit --prod"
 fi
 
-step "fl_backend  (ruff + pytest)"
+step "fl_backend  (ruff + pytest, default tier)"
 _py="$(venv_python)"
 ( cd fl_backend && "$_py" -m ruff check app tests && "$_py" -m ruff format --check app tests )   || die "ruff failed in fl_backend. Fix with:  cd fl_backend && .venv/Scripts/python -m ruff format app tests"
 ( cd fl_backend && "$_py" -m pytest ) || die "fl_backend tests failed."
