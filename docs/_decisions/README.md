@@ -30,44 +30,45 @@ Thirty decisions. The first sixteen were extracted 2026-08-01 from material that
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
-| ADR                                                              | Title                                                              | Surface                | Status         | Date       |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------- | -------------- | ---------- |
-| [0001](0001-two-granular-cache-tags.md)                          | Keep two granular cache tags, delete twenty                        | frontend, backend      | Accepted       | 2026-07-29 |
-| [0002](0002-omitted-season-means-current.md)                     | An omitted `saison_id` means the current season                    | backend, frontend      | Accepted       | 2026-07-31 |
-| [0003](0003-no-barrel-files.md)                                  | No barrel files, anywhere                                          | frontend               | Accepted       | 2026-07-29 |
-| [0004](0004-optional-slice-modules.md)                           | `utils.ts` and `resolvers.ts` are sanctioned slice modules         | frontend               | Accepted       | 2026-07-29 |
-| [0005](0005-spiel-write-path-belongs-to-spiele.md)               | The Spiel write path belongs to `spiele`, not `admin`              | frontend               | Accepted       | 2026-07-31 |
-| [0006](0006-component-category-folders.md)                       | Component category folders, one extra level for forms              | frontend               | Accepted       | 2026-07-29 |
-| [0007](0007-three-spiel-cards-stay-separate.md)                  | Three Spiel cards stay three components                            | frontend               | Accepted       | 2026-07-29 |
-| [0008](0008-named-exports.md)                                    | Named exports; defaults only where Next.js requires                | frontend               | Accepted       | 2026-07-29 |
-| [0009](0009-connection-guards-every-data-fetch.md)               | `await connection()` guards every page data fetch                  | frontend, ops          | Accepted       | 2026-07-29 |
-| [0010](0010-authjs-owns-a-direct-mongoclient.md)                 | Auth.js owns a direct `MongoClient`                                | frontend               | Accepted       | 2026-07-29 |
-| [0011](0011-no-generatestaticparams.md)                          | No `generateStaticParams` on the dynamic segments                  | frontend, ops          | Accepted       | 2026-07-29 |
-| [0012](0012-admin-is-an-aggregator-slice.md)                     | `admin` is an aggregator; cross-feature lints must be scoped       | frontend               | Accepted       | 2026-07-29 |
-| [0013](0013-admin-action-required-uncached.md)                   | `getAdminSpieleActionRequired` is deliberately uncached            | frontend               | Accepted       | 2026-07-29 |
-| [0014](0014-keep-the-system-endpoints.md)                        | Keep the unused system endpoints and their API key                 | frontend, backend, ops | Accepted       | 2026-07-29 |
-| [0015](0015-backend-triggered-revalidation-route.md)             | Backend-triggered revalidation through an in-network route         | frontend, ops          | Accepted       | 2026-07-30 |
-| [0016](0016-single-enforced-csp.md)                              | One enforced CSP, with `react/no-danger` as the control            | ops, frontend          | Accepted       | 2026-07-30 |
-| [0017](0017-ghcr-two-public-packages.md)                         | ghcr.io, two public packages, one per service                      | ops                    | Accepted       | 2026-08-01 |
-| [0018](0018-no-meta-keywords.md)                                 | Ship no `keywords` meta tag                                        | frontend               | Accepted       | 2026-08-01 |
-| [0019](0019-per-component-heroui-css.md)                         | HeroUI CSS imported per component, not as one entry point          | frontend               | Accepted       | 2026-08-01 |
-| [0020](0020-no-react-compiler.md)                                | Do not enable the React Compiler                                   | frontend               | Accepted       | 2026-07-31 |
-| [0021](0021-static-assets-reach-the-edge-uncompressed.md)        | Static assets reach the edge uncompressed                          | ops, frontend          | **Superseded** | 2026-08-01 |
-| [0022](0022-origin-keeps-compressing.md)                         | The origin keeps compressing; the edge does not do it better       | ops, frontend          | Accepted       | 2026-08-01 |
-| [0023](0023-admin-only-css-split.md)                             | Admin-only component CSS ships in its own stylesheet               | frontend               | Accepted       | 2026-08-01 |
-| [0024](0024-immutable-only-for-hashed-urls.md)                   | `immutable` is only for content-hashed URLs                        | frontend, ops          | Accepted       | 2026-08-02 |
-| [0025](0025-fluid-type-scale-outside-the-text-namespace.md)      | The fluid type scale lives outside Tailwind's `--text-*` namespace | frontend               | Accepted       | 2026-08-02 |
-| [0026](0026-team-statistics-are-derived-from-spiele.md)          | Team statistics are derived from `spiele`, never stored            | backend, frontend      | Accepted       | 2026-08-02 |
-| [0027](0027-the-database-enforces-its-own-invariants.md)         | The database enforces its own invariants                           | backend, ops           | Accepted       | 2026-08-02 |
-| [0028](0028-store-what-was-true-then-derive-what-is-true-now.md) | Store what was true then; derive what is true now                  | backend, frontend      | Accepted       | 2026-08-02 |
-| [0029](0029-the-league-table-counts-the-gruppenphase.md)         | The league table counts the Gruppenphase, and that is the default  | backend, frontend      | Accepted       | 2026-08-02 |
-| [0030](0030-a-real-mongod-behind-a-deselected-marker.md)         | Pipelines are tested against a real `mongod`, behind a marker      | backend, ops           | Accepted       | 2026-08-02 |
+| ADR                                                                   | Title                                                              | Surface                | Status         | Date       |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------- | -------------- | ---------- |
+| [0001](0001-two-granular-cache-tags.md)                               | Keep two granular cache tags, delete twenty                        | frontend, backend      | Accepted       | 2026-07-29 |
+| [0002](0002-omitted-season-means-current.md)                          | An omitted `saison_id` means the current season                    | backend, frontend      | Accepted       | 2026-07-31 |
+| [0003](0003-no-barrel-files.md)                                       | No barrel files, anywhere                                          | frontend               | Accepted       | 2026-07-29 |
+| [0004](0004-optional-slice-modules.md)                                | `utils.ts` and `resolvers.ts` are sanctioned slice modules         | frontend               | Accepted       | 2026-07-29 |
+| [0005](0005-spiel-write-path-belongs-to-spiele.md)                    | The Spiel write path belongs to `spiele`, not `admin`              | frontend               | Accepted       | 2026-07-31 |
+| [0006](0006-component-category-folders.md)                            | Component category folders, one extra level for forms              | frontend               | Accepted       | 2026-07-29 |
+| [0007](0007-three-spiel-cards-stay-separate.md)                       | Three Spiel cards stay three components                            | frontend               | Accepted       | 2026-07-29 |
+| [0008](0008-named-exports.md)                                         | Named exports; defaults only where Next.js requires                | frontend               | Accepted       | 2026-07-29 |
+| [0009](0009-connection-guards-every-data-fetch.md)                    | `await connection()` guards every page data fetch                  | frontend, ops          | Accepted       | 2026-07-29 |
+| [0010](0010-authjs-owns-a-direct-mongoclient.md)                      | Auth.js owns a direct `MongoClient`                                | frontend               | Accepted       | 2026-07-29 |
+| [0011](0011-no-generatestaticparams.md)                               | No `generateStaticParams` on the dynamic segments                  | frontend, ops          | Accepted       | 2026-07-29 |
+| [0012](0012-admin-is-an-aggregator-slice.md)                          | `admin` is an aggregator; cross-feature lints must be scoped       | frontend               | Accepted       | 2026-07-29 |
+| [0013](0013-admin-action-required-uncached.md)                        | `getAdminSpieleActionRequired` is deliberately uncached            | frontend               | Accepted       | 2026-07-29 |
+| [0014](0014-keep-the-system-endpoints.md)                             | Keep the unused system endpoints and their API key                 | frontend, backend, ops | Accepted       | 2026-07-29 |
+| [0015](0015-backend-triggered-revalidation-route.md)                  | Backend-triggered revalidation through an in-network route         | frontend, ops          | Accepted       | 2026-07-30 |
+| [0016](0016-single-enforced-csp.md)                                   | One enforced CSP, with `react/no-danger` as the control            | ops, frontend          | Accepted       | 2026-07-30 |
+| [0017](0017-ghcr-two-public-packages.md)                              | ghcr.io, two public packages, one per service                      | ops                    | Accepted       | 2026-08-01 |
+| [0018](0018-no-meta-keywords.md)                                      | Ship no `keywords` meta tag                                        | frontend               | Accepted       | 2026-08-01 |
+| [0019](0019-per-component-heroui-css.md)                              | HeroUI CSS imported per component, not as one entry point          | frontend               | Accepted       | 2026-08-01 |
+| [0020](0020-no-react-compiler.md)                                     | Do not enable the React Compiler                                   | frontend               | Accepted       | 2026-07-31 |
+| [0021](0021-static-assets-reach-the-edge-uncompressed.md)             | Static assets reach the edge uncompressed                          | ops, frontend          | **Superseded** | 2026-08-01 |
+| [0022](0022-origin-keeps-compressing.md)                              | The origin keeps compressing; the edge does not do it better       | ops, frontend          | Accepted       | 2026-08-01 |
+| [0023](0023-admin-only-css-split.md)                                  | Admin-only component CSS ships in its own stylesheet               | frontend               | Accepted       | 2026-08-01 |
+| [0024](0024-immutable-only-for-hashed-urls.md)                        | `immutable` is only for content-hashed URLs                        | frontend, ops          | Accepted       | 2026-08-02 |
+| [0025](0025-fluid-type-scale-outside-the-text-namespace.md)           | The fluid type scale lives outside Tailwind's `--text-*` namespace | frontend               | Accepted       | 2026-08-02 |
+| [0026](0026-team-statistics-are-derived-from-spiele.md)               | Team statistics are derived from `spiele`, never stored            | backend, frontend      | Accepted       | 2026-08-02 |
+| [0027](0027-the-database-enforces-its-own-invariants.md)              | The database enforces its own invariants                           | backend, ops           | Accepted       | 2026-08-02 |
+| [0028](0028-store-what-was-true-then-derive-what-is-true-now.md)      | Store what was true then; derive what is true now                  | backend, frontend      | Accepted       | 2026-08-02 |
+| [0029](0029-the-league-table-counts-the-gruppenphase.md)              | The league table counts the Gruppenphase, and that is the default  | backend, frontend      | Accepted       | 2026-08-02 |
+| [0030](0030-a-real-mongod-behind-a-deselected-marker.md)              | Pipelines are tested against a real `mongod`, behind a marker      | backend, ops           | Accepted       | 2026-08-02 |
+| [0031](0031-the-third-copy-of-the-schema-is-checked-not-generated.md) | The third copy of the schema is checked by a test, not generated   | backend                | Accepted       | 2026-08-02 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · 0017 · 0021 ·
-0022 · 0024 · 0027 · 0030 · frontend: all except 0017, 0027 and 0030.
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · 0017 ·
+0021 · 0022 · 0024 · 0027 · 0030 · frontend: all except 0017, 0027, 0030 and 0031.
 
 ## Considered, and deliberately not made an ADR
 

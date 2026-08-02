@@ -399,6 +399,26 @@ Those three resources have no write path, are cached for a day, and nothing inva
 automatically. Forgetting is not harmful — the cache expires within 24 hours regardless.
 See [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md).
 
+### Before deploying a change to the database's constraints
+
+```bash
+cd fl_backend && .venv/Scripts/python -m app.core.constraints --check
+```
+
+Dev (Windows; on the server it is `python -m app.core.constraints --check` inside the backend
+container). Writes nothing. It reports every document the validators would reject, every key group that
+would stop a unique index building, and whether the database user may run `collMod` at all — which
+`readWrite` and `readWriteAnyDatabase` do not grant, though both grant `createIndex`.
+
+Run it whenever `fl_backend/app/core/constraints.py` changes, because the constraints are reapplied on
+**every boot** and **a failure is fatal**
+([ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)). A validator that no longer
+matches the data does not degrade the service; it stops the container coming up, and nginx then waits
+on a health check that never passes. Exit 0 means clean.
+
+`--apply` does the same work startup does, which is how to put a corrected constraint in place without
+waiting for a deploy.
+
 ### After changing anything about the brand mark
 
 ```bash

@@ -59,6 +59,28 @@ rather than reached for directly.
 re-raises anything that fails. This is intentional: a container that starts without a database is a
 container that serves errors, and the healthcheck would rather it never come up.
 
+**It also crashes if the database's own constraints cannot be applied**, which happens in the same
+place immediately after the ping. `core/constraints.py` declares a `$jsonSchema` validator for each of
+the nine collections and four unique indexes, and reapplies all of them on every boot
+([ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)) — so the cluster can never
+hold a set this repository does not describe, and a constraint survives a restore. Three reference
+resources are still edited by hand in Compass (BE-4), which is the whole reason the rules live where
+the hand-edit lands rather than only in Pydantic.
+
+Two things about that module are easy to get wrong:
+
+- **The validators are a hand-written third copy of the schema, and that is deliberate**
+  ([ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md)). Generating
+  them from the Pydantic models types every ObjectId reference as a string, because `CustomObjectId`
+  emits a bare `{"type": "string"}` in JSON mode (BE-6) — which would bless the exact defect the
+  validators exist to refuse. A default-tier test compares the two copies field-by-field instead, so a
+  model changed without its validator fails `./scripts/verify.sh` naming the field.
+- **The database user needs `collMod`**, a `dbAdmin` action that `readWrite` and
+  `readWriteAnyDatabase` do not carry — though both do carry `createIndex`, so the indexes build and
+  the validators do not. Run `python -m app.core.constraints --check` to see the answer, along with
+  every document the validators would reject and every key group that would stop an index building. It
+  writes nothing, and it is what to run before deploying a change to that file.
+
 All raw database access goes through six helpers in `core/crud.py`. One of them carries a trap worth
 knowing before you read any write code: **`patch_one_in_db` returns the document as it was _before_ the
 update** — its `return_document` defaults to `ReturnDocument.BEFORE`. The venue and referee patches
@@ -84,14 +106,16 @@ and document not found (404).
 `fl_backend/tests/` runs in **two tiers** since
 [ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).
 
-The **default tier** is **250 cases** under parametrisation and finishes in about 0.4 seconds. It
+The **default tier** is **294 cases** under parametrisation and finishes in about 0.4 seconds. It
 tests **schema constraints** — that the models reject what they should — plus the rules encoded in
-`build_team_pipeline`, and needs no running server, no database and no Docker.
+`build_team_pipeline` and the database constraints read as data, and needs no running server, no
+database and no Docker.
 
-The **`db` tier** is **21 cases** carrying `@pytest.mark.db`, deselected by default and run with
-`pytest -m db`. They start a real `mongod` and execute the league-table pipeline against a seeded
-corpus, because a pipeline is a dict MongoDB runs — the default tier can prove the dict says the
-right thing and only an engine proves the right thing comes back.
+The **`db` tier** is **52 cases** carrying `@pytest.mark.db`, deselected by default and run with
+`pytest -m db`. They start a real `mongod` and execute two things the default tier can only describe:
+the league-table pipeline against a seeded corpus, because a pipeline is a dict MongoDB runs; and the
+`$jsonSchema` validators, because `required` inside a nullable sub-schema, and `bsonType: "int"` faced
+with a `80.0`, both behave in ways worth measuring rather than assuming.
 
 Tests live in a separate `tests/` tree rather than beside the code, unlike the frontend. That is
 Python's convention and it has a reason: a `tests` package inside `app/` would be importable as

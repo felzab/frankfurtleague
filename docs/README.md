@@ -11,7 +11,7 @@ Docker Compose behind nginx on a single host.
 | ------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Understand a part of the system                                     | the **overview** for that surface                                  |
 | Look up an exact contract, or check whether something is still true | the **spec** for that surface                                      |
-| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — 28 ADRs                             |
+| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — 31 ADRs                             |
 | Branch, commit, open a PR, or deploy                                | [`workflows/`](workflows/)                                         |
 | Write a commit message, a PR or an issue                            | [`workflows/message-templates.md`](workflows/message-templates.md) |
 | Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)                                       |
@@ -30,7 +30,7 @@ confidently:
 2. **The three surface overviews** — [frontend](frontend/overview.md),
    [backend](backend/overview.md), [ops](ops/overview.md). What each part is and why it is shaped that
    way.
-3. **The [ADR index](_decisions/README.md)** — twenty-eight one-line summaries. This is the fastest
+3. **The [ADR index](_decisions/README.md)** — thirty-one one-line summaries. This is the fastest
    available answer to "why is it like this", and the reason you will not re-litigate settled
    questions.
 4. **[`workflows/`](workflows/)** — how to actually ship a change, and the message templates.
@@ -64,12 +64,11 @@ here.
 
 Recorded while documenting, deliberately not acted on. Full analyses: [`roadmap/open-items.md`](roadmap/open-items.md).
 
-| #        | Finding                                                                                                               | Severity                                                                                                                                                                          |
-| -------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DB-2** | No collection has a validator and no index exists beyond `_id`, on a database three resources are edited into by hand | **High.** Measured 2026-08-02; two `saison_spieler` rows are already malformed. Decided in [ADR-0027](_decisions/0027-the-database-enforces-its-own-invariants.md), not yet built |
-| F1       | `ausstehend` means "today or later" on the server and "later than today" on the client                                | Question of intent, not a bug                                                                                                                                                     |
-| F2       | The Pydantic and Zod models are hand-mirrored, with no generation step                                                | Accepted risk                                                                                                                                                                     |
-| F7       | The landing page's season badge is hardcoded, so it goes stale at the rollover                                        | Cosmetic, but fails silently                                                                                                                                                      |
+| #   | Finding                                                                                | Severity                      |
+| --- | -------------------------------------------------------------------------------------- | ----------------------------- |
+| F1  | `ausstehend` means "today or later" on the server and "later than today" on the client | Question of intent, not a bug |
+| F2  | The Pydantic and Zod models are hand-mirrored, with no generation step                 | Accepted risk                 |
+| F7  | The landing page's season badge is hardcoded, so it goes stale at the rollover         | Cosmetic, but fails silently  |
 
 Resolved findings are not listed here — they are rows in
 [`roadmap/closed-items.md`](roadmap/closed-items.md), each naming the commit that closed it. F4, the
@@ -77,7 +76,7 @@ league table a result edit did not move, is the most recent.
 
 ## Also here
 
-- [`_decisions/`](_decisions/) — **28 ADRs**, one per architectural decision, append-only. Start at its
+- [`_decisions/`](_decisions/) — **31 ADRs**, one per architectural decision, append-only. Start at its
   [index](_decisions/README.md); it is the fastest summary of why the codebase is shaped as it is.
 - [`_auditing/`](_auditing/) — how audit programmes are run: methodology, lessons, prompt library,
   templates, and the permanent [final reports](_auditing/reports/) of completed programmes

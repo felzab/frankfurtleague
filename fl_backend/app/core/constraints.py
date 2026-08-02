@@ -1,0 +1,609 @@
+"""
+CORE · database constraints
+
+The nine `$jsonSchema` validators and the four unique indexes the database enforces on itself, plus the
+routine that applies them on every boot (ADR-0027). Declared here rather than clicked into the Atlas
+console, so they are versioned, reviewable in a diff, and restored with the cluster.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • The validators assert BSON TYPES, REQUIRED FIELDS and the enumerations that are already `Literal`s
+    in the Pydantic models -- and nothing else. No ranges, no patterns, no lengths, no cross-field
+    rules: those stay Pydantic's, and a second copy of them would triple the drift surface F2 already
+    warns about. The line is drawn there because those three are the constraints whose violation is
+    SILENT; a bad range or a bad length fails Pydantic loudly on the very next read.
+  • `additionalProperties` is never `false`. Forbidding unknown keys would turn every future field
+    addition into a deploy-ordering problem between this file and the writer of that field, and
+    Pydantic ignores extra keys on read for the same reason.
+  • Applying is IDEMPOTENT. `collMod` overwrites the validator with the one declared here, so this file
+    is the source of truth rather than whatever the cluster happens to hold.
+  • Nothing is ever REMOVED. An index this module stops declaring stays until it is dropped by hand,
+    because dropping one automatically would let a bad merge silently switch off a uniqueness rule.
+  • Startup FAILS LOUDLY if any of it cannot be applied. A skipped validator is a database that
+    quietly stopped enforcing what this repository claims it enforces, which is worse than no
+    validator at all.
+  • A `unique` index cannot be built over data that already violates it. `--check` reports both kinds
+    of violation without writing anything, and is what to run BEFORE deploying a change to this file.
+
+ THE DATABASE USER NEEDS `collMod` ────────────────────────────────────────────────────────────────────────
+
+  `collMod` is a `dbAdmin` action. `readWrite` and `readWriteAnyDatabase` do not carry it -- and both DO
+  carry `createIndex`, so a user can build all four indexes here and still be unable to attach a single
+  validator. `--check` answers this by running an actual `collMod`, because reading the role list is
+  indirect and running the command is not. It aims at a namespace that does not exist, so the answer
+  costs no write at all: see `probe_collmod_privilege`.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/_decisions/0027-the-database-enforces-its-own-invariants.md -- the decision and what it rejected
+  docs/backend/spec.md -- the invariants these second-guess
+"""
+
+import argparse
+import asyncio
+from dataclasses import dataclass
+from typing import Any, Mapping, Sequence
+
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo import ASCENDING
+from pymongo.errors import OperationFailure
+
+# `collMod` against a collection that does not exist. Handled rather than re-raised in two places, for
+# two different reasons: a fresh database has no collections and creating them with the validator
+# already attached reaches the same end state, and the privilege probe below uses this code as its
+# "yes".
+NAMESPACE_NOT_FOUND = 26
+
+# "You are authenticated and may not do this", as distinct from the codes below.
+UNAUTHORIZED = 13
+
+# "We do not know who you are." 18 is the driver-level code; 8000 is what Atlas returns for a rejected
+# SCRAM credential, and it arrives as a generic AtlasError, so matching on the code is the only way to
+# tell it apart from an authorization failure.
+AUTHENTICATION_FAILED = frozenset({18, 8000})
+
+# Aimed at by the privilege probe, and deliberately NEVER created. The probe answers its question from
+# whether the command is refused for authorization or for a missing namespace, so `--check` writes
+# nothing whatsoever -- which is what makes it safe to point at production.
+ABSENT_COLLECTION_NAME = "__fl_constraints_probe"
+
+_STRING_OR_NULL = ["string", "null"]
+_INT_OR_NULL = ["int", "null"]
+
+# The three enumerations that are already closed sets in Python. Spelled out rather than derived from
+# the `Literal`s: importing the models here would make this module depend on every API slice, and the
+# values are stored strings whose spelling is the contract.
+_SAISON_PHASEN = ["gruppenphase", "viertelfinale", "halbfinale", "finale"]
+_SAISON_STATUS = ["past", "active", "future"]
+_GRUPPEN = ["A", "B", "C", "D"]
+
+
+def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
+    """
+    One object sub-schema.
+
+    `nullable` widens the `bsonType` rather than wrapping the whole thing in an `anyOf`, which works
+    because MongoDB applies `required` and `properties` only when the value actually is an object. So a
+    match with no venue satisfies a schema that names four required keys inside `ort`.
+    """
+    return {
+        "bsonType": ["object", "null"] if nullable else "object",
+        "required": list(required),
+        "properties": dict(properties),
+    }
+
+
+_ADDRESS = _object(
+    required=("strasse", "hausnummer", "plz", "stadtteil", "stadt"),
+    properties={
+        "strasse": {"bsonType": "string"},
+        # Both of these carry a pattern in FLAddress -- `hausnummer` may be empty, `plz` is five
+        # digits -- and neither is repeated here. A malformed postcode is a wrong value, not a
+        # structurally broken document, and Pydantic already refuses it at the boundary.
+        "hausnummer": {"bsonType": "string"},
+        "plz": {"bsonType": "string"},
+        "stadtteil": {"bsonType": "string"},
+        "stadt": {"bsonType": "string"},
+    },
+)
+
+_KONTAKT = _object(
+    required=("telefon", "email"),
+    properties={"telefon": {"bsonType": _STRING_OR_NULL}, "email": {"bsonType": _STRING_OR_NULL}},
+)
+
+_SPIEL_TEAM_FIELD = _object(
+    required=("team_id", "name", "tore", "shorthand"),
+    properties={
+        "team_id": {"bsonType": "objectId"},
+        # NOT a copy of `teams.name`: on the playoff matches it carries a bracket slot label
+        # ("Sieger 25.") that exists nowhere else in the database (ADR-0028, open item BE-9).
+        "name": {"bsonType": "string"},
+        "tore": {"bsonType": _INT_OR_NULL},
+        "shorthand": {"bsonType": "string"},
+    },
+)
+
+_SPIEL_ORT_FIELD = _object(
+    nullable=True,
+    required=("spielort_id", "name", "maps_link", "mietpreis"),
+    properties={
+        "spielort_id": {"bsonType": "objectId"},
+        "name": {"bsonType": "string"},
+        "maps_link": {"bsonType": "string"},
+        # The one line here that catches a defect already in the data rather than a hypothetical one.
+        # The same rent is stored as an int by the admin form and as a double when typed in by hand;
+        # every double value is integral, so Pydantic accepts them all and nothing has ever looked
+        # wrong. "int" refuses the next one.
+        "mietpreis": {"bsonType": "int"},
+    },
+)
+
+_SPIEL_SCHIEDSRICHTER_FIELD = _object(
+    nullable=True,
+    required=("schiedsrichter_id", "name", "payment"),
+    properties={
+        "schiedsrichter_id": {"bsonType": "objectId"},
+        "name": {"bsonType": "string"},
+        "payment": {"bsonType": "int"},
+    },
+)
+
+
+COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
+    "saisons": {
+        "$jsonSchema": _object(
+            required=("_id", "start_date", "end_date", "status", "rules"),
+            properties={
+                # FLSaison.id is exactly four characters, and this deliberately does not say so.
+                # ADR-0027 scopes these validators to types, presence and enums -- and a five-character
+                # id fails FLSaison on the next read of the current season, which is loud and immediate.
+                # The defects a validator is here for are the ones nothing announces.
+                "_id": {"bsonType": "string"},
+                "start_date": {"bsonType": "string"},
+                "end_date": {"bsonType": "string"},
+                "status": {"bsonType": "string", "enum": _SAISON_STATUS},
+                # Exactly one season is `active`, and no validator can express that. It stays BE-4's
+                # to enforce when the season write path is built.
+                "rules": _object(
+                    required=("win_points", "draw_points"),
+                    properties={"win_points": {"bsonType": "int"}, "draw_points": {"bsonType": "int"}},
+                ),
+            },
+        )
+    },
+    "teams": {
+        "$jsonSchema": _object(
+            # `gruppe`, `is_disqualified` and `statistik` are absent because a team document does not
+            # carry them: the first two are season-scoped and live on `saison_teams`, and the third is
+            # derived from `spiele` on every read and stored nowhere (ADR-0026).
+            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "is_placeholder", "address"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "name": {"bsonType": "string"},
+                "shorthand": {"bsonType": "string"},
+                "description": {"bsonType": "string"},
+                "full_name": {"bsonType": "string"},
+                "website_url": {"bsonType": "string"},
+                "is_placeholder": {"bsonType": "bool"},
+                "address": _ADDRESS,
+            },
+        )
+    },
+    "saison_teams": {
+        "$jsonSchema": _object(
+            # Transcribed from the documents, not from a model: this junction is the one collection
+            # with no Pydantic model of its own. The four fields are what the team pipeline reads, and
+            # there is no `statistik` -- that was unset from all 17 rows on 2026-08-02 (ADR-0026).
+            required=("_id", "saison_id", "team_id", "gruppe", "is_disqualified"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                "team_id": {"bsonType": "objectId"},
+                "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
+                # A bare boolean today. FB-2 replaces it with an embedded record carrying a reason and
+                # a date, and this line is what has to change with it.
+                "is_disqualified": {"bsonType": "bool"},
+            },
+        )
+    },
+    "spieler": {
+        "$jsonSchema": _object(
+            # Two fields and a name. Everything else a squad list shows -- team, number, stufe,
+            # position -- is season-scoped and lives on `saison_spieler`.
+            required=("_id", "vorname", "nachname"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "vorname": {"bsonType": "string"},
+                "nachname": {"bsonType": _STRING_OR_NULL},
+            },
+        )
+    },
+    "saison_spieler": {
+        "$jsonSchema": _object(
+            required=("_id", "spieler_id", "saison_id", "team_id", "is_nachgetragen", "stufe", "position", "nummer"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "spieler_id": {"bsonType": "objectId"},
+                "saison_id": {"bsonType": "string"},
+                # The field that motivated ADR-0027. Two rows hold the team's `full_name` as a string
+                # instead of this reference: unique, well-formed, and wrong.
+                "team_id": {"bsonType": "objectId"},
+                "is_nachgetragen": {"bsonType": "bool"},
+                # Typed, not enumerated. Both are free text and have already split -- `Sturm` and
+                # `Angriff` name the same position in the live data -- so a closed set here would
+                # reject rows that exist. FB-3 is where they become one, in the same change that
+                # normalises the strays.
+                "stufe": {"bsonType": _STRING_OR_NULL},
+                "position": {"bsonType": _STRING_OR_NULL},
+                # A STRING, not an int. Squad numbers are worn, not counted.
+                "nummer": {"bsonType": _STRING_OR_NULL},
+            },
+        )
+    },
+    "spiele": {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "team1",
+                "team2",
+                "datum",
+                "uhrzeit",
+                "ort",
+                "schiedsrichter",
+                "ergebnis",
+                "spieltag_id",
+                "spiel_nr",
+                "is_canceled",
+                "saison_phase",
+                "saison_id",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "team1": _SPIEL_TEAM_FIELD,
+                "team2": _SPIEL_TEAM_FIELD,
+                "datum": {"bsonType": _STRING_OR_NULL},
+                "uhrzeit": {"bsonType": _STRING_OR_NULL},
+                "ort": _SPIEL_ORT_FIELD,
+                "schiedsrichter": _SPIEL_SCHIEDSRICHTER_FIELD,
+                # "Tore:Tore" or null, and the pattern that says so is FLSpiel's. A malformed
+                # `ergebnis` is caught on read; a `42` where a string belongs is not.
+                "ergebnis": {"bsonType": _STRING_OR_NULL},
+                "spieltag_id": {"bsonType": "objectId"},
+                "spiel_nr": {"bsonType": "int"},
+                "is_canceled": {"bsonType": "bool"},
+                "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
+                "saison_id": {"bsonType": "string"},
+            },
+        )
+    },
+    "spieltage": {
+        "$jsonSchema": _object(
+            required=("_id", "name", "beginn", "ende", "anzahl_spiele", "order_val", "saison_phase", "saison_id"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "name": {"bsonType": "string"},
+                "beginn": {"bsonType": "string"},
+                "ende": {"bsonType": "string"},
+                # A stored count of something countable, maintained by hand. Recorded as the obvious
+                # second candidate for ADR-0026's treatment and deliberately not decided; typing it
+                # here neither blesses nor blocks that.
+                "anzahl_spiele": {"bsonType": "int"},
+                # What the bracket orders by. Not `beginn` -- matchdays routinely share dates.
+                "order_val": {"bsonType": "int"},
+                "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
+                "saison_id": {"bsonType": "string"},
+            },
+        )
+    },
+    "spielorte": {
+        "$jsonSchema": _object(
+            required=("_id", "name", "address", "maps_link", "default_mietpreis", "is_inactive"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "name": {"bsonType": "string"},
+                "address": _ADDRESS,
+                # Free text searched on Google Maps, not a URL, so there is no scheme to check here or
+                # in FLSpielort.
+                "maps_link": {"bsonType": "string"},
+                "default_mietpreis": {"bsonType": "int"},
+                "is_inactive": {"bsonType": "bool"},
+            },
+        )
+    },
+    "schiedsrichter": {
+        "$jsonSchema": _object(
+            required=("_id", "name", "schule", "default_payment", "kontakt", "is_inactive"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "name": {"bsonType": "string"},
+                "schule": {"bsonType": _STRING_OR_NULL},
+                "default_payment": {"bsonType": "int"},
+                # Both halves are null on every referee today. That is personal data, so unused is the
+                # safe state -- the shape is required to be present, never to be filled in.
+                "kontakt": _KONTAKT,
+                "is_inactive": {"bsonType": "bool"},
+            },
+        )
+    },
+}
+
+
+@dataclass(frozen=True)
+class UniqueIndex:
+    """One uniqueness rule. `rule` exists so a failed build says which rule broke, not which keys."""
+
+    collection: str
+    name: str
+    keys: tuple[str, ...]
+    rule: str
+
+
+# The four rules that are true in the data and were enforced by nobody. Indexes for query performance
+# are deliberately absent: the whole database is about 130 KB, so one would be theatre with a
+# maintenance cost (ADR-0027).
+UNIQUE_INDEXES: Sequence[UniqueIndex] = (
+    UniqueIndex("saison_teams", "uniq_saison_id_team_id", ("saison_id", "team_id"), "one junction row per team per season"),
+    UniqueIndex("saison_spieler", "uniq_spieler_id_saison_id", ("spieler_id", "saison_id"), "one junction row per player per season"),
+    UniqueIndex("spiele", "uniq_saison_id_spiel_nr", ("saison_id", "spiel_nr"), "a spiel_nr identifies one match within a season"),
+    UniqueIndex("teams", "uniq_shorthand", ("shorthand",), "a shorthand identifies exactly one team"),
+)
+
+
+@dataclass(frozen=True)
+class ConstraintSummary:
+    """What `apply_constraints` got through, for the one startup log line that reports it."""
+
+    validators: int
+    indexes: int
+
+
+async def _apply_validator(db: AsyncIOMotorDatabase, collection_name: str, validator: Mapping[str, Any]) -> None:
+    command = {
+        "collMod": collection_name,
+        "validator": validator,
+        # strict, so the rules also apply to an UPDATE of an already-stored document. "moderate"
+        # exempts documents that do not currently validate, which is precisely the set worth catching.
+        "validationLevel": "strict",
+        # error, not warn. A warning goes to a server log nobody reads and the write lands anyway.
+        "validationAction": "error",
+    }
+    try:
+        await db.command(command)
+    except OperationFailure as failure:
+        if failure.code == NAMESPACE_NOT_FOUND:
+            await db.create_collection(collection_name, validator=validator, validationLevel="strict", validationAction="error")
+            return
+        raise RuntimeError(f"Could not apply the validator for '{collection_name}': {failure}") from failure
+
+
+async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
+    """
+    Apply every validator and unique index to `db`, replacing whatever is there.
+
+    Safe on every boot: `collMod` overwrites the validator with the declared one, and `create_index` is
+    a no-op for an index that already matches. Raises on the FIRST failure with the collection named --
+    there is no partial-success path, because a database enforcing eight of nine validators looks
+    exactly like one enforcing all nine.
+    """
+    for collection_name, validator in COLLECTION_VALIDATORS.items():
+        await _apply_validator(db, collection_name, validator)
+
+    for index in UNIQUE_INDEXES:
+        try:
+            await db[index.collection].create_index([(key, ASCENDING) for key in index.keys], name=index.name, unique=True)
+        except OperationFailure as failure:
+            raise RuntimeError(f"Could not build unique index '{index.collection}.{index.name}' ({index.rule}): {failure}") from failure
+
+    return ConstraintSummary(validators=len(COLLECTION_VALIDATORS), indexes=len(UNIQUE_INDEXES))
+
+
+@dataclass(frozen=True)
+class ViolationReport:
+    """One collection's answer to "how many documents would the validator refuse?"."""
+
+    collection: str
+    total: int
+    failing: int
+    examples: list[Any]
+
+
+@dataclass(frozen=True)
+class DuplicateReport:
+    """One index's answer to "how many key groups would stop this from building?"."""
+
+    index: UniqueIndex
+    groups: int
+    examples: list[Any]
+
+
+async def report_violations(db: AsyncIOMotorDatabase) -> list[ViolationReport]:
+    """
+    Count the documents each validator would reject, writing nothing.
+
+    `$jsonSchema` is a query operator as well as a validator, so `$nor` over the very same document is
+    the rule read backwards. That makes this an exact preview rather than an approximation of one.
+    """
+    reports: list[ViolationReport] = []
+
+    for collection_name, validator in COLLECTION_VALIDATORS.items():
+        collection = db[collection_name]
+        failing_filter = {"$nor": [validator]}
+
+        reports.append(
+            ViolationReport(
+                collection=collection_name,
+                total=await collection.count_documents({}),
+                failing=await collection.count_documents(failing_filter),
+                examples=[doc["_id"] for doc in await collection.find(failing_filter, {"_id": 1}).limit(5).to_list(length=5)],
+            )
+        )
+
+    return reports
+
+
+async def report_duplicates(db: AsyncIOMotorDatabase) -> list[DuplicateReport]:
+    """Count the key groups that would make each unique index fail to build, writing nothing."""
+    reports: list[DuplicateReport] = []
+
+    for index in UNIQUE_INDEXES:
+        offenders: list[Mapping[str, Any]] = [
+            {"$group": {"_id": {key: f"${key}" for key in index.keys}, "n": {"$sum": 1}}},
+            {"$match": {"n": {"$gt": 1}}},
+        ]
+        counted = await db[index.collection].aggregate([*offenders, {"$count": "groups"}]).to_list(length=1)
+        examples = await db[index.collection].aggregate([*offenders, {"$limit": 5}]).to_list(length=5)
+
+        reports.append(
+            DuplicateReport(
+                index=index,
+                groups=counted[0]["groups"] if counted else 0,
+                examples=[doc["_id"] for doc in examples],
+            )
+        )
+
+    return reports
+
+
+async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
+    """
+    Answer whether this connection may run `collMod`, without writing anything at all.
+
+    The probe aims `collMod` at a namespace that does not exist. MongoDB authorises a command before
+    it resolves the namespace, so the two answers are cleanly separated: `Unauthorized` means the user
+    lacks the action, and `NamespaceNotFound` means it holds the action and the collection simply is
+    not there. Both outcomes leave the database untouched, which is what makes `--check` safe to point
+    at production without a second thought.
+
+    Indirect answers exist -- `connectionStatus` lists the authenticated roles -- and they require
+    knowing which built-in role carries which action, which is precisely the thing that is easy to get
+    wrong. Running the command is not an inference.
+    """
+    try:
+        await db.command({"collMod": ABSENT_COLLECTION_NAME, "validationLevel": "off"})
+    except OperationFailure as failure:
+        if failure.code == NAMESPACE_NOT_FOUND:
+            return "granted"
+        if failure.code == UNAUTHORIZED:
+            return f"DENIED -- {failure.details.get('errmsg', failure) if failure.details else failure}"
+        # Anything else is a different problem wearing the same exception -- a rejected credential
+        # above all. Reporting that as "denied" would send the reader to the Atlas role editor to fix
+        # a password.
+        raise
+
+    # collMod cannot succeed against a collection that is not there. If it ever does, the namespace
+    # exists and the probe is no longer a probe.
+    raise RuntimeError(f"'{ABSENT_COLLECTION_NAME}' exists in this database; the collMod probe needs a namespace that does not.")
+
+
+def diagnose_failure(failure: OperationFailure) -> str:
+    """
+    Turn a driver exception into the sentence an operator can act on.
+
+    A tool whose whole job is reporting what is wrong with database access must not answer with a
+    stack trace, and the two failures below look identical in one until the last line: a rejected
+    credential and a missing privilege are different problems with different fixes, and the traceback
+    puts sixty lines between the reader and the distinction.
+
+    Never quotes the connection string. It names the FILE and the VARIABLE, because the value is a
+    secret and a diagnostic that prints one is a diagnostic nobody can paste into a bug report.
+    """
+    message = failure.details.get("errmsg", str(failure)) if failure.details else str(failure)
+
+    if failure.code in AUTHENTICATION_FAILED:
+        return (
+            "  The database REJECTED THE CREDENTIALS. This is not a permissions problem, and no role\n"
+            "  change will fix it.\n\n"
+            "  MONGODB_URI in fl_backend/.env carries a username and password the cluster does not\n"
+            "  accept. Deleting and recreating a database user changes its password even when the name\n"
+            "  is unchanged, so a URI that worked yesterday can stop working with no visible edit.\n\n"
+            "  The server's own copy of that file is SEPARATE and was not touched by anything you did\n"
+            "  here -- fix both, or the next deploy fails the same way with the site down.\n\n"
+            f"  Server said: {message}"
+        )
+
+    if failure.code == UNAUTHORIZED:
+        return (
+            "  The credentials are accepted and the user is NOT ALLOWED to do this.\n\n"
+            "  Check the roles on the database user in Atlas. `collMod` is a dbAdmin action that\n"
+            "  readWrite does not carry; everything else here needs readWrite on this database.\n\n"
+            f"  Server said: {message}"
+        )
+
+    # `codeName` off the server's own reply, not a driver attribute: pymongo exposes one only on some
+    # exception classes, and the numeric code is always there as the fallback.
+    named = failure.details.get("codeName", failure.code) if failure.details else failure.code
+    return f"  The database refused the command ({named}): {message}"
+
+
+# The CLI below writes to stdout, which the service itself never does (see core/logging.py). The
+# one-document-per-line contract is a property of the RUNNING SERVICE's log stream; this is an operator
+# tool that produces a report for a person and never runs inside a request.
+async def _run(check: bool) -> int:
+    # Imported here, not at module scope: app.core.config builds the settings object on import and
+    # refuses without a complete environment, while the tests import this module with no .env at all.
+    from app.core.config import backend_config
+
+    client = AsyncIOMotorClient(
+        host=backend_config.mongodb_uri.get_secret_value(),
+        serverSelectionTimeoutMS=backend_config.db_server_selection_timeout,
+    )
+    database = client[backend_config.db_base_name]
+
+    try:
+        if not check:
+            summary = await apply_constraints(database)
+            print(f"Applied {summary.validators} validators and {summary.indexes} unique indexes to '{backend_config.db_base_name}'.")
+            return 0
+
+        print(f"Database '{backend_config.db_base_name}', checked against {len(COLLECTION_VALIDATORS)} validators. Nothing is written.\n")
+        print(f"  collMod privilege: {await probe_collmod_privilege(database)}\n")
+
+        blocking = 0
+
+        print("  Validators — documents the rule would reject")
+        for report in await report_violations(database):
+            marker = "ok " if report.failing == 0 else "FAIL"
+            print(f"    {marker}  {report.collection:<16} {report.failing:>4} of {report.total:>4}")
+            if report.failing:
+                blocking += report.failing
+                print(f"          first offenders: {report.examples}")
+
+        print("\n  Unique indexes — key groups that would stop the build")
+        for duplicate in await report_duplicates(database):
+            marker = "ok " if duplicate.groups == 0 else "FAIL"
+            print(f"    {marker}  {duplicate.index.collection}.{duplicate.index.name:<28} {duplicate.groups:>4}  ({duplicate.index.rule})")
+            if duplicate.groups:
+                blocking += duplicate.groups
+                print(f"          first offenders: {duplicate.examples}")
+
+        print("\n  Clean — safe to apply.\n" if blocking == 0 else "\n  NOT clean. Correct the data above before applying.\n")
+        return 0 if blocking == 0 else 1
+
+    except OperationFailure as failure:
+        # Deliberately not re-raised. The traceback would be sixty frames of driver internals ending in
+        # the one line that matters, and this tool exists to hand an operator that line.
+        print(f"\n{diagnose_failure(failure)}\n")
+        return 2
+
+    finally:
+        client.close()
+
+
+def _main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="python -m app.core.constraints",
+        description="Report or apply the database constraints declared in this module (ADR-0027).",
+    )
+    parser.add_argument("--check", action="store_true", help="report violations and the collMod privilege; writes nothing")
+    parser.add_argument("--apply", action="store_true", help="apply every validator and unique index, exactly as startup does")
+    arguments = parser.parse_args()
+
+    if arguments.check == arguments.apply:
+        parser.error("pass exactly one of --check or --apply")
+
+    return asyncio.run(_run(check=arguments.check))
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())
