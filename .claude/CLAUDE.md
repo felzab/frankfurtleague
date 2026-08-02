@@ -105,6 +105,10 @@ Dev = Windows 11. Prod = Linux (bash/sh). Label every terminal command with its 
 
 **Everything in `scripts/` runs from Git Bash on Windows, not PowerShell or CMD** — they are bash scripts. Do not hand-type `docker run -v` there: MSYS rewrites POSIX-looking paths, so a container path becomes a Windows one. Prefix with `MSYS_NO_PATHCONV=1` if you must.
 
+**Local Docker is `docker-compose.local.yml`, ALWAYS (owner, 2026-08-02).** Drive it through `./scripts/local.sh` — `--down` to stop, `--fresh` to drop the volumes, `--logs` to follow. **Never run a bare `docker compose …` for local work**: with no `-f` it reads `docker-compose.yml`, which is the _production_ definition, so you are operating a different stack from the one the script started and any state you change is the wrong state.
+
+**Nothing else may hold port 3000 while the local stack runs.** nginx binds `0.0.0.0:3000`, so a `next dev` left running makes `local.sh` come up without a reachable site — the symptom is "this site can't be reached" with the script having reported success for the containers it did start. Stop the dev server before `local.sh`, and never tell the owner to run one while the other is up.
+
 ## 6. REPOSITORY INTEGRATION
 
 - Check `fl_frontend/package.json` and `fl_backend/pyproject.toml` for actual installed versions before advising.
