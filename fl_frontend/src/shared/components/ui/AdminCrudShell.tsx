@@ -32,8 +32,8 @@ export function AdminCrudShell({
     <div className="max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
       <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col">
-          <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{title}</h1>
-          <p className="text-fluid-sm text-foreground-muted mt-1 font-medium">{description}</p>
+          <h1 className="fluid-xl text-foreground font-extrabold tracking-tight">{title}</h1>
+          <p className="fluid-sm text-foreground-muted mt-1 font-medium">{description}</p>
         </div>
         {createModal}
       </div>

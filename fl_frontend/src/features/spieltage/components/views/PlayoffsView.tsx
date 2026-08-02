@@ -64,7 +64,7 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
               key={playoffsSpieltag.id}
               className="flex w-[85cqw] max-w-[380px] shrink-0 snap-center flex-col items-center @2xl:w-[42cqw] @5xl:w-[28cqw]">
               {/* Round header */}
-              <h2 className="bg-surface border-border text-foreground text-fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
+              <h2 className="bg-surface border-border text-foreground fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
                 {playoffsSpieltag.name}
               </h2>
 

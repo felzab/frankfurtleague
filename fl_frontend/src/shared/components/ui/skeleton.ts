@@ -5,7 +5,7 @@
  * rendering HeroUI's `<Skeleton>`, and for the rule about nesting.
  */
 
-import { tv } from "@/shared/utils/tv";
+import { tv } from "tailwind-variants";
 
 /**
  * A single grey placeholder block, shimmering left-to-right on HeroUI's own 2s loop.

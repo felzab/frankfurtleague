@@ -16,7 +16,7 @@
  *     legible in one of the two.
  */
 
-import { tv } from "@/shared/utils/tv";
+import { tv } from "tailwind-variants";
 
 /**
  * The CTA family — `<Link>`s and one-off buttons OUTSIDE forms: the landing-page hero, the
@@ -27,20 +27,20 @@ import { tv } from "@/shared/utils/tv";
  * `shadow-brand/30` with no shadow size to give it effect.
  */
 export const ctaButton = tv({
-  base: "text-fluid-sm hover:scale-hover flex h-12 items-center justify-center rounded-xl px-6 font-bold transition-[transform,background-color,border-color] duration-200 active:scale-95",
+  base: "fluid-sm hover:scale-hover flex h-12 items-center justify-center rounded-xl px-6 font-bold transition-[transform,background-color,border-color] duration-200 active:scale-95",
   variants: {
     intent: {
       primary: "bg-brand-solid hover:bg-brand-solid/90 text-brand-solid-foreground shadow-md",
       outline: "border-border text-foreground hover:bg-muted/40 border bg-transparent",
     },
     /** The hero's two secondary CTAs, deliberately smaller than the primary pair beside them. */
-    size: { sm: "text-fluid-xs h-10 px-4" },
+    size: { sm: "fluid-xs h-10 px-4" },
   },
   defaultVariants: { intent: "primary" },
 });
 
 export const formButton = tv({
-  base: "text-fluid-sm hover:scale-hover rounded-xl px-6 py-3 font-semibold transition-[transform,color,background-color,border-color,opacity,box-shadow] duration-200 active:scale-95 disabled:pointer-events-none disabled:opacity-50",
+  base: "fluid-sm hover:scale-hover rounded-xl px-6 py-3 font-semibold transition-[transform,color,background-color,border-color,opacity,box-shadow] duration-200 active:scale-95 disabled:pointer-events-none disabled:opacity-50",
   variants: {
     intent: {
       submit: "bg-brand-solid text-brand-solid-foreground tracking-wide",

@@ -49,7 +49,7 @@ export function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus })
     <Chip
       size="sm"
       className={`border-none px-1.5 py-0.5 ${STATUS_CLASSES[spielStatus]}`}>
-      <div className="text-fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
+      <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
         {STATUS_ICONS[spielStatus]}
         {STATUS_LABELS[spielStatus]}
       </div>

@@ -103,7 +103,7 @@ export function SidemenuOptionsMenu({
             isDesktopCollapsed ? "w-9 justify-center p-0" : "w-full justify-start gap-2.5 px-3"
           }`}>
           <Ellipsis className="h-[18px] w-[18px] shrink-0" />
-          {!isDesktopCollapsed && <span className="text-fluid-sm font-medium">Optionen</span>}
+          {!isDesktopCollapsed && <span className="fluid-sm font-medium">Optionen</span>}
         </Dropdown.Trigger>
       </IconTooltip>
 
@@ -125,7 +125,7 @@ export function SidemenuOptionsMenu({
               textValue="Modus"
               shouldCloseOnSelect={false}
               className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-hovered:bg-transparent!">
-              <Label className="text-fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
+              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
               <ThemeSwitch />
             </Dropdown.Item>
           </Dropdown.Section>
@@ -162,7 +162,7 @@ export function SidemenuOptionsMenu({
                   className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
                     isConfirmingSignOut ? "bg-danger/10 data-hovered:bg-danger/20" : "data-hovered:bg-danger/10"
                   }`}>
-                  <Label className="text-fluid-sm text-danger min-w-0 flex-1 font-semibold">
+                  <Label className="fluid-sm text-danger min-w-0 flex-1 font-semibold">
                     {isSigningOut ? "Wird abgemeldet..." : isConfirmingSignOut ? "Wirklich abmelden?" : "Abmelden"}
                   </Label>
                   {/* The icon changes with the state so the row does not rely on colour alone to say

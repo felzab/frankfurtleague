@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="de"
       suppressHydrationWarning
       className={`${inter.variable} scrollbar-gutter-stable`}>
-      <body className="bg-background text-foreground font-primary text-fluid-base relative flex min-h-dvh w-full flex-col antialiased">
+      <body className="bg-background text-foreground font-primary fluid-base relative flex min-h-dvh w-full flex-col antialiased">
         <RootProviders>{children}</RootProviders>
       </body>
     </html>

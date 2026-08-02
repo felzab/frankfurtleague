@@ -56,10 +56,8 @@ export function KontaktView() {
     <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
       {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
-        <h1 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">
-          Frankfurt-League Kontakt
-        </h1>
-        <p className="text-fluid-sm sm:text-fluid-sm text-field-fg/80 mt-2 font-medium">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
+        <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Frankfurt-League Kontakt</h1>
+        <p className="fluid-sm sm:fluid-sm text-field-fg/80 mt-2 font-medium">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
       </div>
 
       <div className="soccer-field-separator w-full" />
@@ -68,11 +66,11 @@ export function KontaktView() {
       <section className="flex w-full flex-col gap-y-3 sm:gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-3">
           <ArrowsExpand className="size-5 drop-shadow sm:size-6 lg:size-7" />
-          <h2 className="text-fluid-base sm:text-fluid-lg font-extrabold tracking-wide uppercase">Wir sind für alles offen</h2>
+          <h2 className="fluid-base sm:fluid-lg font-extrabold tracking-wide uppercase">Wir sind für alles offen</h2>
         </div>
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-5 shadow-xl sm:p-6 lg:p-8">
-          <p className="text-fluid-xs sm:text-fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
+          <p className="fluid-xs sm:fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
             Fragen, Verbesserungsvorschläge oder Anregungen zur Liga? Kontaktiere uns gern über einen der folgenden Wege. Wir melden uns
             schnellstmöglich bei Dir!
           </p>
@@ -95,13 +93,13 @@ export function KontaktView() {
                 <div className="bg-field-fg/10 flex size-11 shrink-0 items-center justify-center rounded-xl p-2 shadow-inner sm:size-12">
                   {getIcon(channel.id)}
                 </div>
-                <div className="text-fluid-sm sm:text-fluid-base text-field-fg font-extrabold tracking-wider uppercase">{channel.name}</div>
+                <div className="fluid-sm sm:fluid-base text-field-fg font-extrabold tracking-wider uppercase">{channel.name}</div>
               </Card.Header>
 
               <div className="soccer-field-separator my-3 sm:my-4" />
 
               <Card.Content className="p-0">
-                <span className="text-fluid-sm text-field-fg/90 font-mono font-bold tracking-tight break-all">{channel.value}</span>
+                <span className="fluid-sm text-field-fg/90 font-mono font-bold tracking-tight break-all">{channel.value}</span>
               </Card.Content>
             </div>
 
@@ -110,7 +108,7 @@ export function KontaktView() {
                 href={channel.action}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-fluid-xs border-field-fg/30 bg-field-fg/10 text-field-fg hover:border-field-fg hover:bg-field-fg/25 flex w-full items-center justify-center rounded-xl border py-3 font-bold uppercase backdrop-blur-sm transition-[transform,background-color,border-color] duration-200 active:scale-95">
+                className="fluid-xs border-field-fg/30 bg-field-fg/10 text-field-fg hover:border-field-fg hover:bg-field-fg/25 flex w-full items-center justify-center rounded-xl border py-3 font-bold uppercase backdrop-blur-sm transition-[transform,background-color,border-color] duration-200 active:scale-95">
                 Jetzt kontaktieren
               </Link>
             </Card.Footer>

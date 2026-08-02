@@ -109,7 +109,7 @@ export function FormMatchupSection({
           aria-describedby="ergebnis-eintragen-hint"
           isSelected={ergebnisCanBeEdited}
           onChange={handleErgebnisCanBeEditedToggle}>
-          <Switch.Content className="text-fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+          <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
             Spielergebnis eintragen
             <Switch.Control>
               <Switch.Thumb />
@@ -119,7 +119,7 @@ export function FormMatchupSection({
         {/* See the cancel switch: a `Description` child of `Switch` sits inside its `<label>`. */}
         <p
           id="ergebnis-eintragen-hint"
-          className="text-fluid-xxs text-foreground-muted leading-normal font-medium">
+          className="fluid-xxs text-foreground-muted leading-normal font-medium">
           Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis
           zurückgesetzt.
         </p>
@@ -139,7 +139,7 @@ export function FormMatchupSection({
           <NumberField.Input className="w-[120px]" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description className="text-fluid-xxs text-foreground-muted">Anzahl der Tore von Team 1</Description>
+        <Description className="fluid-xxs text-foreground-muted">Anzahl der Tore von Team 1</Description>
         <FieldError className={FIELD_ERROR} />
       </NumberField>
 
@@ -157,7 +157,7 @@ export function FormMatchupSection({
           <NumberField.Input className="w-[120px]" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description className="text-fluid-xxs text-foreground-muted">Anzahl der Tore von Team 2</Description>
+        <Description className="fluid-xxs text-foreground-muted">Anzahl der Tore von Team 2</Description>
         <FieldError className={FIELD_ERROR} />
       </NumberField>
 
@@ -171,13 +171,13 @@ export function FormMatchupSection({
         <div className="bg-background border-border grid w-fit max-w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
           <span className="flex min-w-0 justify-end">
             <strong
-              className={`text-fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground"}`}>
+              className={`fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground"}`}>
               {team1Name}
             </strong>
           </span>
 
           <span
-            className={`text-fluid-xs rounded-md px-1.5 py-0.5 text-center font-extrabold ${
+            className={`fluid-xs rounded-md px-1.5 py-0.5 text-center font-extrabold ${
               isNaN(team1Tore) || isNaN(team2Tore) ? "bg-danger/15 text-danger-strong" : "bg-success/15 text-success-strong"
             }`}>
             {isNaN(team1Tore) ? "-" : team1Tore} : {isNaN(team2Tore) ? "-" : team2Tore}
@@ -185,7 +185,7 @@ export function FormMatchupSection({
 
           <span className="flex min-w-0 justify-start">
             <strong
-              className={`text-fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground"}`}>
+              className={`fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground"}`}>
               {team2Name}
             </strong>
           </span>
@@ -197,9 +197,9 @@ export function FormMatchupSection({
           role="status"
           aria-live="polite">
           {isNaN(team1Tore) || isNaN(team2Tore) ? (
-            <p className="text-fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
+            <p className="fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
           ) : (
-            <p className="text-fluid-xs text-brand font-extrabold tracking-wide">
+            <p className="fluid-xs text-brand font-extrabold tracking-wide">
               {team1Tore === team2Tore && "Unentschieden"}
               {team1Tore > team2Tore && `Sieg für ${team1Name}`}
               {team2Tore > team1Tore && `Sieg für ${team2Name}`}

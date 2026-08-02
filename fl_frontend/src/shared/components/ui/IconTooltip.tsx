@@ -47,7 +47,7 @@ export function IconTooltip({
       </Tooltip.Trigger>
       <Tooltip.Content
         placement={placement}
-        className={`bg-surface border-border text-fluid-xs rounded-md border px-2.5 py-1 shadow-lg ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
+        className={`bg-surface border-border fluid-xs rounded-md border px-2.5 py-1 shadow-lg ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
         {label}
       </Tooltip.Content>
     </Tooltip>

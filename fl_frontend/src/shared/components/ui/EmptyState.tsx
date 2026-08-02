@@ -1,4 +1,4 @@
-import { tv } from "@/shared/utils/tv";
+import { tv } from "tailwind-variants";
 
 /**
  * The app's "nothing here" language. Eight views rendered a blank region when their collection was
@@ -12,8 +12,8 @@ import { tv } from "@/shared/utils/tv";
 const emptyState = tv({
   slots: {
     root: "border-border bg-surface flex w-full flex-col items-center justify-center gap-2 rounded-2xl border p-10 text-center shadow-sm",
-    title: "text-fluid-base font-bold",
-    hint: "text-fluid-sm text-foreground-muted font-medium",
+    title: "fluid-base font-bold",
+    hint: "fluid-sm text-foreground-muted font-medium",
   },
   variants: {
     tone: {

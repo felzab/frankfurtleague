@@ -10,7 +10,7 @@ import { FooterCopyrightString } from "./FooterCopyrightString";
  * A placeholder bar for one of the status bar's two streamed values.
  *
  * Local rather than shared: both consumers are three lines below, and the thing that makes it
- * correct — `text-fluid-xxs`, matching the type size of both real strings — is specific to this row.
+ * correct — `fluid-xxs`, matching the type size of both real strings — is specific to this row.
  * `width` is sized to the string it stands in for, so nothing in the row reflows on arrival.
  *
  * Declared here rather than importing a skeleton from `features/system`: this is a shared layout
@@ -22,7 +22,7 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
     <span
       role="status"
       aria-label={label}
-      className={`${skeletonBlock()} text-fluid-xxs inline-block rounded ${width}`}>
+      className={`${skeletonBlock()} fluid-xxs inline-block rounded ${width}`}>
       &nbsp;
     </span>
   );
@@ -41,31 +41,31 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
         {/* Brand & Mission Column */}
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
           <BrandLink />
-          <p className="text-fluid-xs text-foreground-muted max-w-sm">
+          <p className="fluid-xs text-foreground-muted max-w-sm">
             Die Frankfurter Oberstufenliga. Hier können Frankfurter Schulen gegeneinander antreten, um herauszufinden, welche die Beste ist.
           </p>
         </div>
 
         {/* Navigation Column */}
         <div className="flex flex-col gap-y-3">
-          <h3 className="text-fluid-xs text-foreground font-semibold tracking-wider uppercase">Navigation</h3>
+          <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Navigation</h3>
           <nav className="flex flex-col gap-y-2">
             <Link
               href="/about"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
+              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
               About
             </Link>
             <Link
               href="/team"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
+              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Team
             </Link>
             <Link
               href="/kontakt"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
+              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Kontakt
             </Link>
           </nav>
@@ -73,7 +73,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
 
         {/* Socials Column */}
         <div className="flex flex-col gap-y-3">
-          <h3 className="text-fluid-xs text-foreground font-semibold tracking-wider uppercase">Socials</h3>
+          <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Socials</h3>
           <div className="flex flex-wrap items-center gap-4">
             {/* Threads */}
             <Link

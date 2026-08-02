@@ -1,8 +1,8 @@
 "use client";
 
-import { Modal } from "@heroui/react";
+import { tv } from "tailwind-variants";
 
-import { tv } from "@/shared/utils/tv";
+import { Modal } from "@heroui/react";
 
 import type { ReactNode } from "react";
 
@@ -15,7 +15,7 @@ const modalShell = tv({
   slots: {
     dialog: "bg-background border-border text-foreground flex w-full flex-col rounded-2xl border p-4 shadow-2xl outline-none",
     header: "shrink-0 pb-4",
-    heading: "text-fluid-lg text-foreground font-extrabold tracking-tight",
+    heading: "fluid-lg text-foreground font-extrabold tracking-tight",
     body: "scrollbar-hide text-foreground px-0",
   },
   variants: {

@@ -4,15 +4,17 @@ import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
-// Bans the stock `tv`, which merges `text-fluid-*` as a colour and silently drops a text colour set
-// beside it (see `src/shared/utils/tv.ts`). Spread into every `no-restricted-imports` block rather
-// than given its own: flat config resolves a rule by LAST match, so a separate block would replace
-// the layer-boundary patterns below instead of adding to them.
-const RESTRICTED_TV_IMPORT = {
-  name: "tailwind-variants",
-  importNames: ["tv", "createTV"],
-  message: "Import { tv } from '@/shared/utils/tv' — the stock one drops text colours next to a text-fluid-* size.",
-};
+// There used to be a `RESTRICTED_TV_IMPORT` here, banning `tv`/`createTV` from `tailwind-variants`
+// so every recipe went through `src/shared/utils/tv.ts`. Both are gone (ADR-0025).
+//
+// That wrapper existed to register the type scale with tailwind-merge, because the scale was spelled
+// `text-fluid-*` and stock tailwind-merge files an unrecognised `text-*` value as a COLOUR — so a
+// recipe combining a size with a text colour silently lost one of them. The scale is now `fluid-*`
+// and matches no tailwind-merge group in any instance, so there is nothing to register, the wrapper
+// had no configuration left to hold, and a rule pointing at it would have guarded nothing.
+//
+// Recipes import `tv` from `tailwind-variants` directly. Do not reintroduce the ban without a
+// concrete merge configuration for it to protect.
 
 const LAYER_BOUNDARY = {
   core: {
@@ -48,21 +50,11 @@ const eslintConfig = defineConfig([
   // so a blanket cross-feature ban would flag mostly-correct sites (ADR-0012).
   {
     files: ["src/core/**/*.{ts,tsx}"],
-    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT], patterns: [LAYER_BOUNDARY.core] }] },
+    rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.core] }] },
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
-    ignores: ["src/shared/utils/tv.ts"],
-    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT], patterns: [LAYER_BOUNDARY.shared] }] },
-  },
-  // `tv.ts` builds the wrapper, so it keeps the layer boundary but not the tv ban.
-  {
-    files: ["src/shared/utils/tv.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.shared] }] },
-  },
-  {
-    files: ["src/features/**/*.{ts,tsx}", "src/app/**/*.{ts,tsx}"],
-    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT] }] },
   },
 
   {

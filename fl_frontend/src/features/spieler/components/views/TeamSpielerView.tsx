@@ -32,7 +32,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
         onPress={() => {
           router.back();
         }}
-        className="bg-surface border-border text-foreground hover:bg-muted text-fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+        className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
         <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
         <span>Zurück</span>
       </Button>
@@ -40,7 +40,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
       {/* Header Container */}
       <div className={`${card()} mb-2 flex w-full flex-col items-center p-4 sm:p-6`}>
         <div className="flex w-full flex-row items-center justify-between">
-          <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h1>
+          <h1 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h1>
           <Chip
             size="sm"
             className="bg-success/15 text-success-strong font-bold">
@@ -55,10 +55,10 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
           variant="secondary"
           className="h-fit w-full text-left">
           <Table.Content aria-label={`Tabelle: Spieler ${teamName}`}>
-            <Table.Header className="text-fluid-xxs text-foreground-muted font-semibold uppercase">
+            <Table.Header className="fluid-xxs text-foreground-muted font-semibold uppercase">
               <Table.Column
                 isRowHeader
-                className="text-fluid-xs pt-1.5 pb-2 pl-2 font-extrabold lg:px-4">
+                className="fluid-xs pt-1.5 pb-2 pl-2 font-extrabold lg:px-4">
                 Name
               </Table.Column>
               <Table.Column className="w-1 px-1 text-center whitespace-nowrap lg:px-4">#</Table.Column>
@@ -69,7 +69,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
             <Table.Body
               renderEmptyState={() => (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                  <p className="text-fluid-sm text-foreground-muted font-medium">Für dieses Team ist noch kein Kader eingetragen.</p>
+                  <p className="fluid-sm text-foreground-muted font-medium">Für dieses Team ist noch kein Kader eingetragen.</p>
                 </div>
               )}>
               {teamSpieler.map((spielerData) => (
@@ -89,19 +89,19 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                           {spielerData.nachname?.charAt(0).toUpperCase() ?? ""}
                         </Avatar.Fallback>
                       </Avatar>
-                      <span className="text-fluid-xs text-foreground line-clamp-1 font-bold">
+                      <span className="fluid-xs text-foreground line-clamp-1 font-bold">
                         {[spielerData.vorname, spielerData.nachname].filter(Boolean).join(" ")}
                       </span>
                     </div>
                   </Table.Cell>
 
                   {/* NUMMER */}
-                  <Table.Cell className="text-fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-mono font-medium lg:px-4">
+                  <Table.Cell className="fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-mono font-medium lg:px-4">
                     {spielerData.nummer || "-"}
                   </Table.Cell>
 
                   {/* STUFE */}
-                  <Table.Cell className="text-fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-medium lg:px-4">
+                  <Table.Cell className="fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-medium lg:px-4">
                     {spielerData.stufe || "-"}
                   </Table.Cell>
 
@@ -114,7 +114,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                           it takes the brand tint instead of one of the feedback accents. */}
                       <Chip
                         size="sm"
-                        className="bg-brand/10 text-brand text-fluid-xxs font-semibold capitalize">
+                        className="bg-brand/10 text-brand fluid-xxs font-semibold capitalize">
                         {spielerData.position || "-"}
                       </Chip>
                     </div>

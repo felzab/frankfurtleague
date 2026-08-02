@@ -7,11 +7,11 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
  * **Why the height can be exact** (owner's observation, and it holds): a `SpielCard`'s height depends
  * only on the viewport, never on its data. Every text run in it is single-line by construction — the
  * team names are `truncate` inside `min-w-0` tracks, so they cannot wrap — and the two buttons are a
- * fixed 35/38px. So the height is nothing but `text-fluid-*` metrics plus fixed padding.
+ * fixed 35/38px. So the height is nothing but `fluid-*` metrics plus fixed padding.
  *
  * This mirrors that box model **by reusing the same classes**, not by re-deriving sizes: the same
  * `card()` shell, the same `gap-y-6 px-4 py-3 lg:px-5 lg:py-4`, the same three rows, and text runs
- * that keep their real `text-fluid-*` class with a non-breaking space inside. The line box is
+ * that keep their real `fluid-*` class with a non-breaking space inside. The line box is
  * therefore computed by the same rules as the real card's, at every breakpoint, with no magic numbers
  * to drift.
  *
@@ -38,9 +38,9 @@ export function SpielCardSkeleton() {
         {/* No `gap-*`: the real stack has none, and 4px here is 4px of layout shift. The two lines
             become one bar centred over them, rather than two bars stacked. */}
         <div className="relative flex flex-col">
-          <span className="text-fluid-sm invisible font-bold">&nbsp;</span>
-          <span className="text-fluid-xs invisible font-medium">&nbsp;</span>
-          <span className={`${skeletonBlock()} text-fluid-sm absolute top-1/2 left-0 w-24 -translate-y-1/2 rounded-md`}>&nbsp;</span>
+          <span className="fluid-sm invisible font-bold">&nbsp;</span>
+          <span className="fluid-xs invisible font-medium">&nbsp;</span>
+          <span className={`${skeletonBlock()} fluid-sm absolute top-1/2 left-0 w-24 -translate-y-1/2 rounded-md`}>&nbsp;</span>
         </div>
         <div className="flex w-full items-center justify-end gap-x-2">
           <span className={`${skeletonBlock()} h-[35px] w-[35px] rounded-xl md:h-[38px] md:w-[38px]`} />
@@ -49,17 +49,17 @@ export function SpielCardSkeleton() {
 
       {/* Row 2 — the matchup band, kept as one filled rectangle rather than three bars inside a tint.
           Its height comes from the score line, which is the tallest of the band's three cells in
-          `SpielCard`, so a single `text-fluid-base` spacer reproduces it exactly. */}
+          `SpielCard`, so a single `fluid-base` spacer reproduces it exactly. */}
       <div className={`${skeletonBlock()} flex w-full items-center rounded-xl p-2`}>
-        <span className="text-fluid-base invisible font-extrabold">&nbsp;</span>
+        <span className="fluid-base invisible font-extrabold">&nbsp;</span>
       </div>
 
       {/* Row 3 — the two status chips collapse to one pill. Dropping their `size-3.5` icons costs no
-          height: the `text-fluid-xxs` line box is 16-19px and already out-measures the 14px icon, so
+          height: the `fluid-xxs` line box is 16-19px and already out-measures the 14px icon, so
           this row is text-metric-bound either way. `w-44` is the two chips plus their gap. */}
       <div className="flex h-fit w-full flex-row items-center justify-center gap-x-2">
         <span className={`${skeletonBlock()} rounded-lg px-1.5 py-0.5`}>
-          <span className="text-fluid-xxs invisible block w-44 font-extrabold">&nbsp;</span>
+          <span className="fluid-xxs invisible block w-44 font-extrabold">&nbsp;</span>
         </span>
       </div>
     </div>

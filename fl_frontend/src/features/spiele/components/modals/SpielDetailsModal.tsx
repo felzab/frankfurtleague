@@ -67,7 +67,7 @@ export function SpielDetailsModal({
 
               <Modal.Header className="gap-y-2 pb-4">
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">
-                  <Modal.Heading className="text-fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
+                  <Modal.Heading className="fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
                   <Modal.Icon className="text-foreground-muted size-5 lg:size-6">
                     <CircleInfo className="size-full" />
                   </Modal.Icon>
@@ -93,17 +93,17 @@ export function SpielDetailsModal({
                     prefetch={false}
                     href={`/dashboard/teams/${spielData.team1.team_id}`}
                     onClick={onClose}
-                    className="text-fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
+                    className="fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
                     {spielData.team1.name}
                   </Link>
 
-                  <span className="text-fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
+                  <span className="fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
 
                   <Link
                     prefetch={false}
                     href={`/dashboard/teams/${spielData.team2.team_id}`}
                     onClick={onClose}
-                    className="text-fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
+                    className="fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
                     {spielData.team2.name}
                   </Link>
                 </div>
@@ -111,7 +111,7 @@ export function SpielDetailsModal({
                 <Separator className="bg-border my-4 h-[2px]" />
 
                 {/* Details Grid */}
-                <div className="text-fluid-sm grid grid-cols-2 gap-4 whitespace-normal">
+                <div className="fluid-sm grid grid-cols-2 gap-4 whitespace-normal">
                   {/** Datum */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Datum</h4>

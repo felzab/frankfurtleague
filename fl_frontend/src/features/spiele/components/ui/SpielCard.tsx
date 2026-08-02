@@ -41,8 +41,8 @@ export function SpielCard({
       <div className="flex w-full flex-row items-center justify-between">
         {/* Datum/Uhrzeit */}
         <div className="flex flex-col">
-          <span className="text-fluid-sm text-foreground font-bold">{spielDatum}</span>
-          <span className="text-fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
+          <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
+          <span className="fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
         </div>
 
         {/* Buttons */}
@@ -77,7 +77,7 @@ export function SpielCard({
             teamName={spielData.team1.name}
             teamId={spielData.team1.team_id}
             teamShorthand={spielData.team1.shorthand}>
-            <strong className="text-fluid-xs lg:text-fluid-sm hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
+            <strong className="fluid-xs lg:fluid-sm hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
               {spielData.team1.name || "Team 1"}
             </strong>
           </TeamPopoverMenu>
@@ -87,7 +87,7 @@ export function SpielCard({
             to carry is "plain accent for fills, `-strong` for text on a tint". The plain pair measures
             2.62:1 (success) and 3.83:1 (danger) here in the light theme. All three cards say `-strong`. */}
         <span
-          className={`text-fluid-base w-fit px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
+          className={`fluid-base w-fit px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
           {spielErgebnis}
         </span>
 
@@ -96,7 +96,7 @@ export function SpielCard({
             teamName={spielData.team2.name}
             teamId={spielData.team2.team_id}
             teamShorthand={spielData.team2.shorthand}>
-            <strong className="text-fluid-xs lg:text-fluid-sm hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
+            <strong className="fluid-xs lg:fluid-sm hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
               {spielData.team2.name || "Team 2"}
             </strong>
           </TeamPopoverMenu>

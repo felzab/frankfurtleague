@@ -6,7 +6,7 @@
  * that must not come back.
  */
 
-import { tv } from "@/shared/utils/tv";
+import { tv } from "tailwind-variants";
 
 /**
  * The floating surface inside a form — the date picker's calendar popover and both

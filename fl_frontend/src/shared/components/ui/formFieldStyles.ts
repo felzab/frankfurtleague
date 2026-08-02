@@ -19,9 +19,9 @@
  * the Stripe/Linear convention: the value stays dominant. The sign-in form's uppercase-tracked
  * label is that page's deliberate style and not this constant.
  */
-export const FIELD_LABEL = "text-fluid-xs text-foreground font-bold";
+export const FIELD_LABEL = "fluid-xs text-foreground font-bold";
 
-export const FIELD_INPUT = "border-border bg-surface text-foreground text-fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
+export const FIELD_INPUT = "border-border bg-surface text-foreground fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
 
 /**
  * The one tab appearance. Both tab strips in the app — the sign-in role picker and the spielplan's
@@ -40,7 +40,7 @@ export const FIELD_INPUT = "border-border bg-surface text-foreground text-fluid-
  * sticks until the user taps something else.
  */
 export const TAB_ITEM =
-  "text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-transparent data-[selected=true]:data-hovered:text-brand-solid-foreground text-fluid-sm rounded-lg font-bold tracking-wide transition-colors";
+  "text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-transparent data-[selected=true]:data-hovered:text-brand-solid-foreground fluid-sm rounded-lg font-bold tracking-wide transition-colors";
 
 /** The recessed track both tab strips sit in. Paired with `TAB_ITEM`'s lifting hover. */
 export const TAB_TRACK = "border-border bg-muted rounded-xl border";
@@ -57,7 +57,7 @@ export const TAB_INDICATOR = "bg-brand-solid rounded-lg shadow-sm";
  * the same wherever it is rejected — five of the six forms previously had no field-level error
  * surface at all and reported failures only through a toast that named no field.
  */
-export const FIELD_ERROR = "text-fluid-xxs text-danger mt-1 font-bold";
+export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
 
 /**
  * Section label inside a form. Groups of fields are named with a heading and separated by
@@ -69,4 +69,4 @@ export const FIELD_ERROR = "text-fluid-xxs text-danger mt-1 font-bold";
  * field label already names it (Spielort, Schiedsrichter) gets no heading — that would render the
  * same word twice and read it twice to a screen reader.
  */
-export const FORM_SECTION_HEADING = "text-fluid-xs text-foreground font-bold tracking-wider uppercase";
+export const FORM_SECTION_HEADING = "fluid-xs text-foreground font-bold tracking-wider uppercase";

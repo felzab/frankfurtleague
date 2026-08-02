@@ -21,7 +21,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
         {/* Metadata */}
         <div className="flex h-fit w-full flex-row items-center gap-x-4">
           {/** Time/Date */}
-          <div className="text-fluid-sm text-foreground-muted flex h-full w-fit flex-row items-center gap-x-2 font-bold">
+          <div className="fluid-sm text-foreground-muted flex h-full w-fit flex-row items-center gap-x-2 font-bold">
             <span className="w-full">{spielDatum}</span>
             <span>-</span>
             <span className="w-full">{spielUhrzeit}</span>
@@ -51,7 +51,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
               teamName={spielData.team1.name}
               teamId={spielData.team1.team_id}
               teamShorthand={spielData.team1.shorthand}>
-              <strong className="text-fluid-sm lg:text-fluid-base hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
+              <strong className="fluid-sm lg:fluid-base hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
                 {spielData.team1.name || "Team 1"}
               </strong>
             </TeamPopoverMenu>
@@ -60,7 +60,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
           {/* `-strong` for the same reason as in the other two cards: this is text, not a fill, and the
               plain accents are too light to carry it on a light surface. */}
           <span
-            className={`text-fluid-base px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
+            className={`fluid-base px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
             {spielErgebnis}
           </span>
 
@@ -69,7 +69,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
               teamName={spielData.team2.name}
               teamId={spielData.team2.team_id}
               teamShorthand={spielData.team2.shorthand}>
-              <strong className="text-fluid-sm lg:text-fluid-base hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
+              <strong className="fluid-sm lg:fluid-base hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
                 {spielData.team2.name || "Team 2"}
               </strong>
             </TeamPopoverMenu>

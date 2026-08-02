@@ -156,7 +156,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
           className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-4 px-2 duration-400"
           onKeyDownCapture={(event) => submitInlineOnEnter(event, handleCreateSubmit)}>
           <div className="border-border flex items-center justify-between border-b pb-2">
-            <h4 className="text-fluid-sm text-foreground font-bold">{createHeading}</h4>
+            <h4 className="fluid-sm text-foreground font-bold">{createHeading}</h4>
             {/* Same control the modal shells use, so "close this panel" looks and behaves the
                 same everywhere. `Modal.CloseTrigger` is just this with the dialog's close wired in,
                 which is not available outside a modal. */}
@@ -204,7 +204,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
             onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
             <Label className={FIELD_LABEL}>{label}</Label>
             <Autocomplete.Trigger className={FIELD_INPUT}>
-              <Autocomplete.Value className="text-fluid-sm" />
+              <Autocomplete.Value className="fluid-sm" />
               {/* HeroUI hardcodes aria-label="Clear selection" on this button and spreads props
                   after it, so passing one is the only way to germanise it. */}
               <Autocomplete.ClearButton
@@ -234,7 +234,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
                 <ListBox
                   renderEmptyState={() => (
                     <div className="flex flex-col items-center justify-center gap-3 p-6 text-center">
-                      <p className="text-fluid-xs text-foreground-muted">{emptyStateText}</p>
+                      <p className="fluid-xs text-foreground-muted">{emptyStateText}</p>
                       <Button
                         type="button"
                         variant="primary"
@@ -250,7 +250,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
                       key={item.id}
                       id={item.id}
                       textValue={item.name}
-                      className="text-fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                      className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
                       {item.name}
                       <ListBox.ItemIndicator />
                     </ListBox.Item>
@@ -270,7 +270,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
                 </div>
               )}
             </Autocomplete.Popover>
-            <Description className="text-fluid-xxs text-foreground-muted">{description}</Description>
+            <Description className="fluid-xxs text-foreground-muted">{description}</Description>
           </Autocomplete>
 
           {children}

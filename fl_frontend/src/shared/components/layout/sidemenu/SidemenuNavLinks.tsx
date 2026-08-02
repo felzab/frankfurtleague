@@ -44,7 +44,7 @@ export function SidemenuNavLinks<TIcon extends string>({
           key={group.category_name}
           className="flex flex-col gap-1">
           {!isDesktopCollapsed ? (
-            <span className="text-foreground-muted text-fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
+            <span className="text-foreground-muted fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
           ) : (
             <Separator className="bg-border my-1 w-1/2 self-center" />
           )}

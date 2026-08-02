@@ -72,9 +72,9 @@ export function SpielsucheView({
       {/* Results Area */}
       <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
         {spielQuery === "" ? (
-          <p className="text-fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Noch keine Eingabe...</p>
+          <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Noch keine Eingabe...</p>
         ) : filteredResults.length === 0 ? (
-          <p className="text-fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Keine Ergebnisse für "{spielQuery}"</p>
+          <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Keine Ergebnisse für "{spielQuery}"</p>
         ) : (
           // The cascade is doing more work here than elsewhere: results are re-filtered on every
           // debounced keystroke, so this grid re-enters constantly. A block fade made each new

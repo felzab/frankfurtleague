@@ -9,5 +9,5 @@ import { connection } from "next/server";
 // The caller wraps this in <Suspense>, so the year is a streamed hole in the static shell.
 export async function FooterCopyrightString() {
   await connection();
-  return <p className="text-fluid-xxs text-foreground-muted">{`© ${new Date().getFullYear()} Frankfurt-League. Alle Rechte vorbehalten.`}</p>;
+  return <p className="fluid-xxs text-foreground-muted">{`© ${new Date().getFullYear()} Frankfurt-League. Alle Rechte vorbehalten.`}</p>;
 }

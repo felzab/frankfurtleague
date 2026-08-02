@@ -18,8 +18,8 @@ import type { FLSpieleListResponse } from "../../schemas";
 function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="mb-6 flex flex-col gap-1">
-      <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">{eyebrow}</span>
-      <h2 className="text-fluid-2xl text-foreground font-black tracking-tight">{title}</h2>
+      <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">{eyebrow}</span>
+      <h2 className="fluid-2xl text-foreground font-black tracking-tight">{title}</h2>
     </div>
   );
 }

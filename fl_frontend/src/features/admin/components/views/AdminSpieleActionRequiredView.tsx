@@ -48,18 +48,18 @@ export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overv
                 <Accordion.Trigger className="hover:bg-muted/40 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors">
                   <div className="flex flex-col gap-y-1">
                     <div className="flex items-center gap-x-3">
-                      <span className="text-fluid-base text-foreground font-extrabold tracking-tight">{label.name}</span>
+                      <span className="fluid-base text-foreground font-extrabold tracking-tight">{label.name}</span>
                       {/* The `-solid` fills hold one deep value in both themes, so white stays legible
                           on them. The plain `danger`/`success` accents are tuned as tints and
                           measured 3.30:1 light / 2.28:1 dark behind this 12px bold count. */}
                       <span
-                        className={`text-fluid-xxs inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 font-extrabold shadow-sm ${
+                        className={`fluid-xxs inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 font-extrabold shadow-sm ${
                           hasItems ? "bg-danger-solid text-danger-solid-foreground" : "bg-success-solid text-success-solid-foreground"
                         }`}>
                         {spiele.length}
                       </span>
                     </div>
-                    <span className="text-fluid-xxs text-foreground-muted font-medium">{label.desc}</span>
+                    <span className="fluid-xxs text-foreground-muted font-medium">{label.desc}</span>
                   </div>
                   <Accordion.Indicator className="text-foreground-muted transition-transform duration-200">
                     <ChevronsDownWide

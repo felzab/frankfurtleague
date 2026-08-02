@@ -302,42 +302,64 @@
   --color-field-fg: var(--field-fg);
   --color-field-border: var(--field-border);
 
-  /** Fluid text sizes */
+  /** Fluid text sizes.
+   *
+   * **Declared OUTSIDE Tailwind's `--text-*` namespace on purpose, and this is load-bearing.**
+   * A `--text-<name>` token makes Tailwind emit a `text-<name>` utility, and that name is what broke
+   * 51 call sites. This scale used to be `--text-fluid-*`, i.e. classes spelled `text-fluid-xxs`.
+   * tailwind-merge decides what a `text-*` class means from the value it recognises: `text-xs` is a
+   * font size, `text-brand` is a colour. `text-fluid-xxs` matched neither, so it was filed as a
+   * COLOUR — the same conflict group as `text-foreground-muted` sitting beside it — and whichever
+   * came first was silently deleted by any HeroUI component that runs `className` through its own
+   * tailwind-variants instance.
+   *
+   * `src/shared/utils/tv.ts` used to register the scale with its own tailwind-merge, which fixed it
+   * for THIS app's recipes. It could never fix a library's: `@heroui/styles` builds its recipes with
+   * `tv` from `tailwind-variants` at module scope, and each captures its merge config at creation.
+   * Measured against the real package — registering the scale before importing HeroUI, and mutating
+   * `tailwind-variants`' exported `defaultConfig` — both leave HeroUI's merge unchanged.
+   *
+   * So the fix is the class NAME, not the config. These tokens generate no utility at all; the
+   * `fluid-*` utilities further down read them. `fluid-xxs` matches no tailwind-merge group in any
+   * instance, which is exactly why it survives every merge — a class a library cannot classify is a
+   * class it cannot drop. **Never reintroduce a `--text-*` token for this scale**, and never spell a
+   * size `text-fluid-*` again; that utility no longer exists, so it would silently style nothing.
+   */
   /* 10px to 12px */
-  --text-fluid-xxs: clamp(0.625rem, 0.58rem + 0.2vw, 0.75rem);
-  --text-fluid-xxs--line-height: 1.6;
+  --fl-type-xxs: clamp(0.625rem, 0.58rem + 0.2vw, 0.75rem);
+  --fl-type-xxs--leading: 1.6;
 
   /* 12px to 14px */
-  --text-fluid-xs: clamp(0.75rem, 0.71rem + 0.2vw, 0.875rem);
-  --text-fluid-xs--line-height: 1.5;
+  --fl-type-xs: clamp(0.75rem, 0.71rem + 0.2vw, 0.875rem);
+  --fl-type-xs--leading: 1.5;
 
   /* 14px to 16px */
-  --text-fluid-sm: clamp(0.875rem, 0.83rem + 0.2vw, 1rem);
-  --text-fluid-sm--line-height: 1.5;
+  --fl-type-sm: clamp(0.875rem, 0.83rem + 0.2vw, 1rem);
+  --fl-type-sm--leading: 1.5;
 
   /* 16px to 18px (The Anchor) */
-  --text-fluid-base: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
-  --text-fluid-base--line-height: 1.5;
+  --fl-type-base: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  --fl-type-base--leading: 1.5;
 
   /* 18px to 20px */
-  --text-fluid-lg: clamp(1.125rem, 1.08rem + 0.2vw, 1.25rem);
-  --text-fluid-lg--line-height: 1.4;
+  --fl-type-lg: clamp(1.125rem, 1.08rem + 0.2vw, 1.25rem);
+  --fl-type-lg--leading: 1.4;
 
   /* 20px to 24px */
-  --text-fluid-xl: clamp(1.25rem, 1.16rem + 0.4vw, 1.5rem);
-  --text-fluid-xl--line-height: 1.4;
+  --fl-type-xl: clamp(1.25rem, 1.16rem + 0.4vw, 1.5rem);
+  --fl-type-xl--leading: 1.4;
 
   /* 24px to 32px */
-  --text-fluid-2xl: clamp(1.5rem, 1.33rem + 0.8vw, 2rem);
-  --text-fluid-2xl--line-height: 1.3;
+  --fl-type-2xl: clamp(1.5rem, 1.33rem + 0.8vw, 2rem);
+  --fl-type-2xl--leading: 1.3;
 
   /* 30px to 42px */
-  --text-fluid-3xl: clamp(1.875rem, 1.53rem + 1.7vw, 2.625rem);
-  --text-fluid-3xl--line-height: 1.2;
+  --fl-type-3xl: clamp(1.875rem, 1.53rem + 1.7vw, 2.625rem);
+  --fl-type-3xl--leading: 1.2;
 
   /* 36px to 56px */
-  --text-fluid-4xl: clamp(2.25rem, 1.73rem + 2.6vw, 3.5rem);
-  --text-fluid-4xl--line-height: 1.1;
+  --fl-type-4xl: clamp(2.25rem, 1.73rem + 2.6vw, 3.5rem);
+  --fl-type-4xl--leading: 1.1;
 
   /* Page-width archetypes. Four independent caps used to be spelled as arbitrary values across 21
      sites, which is how /dashboard/spielplan ended up clamping its tab strip 200px narrower than
@@ -386,6 +408,64 @@
    name, silently inherited by all 11 consumers. The sites that want the gutter now say so with
    Tailwind's own `scrollbar-gutter-stable`. The !important flags are unnecessary: @utility output
    lands in the utilities layer, which already beats HeroUI's base/scrollbar.css. */
+/* THE app's type scale, and the only way to spell it. `fluid-sm`, not `fluid-sm`.
+ *
+ * Each carries its font size AND its line height, so a size is one class rather than two, exactly as
+ * a Tailwind `text-*` utility does. The reason they are not `text-*` is in the token block above and
+ * is worth reading before touching either: the `text-` prefix is what let a library's tailwind-merge
+ * mistake a size for a colour and delete it.
+ *
+ * Written out nine times rather than as one `@utility fluid-*` functional utility. The functional
+ * form would work, but it resolves its value through `--value()` at build time and would silently
+ * emit nothing for a typo'd step, where nine explicit blocks fail loudly by simply not existing.
+ *
+ * Adding a step means: a `--fl-type-*` token pair above, a block here, and nothing else — there is
+ * no merge config to keep in step any more, which was the point of moving off `--text-*`. */
+@utility fluid-xxs {
+  font-size: var(--fl-type-xxs);
+  line-height: var(--fl-type-xxs--leading);
+}
+
+@utility fluid-xs {
+  font-size: var(--fl-type-xs);
+  line-height: var(--fl-type-xs--leading);
+}
+
+@utility fluid-sm {
+  font-size: var(--fl-type-sm);
+  line-height: var(--fl-type-sm--leading);
+}
+
+@utility fluid-base {
+  font-size: var(--fl-type-base);
+  line-height: var(--fl-type-base--leading);
+}
+
+@utility fluid-lg {
+  font-size: var(--fl-type-lg);
+  line-height: var(--fl-type-lg--leading);
+}
+
+@utility fluid-xl {
+  font-size: var(--fl-type-xl);
+  line-height: var(--fl-type-xl--leading);
+}
+
+@utility fluid-2xl {
+  font-size: var(--fl-type-2xl);
+  line-height: var(--fl-type-2xl--leading);
+}
+
+@utility fluid-3xl {
+  font-size: var(--fl-type-3xl);
+  line-height: var(--fl-type-3xl--leading);
+}
+
+@utility fluid-4xl {
+  font-size: var(--fl-type-4xl);
+  line-height: var(--fl-type-4xl--leading);
+}
+
 @utility scrollbar-hide {
   &::-webkit-scrollbar {
     display: none;
@@ -571,7 +651,7 @@
 @layer components {
   /* UI Overrides */
   .table__column {
-    @apply bg-background/90! text-foreground text-fluid-xxs;
+    @apply bg-background/90! text-foreground fluid-xxs;
   }
 
   [data-slot="table"] td {
@@ -591,11 +671,11 @@
   }
 
   .toast__description {
-    @apply text-fluid-xs text-foreground-muted opacity-90;
+    @apply fluid-xs text-foreground-muted opacity-90;
   }
 
   .toast__action {
-    @apply text-fluid-xs;
+    @apply fluid-xs;
   }
 
   .accordion__item:after {

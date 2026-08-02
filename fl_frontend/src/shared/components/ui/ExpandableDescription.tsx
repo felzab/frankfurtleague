@@ -8,7 +8,7 @@ export function ExpandableDescription({ text }: { text: string }) {
   if (!text) return null;
 
   if (text.length < 120) {
-    return <p className="text-fluid-xs text-foreground mt-2 font-medium text-pretty">{text}</p>;
+    return <p className="fluid-xs text-foreground mt-2 font-medium text-pretty">{text}</p>;
   }
 
   return (
@@ -24,12 +24,12 @@ export function ExpandableDescription({ text }: { text: string }) {
         }
       }}>
       <p
-        className={`text-fluid-xs text-pretty transition-colors duration-200 ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
+        className={`fluid-xs text-pretty transition-colors duration-200 ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
         {text}
       </p>
 
       <button
-        className="text-fluid-xs text-success mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80"
+        className="fluid-xs text-success mt-1.5 cursor-pointer rounded border-none bg-transparent p-0 font-bold transition-opacity hover:opacity-80"
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>

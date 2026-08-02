@@ -14,10 +14,20 @@ import { skeletonBlock } from "./skeleton";
  * watching, not a new one.
  *
  * **It mirrors `SaisonSelector`'s trigger rather than guessing at it.** This was a flat `h-[70px]`
- * slab, and 70px was a guess: the real trigger has no fixed height at all. It is `min-h-14` plus a
- * `text-fluid-lg` name over a `text-fluid-xxs` timespan, so it measures ~65px at a phone width and
- * ~71px at a desktop one, and the slab was several pixels out at both ends. Reusing the trigger's own
- * shell classes and letting the same two text runs set the height removes the guess entirely.
+ * slab, and 70 was a guess: the real trigger has no fixed height at all. It is `min-h-14` plus a
+ * `fluid-lg` name over a `fluid-xxs` timespan, so it measures ~65px at a phone width and ~71px at a
+ * desktop one. Reusing the trigger's own shell classes and letting the same two text runs set the
+ * height removes the guess.
+ *
+ * **The bar widths are the rendered text widths, in `em`, and that unit is the point.** Both runs
+ * have a fixed character count — every season id is four characters, and the timespan is always two
+ * `dd.mm.yyyy` dates around a hyphen — so each has one width per font size. Since the font size is
+ * fluid, a `rem` width would only be right at one viewport; the bars used to be `w-28`/`w-36` and
+ * were 15px and 16px short at desktop. Every contribution to the width — glyph advances and the
+ * `tracking-*` letter-spacing alike — scales linearly with font size, so the ratio is constant:
+ * measured with canvas text metrics at the real computed font, 6.0238em and 13.1982em at 375px wide
+ * and 6.0237em / 13.1981em at 1280px. Expressing them in `em` makes the bars exact at every width
+ * rather than at one.
  *
  * It carries no text, so it needs the labelled status region or a screen-reader user gets silence
  * while it waits.
@@ -27,24 +37,29 @@ export function SaisonSlotSkeleton() {
     <div
       role="status"
       aria-label="Saisonauswahl wird geladen"
-      className="border-border/60 bg-surface/50 flex min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs">
-      {/* `gap-0.5` and `text-fluid-lg` are the trigger's own — see the note above.
-          The timespan bar is `text-xs`, NOT the `text-fluid-xxs` the trigger asks for, and that is
-          matching reality rather than intent: HeroUI's `Description` merges its own classes with
-          tailwind-merge, which is not told about this app's `--text-fluid-*` scale (the hazard
-          `shared/utils/tv.ts` exists to close, and it cannot reach inside a library's merge). It
-          therefore files `text-fluid-xxs` as a COLOUR, in the same conflict group as
-          `text-foreground-muted`, and drops it — measured in the browser, the rendered element's
-          class list has no `fluid` class at all and it computes to `text-xs`'s 12px/16px. Matching
-          the fluid class here made this placeholder 2.9px too tall. If the trigger is ever changed
-          to render a plain span, this goes back to `text-fluid-xxs` in the same commit. */}
+      // `relative`, because the chevron below is positioned rather than laid out — see the note there.
+      className="border-border/60 bg-surface/50 relative flex min-h-14 w-full flex-row items-center rounded-xl border px-4 py-2.5 shadow-xs">
+      {/* `gap-0.5`, `fluid-lg` and `fluid-xxs` are the trigger's own, so the two line boxes are
+          computed by the same rules as the real ones at every breakpoint.
+
+          The timespan used to be `text-xs` here, to match a `Description` that was rendering at 12px
+          because HeroUI's tailwind-merge was deleting its size class. That is fixed at the source
+          (ADR-0025), so this is back to the size the trigger actually asks for. */}
       <div className="flex flex-col gap-0.5">
-        <span className={`${skeletonBlock()} text-fluid-lg block w-28 rounded-md`}>&nbsp;</span>
-        <span className={`${skeletonBlock()} block w-36 rounded text-xs`}>&nbsp;</span>
+        <span className={`${skeletonBlock()} fluid-lg block w-[6.024em] rounded-md`}>&nbsp;</span>
+        <span className={`${skeletonBlock()} fluid-xxs block w-[13.198em] rounded`}>&nbsp;</span>
       </div>
 
-      {/* The chevron's silhouette. `Select.Indicator` renders an 16px icon at the trigger's end. */}
-      <span className={`${skeletonBlock()} size-4 shrink-0 rounded`} />
+      {/* The chevron's silhouette, positioned exactly where the real one sits.
+          `Select.Indicator` is `.select__indicator`, which HeroUI declares `absolute inset-y-0 end-2
+          my-auto` — it is OUT OF FLOW, 8px from the trigger's right edge. Laying this out as a flex
+          item instead put it inside the `px-4` padding, i.e. 16px in, so the placeholder's chevron
+          sat 8px left of the real one and visibly jumped on swap. Mirroring the positioning is the
+          only way to land on the same pixel, because the offsets are HeroUI's, not this app's. */}
+      <span
+        aria-hidden="true"
+        className={`${skeletonBlock()} absolute inset-y-0 end-2 my-auto size-4 shrink-0 rounded`}
+      />
     </div>
   );
 }
