@@ -20,32 +20,42 @@ else.
 Effort scale: **S** — an afternoon · **M** — a day or two · **L** — a work package across several
 sessions · **XL** — a programme touching data, schemas and UI end to end.
 
+**Status vocabulary**, a closed set of five:
+
+| Status       | Means                                                                                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Open**     | Nothing decided, nothing blocking. Pick it up whenever.                                                                                                                                           |
+| **Decided**  | The argument is settled and recorded as an ADR; the work is not done. The entry is now an instruction, not a question.                                                                            |
+| **Blocked**  | Waiting on another entry that is still in this file. The `Depends on` column names which.                                                                                                         |
+| **Standing** | No scheduled action — a caution, or a finding with a recorded trigger rather than a plan.                                                                                                         |
+| **Closed**   | Concluded, awaiting removal. **This status exists for exactly one commit.** See [Closing an entry](README.md#closing-an-entry-two-commits-not-one) — the removal is the next commit and cites it. |
+
 ## The path at a glance
 
-| #   | ID    | Item                                                   | Surfaces    | Effort | Depends on             |
-| --- | ----- | ------------------------------------------------------ | ----------- | ------ | ---------------------- |
-| 1   | F4    | Statistics written to one document, read from another  | BE, DB      | M      | — (verified; fix open) |
-| 2   | DB-1  | Database structure review                              | DB, BE      | M      | — (F4 verified)        |
-| 3   | FB-1  | Saisontabelle must count only Gruppenphase games       | FE, BE, DB  | XL     | F4, DB-1               |
-| 4   | LOG-1 | Logging and error handling, surveyed then standardised | FE, BE, Ops | L      | — (parallel-safe)      |
-| 5   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`      | BE, FE      | L      | —                      |
-| 6   | BE-9  | Replace the "TBD" placeholder team                     | BE, FE      | L      | BE-4 (natural moment)  |
-| 7   | FB-2  | Disqualification becomes a record, not a boolean       | FE, BE, DB  | M      | DB-1                   |
-| 8   | FB-3  | Admin pages for team and spieler data                  | FE, BE      | L      | BE-4                   |
-| 9   | FB-4  | Playoff bracket: verify seeding, then auto-advance     | FE, BE      | M      | BE-9                   |
-| 10  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields       | FE, BE      | S      | FB-2 (field shape)     |
-| 11  | FE-1  | Date ranges instead of specific dates                  | FE (+BE)    | XL     | batch with 10, 12      |
-| 12  | FE-2  | Optional per-game notes                                | FE (+BE)    | S      | batch with 10, 11      |
-| 13  | FE-3  | TeamDetailsView rework                                 | FE          | M      | FB-1, FB-2             |
-| 14  | F7    | Hardcoded season badge on the landing page             | FE          | S      | — (before rollover)    |
-| 15  | BE-10 | Cache the current-season default                       | BE          | S      | —                      |
-| 16  | OPS-4 | One output standard for `scripts/`                     | Ops         | M      | —                      |
-| 17  | F1    | Two definitions of `ausstehend`                        | FE, BE      | S      | — (latest with FE-1)   |
-| 18  | F2    | Pydantic and Zod models are hand-mirrored              | FE, BE      | —      | standing caution       |
-| 19  | BE-7  | `typing` imports instead of `collections.abc`          | BE          | —      | audit pass B4          |
-| 20  | BE-6  | `CustomObjectId` validates nothing in JSON mode        | BE          | —      | audit pass B2          |
-| 21  | OPS-2 | Nothing validates the contents of a restored `.env`    | Ops         | —      | trigger recorded       |
-| 22  | OPS-3 | Crawler policy split between robots.txt and Cloudflare | Ops         | —      | trigger recorded       |
+| #   | ID    | Item                                                   | Surfaces    | Effort | Status      | Depends on             |
+| --- | ----- | ------------------------------------------------------ | ----------- | ------ | ----------- | ---------------------- |
+| 1   | F4    | Statistics written to one document, read from another  | BE, DB      | M      | **Decided** | — (ADR-0026; fix open) |
+| 2   | DB-1  | Database structure review                              | DB, BE      | M      | **Closed**  | — (ADR-0026/27/28)     |
+| 3   | FB-1  | Saisontabelle must count only Gruppenphase games       | FE, BE, DB  | XL     | Blocked     | F4, DB-1               |
+| 4   | LOG-1 | Logging and error handling, surveyed then standardised | FE, BE, Ops | L      | Open        | — (parallel-safe)      |
+| 5   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`      | BE, FE      | L      | Open        | —                      |
+| 6   | BE-9  | Replace the "TBD" placeholder team                     | BE, FE      | L      | Open        | BE-4 (natural moment)  |
+| 7   | FB-2  | Disqualification becomes a record, not a boolean       | FE, BE, DB  | M      | Open        | DB-1                   |
+| 8   | FB-3  | Admin pages for team and spieler data                  | FE, BE      | L      | Blocked     | BE-4                   |
+| 9   | FB-4  | Playoff bracket: verify seeding, then auto-advance     | FE, BE      | M      | Open        | BE-9                   |
+| 10  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields       | FE, BE      | S      | Blocked     | FB-2 (field shape)     |
+| 11  | FE-1  | Date ranges instead of specific dates                  | FE (+BE)    | XL     | Open        | batch with 10, 12      |
+| 12  | FE-2  | Optional per-game notes                                | FE (+BE)    | S      | Open        | batch with 10, 11      |
+| 13  | FE-3  | TeamDetailsView rework                                 | FE          | M      | Blocked     | FB-1, FB-2             |
+| 14  | F7    | Hardcoded season badge on the landing page             | FE          | S      | Open        | — (before rollover)    |
+| 15  | BE-10 | Cache the current-season default                       | BE          | S      | Open        | —                      |
+| 16  | OPS-4 | One output standard for `scripts/`                     | Ops         | M      | Open        | —                      |
+| 17  | F1    | Two definitions of `ausstehend`                        | FE, BE      | S      | Open        | — (latest with FE-1)   |
+| 18  | F2    | Pydantic and Zod models are hand-mirrored              | FE, BE      | —      | Standing    | standing caution       |
+| 19  | BE-7  | `typing` imports instead of `collections.abc`          | BE          | —      | Standing    | audit pass B4          |
+| 20  | BE-6  | `CustomObjectId` validates nothing in JSON mode        | BE          | —      | Standing    | audit pass B2          |
+| 21  | OPS-2 | Nothing validates the contents of a restored `.env`    | Ops         | —      | Standing    | trigger recorded       |
+| 22  | OPS-3 | Crawler policy split between robots.txt and Cloudflare | Ops         | —      | Standing    | trigger recorded       |
 
 ---
 
@@ -142,7 +152,36 @@ its motivating check. Referenced from `docs/backend/spec.md` (invariant I1, §7)
 corrected (splitting a statistics field is pointless while the write misses it), and informs FE-3
 (which displays the full statistics FB-1 separates out).
 
-### 2 · DB-1 — Database structure review
+### 2 · DB-1 — Database structure review ✅ CLOSED
+
+**Concluded 2026-08-02.** The review ran read-only against the live database and produced three
+ratified decisions. **This entry is removed in the commit that follows this one** — it is left here
+for one commit so the closure is legible in `git log -p` rather than only in a commit body, per
+[Closing an entry](README.md#closing-an-entry-two-commits-not-one).
+
+What it decided:
+
+- **[ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)** — `statistik` is
+  derived from `spiele` on read, never stored. A match counts when it carries an `ergebnis`; a
+  cancelled match with a result is a forfeit and counts.
+- **[ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)** — the database gets
+  `$jsonSchema` validators and four unique indexes, declared in code and applied at startup. The work
+  is carried by the new entry **DB-2**.
+- **[ADR-0028](../_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md)** — the rule
+  for every other duplicate in the schema: derived aggregates are never stored, point-in-time records
+  always are, display copies stay embedded with a fan-out obligation, and a season-scoped field that
+  changes mid-season is joined. Settles FB-5.
+
+Findings that were not decisions went to the entries that own them: FB-1 (the phase split, and two
+quarter-final results already in the group table), FB-2 (the disqualification record is an embedded
+object on the junction), FB-3 (the missing team fan-out, free-text `position`/`stufe`, the unused
+`kontakt`), BE-9 (the `TBD` team's embedded names carry bracket labels), BE-4 (validation converges
+with DB-2) and DB-2 itself (two malformed `saison_spieler` rows, the `mietpreis` type split,
+`spieltage.anzahl_spiele`).
+
+---
+
+**Original entry, kept intact until removal:**
 
 **Owner's item, 2026-08-02.** Check whether the current database structure is good as it is, or
 needs optimisation. The owner is happy to provide additional resources concerning the database if
