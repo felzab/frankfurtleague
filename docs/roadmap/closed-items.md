@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `e73cc01`, 2026-08-02
+**Verified against:** `3d7f701`, 2026-08-03
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -35,6 +35,7 @@ the open file's highest is BE-10.
 | 7   | BE-11 | Nothing executed the derived league table's pipeline against a database             | BE          | S      | —           | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
 | 8   | DB-3  | Seventeen `saison_teams` rows still carried the `statistik` the derivation orphaned | DB          | S      | —           | [`1acfc49`](https://github.com/felzab/frankfurtleague/commit/1acfc49) |
 | 9   | DB-2  | Nine collections with no validator and no index beyond `_id_`, hand-edited daily    | DB, BE, Ops | M      | —           | [`5c017f8`](https://github.com/felzab/frankfurtleague/commit/5c017f8) |
+| 10  | BE-4  | Six reference collections could only be read; edits went straight into MongoDB      | BE, FE, Ops | L      | —           | [`3d7f701`](https://github.com/felzab/frankfurtleague/commit/3d7f701) |
 
 ## What each one produced
 
@@ -56,6 +57,13 @@ no row here — its commit is the whole story.
 - **BE-11** → [ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), a real
   `mongod` behind a `db` marker the default suite deselects. It handed the backend audit a container
   fixture it no longer has to design, and handed OPS-5 a CI job explicitly marked provisional.
+- **BE-4** → three ADRs: [0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md) (soft
+  deletion is a date, and creating never revives), [0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)
+  (one active season, one path to it) and [0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)
+  (resource-first URLs in a second router per slice). It also produced **DS14 and DS15** in
+  [`../_standard/4-decisions.md`](../_standard/4-decisions.md), and opened **FB-6** (admin pages for
+  seasons and matchdays, plus the rollover control) and **BE-12** (the purge `inactive_since` is a
+  date for). It unblocked FB-3 and left ADR-0015 standing: the endpoints exist, no UI calls one.
 - **DB-2** → [ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md),
   the rule that the `$jsonSchema` validators are hand-written and compared to the Pydantic models by a
   test rather than generated from them. It opened nothing. Two findings that were not decisions left

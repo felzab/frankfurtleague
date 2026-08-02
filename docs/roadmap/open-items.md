@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `6df0573`, 2026-08-03
+**Verified against:** `3d7f701`, 2026-08-03
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog (added
 2026-08-02). The original entries migrated here from the documentation programme's ledger when that
@@ -39,38 +39,38 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 ## The path at a glance
 
-| #   | ID    | Item                                                     | Surfaces    | Effort | Status   | Depends on              |
-| --- | ----- | -------------------------------------------------------- | ----------- | ------ | -------- | ----------------------- |
-| 1   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open     | — (parallel-safe)       |
-| 2   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`        | BE, FE      | L      | Closed   | —                       |
-| 3   | BE-9  | Replace the "TBD" placeholder team                       | BE, FE      | L      | Open     | — (BE-4's moment, soft) |
-| 4   | FB-2  | Disqualification becomes a record, not a boolean         | FE, BE, DB  | M      | Open     | — (model decided)       |
-| 5   | FB-3  | Admin pages for team and spieler data                    | FE, BE      | L      | Blocked  | BE-4                    |
-| 6   | FB-4  | Playoff bracket: verify seeding, then auto-advance       | FE, BE      | M      | Blocked  | BE-9 (part 2 only)      |
-| 7   | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields         | FE, BE      | S      | Blocked  | FB-2 (field shape)      |
-| 8   | FE-1  | Date ranges instead of specific dates                    | FE (+BE)    | XL     | Open     | — (batch with 7, 9)     |
-| 9   | FE-2  | Optional per-game notes                                  | FE (+BE)    | S      | Open     | — (batch with 7, 8)     |
-| 10  | FE-3  | TeamDetailsView rework                                   | FE          | M      | Blocked  | FB-2                    |
-| 11  | BE-10 | Nothing caches the season document, read every request   | BE          | S      | Open     | —                       |
-| 12  | F7    | Hardcoded season badge on the landing page               | FE          | S      | Open     | — (before rollover)     |
-| 13  | OPS-4 | One output standard for `scripts/`                       | Ops         | M      | Open     | — (batch with OPS-5)    |
-| 14  | OPS-5 | Scripts and CI, audited and optimised for what they cost | Ops         | M      | Open     | — (batch with OPS-4)    |
-| 15  | F1    | Two definitions of `ausstehend`                          | FE, BE      | S      | Open     | — (latest with FE-1)    |
-| 16  | F2    | Pydantic and Zod models are hand-mirrored                | FE, BE      | —      | Standing | standing caution        |
-| 17  | BE-7  | `typing` imports instead of `collections.abc`            | BE          | —      | Standing | audit pass B4           |
-| 18  | BE-6  | `CustomObjectId` validates nothing in JSON mode          | BE          | —      | Standing | audit pass B2           |
-| 19  | OPS-2 | Nothing validates the contents of a restored `.env`      | Ops         | —      | Standing | trigger recorded        |
-| 20  | OPS-3 | Crawler policy split between robots.txt and Cloudflare   | Ops         | —      | Standing | trigger recorded        |
+| #   | ID    | Item                                                     | Surfaces    | Effort | Status   | Depends on               |
+| --- | ----- | -------------------------------------------------------- | ----------- | ------ | -------- | ------------------------ |
+| 1   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open     | — (parallel-safe)        |
+| 2   | FB-3  | Admin pages for team and spieler data                    | FE, BE      | L      | Open     | — (API built, ADR-0034)  |
+| 3   | FB-6  | Admin pages for saisons and spieltage, and the rollover  | FE, BE      | L      | Decided  | — (ADR-0033 settles it)  |
+| 4   | BE-9  | Replace the "TBD" placeholder team                       | BE, FE      | L      | Open     | —                        |
+| 5   | FB-2  | Disqualification becomes a record, not a boolean         | FE, BE, DB  | M      | Open     | — (model decided)        |
+| 6   | FB-4  | Playoff bracket: verify seeding, then auto-advance       | FE, BE      | M      | Blocked  | BE-9 (part 2 only)       |
+| 7   | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields         | FE, BE      | S      | Blocked  | FB-2 (field shape)       |
+| 8   | FE-1  | Date ranges instead of specific dates                    | FE (+BE)    | XL     | Open     | — (batch with 9, 10)     |
+| 9   | FE-2  | Optional per-game notes                                  | FE (+BE)    | S      | Open     | — (batch with 8, 10)     |
+| 10  | FE-3  | TeamDetailsView rework                                   | FE          | M      | Blocked  | FB-2                     |
+| 11  | BE-10 | Nothing caches the season document, read every request   | BE          | S      | Open     | —                        |
+| 12  | F7    | Hardcoded season badge on the landing page               | FE          | S      | Open     | — (before rollover)      |
+| 13  | BE-12 | Nothing purges a row whose `inactive_since` is old       | BE, DB      | M      | Open     | — (ADR-0032's follow-on) |
+| 14  | OPS-4 | One output standard for `scripts/`                       | Ops         | M      | Open     | — (batch with OPS-5)     |
+| 15  | OPS-5 | Scripts and CI, audited and optimised for what they cost | Ops         | M      | Open     | — (batch with OPS-4)     |
+| 16  | F1    | Two definitions of `ausstehend`                          | FE, BE      | S      | Open     | — (latest with FE-1)     |
+| 17  | F2    | Pydantic and Zod models are hand-mirrored                | FE, BE      | —      | Standing | standing caution         |
+| 18  | BE-7  | `typing` imports instead of `collections.abc`            | BE          | —      | Standing | audit pass B4            |
+| 19  | BE-6  | `CustomObjectId` validates nothing in JSON mode          | BE          | —      | Standing | audit pass B2            |
+| 20  | OPS-2 | Nothing validates the contents of a restored `.env`      | Ops         | —      | Standing | trigger recorded         |
+| 21  | OPS-3 | Crawler policy split between robots.txt and Cloudflare   | Ops         | —      | Standing | trigger recorded         |
 
 ---
 
 ## Tier 1 — foundations and enablers
 
 LOG-1 is independent and parallel-safe — the reason it sits high is that every item below it is
-easier to debug once it lands. BE-4 comes next because the database now enforces its own shape
-([ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)), which makes its
-endpoints a smaller job than they were. The last two are the data-model decisions that later features
-build on.
+easier to debug once it lands. FB-3 and FB-6 come next because BE-4 built every endpoint they need and
+nothing calls one: until an admin page does, the reference collections are edited by hand against an
+API that already exists. The last two are the data-model decisions that later features build on.
 
 ### 1 · LOG-1 — Logging and error handling, surveyed then standardised
 
@@ -99,64 +99,91 @@ code brought to it.
 **Path:** independent — nothing blocks it and it blocks nothing, so it can run alongside anything
 else in this file. Every later item benefits from landing it early.
 
-### 2 · BE-4 — no write path for `saisons`, `spieler`, `spieltage`
+### 2 · FB-3 — Admin panel pages for team and spieler data
 
-**State: open.** No FastAPI write endpoints exist for these three resources. They are edited
-**directly in MongoDB** — Compass, or an ad-hoc script. The application can only read them.
+**Owner's item, 2026-08-02, with emphasis: make new admin panel pages for editing team and spieler
+data.**
 
-Two consequences follow. The frontend caches them for a day with no way to know they changed, which
-is why [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md) exists and why
-`scripts/revalidate_reference_data.sh` has to be run by hand after such an edit. And nothing
-validates the edit: the Pydantic models constrain what is _read_, so a bad value written directly
-is discovered when a page fails to parse it, not when it is saved.
+What exists to build on: the generic `AdminCrudView` / `AdminCrudShell` pair was built precisely so
+"a third admin resource would otherwise be a third copy" — Schiedsrichter and Spielorte are
+per-entity declarations over it, and teams/spieler would be the third and fourth.
 
-**What building it would resolve:** the manual revalidation step disappears entirely — a real write
-path revalidates itself like every other mutation, and ADR-0015 becomes superseded rather than
-merely retired. It would also put the season's `rules.win_points` / `draw_points` under validation,
-which matters if the statistics calculation is ever wired to read them instead of hardcoding 3/1/0.
+**The backend is done.** BE-4 built full CRUD for both, resource-first with the id in the path
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)): `POST`,
+`PATCH`, `DELETE` and `POST /{id}/reactivate` on `/teams` and `/spieler`, plus the season junctions at
+`/teams/{team_id}/saisons/{saison_id}` and `/spieler/{spieler_id}/saisons/{saison_id}`. Nothing calls
+any of them. This item is the UI over an API that already exists.
 
-**Cost:** three CRUD surfaces plus admin UI for data that changes a few times a year.
+Three things that API decided, which the pages inherit rather than choose:
 
-**The second half of that is already smaller than it looks.** The database validates its own
-documents ([ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)), so these
-endpoints are not introducing validation where there was none — they agree with constraints Mongo
-already enforces, which is a better-specified job. The `$jsonSchema` is the shape; Pydantic adds the
-ranges and cross-field rules on top. **"Exactly one active season" is the invariant no validator can
-express**, so it stays this item's to enforce — and `app/core/constraints.py` says so at the
-`saisons` entry.
+- **Soft deletion is a date** ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
+  A list needs `include_inactive=true` to show retired rows at all, "delete" is a stamp rather than a
+  removal, and bringing something back is its own explicit action.
+- **A create can come back 409**, because a retired row keeps its slot in the unique index. The form
+  has to say so — "that shorthand belongs to a retired club, reactivate it instead" — rather than
+  reporting a generic failure.
+- **A team never leaves a season**; disqualification is the only way out (ADR-0033), so the junction
+  editor has no delete control to build.
 
-**Path:** blocks FB-3 (spieler editing needs a spieler write path) and is BE-9's recorded natural
-moment. Also gives BE-10 an invalidation hook it otherwise lacks.
+**Three things the 2026-08-02 database inspection hands this item:**
 
-**Closed 2026-08-03.** Widened by the owner from three collections to six and built as a full
-resource-first write surface: **30 mutations across seven slices**, 50 operations in total, plus a
-`GET /{id}` on every resource. `app/api/admin/` is gone.
+- **A team rename must fan out into `spiele`, and nothing does that today.** Venues and referees have
+  a fan-out (`patch_spielort`, `patch_schiedsrichter`); teams do not, only because no endpoint can
+  rename a team yet. This page is that endpoint. Without a `patch_many_in_db` over `spiele` matching
+  `team1.team_id` / `team2.team_id`, every match card shows the old name indefinitely — measured
+  today at zero drift across all 31 matches, and that is the state to preserve. See
+  [ADR-0028](../_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md), rule 3.
+- **`position` and `stufe` are free text and have already split.** Across 362 player rows:
+  `Mittelfeld` 121, `Abwehr` 118, `Angriff` 86, `Tor` 29 — plus `Sturm` ×2, `TW` ×1 and `?` ×5, where
+  `Sturm` and `Angriff` are the same position and so are `TW` and `Tor`. `stufe` has `??` ×2. Small
+  today because nothing groups by position; it stops being small the moment this page offers a field
+  to type into. Make both a closed set here — a `Literal` in Pydantic and a select in the form — and
+  normalise the eight stray rows in the same change.
+- **`schiedsrichter.kontakt` is null on all seven referees**, both `email` and `telefon`, while the
+  model, the Zod mirror and the frontend all carry the shape. Either it is a field waiting for a use
+  or it is weight; this is the page that would give it one. It is personal data, so unused is the
+  safe state — decide deliberately rather than by default.
 
-What it decided, recorded as ADRs:
+**Path:** unblocked. The natural UI home for FB-2's reason/date entry — build
+these with that form section in mind.
 
-- **[ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)** — soft deletion is a
-  nullable `YYYY-MM-DD` `inactive_since`, never a boolean, and creating never revives a retired row.
-- **[ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)** — exactly one active
-  season, written only by `POST /saisons/{id}/activate` in one transaction; a team leaves a season
-  only by disqualification, so `saison_teams` has no DELETE.
-- **[ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)** — the
-  URLs, the two-routers-per-slice layout that keeps the guard at router level, the junction paths, and
-  the removal of the `compact` team shape.
+### 3 · FB-6 — Admin pages for saisons and spieltage, and the rollover control
 
-Where the rest went:
+**Opened 2026-08-03, when BE-4 closed.** BE-4 built every endpoint a season rollover needs and no page
+calls one, so the rollover is still done by hand against an API that already exists — which is strictly
+worse than before it existed, because the runbook now names an endpoint per step and nothing prompts for
+a step that is skipped.
 
-- **The manual revalidation step stays.** The endpoints exist and nothing calls one, so no code path
-  observes a reference edit. [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md)
-  retires when **FB-3 and FB-6** land, not here — corrected in `workflows/README.md`.
-- **`rules.win_points` / `draw_points` are now under validation**, via `PATCH /saisons/{id}`.
-- **The scheduled purge** that `inactive_since` being a date exists for is new item **BE-12**.
-- **Admin pages for seasons and matchdays, the rollover control and its email reminder** are new item
-  **FB-6**. FB-3 keeps teams and players.
-- **The season-rollover runbook** now names an endpoint per step and says plainly that no UI calls one.
-- **`DocumentConflictException` and `DB-COMMON-002`** — a unique index refusing a write is a 409, which
-  is an ordinary outcome once seven create endpoints exist.
+**What the pages are.** A `saisons` editor over the same `AdminCrudView` / `AdminCrudShell` pair FB-3
+uses, plus a `spieltage` editor. The season form covers dates and `rules.win_points` / `draw_points`;
+`status` is on no payload and must not appear on one
+([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)). `spieltage` is mostly
+`order_val`, which the bracket orders by and the date does not.
 
-### 3 · BE-9 — the "TBD" placeholder team
+**The rollover control is the substantive part**, and it is one button calling
+`POST /saisons/{saison_id}/activate` — which demotes the incumbent and promotes the target in one
+transaction, and is the only code path that writes `status` at all.
+
+**The all-games-finished precondition belongs here, not at the endpoint.** ADR-0033 rejected a guard in
+the backend deliberately: an early rollover is a legitimate decision, and the one case where someone
+genuinely needs to activate a season is when the data is _not_ in the state a rule would assume. So this
+page shows what is incomplete — matches without an `ergebnis`, in the outgoing season — and lets the
+operator proceed anyway.
+
+**An email reminder for the rollover, which the owner asked explicitly be recorded.** The rollover
+happens twice a year at most, by hand, on a date nobody is watching — the same failure mode F7's
+hardcoded badge has. What triggers it, where it is sent from, and whether it belongs in the frontend at
+all are open; a scheduled job reading `saisons.end_date` is the obvious shape.
+
+**It also closes the manual revalidation step.** A page that saves through these endpoints can
+invalidate its own cache tags, which is what
+[ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md) retires on — together with FB-3,
+and not before.
+
+**Path:** independent; the API is built. Batch with FB-3, which is the same shell over the same
+generic components.
+
+### 4 · BE-9 — the "TBD" placeholder team
 
 **State: open. The more interesting of the two backend items, and the one with a clear right
 answer.**
@@ -193,14 +220,16 @@ team fields for exactly this reason.
 mirror, and the bracket rendering — every consumer of `team1`/`team2` has to handle null. That is a
 real scope, not an afternoon.
 
-**The natural moment is when BE-4's season write path is built**, because that is when season setup
-becomes a real flow and the placeholder's junction rows would otherwise need to be created there
-too — or the first time a season is created and the missing TBD row breaks a bracket.
+**Its natural moment has arrived and passed once already.** BE-4 built season setup as a real flow —
+`POST /teams/{team_id}/saisons` is where a junction row now comes from — and the placeholder needs one
+like any other team, which `docs/workflows/README.md` names as a step nothing prompts for. FB-6 is the
+page that will make that omission visible, so decide this model before or alongside it; the alternative
+is the first season created without the TBD row breaking a bracket.
 
 **Path:** shapes FB-4's auto-advance — writing a winner into the next match's slot is exactly the
 operation the placeholder currently fakes, so decide this model before building that workflow.
 
-### 4 · FB-2 — Disqualification becomes a record, not a boolean
+### 5 · FB-2 — Disqualification becomes a record, not a boolean
 
 **Owner's item, 2026-08-02.** Find a way to handle disqualifications properly. Currently teams can
 only **be** disqualified — a bare `is_disqualified` flag on the `saison_teams` junction row — but
@@ -229,44 +258,9 @@ the fields here before those consume them.
 
 ## Tier 2 — features, in dependency order
 
-Ranks 7–9 all touch `FLSpiel`, its Pydantic/Zod mirrors and `AdminEditSpielDataForm`. **Batch
-them**: F2's hand-mirrored schemas make every separate schema change a doubled edit with drift
-risk, so one coordinated pass beats three.
-
-### 5 · FB-3 — Admin panel pages for team and spieler data
-
-**Owner's item, 2026-08-02, with emphasis: make new admin panel pages for editing team and spieler
-data.**
-
-What exists to build on: the generic `AdminCrudView` / `AdminCrudShell` pair was built precisely so
-"a third admin resource would otherwise be a third copy" — Schiedsrichter and Spielorte are
-per-entity declarations over it, and teams/spieler would be the third and fourth.
-
-What is missing underneath: `spieler` has **no write path at all** (BE-4), and teams have only the
-statistics-increment write — no full CRUD endpoints. Both need backend surfaces before the pages
-can exist.
-
-**Three things the 2026-08-02 database inspection hands this item:**
-
-- **A team rename must fan out into `spiele`, and nothing does that today.** Venues and referees have
-  a fan-out (`patch_spielort`, `patch_schiedsrichter`); teams do not, only because no endpoint can
-  rename a team yet. This page is that endpoint. Without a `patch_many_in_db` over `spiele` matching
-  `team1.team_id` / `team2.team_id`, every match card shows the old name indefinitely — measured
-  today at zero drift across all 31 matches, and that is the state to preserve. See
-  [ADR-0028](../_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md), rule 3.
-- **`position` and `stufe` are free text and have already split.** Across 362 player rows:
-  `Mittelfeld` 121, `Abwehr` 118, `Angriff` 86, `Tor` 29 — plus `Sturm` ×2, `TW` ×1 and `?` ×5, where
-  `Sturm` and `Angriff` are the same position and so are `TW` and `Tor`. `stufe` has `??` ×2. Small
-  today because nothing groups by position; it stops being small the moment this page offers a field
-  to type into. Make both a closed set here — a `Literal` in Pydantic and a select in the form — and
-  normalise the eight stray rows in the same change.
-- **`schiedsrichter.kontakt` is null on all seven referees**, both `email` and `telefon`, while the
-  model, the Zod mirror and the frontend all carry the shape. Either it is a field waiting for a use
-  or it is weight; this is the page that would give it one. It is personal data, so unused is the
-  safe state — decide deliberately rather than by default.
-
-**Path:** blocked by BE-4 for spieler. The natural UI home for FB-2's reason/date entry — build
-these with that form section in mind.
+Ranks 7–9 all touch `FLSpiel`, its Pydantic/Zod mirrors and `AdminEditSpielDataForm`. **Batch them**:
+F2's hand-mirrored schemas make every separate schema change a doubled edit with drift risk, so one
+coordinated pass beats three.
 
 ### 6 · FB-4 — Playoff bracket: verify the seeding, then auto-advance winners
 
@@ -401,17 +395,24 @@ pays a Mongo query for an answer that changes once a year.
   points scheme mid-season would be a different competition. The same is true of which season is
   active — twice a year at most, and by hand.
 
-The consideration that makes it non-trivial is still **invalidation**. Seasons are edited directly in
-Mongo today (BE-4), so no code path observes the active season flipping or the points changing — a
+The consideration that makes it non-trivial is still **invalidation**. Seasons are edited by hand
+today — the endpoints exist and no UI calls one (FB-6) — so no code path observes the active season
+flipping or the points changing in practice; a
 naive process-lifetime cache serves the old answer until a restart. The candidates: a TTL measured in
 minutes, which bounds the staleness without needing an event; a hook on the ADR-0015 revalidation
 route, which already exists and already fans a `saisons` edit out to the frontend's `spiele`,
-`spieltage` and `teams` caches, so the backend cache is the one participant missing; or BE-4's future
-write path. **Prefer the second if it can be made to work** — it is the only one where the existing
+`spieltage` and `teams` caches, so the backend cache is the one participant missing; or the write path,
+which BE-4 built. **Prefer the second if it can be made to work** — it is the only one where the existing
 operational step (`./scripts/revalidate_reference_data.sh saisons`) already fires at exactly the right
 moment, and it makes the frontend and backend caches invalidate from one action rather than two.
 
-**Path:** independent; BE-4 would later give it a third invalidation hook. Nothing blocks it.
+**A third hook now exists and is not yet wired.** `PATCH /saisons/{saison_id}` and
+`POST /saisons/{saison_id}/activate` are the two writes that can change either answer, and they are the
+exact points at which a process-lifetime cache could be dropped with no staleness at all. That makes the
+in-process cache the cheapest of the three candidates rather than the most fragile — but only for edits
+that go through the API, and today none do.
+
+**Path:** independent. Nothing blocks it.
 
 ### 12 · F7 — The landing page's season badge is hardcoded
 
@@ -425,7 +426,40 @@ currently have — a real trade-off rather than an obvious fix.
 
 **Path:** independent, but deadline-bound — decide before the next season rollover.
 
-### 13 · OPS-4 — One output standard for `scripts/`
+### 13 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+
+**Opened 2026-08-03, when BE-4 closed. It is the reason that field is a date rather than a boolean**
+([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
+
+Six collections now carry `inactive_since`: `teams`, `spieler`, `saison_spieler`, `spieltage`,
+`spielorte`, `schiedsrichter`. A retired row stays forever, keeps its slot in whatever unique index
+covers it, and is filtered out of every default read. Nothing removes one, ever.
+
+**Today that is fine and the numbers say so.** Nothing is retired anywhere: 0 rows across all six,
+against 17 teams, 362 players, 362 squad rows, 6 matchdays, 6 venues and 7 referees. This is a
+prospective item, opened so the field's purpose is recorded rather than rediscovered.
+
+**What a purge has to answer, none of it decided:**
+
+- **How old is old enough**, and is it one threshold or one per collection? A venue nobody has booked
+  for three years and a squad row from a season that was played are different kinds of stale.
+- **What still references the row.** This is the hard half and it is why the delete was soft in the
+  first place: `spiele` embeds a copy of a venue, a referee and both teams, and references each by id.
+  A purge that is not preceded by a reachability check reintroduces exactly the orphaned references
+  ADR-0032 refused. `saison_spieler` is the one collection with no such embedding.
+- **Whether `uniq_shorthand` releasing two letters is a feature or a hazard.** Purging a retired club
+  frees its shorthand for reuse, which is the point — and it also means a future club can hold letters
+  that historical matches still name, if any survived the check above.
+- **What runs it.** A scheduled job, a script the owner runs like the backfill, or an admin control.
+  The repository has no scheduler today, which makes the middle option the cheapest by a distance.
+
+**The two collections without the field are not oversights.** `saisons` has no delete at all and
+`saison_teams` has none either (ADR-0033), so neither can accumulate anything to purge.
+
+**Path:** independent, and genuinely not urgent — it becomes real the first time something is retired,
+which needs FB-3 or FB-6 to exist. Doing it before then is designing against zero rows.
+
+### 14 · OPS-4 — One output standard for `scripts/`
 
 **Owner's item, 2026-08-02. A consultation item, ending in a recorded standard.**
 
@@ -444,7 +478,7 @@ nothing.
 **Path:** independent. **Batch with OPS-5** — both require reading every script in `scripts/` end to
 end, and doing that twice is the only real cost either of them carries.
 
-### 14 · OPS-5 — Scripts and CI, audited and optimised for what they cost
+### 15 · OPS-5 — Scripts and CI, audited and optimised for what they cost
 
 **Owner's item, 2026-08-02.** A full audit and following optimisation of **all scripts** and **the
 whole CI pipeline**.
@@ -505,7 +539,7 @@ provisional in the workflow itself and its shape belongs to this entry — merge
 behind a path filter, or leave it. The `db` **marker** is not provisional and is not yours to change:
 it is a property of the test suite, and `pytest -m db` selects those tests under any arrangement.
 
-### 15 · F1 — Two definitions of `ausstehend`
+### 16 · F1 — Two definitions of `ausstehend`
 
 `build_spiele_filter` (`fl_backend/app/api/spiele/services.py:30-31`) filters
 `spiel_status="ausstehend"` as `datum >= today`, **including today**. `computeSpielStatus`
@@ -530,7 +564,7 @@ semantics anyway.
 No scheduled action. F2 is a constraint on the work above; the rest have owners or recorded
 triggers.
 
-### 16 · F2 — Pydantic and Zod models are hand-mirrored
+### 17 · F2 — Pydantic and Zod models are hand-mirrored
 
 `fl_backend/app/api/spiele/schemas.py` and `fl_frontend/src/features/spiele/schemas.ts` (and their
 siblings) are maintained as mirrors with no generation step. This is the main drift risk across the
@@ -541,7 +575,7 @@ contract table measures.
 **Path:** the reason tier 3's schema items (FB-5, FE-1, FE-2) are batched — every schema change is
 a doubled edit, so fewer passes mean less drift surface.
 
-### 17 · BE-7 — `typing` imports instead of `collections.abc`
+### 18 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -549,7 +583,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 18 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 19 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -558,7 +592,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 19 · OPS-2 — nothing validates the contents of a restored `.env`
+### 20 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -598,7 +632,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops-1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 20 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 21 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 
