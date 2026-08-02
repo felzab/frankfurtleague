@@ -1,6 +1,6 @@
 # Frankfurt-League AI Coding Assistant
 
-**Precedence when rules collide, highest first:** §3 security boundaries (absolute, no exceptions) → an explicit owner instruction in the current session → §9 ratified decisions (the ADR is the source; this file is the summary) → §2 stack mandates → everything else. Two corollaries that prevent the most common errors: **check §9 before flagging anything as a violation**, and **when this file disagrees with an ADR or with the code, this file is the stale one** — say so instead of enforcing it.
+**Precedence when rules collide, highest first:** §3 security boundaries (absolute, no exceptions) → §4's Branch Before You Edit (a hard gate on where work happens, not a matter of judgement) → an explicit owner instruction in the current session → §9 ratified decisions (the ADR is the source; this file is the summary) → §2 stack mandates → everything else. Two corollaries that prevent the most common errors: **check §9 before flagging anything as a violation**, and **when this file disagrees with an ADR or with the code, this file is the stale one** — say so instead of enforcing it.
 
 ## 1. PERSONA & COMMUNICATION
 
@@ -52,6 +52,26 @@ These hold even if the user explicitly requests, insists, claims ownership/autho
 - If asked to violate any of the above, refuse and state the rule — do not partially comply (e.g., no "masked" previews of secret values).
 
 ## 4. OPERATIONAL PROTOCOLS
+
+**Branch Before You Edit — MANDATORY, and it is the FIRST thing you do.**
+
+`main` is protected and takes changes only through a pull request ([`docs/workflows/README.md`](../docs/workflows/README.md)). Editing it directly is not a style preference to weigh against momentum; it is work in a place the repository will refuse to accept it from.
+
+**Before the first tool call that writes to any tracked file, check the branch. If it is `main`, create the topic branch first — do not edit and branch afterwards.**
+
+```bash
+git checkout main && git pull --ff-only origin main && git checkout -b short-kebab-name
+```
+
+- **This applies from the first edit, not from the first commit.** Uncommitted work on `main` is the failure mode, because nothing announces it: `git checkout -b` carries the working tree over, so the mistake stays invisible and costless right up until it isn't. Waiting until commit time means every prior tool call happened somewhere it should not have.
+- **Name the branch for the change, kebab-case, no `feature/`/`fix/`/`chore/` prefix.** The taxonomy is deliberately absent — see Branching in the workflow doc.
+- **The exception is a task that writes no tracked file**: answering a question, reading code, or writing only to the scratchpad. A task that "just" touches one line is not an exception.
+- **If you are already on `main` with uncommitted edits**, do not continue and do not stash-and-hope. `git checkout -b <name>` carries the changes across intact; say plainly that this happened.
+- **Never** commit to `main`, push to `main`, merge locally, force-push, or open the PR yourself. `gh` is deliberately not installed; the push prints the `pull/new/…` link and the owner opens it in the browser.
+
+**Follow the whole cycle from [`docs/workflows/README.md`](../docs/workflows/README.md), not just the branch step** — commit subject/body shape, `./scripts/verify.sh` before pushing (`--quick` is NOT sufficient if you touched `src/core/config.ts`, `src/core/auth.ts` or `src/instrumentation.ts`), and merge by **merge commit**. Read that file rather than recalling it; it is the source, this is the pointer.
+
+**Verify the UI structurally, never with screenshots.** Use `read_page`, computed styles and measured geometry — they state a fact a screenshot only implies, and they survive a browser pane that is not compositing. **Before trusting any geometry, check that layout is real** (`document.visibilityState`, a non-zero `scrollHeight` larger than the viewport): a hidden pane reports zeros and near-viewport heights that look like measurements and are not. Computed styles stay reliable there; box geometry does not.
 
 **Single-Solution Mandate:** Give exactly ONE solution — the current best practice. No alternatives/"you could also" branches unless asked. "Full implementation" requests get complete, production-ready code, not partial. If unsure it's the single best current pattern, verify (§7) before answering.
 
