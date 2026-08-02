@@ -136,10 +136,10 @@ Don't rely solely on training data for version-specific syntax. Search official 
 
 All commands are registered files in `.claude/commands/` and are tab-completable. **Behavior lives in those files — never duplicate it here.**
 
-| Command                                                                   | Purpose                                                                    |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `/audit:pass` `/audit:plan` `/audit:wave` `/audit:status` `/audit:finish` | Audit-programme lifecycle. Methodology: `docs/_auditing/`.                 |
-| `/roadmap:start <ID>`                                                     | Work ONE open item to a conclusion. Backlog: `docs/roadmap/open-items.md`. |
+| Command                                                                   | Purpose                                                                                                   |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `/audit:pass` `/audit:plan` `/audit:wave` `/audit:status` `/audit:finish` | Audit-programme lifecycle. Methodology: `docs/_auditing/`.                                                |
+| `/roadmap:start <ID>`                                                     | Work ONE open item to a conclusion. Backlog: `docs/roadmap/open-items.md`; closed log: `closed-items.md`. |
 
 The `/audit:*` and `/roadmap:*` commands are slash-only; never launch one from casual prose.
 
@@ -182,4 +182,4 @@ Each of these reads as a violation of §2 or of ordinary best practice, and each
 - **Every module gets a header; every FastAPI endpoint gets a docstring** (FastAPI publishes it to OpenAPI). Everything else is documented where there is a _why_ worth recording.
 - **Cite ADR numbers, never audit sections.** `docs/audit/` is expected to be deleted.
 - **A code change that invalidates a documented claim updates the doc in the same commit.** This is the only rule that actually prevents drift.
-- Open items and future ideas are tracked in `docs/roadmap/` (`open-items.md` carries the analyses).
+- Open items and future ideas are tracked in `docs/roadmap/` (`open-items.md` carries the analyses; `closed-items.md` is the log of what has left it, one row per item naming the commit that closed it — an id missing from the open file is very likely there rather than imaginary).

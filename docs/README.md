@@ -18,6 +18,7 @@ Docker Compose behind nginx on a single host.
 | Write or change documentation                                       | [`_standard/`](_standard/)                                         |
 | Run an audit or remediation programme                               | [`_auditing/`](_auditing/)                                         |
 | See open items and future plans                                     | [`roadmap/`](roadmap/)                                             |
+| Find out what happened to an item that is no longer listed          | [`roadmap/closed-items.md`](roadmap/closed-items.md)               |
 
 ### Coming back after a while?
 
@@ -70,11 +71,9 @@ Recorded while documenting, deliberately not acted on. Full analyses: [`roadmap/
 | F2       | The Pydantic and Zod models are hand-mirrored, with no generation step                                                | Accepted risk                                                                                                                                                                     |
 | F7       | The landing page's season badge is hardcoded, so it goes stale at the rollover                                        | Cosmetic, but fails silently                                                                                                                                                      |
 
-Three more have been resolved: **F4**, the league table that a result edit did not move — the
-statistics are now derived from the match documents rather than stored
-([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)); **F5**, a dead empty backend
-module, deleted; and **F6**, a comment saying to revisit something once a revalidation route existed —
-it already did, and the comment was corrected.
+Resolved findings are not listed here — they are rows in
+[`roadmap/closed-items.md`](roadmap/closed-items.md), each naming the commit that closed it. F4, the
+league table a result edit did not move, is the most recent.
 
 ## Also here
 

@@ -8,6 +8,9 @@ file was retired (2026-08-01); each keeps its full reasoning so the eventual dec
 the analysis in hand. The backend audit prompts (`docs/_auditing/prompts/backend-*.md`) seed several
 of these as their starting checks.
 
+**Everything that has left this file is logged in [`closed-items.md`](closed-items.md)** — one row per
+item, naming the commit that closed it. Look there before concluding that an id never existed.
+
 ## How this file is ordered
 
 **The file is ranked (owner, 2026-08-02): reading top to bottom is the suggested working order.**
@@ -28,7 +31,7 @@ sessions · **XL** — a programme touching data, schemas and UI end to end.
 | **Decided**  | The argument is settled and recorded as an ADR; the work is not done. The entry is now an instruction, not a question.                                                                                                                                                   |
 | **Blocked**  | Waiting on another entry that is still in this file. The `Depends on` column names which — a dependency marked _soft_ there is an ordering preference, not a block.                                                                                                      |
 | **Standing** | No scheduled action — a caution, or a finding with a recorded trigger rather than a plan.                                                                                                                                                                                |
-| **Closed**   | Concluded, awaiting removal. **This status exists for exactly one commit.** See [Closing an entry](README.md#closing-an-entry-two-commits-not-one) — the removal is the next commit and cites it. |
+| **Closed**   | Concluded, awaiting removal. **This status exists for exactly one commit.** See [Closing an entry](README.md#closing-an-entry-two-commits-not-one) — the next commit deletes the entry, cites this one, and adds the item's row to [`closed-items.md`](closed-items.md). |
 
 **Every status is re-derived whenever any entry is closed**, not only the entry that moved — `Blocked`
 is a claim about another row, so a closure changes statuses nobody edited. The derivation is in the

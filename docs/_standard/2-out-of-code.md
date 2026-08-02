@@ -274,7 +274,10 @@ Four rules (DS8):
 3. **A code change that invalidates a documented claim updates the doc in the same commit.** This is
    the only rule that actually prevents drift, and it goes into CLAUDE.md.
 4. **Open items are tracked in [`../roadmap/open-items.md`](../roadmap/open-items.md)** — findings
-   recorded while documenting go there, with their analyses, rather than being acted on.
+   recorded while documenting go there, with their analyses, rather than being acted on. When one is
+   concluded its entry is deleted and a pointer row is added to
+   [`../roadmap/closed-items.md`](../roadmap/closed-items.md), so the id stays findable and the
+   analysis stays in exactly one place: the closing commit.
 
 ### Accuracy outranks volume
 
