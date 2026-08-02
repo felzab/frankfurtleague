@@ -418,9 +418,9 @@ required field and `GET /teams` returned 422 until the pending deploy was made.
 
 The direction differs per change, which is why the status command matters more than a rule of thumb:
 
-| The edit | Order |
-| ---------- | ------- |
-| Removes something the old code reads | **Deploy first**, then edit — as `statistik` should have been |
+| The edit                                | Order                                                                                                                  |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Removes something the old code reads    | **Deploy first**, then edit — as `statistik` should have been                                                          |
 | Must be true before the new code starts | **Edit first**, then deploy — as DB-2's constraints were, since a unique index cannot build over data that violates it |
 
 ### Before deploying a change to the database's constraints

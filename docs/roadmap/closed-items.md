@@ -34,6 +34,7 @@ the open file's highest is BE-10.
 | 6   | FB-1  | The Saisontabelle counted playoff results as league results                         | FE, BE   | M      | —           | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
 | 7   | BE-11 | Nothing executed the derived league table's pipeline against a database             | BE       | S      | —           | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
 | 8   | DB-3  | Seventeen `saison_teams` rows still carried the `statistik` the derivation orphaned | DB       | S      | —           | [`1acfc49`](https://github.com/felzab/frankfurtleague/commit/1acfc49) |
+| 9   | DB-2  | Nine collections with no validator and no index beyond `_id_`, hand-edited daily   | DB, BE, Ops | M   | —           | [`5c017f8`](https://github.com/felzab/frankfurtleague/commit/5c017f8) |
 
 ## What each one produced
 
@@ -52,6 +53,11 @@ no row here — its commit is the whole story.
 - **FB-1** → [ADR-0029](../_decisions/0029-the-league-table-counts-the-gruppenphase.md), the two
   statistics scopes and the decision that an omitted one means the group table. It opened nothing, and
   it took the data question out of FE-3, which is now a purely visual item.
+- **DB-2** → [ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md),
+  the rule that the `$jsonSchema` validators are hand-written and compared to the Pydantic models by a
+  test rather than generated from them. It opened nothing. Two findings that were not decisions left
+  it for permanent homes instead: the two scoped database users in `docs/ops/overview.md`, and the
+  rule that a data change is ordered against the **deployed** image in `docs/workflows/README.md`.
 - **BE-11** → [ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), a real
   `mongod` behind a `db` marker the default suite deselects. It handed the backend audit a container
   fixture it no longer has to design, and handed OPS-5 a CI job explicitly marked provisional.
