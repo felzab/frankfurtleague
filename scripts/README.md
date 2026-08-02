@@ -143,7 +143,7 @@ Runs, cheapest-to-fail first:
 1. `selfcheck.sh` — the scripts themselves
 2. `pnpm verify` — types, lint, formatting, `next build`, unit tests
 3. `pnpm audit:prod` — runtime dependency advisories
-4. `ruff` + `pytest` — `fl_backend` lint and schema-constraint tests
+4. `ruff` + `pytest` — `fl_backend` lint and the default test tier
 5. `docker build` — both images
 6. an image check — that `instrumentation.js` is present in the frontend image
 
@@ -151,6 +151,12 @@ Step 4 exists because `pnpm verify` runs **nothing** against `fl_backend`. The b
 validation constraints that the frontend mirrors rather than enforces, and until this step they had
 no regression net at all — see [`fl_backend/tests/README.md`](../fl_backend/tests/README.md) and
 ledger row BE-5. It needs the backend virtualenv: `cd fl_backend && uv sync --dev`.
+
+**Step 4 runs the default tier only, and that is deliberate.** The `db`-marked tests start a real
+`mongod` ([ADR-0030](../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)); pulling
+them into the gate would make `--quick` — the path CI runs on every pull request — require a Docker
+daemon it currently does not. They run in the `backend-db` CI job, or by hand with
+`cd fl_backend && uv run pytest -m db`.
 
 Steps 5 and 6 exist because `pnpm verify` cannot see packaging problems: code that compiles can still
 fail to build inside the image, or be omitted from `output: "standalone"` entirely.

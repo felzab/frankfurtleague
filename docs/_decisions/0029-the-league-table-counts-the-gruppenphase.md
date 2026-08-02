@@ -69,10 +69,13 @@ table that counts playoff results as league results, so that is the one that mus
 - **The same team now shows two different numbers on two pages**, and that is a genuine cost, not a
   presentational detail. It is mitigated by a line of copy on each page and by nothing else; a reader
   who ignores both will read it as a bug.
-- **The pipeline now encodes a product rule that no test can execute.** The suite has no database
-  (open item BE-11), so `test_teams_pipeline.py` asserts that the `$match` carries the phase and that
-  the two scopes differ in nothing else. What MongoDB returns for those stages was verified once, by
-  hand, against the live database through the production image — a measurement, not a net.
+- **The pipeline now encodes a product rule two test files share.** `test_teams_pipeline.py` asserts
+  that the `$match` carries the phase and that the two scopes differ in nothing else; since
+  [ADR-0030](0030-a-real-mongod-behind-a-deselected-marker.md),
+  `test_teams_pipeline_execution.py` runs it against a real `mongod` and reproduces this decision's
+  own measurement from a fixture — Helmholtz at 3 matches and 4 points under `"gruppenphase"`, 4 and
+  7 under `"gesamt"`. The hand check against the live database that originally proved this is no
+  longer the only evidence.
 
 **What it enables.**
 

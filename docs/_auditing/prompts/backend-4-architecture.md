@@ -41,9 +41,11 @@ THE CHECKS, in priority order:
    inventory, and put the one-pass migration in the fix-priority list. Also: `pyright` strictness
    gaps, `Any` leaks, missing return types on public functions.
 
-5. **TEST STRATEGY BY LAYER.** The existing suite is deliberately model-validation-only
-   (`fl_backend/tests/README.md` records the scope and that routers/services/crud/auth were left
-   "to the planned backend audit" — that is this audit). Produce the required table: layer
+5. **TEST STRATEGY BY LAYER.** The suite covers models and the team pipeline; routers, CRUD and auth
+   were left "to the planned backend audit" — that is this audit. **A `mongod` fixture already
+   exists**: ADR-0030 put the team pipeline behind a `db` marker the default tier deselects, so this
+   pass inherits a working container fixture and decides the layer shapes on top of it rather than
+   choosing a mechanism. Produce the required table: layer
    (schemas / filter builders / services & pipelines / routers+auth / crud) | what exists | what a
    defect there would look like | recommended suite shape and cost. Design ONE strategy across the
    untested layers rather than growing the schema suite sideways. Respect the recorded quality

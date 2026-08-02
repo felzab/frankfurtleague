@@ -57,6 +57,9 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.0",
+    # Starts a real mongod for the `db`-marked tests (ADR-0030). Only those tests import it, and
+    # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
+    "testcontainers[mongodb]>=4.15.0",
 ]
 
 [tool.ruff]
@@ -93,6 +96,17 @@ indent-style = "space"
 # is the difference between "a validation error was expected" and seeing the exact payload that
 # produced it. Deliberately NOT -q: quiet mode suppresses precisely the detail you need when
 # something breaks, and this suite is fast enough that verbosity costs nothing.
-addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals"
+#
+# -m "not db" is the half of ADR-0030 that keeps the default suite worth running. The db-marked
+# tests start a container, which costs seconds and a Docker daemon; everything else is a dict in and
+# a model out and finishes in a third of a second. A command-line -m overrides this one, because
+# addopts are prepended to the arguments rather than merged -- so `pytest -m db` runs exactly the
+# tests this line excludes.
+addopts = "--import-mode=importlib --strict-markers --strict-config -ra --showlocals -m \"not db\""
 testpaths = ["tests"]
 pythonpath = ["."]
+# --strict-markers turns an unregistered marker into an error, so this line is what makes
+# @pytest.mark.db real rather than a silent typo.
+markers = [
+    "db: needs a real mongod via testcontainers. Deselected by default; run with `pytest -m db`.",
+]

@@ -16,28 +16,43 @@ nothing would notice. That gap is ledger row **BE-5**.
 rejects the specific bad value each constraint exists to stop, and still accepts the legitimate edge
 cases that look like bad values (an empty `stadtteil`, a null `ergebnis` for an unplayed match, an
 integral float `mietpreis`). Plus `FLGruppen.from_teams`, the one piece of real behaviour in the
-schema layer, and `build_team_pipeline` — a pure function that returns a dict, so it fits the "no
-database" boundary below while pinning rules that are otherwise only enforced by MongoDB.
+schema layer, and `build_team_pipeline` — both what it *says* and, since
+[ADR-0030](../../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), what MongoDB
+*computes* from what it says.
 
-**Does not cover:** routers, CRUD, authentication, or the database. There are **no HTTP calls and no
-database connection** — every test is a dict in and a model or a pipeline out, which is why the whole
-suite runs in well under a second and needs no fixtures beyond Python objects.
+**Does not cover:** routers, CRUD, or authentication.
 
-**The gap that boundary leaves, named because it is load-bearing.** Since
-[ADR-0026](../../docs/_decisions/0026-team-statistics-are-derived-from-spiele.md) the league table is
-computed by an aggregation pipeline, and `test_teams_pipeline.py` can assert what the pipeline *says*
-but never what MongoDB *computes* from it. Executing it needs a database fixture this suite does not
-have. Tracked in [`docs/roadmap/open-items.md`](../../docs/roadmap/open-items.md).
+## Two tiers, and the marker that separates them
 
-The same gap now covers a second rule.
-[ADR-0029](../../docs/_decisions/0029-the-league-table-counts-the-gruppenphase.md) added a
-`statistik_scope`, so the pipeline encodes *which* matches count as well as how they are counted — and
-a scope that filtered on the wrong phase would still return a well-formed table. The tests pin that
-the phase appears in the `$match` under `"gruppenphase"`, is absent under `"gesamt"`, and that nothing
-else about the pipeline differs between the two.
+[ADR-0030](../../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), 2026-08-02.
 
-That boundary is deliberate. A broader backend suite belongs with the planned `fl_backend` audit,
-which will want one strategy across all layers rather than a schema suite designed twice.
+| Tier                       | Selected by            | Needs Docker | Cost                    |
+| -------------------------- | ---------------------- | ------------ | ----------------------- |
+| **Default** — 250 tests    | everything unmarked    | no           | 0.42s                   |
+| **`db`** — 21 tests        | `@pytest.mark.db`      | yes          | 5.1s warm, 23.6s cold  |
+
+`pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` runs the fast tier only. A
+command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
+exactly what the default run skips.
+
+**Why a real database was unavoidable here.** `build_team_pipeline` returns a dict that MongoDB
+executes. A structural test proves the dict says the right thing; only an engine proves the right
+thing comes back, and a `$cond` reading the wrong side of a match would pass every structural
+assertion. `mongomock` is not an option — it raises `NotImplementedError` for both `let` and
+`pipeline` on `$lookup`, and this pipeline uses both.
+
+**Why the marker, rather than just adding them.** The fast tier is the asset: a suite that runs in
+under half a second gets run. Putting a container behind every `pytest` invocation would also make
+Docker a prerequisite of `./scripts/verify.sh --quick`, which is what CI runs on every pull request.
+
+`scripts/verify.sh` therefore runs the **default** tier only. The `db` tier runs in its own parallel
+CI job (`backend-db` in `.github/workflows/verify.yml`), which costs a pull request no extra wall
+clock because it finishes inside the longer `verify` job.
+
+**What is still uncovered, named because it is load-bearing.** Routers, CRUD and auth have no tests
+at all. That boundary is deliberate and belongs to the planned `fl_backend` audit, which wants one
+strategy across those layers rather than a suite designed twice — and which now inherits a working
+`mongod` fixture rather than having to invent one.
 
 ## Layout
 
@@ -49,12 +64,17 @@ tests/
     test_kontakt.py
     test_custom.py               date/time/URL/ObjectId custom types
   api/                           mirrors app/api/
+    conftest.py                  the mongod container and the seeded league — `db` tier only
     test_teams.py                FLTeam, FLTeamStatistik, FLGruppen
-    test_teams_pipeline.py       build_team_pipeline — the derived league table's rules
+    test_teams_pipeline.py       build_team_pipeline — what the pipeline says
+    test_teams_pipeline_execution.py   …and what MongoDB computes from it   [db]
     test_spiele.py               FLSpiel, its embedded fields, the admin patch payload
     test_reference_models.py     spielorte, schiedsrichter, spieler, spieltage, saisons
     test_response_envelope.py    every *Response model carries `acknowledged`
 ```
+
+The two `test_teams_pipeline*` files are complementary and neither replaces the other: the structural
+one fails when a rule is **deleted**, the executing one fails when a rule is present but **wrong**.
 
 The tree mirrors `app/`, so the test for a module is where you would look for it.
 
@@ -73,6 +93,12 @@ recommended mode for new suites, which needs none and cannot suffer same-basenam
 - **Comments explain the *why*, not the assertion.** Where a constraint exists because of a specific
   defect, the test says so — see `test_spiele.py`'s `ergebnis` cases, which document the value that
   used to render as a loss for both teams.
+- **A test that touches the database carries `@pytest.mark.db`.** Without it the test runs in the
+  fast tier, where there is no container, and fails for a reason that looks unrelated to what it is
+  testing. `--strict-markers` catches a misspelled marker; nothing catches an omitted one.
+- **The `db` corpus is documented once, in `tests/api/conftest.py`.** Its header derives every
+  expected figure by hand; the tests assert against them and do not restate the arithmetic. Each of
+  the five seeded teams exists to make exactly one invariant observable.
 - **Assert *which* field failed when more than one could.** A bare `pytest.raises(ValidationError)`
   passes whatever went wrong, so a test can stay green while the constraint it names goes
   unenforced. The `assert_rejects` fixture takes the model, the payload and the field, and fails
@@ -99,5 +125,15 @@ appears again in a `short test summary info` block at the end.
 cd fl_backend && uv run pytest
 ```
 
-It also runs as step 4 of the full gate, `./scripts/verify.sh`, alongside `ruff` over `app` and
-`tests`.
+That is the fast tier — 250 tests, no Docker. To run the ones that need a real `mongod`:
+
+```bash
+cd fl_backend && uv run pytest -m db
+```
+
+The first run pulls `mongo:8` (about 1.3 GB) if it is not already cached; afterwards the container
+starts in under two seconds. Everything is torn down when the session ends.
+
+The fast tier also runs as step 4 of the full gate, `./scripts/verify.sh`, alongside `ruff` over
+`app` and `tests`. The `db` tier deliberately does **not**, so the gate needs no daemon on the
+`--quick` path; it runs in the `backend-db` CI job instead.

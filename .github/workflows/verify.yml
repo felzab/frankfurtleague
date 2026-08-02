@@ -107,3 +107,40 @@ jobs:
             echo "::error::The gate reformatted files. Run 'cd fl_frontend && pnpm format' and commit the result."
             exit 1
           fi
+
+  # The `db`-marked backend tests, which start a real mongod and execute the league-table pipeline
+  # against it (ADR-0030). They are NOT part of `verify.sh`: that script's step 4 runs the default
+  # suite, which deselects these so it stays sub-second and needs no Docker daemon.
+  #
+  # A SEPARATE job, not a step inside `verify`, and that is the whole cost argument. Jobs run
+  # concurrently, so a pull request waits on the slower one -- `verify` at about 136 seconds against
+  # this job's 60-90 -- and adding this changes the wait by nothing. Folding it into `verify` would
+  # add its image pull to the critical path instead.
+  #
+  # PROVISIONAL. Open item OPS-5 audits and restructures the whole pipeline, and this job's shape is
+  # explicitly its to change -- merge it, cache it, move it behind a path filter. What is NOT
+  # provisional is the marker: `pytest -m db` selects these tests under any CI arrangement.
+  backend-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          # Same reasoning as the job above: the token is not needed once the tree is on disk.
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      - name: Create the backend virtualenv
+        working-directory: fl_backend
+        run: uv sync --dev
+
+      - name: Execute the derived league table against a real mongod
+        # testcontainers starts mongo:8 itself and removes it afterwards; the runner already has a
+        # Docker daemon, so nothing else is needed here. `-m db` overrides the `-m "not db"` in
+        # pyproject's addopts, because addopts are prepended rather than merged.
+        working-directory: fl_backend
+        run: uv run pytest -m db

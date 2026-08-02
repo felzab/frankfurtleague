@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Twenty-nine decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Thirty decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -61,12 +61,13 @@ written.
 | [0027](0027-the-database-enforces-its-own-invariants.md)         | The database enforces its own invariants                           | backend, ops           | Accepted       | 2026-08-02 |
 | [0028](0028-store-what-was-true-then-derive-what-is-true-now.md) | Store what was true then; derive what is true now                  | backend, frontend      | Accepted       | 2026-08-02 |
 | [0029](0029-the-league-table-counts-the-gruppenphase.md)         | The league table counts the Gruppenphase, and that is the default  | backend, frontend      | Accepted       | 2026-08-02 |
+| [0030](0030-a-real-mongod-behind-a-deselected-marker.md)         | Pipelines are tested against a real `mongod`, behind a marker      | backend, ops           | Accepted       | 2026-08-02 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 ·
-0024 · 0027 · frontend: all except 0017 and 0027.
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · ops: 0009 · 0011 · 0014 · 0015 · 0016 · 0017 · 0021 ·
+0022 · 0024 · 0027 · 0030 · frontend: all except 0017, 0027 and 0030.
 
 ## Considered, and deliberately not made an ADR
 

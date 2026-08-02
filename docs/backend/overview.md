@@ -22,7 +22,7 @@ fl_backend/
 │   │                  exceptions · exception_handlers · middlewares · logging
 │   ├── api/<entity>/  one package per entity: router · schemas · services · crud
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
-└── tests/             pytest — schema-constraint tests, no running server needed
+└── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
 
 `api/<entity>/` is the repeating unit. `router.py` declares endpoints and does orchestration;
@@ -81,9 +81,17 @@ and document not found (404).
 
 ## Testing
 
-`fl_backend/tests/` holds 111 test functions which expand to **247 cases** under parametrisation, run by
-`pytest`. They test **schema constraints** — that the models reject what they should — plus the rules
-encoded in `build_team_pipeline`, and need no running server or database.
+`fl_backend/tests/` runs in **two tiers** since
+[ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).
+
+The **default tier** is **250 cases** under parametrisation and finishes in about 0.4 seconds. It
+tests **schema constraints** — that the models reject what they should — plus the rules encoded in
+`build_team_pipeline`, and needs no running server, no database and no Docker.
+
+The **`db` tier** is **21 cases** carrying `@pytest.mark.db`, deselected by default and run with
+`pytest -m db`. They start a real `mongod` and execute the league-table pipeline against a seeded
+corpus, because a pipeline is a dict MongoDB runs — the default tier can prove the dict says the
+right thing and only an engine proves the right thing comes back.
 
 Tests live in a separate `tests/` tree rather than beside the code, unlike the frontend. That is
 Python's convention and it has a reason: a `tests` package inside `app/` would be importable as
@@ -95,9 +103,10 @@ rather than enforcing them itself, and those constraints had no regression net u
 existed. `pnpm verify` on the frontend runs nothing against the backend, so `scripts/verify.sh` runs
 ruff and pytest as a separate step.
 
-**What the no-database boundary excludes, and it matters more since ADR-0026:** the league table is
-computed by an aggregation pipeline, so the tests can assert what the pipeline _says_ and never what
-MongoDB _returns_ for it. See [`../../fl_backend/tests/README.md`](../../fl_backend/tests/README.md).
+**What is still uncovered:** routers, CRUD and authentication. That boundary belongs to the planned
+backend audit, which wants one strategy across those layers — and which now inherits the `mongod`
+fixture rather than having to invent one.
+See [`../../fl_backend/tests/README.md`](../../fl_backend/tests/README.md).
 
 ## Read next
 

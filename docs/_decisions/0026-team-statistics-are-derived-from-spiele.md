@@ -69,8 +69,10 @@ Concretely, for whoever implements F4:
   makes it irrelevant, and this ADR is only sound while that stays true.
 - The arithmetic moves from a pure Python function into aggregation stages, which cannot be
   unit-tested without a database. The suite loses the _ability_ to test it cheaply — though it was
-  not testing it anyway. Whoever implements this should add integration coverage rather than assume
-  the pipeline is obvious.
+  not testing it anyway. **The integration coverage this asked for was built on 2026-08-02**
+  ([ADR-0030](0030-a-real-mongod-behind-a-deselected-marker.md)): a real `mongod` behind a marker the
+  fast suite deselects, which also proves the claim below — a stale `statistik` stored on the
+  junction row is now demonstrably ignored rather than merely unread.
 - `GET /teams` now fails if a `spiel` document is malformed, where before the two were independent.
   `ergebnis` is pattern-constrained and `tore` is `ge=0`, so the surface is narrow, but it exists.
 

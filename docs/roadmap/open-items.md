@@ -41,7 +41,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 | #   | ID    | Item                                                     | Surfaces    | Effort | Status      | Depends on               |
 | --- | ----- | -------------------------------------------------------- | ----------- | ------ | ----------- | ------------------------ |
-| 1   | BE-11 | The derived league table has no integration coverage     | BE          | S      | Open        | — (its pipeline is live) |
+| 1   | BE-11 | The derived league table has no integration coverage     | BE          | S      | **Closed**  | — (its pipeline is live) |
 | 2   | DB-3  | Delete the dead `statistik` field from `saison_teams`    | DB          | S      | **Decided** | — (ADR-0026; work open)  |
 | 3   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open        | — (parallel-safe)        |
 | 4   | DB-2  | The database enforces its own invariants                 | DB, BE, Ops | M      | **Decided** | — (ADR-0027; work open)  |
@@ -120,6 +120,22 @@ their previous figures. Two one-off measurements, not a regression net.
 been edited twice since this entry was written, each time on the strength of a hand measurement.
 Recorded in `fl_backend/tests/README.md`, `docs/backend/overview.md` and the backend spec's
 known-open table.
+
+**Concluded 2026-08-02 by [ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).**
+The fixture strategy — the decision this entry existed for — is a real `mongod` via testcontainers,
+behind a `db` marker the default suite deselects, executed in its own parallel CI job. 21 executing
+tests now run the pipeline and reproduce ADR-0029's live measurement from a fixture. Measured cost:
+the default suite 0.33s → 0.42s, pull-request CI unchanged at 136s, €0.
+
+Where the findings that were not the decision went:
+
+- **The pre-empt-or-defer question** is answered inside ADR-0030 and reflected in
+  `_auditing/prompts/backend-4-architecture.md` check 5, which now inherits the fixture rather than
+  choosing a mechanism.
+- **The CI job's shape** is explicitly provisional and belongs to **OPS-5**, named in the workflow
+  comment and in the ADR. The marker does not — it is a property of the suite.
+- **The interim hand measurements** are no longer the only evidence; ADR-0026 and ADR-0029 were
+  updated in the same commit to say so.
 
 ### 2 · DB-3 — Delete the dead `statistik` field from `saison_teams`
 
