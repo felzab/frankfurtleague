@@ -1,10 +1,12 @@
 # Backend — overview
 
-**Verified against:** `e73cc01`, 2026-08-02
+**Verified against:** `04c8593`, 2026-08-03
 **Scope:** `fl_backend/`
 
-A FastAPI application over MongoDB. It is a **read-mostly API with one real write path**: nine routers,
-of which eight only read, and one — `admin` — performs every mutation the product supports.
+A FastAPI application over MongoDB. **Fifteen routers**: `system`, plus a read and a write router for
+each of the seven resources. Reads are guarded by `verify_access_base` and writes by
+`verify_access_admin`, at ROUTER level, so an endpoint can only reach the wrong authorization by being
+written in the wrong file ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)).
 
 The single fact that explains most of its shape: **no browser ever talks to this service.** nginx routes
 `/api` here, but the only client is the Next.js container making server-side calls. That is why
@@ -15,12 +17,12 @@ speaking of, and why caching lives entirely in the frontend.
 
 ```
 fl_backend/
-├── main.py            uvicorn entry point (thin — imports app.main)
 ├── app/
-│   ├── main.py        FastAPI app, middleware, router registration
+│   ├── asgi.py        the process entry point — the ONE module that builds an app on import
+│   ├── main.py        `create_app()`: middleware, router registration. Builds nothing on import
 │   ├── core/          infrastructure: config · db · security · crud · dependencies
 │   │                  exceptions · exception_handlers · middlewares · logging
-│   ├── api/<entity>/  one package per entity: router · schemas · services · crud
+│   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
@@ -29,8 +31,11 @@ fl_backend/
 `schemas.py` holds the Pydantic models; `services.py` holds pure query-building and computation. Not
 every entity has all four files — `services.py` exists only where there is real logic to hold.
 
-There are nine routers: `admin`, `saisons`, `schiedsrichter`, `spiele`, `spieler`, `spielorte`,
-`spieltage`, `system`, `teams`. All are mounted under `/api/v{API_VERSION}`.
+Seven resources — `saisons`, `schiedsrichter`, `spiele`, `spieler`, `spielorte`, `spieltage`, `teams` —
+each with a `router.py` and an `admin_router.py`, plus `system`. All are mounted under
+`/api/v{API_VERSION}`, where `API_VERSION` is a **constant** in `app/core/config.py` rather than a
+setting: the version is a property of the code that implements it, so an environment able to set it
+could serve `/api/v2/` from code implementing v0.
 
 ## Authorization
 
@@ -39,7 +44,7 @@ Three bearer keys, not user identities:
 | Key      | Guards                                | Used by                |
 | -------- | ------------------------------------- | ---------------------- |
 | `base`   | the seven read routers                | every normal page load |
-| `admin`  | the whole `admin` router              | admin mutations        |
+| `admin`  | the seven write routers               | every mutation         |
 | `system` | `/system/is_ready` and `/system/info` | health and diagnostics |
 
 Comparison is constant-time (`secrets.compare_digest`). Guards are applied **at router level**, so a
@@ -108,12 +113,12 @@ and document not found (404).
 `fl_backend/tests/` runs in **two tiers** since
 [ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).
 
-The **default tier** is **294 cases** under parametrisation and finishes in about 0.4 seconds. It
+The **default tier** is **395 cases** under parametrisation and finishes in under a second. It
 tests **schema constraints** — that the models reject what they should — plus the rules encoded in
 `build_team_pipeline` and the database constraints read as data, and needs no running server, no
 database and no Docker.
 
-The **`db` tier** is **52 cases** carrying `@pytest.mark.db`, deselected by default and run with
+The **`db` tier** is **54 cases** carrying `@pytest.mark.db`, deselected by default and run with
 `pytest -m db`. They start a real `mongod` and execute two things the default tier can only describe:
 the league-table pipeline against a seeded corpus, because a pipeline is a dict MongoDB runs; and the
 `$jsonSchema` validators, because `required` inside a nullable sub-schema, and `bsonType: "int"` faced

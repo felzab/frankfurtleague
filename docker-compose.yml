@@ -89,8 +89,9 @@ services:
       # MongoDB -- a readiness check that needs the database fails for reasons a restart cannot fix.
       # Use `/system/is_ready` for that, which is guarded.
       #
-      # NOTE: the API version is HARDCODED here. Bumping `api_version` in the backend config changes
-      # every route prefix and silently breaks this check.
+      # NOTE: the API version is HARDCODED here, and so is the backend's -- `API_VERSION` in
+      # app/core/config.py is a constant rather than a setting, precisely so the two can only
+      # disagree through a code change that touches both. Bump them together.
       test:
         [
           "CMD",

@@ -33,7 +33,7 @@ from motor.motor_asyncio import (
     AsyncIOMotorDatabase,
 )
 
-from app.core.config import backend_config
+from app.core.config import get_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import DatabaseUnavailableException
 from app.core.logging import fl_logger
@@ -41,13 +41,14 @@ from app.core.logging import fl_logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    config = get_config()
 
     # Attach connection to app state
     app.state.db_client = AsyncIOMotorClient(
-        host=backend_config.mongodb_uri.get_secret_value(),
-        serverSelectionTimeoutMS=backend_config.db_server_selection_timeout,
-        minPoolSize=backend_config.db_min_connections,
-        maxPoolSize=backend_config.db_max_connections,
+        host=config.mongodb_uri.get_secret_value(),
+        serverSelectionTimeoutMS=config.db_server_selection_timeout,
+        minPoolSize=config.db_min_connections,
+        maxPoolSize=config.db_max_connections,
         uuidRepresentation="standard",
     )
 
@@ -58,7 +59,7 @@ async def lifespan(app: FastAPI):
         # The database's own constraints, declared in this repository and reapplied on every boot so
         # the cluster can never quietly hold a different set (ADR-0027).
         try:
-            constraints = await apply_constraints(app.state.db_client[backend_config.db_base_name])
+            constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:
             fl_logger.critical(
                 "Database constraints could not be applied, so the application will not start. Run "
@@ -87,7 +88,7 @@ async def get_db_client(request: Request) -> AsyncIOMotorClient:
 async def get_database(request: Request) -> AsyncIOMotorDatabase:
     if not hasattr(request.app.state, "db_client"):
         raise DatabaseUnavailableException(error_code="DB-CONN-001")
-    return request.app.state.db_client[backend_config.db_base_name]
+    return request.app.state.db_client[get_config().db_base_name]
 
 
 async def get_spiele_collection(

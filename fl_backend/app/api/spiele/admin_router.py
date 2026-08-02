@@ -37,7 +37,7 @@ from app.api.spiele.schemas import (
     FLSpieleListResponse,
     FLSpielListAdapter,
 )
-from app.core.config import backend_config
+from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db
 from app.core.dependencies import DBClient, SpieleCollection, get_german_date_str
 from app.core.exceptions import DocumentNotFoundException
@@ -46,7 +46,7 @@ from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{backend_config.api_version}/spiele",
+    prefix=f"/api/v{API_VERSION}/spiele",
     dependencies=[Depends(verify_access_admin)],
 )
 

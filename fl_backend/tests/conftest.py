@@ -14,51 +14,29 @@ so one container serves both (ADR-0030).
 """
 
 import copy
-import os
 from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
+from fastapi import FastAPI
 from pydantic import BaseModel, ValidationError
 from pymongo.database import Database
 
-# The eight settings `BackendConfig` declares without a default. Values are fixed rather than
-# realistic: nothing here is dialled, and the tests that want a real server get one from
-# testcontainers (ADR-0030). `MONGODB_URI` still has to start with `mongodb://`, because a field
-# validator says so. The three API keys are DISTINCT on purpose -- `verify_api_key` compares with
-# `compare_digest`, so identical values would let a test asserting that the admin router rejects the
-# base key pass vacuously.
-TEST_ENVIRONMENT = {
-    "API_VERSION": "0",
-    "API_TRUSTED_HOSTS": "testserver,localhost",
-    "API_CORS_ALLOWED_ORIGINS": "http://localhost:3000",
-    "MONGODB_URI": "mongodb://localhost:27017/frankfurtleague_test",
-    "DB_BASE_NAME": "frankfurtleague_test",
-    "INTERNAL_API_KEY_BASE": "test-key-base",
-    "INTERNAL_API_KEY_SYSTEM": "test-key-system",
-    "INTERNAL_API_KEY_ADMIN": "test-key-admin",
-}
+from app.core.config import BackendConfig
+from app.main import create_app
+from tests.config import build_test_config
 
 
-def pytest_configure() -> None:
-    """
-    Give the suite its own configuration, before collection imports anything from `app`.
+@pytest.fixture(scope="session")
+def test_config() -> BackendConfig:
+    """The suite's settings. Built in `tests/config.py`, which says why they are not a fixture alone."""
+    return build_test_config()
 
-    `app/core/config.py` builds `backend_config` at MODULE SCOPE, so importing `app.main`,
-    `app.core.security` or `app.core.constraints` constructs the settings object as a test module is
-    imported. Without these eight values the session fails to COLLECT rather than to run — and it
-    fails on whichever module happens to import first, which may be one the tier then deselects.
 
-    `pytest_configure` rather than a module-level assignment: pytest calls it after conftest import
-    and before collection, which is the guarantee this needs, and it keeps the mutation out of import
-    time so that importing this module has no side effect on the process.
-
-    Set unconditionally rather than with `setdefault`. Environment variables outrank the dotenv file
-    in pydantic-settings, so this is what stops the suite reading `fl_backend/.env` — a developer's
-    real production credentials. A laptop and a runner with no `.env` then run the same suite, and a
-    failure means the code rather than the machine.
-    """
-    os.environ.update(TEST_ENVIRONMENT)
+@pytest.fixture(scope="session")
+def app(test_config: BackendConfig) -> FastAPI:
+    """The application under test, built from `test_config` rather than from the environment."""
+    return create_app(test_config)
 
 
 # 24-hex ObjectId strings. Fixed rather than generated: a failing test should point at the same

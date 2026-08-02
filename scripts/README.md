@@ -77,7 +77,7 @@ Each reveals structure without printing a secret.
 
 ```bash
 # prod (Linux) — required backend names. Prints only the names that are absent.
-for k in API_VERSION API_TRUSTED_HOSTS API_CORS_ALLOWED_ORIGINS MONGODB_URI DB_BASE_NAME INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
+for k in API_TRUSTED_HOSTS API_CORS_ALLOWED_ORIGINS MONGODB_URI DB_BASE_NAME INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; do
   grep -q "^${k}=" fl_backend/.env || echo "MISSING: ${k}"
 done
 ```
@@ -109,9 +109,11 @@ for k in INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN; d
 done
 ```
 
-Two values cannot be checked locally at all. `API_VERSION` has to match the version hardcoded in the
-backend healthcheck in `docker-compose.yml`, and `AUTH_URL` has to be the real public origin over
-https, or the session cookie loses its `Secure` flag.
+One value cannot be checked locally at all: `AUTH_URL` has to be the real public origin over https,
+or the session cookie loses its `Secure` flag. The backend's API version is no longer among them —
+it is a constant in `app/core/config.py`, so it cannot drift from the compose healthcheck by
+configuration. The frontend keeps its own `API_VERSION`, which is legitimate: a client chooses which
+version of an API to call.
 
 ### Why this exists
 

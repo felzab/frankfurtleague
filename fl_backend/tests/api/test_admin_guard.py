@@ -30,7 +30,12 @@ import pytest
 from fastapi.routing import APIRoute
 
 from app.core.security import verify_access_admin, verify_access_base, verify_access_system
-from app.main import app
+from app.main import create_app
+from tests.config import build_test_config
+
+# Built at module level, and it has to be: the cases below are parametrised over the operations this
+# app publishes, and pytest resolves parametrisation during collection, before a fixture could run.
+APP = create_app(build_test_config())
 
 HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
 
@@ -53,7 +58,7 @@ def strip_convertors(path: str) -> str:
 
 def api_routes() -> Iterator[APIRoute]:
     """Every APIRoute the app serves, reached through the `_IncludedRouter` wrappers that hide them."""
-    for entry in app.routes:
+    for entry in APP.routes:
         original_router = getattr(entry, "original_router", None)
         candidates = original_router.routes if original_router is not None else [entry]
 
@@ -70,7 +75,7 @@ ROUTES_BY_OPERATION = {
 }
 
 PUBLISHED_OPERATIONS = sorted(
-    (path, method) for path, operations in app.openapi()["paths"].items() for method in operations if method in HTTP_METHODS
+    (path, method) for path, operations in APP.openapi()["paths"].items() for method in operations if method in HTTP_METHODS
 )
 
 MUTATIONS = [(path, method) for path, method in PUBLISHED_OPERATIONS if method != "get"]

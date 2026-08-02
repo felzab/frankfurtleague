@@ -35,14 +35,14 @@ from app.api.saisons.schemas import (
     FLPostSaisonResponse,
     FLSaison,
 )
-from app.core.config import backend_config
+from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db
 from app.core.dependencies import DBClient, SaisonsCollection
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_admin
 
 router = APIRouter(
-    prefix=f"/api/v{backend_config.api_version}/saisons",
+    prefix=f"/api/v{API_VERSION}/saisons",
     dependencies=[Depends(verify_access_admin)],
 )
 

@@ -678,21 +678,21 @@ def diagnose_failure(failure: OperationFailure) -> str:
 async def _run(check: bool) -> int:
     # Imported here, not at module scope: app.core.config builds the settings object on import and
     # refuses without a complete environment, while the tests import this module with no .env at all.
-    from app.core.config import backend_config
+    from app.core.config import get_config
 
     client = AsyncIOMotorClient(
-        host=backend_config.mongodb_uri.get_secret_value(),
-        serverSelectionTimeoutMS=backend_config.db_server_selection_timeout,
+        host=get_config().mongodb_uri.get_secret_value(),
+        serverSelectionTimeoutMS=get_config().db_server_selection_timeout,
     )
-    database = client[backend_config.db_base_name]
+    database = client[get_config().db_base_name]
 
     try:
         if not check:
             summary = await apply_constraints(database)
-            print(f"Applied {summary.validators} validators and {summary.indexes} unique indexes to '{backend_config.db_base_name}'.")
+            print(f"Applied {summary.validators} validators and {summary.indexes} unique indexes to '{get_config().db_base_name}'.")
             return 0
 
-        print(f"Database '{backend_config.db_base_name}', checked against {len(COLLECTION_VALIDATORS)} validators. Nothing is written.\n")
+        print(f"Database '{get_config().db_base_name}', checked against {len(COLLECTION_VALIDATORS)} validators. Nothing is written.\n")
 
         # Printed before the privileges, because a correct role attached to the wrong user produces
         # exactly the same refusals as a role that does not work -- and only this line separates them.

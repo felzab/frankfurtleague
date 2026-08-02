@@ -27,7 +27,7 @@ from app.api.schiedsrichter.services import (
     build_schiedsrichter_filter,
     build_schiedsrichter_sort,
 )
-from app.core.config import backend_config
+from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SchiedsrichterCollection
 from app.core.routing import by_id
@@ -35,7 +35,7 @@ from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{backend_config.api_version}/schiedsrichter",
+    prefix=f"/api/v{API_VERSION}/schiedsrichter",
     dependencies=[Depends(verify_access_base)],
 )
 

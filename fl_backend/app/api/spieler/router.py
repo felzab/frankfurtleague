@@ -22,7 +22,7 @@ from app.api.spieler.schemas import (
     FLSpielerSingleResponse,
 )
 from app.api.spieler.services import build_spieler_pipeline
-from app.core.config import backend_config
+from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_one_from_db
 from app.core.dependencies import SpielerCollection
 from app.core.routing import by_id
@@ -30,7 +30,7 @@ from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{backend_config.api_version}/spieler",
+    prefix=f"/api/v{API_VERSION}/spieler",
     dependencies=[Depends(verify_access_base)],
 )
 

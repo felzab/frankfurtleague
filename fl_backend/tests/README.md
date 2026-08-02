@@ -88,16 +88,15 @@ Both `*_execution.py` files pair with a structural sibling, and neither of a pai
 the structural one fails when a rule is **deleted**, the executing one when a rule is present but
 **wrong**.
 
-**The suite never reads `fl_backend/.env`, and that is deliberate.** `app/core/config.py` builds
-`backend_config` at module scope, so importing `app.main`, `app.core.security` or
-`app.core.constraints` constructs the settings object during **collection** — and eight of its fields
-have no default. The root `conftest.py` sets those eight from fixed test values in a `pytest_configure` hook, which
-pytest calls after conftest import and before collection. Unconditionally rather than with
-`setdefault`, because env vars outrank the dotenv file: the suite therefore reads those values and
-never the real credentials sitting in a developer's `.env`.
+**The suite never reads `fl_backend/.env`, and it cannot.** `tests/config.py` constructs a
+`BackendConfig` from explicit init arguments, which outrank every other source in pydantic-settings, and
+`create_app(config)` builds the application under test from it. Nothing sets an environment variable and
+nothing depends on import order.
 
-Two things follow. A checkout with no `.env` runs the whole suite, which is what CI is. And a failure
-here means the code, never the machine — the two cannot diverge on configuration.
+That is a property of the application rather than of the suite: `app/main.py` exports a factory and
+builds nothing on import, and `app/asgi.py` is the only module that constructs the real app from the
+real environment. So a checkout with no `.env` runs the whole suite — which is what CI is — and a
+failure means the code, never the machine.
 
 **The container fixture lives in the root `conftest.py`**, not in `api/`, because two suites want a
 database now. It is session-scoped, so one `mongod` serves both. It yields the *container* rather than

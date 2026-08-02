@@ -34,13 +34,13 @@ from app.api.saisons.schemas import (
     FLSaisonsSingleResponse,
 )
 from app.api.saisons.services import build_saisons_filter, build_saisons_sort
-from app.core.config import backend_config
+from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection
 from app.core.security import verify_access_base
 
 router = APIRouter(
-    prefix=f"/api/v{backend_config.api_version}/saisons",
+    prefix=f"/api/v{API_VERSION}/saisons",
     dependencies=[Depends(verify_access_base)],
 )
 

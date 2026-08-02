@@ -21,8 +21,10 @@ capped at 3 × 10 MB. All on the `frankfurtleague-net` bridge network.
 
 `nginx` declares `depends_on` both services with `condition: service_healthy`.
 
-**Note:** the backend healthcheck hardcodes `/api/v0/...`. It does not read `API_VERSION`, so bumping
-the API version silently breaks the healthcheck.
+**Note:** the backend healthcheck hardcodes `/api/v0/...`, and so does the backend — `API_VERSION` in
+`app/core/config.py` is a **constant, not an environment variable**. The version is a property of the
+code that implements it, so an environment able to set it could serve `/api/v2/` from code
+implementing v0. Bumping it is a code change, made in the same commit as this healthcheck.
 
 ## 2. Mounts
 
