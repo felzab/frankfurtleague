@@ -41,7 +41,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 | #   | ID    | Item                                                     | Surfaces    | Effort | Status      | Depends on              |
 | --- | ----- | -------------------------------------------------------- | ----------- | ------ | ----------- | ----------------------- |
-| 1   | DB-3  | Delete the dead `statistik` field from `saison_teams`    | DB          | S      | **Decided** | — (ADR-0026; work open) |
+| 1   | DB-3  | Delete the dead `statistik` field from `saison_teams`    | DB          | S      | **Closed**  | — (ADR-0026; work done) |
 | 2   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open        | — (parallel-safe)       |
 | 3   | DB-2  | The database enforces its own invariants                 | DB, BE, Ops | M      | **Decided** | — (ADR-0027; work open) |
 | 4   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`        | BE, FE      | L      | Open        | — (after DB-2, soft)    |
@@ -98,6 +98,24 @@ from the documents as they are. A leftover `statistik` would either be enshrined
 make every existing row fail it.
 
 **Path:** independent, and precedes DB-2's validator step. Not blocked by anything.
+
+**Concluded 2026-08-02 by executing [ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)'s
+last instruction. No new ADR — the decision was taken there and this was only its execution.** The
+`$unset` ran against the live `saison_teams` collection, and the collection now answers **0** to
+`{ statistik: { $exists: true } }` and **17** to `{}` — the field is gone and no document went with it.
+Nothing needed restarting or revalidating, because the table is recomputed from `spiele` on every
+request and never read the stored copy.
+
+Where the two things that were not the removal went:
+
+- **The proof that it was safe** is `test_a_stored_statistik_on_the_junction_is_ignored`
+  (`fl_backend/tests/api/test_teams_pipeline_execution.py`), which plants a `statistik` of 99s on a
+  junction row and asserts the derived figures come back instead
+  ([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)). That fixture is now the
+  only `statistik` on a junction row anywhere, and `tests/api/conftest.py` says so at the seed — it must
+  never be "cleaned up" to match production, because it is the regression test for this removal.
+- **The precedence over DB-2's validator step** is restated as a fact in DB-2's step 2, so it survives
+  this entry's deletion.
 
 ---
 
@@ -159,7 +177,10 @@ step 3 regardless.**
 rather than invented: BSON types, required fields, and the enumerations that are already `Literal`s
 in Python (`saison_phase`, `gruppe`, `status`). Deliberately **not** ranges, formats or cross-field
 rules — those stay Pydantic's job, and copying them would triple the drift surface F2 already warns
-about.
+about. **`saison_teams` has no model of its own**, so its validator is transcribed from the documents
+as they are — which is safe because they no longer carry a dead `statistik`: that field was `$unset`
+from every row on 2026-08-02, executing
+[ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md).
 
 **Step 3 — unique indexes on the four rules that are true today and enforced by nobody:**
 `saison_teams` one row per `(saison_id, team_id)`, `saison_spieler` one per `(spieler_id, saison_id)`,

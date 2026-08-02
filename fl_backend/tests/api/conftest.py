@@ -14,7 +14,9 @@ observable:
 
   Helmholtz  three Gruppenphase matches and one Viertelfinale -- the SCOPE, and the only team whose
              two tables differ. Its junction row also carries a stale `statistik`, so a pipeline that
-             read a stored copy would return different numbers (ADR-0026, and DB-3's field).
+             read a stored copy would return different numbers (ADR-0026). No live `saison_teams`
+             document carries that field any more, so this fixture is the only place one exists --
+             planted deliberately, and never to be "cleaned up" to match production.
   Bock       a cancelled match WITH a result -- the FORFEIT rule -- plus a match with no `ergebnis`.
   Lessing    a match whose `ergebnis` is set while `team1.tore` is null, which is the shape a
              hand-edited document takes and the reason the `$match` restates the goal counts.
