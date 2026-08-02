@@ -1,5 +1,8 @@
 """
-The real-`mongod` fixtures, and the one seeded league every executing test reads (ADR-0030).
+The one seeded league every executing team-pipeline test reads (ADR-0030).
+
+The `mongod` container itself is a session fixture in `tests/conftest.py`, because the constraint
+suite wants the same one.
 
 These exist because `build_team_pipeline` is a dict that MongoDB executes: the schema suite can prove
 the dict says the right thing, and only a database can prove the right thing comes back. Everything
@@ -35,7 +38,6 @@ Helmholtz reading 3 against 4 is the cheapest available proof that the scope fil
 is the same divergence ADR-0029 measured against the live database.
 """
 
-from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -112,32 +114,6 @@ def _spiel(
         "team1": {"team_id": TEAM_OIDS[team1], "name": team1, "tore": tore1},
         "team2": {"team_id": TEAM_OIDS[team2], "name": team2, "tore": tore2},
     }
-
-
-@pytest.fixture(scope="session")
-def mongo_database() -> Iterator[Database]:
-    """
-    A real `mongod`, started once for the whole session and thrown away after it.
-
-    `mongo:8` is pinned rather than `:latest` for the reason every other image in this repo is: a test
-    that silently starts running against a different engine version is a test whose result changed for
-    a reason nobody recorded.
-
-    The import is deliberately inside the function. `tests/api/` also holds the fast schema tests, so
-    this module is imported on every run -- importing `testcontainers` at module scope would make the
-    default suite depend on a package it never uses.
-
-    `testcontainers.community.mongodb` is the current path; `testcontainers.mongodb` still resolves
-    and emits a DeprecationWarning.
-    """
-    from testcontainers.community.mongodb import MongoDbContainer
-
-    with MongoDbContainer("mongo:8") as container:
-        client = container.get_connection_client()
-        try:
-            yield client["fl_test"]
-        finally:
-            client.close()
 
 
 @pytest.fixture(scope="session")

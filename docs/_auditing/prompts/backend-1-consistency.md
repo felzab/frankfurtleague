@@ -99,8 +99,15 @@ on questions the database structure review settled on 2026-08-02:
   check 2's denormalisation inventory should measure against. Embedded names are display copies owed
   a fan-out; `mietpreis` and `payment` are point-in-time records and are _not_ stale copies of
   `default_mietpreis` / `default_payment`. Report a missing fan-out, never a proposal to normalise.
-- [ADR-0027](../../_decisions/0027-the-database-enforces-its-own-invariants.md) — no validators and
-  no secondary indexes is a known state with scheduled work (DB-2), not a finding to raise again.
+- [ADR-0027](../../_decisions/0027-the-database-enforces-its-own-invariants.md) — every collection now
+  carries a `$jsonSchema` validator and the four uniqueness rules are unique indexes, declared in
+  `app/core/constraints.py` and applied on every boot. **The absence of any other index is deliberate**
+  and not a finding: at this size a query index would be theatre. Two more non-findings, both ratified:
+  the validators assert types, presence and enums only — a missing `minLength` is the recorded scope,
+  not a gap — and they duplicate the Pydantic models **by hand**, which
+  [ADR-0031](../../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md) settles
+  with measurements. A default-tier test already compares the two copies, so drift between them is a
+  test failure rather than an audit finding.
 
 SEEDED PRIOR FINDINGS to re-verify and place, not re-derive from scratch: **F1** (the two definitions
 of `ausstehend` — server includes today, client excludes it; a cross-surface _semantic_ divergence:

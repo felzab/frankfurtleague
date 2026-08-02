@@ -12,6 +12,11 @@ nothing would notice. That gap is ledger row **BE-5**.
 
 ## What it covers, and what it deliberately does not
 
+Since 2026-08-02 it covers a second thing the models cannot check about themselves: the database's own
+`$jsonSchema` validators and unique indexes
+([ADR-0027](../../docs/_decisions/0027-the-database-enforces-its-own-invariants.md)), and whether they
+have drifted from the models they mirror.
+
 **Covers:** Pydantic model validation, chiefly. Every constrained model accepts a valid payload,
 rejects the specific bad value each constraint exists to stop, and still accepts the legitimate edge
 cases that look like bad values (an empty `stadtteil`, a null `ergebnis` for an unplayed match, an
@@ -28,8 +33,8 @@ schema layer, and `build_team_pipeline` — both what it *says* and, since
 
 | Tier                       | Selected by            | Needs Docker | Cost                    |
 | -------------------------- | ---------------------- | ------------ | ----------------------- |
-| **Default** — 250 tests    | everything unmarked    | no           | 0.42s                   |
-| **`db`** — 21 tests        | `@pytest.mark.db`      | yes          | 5.1s warm, 23.6s cold  |
+| **Default** — 294 tests    | everything unmarked    | no           | 0.39s                   |
+| **`db`** — 52 tests        | `@pytest.mark.db`      | yes          | 13.0s warm, 21.2s cold |
 
 `pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` runs the fast tier only. A
 command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
@@ -58,13 +63,17 @@ strategy across those layers rather than a suite designed twice — and which no
 
 ```
 tests/
-  conftest.py                    factory fixtures — one per model, returning a valid payload
+  conftest.py                    factory fixtures — one per model, returning a valid payload,
+                                 plus the session-scoped mongod container   [db tier only]
   shared/                        mirrors app/shared/schemas/
     test_addresses.py
     test_kontakt.py
     test_custom.py               date/time/URL/ObjectId custom types
+  core/                          mirrors app/core/
+    test_constraints.py          the validators and indexes read as data, incl. the drift guard
+    test_constraints_execution.py      …and what MongoDB enforces from them   [db]
   api/                           mirrors app/api/
-    conftest.py                  the mongod container and the seeded league — `db` tier only
+    conftest.py                  the seeded league — `db` tier only
     test_teams.py                FLTeam, FLTeamStatistik, FLGruppen
     test_teams_pipeline.py       build_team_pipeline — what the pipeline says
     test_teams_pipeline_execution.py   …and what MongoDB computes from it   [db]
@@ -73,8 +82,21 @@ tests/
     test_response_envelope.py    every *Response model carries `acknowledged`
 ```
 
-The two `test_teams_pipeline*` files are complementary and neither replaces the other: the structural
-one fails when a rule is **deleted**, the executing one fails when a rule is present but **wrong**.
+Both `*_execution.py` files pair with a structural sibling, and neither of a pair replaces the other:
+the structural one fails when a rule is **deleted**, the executing one when a rule is present but
+**wrong**.
+
+**The container fixture lives in the root `conftest.py`**, not in `api/`, because two suites want a
+database now. It is session-scoped, so one `mongod` serves both. It yields the *container* rather than
+a client: the pipeline suite reads with pymongo and the constraint suite drives Motor, which needs the
+connection URL.
+
+**One test here guards a rule nothing else can.**
+`test_constraints.py::test_every_mirrored_model_matches_its_validator` compares each Pydantic model's
+stored field names against the `$jsonSchema` its collection carries, and fails naming the field. That
+is the mechanism that makes a third copy of the schema affordable
+([ADR-0031](../../docs/_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md)) —
+change a model, forget `app/core/constraints.py`, and the default tier says so.
 
 The tree mirrors `app/`, so the test for a module is where you would look for it.
 
@@ -125,7 +147,7 @@ appears again in a `short test summary info` block at the end.
 cd fl_backend && uv run pytest
 ```
 
-That is the fast tier — 250 tests, no Docker. To run the ones that need a real `mongod`:
+That is the fast tier — 294 tests, no Docker. To run the ones that need a real `mongod`:
 
 ```bash
 cd fl_backend && uv run pytest -m db

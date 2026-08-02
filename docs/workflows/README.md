@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `73a782b`, 2026-08-01
+**Verified against:** `e73cc01`, 2026-08-02
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -398,6 +398,50 @@ the machine is outside the repo.
 Those three resources have no write path, are cached for a day, and nothing invalidates them
 automatically. Forgetting is not harmful — the cache expires within 24 hours regardless.
 See [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md).
+
+### Before any hand edit that a code change depends on
+
+```bash
+./scripts/deploy.sh --status        # what is LIVE, and from which commit
+```
+
+**Order a data change against the deployed image, never against `main`.** Merging is not deploying
+here — the two are separated on purpose — so `main` routinely describes a service that is not running,
+and a migration reasoned about from the checkout can be correct in the repository and destructive in
+production.
+
+That is not hypothetical. On 2026-08-02 the `statistik` field was `$unset` from all 17 `saison_teams`
+rows, which was safe because the league table had become a derivation
+([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)) — safe in `main`. The live
+image was a day older and still projected `$saison_data.statistik`, so every team document lost a
+required field and `GET /teams` returned 422 until the pending deploy was made.
+
+The direction differs per change, which is why the status command matters more than a rule of thumb:
+
+| The edit                                | Order                                                                                                                  |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Removes something the old code reads    | **Deploy first**, then edit — as `statistik` should have been                                                          |
+| Must be true before the new code starts | **Edit first**, then deploy — as DB-2's constraints were, since a unique index cannot build over data that violates it |
+
+### Before deploying a change to the database's constraints
+
+```bash
+cd fl_backend && .venv/Scripts/python -m app.core.constraints --check
+```
+
+Dev (Windows; on the server it is `python -m app.core.constraints --check` inside the backend
+container). Writes nothing. It reports every document the validators would reject, every key group that
+would stop a unique index building, and whether the database user may run `collMod` at all — which
+`readWrite` and `readWriteAnyDatabase` do not grant, though both grant `createIndex`.
+
+Run it whenever `fl_backend/app/core/constraints.py` changes, because the constraints are reapplied on
+**every boot** and **a failure is fatal**
+([ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)). A validator that no longer
+matches the data does not degrade the service; it stops the container coming up, and nginx then waits
+on a health check that never passes. Exit 0 means clean.
+
+`--apply` does the same work startup does, which is how to put a corrected constraint in place without
+waiting for a deploy.
 
 ### After changing anything about the brand mark
 

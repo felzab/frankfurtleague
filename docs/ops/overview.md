@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `e340056`, 2026-08-01
+**Verified against:** `e73cc01`, 2026-08-02
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no
@@ -34,6 +34,18 @@ graph TB
     fe -->|"authjs database only"| mongo
     be --> mongo
 ```
+
+**The two arrows into MongoDB are two different database users** (2026-08-02). The backend authenticates
+as one holding `readWrite` and `collMod` on the application database alone; Auth.js authenticates as a
+separate one holding `readWrite` on `authjs` alone. Neither can reach the other's data, and neither
+holds a `*AnyDatabase` role. `collMod` is on the backend's user because it applies the database's own
+validators on every boot ([ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md));
+it is a `dbAdmin` action that `readWrite` does not carry, so a user with read and write access alone
+builds every index and attaches no validator, and the backend then refuses to start.
+
+The split is what [ADR-0010](../_decisions/0010-authjs-owns-a-direct-mongoclient.md) always implied and
+one credential used to undercut: the sanctioned exception is Auth.js reaching **its own** database, and
+sharing a login made that a matter of trust rather than of configuration.
 
 **Only nginx publishes ports.** The two application containers are reachable solely from inside the
 compose network, which is what makes `POST /api/revalidate` an internal endpoint without any additional

@@ -1,20 +1,25 @@
 """
-Shared fixtures for the schema suite.
+Shared fixtures for the schema suite, plus the one real `mongod` the whole session shares.
 
-Every fixture is a **factory** returning a fresh, fully valid payload dict. Tests then override the
-one field under test, so each case states exactly what makes it invalid and no test can leak state
-into another through a shared mutable dict.
+Every payload fixture is a **factory** returning a fresh, fully valid payload dict. Tests then
+override the one field under test, so each case states exactly what makes it invalid and no test can
+leak state into another through a shared mutable dict.
 
 Payloads are keyed the way MongoDB serves them — `_id`, not `id` — because that is the validation
 alias the models declare and therefore the shape they are actually validated against in production.
+
+The container fixtures at the bottom live here rather than in `api/conftest.py` because two suites now
+want a database: the executing team-pipeline tests and the executing constraint tests. Session-scoped,
+so one container serves both (ADR-0030).
 """
 
 import copy
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
+from pymongo.database import Database
 
 # 24-hex ObjectId strings. Fixed rather than generated: a failing test should point at the same
 # value every run.
@@ -241,3 +246,41 @@ def saison() -> PayloadFactory:
             "rules": {"win_points": 3, "draw_points": 1},
         }
     )
+
+
+# ── The real mongod, for the `db` tier only (ADR-0030) ──────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session")
+def mongo_container() -> Iterator[Any]:
+    """
+    A real `mongod`, started once for the whole session and thrown away after it.
+
+    `mongo:8` is pinned rather than `:latest` for the reason every other image in this repo is: a test
+    that silently starts running against a different engine version is a test whose result changed for
+    a reason nobody recorded.
+
+    The import is deliberately inside the function. This module holds the fast schema suite's fixtures
+    too, so it is imported on every run — importing `testcontainers` at module scope would make the
+    default tier depend on a package it never uses, and pytest would pay for it 250 times.
+
+    `testcontainers.community.mongodb` is the current path; `testcontainers.mongodb` still resolves
+    and emits a DeprecationWarning.
+
+    Yields the CONTAINER, not a client, because the two consumers want different drivers: the pipeline
+    suite reads with pymongo and the constraint suite drives Motor, which needs the URL.
+    """
+    from testcontainers.community.mongodb import MongoDbContainer
+
+    with MongoDbContainer("mongo:8") as container:
+        yield container
+
+
+@pytest.fixture(scope="session")
+def mongo_database(mongo_container: Any) -> Iterator[Database]:
+    """The pymongo handle onto that container, on a database named for the suite rather than `test`."""
+    client = mongo_container.get_connection_client()
+    try:
+        yield client["fl_test"]
+    finally:
+        client.close()
