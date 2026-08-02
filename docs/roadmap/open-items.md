@@ -39,30 +39,31 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 ## The path at a glance
 
-| #   | ID    | Item                                                   | Surfaces    | Effort | Status      | Depends on               |
-| --- | ----- | ------------------------------------------------------ | ----------- | ------ | ----------- | ------------------------ |
-| 1   | BE-11 | The derived league table has no integration coverage   | BE          | S      | Open        | — (its pipeline is live) |
-| 2   | DB-3  | Delete the dead `statistik` field from `saison_teams`  | DB          | S      | **Decided** | — (ADR-0026; work open)  |
-| 3   | LOG-1 | Logging and error handling, surveyed then standardised | FE, BE, Ops | L      | Open        | — (parallel-safe)        |
-| 4   | DB-2  | The database enforces its own invariants               | DB, BE, Ops | M      | **Decided** | — (ADR-0027; work open)  |
-| 5   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`      | BE, FE      | L      | Open        | — (after DB-2, soft)     |
-| 6   | BE-9  | Replace the "TBD" placeholder team                     | BE, FE      | L      | Open        | — (BE-4's moment, soft)  |
-| 7   | FB-2  | Disqualification becomes a record, not a boolean       | FE, BE, DB  | M      | Open        | — (model decided)        |
-| 8   | FB-3  | Admin pages for team and spieler data                  | FE, BE      | L      | Blocked     | BE-4                     |
-| 9   | FB-4  | Playoff bracket: verify seeding, then auto-advance     | FE, BE      | M      | Open        | BE-9 (part 2 only)       |
-| 10  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields       | FE, BE      | S      | Blocked     | FB-2 (field shape)       |
-| 11  | FE-1  | Date ranges instead of specific dates                  | FE (+BE)    | XL     | Open        | — (batch with 10, 12)    |
-| 12  | FE-2  | Optional per-game notes                                | FE (+BE)    | S      | Open        | — (batch with 10, 11)    |
-| 13  | FE-3  | TeamDetailsView rework                                 | FE          | M      | Blocked     | FB-2                     |
-| 14  | BE-10 | Nothing caches the season document, read every request | BE          | S      | Open        | —                        |
-| 15  | F7    | Hardcoded season badge on the landing page             | FE          | S      | Open        | — (before rollover)      |
-| 16  | OPS-4 | One output standard for `scripts/`                     | Ops         | M      | Open        | —                        |
-| 17  | F1    | Two definitions of `ausstehend`                        | FE, BE      | S      | Open        | — (latest with FE-1)     |
-| 18  | F2    | Pydantic and Zod models are hand-mirrored              | FE, BE      | —      | Standing    | standing caution         |
-| 19  | BE-7  | `typing` imports instead of `collections.abc`          | BE          | —      | Standing    | audit pass B4            |
-| 20  | BE-6  | `CustomObjectId` validates nothing in JSON mode        | BE          | —      | Standing    | audit pass B2            |
-| 21  | OPS-2 | Nothing validates the contents of a restored `.env`    | Ops         | —      | Standing    | trigger recorded         |
-| 22  | OPS-3 | Crawler policy split between robots.txt and Cloudflare | Ops         | —      | Standing    | trigger recorded         |
+| #   | ID    | Item                                                     | Surfaces    | Effort | Status      | Depends on               |
+| --- | ----- | -------------------------------------------------------- | ----------- | ------ | ----------- | ------------------------ |
+| 1   | BE-11 | The derived league table has no integration coverage     | BE          | S      | Open        | — (its pipeline is live) |
+| 2   | DB-3  | Delete the dead `statistik` field from `saison_teams`    | DB          | S      | **Decided** | — (ADR-0026; work open)  |
+| 3   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open        | — (parallel-safe)        |
+| 4   | DB-2  | The database enforces its own invariants                 | DB, BE, Ops | M      | **Decided** | — (ADR-0027; work open)  |
+| 5   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`        | BE, FE      | L      | Open        | — (after DB-2, soft)     |
+| 6   | BE-9  | Replace the "TBD" placeholder team                       | BE, FE      | L      | Open        | — (BE-4's moment, soft)  |
+| 7   | FB-2  | Disqualification becomes a record, not a boolean         | FE, BE, DB  | M      | Open        | — (model decided)        |
+| 8   | FB-3  | Admin pages for team and spieler data                    | FE, BE      | L      | Blocked     | BE-4                     |
+| 9   | FB-4  | Playoff bracket: verify seeding, then auto-advance       | FE, BE      | M      | Open        | BE-9 (part 2 only)       |
+| 10  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields         | FE, BE      | S      | Blocked     | FB-2 (field shape)       |
+| 11  | FE-1  | Date ranges instead of specific dates                    | FE (+BE)    | XL     | Open        | — (batch with 10, 12)    |
+| 12  | FE-2  | Optional per-game notes                                  | FE (+BE)    | S      | Open        | — (batch with 10, 11)    |
+| 13  | FE-3  | TeamDetailsView rework                                   | FE          | M      | Blocked     | FB-2                     |
+| 14  | BE-10 | Nothing caches the season document, read every request   | BE          | S      | Open        | —                        |
+| 15  | F7    | Hardcoded season badge on the landing page               | FE          | S      | Open        | — (before rollover)      |
+| 16  | OPS-4 | One output standard for `scripts/`                       | Ops         | M      | Open        | — (batch with OPS-5)     |
+| 17  | OPS-5 | Scripts and CI, audited and optimised for what they cost | Ops         | M      | Open        | — (batch with OPS-4)     |
+| 18  | F1    | Two definitions of `ausstehend`                          | FE, BE      | S      | Open        | — (latest with FE-1)     |
+| 19  | F2    | Pydantic and Zod models are hand-mirrored                | FE, BE      | —      | Standing    | standing caution         |
+| 20  | BE-7  | `typing` imports instead of `collections.abc`            | BE          | —      | Standing    | audit pass B4            |
+| 21  | BE-6  | `CustomObjectId` validates nothing in JSON mode          | BE          | —      | Standing    | audit pass B2            |
+| 22  | OPS-2 | Nothing validates the contents of a restored `.env`      | Ops         | —      | Standing    | trigger recorded         |
+| 23  | OPS-3 | Crawler policy split between robots.txt and Cloudflare   | Ops         | —      | Standing    | trigger recorded         |
 
 ---
 
@@ -547,9 +548,68 @@ nothing.
 **The decided standard must be recorded** — the owner asked for this explicitly. Candidate homes:
 `scripts/README.md` (where script conventions already live) or `docs/_standard/`; decide with him.
 
-**Path:** independent.
+**Path:** independent. **Batch with OPS-5** — both require reading every script in `scripts/` end to
+end, and doing that twice is the only real cost either of them carries.
 
-### 17 · F1 — Two definitions of `ausstehend`
+### 17 · OPS-5 — Scripts and CI, audited and optimised for what they cost
+
+**Owner's item, 2026-08-02.** A full audit and following optimisation of **all scripts** and **the
+whole CI pipeline**.
+
+**This is a latency and structure item, and never a cost item.** `felzab/frankfurtleague` is public
+and GitHub Actions is free on standard runners for public repositories with no minute cap, so every
+second saved here buys developer waiting time and nothing else. Stating it up front because the
+obvious framing — "optimise CI" — usually means a bill, and here there is none to reduce.
+
+**The baseline, measured 2026-08-02** from the public Actions API over every completed run the API
+returns:
+
+| Workflow | Trigger        | n   | Median | Max  |
+| -------- | -------------- | --- | ------ | ---- |
+| `verify` | `pull_request` | 27  | 136s   | 157s |
+| `verify` | `push` to main | 27  | 217s   | 411s |
+| `codeql` | `pull_request` | 28  | 59s    | 73s  |
+| `codeql` | `push` to main | 26  | 88s    | 169s |
+
+The two workflows run concurrently, so a pull request waits on `verify` — about **136 seconds** —
+and `codeql` is free in wall-clock terms. On `main` the full gate's two image builds are what
+separate 217s from the PR's 136s, and the 411s outlier is what an uncached build costs.
+
+**What this item should answer, none of it decided:**
+
+- **Is `--quick` on a pull request and the full gate on `main` still the right split?** It is the
+  single decision that shapes both numbers above, and `verify.yml` already documents the case where
+  it is not sufficient (`src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts`).
+- **Is `verify` a required status check on `main` at all?** The unauthenticated API reports
+  `required_status_checks.enforcement_level: "off"` with no contexts — but that endpoint does not see
+  repository **rulesets**, so it proves nothing and has to be read from the repository settings. If
+  nothing is required, CI is advisory and a red pull request is mergeable, which would outrank every
+  optimisation question in this entry.
+- **Does the pipeline pay for work it does not need?** A backend-only change currently pays for
+  `pnpm install` and `next build`; both workflows check out and set up independently; and
+  `verify.sh` runs `pnpm verify` with prettier in **write** mode, which then requires a tree-diff
+  step in CI to catch what the formatter just changed. Splitting jobs by surface and running the
+  formatter in check mode are both real options with real trade-offs.
+- **Are the `uv` and `pnpm` caches actually hitting?** Both are configured; neither is measured.
+- **Inside `scripts/`, is the ordering still right?** `verify.sh` runs its six steps serially,
+  cheapest-to-fail-first, which is a deliberate and good property — the question is whether any
+  independent step could overlap without losing it.
+
+**Two boundaries, so this does not become a third copy of work already scoped.**
+
+- **Ops audit pass O1 owns correctness** (`_auditing/prompts/ops-1-build-deploy.md`): its check 4
+  asks whether each script does what its header claims, and its check 5 builds the gate's coverage
+  map and verifies `verify.yml` runs what it says. **This item asks what the pipeline costs and
+  whether its structure is right** — a different question about the same files. Cite O1's findings
+  here; never re-report them.
+- **OPS-4 owns terminal output.** It is the same reading pass over `scripts/` for a different
+  purpose, which is why the two are batched rather than merely adjacent.
+
+**Path:** independent, and batched with OPS-4. If BE-11 lands a container-backed test job first,
+this item inherits it — that job's shape is explicitly provisional and belongs to this entry, not
+to BE-11.
+
+### 18 · F1 — Two definitions of `ausstehend`
 
 `build_spiele_filter` (`fl_backend/app/api/spiele/services.py:30-31`) filters
 `spiel_status="ausstehend"` as `datum >= today`, **including today**. `computeSpielStatus`
@@ -574,7 +634,7 @@ semantics anyway.
 No scheduled action. F2 is a constraint on the work above; the rest have owners or recorded
 triggers.
 
-### 18 · F2 — Pydantic and Zod models are hand-mirrored
+### 19 · F2 — Pydantic and Zod models are hand-mirrored
 
 `fl_backend/app/api/spiele/schemas.py` and `fl_frontend/src/features/spiele/schemas.ts` (and their
 siblings) are maintained as mirrors with no generation step. This is the main drift risk across the
@@ -585,7 +645,7 @@ contract table measures.
 **Path:** the reason tier 3's schema items (FB-5, FE-1, FE-2) are batched — every schema change is
 a doubled edit, so fewer passes mean less drift surface.
 
-### 19 · BE-7 — `typing` imports instead of `collections.abc`
+### 20 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -593,7 +653,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 20 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 21 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -602,7 +662,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 21 · OPS-2 — nothing validates the contents of a restored `.env`
+### 22 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -642,7 +702,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops-1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 22 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 23 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 
