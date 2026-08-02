@@ -10,6 +10,15 @@
 
 export type FLTeamsSortingOptions = "name";
 
+/**
+ * Which matches the derived statistics count (ADR-0029).
+ *
+ * Omitting it is `"gruppenphase"`, the league table — the backend defaults it there rather than to
+ * every phase, because both scopes return the same fields and a forgotten parameter must not produce
+ * a standing that counts playoff results.
+ */
+export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
+
 export type FLTeamsFilterParams = {
   team_id?: string;
   saison_id?: string;
@@ -18,6 +27,7 @@ export type FLTeamsFilterParams = {
   in_gruppen?: boolean;
   compact?: boolean;
   include_placeholders?: boolean;
+  statistik_scope?: FLTeamStatistikScope;
 
   limit?: number;
   sort_by?: FLTeamsSortingOptions;

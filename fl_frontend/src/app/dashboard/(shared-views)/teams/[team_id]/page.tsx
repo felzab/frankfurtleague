@@ -19,8 +19,14 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   await connection();
   const team_id = await resolveTeamId(props.params);
 
-  // getTeams is "use cache", so this duplicates no round-trip with the page render below.
-  const teamsRes = await getTeams({ team_id: team_id, saison_id: await resolveSaisonId(props.searchParams) }).catch(() => null);
+  // getTeams is "use cache", so this duplicates no round-trip with the page render below -- but only
+  // while the two calls pass the SAME filters. `statistik_scope` is part of the cache key, so leaving
+  // it off here would silently double the work and fetch a table this page never renders.
+  const teamsRes = await getTeams({
+    team_id: team_id,
+    saison_id: await resolveSaisonId(props.searchParams),
+    statistik_scope: "gesamt",
+  }).catch(() => null);
   const teamData = teamsRes?.format === "list" ? teamsRes.teams[0] : undefined;
 
   // A branch that returns no canonical inherits the layout's (/dashboard), so an unknown team id
@@ -42,7 +48,10 @@ export default async function TeamDetailsPage(props: NextPageProps<{ team_id: st
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   const [teamsRes, spieleRes] = await Promise.all([
-    getTeams({ team_id: team_id, saison_id: specifiedSaisonId }).catch((error) => {
+    // "gesamt", not the default: this page shows the team's whole season, playoffs included, and it is
+    // the only surface that does (ADR-0029). The timeline below already lists every phase, so a
+    // Gruppenphase-only header would contradict the cards under it.
+    getTeams({ team_id: team_id, saison_id: specifiedSaisonId, statistik_scope: "gesamt" }).catch((error) => {
       // Only a genuine 404 means "no such team". Swallowing everything here turned a backend
       // outage into a 404 -- and because notFound() is not an error, onRequestError never fired,
       // so the outage was never logged.

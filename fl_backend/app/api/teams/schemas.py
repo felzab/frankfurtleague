@@ -13,12 +13,16 @@ container.
     present once omitted "D" for a season with nobody in it, and the frontend schema requires all four.
   • Statistics fields are all `ge=0` and default to 0. The default is load-bearing: a team whose season
     holds no counting match is served a zeroed object, not an absent one.
+  • `statistik_scope` decides WHICH matches those seven numbers count, and it defaults to
+    `"gruppenphase"`. The response shape is identical either way, so a caller that gets the scope wrong
+    gets a plausible table rather than an error -- which is why the safe value is the default.
   • The `format` discriminator is what lets one endpoint return three shapes. Adding a fourth shape
     means adding a literal, not widening an existing model.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
   app/api/teams/services.py -- the join, and how statistik is derived (ADR-0026)
+  docs/_decisions/0029-the-league-table-counts-the-gruppenphase.md -- the scope, and why it defaults
 """
 
 from typing import Annotated, Literal, Mapping, Union, get_args
@@ -30,6 +34,11 @@ from app.shared.schemas.custom import CustomExternalUrl, CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLGruppenNames = Literal["A", "B", "C", "D"]
+
+# Which matches the derived table counts (ADR-0029). Two values rather than a free `saison_phase`
+# filter: a table of the Halbfinale alone is not a standing anybody wants, and offering it invites
+# one. `"gruppenphase"` is spelled exactly as the stored `FLSpiel.saison_phase` value it filters on.
+FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
 
 
 class FLTeamStatistik(BaseModel):
@@ -128,6 +137,10 @@ class FLTeamsFilterParams(BaseModel):
     in_gruppen: bool | None = None
     compact: bool | None = None
     include_placeholders: bool = False  # Exclude placeholders by default
+
+    # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the
+    # playoff-polluted one (ADR-0029). The all-games figures are an explicit ask.
+    statistik_scope: FLTeamStatistikScope = Field(default="gruppenphase")
 
     limit: int = Field(default=1024, ge=1, le=1024)
     sort_by: Literal["name"] = Field(default="name")
