@@ -63,8 +63,9 @@ strategy across those layers rather than a suite designed twice — and which no
 
 ```
 tests/
-  conftest.py                    factory fixtures — one per model, returning a valid payload,
-                                 plus the session-scoped mongod container   [db tier only]
+  conftest.py                    the suite's own env, then factory fixtures — one per model,
+                                 returning a valid payload — plus the session-scoped mongod
+                                 container   [db tier only]
   shared/                        mirrors app/shared/schemas/
     test_addresses.py
     test_kontakt.py
@@ -80,11 +81,22 @@ tests/
     test_spiele.py               FLSpiel, its embedded fields, the admin patch payload
     test_reference_models.py     spielorte, schiedsrichter, spieler, spieltage, saisons
     test_response_envelope.py    every *Response model carries `acknowledged`
+    test_admin_guard.py          every non-GET operation is admin-guarded
 ```
 
 Both `*_execution.py` files pair with a structural sibling, and neither of a pair replaces the other:
 the structural one fails when a rule is **deleted**, the executing one when a rule is present but
 **wrong**.
+
+**The suite never reads `fl_backend/.env`, and that is deliberate.** `app/core/config.py` builds
+`backend_config` at module scope, so importing `app.main`, `app.core.security` or
+`app.core.constraints` constructs the settings object during **collection** — and eight of its fields
+have no default. The root `conftest.py` sets those eight from fixed test values before any `app`
+import, unconditionally rather than with `setdefault`, because env vars outrank the dotenv file: the
+suite therefore reads those values and never the real credentials sitting in a developer's `.env`.
+
+Two things follow. A checkout with no `.env` runs the whole suite, which is what CI is. And a failure
+here means the code, never the machine — the two cannot diverge on configuration.
 
 **The container fixture lives in the root `conftest.py`**, not in `api/`, because two suites want a
 database now. It is session-scoped, so one `mongod` serves both. It yields the *container* rather than

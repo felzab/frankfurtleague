@@ -14,12 +14,46 @@ so one container serves both (ADR-0030).
 """
 
 import copy
+import os
 from collections.abc import Callable, Iterator
 from typing import Any
 
-import pytest
-from pydantic import BaseModel, ValidationError
-from pymongo.database import Database
+# ---------------------------------------------------------------------------------------------------
+# The suite's own configuration, set BEFORE anything imports `app`.
+#
+# `app/core/config.py` builds `backend_config` at MODULE SCOPE, so importing any app module that
+# reaches it -- `app.main`, `app.core.security`, `app.core.constraints` -- constructs the settings
+# object during COLLECTION. Eight fields have no default, so without these the whole session fails to
+# collect, and it fails on a test that would have been deselected anyway.
+#
+# Set unconditionally, not with `setdefault`, and that is the point rather than a shortcut. Env vars
+# outrank the dotenv file in pydantic-settings, so this guarantees the suite reads THESE values and
+# never `fl_backend/.env` -- which on a developer machine holds real production credentials. The
+# tests become identical on a laptop and on a runner that has no `.env` at all.
+#
+# It must stay above the `app` imports in every test module, which is why it lives at the top of the
+# root conftest: pytest imports this file before it collects anything.
+# ---------------------------------------------------------------------------------------------------
+os.environ.update(
+    {
+        "API_VERSION": "0",
+        "API_TRUSTED_HOSTS": "testserver,localhost",
+        "API_CORS_ALLOWED_ORIGINS": "http://localhost:3000",
+        # Must start with mongodb:// or mongodb+srv://; a field validator enforces it. Never dialled:
+        # the tests that want a real server get one from testcontainers (ADR-0030).
+        "MONGODB_URI": "mongodb://localhost:27017/frankfurtleague_test",
+        "DB_BASE_NAME": "frankfurtleague_test",
+        # Three DISTINCT values. `verify_api_key` compares with `compare_digest`, so identical keys
+        # would make a test asserting that the admin router rejects the base key pass vacuously.
+        "INTERNAL_API_KEY_BASE": "test-key-base",
+        "INTERNAL_API_KEY_SYSTEM": "test-key-system",
+        "INTERNAL_API_KEY_ADMIN": "test-key-admin",
+    }
+)
+
+import pytest  # noqa: E402
+from pydantic import BaseModel, ValidationError  # noqa: E402
+from pymongo.database import Database  # noqa: E402
 
 # 24-hex ObjectId strings. Fixed rather than generated: a failing test should point at the same
 # value every run.
