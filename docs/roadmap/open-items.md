@@ -42,7 +42,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                     | Surfaces    | Effort | Status      | Depends on              |
 | --- | ----- | -------------------------------------------------------- | ----------- | ------ | ----------- | ----------------------- |
 | 1   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open        | — (parallel-safe)       |
-| 2   | DB-2  | The database enforces its own invariants                 | DB, BE, Ops | M      | **Decided** | — (ADR-0027; work open) |
+| 2   | DB-2  | The database enforces its own invariants                 | DB, BE, Ops | M      | **Closed**  | — (ADR-0027, ADR-0031)  |
 | 3   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`        | BE, FE      | L      | Open        | — (after DB-2, soft)    |
 | 4   | BE-9  | Replace the "TBD" placeholder team                       | BE, FE      | L      | Open        | — (BE-4's moment, soft) |
 | 5   | FB-2  | Disqualification becomes a record, not a boolean         | FE, BE, DB  | M      | Open        | — (model decided)       |
@@ -156,6 +156,39 @@ Two smaller findings from the same inspection, worth folding into whichever pass
 `saisons`, `spieler` and `spieltage` until BE-4 lands a work package from now, so this is the control
 for exactly the period it is most needed. BE-4 then inherits a database that already enforces what
 its endpoints would have to.
+
+**Concluded 2026-08-02.** All four steps are done. `app/core/constraints.py` declares nine
+`$jsonSchema` validators and the four unique indexes, and the lifespan applies them on every boot;
+`python -m app.core.constraints --check` reports violations, duplicate key groups, the authenticated
+user and its privileges without writing anything.
+
+- **Step 1 needed no edit.** `--check` measured `saison_spieler` at **0 violations of 362 documents**
+  before anything was changed, and the validator types `team_id` as `objectId` — so the two rows
+  holding `"Lessing-Gymnasium"` were already gone. Recorded as observed, not as fixed.
+- **Step 2's `mietpreis` split was real and is normalised.** 12 of 31 `spiele` failed on a `double`
+  where the validator requires `int`; every value was integral, and all 12 were converted. The
+  collection now answers 25 to `{ "ort.mietpreis": { $type: "int" } }` and `--check` is clean.
+- **Steps 3 and 4** are the indexes and the startup application, both in the same module.
+- **`spieltage.anzahl_spiele` stays undecided**, exactly as this entry left it. It is typed by the
+  validator, which neither blesses nor blocks deriving it later. It needs no new home:
+  [ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md) already records it under
+  _Recorded, not decided_, and that ADR is not edited when this entry goes — a retired id stays
+  findable through [`closed-items.md`](closed-items.md), which is what that file is for. It opens no
+  new entry, because nothing forces the change and there is no question waiting on an answer.
+
+Two decisions came out of the work. [ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)
+was already recorded and is what this executed. [ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md)
+is new: the validators are hand-written rather than generated from the Pydantic models, because
+`CustomObjectId` emits a bare `{"type": "string"}` in JSON mode and a generated validator would type
+every ObjectId reference as a string — blessing the exact defect this item existed to refuse. A
+default-tier test compares the two copies field-by-field instead.
+
+Two findings that were not decisions were rehomed rather than dropped. The database now uses **two
+scoped users** instead of one `readWriteAnyDatabase` credential shared with Auth.js — recorded in
+`docs/ops/overview.md`, since it is configuration this repository does not otherwise describe. And
+**a data change must be ordered against the deployed image rather than against `main`** — recorded in
+`docs/workflows/README.md`, after DB-3's `$unset` broke `GET /teams` in production because the live
+container was a day behind the merge that made the field unnecessary.
 
 ### 3 · BE-4 — no write path for `saisons`, `spieler`, `spieltage`
 

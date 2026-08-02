@@ -399,6 +399,30 @@ Those three resources have no write path, are cached for a day, and nothing inva
 automatically. Forgetting is not harmful — the cache expires within 24 hours regardless.
 See [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md).
 
+### Before any hand edit that a code change depends on
+
+```bash
+./scripts/deploy.sh --status        # what is LIVE, and from which commit
+```
+
+**Order a data change against the deployed image, never against `main`.** Merging is not deploying
+here — the two are separated on purpose — so `main` routinely describes a service that is not running,
+and a migration reasoned about from the checkout can be correct in the repository and destructive in
+production.
+
+That is not hypothetical. On 2026-08-02 the `statistik` field was `$unset` from all 17 `saison_teams`
+rows, which was safe because the league table had become a derivation
+([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)) — safe in `main`. The live
+image was a day older and still projected `$saison_data.statistik`, so every team document lost a
+required field and `GET /teams` returned 422 until the pending deploy was made.
+
+The direction differs per change, which is why the status command matters more than a rule of thumb:
+
+| The edit | Order |
+| ---------- | ------- |
+| Removes something the old code reads | **Deploy first**, then edit — as `statistik` should have been |
+| Must be true before the new code starts | **Edit first**, then deploy — as DB-2's constraints were, since a unique index cannot build over data that violates it |
+
 ### Before deploying a change to the database's constraints
 
 ```bash
