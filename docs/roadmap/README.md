@@ -4,7 +4,11 @@ What this folder holds, and the boundary that keeps it honest:
 
 - [`open-items.md`](open-items.md) — **known open items**: findings and undecided questions that
   have real analysis behind them but no decision yet. Each entry keeps its full reasoning, so the
-  decision is taken with the analysis in hand rather than re-derived.
+  decision is taken with the analysis in hand rather than re-derived. **The file is ranked (owner,
+  2026-08-02):** entries are ordered into tiers so reading top to bottom gives the suggested
+  working order, and each entry that participates in a dependency carries a **Path** line. Some
+  entries are issue-shaped feature work parked there at the owner's direction, so the ordering
+  lives in one place — the issue boundary below still applies to everything else.
 - Ideas and feature plans — one file per substantial idea as this folder grows.
 
 What does **not** belong here: decided things (an ADR, `docs/_decisions/`), defects under active
