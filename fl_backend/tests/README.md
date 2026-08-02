@@ -91,9 +91,10 @@ the structural one fails when a rule is **deleted**, the executing one when a ru
 **The suite never reads `fl_backend/.env`, and that is deliberate.** `app/core/config.py` builds
 `backend_config` at module scope, so importing `app.main`, `app.core.security` or
 `app.core.constraints` constructs the settings object during **collection** — and eight of its fields
-have no default. The root `conftest.py` sets those eight from fixed test values before any `app`
-import, unconditionally rather than with `setdefault`, because env vars outrank the dotenv file: the
-suite therefore reads those values and never the real credentials sitting in a developer's `.env`.
+have no default. The root `conftest.py` sets those eight from fixed test values in a `pytest_configure` hook, which
+pytest calls after conftest import and before collection. Unconditionally rather than with
+`setdefault`, because env vars outrank the dotenv file: the suite therefore reads those values and
+never the real credentials sitting in a developer's `.env`.
 
 Two things follow. A checkout with no `.env` runs the whole suite, which is what CI is. And a failure
 here means the code, never the machine — the two cannot diverge on configuration.

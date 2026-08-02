@@ -18,42 +18,48 @@ import os
 from collections.abc import Callable, Iterator
 from typing import Any
 
-# ---------------------------------------------------------------------------------------------------
-# The suite's own configuration, set BEFORE anything imports `app`.
-#
-# `app/core/config.py` builds `backend_config` at MODULE SCOPE, so importing any app module that
-# reaches it -- `app.main`, `app.core.security`, `app.core.constraints` -- constructs the settings
-# object during COLLECTION. Eight fields have no default, so without these the whole session fails to
-# collect, and it fails on a test that would have been deselected anyway.
-#
-# Set unconditionally, not with `setdefault`, and that is the point rather than a shortcut. Env vars
-# outrank the dotenv file in pydantic-settings, so this guarantees the suite reads THESE values and
-# never `fl_backend/.env` -- which on a developer machine holds real production credentials. The
-# tests become identical on a laptop and on a runner that has no `.env` at all.
-#
-# It must stay above the `app` imports in every test module, which is why it lives at the top of the
-# root conftest: pytest imports this file before it collects anything.
-# ---------------------------------------------------------------------------------------------------
-os.environ.update(
-    {
-        "API_VERSION": "0",
-        "API_TRUSTED_HOSTS": "testserver,localhost",
-        "API_CORS_ALLOWED_ORIGINS": "http://localhost:3000",
-        # Must start with mongodb:// or mongodb+srv://; a field validator enforces it. Never dialled:
-        # the tests that want a real server get one from testcontainers (ADR-0030).
-        "MONGODB_URI": "mongodb://localhost:27017/frankfurtleague_test",
-        "DB_BASE_NAME": "frankfurtleague_test",
-        # Three DISTINCT values. `verify_api_key` compares with `compare_digest`, so identical keys
-        # would make a test asserting that the admin router rejects the base key pass vacuously.
-        "INTERNAL_API_KEY_BASE": "test-key-base",
-        "INTERNAL_API_KEY_SYSTEM": "test-key-system",
-        "INTERNAL_API_KEY_ADMIN": "test-key-admin",
-    }
-)
+import pytest
+from pydantic import BaseModel, ValidationError
+from pymongo.database import Database
 
-import pytest  # noqa: E402
-from pydantic import BaseModel, ValidationError  # noqa: E402
-from pymongo.database import Database  # noqa: E402
+# The eight settings `BackendConfig` declares without a default. Values are fixed rather than
+# realistic: nothing here is dialled, and the tests that want a real server get one from
+# testcontainers (ADR-0030). `MONGODB_URI` still has to start with `mongodb://`, because a field
+# validator says so. The three API keys are DISTINCT on purpose -- `verify_api_key` compares with
+# `compare_digest`, so identical values would let a test asserting that the admin router rejects the
+# base key pass vacuously.
+TEST_ENVIRONMENT = {
+    "API_VERSION": "0",
+    "API_TRUSTED_HOSTS": "testserver,localhost",
+    "API_CORS_ALLOWED_ORIGINS": "http://localhost:3000",
+    "MONGODB_URI": "mongodb://localhost:27017/frankfurtleague_test",
+    "DB_BASE_NAME": "frankfurtleague_test",
+    "INTERNAL_API_KEY_BASE": "test-key-base",
+    "INTERNAL_API_KEY_SYSTEM": "test-key-system",
+    "INTERNAL_API_KEY_ADMIN": "test-key-admin",
+}
+
+
+def pytest_configure() -> None:
+    """
+    Give the suite its own configuration, before collection imports anything from `app`.
+
+    `app/core/config.py` builds `backend_config` at MODULE SCOPE, so importing `app.main`,
+    `app.core.security` or `app.core.constraints` constructs the settings object as a test module is
+    imported. Without these eight values the session fails to COLLECT rather than to run — and it
+    fails on whichever module happens to import first, which may be one the tier then deselects.
+
+    `pytest_configure` rather than a module-level assignment: pytest calls it after conftest import
+    and before collection, which is the guarantee this needs, and it keeps the mutation out of import
+    time so that importing this module has no side effect on the process.
+
+    Set unconditionally rather than with `setdefault`. Environment variables outrank the dotenv file
+    in pydantic-settings, so this is what stops the suite reading `fl_backend/.env` — a developer's
+    real production credentials. A laptop and a runner with no `.env` then run the same suite, and a
+    failure means the code rather than the machine.
+    """
+    os.environ.update(TEST_ENVIRONMENT)
+
 
 # 24-hex ObjectId strings. Fixed rather than generated: a failing test should point at the same
 # value every run.
