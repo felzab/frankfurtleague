@@ -10,8 +10,9 @@ Seasons are reference data: read-only through the API, edited directly in MongoD
     matchday pointing at it.
   • `/current` is what every other router calls to resolve an omitted `saison_id`. It sits on the hot
     path of most page loads.
-  • `rules.win_points` / `draw_points` are stored per season but NOT read by the statistics
-    calculation, which hardcodes 3/1/0. The two agree today; they are not wired together.
+  • `rules.win_points` / `draw_points` are what `GET /teams` scores its derived league table with
+    (ADR-0026). Editing them changes every table for that season on the next read -- there is no
+    stored copy to migrate, and equally nothing to warn that the numbers moved.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 

@@ -2,26 +2,25 @@
  * TEAMS · cached read
  *
  * Teams are reference data and cached for days. The one thing that invalidates them is a Spiel result
- * edit, because the backend rewrites team statistics as part of that write — the invalidation
- * therefore lives in `features/spiele/actions.ts`, not here.
+ * edit, and the invalidation therefore lives in `features/spiele/actions.ts`, not here.
  *
- * That write currently lands on the wrong collection and never reaches the statistics this read
- * serves (open item F4, confirmed 2026-08-02), so the invalidation is presently clearing a cache
- * whose contents did not change. Keep it: it is correct once F4 is closed, and dropping it would
- * leave a stale table the moment that happens. ADR-0026 makes the statistics derived from the match
- * documents rather than stored, so a result edit changes what this read returns even though it
- * writes nothing a team query touches — which is exactly why the invalidation has to survive.
+ * **A result edit writes nothing a team query reads, and still changes this response.** Team
+ * statistics are derived from the match documents on every read (ADR-0026), so editing a Spiel moves
+ * the league table without touching a single team document. The invalidation in the Spiel action is
+ * what connects the two; dropping it as "unrelated" would leave a visibly stale table on a public
+ * page for up to a day.
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
  *   • `teams:saison_id:*` is the only granular tag for this resource. No tags on gruppe,
  *     disqualification or the rest: no mutation in the app changes those dimensions.
- *   • A team is season-independent; gruppe, statistik and is_disqualified come from a junction the
- *     backend joins at read time. A team with no row for the requested season is simply absent.
+ *   • A team is season-independent; gruppe and is_disqualified come from a junction the backend joins
+ *     at read time, and statistik is computed from that season's matches. A team with no junction row
+ *     for the requested season is simply absent.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
- *   docs/glossary.md — "Team", for the junction model and a known issue affecting statistik
+ *   docs/glossary.md — "Team", for the junction model and "Statistik", for how the table is derived
  */
 
 import { cacheLife, cacheTag } from "next/cache";
@@ -37,9 +36,8 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
   "use cache";
 
   // The only granular tag kept for this resource (ADR-0001): a result change alters the season's
-  // team statistics and nothing outside that season. The write is not yet season-scoped, which is
-  // F4's second face; ADR-0026 makes the statistics derived per season, which is what finally makes
-  // this tag's granularity honest.
+  // team statistics and nothing outside that season. The granularity is honest because the backend
+  // derives the table from that season's matches alone (ADR-0026) -- no other season's rows move.
   // No gruppe / include_placeholders / is_disqualified / in_gruppen tags -- no mutation
   // in the app changes any of those dimensions.
   const tags: string[] = ["teams"];

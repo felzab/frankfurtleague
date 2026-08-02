@@ -15,7 +15,9 @@ that opens three items builds the later fixes on decisions the earlier ones have
    in the file because the entry that held it has been deleted. Read it as fact and say so back.
 
    Read `docs/roadmap/open-items.md` in full and find the entry whose ID matches. If the ID does not
-   exist, list the IDs from the index table and stop.
+   exist, check `docs/roadmap/closed-items.md` before saying so — a closed id is not a typo, and the
+   answer is "that was closed in `<sha>`, here is what it produced" rather than a list. Otherwise list
+   the IDs from the index table and stop.
 
 2. **Check the path.** The entry's **Path** line names what it depends on. If a blocker is still in
    the file, say so and ask whether to proceed anyway — the owner may have decided it out of band,
@@ -44,8 +46,9 @@ that opens three items builds the later fixes on decisions the earlier ones have
    link, title and body. Never open or merge the PR.
 
 6. **Conclude the item, which means removing it — in TWO commits, never one.** An item that is done
-   is not open, so the entry leaves `docs/roadmap/open-items.md`; git history keeps the analysis.
-   Deleting an entry is not optional cleanup, and leaving it is how the file stops being trustworthy.
+   is not open, so the entry leaves `docs/roadmap/open-items.md`; git history keeps the analysis, and
+   a one-line row in `docs/roadmap/closed-items.md` keeps the pointer to it. Deleting an entry is not
+   optional cleanup, and leaving it is how the file stops being trustworthy.
 
    **The two-commit protocol is set by the owner (2026-08-02) and is mandatory.** Full rationale:
    [Closing an entry](../../../docs/roadmap/README.md#closing-an-entry-two-commits-not-one). Both
@@ -62,11 +65,16 @@ that opens three items builds the later fixes on decisions the earlier ones have
      add a short block to the entry naming what concluded it: the ADR numbers, and where each finding
      that was _not_ a decision was rehomed. **Leave the entry in place.**
 
-   **Commit 2 — the removal commit.** Touches `open-items.md` and nothing else:
+   **Commit 2 — the removal commit.** Touches `open-items.md` and `closed-items.md`, nothing else:
 
    - **Delete the entry** and its heading.
    - **Delete its row** from the table, and **renumber** the rows below it. The ranks are positional,
      so a stale number is worse than none.
+   - **Add one row to `docs/roadmap/closed-items.md`** — the next permanent `#`, the id, one past-tense
+     line, surfaces, effort and what it depended on, and **commit 1's short SHA linked to GitHub** in
+     the `Closed in` column. Never copy the entry's reasoning across: the row is a pointer and the
+     commit body is the record. Add a bullet under _What each one produced_ only if it left an ADR or
+     opened a new entry. The closed file's numbers are permanent — never renumber them.
    - **Insert any new entries** the work produced, with their own `Status`.
    - **Fix every `Path` line that named it.** An entry that said "blocked by F4" must not still say
      so once F4 is gone — replace it with the decision F4 reached, stated as a fact.

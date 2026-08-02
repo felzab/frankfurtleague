@@ -124,7 +124,7 @@ class FLSpieleFilterParams(BaseModel):
     spiel_status: FLSpielStatus | None = None
     team_id: CustomObjectId | None = None
 
-    limit: int = Field(1024, ge=1, le=1024)
+    limit: int = Field(default=1024, ge=1, le=1024)
     sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(default="datum")
     order: Literal["asc", "desc"] = Field(default="asc")
 

@@ -40,8 +40,9 @@ but "what do the existing 199 blocks become, and how does the backend catch up".
 
 - _Full TSDoc / Google docstrings on every symbol._ Roughly three times the comment volume for the same
   two functions (49 comment lines against 17 in the sample), and most of the excess restates types the
-  signature already gives. It also dilutes: the one critical sentence in `get_stats_contribution` ends
-  up under three sections of boilerplate. Half-filled `@param` lists are worse than none.
+  signature already gives. It also dilutes: the one critical sentence in a helper — the forfeit rule in
+  `build_statistik_lookup_stage`, say — ends up under three sections of boilerplate. Half-filled
+  `@param` lists are worse than none.
 - _Minimal / self-documenting._ Never wrong, and discards exactly what nine remediation waves produced.
   Closed findings become re-breakable.
 - _Current house style, unformalized._ About 90% right. The missing 10% is what makes a codebase hard

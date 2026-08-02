@@ -42,7 +42,7 @@ live audience each season.
 **Admin**
 
 - Magic-link sign-in, with admin access granted by email allowlist
-- **Result entry** that updates both teams' statistics inside one database transaction
+- **Result entry** that moves the league table, which is computed from the matches rather than stored
 - **Venue and referee management**, with renames fanned out into every match that embeds them
 - An **action-required view** grouping matches that are missing data or a result
 

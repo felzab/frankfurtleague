@@ -9,18 +9,24 @@ What this folder holds, and the boundary that keeps it honest:
   working order, and each entry that participates in a dependency carries a **Path** line. Some
   entries are issue-shaped feature work parked there at the owner's direction, so the ordering
   lives in one place — the issue boundary below still applies to everything else.
+- [`closed-items.md`](closed-items.md) — **the log of everything that has left the open file.** One
+  row per item, no prose: id, what it was in a line, and the commit that closed it. Added by the
+  owner, 2026-08-02, because deletion alone made a closed item unfindable unless you already knew it
+  had existed.
 - Ideas and feature plans — one file per substantial idea as this folder grows.
 
 What does **not** belong here: decided things (an ADR, `docs/_decisions/`), defects under active
 remediation (the running audit programme's ledger, local-only in `docs/audit/`), and anything the
 spec sheets already track as a contract.
 
-When an item here gets decided, it leaves: the decision becomes an ADR (or just gets built), and
-the entry is deleted — git history keeps the analysis. **`/roadmap:start <ID>` works one item to a
-conclusion and performs that removal**, including the index row, the renumbering, the `Path` lines
-in other entries that named it, and the references elsewhere in the repo — the spec sheets, the
+When an item here gets decided, it leaves: the decision becomes an ADR (or just gets built), the
+entry is deleted from `open-items.md` — git history keeps the analysis — and **a one-line row is added
+to [`closed-items.md`](closed-items.md) naming the commit that closed it.** The entry's reasoning is
+not copied there and never should be: the row is a pointer, and `git show <sha>` is how you follow it.
+**`/roadmap:start <ID>` performs all of that**, including the index row, the renumbering, the `Path`
+lines in other entries that named it, and the references elsewhere in the repo — the spec sheets, the
 glossary and the audit prompts all cite these IDs. An item that ends only partly done is rewritten
-rather than deleted.
+rather than deleted, and gets no row.
 
 ## Closing an entry: two commits, not one
 
@@ -31,18 +37,35 @@ fixes that, and gives the removal a commit to point at.
 
 Both commits go in **one pull request**. The owner still sees a single merge.
 
-| #     | Commit                 | Contains                                                                                                                                                                                                                                                                            |
-| ----- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1** | **The closing commit** | The work itself, the ADR(s), and every reference updated across the repo. In `open-items.md`: the entry's `Status` becomes **Closed**, and the entry gains a short block naming what concluded it — the ADRs, and where each non-decision finding was rehomed. **The entry stays.** |
-| **2** | **The removal commit** | `open-items.md` only: delete the entry and its index row, renumber the rows below, insert any new entries, and fix every `Path` line that named the ID. **The body names commit 1's SHA** — "DB-1 was closed in `abc1234`; this removes the entry it left behind."                  |
+| #     | Commit                 | Contains                                                                                                                                                                                                                                                                                                         |
+| ----- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **The closing commit** | The work itself, the ADR(s), and every reference updated across the repo. In `open-items.md`: the entry's `Status` becomes **Closed**, and the entry gains a short block naming what concluded it — the ADRs, and where each non-decision finding was rehomed. **The entry stays.**                              |
+| **2** | **The removal commit** | `open-items.md` and `closed-items.md` only: delete the entry and its index row, renumber the rows below, insert any new entries, fix every `Path` line that named the ID, and **add the closed row**. **The body names commit 1's SHA** — "DB-1 was closed in `abc1234`; this removes the entry it left behind." |
 
 Why the SHA lives in commit 2 rather than commit 1: **a commit cannot cite its own hash.** Commit 1
-is what closed the item, so it is the thing worth pointing at, and only commit 2 exists late enough
-to point at it.
+is what closed the item, so it is the thing worth pointing at — in the commit body and in the
+`Closed in` column, which is the same SHA — and only commit 2 exists late enough to write it down.
 
 **The `Closed` status exists for exactly one commit.** If it survives into a third, the removal was
 forgotten — the file is then claiming an item is finished while still ranking it, which is worse
 than either state alone.
+
+### The closed row
+
+Seven columns, and the last is the one that matters:
+
+| Column          | Holds                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **#**           | Assigned in **closing order** and never renumbered. Unlike the open file's ranks, this number is permanent and identifies a row |
+| **ID**          | The item's id, retired with it. **Never reused** — a regression gets a new id, not the old one                                  |
+| **Item**        | One line, past tense, describing what it was. Not what was done about it                                                        |
+| **Surfaces**    | Copied from the open row                                                                                                        |
+| **Effort**      | Copied from the open row — the estimate as it stood, not what it actually took                                                  |
+| **Depended on** | What the open row's `Depends on` named, so a chain stays readable after both ends are gone                                      |
+| **Closed in**   | Commit 1's short SHA, linked to GitHub. **This is the record**; the row is only the pointer to it                               |
+
+Add a bullet under _What each one produced_ **only** when the item left something that outlives its
+commit — an ADR it produced, or an entry it opened. An item that was simply fixed gets no bullet.
 
 ### Re-derive every status, not just the one you touched
 

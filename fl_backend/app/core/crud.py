@@ -6,9 +6,9 @@ Motor directly, which is what keeps session and transaction handling in one plac
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • `patch_one_in_db` returns the document as it was BEFORE the update (ReturnDocument.BEFORE). The
-    Spiel write path derives its statistics deltas from that. Changing the default silently corrupts
-    every team's table -- no error is raised.
+  • `patch_one_in_db` returns the document as it was BEFORE the update (ReturnDocument.BEFORE). Every
+    caller that needs the updated document asks for it explicitly -- the venue and referee patches do,
+    because they fan the new values out into the matches embedding them.
   • The two read helpers cap results at 1024 documents. `aggregate_many_from_db` caps the cursor only;
     a pipeline should carry its own `$limit`.
 
@@ -34,7 +34,7 @@ async def pull_one_from_db(
 
     doc = await collection.find_one(filter=db_filter, projection=projection or {})
     if doc is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code="DB-COMMON-1")
+        raise DocumentNotFoundException(filter=db_filter, error_code="DB-COMMON-001")
 
     return doc
 

@@ -57,7 +57,7 @@ def test_rejects_a_website_url_that_is_not_http(team, url):
     ["anzahl_gespielte_spiele", "siege", "niederlagen", "unentschieden", "tore_geschossen", "tore_kassiert", "punkte"],
 )
 def test_rejects_negative_statistics(team, statistik, field):
-    """Every one of the seven counters. They are maintained by `$inc` deltas, so a sign error surfaces here."""
+    """Every one of the seven counters. They are computed by an aggregation, so an arithmetic error surfaces here."""
     with pytest.raises(ValidationError):
         FLTeam.model_validate(team(statistik=statistik(**{field: -1})))
 

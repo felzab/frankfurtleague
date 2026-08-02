@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `ba71aca`, 2026-08-01
+**Verified against:** `179f802`, 2026-08-02
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -74,10 +74,10 @@ A granular tag is worth having only if **(a)** its resource can be written from 
 
 Two granular tags satisfy both and exist:
 
-| Tag                  | Why it earns its place                                                                                                                       |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spiele:saison_id:*` | Editing one match in one season must not evict every other season's cached lists, and the patch action knows exactly which season it touched |
-| `teams:saison_id:*`  | The same backend call also rewrites team statistics, so team caches must go too                                                              |
+| Tag                  | Why it earns its place                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spiele:saison_id:*` | Editing one match in one season must not evict every other season's cached lists, and the patch action knows exactly which season it touched                |
+| `teams:saison_id:*`  | The same edit changes that season's league table, which `/teams` derives from the matches — so team caches must go too, though no team document was written |
 
 Twenty others were removed. The reasoning, by group:
 
@@ -89,7 +89,7 @@ Twenty others were removed. The reasoning, by group:
   and the new one; the action holds only the new one. A tag that is right half the time is worse than
   no tag, because the wrong half is invisible.
 - **Five keyed on team dimensions no mutation touches** — group, disqualification, and similar. The
-  only mutation reaching teams is the statistics update.
+  only thing an app mutation changes about a team is its league table, and that is a result edit.
 - **Two sat on an unreachable branch** — the declaring query is only ever called with no arguments.
 
 **Base tags are not made redundant by the granular ones.** Because the default read path sends no
@@ -106,16 +106,26 @@ change. That rule is what prevents recreating the twenty.
 directly in MongoDB is served stale for up to 24 hours.
 
 `POST /api/revalidate` exists for that case. It accepts a **resource name from a fixed set of three**,
-never a raw tag, authenticates with a bearer token compared in constant time, and calls
-`revalidateTag(resource, "max")`.
+never a raw tag, authenticates with a bearer token compared in constant time, and clears every tag
+whose content depends on that resource.
 
-Two things about it are load-bearing:
+**A resource is not the same thing as a tag, and for `saisons` the difference matters.** A season edit
+clears `saisons`, `spiele`, `spieltage` **and** `teams`, because a season decides which season an
+omitted `saison_id` means (ADR-0002) and its `rules` score the league table `/teams` derives from the
+matches (ADR-0026). Clearing only `saisons` would leave a rollover, or a change to the points scheme,
+invisible on the public pages for a day. `spieler` and `spieltage` clear only themselves — neither is
+season-resolved on the read path. The mapping is `AFFECTED_TAGS` in the route.
+
+Three things about it are load-bearing:
 
 - **It is unreachable from a browser**, because nginx routes `/api` to FastAPI and only `/api/auth` to
   Next. The only caller is inside the compose network. **Adding an nginx location for this path would
   publish it.**
 - It must use `revalidateTag`, not `updateTag` — the latter throws in a Route Handler, because it
   exists for read-your-own-writes inside a Server Action.
+- **`AFFECTED_TAGS` is the thing to update when a read starts depending on a new resource.** It is the
+  only place that knows a `/teams` response is a function of the `saisons` document, and nothing fails
+  loudly when it is wrong — the page just serves yesterday's answer.
 
 ## 6. Invariants
 
@@ -137,6 +147,7 @@ Two things about it are load-bearing:
 | I14 | `revalidateTag` in route handlers, `updateTag` in server actions                    | route/action split             | `updateTag` throws in a route handler                                                                                                                      |
 | I15 | No nginx location for `/api/revalidate`                                             | `nginx/*.conf`                 | An internal-only endpoint becomes internet-reachable                                                                                                       |
 | I16 | The three `SpielCard` variants stay separate                                        | review                         | See §7                                                                                                                                                     |
+| I17 | A `saisons` revalidation clears `spiele`, `spieltage` and `teams` too               | `AFFECTED_TAGS` in the route   | A rollover or a change to the season's points scheme stays invisible on the public pages for a day, with nothing failing                                   |
 
 ## 7. Deliberate duplication: the three match cards
 

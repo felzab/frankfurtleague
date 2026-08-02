@@ -40,7 +40,7 @@ class FLSpielerFilterParams(BaseModel):
     is_nachgetragen: bool | None = None
     stufe: str | None = None
 
-    limit: int = Field(1024, ge=1, le=1024)
+    limit: int = Field(default=1024, ge=1, le=1024)
     sort_by: FLSpielerSortOptions = Field(default="position")
     order: Literal["asc", "desc"] = Field(default="asc")
 

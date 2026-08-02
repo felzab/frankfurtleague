@@ -77,7 +77,7 @@ class TestEmbeddedFields:
             FLSpiel.model_validate(spiel(team1=spiel_team_field(tore=-1)))
 
     def test_accepts_a_null_goal_count(self, spiel, spiel_team_field):
-        """`None` means unplayed and is distinct from `0` — the statistics arithmetic depends on the difference."""
+        """`None` means unplayed and is distinct from `0` — the derived league table counts a 0 and skips a null."""
         assert FLSpiel.model_validate(spiel(team1=spiel_team_field(tore=None))).team1.tore is None
 
     def test_rejects_a_negative_referee_payment(self, spiel, spiel_schiedsrichter_field):

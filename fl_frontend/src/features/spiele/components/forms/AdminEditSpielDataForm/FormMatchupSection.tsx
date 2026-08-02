@@ -23,7 +23,7 @@ import type { FLTeam } from "@/features/teams/schemas";
  *
  * Switching the result toggle OFF restores the goals the form was OPENED with, not `null`. Editing a
  * recorded result and changing your mind should leave the stored score intact — clearing it would
- * silently retract a played match's result, and the statistics arithmetic would then reverse it.
+ * silently retract a played match's result, and the match would then drop out of the league table.
  */
 export function FormMatchupSection({
   teams,

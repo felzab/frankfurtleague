@@ -52,7 +52,7 @@ class FLSchiedsrichterFilterParams(BaseModel):
     default_payment: int | None = None
     is_inactive: bool | None = False  # Exclude incactive Schiedsrichter by default
 
-    limit: int = Field(1024, ge=1, le=1024)
+    limit: int = Field(default=1024, ge=1, le=1024)
     sort_by: Literal["name", "default_payment"] = Field(default="name")
     order: Literal["asc", "desc"] = Field(default="asc")
 

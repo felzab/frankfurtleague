@@ -1,0 +1,47 @@
+# Closed items
+
+**Verified against:** `f0dde20`, 2026-08-02
+
+Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
+backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
+regression is a new item with a new ID.
+
+**The row is a pointer, not a record.** The analysis that justified each item, and the reasoning that
+concluded it, live in the closing commit's body and in whatever ADR it produced. That is the whole
+point of the **Closed in** column: one `git show` recovers everything the entry held.
+
+```bash
+git show 65be39a          # the closing commit — its body is the record
+```
+
+**Numbers are permanent.** `#` is assigned in closing order and never renumbered, unlike
+`open-items.md`, whose ranks are positional and shift whenever the file changes. A number here always
+names the same item.
+
+**IDs are never reused.** F4 is closed; nothing else may be called F4. New items take the next free
+number in their prefix — which is why the open file's highest BE is BE-11 rather than BE-10.
+
+## The log
+
+| #   | ID    | Item                                                                        | Surfaces | Effort | Depended on | Closed in                                                             |
+| --- | ----- | --------------------------------------------------------------------------- | -------- | ------ | ----------- | --------------------------------------------------------------------- |
+| 1   | F5    | A backend module that was empty and imported by nothing                     | BE       | S      | —           | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
+| 2   | F6    | A comment deferring a granular cache tag to a route that already existed    | FE       | S      | —           | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
+| 3   | OPS-1 | Container images published to Docker Hub, and where they should live        | Ops      | M      | —           | [`b2e80f2`](https://github.com/felzab/frankfurtleague/commit/b2e80f2) |
+| 4   | DB-1  | Review the database structure against the models, and decide what is stored | DB, BE   | L      | —           | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
+| 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`        | BE, DB   | M      | DB-1        | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
+
+## What each one produced
+
+Only where the item left something behind that outlives its commit. An item that was simply fixed has
+no row here — its commit is the whole story.
+
+- **OPS-1** → [ADR-0017](../_decisions/0017-ghcr-two-public-packages.md), two public ghcr packages and
+  the tag scheme rollback depends on.
+- **DB-1** → three ADRs: [0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)
+  (statistics are derived, never stored), [0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)
+  (the database enforces its own invariants) and
+  [0028](../_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md) (store what was true
+  then; derive what is true now). It also opened DB-2, which carries the work ADR-0027 decided.
+- **F4** → implemented ADR-0026 and opened BE-11 and DB-3 for the two things the implementation could
+  not finish: integration coverage for the derived table, and deleting the field it orphaned.
