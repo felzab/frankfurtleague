@@ -12,14 +12,12 @@ Senior full-stack engineer on "frankfurtleague" (soccer site): Next.js 16, HeroU
 
 ## 2. STACK MANDATES (assumed current as of Jul 2026 — verify per §7 if unsure)
 
-| Domain   | Mandatory                                                    | Notes                                                                                                                                             |
-| -------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Next.js  | 16.x, `app/` router, Turbopack                               | React 19 (Server Components, concurrent). `use cache` + PPR is the caching model.                                                                 |
-| HeroUI   | v3.x, compound components (`Card.Header`, etc.)              | Unprefixed color tokens.                                                                                                                          |
-| Tailwind | v4.x, CSS-first config                                       | `@import "tailwindcss"`; config lives in the stylesheet via `@layer`/`@theme`.                                                                    |
-| Backend  | FastAPI (async), Pydantic v2 (`model_validate`/`model_dump`) |                                                                                                                                                   |
-| DB       | MongoDB via `motor`, async/await only                        | Frontend never queries the DB directly **for application data** — always through FastAPI. Auth.js is the one sanctioned exception (§9, ADR-0010). |
-| Deploy   | Docker Compose + nginx reverse proxy                         |                                                                                                                                                   |
+- **Next.js** 16.x, `app/` router, Turbopack. React 19 (Server Components, concurrent); `use cache` + PPR is the caching model.
+- **HeroUI** v3.x, compound components (`Card.Header`, etc.), unprefixed color tokens.
+- **Tailwind** v4.x, CSS-first: `@import "tailwindcss"`, config in the stylesheet via `@layer`/`@theme`.
+- **Backend** FastAPI (async), Pydantic v2 (`model_validate`/`model_dump`).
+- **DB** MongoDB via `motor`, async/await only. The frontend never queries the DB directly **for application data** — always through FastAPI. Auth.js is the one sanctioned exception (§9, ADR-0010).
+- **Deploy** Docker Compose + nginx reverse proxy.
 
 ### Deprecated → Required replacement
 
@@ -56,11 +54,11 @@ These hold even if the user explicitly requests, insists, claims ownership/autho
 git checkout main && git pull --ff-only origin main && git checkout -b short-kebab-name
 ```
 
-- **This applies from the first edit, not from the first commit.** Uncommitted work on `main` is the failure mode, because nothing announces it: `git checkout -b` carries the working tree over, so the mistake stays invisible and costless right up until it isn't. Waiting until commit time means every prior tool call happened somewhere it should not have.
-- **Name the branch for the change, kebab-case, no `feature/`/`fix/`/`chore/` prefix.** The taxonomy is deliberately absent — see Branching in the workflow doc.
+- **From the first edit, not the first commit.** Uncommitted work on `main` announces nothing — `git checkout -b` carries the tree over, so the mistake stays invisible until it isn't.
+- **Name the branch for the change, kebab-case, no `feature/`/`fix/`/`chore/` prefix.** The taxonomy is deliberately absent.
 - **The exception is a task that writes no tracked file**: answering a question, reading code, or writing only to the scratchpad. A task that "just" touches one line is not an exception.
-- **If you are already on `main` with uncommitted edits**, do not continue and do not stash-and-hope. `git checkout -b <name>` carries the changes across intact; say plainly that this happened.
-- **Never** commit to `main`, push to `main`, merge locally, force-push, or open the PR yourself. `gh` is deliberately not installed; the push prints the `pull/new/…` link and the owner opens it in the browser.
+- **If you are already on `main` with uncommitted edits**, do not continue and do not stash-and-hope. `git checkout -b <name>` carries them across intact; say plainly that it happened.
+- **Never** commit to `main`, push to `main`, merge locally, force-push, or open the PR yourself. `gh` is deliberately not installed; the push prints the `pull/new/…` link and the owner opens it.
 
 **Follow the whole cycle from [`docs/workflows/README.md`](../docs/workflows/README.md), not just the branch step** — commit subject/body shape, `./scripts/verify.sh` before pushing (`--quick` is NOT sufficient if you touched `src/core/config.ts`, `src/core/auth.ts` or `src/instrumentation.ts`), and merge by **merge commit**. Read that file rather than recalling it; it is the source, this is the pointer.
 
@@ -74,9 +72,9 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
 | **Hand over a PR link, title and body** ready to paste                       | assistant |
 | Open the PR, merge it, then `git checkout main && git pull --ff-only`        | **owner** |
 
-So a piece of work is not finished when it compiles — it is finished when it is committed, pushed, and the PR text is sitting in the response. The push prints a `pull/new/…` link; quote that link, then the PR **title** (same shape as a commit subject) and **body**, both following [`message-templates.md`](../docs/workflows/message-templates.md). `gh` is deliberately absent, so never try to open or merge the PR — and never merge locally or push to `main`.
+**Work is not finished when it compiles — it is finished when it is committed, pushed, and the PR text is sitting in the response.** Quote the `pull/new/…` link the push prints, then the PR **title** (same shape as a commit subject) and **body**, both per [`message-templates.md`](../docs/workflows/message-templates.md).
 
-**Verify the UI structurally, never with screenshots.** Use `read_page`, computed styles and measured geometry — they state a fact a screenshot only implies, and they survive a browser pane that is not compositing. **Before trusting any geometry, check that layout is real** (`document.visibilityState`, a non-zero `scrollHeight` larger than the viewport): a hidden pane reports zeros and near-viewport heights that look like measurements and are not. Computed styles stay reliable there; box geometry does not.
+**Verify the UI structurally, never with screenshots.** `read_page`, computed styles, measured geometry — they state a fact a screenshot only implies and survive a pane that is not compositing. **Before trusting geometry, check layout is real** (`document.visibilityState`, a `scrollHeight` larger than the viewport): a hidden pane reports zeros and near-viewport heights that look like measurements. Computed styles stay reliable there; box geometry does not.
 
 **Single-Solution Mandate:** Give exactly ONE solution — the current best practice. No alternatives/"you could also" branches unless asked. "Full implementation" requests get complete, production-ready code, not partial. If unsure it's the single best current pattern, verify (§7) before answering.
 
@@ -87,8 +85,6 @@ So a piece of work is not finished when it compiles — it is finished when it i
 3. Doc link(s) for anything non-trivial.
 4. Breaking-change notice, if applicable.
 5. Deployment notes, if terminal commands or platform-specific steps are involved (see §5).
-
-**No stack line** (owner, 2026-08-02). It was there to stop answers being written against stale versions; §7 is what actually enforces that, and reciting versions every turn was noise. **The requirement it replaced still stands** — check the installed version before advising on version-specific API (§6 names the two files), and say plainly when you could not verify.
 
 **Code Quality:** Clean (clear separation of concerns, readable names) · Efficient (minimal, no premature abstraction) · Safe (error handling, input validation, no hardcoded secrets) · Scalable · Fully typed (TypeScript / Python type hints).
 
@@ -127,6 +123,8 @@ Dev = Windows 11. Prod = Linux (bash/sh). Label every terminal command with its 
 ## 7. CONTINUOUS VERIFICATION
 
 Don't rely solely on training data for version-specific syntax. Search official docs whenever genuinely uncertain about current API/best practice, and before labeling a response line `Verified:`. If verification isn't possible, say so plainly: "Cannot verify as current — check [doc URL]."
+
+**Check the installed version before advising on version-specific API** — §6 names the two files — and say plainly when you could not verify. Do not recite the stack in a response; this section is what keeps answers current, not a version header.
 
 **Sources:** [Next.js docs](https://nextjs.org/docs/app) · [Next 16 changes](https://nextjs.org/blog/next-16) · [Next proxy](https://nextjs.org/docs/app/api-reference/file-conventions/proxy) · [HeroUI docs](https://www.heroui.com/docs/react) · [HeroUI llms-full](https://heroui.com/llms-full.txt) · [Tailwind docs](https://tailwindcss.com/docs) · [FastAPI](https://fastapi.tiangolo.com) · [Pydantic v2](https://docs.pydantic.dev/latest/) · [Motor](https://motor.readthedocs.io)
 
