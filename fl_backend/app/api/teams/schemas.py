@@ -1,20 +1,17 @@
 """
 TEAMS · models
 
-Three response shapes discriminated by a `format` field, plus the statistics model and the four-group
-container.
+The read shapes `GET /teams` discriminates by `format`, the single-team shape, the write payloads and
+their echoes, plus the statistics model and the four-group container.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
   • `FLTeam` is FLATTENED from more than one source: the season-independent `teams` record, the
     `gruppe` and `is_disqualified` of the `saison_teams` junction row, and a `statistik` computed from
     the season's matches. That is why fields exist here that no single collection carries.
-  • There is ONE team shape. A reduced `compact` projection existed alongside this one and was
-    removed: it saved 26 KiB across all 17 teams on responses cached for days, cost nothing in query
-    work, and bought that with a second hand-mirrored model pair -- against F2, the codebase's main
-    drift risk. It also lacked `gruppe`, which is the shape of the bug `FLGruppen` records below.
-  • `FLGruppen` always emits all four group keys, even empty ones. Building the map from the teams
-    present once omitted "D" for a season with nobody in it, and the frontend schema requires all four.
+  • There is ONE team shape. Never add a reduced projection beside it (ADR-0034).
+  • `FLGruppen` always emits all four group keys, even empty ones. A map built from the teams present
+    omits "D" for a season with nobody in it, and the frontend schema requires all four.
   • Statistics fields are all `ge=0` and default to 0. The default is load-bearing: a team whose season
     holds no counting match is served a zeroed object, not an absent one.
   • `statistik_scope` decides WHICH matches those seven numbers count, and it defaults to
@@ -22,11 +19,20 @@ container.
     gets a plausible table rather than an error -- which is why the safe value is the default.
   • The `format` discriminator is what lets one endpoint return a list or the four groups. Adding a
     shape means adding a literal, not widening an existing model.
+  • `FLTeam` is a READ shape and `FLTeamRecord` is the STORED one. A write endpoint echoes the record:
+    it changed no season-scoped field, and re-reading one through the pipeline would 404 for a club
+    with no junction row in the current season.
+
+ DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  ADR-0026  statistik is derived from the matches on every read
+  ADR-0029  the table counts the Gruppenphase, and that is the default scope
+  ADR-0032  `inactive_since` is the day the club left the league
+  ADR-0034  one team shape, no reduced projection
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  app/api/teams/services.py -- the join, and how statistik is derived (ADR-0026)
-  docs/_decisions/0029-the-league-table-counts-the-gruppenphase.md -- the scope, and why it defaults
+  app/api/teams/services.py -- the join that flattens the three sources
 """
 
 from typing import Annotated, Literal, Mapping, Union, get_args
@@ -83,16 +89,38 @@ class FLTeam(BaseModel):
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
+class FLTeamRecord(BaseModel):
+    """
+    The club document as it is STORED — `FLTeam` minus the three fields no `teams` document carries.
+
+    What the write endpoints echo back. A write to `teams` changes the club and nothing season-scoped,
+    so `gruppe`, `is_disqualified` and `statistik` are not this endpoint's to report — and reading them
+    would mean re-running the team pipeline, whose junction join is strict. A club with no
+    `saison_teams` row for the current season drops out of that pipeline entirely, which is the normal
+    state for a club being created, retired or reactivated.
+    """
+
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
+
+    name: str = Field(min_length=1)
+    is_placeholder: bool
+    shorthand: str = Field(min_length=2, max_length=2)
+    description: str
+    full_name: str = Field(min_length=1)
+    website_url: CustomExternalUrl
+    address: FLAddress
+    inactive_since: CustomOptionalDateString
+
+
 class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
     """
     The four groups, always all four.
 
     Keyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the
-    response shape does not depend on which groups happen to have teams. Previously a
-    defaultdict was filled only from the teams present, so a season with nobody in group D
-    omitted the "D" key entirely -- and the frontend's FLGruppenSchema requires all four, so
-    that response failed to parse and took down /dashboard/saisontabelle. It worked only
-    because every season so far has had teams in all four groups.
+    response shape does not depend on which groups happen to have teams. Never build it from the
+    teams present alone: a season with nobody in group D would omit the "D" key, the frontend's
+    FLGruppenSchema requires all four, and /dashboard/saisontabelle fails to parse the response.
+    Every season so far has had teams in all four groups, so that failure hides until it does not.
     """
 
     @classmethod
@@ -184,12 +212,10 @@ class FLTeamSingleFilterParams(BaseModel):
     """
     What `GET /teams/{team_id}` accepts, which is deliberately far less than the list endpoint.
 
-    A separate model rather than reusing `FLTeamsFilterParams`, because three of that model's fields
-    are meaningless or actively harmful here. `compact` drops the very fields `FLTeam` requires, so a
-    caller passing it would get a 500 from response validation; `in_gruppen` groups a set of one; and
-    `limit`/`sort_by`/`order` order a list that cannot have more than one member. Only the two that
-    choose WHICH SEASON'S figures to derive survive -- and those are genuine, because a team's `gruppe`
-    and `statistik` do not exist outside a season (ADR-0026, ADR-0029).
+    A separate model rather than reusing `FLTeamsFilterParams`, whose remaining fields are meaningless
+    here: `in_gruppen` groups a set of one, and `limit`/`sort_by`/`order` order a list that cannot have
+    more than one member. Only the two choosing WHICH SEASON'S figures to derive belong, and those are
+    genuine -- a team's `gruppe` and `statistik` do not exist outside a season (ADR-0026, ADR-0029).
     """
 
     saison_id: str | None = None
@@ -210,10 +236,8 @@ class FLTeamsSingleResponse(BaseAPIResponse):
     """
     One team, from `GET /teams/{team_id}`.
 
-    Deliberately not part of `FLTeamsResponse`: that union discriminates the three shapes ONE endpoint
-    can return, and this is a different endpoint returning exactly one shape. It also offers no
-    `compact` variant -- compactness drops heavy string fields to keep a list small, and a list of one
-    does not need it.
+    Deliberately not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can
+    return, and this is a different endpoint returning exactly one shape.
     """
 
     format: Literal["single"] = "single"
@@ -225,14 +249,16 @@ class FLPostTeamResponse(BaseAPIResponse):
 
 
 class FLPatchTeamResponse(BaseAPIResponse):
-    updated_document: FLTeam
+    updated_document: FLTeamRecord
     # How many embedded copies the rename reached. Reported rather than assumed: the fan-out is the
     # half of this endpoint that fails silently, so the count is the thing worth seeing.
     fanned_out_to_spiele: int
 
 
-class FLDeleteTeamResponse(BaseAPIResponse):
-    updated_document: FLTeam
+class FLTeamWriteResponse(BaseAPIResponse):
+    """What the retire and reactivate endpoints echo. `FLTeamRecord`, for the reason stated on it."""
+
+    updated_document: FLTeamRecord
 
 
 class FLSaisonTeamResponse(BaseAPIResponse):

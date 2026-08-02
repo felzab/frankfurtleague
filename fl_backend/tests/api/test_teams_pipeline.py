@@ -18,6 +18,7 @@ reappearing, the phase filter vanishing — and that one fails when a rule is pr
 from typing import Any, Mapping
 
 import pytest
+from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
@@ -39,15 +40,15 @@ def build(
     *,
     rules: FLSaisonRules = STANDARD_RULES,
     saison_id: str = "2026",
-    compact: bool = False,
     scope: FLTeamStatistikScope | None = None,
+    team_id: Any | None = None,
 ) -> Pipeline:
     """A pipeline for season 2026 under 3/1/0, unless a test says otherwise."""
-    filters = FLTeamsFilterParams(saison_id=saison_id, compact=compact)
+    filters = FLTeamsFilterParams(saison_id=saison_id)
     if scope is not None:
         filters.statistik_scope = scope
 
-    return build_team_pipeline(filters=filters, rules=rules)
+    return build_team_pipeline(filters=filters, rules=rules, team_id=team_id)
 
 
 def statistik_stage(pipeline: Pipeline) -> Mapping[str, Any]:
@@ -150,12 +151,18 @@ def test_reads_statistik_from_no_stored_copy():
     assert projected["is_disqualified"] == "$saison_data.is_disqualified"
 
 
-def test_the_compact_shape_still_carries_statistik():
-    """`compact` drops the heavy prose fields, never the table — the Saisontabelle is a compact caller."""
-    projected = projection(build(compact=True))
+def test_there_is_exactly_one_team_shape():
+    """
+    One projection, whatever the caller asked for (ADR-0034).
 
-    assert "statistik" in projected
-    assert "description" not in projected
+    Asserted as the FULL key set rather than a spot check: a reduced variant would be added by
+    branching here, and a test that only looked for `statistik` would keep passing while a caller
+    silently lost `gruppe` — which is the bug the reduced shape actually had.
+    """
+    projected = projection(build())
+
+    assert set(projected) == set(projection(build(team_id=ObjectId())))
+    assert {"statistik", "gruppe", "description", "full_name", "website_url"} <= set(projected)
 
 
 def test_derives_the_statistics_after_the_strict_junction_join():

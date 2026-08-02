@@ -29,20 +29,9 @@ model looks like one document and is not.
 
  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
 
-  ADR-0029  the league table counts the Gruppenphase, and that is the default
-
-  Two tables come out of one pipeline because the statistics are derived rather than stored. The
-  scope defaults to the narrow one on purpose: both scopes return the same SHAPE, so a caller that
-  forgets the parameter gets a table that looks right, and the version that looks right while being
-  wrong is the one that counts playoff games as league results.
-
-  ADR-0026  team statistics are derived from `spiele`, never stored
-
-  This recomputes the whole table on every request, the `compact` shape included, and that reads as an
-  obvious candidate for a cached or stored copy. It is not an optimisation waiting to happen: it is
-  that decision being reversed. A season is 31 matches and the entire database is about 130 KB, so the
-  lookup costs nothing measurable, while the second copy it removes was wrong for months without
-  anything noticing.
+  ADR-0026  team statistics are derived from `spiele`, never stored -- so caching or storing the
+            table here is that decision reversed, not an optimisation
+  ADR-0029  the league table counts the Gruppenphase, and that is the default scope
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -232,9 +221,9 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     # ==========================================
     # STAGE 5: PROJECTION
     # ==========================================
-    # One projection, because there is one team shape. A reduced `compact` variant used to branch here
-    # and was removed: it trimmed 26 KiB across all 17 teams and no query work at all -- both lookups
-    # above run either way -- in exchange for a second hand-mirrored model pair.
+    # One projection, because there is one team shape. Never branch a reduced variant off it: measured
+    # 2026-08-02, the trim is 26 KiB across all 17 teams and no query work at all -- both lookups above
+    # run either way -- in exchange for a second hand-mirrored model pair (ADR-0034).
     pipeline.append(
         {
             "$project": {

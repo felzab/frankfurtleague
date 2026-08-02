@@ -10,6 +10,8 @@
  *     key, so this is not interchangeable with a default call.
  *   • The payload is sent whole. The backend writes it back with `$set`, so an omitted field is
  *     overwritten rather than preserved.
+ *   • `spiel_id` goes in the PATH and never in the body (ADR-0034). It stays on the payload schema
+ *     because the form carries it; this is where it is split off.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -22,10 +24,10 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import type { BaseAPIResponse } from "@/core/schemas";
 import type { FLPatchSpielDataPayload } from "./schemas";
 
-export const patchAdminSpielData = async (formData: FLPatchSpielDataPayload): Promise<BaseAPIResponse> => {
-  return apiClient<BaseAPIResponse>("/admin/update_spiel_data", BaseAPIResponseSchema, {
+export const patchAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielDataPayload): Promise<BaseAPIResponse> => {
+  return apiClient<BaseAPIResponse>(`/spiele/${spiel_id}`, BaseAPIResponseSchema, {
     method: "PATCH",
     authType: "admin",
-    body: JSON.stringify(formData),
+    body: JSON.stringify(fields),
   });
 };

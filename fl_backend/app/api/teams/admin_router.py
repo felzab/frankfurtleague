@@ -16,19 +16,23 @@ Clubs, and their membership of a season.
     taken comes back 409 rather than succeeding.
   • A team is NEVER removed from a season. Once squads are settled the only way out is disqualification
     (ADR-0033), so the junction has a POST and a PATCH and no DELETE at all.
+  • A write echoes `FLTeamRecord`, the STORED club document -- never `FLTeam`. `FLTeam` is flattened
+    from the club, a junction row and a derived `statistik`, and its pipeline's junction join is
+    STRICT: a club with no `saison_teams` row for the current season is dropped, so re-reading one
+    would answer 404 to a write that succeeded. That is the normal state for a club being created,
+    retired or reactivated.
+  • `/teams/{team_id}/saisons/{saison_id}` addresses a JUNCTION ROW -- this team's group and
+    disqualification for that season -- and never the season document, which lives at
+    `/saisons/{saison_id}`. A GET added here must return junction rows (ADR-0034).
 
- THE `saisons` PATH SEGMENT ADDRESSES A JUNCTION ROW, NOT A SEASON ─────────────────────────────────────────
+ DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
 
-  `/teams/{team_id}/saisons/{saison_id}` holds this team's GROUP and DISQUALIFICATION for that season --
-  it is not the season document, which lives at `/saisons/{saison_id}` and belongs to no team. The
-  segment is named for what it points at rather than what it is, which is a real if minor smell; it is
-  accepted because the path is then exactly `uniq_saison_id_team_id`, so a row is addressed by its
-  natural key and an ambiguous write cannot be expressed. Should a GET ever be added here, it must
-  return junction rows and not seasons.
+  ADR-0032  soft deletion is a date, and creating never revives
+  ADR-0033  a team leaves a season only by disqualification
+  ADR-0034  the junction is addressed by its natural key, under the entity
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  docs/_decisions/0033-one-active-season-and-one-path-to-it.md -- why a team leaves a season only by DQ
   docs/glossary.md -- "the season junctions"
 """
 
@@ -37,9 +41,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 
-from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.teams.schemas import (
-    FLDeleteTeamResponse,
     FLPatchSaisonTeamPayload,
     FLPatchTeamPayload,
     FLPatchTeamResponse,
@@ -47,14 +49,12 @@ from app.api.teams.schemas import (
     FLPostTeamPayload,
     FLPostTeamResponse,
     FLSaisonTeamResponse,
-    FLTeam,
-    FLTeamsFilterParams,
+    FLTeamRecord,
+    FLTeamWriteResponse,
 )
-from app.api.teams.services import build_team_pipeline
 from app.core.config import backend_config
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db
 from app.core.dependencies import (
-    SaisonsCollection,
     SaisonTeamsCollection,
     SpieleCollection,
     TeamsCollection,
@@ -69,28 +69,6 @@ router = APIRouter(
     prefix=f"/api/v{backend_config.api_version}/teams",
     dependencies=[Depends(verify_access_admin)],
 )
-
-
-async def _read_team(teams_collection, saisons_collection, team_id) -> FLTeam:
-    """
-    Re-read one team through the pipeline, so a write returns the same shape a read would.
-
-    `FLTeam` is flattened from three sources -- the club document, the junction's `gruppe` and
-    `is_disqualified`, and a `statistik` derived from the season's matches (ADR-0026) -- so the raw
-    result of an update cannot be validated against it. Hence a second query rather than
-    `ReturnDocument.AFTER` alone.
-    """
-    saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=None)
-
-    filters = FLTeamsFilterParams(saison_id=saison_id, include_placeholders=True, include_inactive=True)
-    teams_raw = await aggregate_many_from_db(
-        collection=teams_collection,
-        pipeline=build_team_pipeline(filters=filters, rules=rules, team_id=team_id),
-    )
-    if not teams_raw:
-        raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
-
-    return FLTeam.model_validate(teams_raw[0])
 
 
 @router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team")
@@ -131,7 +109,6 @@ async def patch_team(
     team_id: CustomRouteObjectId,
     team_data: Annotated[FLPatchTeamPayload, Body()],
     teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
 ) -> FLPatchTeamResponse:
     """
@@ -170,21 +147,19 @@ async def patch_team(
             )
             fanned_out += result.modified_count
 
-    team = await _read_team(teams_collection, saisons_collection, team_id)
-
-    return FLPatchTeamResponse(updated_document=team, fanned_out_to_spiele=fanned_out)
+    return FLPatchTeamResponse(updated_document=FLTeamRecord.model_validate(updated_raw), fanned_out_to_spiele=fanned_out)
 
 
-@router.delete(by_id("team_id"), response_model=FLDeleteTeamResponse, summary="Retire a team (soft delete)")
+@router.delete(by_id("team_id"), response_model=FLTeamWriteResponse, summary="Retire a team (soft delete)")
 async def delete_team(
     team_id: CustomRouteObjectId,
     teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
     today: str = Depends(get_german_date_str),
-) -> FLDeleteTeamResponse:
+) -> FLTeamWriteResponse:
     """
-    Retire a club from the league. This is a SOFT delete: it stamps `inactive_since` and the document
-    stays.
+    Retire a club from the league.
+
+    A SOFT delete: it stamps `inactive_since` and the document stays.
 
     Matches embed a copy of the team and reference it by id, so a hard delete would orphan every
     historical match it ever played. Its junction rows are left alone as well — the seasons it played
@@ -204,15 +179,14 @@ async def delete_team(
     if updated_raw is None:
         raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
 
-    return FLDeleteTeamResponse(updated_document=await _read_team(teams_collection, saisons_collection, team_id))
+    return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
 
 
-@router.post(f"{by_id('team_id')}/reactivate", response_model=FLDeleteTeamResponse, summary="Bring a retired team back")
+@router.post(f"{by_id('team_id')}/reactivate", response_model=FLTeamWriteResponse, summary="Bring a retired team back")
 async def reactivate_team(
     team_id: CustomRouteObjectId,
     teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
-) -> FLDeleteTeamResponse:
+) -> FLTeamWriteResponse:
     """
     Clear `inactive_since`, putting a retired club back into every read that hides retired ones.
 
@@ -231,7 +205,7 @@ async def reactivate_team(
     if updated_raw is None:
         raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
 
-    return FLDeleteTeamResponse(updated_document=await _read_team(teams_collection, saisons_collection, team_id))
+    return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
 
 
 @router.post(f"{by_id('team_id')}/saisons", response_model=FLSaisonTeamResponse, status_code=201, summary="Enter a team into a season")
@@ -271,7 +245,11 @@ async def post_saison_team(
     )
 
 
-@router.patch(f"{by_id('team_id')}/saisons/{{saison_id}}", response_model=FLSaisonTeamResponse, summary="Change a team's group or disqualify it")
+@router.patch(
+    f"{by_id('team_id')}/saisons/{{saison_id}}",
+    response_model=FLSaisonTeamResponse,
+    summary="Change a team's group or disqualify it",
+)
 async def patch_saison_team(
     team_id: CustomRouteObjectId,
     saison_id: str,

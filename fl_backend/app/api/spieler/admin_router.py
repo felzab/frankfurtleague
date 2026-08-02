@@ -15,19 +15,17 @@ same as a squad row ending.
     keeps indexing a retired one. Bringing a player back into a season they already have a row for is
     `POST .../saisons/{saison_id}/reactivate`, never a second create.
   • `nummer` is a STRING. Squad numbers are worn, not counted.
+  • `/spieler/{spieler_id}/saisons/{saison_id}` addresses a JUNCTION ROW -- this player's team, number,
+    position and stufe for that season -- and never the season document, which lives at
+    `/saisons/{saison_id}`. A GET added here must return junction rows (ADR-0034).
 
- THE `saisons` PATH SEGMENT ADDRESSES A JUNCTION ROW, NOT A SEASON ─────────────────────────────────────────
+ DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
 
-  `/spieler/{spieler_id}/saisons/{saison_id}` holds this player's TEAM, NUMBER, POSITION and STUFE for
-  that season -- not the season document, which lives at `/saisons/{saison_id}` and belongs to no
-  player. The segment is named for what it points at rather than what it is; it is accepted because the
-  path is then exactly `uniq_spieler_id_saison_id`, so a row is addressed by its natural key and an
-  ambiguous write cannot be expressed. Should a GET ever be added here, it must return junction rows
-  and not seasons.
+  ADR-0032  soft deletion is a date, and creating never revives
+  ADR-0034  the junction is addressed by its natural key, under the entity
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  docs/_decisions/0032-soft-deletion-is-a-date-not-a-flag.md -- why a date, and why create never revives
   docs/glossary.md -- "the season junctions"
 """
 

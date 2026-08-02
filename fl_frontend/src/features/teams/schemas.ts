@@ -9,9 +9,15 @@
  *   • `FLTeam` looks like one document and is not: the season-independent team record, plus `gruppe`
  *     and `is_disqualified` from a `saison_teams` junction row, plus a `statistik` the backend
  *     computes from that season's matches. All three sources are why those fields are season-dependent.
- *   • The grouped response requires ALL FOUR group keys. A season with an empty group once omitted one
- *     and this parse failed, taking down the table page.
+ *   • The grouped response requires ALL FOUR group keys. A backend that builds the map from the teams
+ *     present omits an empty group, and this parse then fails and takes down the table page.
  *   • `website_url` is scheme-restricted, because it is rendered into an href on a public page.
+ *   • There is ONE team shape. Never add a reduced mirror beside it (ADR-0034).
+ *
+ *  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   ADR-0032  `inactive_since` is the day the club left the league
+ *   ADR-0034  one team shape; `GET /teams/{id}` is its own response
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -21,7 +27,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
 
 export const FLTeamStatistikSchema = z.object({
   anzahl_gespielte_spiele: z.int().nonnegative(),
@@ -50,18 +56,11 @@ export const FLTeamSchema = z.object({
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,
+  // The day this CLUB left the league, null while it plays (ADR-0032). Not the same thing as leaving
+  // one season -- that is `is_disqualified`, which lives on the junction (ADR-0033).
+  inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLTeam = z.infer<typeof FLTeamSchema>;
-
-export const FLTeamCompactSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  name: z.string().nonempty(),
-  statistik: FLTeamStatistikSchema,
-  shorthand: z.string().length(2),
-  address: FLAddressSchema,
-  is_disqualified: z.boolean(),
-});
-export type FLTeamCompact = z.infer<typeof FLTeamCompactSchema>;
 
 export const FLGruppenSchema = z.object({
   A: z.array(FLTeamSchema),
@@ -77,21 +76,21 @@ export const FLTeamsListResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLTeamsListResponse = z.infer<typeof FLTeamsListResponseSchema>;
 
-export const FLTeamsCompactListResponseSchema = BaseAPIResponseSchema.extend({
-  format: z.literal("compact"),
-  teams: z.array(FLTeamCompactSchema),
-});
-export type FLTeamsCompactListResponse = z.infer<typeof FLTeamsCompactListResponseSchema>;
-
 export const FLTeamsGroupedResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("grouped"),
   gruppen: FLGruppenSchema,
 });
 export type FLTeamsGroupedResponse = z.infer<typeof FLTeamsGroupedResponseSchema>;
 
-export const FLTeamsResponseSchema = z.discriminatedUnion("format", [
-  FLTeamsListResponseSchema,
-  FLTeamsCompactListResponseSchema,
-  FLTeamsGroupedResponseSchema,
-]);
+export const FLTeamsResponseSchema = z.discriminatedUnion("format", [FLTeamsListResponseSchema, FLTeamsGroupedResponseSchema]);
 export type FLTeamsResponse = z.infer<typeof FLTeamsResponseSchema>;
+
+/**
+ * Deliberately outside `FLTeamsResponseSchema`: that union discriminates the shapes ONE endpoint can
+ * return, and `GET /teams/{team_id}` is a different endpoint returning exactly one (ADR-0034).
+ */
+export const FLTeamsSingleResponseSchema = BaseAPIResponseSchema.extend({
+  format: z.literal("single"),
+  team: FLTeamSchema,
+});
+export type FLTeamsSingleResponse = z.infer<typeof FLTeamsSingleResponseSchema>;

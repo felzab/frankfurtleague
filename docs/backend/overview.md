@@ -63,9 +63,11 @@ container that serves errors, and the healthcheck would rather it never come up.
 place immediately after the ping. `core/constraints.py` declares a `$jsonSchema` validator for each of
 the nine collections and four unique indexes, and reapplies all of them on every boot
 ([ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)) — so the cluster can never
-hold a set this repository does not describe, and a constraint survives a restore. Three reference
-resources are still edited by hand in Compass (BE-4), which is the whole reason the rules live where
-the hand-edit lands rather than only in Pydantic.
+hold a set this repository does not describe, and a constraint survives a restore. Every collection now
+has endpoints that write it
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)), but the rules
+stay where the hand-edit lands: `saison_teams` and `saison_spieler` have no Pydantic model at all, and
+Compass remains reachable whatever the API offers.
 
 Two things about that module are easy to get wrong:
 

@@ -15,7 +15,7 @@ One custom URL convertor, `objectid`, and the helper that spells a path with it.
 
   Declaring literal routes before parameterised ones is the usual answer and is what `saisons/router.py`
   does for `/current`. It works only WITHIN one router; these two cannot share one, because they do not
-  share an authorization level.
+  share an authorization level (ADR-0034).
 
  A CONSEQUENCE WORTH HAVING ───────────────────────────────────────────────────────────────────────────────
 

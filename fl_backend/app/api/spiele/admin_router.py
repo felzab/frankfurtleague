@@ -1,8 +1,8 @@
 """
 SPIELE · write endpoints, and the one admin-only read
 
-Moved here from the former `app/api/admin/router.py`, which no longer exists -- every mutation now sits
-beside the reads for the resource it changes.
+Every mutation sits beside the reads for the resource it changes, in a second router whose guard is
+`verify_access_admin` (ADR-0034).
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 

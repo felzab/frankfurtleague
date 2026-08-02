@@ -74,12 +74,15 @@ class DocumentNotFoundException(BaseAPIException):
 
 class DocumentConflictException(BaseAPIException):
     """
-    The write is well-formed and the current state refuses it.
+    The write is well-formed and the current state refuses it — raise this rather than letting it 500.
 
-    409 rather than 422, because nothing about the payload is wrong -- the same request would have
-    succeeded a moment earlier, or will succeed once something else changes. The two things that raise
-    it: a unique index the write would violate (a second team taking a shorthand, a second squad row for
-    a player in one season), and a delete whose target is still referenced.
+    409 rather than 422, because nothing about the payload is wrong: the same request would have
+    succeeded a moment earlier, or will succeed once something else changes. A delete whose target is
+    still referenced is the shape that belongs here.
+
+    A unique index refusing a write does NOT come through here. `pymongo` raises `DuplicateKeyError`
+    before any handler code runs, and `duplicate_key_exception_handler` maps that to the same 409 with
+    the same code -- the index name is worth logging and this class could not carry it.
 
     Kept distinct from `DocumentNotFoundException` deliberately. Both are "the database said no", and a
     caller retrying a 404 is confused while a caller retrying a 409 is wrong.

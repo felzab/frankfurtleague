@@ -20,15 +20,21 @@ TODAY = "2026-07-31"
 
 
 class TestSaisonsFilter:
-    # The regression test for the defect this file was created with. `FLSaisonsFilterOptions`
-    # declares the field as `saison_id` with `serialization_alias="_id"`; the builder used to
-    # `include={"id", ...}`, a name no field has, so pydantic matched nothing and the filter was
-    # dropped without any error. Every request to /saisons was answered unfiltered.
-    def test_filters_by_saison_id_under_the_mongo_column_name(self):
-        """The regression this file was created for: the filter was silently dropped and /saisons answered unfiltered."""
-        filters = FLSaisonsFilterOptions.model_validate({"saison_id": "2526"})
+    # The defect this file was created for: the builder's `include={...}` named a key no field has,
+    # so pydantic matched nothing, the filter was dropped without any error, and every request to
+    # /saisons was answered unfiltered. `include` names are strings and nothing checks them, which is
+    # why the first test below asserts the property rather than one particular term.
+    def test_every_included_name_is_a_real_field(self):
+        """
+        The class of bug, not one instance of it: a name in `include` that no field carries.
 
-        assert build_saisons_filter(filters=filters) == {"_id": "2526"}
+        Pydantic drops such a key silently, so the filter vanishes and the endpoint answers
+        unfiltered. Asserting the property means a field renamed without updating the builder fails
+        here even though every value-level test below would still pass.
+        """
+        included = {"status"}
+
+        assert included <= set(FLSaisonsFilterOptions.model_fields)
 
     def test_filters_by_status(self):
         """`status` needs no alias — it is the same name on the model and in Mongo."""
@@ -36,11 +42,11 @@ class TestSaisonsFilter:
 
         assert build_saisons_filter(filters=filters) == {"status": "active"}
 
-    def test_combines_both(self):
-        """Two terms produce one document, rather than the second overwriting the first."""
+    def test_a_season_id_is_not_a_filter_term(self):
+        """One season by its id is an identity served by `GET /saisons/{saison_id}`, never a list filter (ADR-0034)."""
         filters = FLSaisonsFilterOptions.model_validate({"saison_id": "2526", "status": "past"})
 
-        assert build_saisons_filter(filters=filters) == {"_id": "2526", "status": "past"}
+        assert build_saisons_filter(filters=filters) == {"status": "past"}
 
     # Paging and sorting are not filter terms; they must not leak into the query document.
     def test_omits_unset_terms_and_never_leaks_paging(self):

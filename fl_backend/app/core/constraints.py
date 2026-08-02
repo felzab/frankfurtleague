@@ -221,13 +221,14 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # Transcribed from the documents, not from a model: this junction is the one collection
             # with no Pydantic model of its own. The four fields are what the team pipeline reads, and
-            # there is no `statistik` -- that was unset from all 17 rows on 2026-08-02 (ADR-0026).
+            # no row here carries `statistik`: the seven figures are derived from the matches on every
+            # read and stored nowhere (ADR-0026).
             #
             # There is no `inactive_since` either, and that is the deliberate part. Once a season's
             # squads are settled a team never leaves it; the only way out is disqualification, which is
-            # the field below (ADR-0033). So no row here is ever retired, and `uniq_saison_id_team_id`
-            # is never held by a dead one -- which is why creating here is a plain insert while
-            # `saison_spieler` has to revive.
+            # the field below (ADR-0033). So no row here is ever retired, `uniq_saison_id_team_id` is
+            # never held by a dead one, and a create here can never collide with a row an admin cannot
+            # see -- which is the case `saison_spieler` has to offer a reactivate endpoint for.
             required=("_id", "saison_id", "team_id", "gruppe", "is_disqualified"),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -274,9 +275,10 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "position": {"bsonType": _STRING_OR_NULL},
                 # A STRING, not an int. Squad numbers are worn, not counted.
                 "nummer": {"bsonType": _STRING_OR_NULL},
-                # This row is retired, and `uniq_spieler_id_saison_id` keeps indexing it -- so a player
-                # returning to the same season is REVIVED rather than inserted a second time
-                # (ADR-0032). The create endpoint does that; a plain insert would be a duplicate key.
+                # This row is retired, and `uniq_spieler_id_saison_id` keeps indexing it -- so a second
+                # create for the same player and season is a DUPLICATE KEY, answered 409. Creating
+                # never revives (ADR-0032): `POST .../saisons/{saison_id}/reactivate` is the way back,
+                # and it preserves the number, position and stufe the retired row still carries.
                 "inactive_since": _INACTIVE_SINCE,
             },
         )

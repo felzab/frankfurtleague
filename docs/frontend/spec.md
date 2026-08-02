@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `179f802`, 2026-08-02
+**Verified against:** `6df0573`, 2026-08-03
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -30,12 +30,13 @@ module. (ADR-0004.)
 
 ## 2. Cached reads
 
-Eleven `"use cache"` functions.
+Twelve `"use cache"` functions.
 
 | Function                                       | Slice          | Lifetime  | Tags                                             |
 | ---------------------------------------------- | -------------- | --------- | ------------------------------------------------ |
 | `getSpiele`                                    | spiele         | `hours`   | `spiele` + `spiele:saison_id:{id}` when filtered |
 | `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
+| `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
 | `getSaisons`                                   | saisons        | `days`    | `saisons`                                        |
 | `getCurrentSaison`                             | saisons        | `days`    | `saisons`                                        |
 | `getSpieler`                                   | spieler        | `days`    | `spieler`                                        |
@@ -46,6 +47,12 @@ Eleven `"use cache"` functions.
 
 **Uncached, deliberately:** `getAdminSpieleActionRequired` (admin). Admin-authorized data does not
 belong in a shared cache.
+
+**`getTeam` is `GET /teams/{team_id}` and is tagged exactly as `getTeams` is** — it reads the same
+documents through the same derivation, so a result edit moves it too
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). It throws
+`APIBadStatusError` with `statusCode: 404` for an unknown id, which the two team detail pages catch to reach
+`notFound()`; every other error is rethrown so it reaches `onRequestError`.
 
 **`getTeams` caches two tables per season, not one.** `statistik_scope` is part of the cache key
 ([ADR-0029](../_decisions/0029-the-league-table-counts-the-gruppenphase.md)): the Saisontabelle asks
@@ -71,6 +78,18 @@ returns an access-denied `FormState` rather than throwing.
 
 The two patch actions also invalidate `spiele` because the backend fans a venue or referee rename out
 into every match document embedding it — so match data really has changed.
+
+**The actions are unchanged by the write path; their transport is not.** Every mutation now addresses
+its resource with the id in the PATH — `PATCH /spielorte/{id}`, `DELETE /schiedsrichter/{id}`,
+`PATCH /spiele/{spiel_id}` — and `/api/v0/admin/*` no longer exists
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). The payload
+schemas still carry `id`, because they back the admin forms, so each function in `mutations.ts` splits
+it off before sending the body. **A backend payload model that saw an `id` would drop it silently**,
+which is why the split is in one place per slice rather than at each call site.
+
+**Six of the seven resources have write endpoints no action calls yet.** Teams, players, seasons,
+matchdays and both season junctions are reachable from the API and have no admin page — that is FB-3
+and FB-6.
 
 ## 4. The cache tag design
 

@@ -11,7 +11,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomObjectIdStringSchema, FLAddressSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, FLAddressSchema } from "@/shared/schemas";
 
 export const FLPostSpielortPayloadSchema = z.object({
   name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
@@ -44,7 +44,9 @@ export const FLSpielortSchema = z.object({
   name: z.string().nonempty(),
   maps_link: z.string().nonempty(),
   default_mietpreis: z.int().nonnegative(),
-  is_inactive: z.boolean(),
+  // The day the venue was retired, null while it is in use (ADR-0032). Deactivation goes through
+  // DELETE, so it is on no payload.
+  inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSpielort = z.infer<typeof FLSpielortSchema>;
 

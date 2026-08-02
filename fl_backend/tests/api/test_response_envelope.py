@@ -5,9 +5,9 @@ Every response model extends BaseAPIResponse, and the frontend's BaseAPIResponse
 `acknowledged` on every one of its response schemas. These tests pin the contract from the backend side
 so a future model added without the envelope fails here rather than at a browser.
 
-The models in `test_declares_the_envelope_on_every_untyped_route` were bare `JSONResponse`
-bodies for a long time — their `{"acknowledged": 1}` shape was real but undeclared, so the frontend
-schemas for them were guesses.
+`test_declares_the_envelope_on_every_untyped_route` covers the three routes whose body is small enough
+to be tempting to hand-build as a bare `JSONResponse`. An undeclared shape is a real shape the frontend
+schema can only guess at, so each one is a declared model and this pins it.
 """
 
 import inspect
@@ -15,7 +15,7 @@ import inspect
 import pytest
 from pytest import HIDDEN_PARAM
 
-from app.api.admin.schemas import FLPatchSpielDataResponse
+from app.api.spiele.schemas import FLPatchSpielDataResponse
 from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse, SystemInfoResponse
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -28,7 +28,6 @@ RESPONSE_MODULES = [
     "app.api.spieltage.schemas",
     "app.api.teams.schemas",
     "app.api.system.schemas",
-    "app.api.admin.schemas",
 ]
 
 

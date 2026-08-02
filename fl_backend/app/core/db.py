@@ -132,9 +132,9 @@ async def get_schiedsrichter_collection(
     return db.schiedsrichter
 
 
-# The two junctions. Until the write path existed they were reached only by name, inside the `$lookup`
-# stages of the teams and spieler pipelines -- a read never opens them directly. A write does, because
-# there is nothing to join: adding a team to a season IS a row here.
+# The two junctions. A READ never opens either directly -- they are reached by name inside the `$lookup`
+# stages of the teams and spieler pipelines. A write does, because there is nothing to join: adding a
+# team to a season IS a row here.
 async def get_saison_teams_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:

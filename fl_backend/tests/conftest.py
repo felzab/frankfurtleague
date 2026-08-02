@@ -131,6 +131,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "full_name": "Carl-Schurz-Schule",
             "website_url": "https://carl-schurz-schule.de",
             "address": address(),
+            "inactive_since": None,
         }
     )
 
@@ -184,7 +185,7 @@ def spielort(address: PayloadFactory) -> PayloadFactory:
             "name": "Sportplatz Ost",
             "maps_link": "Sportplatz Ost, Frankfurt",
             "default_mietpreis": 80,
-            "is_inactive": False,
+            "inactive_since": None,
         }
     )
 
@@ -198,7 +199,7 @@ def schiedsrichter(kontakt: PayloadFactory) -> PayloadFactory:
             "schule": None,
             "default_payment": 20,
             "kontakt": kontakt(),
-            "is_inactive": False,
+            "inactive_since": None,
         }
     )
 
@@ -215,6 +216,7 @@ def spieler() -> PayloadFactory:
             "position": "Sturm",
             "is_nachgetragen": False,
             "team_id": TEAM_ID,
+            "inactive_since": None,
         }
     )
 
@@ -231,6 +233,7 @@ def spieltag() -> PayloadFactory:
             "order_val": 0,
             "saison_phase": "gruppenphase",
             "saison_id": "2026",
+            "inactive_since": None,
         }
     )
 

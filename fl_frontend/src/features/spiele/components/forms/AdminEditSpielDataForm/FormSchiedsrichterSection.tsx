@@ -89,7 +89,8 @@ export function FormSchiedsrichterSection({
         schule: draft.schule,
         kontakt: draft.kontakt,
         default_payment: draft.default_payment,
-        is_inactive: false,
+        // A referee that has just been created is current, and `null` is what current means (ADR-0032).
+        inactive_since: null,
       })}
       createdToast="Schiedsrichter erfolgreich angelegt und zugewiesen">
       {/** Schiedsrichter Entschädigung */}

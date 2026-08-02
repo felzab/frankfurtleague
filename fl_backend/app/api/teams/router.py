@@ -33,9 +33,9 @@ from app.api.teams.schemas import (
     FLTeamListAdapter,
     FLTeamsFilterParams,
     FLTeamsGroupedResponse,
+    FLTeamSingleFilterParams,
     FLTeamsListResponse,
     FLTeamsResponse,
-    FLTeamSingleFilterParams,
     FLTeamsSingleResponse,
 )
 from app.api.teams.services import build_team_pipeline
@@ -53,7 +53,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLTeamsResponse, summary="List teams, compact or grouped")
+@router.get("", response_model=FLTeamsResponse, summary="List teams, flat or grouped")
 async def get_teams(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,

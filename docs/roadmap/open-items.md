@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `e73cc01`, 2026-08-02
+**Verified against:** `6df0573`, 2026-08-03
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog (added
 2026-08-02). The original entries migrated here from the documentation programme's ledger when that
@@ -42,7 +42,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                     | Surfaces    | Effort | Status   | Depends on              |
 | --- | ----- | -------------------------------------------------------- | ----------- | ------ | -------- | ----------------------- |
 | 1   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open     | — (parallel-safe)       |
-| 2   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`        | BE, FE      | L      | Open     | —                       |
+| 2   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`        | BE, FE      | L      | Closed   | —                       |
 | 3   | BE-9  | Replace the "TBD" placeholder team                       | BE, FE      | L      | Open     | — (BE-4's moment, soft) |
 | 4   | FB-2  | Disqualification becomes a record, not a boolean         | FE, BE, DB  | M      | Open     | — (model decided)       |
 | 5   | FB-3  | Admin pages for team and spieler data                    | FE, BE      | L      | Blocked  | BE-4                    |
@@ -127,6 +127,34 @@ express**, so it stays this item's to enforce — and `app/core/constraints.py` 
 
 **Path:** blocks FB-3 (spieler editing needs a spieler write path) and is BE-9's recorded natural
 moment. Also gives BE-10 an invalidation hook it otherwise lacks.
+
+**Closed 2026-08-03.** Widened by the owner from three collections to six and built as a full
+resource-first write surface: **30 mutations across seven slices**, 50 operations in total, plus a
+`GET /{id}` on every resource. `app/api/admin/` is gone.
+
+What it decided, recorded as ADRs:
+
+- **[ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)** — soft deletion is a
+  nullable `YYYY-MM-DD` `inactive_since`, never a boolean, and creating never revives a retired row.
+- **[ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)** — exactly one active
+  season, written only by `POST /saisons/{id}/activate` in one transaction; a team leaves a season
+  only by disqualification, so `saison_teams` has no DELETE.
+- **[ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)** — the
+  URLs, the two-routers-per-slice layout that keeps the guard at router level, the junction paths, and
+  the removal of the `compact` team shape.
+
+Where the rest went:
+
+- **The manual revalidation step stays.** The endpoints exist and nothing calls one, so no code path
+  observes a reference edit. [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md)
+  retires when **FB-3 and FB-6** land, not here — corrected in `workflows/README.md`.
+- **`rules.win_points` / `draw_points` are now under validation**, via `PATCH /saisons/{id}`.
+- **The scheduled purge** that `inactive_since` being a date exists for is new item **BE-12**.
+- **Admin pages for seasons and matchdays, the rollover control and its email reminder** are new item
+  **FB-6**. FB-3 keeps teams and players.
+- **The season-rollover runbook** now names an endpoint per step and says plainly that no UI calls one.
+- **`DocumentConflictException` and `DB-COMMON-002`** — a unique index refusing a write is a 409, which
+  is an ordinary outcome once seven create endpoints exist.
 
 ### 3 · BE-9 — the "TBD" placeholder team
 

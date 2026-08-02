@@ -395,9 +395,12 @@ the machine is outside the repo.
 ./scripts/revalidate_reference_data.sh saisons
 ```
 
-Those three resources have no write path, are cached for a day, and nothing invalidates them
-automatically. Forgetting is not harmful — the cache expires within 24 hours regardless.
-See [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md).
+Those three resources are cached for a day, and **no code path observes a change to them** — the write
+endpoints exist ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md))
+and nothing in the app calls one yet, so an edit is still invisible until the cache expires. Forgetting
+is not harmful: 24 hours at worst.
+See [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md), which retires when FB-3 and
+FB-6 give these resources admin pages that invalidate as they save.
 
 ### Before any hand edit that a code change depends on
 
@@ -463,25 +466,42 @@ expires — 8 hours. To revoke now, delete the session row from the `authjs` dat
 
 ### Season rollover
 
-> **Derived from the data model, not from an observed rollover.** There is no write path for seasons
-> (open item BE-4), so this is done directly in MongoDB and is not covered by any script or validation.
+> **Derived from the data model, not from an observed rollover.** Every step below now has an
+> endpoint ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)) and
+> **no admin page calls one yet** — that is open item FB-6. So this is still done by hand, either
+> against the API or in Compass, and nothing prompts for a step that is forgotten.
 
 A new season needs, at minimum:
 
 1. A `saisons` document whose `_id` is **exactly four characters** — every `saison_id` referencing it is
    constrained to that length, and a longer id breaks every match and matchday pointing at it.
-2. Its `status` set to `active`, and the outgoing season moved off `active`. Exactly one active season
-   is assumed; nothing enforces it.
-3. A **`saison_teams` junction row per participating team**, carrying `gruppe` and `is_disqualified`.
-   A team with no row for the season disappears from that season's results entirely — the join is
-   strict. No `statistik`: the league table is derived from the season's matches
-   ([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)), so a new season starts
-   at zero without anything being written.
+   `POST /api/v0/saisons` creates one, always as `future`.
+2. **`POST /api/v0/saisons/{saison_id}/activate`** when the season starts. It demotes the outgoing
+   season and promotes this one in one transaction, and it is the **only** code path that writes
+   `status` ([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)). Do not set
+   `status` in Compass: two active seasons is a state nothing detects, and `pull_current_saison` then
+   returns whichever Mongo hands back first.
+
+   **It carries no "have all the games finished" guard, on purpose.** That check belongs to FB-6's
+   admin control, where an operator can see what is incomplete and decide.
+
+3. A **`saison_teams` junction row per participating team**, carrying `gruppe` and `is_disqualified` —
+   `POST /api/v0/teams/{team_id}/saisons`. A team with no row for the season disappears from that
+   season's results entirely: the join is strict. No `statistik`, because the league table is derived
+   from the season's matches ([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)),
+   so a new season starts at zero without anything being written.
 4. **A junction row for the "TBD" placeholder team**, which is easy to miss and is one of the reasons
    the placeholder is a known modelling flaw (open item BE-9).
-5. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.
+5. A **`saison_spieler` row per player** — `POST /api/v0/spieler/{spieler_id}/saisons`. A player who
+   already has a row for that season comes back **409**: creating never revives a retired row, and
+   `POST .../saisons/{saison_id}/reactivate` is what brings them back
+   ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
+6. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.
 
-Then run the revalidation script for `saisons` and `spieltage`.
+Then run the revalidation script for `saisons` and `spieltage`. **Still by hand**, for the same reason:
+the endpoints exist but no UI calls them, so nothing in the app knows a rollover happened
+([ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md) retires when FB-3 and FB-6 land,
+not with the endpoints).
 
 ### Certificate renewal
 

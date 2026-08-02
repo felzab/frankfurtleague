@@ -1,0 +1,130 @@
+"""
+Every mutation is admin-guarded, checked against the published API surface.
+
+[ADR-0034](../../../docs/_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md) puts
+the guard on the ROUTER rather than on each endpoint, so an endpoint reaches the wrong authorization
+only by being written in the wrong file. This suite is the net under that: it walks the operations the
+service actually publishes and asserts each non-GET one resolves to a route carrying
+`verify_access_admin`.
+
+**The inventory comes from `app.openapi()["paths"]`, never from `app.routes`.** FastAPI does not
+flatten included routes into `app.routes` — they sit behind `_IncludedRouter` — so a check written
+against `app.routes` walks four framework routes, finds no mutation to complain about, and passes
+while proving nothing.
+
+ INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+
+  • Every non-GET operation carries `verify_access_admin`. This is the rule the suite exists for.
+  • No operation carries two of the three guards. Two guards is not stricter than one -- both must
+    pass, so the effective key becomes whichever is checked first, and the route is reachable by
+    neither key alone.
+  • A GET is NOT required to be base-guarded: `GET /spiele/action_required` is admin-authorized on
+    purpose (ADR-0013), and the system probes use their own key. Asserting "GET means base" would
+    make this suite fail on three correct endpoints.
+"""
+
+import re
+from typing import Iterator
+
+import pytest
+from fastapi.routing import APIRoute
+
+from app.core.security import verify_access_admin, verify_access_base, verify_access_system
+from app.main import app
+
+HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
+
+SLICE_GUARDS = {verify_access_base, verify_access_admin, verify_access_system}
+
+# `/` is FastAPI's own hello-world route and belongs to no slice. `/system/is_live` is the container
+# healthcheck and is deliberately unguarded -- a healthcheck that needs a secret fails for the wrong
+# reasons (`app/core/security.py`). Both are GETs, so neither weakens the mutation rule above.
+UNGUARDED_BY_DESIGN = frozenset({"/", "/api/v0/system/is_live"})
+
+# `{spiel_id:objectid}` as OpenAPI publishes it, which is `{spiel_id}` -- FastAPI drops the convertor
+# when it builds the document (`app/core/routing.py`), so the two spellings need bringing together
+# before a route can be matched to an operation.
+CONVERTOR_IN_PATH = re.compile(r"\{([^}:]+):[^}]+\}")
+
+
+def strip_convertors(path: str) -> str:
+    return CONVERTOR_IN_PATH.sub(r"{\1}", path)
+
+
+def api_routes() -> Iterator[APIRoute]:
+    """Every APIRoute the app serves, reached through the `_IncludedRouter` wrappers that hide them."""
+    for entry in app.routes:
+        original_router = getattr(entry, "original_router", None)
+        candidates = original_router.routes if original_router is not None else [entry]
+
+        for route in candidates:
+            if isinstance(route, APIRoute):
+                yield route
+
+
+ROUTES_BY_OPERATION = {
+    (strip_convertors(route.path), method.lower()): route
+    for route in api_routes()
+    for method in route.methods
+    if method.lower() in HTTP_METHODS
+}
+
+PUBLISHED_OPERATIONS = sorted(
+    (path, method) for path, operations in app.openapi()["paths"].items() for method in operations if method in HTTP_METHODS
+)
+
+MUTATIONS = [(path, method) for path, method in PUBLISHED_OPERATIONS if method != "get"]
+
+
+def guards_of(route: APIRoute) -> set[object]:
+    """The slice guards reaching a route, router-level ones included — collections and the like dropped."""
+    return {dependency.call for dependency in route.dependant.dependencies} & SLICE_GUARDS
+
+
+def test_the_published_surface_and_the_mounted_routes_are_the_same_set():
+    """
+    Neither inventory may contain an operation the other lacks.
+
+    This is what makes every other assertion here trustworthy. A route mounted but unpublished would
+    be a live endpoint no test below ever sees; a path published with no route behind it would be a
+    404 that clients are told to call.
+    """
+    assert set(PUBLISHED_OPERATIONS) == set(ROUTES_BY_OPERATION)
+
+
+@pytest.mark.parametrize(("path", "method"), MUTATIONS, ids=lambda value: value)
+def test_every_mutation_is_admin_guarded(path: str, method: str):
+    """
+    The rule this suite exists for, one case per published mutation.
+
+    Parametrised rather than looped, so a failure names the method and path instead of stopping at
+    whichever one happened to break first.
+    """
+    assert verify_access_admin in guards_of(ROUTES_BY_OPERATION[(path, method)]), f"{method.upper()} {path} is not admin-guarded"
+
+
+@pytest.mark.parametrize(("path", "method"), PUBLISHED_OPERATIONS, ids=lambda value: value)
+def test_every_operation_carries_exactly_one_guard(path: str, method: str):
+    """
+    One guard, never two and never none — the two ways an endpoint's authorization goes wrong quietly.
+
+    Two guards is not stricter than one: FastAPI runs both, so the route needs a request bearing a
+    token that satisfies each, and no single key does. It is unreachable rather than doubly safe.
+    """
+    guards = guards_of(ROUTES_BY_OPERATION[(path, method)])
+
+    if path in UNGUARDED_BY_DESIGN:
+        assert guards == set(), f"{method.upper()} {path} is documented as unguarded and carries {guards}"
+        return
+
+    assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
+
+
+def test_the_mutation_inventory_is_the_size_the_write_path_built():
+    """
+    A guard-coverage suite that finds no mutations passes vacuously, which is its own failure mode.
+
+    Pinned to the count rather than to `> 0`: the inventory shrinking is exactly as interesting as it
+    growing, and both should be a deliberate edit to this line (ADR-0034 built 30 across seven slices).
+    """
+    assert len(MUTATIONS) == 30

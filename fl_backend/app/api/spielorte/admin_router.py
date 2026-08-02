@@ -1,8 +1,8 @@
 """
 SPIELORTE · write endpoints
 
-Venues. Moved here from the former `app/api/admin/router.py`, unchanged in behaviour: the endpoints now
-sit beside the reads they belong with, addressed by path rather than by an id in the body.
+Venues. Every mutation sits beside the reads for the resource it changes, in a second router whose
+guard is `verify_access_admin` (ADR-0034).
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 

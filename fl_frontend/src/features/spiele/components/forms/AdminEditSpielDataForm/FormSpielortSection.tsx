@@ -83,12 +83,13 @@ export function FormSpielortSection({
         name: draft.name,
         address: draft.address,
         // Reproduces what the backend stores verbatim: `post_spielort` writes
-        // `f"{name}, {address.to_string}, Deutschland"` (admin/router.py:143), and
+        // `f"{name}, {address.to_string}, Deutschland"` (spielorte/admin_router.py), and
         // `formatAddressFull` composes the same parts in the same order. `maps_link` is a plain
         // search string here, not a URL — `formatMapsLink` is what wraps one for an href.
         maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
         default_mietpreis: draft.default_mietpreis,
-        is_inactive: false,
+        // A venue that has just been created is current, and `null` is what current means (ADR-0032).
+        inactive_since: null,
       })}
       createdToast="Spielort erfolgreich angelegt und zugewiesen">
       {/** Mietpreis */}

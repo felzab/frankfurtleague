@@ -1,8 +1,8 @@
 """
 SCHIEDSRICHTER · write endpoints
 
-Referees. Moved here from the former `app/api/admin/router.py`, unchanged in behaviour: the endpoints
-now sit beside the reads they belong with, addressed by path rather than by an id in the body.
+Referees. Every mutation sits beside the reads for the resource it changes, in a second router whose
+guard is `verify_access_admin` (ADR-0034).
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -63,7 +63,11 @@ async def post_schiedsrichter(
     )
 
 
-@router.patch(by_id("schiedsrichter_id"), response_model=FLPatchSchiedsrichterResponse, summary="Update a Schiedsrichter and fan the change out")
+@router.patch(
+    by_id("schiedsrichter_id"),
+    response_model=FLPatchSchiedsrichterResponse,
+    summary="Update a Schiedsrichter and fan the change out",
+)
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],

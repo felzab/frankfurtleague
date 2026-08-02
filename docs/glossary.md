@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `179f802`, 2026-08-02
+**Verified against:** `6df0573`, 2026-08-03
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -94,7 +94,7 @@ looks like one document and is two.
 **In code:** `schiedsrichter` collection. Embedded on a match as
 `{schiedsrichter_id, name, payment}`.
 
-**Pitfalls.** Deletion is **soft** — `is_inactive: true`, never a real delete. `payment` is the
+**Pitfalls.** Deletion is **soft** — `inactive_since`, never a real delete. `payment` is the
 referee's fee in whole euros.
 
 ### `Spielort` — venue, playing location
@@ -202,9 +202,22 @@ On the `saison_teams` junction — a team is disqualified **for a season**, not 
 
 On `FLSpieler`. Marks a squad entry added after the fact.
 
-### `is_inactive`
+### `inactive_since` — the day something left
 
-Soft-delete flag on venues and referees. There is no hard delete for either.
+A nullable `YYYY-MM-DD` string on `teams`, `spieler`, `saison_spieler`, `spieltage`, `spielorte` and
+`schiedsrichter`. `null` means current; a date means retired on that date. There is no hard delete for
+any of them ([ADR-0032](_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
+
+**A date rather than a flag, and the reason is not tidiness.** A boolean beside a date can contradict
+itself and no `$jsonSchema` validator can express that it must not, so the two are never both stored.
+The date is also what a future scheduled purge selects on (open item BE-12).
+
+**It is on no payload.** `DELETE /{resource}/{id}` stamps it and `POST /{resource}/{id}/reactivate`
+clears it. Creating never revives a retired row — a natural-key collision comes back **409**.
+
+**Not the same thing as leaving one season.** A club that stops competing _in a season_ is
+`is_disqualified` on the junction; `inactive_since` on `teams` is the club leaving the league
+([ADR-0033](_decisions/0033-one-active-season-and-one-path-to-it.md)).
 
 ### `Statistik` — team statistics
 
@@ -265,10 +278,23 @@ Two collections with no model of their own, joined at read time and never return
 `SAISON_SPIELER_COLLECTION_NAME` (`fl_backend/app/api/spieler/services.py`).
 
 **Pitfalls.** They are the reason "a team" and "a player" are season-scoped concepts even though their
-base documents are not. **Nothing in this repository writes to either of them** — they are populated
-out of band, which is also the heart of Finding F4. And with a `saison_id` in play the join is strict,
-so an entity with no junction row for that season is simply absent from results rather than appearing
-with empty fields.
+base documents are not. With a `saison_id` in play the join is strict, so an entity with no junction row
+for that season is simply absent from results rather than appearing with empty fields.
+
+**A junction row is addressed by its natural key, under the entity** —
+`/teams/{team_id}/saisons/{saison_id}` and `/spieler/{spieler_id}/saisons/{saison_id}`. The path is
+exactly the collection's unique index, so an ambiguous write cannot be expressed. **The `saisons`
+segment there names a junction row, not a season document**: a season lives at `/saisons/{saison_id}`
+and belongs to no team. A `GET` added under either path must return junction rows
+([ADR-0034](_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)).
+
+**The two behave differently on the way out, and that is deliberate.** `saison_spieler` carries
+`inactive_since`, because a player leaves a squad. `saison_teams` carries none: once squads are settled
+a team never leaves a season, and the only way out is disqualification — so that junction has a POST and
+a PATCH and **no DELETE**
+([ADR-0033](_decisions/0033-one-active-season-and-one-path-to-it.md)). That is also why creating a
+`saison_teams` row is a plain insert while `saison_spieler` has to offer a reactivate: no
+`saison_teams` row is ever retired, so its unique index is never held by a dead one.
 
 **`saison_spieler` currently looks like a pointless join, and is not.** With one season in the
 database the relationship is one-to-one — 362 base documents, 362 junction rows — and the base
@@ -285,4 +311,4 @@ Words that look like domain terms and are not.
 | `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                  |
 | `surface`                   | A documentation term: frontend, backend, or ops. See [`_standard/README.md`](_standard/README.md) |
 | `base` / `system` / `admin` | The three API key tiers, not user roles. See the backend spec                                     |
-| `format`                    | The discriminator on the teams response (`list` · `grouped` · `compact`), not a file format       |
+| `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{id}`)  |

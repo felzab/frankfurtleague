@@ -1,7 +1,8 @@
 """
 APP · FastAPI application
 
-Wires the whole service together: logging, exception handlers, three middlewares, nine routers.
+Wires the whole service together: logging, exception handlers, three middlewares, fifteen routers --
+`system`, then a read and a write router for each of the seven resources (ADR-0034).
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -14,10 +15,6 @@ Wires the whole service together: logging, exception handlers, three middlewares
     fails silently -- there is no error for a route that was never mounted.
 
  KNOWN GAP ────────────────────────────────────────────────────────────────────────────────────────────────
-
-  CORS `allow_methods` lists GET/POST/PATCH but the admin router exposes two DELETE endpoints. No
-  impact today: the only client calls server-side, where CORS does not apply. It would bite the moment
-  a browser called this API directly.
 
   The app declares no `title` or `description`, so /openapi.json carries no service-level prose. The
   Swagger UI is also not publicly routed -- nginx sends /api here, but FastAPI's own /docs sits at the
@@ -63,7 +60,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=backend_config.api_cors_allowed_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH"],
+    # Every method the routers actually serve. No impact today -- the only client calls server-side,
+    # where CORS does not apply -- but a list that omits a served method is a preflight rejection
+    # waiting for the first browser call.
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -81,11 +81,11 @@ app.include_router(saisons_router)
 app.include_router(spielorte_router)
 app.include_router(schiedsrichter_router)
 
-# Writes, under `verify_access_admin`. A separate router per slice rather than one admin router: the
-# guard stays attached at router level, so an endpoint cannot be added to the wrong authorization by
-# forgetting a decorator -- it would have to be added to the wrong FILE. Order relative to the reads
-# above is NOT significant; the `objectid` convertor keeps `/spiele/action_required` from being
-# captured by `/spiele/{spiel_id}` (see app/core/routing.py).
+# Writes, under `verify_access_admin`. A separate router per slice rather than one admin router, so the
+# guard stays attached at router level and an endpoint reaches the wrong authorization only by being
+# written in the wrong FILE (ADR-0034). Order relative to the reads above is NOT significant: the
+# `objectid` convertor keeps `/spiele/action_required` from being captured by `/spiele/{spiel_id}`
+# (app/core/routing.py).
 app.include_router(spiele_admin_router)
 app.include_router(teams_admin_router)
 app.include_router(spieltage_admin_router)

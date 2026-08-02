@@ -6,8 +6,8 @@ admin-authorized.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • Deletion is SOFT (`is_inactive`). A match embeds a copy of its venue, so a hard delete would orphan
-    every historical match played there. Inactive venues stay readable.
+  • Deletion is SOFT (`inactive_since`, ADR-0032). A match embeds a copy of its venue, so a hard
+    delete would orphan every historical match played there. Retired venues stay readable.
   • `maps_link` is free text -- a Google Maps search string built from name and address -- NOT a URL.
     It carries no scheme validation, so it must never be rendered into an href.
   • `mietpreis` is whole euros and has no default. The admin patch writes the payload back wholesale,
@@ -66,8 +66,10 @@ async def get_spielorte(
 @router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
 async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
     """
-    Return one venue by its id, deactivated ones included — a caller holding an id was given it by
-    something, and a historical match's venue is exactly the case worth answering.
+    Return one venue by its id, deactivated ones included.
+
+    A caller holding an id was given it by something, and a historical match's venue is exactly the
+    case worth answering.
     """
 
     spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})

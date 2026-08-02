@@ -12,7 +12,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomObjectIdStringSchema, FLKontaktSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, FLKontaktSchema } from "@/shared/schemas";
 
 export const FLPostSchiedsrichterPayloadSchema = z.object({
   name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
@@ -43,7 +43,9 @@ export const FLSchiedsrichterSchema = z.object({
   schule: z.string().nullable(),
   default_payment: z.int().nonnegative(),
   kontakt: FLKontaktSchema,
-  is_inactive: z.boolean(),
+  // The day the referee was retired, null while they officiate (ADR-0032). Deactivation goes through
+  // DELETE, so it is on no payload.
+  inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSchiedsrichter = z.infer<typeof FLSchiedsrichterSchema>;
 

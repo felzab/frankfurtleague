@@ -124,10 +124,10 @@ export function AboutView() {
 
 async function ParticipatingTeamsDisplay() {
   await connection();
-  const teamsRes = await getTeams({ compact: true });
+  const teamsRes = await getTeams();
 
-  if (teamsRes.format !== "compact") {
-    throw new Error("Expected grouped teams response, got a flat list.");
+  if (teamsRes.format !== "list") {
+    throw new Error(`Expected a "list" teams response, got "${teamsRes.format}".`);
   }
 
   return (

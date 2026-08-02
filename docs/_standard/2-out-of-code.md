@@ -303,3 +303,20 @@ invariant.
 
 Where the audit is out of date, say so and follow the code: **the code and git history outrank every
 document here.**
+
+### Documents name only what exists (DS14)
+
+**No page may refer to a file, symbol, field, endpoint or behaviour that is not in the repository.** A
+spec sheet naming a deleted endpoint reads exactly like one naming a live endpoint, which is why this
+costs more here than in a comment — a reader has no way to tell the two apart without checking.
+
+Two shapes are banned by name: **narrating an edit** ("this endpoint moved from `/api/v0/admin/…`") and
+**documenting an absence for its own sake** (a paragraph about a variant that is gone). A **rejected
+alternative** is neither, and stays — written in the present, as a constraint. Full argument:
+[DS14](4-decisions.md#ds14--documentation-names-only-what-exists).
+
+Three places are exempt because recording what changed is their job, and only within it: an **ADR's
+`Context` section**, which has to describe the state the decision replaced or the decision is
+unreadable; [`../roadmap/closed-items.md`](../roadmap/closed-items.md), whose rows are past-tense by
+construction; and an **ADR's `Superseded by` line**. An ADR's **Decision** and **Consequences** are
+present tense like any other document.

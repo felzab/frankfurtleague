@@ -1,8 +1,9 @@
 # Decisions about the documentation standard
 
-Thirteen decisions, all taken **2026-08-01** by the owner, choosing from worked samples written against
-real repo code. The samples were disposable and have been deleted as planned, so the rationale — and
-critically, the **rejected** alternatives — are recorded here.
+Fifteen decisions. DS1–DS13 were taken **2026-08-01** by the owner, choosing from worked samples
+written against real repo code; the samples were disposable and have been deleted as planned, so the
+rationale — and critically, the **rejected** alternatives — are recorded here. DS14 and DS15 were taken
+**2026-08-02**, after a session's own documentation broke both of them.
 
 These are `DS` (documentation standard) decisions. They are _about how the repo is documented_, which
 is why they live here rather than in `docs/_decisions/` alongside ADRs about the software itself. Same
@@ -23,6 +24,8 @@ discipline applies: **do not edit a decision's reasoning; supersede it.**
 | [DS11](#ds11--glossary-one-central-file)                                     | Glossary: one central file                                     | docs |
 | [DS12](#ds12--documents-are-self-contained-the-audit-is-never-the-substance) | Documents are self-contained; the audit is never the substance | both |
 | [DS13](#ds13--every-test-carries-a-sentence-saying-what-it-covers)           | Every test carries a sentence saying what it covers            | code |
+| [DS14](#ds14--documentation-names-only-what-exists)                          | Documentation names only what exists                           | both |
+| [DS15](#ds15--a-module-header-points-at-the-adr-it-does-not-restate-it)      | A module header points at the ADR; it does not restate it      | code |
 
 ---
 
@@ -319,3 +322,93 @@ sorting; callers rely on that to sort cached query results."
 `it()` string does, and it works. In Python the names are genuinely good and still cannot express which
 of five parametrised inputs is the one that used to break, or that an assertion covers a regression
 rather than a general property.
+
+## DS14 — Documentation names only what exists
+
+**Decided 2026-08-02** by the owner, after a backend session left three module headers explaining where
+their endpoints had moved from.
+
+**Decision.** No document — a module header, a symbol docstring, an inline comment, a spec sheet, an
+overview — may refer to a file, symbol, field, endpoint or behaviour that is not in the repository at
+the moment of writing. Two shapes are banned by name:
+
+- **Narrating an edit.** "Moved here from the former `app/api/admin/router.py`", "previously a
+  defaultdict", "this was reverted", "`statistik` was unset from all 17 rows on 2026-08-02".
+- **Documenting an absence for its own sake.** A paragraph explaining that a `compact` variant is gone
+  is a paragraph about something a reader cannot see, in a file they are reading to learn what it does.
+
+**A rejected alternative is not an absence, and stays.** The distinction is grammatical and it is the
+whole rule: write the constraint in the **present**, aimed at the reader who is about to violate it.
+
+| ❌ History                                                   | ✅ Constraint                                                                          |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| "A `compact` variant used to branch here and was removed"    | "Never branch a reduced variant off it: measured 2026-08-02, the trim is 26 KiB and …" |
+| "Previously a defaultdict was filled from the teams present" | "Never build it from the teams present alone: a season with nobody in group D …"       |
+| "Moved here from the former `app/api/admin/router.py`"       | "Every mutation sits beside the reads for the resource it changes (ADR-0034)"          |
+
+Present tense keeps the sentence useful when the alternative is proposed again — which is the only
+moment it is read — and it cannot go stale, because it describes a rule rather than an event.
+
+**Context.** The repository already had the code half of this rule in CLAUDE.md §10 ("comments describe
+what the code IS, never what it WAS"). It was written for comments and applied to nothing else, and a
+session that had read it still wrote three headers in the banned shape. Recording it here makes it a
+standard decision that governs `/docs` as well, which is where the same failure is more expensive: a
+spec sheet naming a deleted endpoint reads exactly like one naming a live endpoint.
+
+**Consequences.**
+
+- **A date measured is not history.** "Measured 2026-08-02, zero drift across all 31 matches" is a
+  present-tense fact with provenance and it stays. What is banned is the _change_, not the _timestamp_.
+- The git history is where an edit is recorded, and an ADR is where the argument for it is recorded.
+  Neither job belongs to a file the change happened to touch.
+- **Three places exist to record what changed, and this rule does not reach into them.** An ADR's
+  **Context** section, which has to describe the state the decision replaced or the decision is
+  unreadable; [`../roadmap/closed-items.md`](../roadmap/closed-items.md), whose rows are past-tense by
+  construction; and an ADR's `Superseded by` line. An ADR's **Decision** and **Consequences** are
+  present tense like any other document.
+- **Enforceable by grep, not by a tool.** `former`, `used to`, `was removed`, `no longer`, `previously`,
+  `moved here` over a branch diff finds nearly all of it. Reading the hits is required — "the former …
+  the latter" is ordinary English and `there is no X, because Y` is a constraint.
+
+**Rejected.** _Allow a short migration note for one release._ There is no release boundary in this
+repository at which someone would come back and delete it, so "temporary" means permanent.
+
+## DS15 — A module header points at the ADR; it does not restate it
+
+**Decided 2026-08-02** by the owner, in the same session and for the same reason: two module headers had
+each grown a two-hundred-word section arguing a decision that was about to become an ADR.
+
+**Decision.** Where reasoning is long enough to need its own paragraph and governs more than the file it
+sits in, the header states the **rule in one or two lines** and cites the ADR. The argument — the
+context, the alternatives, the measurements — lives in the ADR and nowhere else.
+
+The working threshold, deliberately rough because judgement is the point: **a header section running
+past about five lines, or repeated in a second file, is an ADR that has not been written yet.** Two
+files carrying the same three-paragraph explanation is the clearest signal there is.
+
+```python
+#  ❌  a section arguing why the `saisons` path segment is acceptable, twice, in two admin routers
+#  ✅  • `/teams/{team_id}/saisons/{saison_id}` addresses a JUNCTION ROW, not a season document. A GET
+#         added here must return junction rows (ADR-0034).
+```
+
+**Context.** This is DS5 and DS12 meeting each other. DS5 already required citing ADR numbers; DS12
+required that a document state its claim in full rather than substitute a citation for it. Read
+together they were taken to mean "state everything, and also cite" — so the header restated the ADR.
+The resolution is that the two rules are about different things: **the claim** must be stated in full,
+**the argument** must be cited. A header says _what is true here_; an ADR says _why, and what was
+rejected_.
+
+**Consequences.**
+
+- **The ADR has to exist first.** DS5 permits citing only an ADR that exists, so writing one is part of
+  the change rather than a follow-up — which is the same rule `/roadmap:start` already applies to a
+  decision taken during an item.
+- `SEE ALSO` is the section for this. `INVARIANTS` holds the one-line rules; `DECISIONS` holds bare ADR
+  numbers with a half-line gloss; `SEE ALSO` points onward.
+- **The header still has to be self-contained enough to act on.** A reader who never opens the ADR must
+  still know not to violate the rule. What they lose by not opening it is _why_, never _what_.
+
+**Rejected.** _Keep the reasoning in the header and let the ADR be the formal copy._ That is two copies
+of an argument with two different update triggers, and the header is the one nobody revisits — so it is
+the one that goes stale, in the file a reader trusts most because it is next to the code.

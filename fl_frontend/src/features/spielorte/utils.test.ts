@@ -18,7 +18,7 @@ const address = {
   stadt: "Frankfurt am Main",
 };
 
-const ort = { id: "6890a1b2c3d4e5f607182930", address, name: "Sportplatz Ost", maps_link: "", default_mietpreis: 50, is_inactive: false };
+const ort = { id: "6890a1b2c3d4e5f607182930", address, name: "Sportplatz Ost", maps_link: "", default_mietpreis: 50, inactive_since: null };
 
 describe("formatMapsLink", () => {
   it("builds a Google Maps search URL from the name and full address", () => {

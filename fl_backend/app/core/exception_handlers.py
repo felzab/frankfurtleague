@@ -70,7 +70,8 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
     useful thing when reading the log -- and it also names a collection and its fields, which the
     response body's trace-id-only contract exists to keep off the wire.
     """
-    fl_logger.warning(f"Unique index refused a write: {failure_message_of(exc)}")
+    # Logged with a code like every other failure, so the 409s are greppable as one class.
+    fl_logger.warning(f"API Exception (409): [DB-COMMON-002] Unique index refused a write: {failure_message_of(exc)}")
 
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT,
