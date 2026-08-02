@@ -31,6 +31,7 @@ from app.core.constraints import (
     UNIQUE_INDEXES,
     apply_constraints,
     probe_collmod_privilege,
+    probe_privileges,
     report_duplicates,
     report_violations,
 )
@@ -357,6 +358,36 @@ def test_the_privilege_probe_answers_granted_and_writes_nothing(mongo_container:
     assert answer == "granted"
     assert ABSENT_COLLECTION_NAME not in collections
     assert hidden == []
+
+
+def test_every_needed_privilege_is_reported_independently(mongo_container: Any):
+    """
+    One report names every gap, rather than one gap per run.
+
+    A readWrite-only user holds `find` and lacks `collMod`, so this is the mixed verdict the table
+    exists for — an all-or-nothing answer would have hidden one of the two.
+    """
+    username = f"limited_{secrets.token_hex(4)}"
+    password = secrets.token_hex(16)
+
+    async def body(database: AsyncIOMotorDatabase) -> list[tuple[str, str]]:
+        await database.command("createUser", username, pwd=password, roles=[{"role": "readWrite", "db": DATABASE_NAME}])
+        limited = AsyncIOMotorClient(
+            host=mongo_container.get_container_host_ip(),
+            port=int(mongo_container.get_exposed_port(27017)),
+            username=username,
+            password=password,
+            authSource=DATABASE_NAME,
+        )
+        try:
+            return await probe_privileges(limited[DATABASE_NAME])
+        finally:
+            limited.close()
+            await database.command("dropUser", username)
+
+    verdicts = dict(on_a_database(mongo_container, body, constrained=False))
+    assert verdicts["find"] == "granted"
+    assert verdicts["collMod"].startswith("DENIED")
 
 
 def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_container: Any):

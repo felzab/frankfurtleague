@@ -525,6 +525,29 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
     raise RuntimeError(f"'{target}' unexpectedly has an index named '{ABSENT_INDEX_NAME}'; the collMod probe must not modify anything.")
 
 
+async def probe_read_privilege(db: AsyncIOMotorDatabase) -> str:
+    """Whether this connection may `find`, asked with a count over a collection this module manages."""
+    try:
+        await db[next(iter(COLLECTION_VALIDATORS), ABSENT_COLLECTION_NAME)].count_documents({})
+    except OperationFailure as failure:
+        if classify_failure(failure) == "authorization":
+            return f"DENIED -- {failure_message(failure)}"
+        raise
+
+    return "granted"
+
+
+async def probe_privileges(db: AsyncIOMotorDatabase) -> list[tuple[str, str]]:
+    """
+    Every privilege this module needs, each asked INDEPENDENTLY, so one report names all the gaps.
+
+    Written after three separate round trips each revealed one missing action, because the check
+    aborted on the first refusal and the next one only became visible once that was fixed. A report
+    that stops at the first problem turns an afternoon of Atlas configuration into a conversation.
+    """
+    return [("find", await probe_read_privilege(db)), ("collMod", await probe_collmod_privilege(db))]
+
+
 def failure_message(failure: OperationFailure) -> str:
     """The server's own `errmsg`, which carries the detail the exception's `str` flattens away."""
     return failure.details.get("errmsg", str(failure)) if failure.details else str(failure)
@@ -617,7 +640,18 @@ async def _run(check: bool) -> int:
             return 0
 
         print(f"Database '{backend_config.db_base_name}', checked against {len(COLLECTION_VALIDATORS)} validators. Nothing is written.\n")
-        print(f"  collMod privilege: {await probe_collmod_privilege(database)}\n")
+
+        print("  Privileges — every action this module needs, asked separately")
+        privileges = await probe_privileges(database)
+        for action, verdict in privileges:
+            print(f"    {'ok  ' if verdict == 'granted' else 'FAIL'}  {action:<10} {verdict}")
+
+        # Everything below reads documents, so there is nothing to report and no point producing a
+        # second failure that says the same thing as the row above.
+        if any(verdict != "granted" for action, verdict in privileges if action == "find"):
+            print("\n  Cannot read the collections, so no validator or index check was run.")
+            print("  Fix the privilege above and run this again.\n")
+            return 2
 
         blocking = 0
 
