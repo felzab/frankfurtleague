@@ -43,27 +43,49 @@ that opens three items builds the later fixes on decisions the earlier ones have
    enforces it), commit with a real body, `./scripts/verify.sh` before pushing, hand over the PR
    link, title and body. Never open or merge the PR.
 
-6. **Conclude the item, which means removing it.** An item that is done is not open, so **the entry
-   is deleted from `docs/roadmap/open-items.md` in the same commit as the work** — git history keeps
-   the analysis, per `docs/roadmap/README.md`. Deleting an entry is not optional cleanup; leaving it
-   is how the file stops being trustworthy.
+6. **Conclude the item, which means removing it — in TWO commits, never one.** An item that is done
+   is not open, so the entry leaves `docs/roadmap/open-items.md`; git history keeps the analysis.
+   Deleting an entry is not optional cleanup, and leaving it is how the file stops being trustworthy.
 
-   Removing an entry means all of this, in one commit:
+   **The two-commit protocol is set by the owner (2026-08-02) and is mandatory.** Full rationale:
+   [Closing an entry](../../../docs/roadmap/README.md#closing-an-entry-two-commits-not-one). Both
+   commits go in **one pull request**.
+
+   **Commit 1 — the closing commit.** The work itself, plus:
+
+   - **Write the ADR if a decision was taken**, per `docs/_standard/3-adr-guide.md`. A decision that
+     exists only in a commit body is one nobody will find. Add its row to `docs/_decisions/README.md`.
+   - **Search the whole repo for the ID**, not just `open-items.md`: the spec sheets, the glossary,
+     the audit prompts and module headers all reference these IDs (`docs/backend/spec.md` cites F4 as
+     invariant I1, for instance). Update every reference here — CLAUDE.md §10 requires it.
+   - In `open-items.md`, set the entry's **`Status` to `Closed`** in the "path at a glance" table and
+     add a short block to the entry naming what concluded it: the ADR numbers, and where each finding
+     that was _not_ a decision was rehomed. **Leave the entry in place.**
+
+   **Commit 2 — the removal commit.** Touches `open-items.md` and nothing else:
 
    - **Delete the entry** and its heading.
-   - **Delete its row** from the "path at a glance" table, and **renumber** the rows below it. The
-     ranks are positional, so a stale number is worse than none.
-   - **Fix every `Path` line that named it.** Search the file for the ID — an entry that said
-     "blocked by F4" must not still say so once F4 is gone. Replace it with the decision F4 reached,
-     stated as a fact.
-   - **Search the whole repo for the ID**, not just this file: the spec sheets, the glossary and the
-     audit prompts reference these IDs (`docs/backend/spec.md` cites F4 as invariant I1, for
-     instance). Update every reference in the same commit — CLAUDE.md §10 requires it.
-   - **Write the ADR if a decision was taken**, per `docs/_standard/3-adr-guide.md`, and point the
-     updated references at it. A decision that only exists in a commit body is one nobody will find.
+   - **Delete its row** from the table, and **renumber** the rows below it. The ranks are positional,
+     so a stale number is worse than none.
+   - **Insert any new entries** the work produced, with their own `Status`.
+   - **Fix every `Path` line that named it.** An entry that said "blocked by F4" must not still say
+     so once F4 is gone — replace it with the decision F4 reached, stated as a fact.
+   - **Re-derive the `Status` of EVERY row in the table, not just the ones you worked on** (owner,
+     2026-08-02). Statuses are interdependent: `Blocked` is a claim about another entry, so removing
+     one or landing a decision silently changes rows nobody edited. Walk the whole table. The
+     derivation, first match wins: concluded but still present → `Closed`; anything in its
+     `Depends on` still in the file → `Blocked`; a caution or a recorded trigger → `Standing`; an ADR
+     settles it and only the work remains → `Decided`; otherwise → `Open`. Read `Status` and
+     `Depends on` together — a row where they disagree is the bug this catches.
+   - **The commit body names commit 1's SHA**, because a commit cannot cite its own hash and commit 1
+     is the one worth pointing at.
 
-   If the item ends **partly** done, do not delete it. Rewrite the entry to describe what is left
-   and what was decided, and say plainly in the handover that it stayed.
+   **`Closed` must never survive past commit 2.** An entry marked finished while still ranked in the
+   table is worse than either state alone.
+
+   If the item ends **partly** done, do not close it. Rewrite the entry to describe what is left and
+   what was decided, leave its status `Open` or `Decided`, make one commit, and say plainly in the
+   handover that it stayed.
 
 7. **Hand over.** State the mode you were in, what was concluded, whether the entry was deleted or
    rewritten, and which other entries' `Path` lines changed.

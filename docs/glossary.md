@@ -77,6 +77,11 @@ empty statistics.
 > `teams` and reads it from `saison_teams`, so a result edit does not move the league table. The
 > junction's figures are accurate only because they are maintained by hand. See **Finding F4** in
 > [`roadmap/open-items.md`](roadmap/open-items.md) before trusting the league table.
+>
+> The fix is decided but not built:
+> [ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md) removes `statistik` from the
+> junction entirely and derives it from `spiele` on read. The rest of the table above is unaffected —
+> `gruppe` and `is_disqualified` stay season-scoped on the junction.
 
 ### `Spieler` — player
 
@@ -185,7 +190,11 @@ Excluded from team queries unless `include_placeholders` is set.
 **Pitfalls.** It is a lie in the data model, and a known one. A placeholder needs its own
 `saison_teams` row per season, which nothing prompts anyone to create. The intended fix is a nullable
 opponent reference on the match with the placeholder team deleted. Tracked as **BE-9** in
-`docs/audit/0-remediation-ledger.md`.
+[`roadmap/open-items.md`](roadmap/open-items.md).
+
+One trap the fix has to clear: the placeholder's name embedded in a match is **not** a copy of
+`teams.name`. Matches 29–31 embed `"Sieger 25."`, `"Sieger 26."` and so on, where the referenced
+document reads `"TBD"` — the field carries a bracket slot label that exists nowhere else.
 
 ### `is_disqualified`
 
@@ -204,11 +213,23 @@ Soft-delete flag on venues and referees. There is no hard delete for either.
 `FLTeamStatistik`: `anzahl_gespielte_spiele` (matches played), `siege` (wins), `niederlagen` (losses),
 `unentschieden` (draws), `tore_geschossen`, `tore_kassiert`, `punkte` (points).
 
-**Pitfalls.** Stored on the `saison_teams` junction, so statistics are per team **per season**. All
-fields are constrained `ge=0`, which matters because they are meant to be maintained by `$inc` deltas
-rather than recomputed — see the write path in `fl_backend/app/api/admin/router.py`. Those deltas
-land on the base `teams` collection instead, so **nothing in the application maintains the figures
-that are served**; they are edited by hand. Confirmed 2026-08-02 — see **Finding F4**.
+**Pitfalls.** Stored on the `saison_teams` junction today, so statistics are per team **per season**.
+All fields are constrained `ge=0`, which matters because they are maintained by `$inc` deltas rather
+than recomputed — see the write path in `fl_backend/app/api/admin/router.py`. Those deltas land on the
+base `teams` collection instead, so **nothing in the application maintains the figures that are
+served**; they are edited by hand. Confirmed 2026-08-02 — see **Finding F4**.
+
+**Where this is going**, decided 2026-08-02 in
+[ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md): the stored field goes away
+and the seven numbers are **derived from the `spiele` documents on read**. Two rules the derivation
+fixes in place, both of which are today accidents of the `$inc` arithmetic rather than choices:
+
+- **A match contributes exactly when it carries an `ergebnis`.** An unplayed match contributes
+  nothing, including to `anzahl_gespielte_spiele`.
+- **A cancelled match with a result still counts — that is a forfeit.** `is_canceled` is deliberately
+  not consulted. Three matches in season 2026 are in this state.
+
+Points will come from the season's `rules.win_points` / `draw_points` rather than a hardcoded 3/1/0.
 
 ### `Mietpreis` — rental price
 
@@ -237,6 +258,12 @@ base documents are not. **Nothing in this repository writes to either of them** 
 out of band, which is also the heart of Finding F4. And with a `saison_id` in play the join is strict,
 so an entity with no junction row for that season is simply absent from results rather than appearing
 with empty fields.
+
+**`saison_spieler` currently looks like a pointless join, and is not.** With one season in the
+database the relationship is one-to-one — 362 base documents, 362 junction rows — and the base
+`spieler` document holds only three fields: `_id`, `vorname`, `nachname`. Everything else lives on
+the junction. **Do not collapse the two.** The split is what makes a player who returns next season a
+single person with two squad entries, which is the situation it exists for.
 
 ## Terms that are not domain vocabulary
 

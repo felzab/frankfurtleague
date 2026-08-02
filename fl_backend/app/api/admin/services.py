@@ -23,10 +23,19 @@ across every subsequent edit.
   2026-08-02: no `teams` document carries `statistik`, while every junction row does and matches a
   recomputation from `spiele` exactly.
 
-  The destination is settled (`saison_teams`, filtered by team AND season). The fix is deliberately
-  NOT made here yet, because open item DB-1 decides whether `statistik` stays stored at all or
-  becomes derived -- and the two answers produce different code.
-  Full evidence: docs/roadmap/open-items.md, item F4.
+  The fix is decided and is NOT a redirected write: ADR-0026 makes `statistik` DERIVED from the
+  `spiele` documents in `build_team_pipeline`, which deletes this module's increment path entirely.
+  Pointing the `$inc` at `saison_teams` was the rejected alternative -- it repairs this instance of
+  the bug without removing the category.
+
+  Two rules the derivation fixes in place, and both are accidents of the arithmetic below rather
+  than choices: a match contributes exactly when it carries an `ergebnis`, and a CANCELLED match
+  with a result still counts, because that is a forfeit.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/_decisions/0026-team-statistics-are-derived-from-spiele.md -- the decision, and what it rejected
+  docs/roadmap/open-items.md -- item F4, the evidence and the remaining work
 """
 
 from bson import ObjectId

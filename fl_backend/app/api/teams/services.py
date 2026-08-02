@@ -22,8 +22,14 @@ here. `FLTeam` flattens the two back together, which is why the model looks like
   Confirmed against the live database on 2026-08-02. The junction's figures are accurate because they
   are maintained by hand, NOT because anything in the application writes them.
 
-  The read side is correct and must not change; the write side is what moves. Full evidence:
-  docs/roadmap/open-items.md, item F4.
+  ADR-0026 settles the fix, and it lands HERE rather than on the write side: `statistik` becomes
+  DERIVED from the `spiele` documents in this pipeline, and both stored copies go away. The response
+  shape does not change -- `statistik` stays an `FLTeamStatistik` -- so no consumer moves.
+
+ SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  docs/_decisions/0026-team-statistics-are-derived-from-spiele.md -- the decision, and what it rejected
+  docs/roadmap/open-items.md -- item F4, the evidence and the remaining work
 """
 
 from typing import Any, Mapping

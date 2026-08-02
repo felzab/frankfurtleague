@@ -7,8 +7,10 @@
  *
  * That write currently lands on the wrong collection and never reaches the statistics this read
  * serves (open item F4, confirmed 2026-08-02), so the invalidation is presently clearing a cache
- * whose contents did not change. Keep it: it is correct for the fixed write path, and dropping it
- * would leave a stale table the moment F4 is closed.
+ * whose contents did not change. Keep it: it is correct once F4 is closed, and dropping it would
+ * leave a stale table the moment that happens. ADR-0026 makes the statistics derived from the match
+ * documents rather than stored, so a result edit changes what this read returns even though it
+ * writes nothing a team query touches — which is exactly why the invalidation has to survive.
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -34,9 +36,10 @@ import type { FLTeamsFilterParams } from "./types";
 export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
   "use cache";
 
-  // The only granular tag kept for this resource (ADR-0001): patch_spiel_data calls
-  // update_team_statistik, so a result change is meant to rewrite team stats within that season
-  // only -- the write is not yet season-scoped, which is F4's second face.
+  // The only granular tag kept for this resource (ADR-0001): a result change alters the season's
+  // team statistics and nothing outside that season. The write is not yet season-scoped, which is
+  // F4's second face; ADR-0026 makes the statistics derived per season, which is what finally makes
+  // this tag's granularity honest.
   // No gruppe / include_placeholders / is_disqualified / in_gruppen tags -- no mutation
   // in the app changes any of those dimensions.
   const tags: string[] = ["teams"];

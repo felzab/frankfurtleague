@@ -86,6 +86,20 @@ THE CHECKS, in priority order:
    row). This is the concrete cost of BE-4 staying open — report it as a measured inventory, not a
    recommendation to build BE-4, which is the owner's decision with its own recorded analysis.
 
+ALREADY DECIDED — report against these rather than re-litigating them. Checks 2 and 4 land squarely
+on questions the database structure review settled on 2026-08-02:
+
+- [ADR-0026](../../_decisions/0026-team-statistics-are-derived-from-spiele.md) — statistics are
+  derived from `spiele`, never stored. Check 4's "is a full recompute from `spiele` possible at all
+  today?" is answered: yes, and it reproduced every stored figure exactly. A match counts when it has
+  an `ergebnis`; a cancelled match with a result is a forfeit and counts.
+- [ADR-0028](../../_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md) — the rule
+  check 2's denormalisation inventory should measure against. Embedded names are display copies owed
+  a fan-out; `mietpreis` and `payment` are point-in-time records and are _not_ stale copies of
+  `default_mietpreis` / `default_payment`. Report a missing fan-out, never a proposal to normalise.
+- [ADR-0027](../../_decisions/0027-the-database-enforces-its-own-invariants.md) — no validators and
+  no secondary indexes is a known state with scheduled work (DB-2), not a finding to raise again.
+
 SEEDED PRIOR FINDINGS to re-verify and place, not re-derive from scratch: **F4** (check 1), **F1**
 (the two definitions of `ausstehend` — server includes today, client excludes it; a cross-surface
 _semantic_ divergence: verify current state and report under check 5 as a decision to confirm, since

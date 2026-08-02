@@ -22,6 +22,51 @@ in other entries that named it, and the references elsewhere in the repo — the
 glossary and the audit prompts all cite these IDs. An item that ends only partly done is rewritten
 rather than deleted.
 
+## Closing an entry: two commits, not one
+
+**Set by the owner, 2026-08-02, and it is not optional.** Deletion in a single commit leaves the
+closure legible only in that commit's body — so `git log -p docs/roadmap/open-items.md` shows an
+entry that simply vanishes, and nothing in the file ever said it was finished. Splitting it in two
+fixes that, and gives the removal a commit to point at.
+
+Both commits go in **one pull request**. The owner still sees a single merge.
+
+| #     | Commit                 | Contains                                                                                                                                                                                                                                                                            |
+| ----- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **The closing commit** | The work itself, the ADR(s), and every reference updated across the repo. In `open-items.md`: the entry's `Status` becomes **Closed**, and the entry gains a short block naming what concluded it — the ADRs, and where each non-decision finding was rehomed. **The entry stays.** |
+| **2** | **The removal commit** | `open-items.md` only: delete the entry and its index row, renumber the rows below, insert any new entries, and fix every `Path` line that named the ID. **The body names commit 1's SHA** — "DB-1 was closed in `abc1234`; this removes the entry it left behind."                  |
+
+Why the SHA lives in commit 2 rather than commit 1: **a commit cannot cite its own hash.** Commit 1
+is what closed the item, so it is the thing worth pointing at, and only commit 2 exists late enough
+to point at it.
+
+**The `Closed` status exists for exactly one commit.** If it survives into a third, the removal was
+forgotten — the file is then claiming an item is finished while still ranking it, which is worse
+than either state alone.
+
+### Re-derive every status, not just the one you touched
+
+**Set by the owner, 2026-08-02.** Statuses are not independent. `Blocked` is a statement about
+_another_ entry, so an item that leaves — or a decision that lands — changes rows nobody edited. An
+entry blocked only by the item just closed is now `Open`, and nothing in the file will notice on its
+own.
+
+So **commit 2 walks the entire table and re-derives every row's `Status` from the file's actual
+state**, not only the rows the session worked on. It is twenty-odd rows; it takes a minute, and it is
+the only thing that keeps the column worth reading.
+
+The derivation, in order — the first that applies wins:
+
+1. Concluded this session, entry still present → **Closed**.
+2. Every entry named in its `Depends on` column has left the file, or was never blocking → continue.
+   Otherwise → **Blocked**.
+3. A caution or a finding with a recorded trigger rather than a plan → **Standing**.
+4. An ADR settles the argument and the work remains → **Decided**.
+5. Otherwise → **Open**.
+
+A status that contradicts the `Depends on` beside it is the failure this rule exists to catch, so
+read the two columns together.
+
 ---
 
 ## This folder or a GitHub issue?
