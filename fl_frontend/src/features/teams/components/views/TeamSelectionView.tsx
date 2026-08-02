@@ -1,3 +1,5 @@
+import { PAGE_RISE } from "@/shared/components/ui/motion";
+
 import { TeamsGrid } from "../collections/TeamsGrid";
 
 import type { FLTeamCompact } from "../../schemas";
@@ -14,7 +16,10 @@ export function TeamSelectionView({
   teams: FLTeamCompact[];
 }) {
   return (
-    <div className="relative flex w-full flex-1 flex-col items-center">
+    /* Backs BOTH /dashboard/teams and /dashboard/spieler, which is why its having no entrance was
+       two routes short of the rest of the nav rather than one. The rise carries the title block; the
+       grid inside cascades on its own, the same split `SpielplanView` uses. */
+    <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
       <div className="max-w-page mb-8 flex w-full flex-col gap-y-2">
         <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{title}</h1>
         <p className="text-fluid-sm text-foreground-muted max-w-2xl font-medium whitespace-normal">{description}</p>

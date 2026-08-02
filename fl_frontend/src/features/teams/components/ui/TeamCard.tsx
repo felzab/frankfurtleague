@@ -4,6 +4,31 @@ import { card } from "@/shared/components/ui/card";
 
 import type { FLTeamCompact } from "../../schemas";
 
+/**
+ * The three stat chips take their colour from THIS app's palette via `className`, not from HeroUI's
+ * `color`/`variant` props — the same way `SpielStatusChip` and `SaisonPhaseChip` already do.
+ *
+ * They used to say `variant="soft" color="success"`, which resolves against HeroUI's own theme
+ * tokens (`--success-soft`), and **this app never maps those**. `globals.css` overrides exactly one
+ * HeroUI raw token, `--focus`; everything else in the palette is declared in the `--accent-*` /
+ * `--color-*` namespaces that HeroUI's components do not read. So these chips rendered in HeroUI's
+ * stock green while every other chip in the app rendered in the project's — two different greens
+ * one nav click apart — and the sibling chips on `TeamSpielerView` came out in HeroUI's stock blue.
+ *
+ * The `-strong` companion for the label, the plain accent at 15% for the tint: the rule is stated
+ * once beside the tokens in `globals.css`, and it is what keeps small text on a tint above 4.5:1.
+ * HeroUI's `--success-soft-foreground` is a `color-mix` against ITS foreground token and has never
+ * been measured against this app's surfaces.
+ */
+const STAT_CHIP_CLASSES = "bg-success/15 text-success-strong";
+
+/** `value` rather than a precomputed number so the three rows stay one declaration each. */
+const STAT_CHIPS: { label: string; value: (team: FLTeamCompact) => number }[] = [
+  { label: "Punkte", value: (team) => team.statistik.punkte },
+  { label: "Siege", value: (team) => team.statistik.siege },
+  { label: "Tore", value: (team) => team.statistik.tore_geschossen },
+];
+
 export function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
   return (
     <Card
@@ -21,24 +46,14 @@ export function TeamCard({ teamData }: { teamData: FLTeamCompact }) {
 
       <Card.Content className="mt-2 p-0">
         <div className="flex flex-row items-center gap-x-2">
-          <Chip
-            size="sm"
-            variant="soft"
-            color="success">
-            {teamData.statistik.punkte} Punkte
-          </Chip>
-          <Chip
-            size="sm"
-            variant="soft"
-            color="success">
-            {teamData.statistik.siege} Siege
-          </Chip>
-          <Chip
-            size="sm"
-            variant="soft"
-            color="success">
-            {teamData.statistik.tore_geschossen} Tore
-          </Chip>
+          {STAT_CHIPS.map(({ label, value }) => (
+            <Chip
+              key={label}
+              size="sm"
+              className={STAT_CHIP_CLASSES}>
+              {value(teamData)} {label}
+            </Chip>
+          ))}
         </div>
       </Card.Content>
     </Card>

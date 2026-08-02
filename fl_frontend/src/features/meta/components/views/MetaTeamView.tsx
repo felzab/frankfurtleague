@@ -4,13 +4,14 @@ import { Person, Persons } from "@gravity-ui/icons";
 
 import { Card } from "@heroui/react";
 
+import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { GROUPED_MEMBERS, TAG_TITLES } from "../../constants";
 
 export function MetaTeamView() {
   return (
-    <div className="max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8">
+    <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
       {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
         <h1 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">

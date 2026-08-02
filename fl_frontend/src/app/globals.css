@@ -668,14 +668,17 @@
    * so a simultaneous swap reads as the content *mutating in place* however gently it is faded. A
    * cascade separates them in time, and the eye follows a sequence instead of seeing one flash.
    *
-   * It is now the entrance for **every** `SpielCard` collection, not just the spielplan's (owner,
-   * 2026-08-02): the landing page's two grids, spielhistorie, spielsuche and the admin
-   * action-required panels. Those five previously used the tier-1 block fade or nothing, so grids of
-   * identical cards one nav click apart arrived differently. Spielsuche gains the most — it
-   * re-renders on every debounced keystroke, which is the same land-where-the-last-one-was
-   * situation as the tab switch.
+   * It is now the entrance for **every card collection**, not just the spielplan's (owner,
+   * 2026-08-02): the landing page's two grids, spielhistorie, spielsuche, the admin action-required
+   * panels, and `TeamsGrid` — which backs both /dashboard/teams and /dashboard/spieler and had no
+   * entrance whatsoever. Those six previously used the tier-1 block fade or nothing, so grids of
+   * cards one nav click apart arrived differently. Spielsuche gains the most — it re-renders on
+   * every debounced keystroke, which is the same land-where-the-last-one-was situation as the tab
+   * switch.
    *
-   * The playoff bracket is the one deliberate exception; the reason is on `PlayoffsView`.
+   * Two collections are deliberate exceptions, both because their cards are positioned against
+   * chrome that does not animate with them: the playoff bracket (CSS bracket lines) and
+   * `TeamDetailsView`'s timeline (a dashed rule with an absolutely-placed badge per row).
    *
    * `[role="listitem"]`, not a child combinator: `SpielCardsList` wraps its cards in a
    * `display: contents` div, which removes the box but NOT the DOM node, so `>` would match the

@@ -7,6 +7,7 @@ import { Accordion, Card } from "@heroui/react";
 
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { getTeams } from "@/features/teams/queries";
+import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 import { QA_QUESTIONS } from "../../constants";
@@ -25,7 +26,7 @@ const TEAM_CHIP_SKELETON_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36", "w-24
 
 export function AboutView() {
   return (
-    <div className="relative flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8">
+    <div className={`${PAGE_RISE} relative flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
       {/** Headline */}
       <div className="flex flex-col items-center text-center">
         <h1 className="text-fluid-2xl lg:text-fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">

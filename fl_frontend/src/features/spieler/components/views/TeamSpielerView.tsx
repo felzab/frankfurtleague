@@ -43,9 +43,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
           <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h1>
           <Chip
             size="sm"
-            variant="soft"
-            color="success"
-            className="font-bold">
+            className="bg-success/15 text-success-strong font-bold">
             {teamSpieler.length} Spieler
           </Chip>
         </div>
@@ -110,11 +108,13 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                   {/* POSITION */}
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
                     <div className="flex justify-end">
+                      {/* `color="accent"` here resolved against HeroUI's own `--accent`, which this
+                          app never maps — so a squad list on a maroon-branded site rendered a column
+                          of stock blue chips. A position is a neutral label rather than a status, so
+                          it takes the brand tint instead of one of the feedback accents. */}
                       <Chip
                         size="sm"
-                        variant="soft"
-                        color="accent"
-                        className="text-fluid-xxs font-semibold capitalize">
+                        className="bg-brand/10 text-brand text-fluid-xxs font-semibold capitalize">
                         {spielerData.position || "-"}
                       </Chip>
                     </div>
