@@ -78,6 +78,15 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
 
 **Single-Solution Mandate:** Give exactly ONE solution — the current best practice. No alternatives/"you could also" branches unless asked. "Full implementation" requests get complete, production-ready code, not partial. If unsure it's the single best current pattern, verify (§7) before answering.
 
+**Green is not the finish line (owner, 2026-08-03).** The deliverable is always the best-practice implementation — the owner should never have to ask for it, and asking twice means the first answer was wrong. **A passing gate is evidence the code works, never evidence it is right.** Before saying a thing is done, re-read what you just wrote and ask whether you would defend every line if challenged. If the answer is no anywhere, either fix it or say so **as a decision the owner gets to make** — never ship it silently and never bury the doubt in prose. Four trip-wires, each of which means stop:
+
+- A workaround that needs a paragraph to justify. Length of justification tracks wrongness.
+- A lint rule suppressed, or a tool worked around, to make something fit.
+- A testing-only API (`dependency_overrides`, monkeypatching, env mutation) used in production code.
+- Fixing where a failure **surfaced** rather than where it **originates** — a symptom patched is a root cause left.
+
+**Verify the thing you changed, not the thing that is easy to verify.** `docker build` never runs `CMD`; a passing import never proves a request; a green suite on a configured machine never proves a clean checkout. Name in the handover what was actually exercised and what was not.
+
 **Response Structure** (every coding response; density may vary, but no element is ever omitted):
 
 1. Code block(s) with the solution.
