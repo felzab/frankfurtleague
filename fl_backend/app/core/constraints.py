@@ -66,10 +66,19 @@ AUTHENTICATION_FAILED = 18
 AUTHENTICATION_PHRASES = ("authentication failed", "bad auth")
 AUTHORIZATION_PHRASES = ("not allowed to do action", "not authorized on")
 
-# Aimed at by the privilege probe, and deliberately NEVER created. The probe answers its question from
-# whether the command is refused for authorization or for a missing namespace, so `--check` writes
-# nothing whatsoever -- which is what makes it safe to point at production.
-ABSENT_COLLECTION_NAME = "__fl_constraints_probe"
+# "This index is not there", which is how the privilege probe below learns it got past authorization.
+INDEX_NOT_FOUND = 27
+
+# The probe's fallback namespace, for a database with none of the nine collections yet. Deliberately
+# NOT `__`-prefixed: Atlas reserves that prefix, and a custom role granting collMod over "all
+# collections" does not reach a reserved name -- so a `__` target reports DENIED to a user who holds
+# the grant, which is the one answer this probe must never give.
+ABSENT_COLLECTION_NAME = "fl_constraints_probe"
+
+# An index name chosen to be absent. `collMod` is authorised before its arguments are resolved, so
+# asking to hide an index that does not exist reaches the authorization check and then stops -- the
+# probe's whole trick, and the reason `--check` writes nothing.
+ABSENT_INDEX_NAME = "fl_constraints_probe_index"
 
 _STRING_OR_NULL = ["string", "null"]
 _INT_OR_NULL = ["int", "null"]
@@ -473,20 +482,31 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
     """
     Answer whether this connection may run `collMod`, without writing anything at all.
 
-    The probe aims `collMod` at a namespace that does not exist. MongoDB authorises a command before
-    it resolves the namespace, so the two answers are cleanly separated: `Unauthorized` means the user
-    lacks the action, and `NamespaceNotFound` means it holds the action and the collection simply is
-    not there. Both outcomes leave the database untouched, which is what makes `--check` safe to point
-    at production without a second thought.
+    It asks `collMod` to hide an index that does not exist, against a collection that does. MongoDB
+    authorises a command before resolving its arguments, so the reply separates the two answers
+    cleanly: an authorization message means the user lacks the action, and `IndexNotFound` means it
+    holds the action and got as far as looking. Neither outcome changes a byte, which is what makes
+    `--check` safe to point at production without a second thought.
+
+    **It aims at a REAL collection on purpose.** An earlier version used a made-up namespace, which is
+    tidier and answers a different question: privileges are granted per namespace, so a grant that
+    covers `fl_main.spiele` need not cover an invented name -- and on Atlas a `__`-prefixed one is
+    reserved and reaches no custom role at all. The probe has to ask about the namespaces
+    `apply_constraints` will actually touch, or a correctly-configured user is told they are denied.
 
     Indirect answers exist -- `connectionStatus` lists the authenticated roles -- and they require
     knowing which built-in role carries which action, which is precisely the thing that is easy to get
     wrong. Running the command is not an inference.
     """
+    # A collection this module manages, so the probe asks about a namespace that matters. Falls back to
+    # a name that does not exist yet, which is the fresh-database case and answers just as well.
+    existing = set(await db.list_collection_names())
+    target = next((name for name in COLLECTION_VALIDATORS if name in existing), ABSENT_COLLECTION_NAME)
+
     try:
-        await db.command({"collMod": ABSENT_COLLECTION_NAME, "validationLevel": "off"})
+        await db.command({"collMod": target, "index": {"name": ABSENT_INDEX_NAME, "hidden": True}})
     except OperationFailure as failure:
-        if failure.code == NAMESPACE_NOT_FOUND:
+        if failure.code in (INDEX_NOT_FOUND, NAMESPACE_NOT_FOUND):
             return "granted"
         if classify_failure(failure) == "authorization":
             return f"DENIED -- {failure_message(failure)}"
@@ -495,9 +515,9 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
         # a password.
         raise
 
-    # collMod cannot succeed against a collection that is not there. If it ever does, the namespace
-    # exists and the probe is no longer a probe.
-    raise RuntimeError(f"'{ABSENT_COLLECTION_NAME}' exists in this database; the collMod probe needs a namespace that does not.")
+    # Reached only if an index by that name existed and has just been hidden, which would make the
+    # probe a mutation. Loud rather than silent, because the fix is to rename the constant.
+    raise RuntimeError(f"'{target}' unexpectedly has an index named '{ABSENT_INDEX_NAME}'; the collMod probe must not modify anything.")
 
 
 def failure_message(failure: OperationFailure) -> str:
