@@ -19,7 +19,8 @@ git show 65be39a          # the closing commit — its body is the record
 names the same item.
 
 **IDs are never reused.** F4 is closed; nothing else may be called F4. New items take the next free
-number in their prefix — which is why the open file's highest BE is BE-11 rather than BE-10.
+number in their prefix, counting retired ids too — so the next backend item is **BE-12**, even though
+the open file's highest is BE-10.
 
 ## The log
 
@@ -31,6 +32,7 @@ number in their prefix — which is why the open file's highest BE is BE-11 rath
 | 4   | DB-1  | Review the database structure against the models, and decide what is stored | DB, BE   | L      | —           | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
 | 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`        | BE, DB   | M      | DB-1        | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
 | 6   | FB-1  | The Saisontabelle counted playoff results as league results                 | FE, BE   | M      | —           | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
+| 7   | BE-11 | Nothing executed the derived league table's pipeline against a database     | BE       | S      | —           | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
 
 ## What each one produced
 
@@ -49,3 +51,6 @@ no row here — its commit is the whole story.
 - **FB-1** → [ADR-0029](../_decisions/0029-the-league-table-counts-the-gruppenphase.md), the two
   statistics scopes and the decision that an omitted one means the group table. It opened nothing, and
   it took the data question out of FE-3, which is now a purely visual item.
+- **BE-11** → [ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), a real
+  `mongod` behind a `db` marker the default suite deselects. It handed the backend audit a container
+  fixture it no longer has to design, and handed OPS-5 a CI job explicitly marked provisional.
