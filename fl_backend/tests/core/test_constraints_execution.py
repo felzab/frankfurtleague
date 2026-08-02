@@ -335,25 +335,22 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_conta
     assert on_a_database(mongo_container, body, constrained=False) == "raised"
 
 
-@pytest.mark.parametrize("constrained", [False, True], ids=["empty database", "real collections"])
+@pytest.mark.parametrize("constrained", [False, True], ids=["target absent", "target present"])
 def test_the_privilege_probe_answers_granted_and_writes_nothing(mongo_container: Any, constrained: bool):
     """
     The container authenticates as root, so the answer is "granted" — what is asserted is the cost.
 
-    Both branches of the probe are exercised: an empty database has none of the nine collections and
-    falls back to a name that does not exist, while a constrained one makes it aim at a real namespace,
-    which is the case that matters because that is what `apply_constraints` will touch.
+    Both server replies are exercised: an empty database answers `NamespaceNotFound` and a constrained
+    one answers `IndexNotFound`, and the probe must read either as "the action is held". The second is
+    the case that matters, because a populated database is what it meets in production.
 
-    Nothing may change either way — no new collection, and no index hidden on an existing one.
+    Nothing may change either way — no collection created, and no index left hidden on a real one.
     """
 
     async def body(database: AsyncIOMotorDatabase) -> tuple[str, list[str], list[str]]:
         answer = await probe_collmod_privilege(database)
-        hidden = [
-            index["name"]
-            async for index in database.spiele.list_indexes()
-            if index.get("hidden")  # the probe asks to hide an index; none may end up hidden
-        ]
+        target = next(iter(COLLECTION_VALIDATORS))
+        hidden = [index["name"] async for index in database[target].list_indexes() if index.get("hidden")]
         return answer, await database.list_collection_names(), hidden
 
     answer, collections, hidden = on_a_database(mongo_container, body, constrained=constrained)

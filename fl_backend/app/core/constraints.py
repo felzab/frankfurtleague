@@ -494,14 +494,19 @@ async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
     reserved and reaches no custom role at all. The probe has to ask about the namespaces
     `apply_constraints` will actually touch, or a correctly-configured user is told they are denied.
 
+    **It does not ask which collections exist**, though that would let it pick a target it knows is
+    there. `listCollections` is one more privilege a diagnostic would then require in order to report
+    on privileges, and the failure mode is circular: the tool cannot say what is wrong because it is
+    not allowed to look. Both replies are handled instead, so an absent target answers as well as a
+    present one.
+
     Indirect answers exist -- `connectionStatus` lists the authenticated roles -- and they require
     knowing which built-in role carries which action, which is precisely the thing that is easy to get
     wrong. Running the command is not an inference.
     """
-    # A collection this module manages, so the probe asks about a namespace that matters. Falls back to
-    # a name that does not exist yet, which is the fresh-database case and answers just as well.
-    existing = set(await db.list_collection_names())
-    target = next((name for name in COLLECTION_VALIDATORS if name in existing), ABSENT_COLLECTION_NAME)
+    # The first collection this module manages, named rather than discovered. Every one of them gets a
+    # validator, so any of them is a namespace `apply_constraints` will collMod.
+    target = next(iter(COLLECTION_VALIDATORS), ABSENT_COLLECTION_NAME)
 
     try:
         await db.command({"collMod": target, "index": {"name": ABSENT_INDEX_NAME, "hidden": True}})
