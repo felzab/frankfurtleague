@@ -62,12 +62,12 @@ here.
 
 Recorded while documenting, deliberately not acted on. Full analyses: [`roadmap/open-items.md`](roadmap/open-items.md).
 
-| #      | Finding                                                                                                                     | Severity                                                                 |
-| ------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **F4** | Team statistics are written to `teams` but read from `saison_teams` — so a result edit may not move the league table at all | **High.** Statically evidenced, never confirmed against a running system |
-| F1     | `ausstehend` means "today or later" on the server and "later than today" on the client                                      | Question of intent, not a bug                                            |
-| F2     | The Pydantic and Zod models are hand-mirrored, with no generation step                                                      | Accepted risk                                                            |
-| F7     | The landing page's season badge is hardcoded, so it goes stale at the rollover                                              | Cosmetic, but fails silently                                             |
+| #      | Finding                                                                                                               | Severity                                                                 |
+| ------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **F4** | Team statistics are written to `teams` but read from `saison_teams` — so a result edit does not move the league table | **High. Confirmed** against the live database, 2026-08-02. Not yet fixed |
+| F1     | `ausstehend` means "today or later" on the server and "later than today" on the client                                | Question of intent, not a bug                                            |
+| F2     | The Pydantic and Zod models are hand-mirrored, with no generation step                                                | Accepted risk                                                            |
+| F7     | The landing page's season badge is hardcoded, so it goes stale at the rollover                                        | Cosmetic, but fails silently                                             |
 
 Two more have been resolved: **F5**, a dead empty backend module, deleted; and **F6**, a comment saying
 to revisit something once a revalidation route existed — it already did, and the comment was corrected.

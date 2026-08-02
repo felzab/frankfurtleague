@@ -14,13 +14,16 @@ here. `FLTeam` flattens the two back together, which is why the model looks like
   • The base `$match` runs BEFORE the `$lookup`, on purpose -- filtering after the join costs memory.
   • `compact` omits the heavy string fields. It is a projection choice, not a different entity.
 
- ⚠ KNOWN ISSUE ────────────────────────────────────────────────────────────────────────────────────────────
+ ⚠ KNOWN ISSUE -- CONFIRMED ───────────────────────────────────────────────────────────────────────────────
 
   `statistik` is READ here from the junction, but the admin result edit WRITES it to the base `teams`
   collection (`app/api/admin/services.py`). Nothing in this service copies between them, and nothing in
-  this repository writes to `saison_teams` at all. If that reading is right, editing a result does not
-  move the league table. Unverified against a running system -- do not "fix" either side before
-  checking. Full evidence: docs/0-documentation-ledger.md, Finding F4.
+  this repository writes to `saison_teams` at all -- so editing a result does not move the league table.
+  Confirmed against the live database on 2026-08-02. The junction's figures are accurate because they
+  are maintained by hand, NOT because anything in the application writes them.
+
+  The read side is correct and must not change; the write side is what moves. Full evidence:
+  docs/roadmap/open-items.md, item F4.
 """
 
 from typing import Any, Mapping

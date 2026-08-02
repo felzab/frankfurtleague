@@ -22,49 +22,52 @@ sessions · **XL** — a programme touching data, schemas and UI end to end.
 
 ## The path at a glance
 
-| #   | ID    | Item                                                   | Surfaces    | Effort | Depends on            |
-| --- | ----- | ------------------------------------------------------ | ----------- | ------ | --------------------- |
-| 1   | F4    | Statistics written to one document, read from another  | BE, DB      | M      | —                     |
-| 2   | DB-1  | Database structure review                              | DB, BE      | M      | F4 verified           |
-| 3   | FB-1  | Saisontabelle must count only Gruppenphase games       | FE, BE, DB  | XL     | F4, DB-1              |
-| 4   | LOG-1 | Logging and error handling, surveyed then standardised | FE, BE, Ops | L      | — (parallel-safe)     |
-| 5   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`      | BE, FE      | L      | —                     |
-| 6   | BE-9  | Replace the "TBD" placeholder team                     | BE, FE      | L      | BE-4 (natural moment) |
-| 7   | FB-2  | Disqualification becomes a record, not a boolean       | FE, BE, DB  | M      | DB-1                  |
-| 8   | FB-3  | Admin pages for team and spieler data                  | FE, BE      | L      | BE-4                  |
-| 9   | FB-4  | Playoff bracket: verify seeding, then auto-advance     | FE, BE      | M      | BE-9                  |
-| 10  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields       | FE, BE      | S      | FB-2 (field shape)    |
-| 11  | FE-1  | Date ranges instead of specific dates                  | FE (+BE)    | XL     | batch with 10, 12     |
-| 12  | FE-2  | Optional per-game notes                                | FE (+BE)    | S      | batch with 10, 11     |
-| 13  | FE-3  | TeamDetailsView rework                                 | FE          | M      | FB-1, FB-2            |
-| 14  | F7    | Hardcoded season badge on the landing page             | FE          | S      | — (before rollover)   |
-| 15  | BE-10 | Cache the current-season default                       | BE          | S      | —                     |
-| 16  | OPS-4 | One output standard for `scripts/`                     | Ops         | M      | —                     |
-| 17  | F1    | Two definitions of `ausstehend`                        | FE, BE      | S      | — (latest with FE-1)  |
-| 18  | F2    | Pydantic and Zod models are hand-mirrored              | FE, BE      | —      | standing caution      |
-| 19  | BE-7  | `typing` imports instead of `collections.abc`          | BE          | —      | audit pass B4         |
-| 20  | BE-6  | `CustomObjectId` validates nothing in JSON mode        | BE          | —      | audit pass B2         |
-| 21  | OPS-2 | Nothing validates the contents of a restored `.env`    | Ops         | —      | trigger recorded      |
-| 22  | OPS-3 | Crawler policy split between robots.txt and Cloudflare | Ops         | —      | trigger recorded      |
+| #   | ID    | Item                                                   | Surfaces    | Effort | Depends on             |
+| --- | ----- | ------------------------------------------------------ | ----------- | ------ | ---------------------- |
+| 1   | F4    | Statistics written to one document, read from another  | BE, DB      | M      | — (verified; fix open) |
+| 2   | DB-1  | Database structure review                              | DB, BE      | M      | — (F4 verified)        |
+| 3   | FB-1  | Saisontabelle must count only Gruppenphase games       | FE, BE, DB  | XL     | F4, DB-1               |
+| 4   | LOG-1 | Logging and error handling, surveyed then standardised | FE, BE, Ops | L      | — (parallel-safe)      |
+| 5   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`      | BE, FE      | L      | —                      |
+| 6   | BE-9  | Replace the "TBD" placeholder team                     | BE, FE      | L      | BE-4 (natural moment)  |
+| 7   | FB-2  | Disqualification becomes a record, not a boolean       | FE, BE, DB  | M      | DB-1                   |
+| 8   | FB-3  | Admin pages for team and spieler data                  | FE, BE      | L      | BE-4                   |
+| 9   | FB-4  | Playoff bracket: verify seeding, then auto-advance     | FE, BE      | M      | BE-9                   |
+| 10  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields       | FE, BE      | S      | FB-2 (field shape)     |
+| 11  | FE-1  | Date ranges instead of specific dates                  | FE (+BE)    | XL     | batch with 10, 12      |
+| 12  | FE-2  | Optional per-game notes                                | FE (+BE)    | S      | batch with 10, 11      |
+| 13  | FE-3  | TeamDetailsView rework                                 | FE          | M      | FB-1, FB-2             |
+| 14  | F7    | Hardcoded season badge on the landing page             | FE          | S      | — (before rollover)    |
+| 15  | BE-10 | Cache the current-season default                       | BE          | S      | —                      |
+| 16  | OPS-4 | One output standard for `scripts/`                     | Ops         | M      | —                      |
+| 17  | F1    | Two definitions of `ausstehend`                        | FE, BE      | S      | — (latest with FE-1)   |
+| 18  | F2    | Pydantic and Zod models are hand-mirrored              | FE, BE      | —      | standing caution       |
+| 19  | BE-7  | `typing` imports instead of `collections.abc`          | BE          | —      | audit pass B4          |
+| 20  | BE-6  | `CustomObjectId` validates nothing in JSON mode        | BE          | —      | audit pass B2          |
+| 21  | OPS-2 | Nothing validates the contents of a restored `.env`    | Ops         | —      | trigger recorded       |
+| 22  | OPS-3 | Crawler policy split between robots.txt and Cloudflare | Ops         | —      | trigger recorded       |
 
 ---
 
 ## Tier 1 — data correctness, and the review that frames the fixes
 
-The statistics chain is wrong today, and its fix order is forced: F4 decides where statistics live
-and whether writes reach them at all; DB-1 reviews the structure those answers land in; FB-1 then
-reshapes the statistics **on top of** a write path that works. Doing FB-1 first would split a field
-that nothing updates correctly.
+The statistics chain is wrong today — confirmed, not suspected — and its fix order is forced. F4 has
+established where statistics live and that writes never reach them; DB-1 reviews the structure the
+fix lands in, including whether the figures should be stored or derived; FB-1 then reshapes the
+statistics **on top of** a write path that works. Doing FB-1 first would split a field that nothing
+updates correctly.
 
 ### 1 · F4 — Team statistics are written to one document and read from another ⚠️
 
-**Found 2026-08-01 while documenting the backend. Highest-severity open finding. Not acted on.**
+**Found 2026-08-01 while documenting the backend. CONFIRMED against the live database 2026-08-02.
+The fix has not been made — its shape is the open half of this entry.**
 
 The admin result edit updates team statistics on the **`teams`** collection. The teams endpoint
 serves statistics from the **`saison_teams`** junction collection. They are different documents,
-and nothing copies between them.
+nothing copies between them, and **entering or correcting a result therefore does not move the
+league table.**
 
-Evidence, all directly checkable:
+The static evidence still holds and is directly checkable:
 
 | #   | Fact                                                                                                                                                                                   | Location                                      |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
@@ -72,35 +75,72 @@ Evidence, all directly checkable:
 | 2   | `update_team_statistik` writes `{"$inc": {"statistik.<field>": …}}` to `teams_collection`, filtered by `_id` **only** — no season                                                      | `fl_backend/app/api/admin/services.py:49-105` |
 | 3   | `build_team_pipeline` projects `"statistik": "$saison_data.statistik"`, i.e. from the `saison_teams` lookup                                                                            | `fl_backend/app/api/teams/services.py:73`     |
 | 4   | With a `saison_id` always resolved, `strict_join` is true, so `$unwind` sets `preserveNullAndEmptyArrays: False` — the junction row must exist and its `statistik` is what is returned | `fl_backend/app/api/teams/services.py:58-66`  |
-| 5   | **No code anywhere in `fl_backend` writes to `saison_teams`.** The name appears only as the lookup constant                                                                            | `grep saison_teams` across `fl_backend/app`   |
+| 5   | **No code anywhere in the repository writes to `saison_teams`.** The name appears only as the lookup constant                                                                          | `grep saison_teams` across the repo           |
 
-**Implication if the reading is right:** entering or correcting a result does not change the league
-table. The write lands on a field the read never projects.
+**History explains it.** `saison_teams` was introduced by commit `0b832d5` ("Added season-specific
+and season-agnostic data separation"), which moved season-scoped data onto the junction. The read
+path was updated; the statistics write path still targets the base collection.
 
-**History supports the reading.** `saison_teams` was introduced by commit `0b832d5` ("Added
-season-specific and season-agnostic data separation"), which moved season-scoped data onto the
-junction. The read path was updated; the statistics write path still targets the base collection.
+#### How it was confirmed (2026-08-02)
 
-**A secondary consequence:** the stated rationale for the `teams:saison_id:*` cache tag — that a
-result edit rewrites team stats _within that season only_ — does not match the code. The write is
-not season-scoped at all; its filter is `{"_id": team_id}`. The tag may still be right, but the
-recorded reason for it is not.
+Two independent observations, neither of which the original static reading had:
 
-**Confidence and limits.** This is a static reading of the code at `ba71aca`, **not verified
-against a running system or real data**. Ways it could be wrong: `saison_teams` documents might be
-regenerated from `teams` by something outside this repository, or the deployed data might carry
-`statistik` in both places. Either would change the conclusion.
+1. **The owner deleted two wrongly created `statistik` objects from a document in `teams`.** `$inc`
+   on a document with no `statistik` field creates one, so the misdirected write leaves a visible
+   artefact in the base collection — and did.
+2. **A read-only comparison against the live database**, recomputing every team's statistics from
+   the `spiele` documents and comparing both stored copies (season `2026`, 17 teams, 31 matches):
 
-**Cheapest check**, one query in Compass: edit a result through the admin UI, then compare
-`teams.statistik` with the matching `saison_teams.statistik` for that team and season. If only the
-former moved, the finding is confirmed.
+| Observation                                           | Result                                              |
+| ----------------------------------------------------- | --------------------------------------------------- |
+| `teams` documents carrying a `statistik` field        | **0 of 17**                                         |
+| `saison_teams` rows for the active season             | 17 of 17 — every team has one, no orphans           |
+| `saison_teams.statistik` vs. recomputed from `spiele` | **Identical on all seven fields, for all 17 teams** |
 
-**Owner:** the backend audit — pass B1 (`_auditing/prompts/backend-1-consistency.md`) re-verifies
-this first, as its motivating check. Referenced from `docs/backend/spec.md` (invariant I1, §7) and
+So the junction is authoritative and is currently accurate — **kept that way by hand, not by the
+write path** — and every `statistik` the application has written to `teams` is an artefact.
+
+The two hypotheses that would have overturned the finding are both dead: nothing regenerates the
+junction from `teams` (the junction is right while `teams` holds nothing at all), and the deployed
+data does not carry `statistik` in both places.
+
+**Two details the static reading did not have, and both matter to the fix:**
+
+- **The artefact is a _partial_ object.** `_build_increment_dict` drops zero-valued fields, so what
+  `$inc` creates on `teams` carries only the fields that happened to be non-zero. `FLTeamStatistik`
+  requires all seven; this never raises, because nothing reads it.
+- **The write is not season-scoped at all**, its filter being `{"_id": team_id}`. Only one season
+  exists (`2026`), so no cross-season merging has happened yet. It would begin at the first
+  rollover.
+
+#### What is left: the fix, and one decision that precedes it
+
+The mechanical fix is to point `update_team_statistik` at `saison_teams`, filtered
+`{"team_id": …, "saison_id": …}`. It needs no payload change: `old_game_data.saison_id` is already
+in hand inside the transaction, which keeps `saison_id` out of `FLPatchSpielDataPayload` exactly as
+`patch_spiel_data`'s docstring intends. `patch_one_in_db` does not upsert, so a missing junction row
+raises `DocumentNotFoundException` (404) rather than inventing a row — consistent with invariant
+I11.
+
+**The decision, which belongs with DB-1: should `statistik` be stored at all, or derived from
+`spiele` on read?** The recomputation matching the stored numbers exactly on all 17 teams is
+evidence that a derivation is faithful to the data. Stored is cheaper per read and is what every
+consumer expects today; derived cannot drift, and makes FB-1's Gruppenphase split a `$match` on a
+pipeline rather than a schema change plus a backfill. **Decide this before writing the fix** — the
+two answers produce different code.
+
+**Also resolved by the fix:** the recorded rationale for the `teams:saison_id:*` cache tag — that a
+result edit rewrites team stats _within that season only_ — is false today and becomes true once
+the write is season-scoped. See `fl_frontend/src/features/teams/queries.ts` and
+[ADR-0001](../_decisions/0001-two-granular-cache-tags.md).
+
+**Owner:** the backend audit — pass B1 (`_auditing/prompts/backend-1-consistency.md`) treats this as
+its motivating check. Referenced from `docs/backend/spec.md` (invariant I1, §7) and
 `docs/glossary.md`.
 
-**Path:** blocks FB-1 (splitting a statistics field is pointless while the write path misses it)
-and informs FE-3 (which displays the full statistics FB-1 separates out).
+**Path:** verification is done and unblocks DB-1. Still blocks FB-1 until the write path is
+corrected (splitting a statistics field is pointless while the write misses it), and informs FE-3
+(which displays the full statistics FB-1 separates out).
 
 ### 2 · DB-1 — Database structure review
 
@@ -111,7 +151,10 @@ any are needed — ask before guessing.
 This is a review, not a fix, and it sits here because five other entries are structural questions in
 disguise; one review should frame them all instead of five ad-hoc decisions:
 
-- **F4** — where does `statistik` authoritatively live, `teams` or `saison_teams`?
+- **F4** — `saison_teams` is settled as the home (verified, 2026-08-02). The question left over is
+  whether `statistik` should be **stored** there at all or **derived from `spiele`** on read; a
+  recomputation reproduced every stored figure exactly, so both are viable and this review owns the
+  choice.
 - **FB-1** — does `saison_teams.statistik` split into Gruppenphase and overall halves?
 - **FB-2** — is a disqualification an embedded object on the junction row, or its own record?
 - **BE-9** — do the placeholder team's junction rows survive, or do nullable opponent refs replace
@@ -122,8 +165,10 @@ disguise; one review should frame them all instead of five ad-hoc decisions:
 **Output:** recommendations feeding the entries above. Anything decided graduates to an ADR and its
 entry here is updated or deleted, per the README.
 
-**Path:** wants F4's cheapest check done first (its result is input evidence); frames FB-1, FB-2
-and the schema half of FE-1.
+**Path:** ready — F4's check is done, and its result is input evidence: `saison_teams` holds the
+authoritative statistics, `teams.statistik` is an artefact of a misdirected write, and a
+recomputation from `spiele` matched every stored figure exactly. Frames FB-1, FB-2 and the schema
+half of FE-1.
 
 ### 3 · FB-1 — The Saisontabelle must count only Gruppenphase games (heavy)
 
@@ -143,10 +188,14 @@ Details worth having in hand when it is worked:
 - The full, all-games statistics must **remain visible** — their home is `TeamDetailsView`, which
   is FE-3 below, deliberately a separate item.
 - The statistics write path is `update_team_statistik`'s increments; a split field means either
-  phase-aware increments or a recompute job, and F4 decides which document any of that lands on.
+  phase-aware increments or a recompute job. F4 settled the destination — `saison_teams` — and
+  verified that a recompute from `spiele` reproduces the stored figures exactly, so the recompute
+  route is known to work on this data.
 
-**Path:** blocked by F4 (fix where statistics are written first) and framed by DB-1 (the split is a
-structure decision). Feeds FE-3 (which shows the full statistics this item separates out).
+**Path:** blocked by F4's remaining half (correct the write path first — F4 is verified, not fixed)
+and framed by DB-1 (the split is a structure decision, and DB-1 owns the stored-versus-derived
+choice that decides whether a "split" is a schema change at all). Feeds FE-3 (which shows the full
+statistics this item separates out).
 
 ---
 

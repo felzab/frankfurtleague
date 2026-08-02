@@ -73,8 +73,10 @@ Consequence worth knowing: with a `saison_id` in play the join is strict, so a t
 `saison_teams` row for that season **disappears from results entirely** rather than appearing with
 empty statistics.
 
-> ⚠️ There is an unresolved read/write mismatch around `statistik` — see **Finding F4** in
-> [`roadmap/open-items.md`](roadmap/open-items.md). Read it before trusting the league table.
+> ⚠️ There is a **confirmed** read/write mismatch around `statistik`: the application writes it to
+> `teams` and reads it from `saison_teams`, so a result edit does not move the league table. The
+> junction's figures are accurate only because they are maintained by hand. See **Finding F4** in
+> [`roadmap/open-items.md`](roadmap/open-items.md) before trusting the league table.
 
 ### `Spieler` — player
 
@@ -203,8 +205,10 @@ Soft-delete flag on venues and referees. There is no hard delete for either.
 `unentschieden` (draws), `tore_geschossen`, `tore_kassiert`, `punkte` (points).
 
 **Pitfalls.** Stored on the `saison_teams` junction, so statistics are per team **per season**. All
-fields are constrained `ge=0`, which matters because they are maintained by `$inc` deltas rather than
-recomputed — see the write path in `fl_backend/app/api/admin/router.py`. See **Finding F4**.
+fields are constrained `ge=0`, which matters because they are meant to be maintained by `$inc` deltas
+rather than recomputed — see the write path in `fl_backend/app/api/admin/router.py`. Those deltas
+land on the base `teams` collection instead, so **nothing in the application maintains the figures
+that are served**; they are edited by hand. Confirmed 2026-08-02 — see **Finding F4**.
 
 ### `Mietpreis` — rental price
 

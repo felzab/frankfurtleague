@@ -5,6 +5,11 @@
  * edit, because the backend rewrites team statistics as part of that write — the invalidation
  * therefore lives in `features/spiele/actions.ts`, not here.
  *
+ * That write currently lands on the wrong collection and never reaches the statistics this read
+ * serves (open item F4, confirmed 2026-08-02), so the invalidation is presently clearing a cache
+ * whose contents did not change. Keep it: it is correct for the fixed write path, and dropping it
+ * would leave a stale table the moment F4 is closed.
+ *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
  *   • `teams:saison_id:*` is the only granular tag for this resource. No tags on gruppe,
@@ -30,7 +35,8 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
   "use cache";
 
   // The only granular tag kept for this resource (ADR-0001): patch_spiel_data calls
-  // update_team_statistik, so a result change rewrites team stats within that season only. The
+  // update_team_statistik, so a result change is meant to rewrite team stats within that season
+  // only -- the write is not yet season-scoped, which is F4's second face.
   // No gruppe / include_placeholders / is_disqualified / in_gruppen tags -- no mutation
   // in the app changes any of those dimensions.
   const tags: string[] = ["teams"];

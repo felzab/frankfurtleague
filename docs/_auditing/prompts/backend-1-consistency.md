@@ -14,9 +14,10 @@ This pass runs FIRST because its defect class is the worst one: writes that sile
 their readers corrupt data invisibly, forever. **The motivating example is real and open — finding
 F4 in `docs/roadmap/open-items.md`**: the admin result edit writes team statistics to the
 `teams` collection while the teams endpoint serves statistics from the `saison_teams` junction, and
-nothing copies between them. Read F4's evidence table first; it is both a confirmed seed finding for
-check 1 (re-verify it at current code — do not just transcribe it) and the template for what a
-finding in this pass looks like.
+nothing copies between them. F4 was **confirmed against the live database on 2026-08-02**, so its
+existence is settled — do not re-derive it. Read its evidence table first; it is the template for
+what a finding in this pass looks like, and check 1 places it in the full write→read map rather than
+re-establishing it.
 
 CONTEXT — derive, do not assume: enumerate the collections from `app/core/db.py`, the write sites by
 grepping for the crud helpers and raw Motor calls (`update_*`, `insert_*`, `delete_*`, `$set`,
