@@ -24,15 +24,16 @@ the open file's highest is BE-10.
 
 ## The log
 
-| #   | ID    | Item                                                                        | Surfaces | Effort | Depended on | Closed in                                                             |
-| --- | ----- | --------------------------------------------------------------------------- | -------- | ------ | ----------- | --------------------------------------------------------------------- |
-| 1   | F5    | A backend module that was empty and imported by nothing                     | BE       | S      | —           | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
-| 2   | F6    | A comment deferring a granular cache tag to a route that already existed    | FE       | S      | —           | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
-| 3   | OPS-1 | Container images published to Docker Hub, and where they should live        | Ops      | M      | —           | [`b2e80f2`](https://github.com/felzab/frankfurtleague/commit/b2e80f2) |
-| 4   | DB-1  | Review the database structure against the models, and decide what is stored | DB, BE   | L      | —           | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
-| 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`        | BE, DB   | M      | DB-1        | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
-| 6   | FB-1  | The Saisontabelle counted playoff results as league results                 | FE, BE   | M      | —           | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
-| 7   | BE-11 | Nothing executed the derived league table's pipeline against a database     | BE       | S      | —           | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
+| #   | ID    | Item                                                                                | Surfaces | Effort | Depended on | Closed in                                                             |
+| --- | ----- | ----------------------------------------------------------------------------------- | -------- | ------ | ----------- | --------------------------------------------------------------------- |
+| 1   | F5    | A backend module that was empty and imported by nothing                             | BE       | S      | —           | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
+| 2   | F6    | A comment deferring a granular cache tag to a route that already existed            | FE       | S      | —           | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
+| 3   | OPS-1 | Container images published to Docker Hub, and where they should live                | Ops      | M      | —           | [`b2e80f2`](https://github.com/felzab/frankfurtleague/commit/b2e80f2) |
+| 4   | DB-1  | Review the database structure against the models, and decide what is stored         | DB, BE   | L      | —           | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
+| 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`                | BE, DB   | M      | DB-1        | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
+| 6   | FB-1  | The Saisontabelle counted playoff results as league results                         | FE, BE   | M      | —           | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
+| 7   | BE-11 | Nothing executed the derived league table's pipeline against a database             | BE       | S      | —           | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
+| 8   | DB-3  | Seventeen `saison_teams` rows still carried the `statistik` the derivation orphaned | DB       | S      | —           | [`1acfc49`](https://github.com/felzab/frankfurtleague/commit/1acfc49) |
 
 ## What each one produced
 
