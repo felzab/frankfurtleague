@@ -136,11 +136,12 @@ Don't rely solely on training data for version-specific syntax. Search official 
 
 All commands are registered files in `.claude/commands/` and are tab-completable. **Behavior lives in those files — never duplicate it here.**
 
-| Command                                                                   | Purpose                                                    |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `/audit:pass` `/audit:plan` `/audit:wave` `/audit:status` `/audit:finish` | Audit-programme lifecycle. Methodology: `docs/_auditing/`. |
+| Command                                                                   | Purpose                                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `/audit:pass` `/audit:plan` `/audit:wave` `/audit:status` `/audit:finish` | Audit-programme lifecycle. Methodology: `docs/_auditing/`.                 |
+| `/roadmap:start <ID>`                                                     | Work ONE open item to a conclusion. Backlog: `docs/roadmap/open-items.md`. |
 
-The `/audit:*` commands are slash-only; never launch one from casual prose.
+The `/audit:*` and `/roadmap:*` commands are slash-only; never launch one from casual prose.
 
 ## 9. RATIFIED ARCHITECTURAL DECISIONS — do not "fix" these
 

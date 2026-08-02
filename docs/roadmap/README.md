@@ -16,7 +16,11 @@ remediation (the running audit programme's ledger, local-only in `docs/audit/`),
 spec sheets already track as a contract.
 
 When an item here gets decided, it leaves: the decision becomes an ADR (or just gets built), and
-the entry is deleted — git history keeps the analysis.
+the entry is deleted — git history keeps the analysis. **`/roadmap:start <ID>` works one item to a
+conclusion and performs that removal**, including the index row, the renumbering, the `Path` lines
+in other entries that named it, and the references elsewhere in the repo — the spec sheets, the
+glossary and the audit prompts all cite these IDs. An item that ends only partly done is rewritten
+rather than deleted.
 
 ---
 
