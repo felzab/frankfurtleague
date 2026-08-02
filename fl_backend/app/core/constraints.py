@@ -9,9 +9,12 @@ console, so they are versioned, reviewable in a diff, and restored with the clus
 
   • The validators assert BSON TYPES, REQUIRED FIELDS and the enumerations that are already `Literal`s
     in the Pydantic models -- and nothing else. No ranges, no patterns, no lengths, no cross-field
-    rules: those stay Pydantic's, and a second copy of them would triple the drift surface F2 already
-    warns about. The line is drawn there because those three are the constraints whose violation is
-    SILENT; a bad range or a bad length fails Pydantic loudly on the very next read.
+    rules: those stay Pydantic's. The line is drawn there because those three are the constraints whose
+    violation is SILENT; a bad range or a bad length fails Pydantic loudly on the very next read.
+    `test_no_validator_constrains_a_range_or_a_format` enforces the boundary, so widening it fails the
+    default test tier rather than passing review as an improvement.
+  • They are HAND-WRITTEN and must not be generated from the models (ADR-0031). A model changed without
+    its validator is caught by `test_every_mirrored_model_matches_its_validator`, not by memory.
   • `additionalProperties` is never `false`. Forbidding unknown keys would turn every future field
     addition into a deploy-ordering problem between this file and the writer of that field, and
     Pydantic ignores extra keys on read for the same reason.
@@ -27,16 +30,16 @@ console, so they are versioned, reviewable in a diff, and restored with the clus
 
  THE DATABASE USER NEEDS `collMod` ────────────────────────────────────────────────────────────────────────
 
-  `collMod` is a `dbAdmin` action. `readWrite` and `readWriteAnyDatabase` do not carry it -- and both DO
-  carry `createIndex`, so a user can build all four indexes here and still be unable to attach a single
-  validator. `--check` answers this by running an actual `collMod`, because reading the role list is
-  indirect and running the command is not. It aims at a namespace that does not exist, so the answer
-  costs no write at all: see `probe_collmod_privilege`.
+  A `dbAdmin` action that `readWrite` does not carry, though both carry `createIndex` -- so the wrong
+  user builds every index here and attaches no validator, and the application then refuses to start.
+  `--check` reports it. Which users hold what: docs/ops/overview.md.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
   docs/_decisions/0027-the-database-enforces-its-own-invariants.md -- the decision and what it rejected
-  docs/backend/spec.md -- the invariants these second-guess
+  docs/_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md -- why this is by hand
+  docs/backend/spec.md -- invariants I15-I17
+  docs/workflows/README.md -- when to run --check, and how a data change is ordered against a deploy
 """
 
 import argparse

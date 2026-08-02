@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `3a460d7`, 2026-08-02
+**Verified against:** `e73cc01`, 2026-08-02
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog (added
 2026-08-02). The original entries migrated here from the documentation programme's ledger when that
@@ -39,28 +39,28 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 ## The path at a glance
 
-| #   | ID    | Item                                                     | Surfaces    | Effort | Status     | Depends on              |
-| --- | ----- | -------------------------------------------------------- | ----------- | ------ | ---------- | ----------------------- |
-| 1  | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open       | — (parallel-safe)       |
-| 2  | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`        | BE, FE      | L      | Open       | —                       |
-| 3  | BE-9  | Replace the "TBD" placeholder team                       | BE, FE      | L      | Open       | — (BE-4's moment, soft) |
-| 4  | FB-2  | Disqualification becomes a record, not a boolean         | FE, BE, DB  | M      | Open       | — (model decided)       |
-| 5  | FB-3  | Admin pages for team and spieler data                    | FE, BE      | L      | Blocked    | BE-4                    |
-| 6  | FB-4  | Playoff bracket: verify seeding, then auto-advance       | FE, BE      | M      | Blocked    | BE-9 (part 2 only)      |
-| 7  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields         | FE, BE      | S      | Blocked    | FB-2 (field shape)      |
-| 8  | FE-1  | Date ranges instead of specific dates                    | FE (+BE)    | XL     | Open       | — (batch with 7, 9)     |
-| 9  | FE-2  | Optional per-game notes                                  | FE (+BE)    | S      | Open       | — (batch with 7, 8)     |
-| 10 | FE-3  | TeamDetailsView rework                                   | FE          | M      | Blocked    | FB-2                    |
-| 11 | BE-10 | Nothing caches the season document, read every request   | BE          | S      | Open       | —                       |
-| 12 | F7    | Hardcoded season badge on the landing page               | FE          | S      | Open       | — (before rollover)     |
-| 13 | OPS-4 | One output standard for `scripts/`                       | Ops         | M      | Open       | — (batch with OPS-5)    |
-| 14 | OPS-5 | Scripts and CI, audited and optimised for what they cost | Ops         | M      | Open       | — (batch with OPS-4)    |
-| 15 | F1    | Two definitions of `ausstehend`                          | FE, BE      | S      | Open       | — (latest with FE-1)    |
-| 16 | F2    | Pydantic and Zod models are hand-mirrored                | FE, BE      | —      | Standing   | standing caution        |
-| 17 | BE-7  | `typing` imports instead of `collections.abc`            | BE          | —      | Standing   | audit pass B4           |
-| 18 | BE-6  | `CustomObjectId` validates nothing in JSON mode          | BE          | —      | Standing   | audit pass B2           |
-| 19 | OPS-2 | Nothing validates the contents of a restored `.env`      | Ops         | —      | Standing   | trigger recorded        |
-| 20 | OPS-3 | Crawler policy split between robots.txt and Cloudflare   | Ops         | —      | Standing   | trigger recorded        |
+| #   | ID    | Item                                                     | Surfaces    | Effort | Status   | Depends on              |
+| --- | ----- | -------------------------------------------------------- | ----------- | ------ | -------- | ----------------------- |
+| 1   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open     | — (parallel-safe)       |
+| 2   | BE-4  | Write paths for `saisons`, `spieler`, `spieltage`        | BE, FE      | L      | Open     | —                       |
+| 3   | BE-9  | Replace the "TBD" placeholder team                       | BE, FE      | L      | Open     | — (BE-4's moment, soft) |
+| 4   | FB-2  | Disqualification becomes a record, not a boolean         | FE, BE, DB  | M      | Open     | — (model decided)       |
+| 5   | FB-3  | Admin pages for team and spieler data                    | FE, BE      | L      | Blocked  | BE-4                    |
+| 6   | FB-4  | Playoff bracket: verify seeding, then auto-advance       | FE, BE      | M      | Blocked  | BE-9 (part 2 only)      |
+| 7   | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields         | FE, BE      | S      | Blocked  | FB-2 (field shape)      |
+| 8   | FE-1  | Date ranges instead of specific dates                    | FE (+BE)    | XL     | Open     | — (batch with 7, 9)     |
+| 9   | FE-2  | Optional per-game notes                                  | FE (+BE)    | S      | Open     | — (batch with 7, 8)     |
+| 10  | FE-3  | TeamDetailsView rework                                   | FE          | M      | Blocked  | FB-2                    |
+| 11  | BE-10 | Nothing caches the season document, read every request   | BE          | S      | Open     | —                       |
+| 12  | F7    | Hardcoded season badge on the landing page               | FE          | S      | Open     | — (before rollover)     |
+| 13  | OPS-4 | One output standard for `scripts/`                       | Ops         | M      | Open     | — (batch with OPS-5)    |
+| 14  | OPS-5 | Scripts and CI, audited and optimised for what they cost | Ops         | M      | Open     | — (batch with OPS-4)    |
+| 15  | F1    | Two definitions of `ausstehend`                          | FE, BE      | S      | Open     | — (latest with FE-1)    |
+| 16  | F2    | Pydantic and Zod models are hand-mirrored                | FE, BE      | —      | Standing | standing caution        |
+| 17  | BE-7  | `typing` imports instead of `collections.abc`            | BE          | —      | Standing | audit pass B4           |
+| 18  | BE-6  | `CustomObjectId` validates nothing in JSON mode          | BE          | —      | Standing | audit pass B2           |
+| 19  | OPS-2 | Nothing validates the contents of a restored `.env`      | Ops         | —      | Standing | trigger recorded        |
+| 20  | OPS-3 | Crawler policy split between robots.txt and Cloudflare   | Ops         | —      | Standing | trigger recorded        |
 
 ---
 
