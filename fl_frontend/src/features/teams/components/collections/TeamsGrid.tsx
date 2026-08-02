@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 
 import { TeamCard } from "../ui/TeamCard";
 
@@ -19,9 +20,11 @@ export function TeamsGrid({ teams, urlPrefix }: { teams: FLTeamCompact[]; urlPre
   }
 
   return (
+    // The cascade is keyed off `role="listitem"`, not off the card type, so a grid of `TeamCard`s
+    // arrives exactly like a grid of `SpielCard`s. This grid had no entrance at all.
     <div
       role="list"
-      className="max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
       {teams.map((teamData) => (
         // The role goes on the wrapper, never on the <Link>: an explicit role replaces the implicit
         // `link` one, which would drop the card out of a screen reader's list of links.

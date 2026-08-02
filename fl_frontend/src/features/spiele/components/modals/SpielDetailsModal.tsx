@@ -18,15 +18,15 @@ import type { FLSpiel } from "../../schemas";
  * Deliberately NOT on `ModalShell` (owner decision, 2026-07-31): this is the one modal public users
  * see, and its lighter `bg-surface p-6 shadow-sm` appearance is the wanted look.
  *
- * **The stay-mounted arrangement this used to describe is gone (owner decision, 2026-07-31).**
- * Keeping the Backdrop mounted preserved HeroUI's exit transition, but `SpielCardsList`
- * is instantiated once per collection, so it also mounted ~11 idle overlay trees across the app on
- * first paint. The caller now guards the mount and the exit transition is the accepted cost.
+ * **The caller guards the mount; this component does not stay mounted (owner decision, 2026-07-31).**
+ * Keeping the Backdrop mounted would preserve HeroUI's exit transition, but `SpielCardsList` is
+ * instantiated once per collection, so it would also mount ~11 idle overlay trees across the app on
+ * first paint. Losing the exit transition is the accepted cost.
  *
- * `spielData` stays nullable and the inner guard stays. All four call sites now guard the mount, so
+ * `spielData` is nullable and the inner guard is deliberate. All four call sites guard the mount, so
  * null should not arrive — but the prop is typed for a caller holding a null selection, and the guard
- * is what keeps the header and body off it. Cheap, and it is the reason a missed call site degrades
- * to an empty dialog rather than a crash: two of the four were missed when the guard first landed.
+ * is what keeps the header and body off it. It is cheap, and it is why a call site that forgets to
+ * guard degrades to an empty dialog rather than a crash.
  */
 export function SpielDetailsModal({
   spielData,
@@ -67,7 +67,7 @@ export function SpielDetailsModal({
 
               <Modal.Header className="gap-y-2 pb-4">
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">
-                  <Modal.Heading className="text-fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
+                  <Modal.Heading className="fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
                   <Modal.Icon className="text-foreground-muted size-5 lg:size-6">
                     <CircleInfo className="size-full" />
                   </Modal.Icon>
@@ -93,17 +93,17 @@ export function SpielDetailsModal({
                     prefetch={false}
                     href={`/dashboard/teams/${spielData.team1.team_id}`}
                     onClick={onClose}
-                    className="text-fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
+                    className="fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
                     {spielData.team1.name}
                   </Link>
 
-                  <span className="text-fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
+                  <span className="fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
 
                   <Link
                     prefetch={false}
                     href={`/dashboard/teams/${spielData.team2.team_id}`}
                     onClick={onClose}
-                    className="text-fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
+                    className="fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
                     {spielData.team2.name}
                   </Link>
                 </div>
@@ -111,7 +111,7 @@ export function SpielDetailsModal({
                 <Separator className="bg-border my-4 h-[2px]" />
 
                 {/* Details Grid */}
-                <div className="text-fluid-sm grid grid-cols-2 gap-4 whitespace-normal">
+                <div className="fluid-sm grid grid-cols-2 gap-4 whitespace-normal">
                   {/** Datum */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Datum</h4>

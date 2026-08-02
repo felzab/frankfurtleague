@@ -39,7 +39,7 @@ export function SearchBar({
         <SearchField.SearchIcon className="text-foreground-muted shrink-0" />
         <SearchField.Input
           placeholder={placeholder}
-          className="text-fluid-sm w-full bg-transparent outline-none"
+          className="fluid-sm w-full bg-transparent outline-none"
         />
         <SearchField.ClearButton />
       </SearchField.Group>

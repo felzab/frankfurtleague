@@ -29,8 +29,8 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
   "use cache";
 
   // The only granular tag kept for this resource (ADR-0001): the admin patch action invalidates it
-  // by season. Tags by phase or status were deleted -- a result edit *changes* a match's status, so
-  // invalidating by status would need both the old and the new value to be correct.
+  // by season. No tags by phase or status: a result edit *changes* a match's status, so invalidating
+  // by status would need both the previous and the new value to be correct.
   const tags: string[] = ["spiele"];
   if (filters.saison_id) tags.push(`spiele:saison_id:${filters.saison_id}`);
   cacheTag(...tags);

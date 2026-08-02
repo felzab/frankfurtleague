@@ -92,7 +92,7 @@ export function FormTeamPicker({
         disabledKeys={disabledTeamId ? [disabledTeamId] : []}>
         <Label className={FIELD_LABEL}>{label}</Label>
         <Autocomplete.Trigger className={FIELD_INPUT}>
-          <Autocomplete.Value className="text-fluid-sm" />
+          <Autocomplete.Value className="fluid-sm" />
           {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. */}
           <Autocomplete.ClearButton
             type="button"
@@ -123,14 +123,14 @@ export function FormTeamPicker({
                   key={item.id}
                   id={item.id}
                   textValue={item.name}
-                  className="text-fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                  className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
                   {item.name}
                 </ListBox.Item>
               ))}
             </ListBox>
           </Autocomplete.Filter>
         </Autocomplete.Popover>
-        {!teamIsTbd && <Description className="text-fluid-xxs text-foreground-muted">{`Suche ${label} aus`}</Description>}
+        {!teamIsTbd && <Description className="fluid-xxs text-foreground-muted">{`Suche ${label} aus`}</Description>}
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
@@ -147,7 +147,7 @@ export function FormTeamPicker({
             placeholder="z.B. Sieger 26."
             className={FIELD_INPUT}
           />
-          <Description className="text-fluid-xxs text-foreground-muted">
+          <Description className="fluid-xxs text-foreground-muted">
             Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.
           </Description>
           <FieldError className={FIELD_ERROR} />

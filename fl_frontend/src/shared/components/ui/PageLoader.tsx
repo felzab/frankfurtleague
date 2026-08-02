@@ -16,8 +16,8 @@ export function PageLoader() {
 
       {/* Loading Text */}
       <div className="flex flex-col gap-y-1">
-        <p className="text-fluid-base text-foreground font-extrabold tracking-wide uppercase">Laden...</p>
-        <p className="text-fluid-xs text-foreground-muted font-medium">Daten werden vorbereitet</p>
+        <p className="fluid-base text-foreground font-extrabold tracking-wide uppercase">Laden...</p>
+        <p className="fluid-xs text-foreground-muted font-medium">Daten werden vorbereitet</p>
       </div>
     </div>
   );

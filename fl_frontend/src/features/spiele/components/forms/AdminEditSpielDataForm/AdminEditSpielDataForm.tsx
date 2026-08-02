@@ -115,7 +115,7 @@ export function AdminEditSpielDataForm({
           aria-describedby="spiel-absagen-hint"
           isSelected={spielIsCanceled}
           onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
-          <Switch.Content className="text-fluid-sm text-danger flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+          <Switch.Content className="fluid-sm text-danger flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
             Spiel absagen
             <Switch.Control className={`${spielIsCanceled ? "bg-danger" : ""}`}>
               <Switch.Thumb />
@@ -127,7 +127,7 @@ export function AdminEditSpielDataForm({
             `Description` provided. */}
         <p
           id="spiel-absagen-hint"
-          className="text-fluid-xxs text-foreground-muted leading-normal font-medium">
+          className="fluid-xxs text-foreground-muted leading-normal font-medium">
           Wird dieser Schalter umgelegt, so wird das Spiel als abgesagt eingetragen. Dies kann zurückgesetzt werden, indem der Schalter zurück
           umgelegt wird.
         </p>

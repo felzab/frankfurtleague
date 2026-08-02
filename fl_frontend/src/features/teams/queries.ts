@@ -7,8 +7,8 @@
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
- *   • `teams:saison_id:*` is the only granular tag kept for this resource. Tags on gruppe,
- *     disqualification and the rest were removed: no mutation in the app changes those dimensions.
+ *   • `teams:saison_id:*` is the only granular tag for this resource. No tags on gruppe,
+ *     disqualification or the rest: no mutation in the app changes those dimensions.
  *   • A team is season-independent; gruppe, statistik and is_disqualified come from a junction the
  *     backend joins at read time. A team with no row for the requested season is simply absent.
  *
@@ -31,7 +31,7 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
 
   // The only granular tag kept for this resource (ADR-0001): patch_spiel_data calls
   // update_team_statistik, so a result change rewrites team stats within that season only. The
-  // gruppe / include_placeholders / is_disqualified / in_gruppen tags were deleted -- no mutation
+  // No gruppe / include_placeholders / is_disqualified / in_gruppen tags -- no mutation
   // in the app changes any of those dimensions.
   const tags: string[] = ["teams"];
   if (filters.saison_id) tags.push(`teams:saison_id:${filters.saison_id}`);

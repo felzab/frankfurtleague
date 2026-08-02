@@ -7,9 +7,9 @@ import { Dropdown } from "@heroui/react";
 /**
  * Only the Dropdown machinery is client-side. The menu's contents are inert markup and arrive as
  * `children` from `TopNav`, which is a Server Component — the same inversion `Sidemenu` uses for
- * `saisonMetadataDisplay` (R3a §A4.2). React Aria's collection builder walks those children on the
- * client, where they are ordinary elements again, so `Dropdown.Section` / `Dropdown.Item` register
- * exactly as they did when they were declared here.
+ * `saisonMetadataDisplay`. React Aria's collection builder walks those children on the client, where
+ * they are ordinary elements again, so `Dropdown.Section` / `Dropdown.Item` register exactly as they
+ * would if they were declared here.
  */
 export function TopNavLinksDropdown({ children }: { children: React.ReactNode }) {
   return (
@@ -17,10 +17,10 @@ export function TopNavLinksDropdown({ children }: { children: React.ReactNode })
       {/* The label and the styling belong on the trigger, not on the icon.
           `Dropdown.Trigger` already renders a react-aria `Button` — verified in HeroUI 3.2.2,
           `dropdown.js` — so it is the element that carries the role and the `aria-expanded`
-          MenuTrigger wires up. The old markup labelled the inner `<svg>` and gave it `tabIndex={0}`,
-          which named a graphic and put a second tab stop inside the button while leaving the
-          button itself nameless. Do not wrap a `<Button>` in here: that nests a button in a button
-. */}
+          MenuTrigger wires up, so the accessible name belongs on IT. Labelling the inner `<svg>` or
+          giving it `tabIndex={0}` names a graphic and adds a second tab stop inside the button while
+          leaving the button itself nameless. Do not wrap a `<Button>` in here either: that nests a
+          button in a button. */}
       <Dropdown.Trigger
         aria-label="Navigationsmenü öffnen"
         className="text-foreground hover:bg-muted rounded-md p-1 transition-colors">
@@ -31,10 +31,9 @@ export function TopNavLinksDropdown({ children }: { children: React.ReactNode })
         />
       </Dropdown.Trigger>
 
-      {/* Modal (the default) on purpose: `isNonModal` was tried and reverted -- it sets
-          react-aria's isDismissable to false, so clicking outside no longer closed the menu.
-          The scroll lock briefly hides the page scrollbar while open, but react-aria reserves
-          the gutter on <html> itself, so nothing shifts. */}
+      {/* Modal (the default) on purpose. `isNonModal` sets react-aria's isDismissable to false, so
+          clicking outside stops closing the menu. The scroll lock briefly hides the page scrollbar
+          while open, but react-aria reserves the gutter on <html> itself, so nothing shifts. */}
       <Dropdown.Popover
         placement="bottom end"
         className="-mt-1 w-[220px] rounded-xl">

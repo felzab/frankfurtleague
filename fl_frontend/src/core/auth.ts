@@ -126,8 +126,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
  * Named `get...`, not `require...`, on purpose: it neither throws nor redirects, so
  * `await getAdminSession();` on its own line guards nothing. **The return value must be checked.**
  *
- * The test was previously written out at eight sites (seven server actions plus the proxy), so a
- * change of policy meant eight edits and missing one of them was invisible.
+ * One definition for all eight callers (seven server actions plus the proxy): spelling the test out
+ * at each site would make a change of policy eight edits, and a missed one invisible.
  */
 export async function getAdminSession(): Promise<Session | null> {
   const session = await auth();

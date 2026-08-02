@@ -26,7 +26,7 @@ import { auth } from "./core/auth";
  * Admin route guard. Defence in depth only -- `src/app/admin/layout.tsx` calls `getAdminSession()`
  * independently, so page rendering fails closed even if this matcher stops matching (R3b §S3.1).
  *
- * This file briefly also emitted a per-request nonce CSP. That was removed with the decision to
+ * This file does NOT emit a per-request nonce CSP, following the decision to
  * keep a single enforced policy in `nginx.conf` -- see ADR-0016 for the measurements
  * behind it. The matcher is scoped back to `/admin` as a result: `auth()` resolves the session, and
  * that is a Mongo round-trip, so it must never sit in front of a public page load.

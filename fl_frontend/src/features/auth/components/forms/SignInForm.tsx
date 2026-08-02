@@ -17,7 +17,7 @@ import type { FormState } from "@/shared/types/types";
 export function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
-  // The action no longer navigates, so this panel is what the user sees after a submit. It says the
+  // The action does not navigate, so this panel is what the user sees after a submit. It says the
   // same thing for an allowlisted and a non-allowlisted address -- that neutrality is the whole
   // point, and it is why the copy is conditional ("falls ... freigegeben") rather than a promise.
   //
@@ -52,8 +52,8 @@ export function SignInForm() {
         {/* Header */}
         <div className="flex flex-col items-center pb-6 text-center">
           <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
-          <h1 className="text-fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h1>
-          <p className="text-fluid-sm text-foreground-muted mt-1 font-medium">Verwalte oder sehe Daten ein</p>
+          <h1 className="fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h1>
+          <p className="fluid-sm text-foreground-muted mt-1 font-medium">Verwalte oder sehe Daten ein</p>
         </div>
 
         <div className="border-border mb-8 h-[1px] w-full" />
@@ -67,14 +67,14 @@ export function SignInForm() {
             role="status"
             className="flex flex-col items-center gap-y-3 py-6 text-center">
             <span className="text-4xl">📬</span>
-            <p className="text-fluid-lg text-foreground font-black tracking-tight">Prüfe dein Postfach</p>
+            <p className="fluid-lg text-foreground font-black tracking-tight">Prüfe dein Postfach</p>
 
-            {state?.submittedEmail && <p className="text-fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
+            {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 
-            <p className="text-fluid-sm text-foreground-muted font-medium text-pretty">
+            <p className="fluid-sm text-foreground-muted font-medium text-pretty">
               {state?.message ?? "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs."}
             </p>
-            <p className="text-fluid-xs text-foreground-muted">Der Link gilt 15 Minuten und lässt sich nur einmal verwenden.</p>
+            <p className="fluid-xs text-foreground-muted">Der Link gilt 15 Minuten und lässt sich nur einmal verwenden.</p>
 
             {/* Without this the only way back to the form was a page reload — the action does not
                 navigate any more, so nothing else resets the view. */}
@@ -124,9 +124,9 @@ export function SignInForm() {
                   isRequired
                   name="email"
                   type="email">
-                  <Label className="text-fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
+                  <Label className="fluid-xs text-foreground font-bold tracking-wider uppercase">Email-Adresse</Label>
                   <Input
-                    className="border-border bg-surface text-foreground placeholder:text-foreground-muted text-fluid-xs sm:text-fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
+                    className="border-border bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-200 outline-none"
                     placeholder="z.B. name@beispiel.de"
                     type="email"
                     required
@@ -153,9 +153,9 @@ export function SignInForm() {
                   isRequired
                   name="email"
                   type="email">
-                  <Label className="text-fluid-xs text-foreground-muted font-bold tracking-wider uppercase">Email-Adresse</Label>
+                  <Label className="fluid-xs text-foreground-muted font-bold tracking-wider uppercase">Email-Adresse</Label>
                   <Input
-                    className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 text-fluid-xs sm:text-fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
+                    className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted/50 fluid-xs sm:fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
                     placeholder="coming soon..."
                     disabled
                   />

@@ -16,7 +16,7 @@ export function SidemenuMobileHeader({ displayTitle, onToggleMenu }: { displayTi
             height={24}
           />
         </button>
-        <span className="text-fluid-sm font-medium tracking-wide">{displayTitle}</span>
+        <span className="fluid-sm font-medium tracking-wide">{displayTitle}</span>
       </div>
     </header>
   );

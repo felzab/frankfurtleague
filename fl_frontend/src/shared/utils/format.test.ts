@@ -117,8 +117,7 @@ describe("formatEuro", () => {
     assert.equal(formatEuro(1234.5), "1.234,50 €");
   });
 
-  // The value is euros, not cents -- a stale comment in AdminSchiedsrichterTable claimed a /100
-  // division the code never did, and it was deleted with this extraction.
+  // The value is euros, not cents: `formatEuro` must never divide by 100.
   it("does not divide by 100", () => {
     assert.equal(formatEuro(100), "100,00 €");
   });

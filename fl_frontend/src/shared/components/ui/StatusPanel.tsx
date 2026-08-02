@@ -1,4 +1,4 @@
-import { tv } from "@/shared/utils/tv";
+import { tv } from "tailwind-variants";
 
 import type { ReactNode } from "react";
 
@@ -19,9 +19,9 @@ const statusPanel = tv({
     panel: "border-border relative z-10 flex w-full flex-col items-center rounded-2xl border",
     badge: "bg-background border-border mb-6 flex items-center gap-2.5 rounded-full border px-3 py-1.5 shadow-sm",
     dot: "h-2 w-2 animate-pulse rounded-full",
-    badgeText: "text-foreground text-fluid-xxs sm:text-fluid-xs font-black tracking-widest uppercase",
+    badgeText: "text-foreground fluid-xxs sm:fluid-xs font-black tracking-widest uppercase",
     message: "text-foreground-muted leading-relaxed font-medium",
-    digest: "text-foreground-muted/60 text-fluid-xxs mt-4 font-mono tracking-wider",
+    digest: "text-foreground-muted/60 fluid-xxs mt-4 font-mono tracking-wider",
   },
   variants: {
     variant: {
@@ -30,12 +30,12 @@ const statusPanel = tv({
         panel: "bg-surface/70 max-w-2xl p-6 text-center shadow-2xl backdrop-blur-xl sm:rounded-3xl sm:p-12 md:p-16",
         badge: "sm:mb-8 sm:px-4",
         dot: "sm:h-2.5 sm:w-2.5",
-        message: "text-fluid-base mt-4 max-w-md sm:mt-5",
+        message: "fluid-base mt-4 max-w-md sm:mt-5",
       },
       inline: {
         root: "h-full min-h-[400px] w-full p-6",
         panel: "bg-surface/50 max-w-lg p-8 shadow-sm",
-        message: "text-fluid-sm mt-3",
+        message: "fluid-sm mt-3",
       },
     },
     tone: {
@@ -83,7 +83,7 @@ export function StatusPanel({
           <span className={styles.badgeText()}>{badgeLabel}</span>
         </div>
 
-        <Heading className={`${variant === "page" ? "text-fluid-2xl" : "text-fluid-lg"} text-foreground font-extrabold tracking-tight`}>
+        <Heading className={`${variant === "page" ? "fluid-2xl" : "fluid-lg"} text-foreground font-extrabold tracking-tight`}>
           {heading}
         </Heading>
 

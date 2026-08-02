@@ -7,6 +7,7 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 import { Avatar, Button, Chip, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
+import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSpieler } from "../../schemas";
 
@@ -25,13 +26,13 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
   const router = useRouter();
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col duration-400">
+    <div className={`${PAGE_RISE} flex w-full flex-col`}>
       {/* Back Navigation Button */}
       <Button
         onPress={() => {
           router.back();
         }}
-        className="bg-surface border-border text-foreground hover:bg-muted text-fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+        className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
         <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
         <span>Zurück</span>
       </Button>
@@ -39,12 +40,10 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
       {/* Header Container */}
       <div className={`${card()} mb-2 flex w-full flex-col items-center p-4 sm:p-6`}>
         <div className="flex w-full flex-row items-center justify-between">
-          <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h1>
+          <h1 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h1>
           <Chip
             size="sm"
-            variant="soft"
-            color="success"
-            className="font-bold">
+            className="bg-success/15 text-success-strong font-bold">
             {teamSpieler.length} Spieler
           </Chip>
         </div>
@@ -56,10 +55,10 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
           variant="secondary"
           className="h-fit w-full text-left">
           <Table.Content aria-label={`Tabelle: Spieler ${teamName}`}>
-            <Table.Header className="text-fluid-xxs text-foreground-muted font-semibold uppercase">
+            <Table.Header className="fluid-xxs text-foreground-muted font-semibold uppercase">
               <Table.Column
                 isRowHeader
-                className="text-fluid-xs pt-1.5 pb-2 pl-2 font-extrabold lg:px-4">
+                className="fluid-xs pt-1.5 pb-2 pl-2 font-extrabold lg:px-4">
                 Name
               </Table.Column>
               <Table.Column className="w-1 px-1 text-center whitespace-nowrap lg:px-4">#</Table.Column>
@@ -70,7 +69,7 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
             <Table.Body
               renderEmptyState={() => (
                 <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                  <p className="text-fluid-sm text-foreground-muted font-medium">Für dieses Team ist noch kein Kader eingetragen.</p>
+                  <p className="fluid-sm text-foreground-muted font-medium">Für dieses Team ist noch kein Kader eingetragen.</p>
                 </div>
               )}>
               {teamSpieler.map((spielerData) => (
@@ -90,30 +89,31 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                           {spielerData.nachname?.charAt(0).toUpperCase() ?? ""}
                         </Avatar.Fallback>
                       </Avatar>
-                      <span className="text-fluid-xs text-foreground line-clamp-1 font-bold">
+                      <span className="fluid-xs text-foreground line-clamp-1 font-bold">
                         {[spielerData.vorname, spielerData.nachname].filter(Boolean).join(" ")}
                       </span>
                     </div>
                   </Table.Cell>
 
                   {/* NUMMER */}
-                  <Table.Cell className="text-fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-mono font-medium lg:px-4">
+                  <Table.Cell className="fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-mono font-medium lg:px-4">
                     {spielerData.nummer || "-"}
                   </Table.Cell>
 
                   {/* STUFE */}
-                  <Table.Cell className="text-fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-medium lg:px-4">
+                  <Table.Cell className="fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-medium lg:px-4">
                     {spielerData.stufe || "-"}
                   </Table.Cell>
 
                   {/* POSITION */}
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
                     <div className="flex justify-end">
+                      {/* Blue, from this app's `info` pair rather than a HeroUI colour prop — the
+                          same treatment the "Heute" status chip uses. A position is a label, not a
+                          state, so it stays clear of the brand colour that marks interactive things. */}
                       <Chip
                         size="sm"
-                        variant="soft"
-                        color="accent"
-                        className="text-fluid-xxs font-semibold capitalize">
+                        className="bg-info/15 text-info-strong fluid-xxs font-semibold capitalize">
                         {spielerData.position || "-"}
                       </Chip>
                     </div>

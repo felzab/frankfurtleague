@@ -2,8 +2,31 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { BrandLink } from "@/shared/components/ui/BrandLink";
+import { skeletonBlock } from "@/shared/components/ui/skeleton";
 
 import { FooterCopyrightString } from "./FooterCopyrightString";
+
+/**
+ * A placeholder bar for one of the status bar's two streamed values.
+ *
+ * Local rather than shared: both consumers are three lines below, and the thing that makes it
+ * correct — `fluid-xxs`, matching the type size of both real strings — is specific to this row.
+ * `width` is sized to the string it stands in for, so nothing in the row reflows on arrival.
+ *
+ * Declared here rather than importing a skeleton from `features/system`: this is a shared layout
+ * primitive and must stay free of feature imports, which is the same reason `serverStatusSlot` is
+ * injected rather than imported.
+ */
+function FooterSlotSkeleton({ width, label }: { width: string; label: string }) {
+  return (
+    <span
+      role="status"
+      aria-label={label}
+      className={`${skeletonBlock()} fluid-xxs inline-block rounded ${width}`}>
+      &nbsp;
+    </span>
+  );
+}
 
 // serverStatusSlot is injected by the composition root rather than imported, so this generic layout
 // primitive keeps zero feature dependencies. Same technique as Sidemenu's saisonMetadataDisplay.
@@ -18,31 +41,31 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
         {/* Brand & Mission Column */}
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
           <BrandLink />
-          <p className="text-fluid-xs text-foreground-muted max-w-sm">
+          <p className="fluid-xs text-foreground-muted max-w-sm">
             Die Frankfurter Oberstufenliga. Hier können Frankfurter Schulen gegeneinander antreten, um herauszufinden, welche die Beste ist.
           </p>
         </div>
 
         {/* Navigation Column */}
         <div className="flex flex-col gap-y-3">
-          <h3 className="text-fluid-xs text-foreground font-semibold tracking-wider uppercase">Navigation</h3>
+          <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Navigation</h3>
           <nav className="flex flex-col gap-y-2">
             <Link
               href="/about"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
+              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
               About
             </Link>
             <Link
               href="/team"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
+              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Team
             </Link>
             <Link
               href="/kontakt"
               prefetch={false}
-              className="text-fluid-xs text-foreground-muted hover:text-brand transition-colors">
+              className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
               Kontakt
             </Link>
           </nav>
@@ -50,7 +73,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
 
         {/* Socials Column */}
         <div className="flex flex-col gap-y-3">
-          <h3 className="text-fluid-xs text-foreground font-semibold tracking-wider uppercase">Socials</h3>
+          <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Socials</h3>
           <div className="flex flex-wrap items-center gap-4">
             {/* Threads */}
             <Link
@@ -125,18 +148,27 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
 
       {/* Bottom Status & Copyright Bar. Both children are request-time holes in the static shell:
           the copyright year reads the clock and the status pings the backend. Each gets its own
-          boundary so the shell shows a sensible fallback and the real values stream in. */}
+          boundary so the shell shows a placeholder and the real values stream in.
+          Placeholders rather than stand-in text (owner, 2026-08-02): text in a fallback makes the row
+          change its wording mid-paint, and a partial sentence asserts something not yet known. A bar
+          says "still loading" without claiming anything, and reads as one state with the rest of the
+          page's skeletons. */}
       <div className="flex flex-col items-center justify-between gap-4 pt-6 text-center sm:flex-row sm:text-left">
-        <Suspense fallback={<p className="text-fluid-xxs text-foreground-muted">{`© Frankfurt-League. Alle Rechte vorbehalten.`}</p>}>
+        <Suspense
+          fallback={
+            <FooterSlotSkeleton
+              width="w-64"
+              label="Copyright wird geladen"
+            />
+          }>
           <FooterCopyrightString />
         </Suspense>
         <Suspense
           fallback={
-            <span
-              role="status"
-              className="text-fluid-xxs text-foreground-muted opacity-80">
-              Status wird geprüft...
-            </span>
+            <FooterSlotSkeleton
+              width="w-28"
+              label="Serverstatus wird geprüft"
+            />
           }>
           {serverStatusSlot}
         </Suspense>

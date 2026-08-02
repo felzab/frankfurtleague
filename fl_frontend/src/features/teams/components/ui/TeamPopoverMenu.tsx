@@ -60,7 +60,7 @@ export function TeamPopoverMenu({
             tab stops with two differently-shaped focus outlines. Keyboard activation is Pressable's.
 
             That also retires the old `type="button"` note: a div cannot submit a form, so the hazard
-            of mounting this inside `AdminEditSpielDataForm` is gone by construction. */}
+            of mounting this inside `AdminEditSpielDataForm` cannot arise by construction. */}
         <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-colors duration-200">
           <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
         </Popover.Trigger>
@@ -73,12 +73,12 @@ export function TeamPopoverMenu({
           <Popover.Dialog className={`${overlayPanel()} w-max max-w-[280px] p-4 outline-none`}>
             <Popover.Arrow className="fill-surface" />
 
-            <Popover.Heading className="text-fluid-base flex w-full flex-row items-center justify-between font-bold">
+            <Popover.Heading className="fluid-base flex w-full flex-row items-center justify-between font-bold">
               <span className="truncate pr-2">{teamName}</span>
               {/* `-strong` on the tint, matching the DQ badge in SaisontabelleView: at 11.8px the
                   fill-grade accent measures 3.80:1 on this panel in the light theme. */}
               {teamIsDisqualified && (
-                <span className="bg-danger/10 text-danger-strong text-fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">DQ</span>
+                <span className="bg-danger/10 text-danger-strong fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">DQ</span>
               )}
             </Popover.Heading>
 
@@ -88,7 +88,7 @@ export function TeamPopoverMenu({
             />
 
             {/* Links */}
-            <div className="text-fluid-sm flex size-full flex-col gap-y-1">
+            <div className="fluid-sm flex size-full flex-col gap-y-1">
               {/* TEAM-DETAILS */}
               {isTbdTeam ? (
                 <span

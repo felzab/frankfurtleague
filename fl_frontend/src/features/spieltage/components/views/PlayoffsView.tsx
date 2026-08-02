@@ -5,6 +5,7 @@ import { useState } from "react";
 import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
 import { SpielCardUltraCompact } from "@/features/spiele/components/ui/SpielCardUltraCompact";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
@@ -44,13 +45,16 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
   }
 
   return (
-    // FIX: Added flex-1 and pb-12 so it respects the same native scrolling flow as the other pages
-    <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12 duration-400">
+    // flex-1 and pb-12 so it respects the same native scrolling flow as the other pages.
+    // The rise and NOT the card cascade, even though this renders a few dozen `SpielCardUltraCompact`s:
+    // a bracket is a tree read column by column, and its cards are joined by CSS bracket lines that do
+    // not animate. Staggering the cards would slide them away from lines that stay put.
+    <div className={`${PAGE_RISE} flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12`}>
       {pageHeading}
 
-      {/* Viewport scroller. @container + cqw below: the columns used to be sized in vw, so once the
-          sidebar appears they each claim a share of the viewport the content area does not have and
-          the bracket overflows into the scroller. cqw measures this element instead. */}
+      {/* Viewport scroller. `@container` + `cqw` below, never `vw`: a `vw` column claims a share of
+          the VIEWPORT, which the content area does not have once the sidebar appears, so the bracket
+          overflows its own scroller. `cqw` measures this element instead. */}
       <div className="scrollbar-hide @container w-full snap-x snap-mandatory overflow-x-auto px-4 md:px-8">
         {/* Tree track */}
         <div className="mx-auto flex h-fit w-max flex-row items-stretch gap-8">
@@ -59,10 +63,8 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
             <div
               key={playoffsSpieltag.id}
               className="flex w-[85cqw] max-w-[380px] shrink-0 snap-center flex-col items-center @2xl:w-[42cqw] @5xl:w-[28cqw]">
-              {/* Round Header
-                  FIX: Swapped quaternary colors for the sleek surface/border combination
-              */}
-              <h2 className="bg-surface border-border text-foreground text-fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
+              {/* Round header */}
+              <h2 className="bg-surface border-border text-foreground fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
                 {playoffsSpieltag.name}
               </h2>
 
@@ -82,13 +84,13 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
                       className="relative flex w-full flex-1 flex-col justify-center py-3">
                       {/* --- UNBREAKABLE CSS BRACKET BRIDGES --- */}
 
-                      {/* A. Inbound Line (FIX: Replaced quaternary with bg-border) */}
+                      {/* A. Inbound line, joining this match to the round it was fed from. */}
                       {!isFirstRound && <div className="bg-border absolute top-[calc(50%-1px)] -left-4 h-[2px] w-4" />}
 
                       {/* B. Outbound Bracket Lines */}
                       {!isLastRound && (
                         <>
-                          {/* Top Game (FIX: Replaced quaternary with border-border) */}
+                          {/* Top game */}
                           {isTopNode && hasPartner && (
                             <div className="border-border absolute top-[calc(50%-1px)] -right-4 h-[calc(50%+1px)] w-4 rounded-tr-xl border-t-2 border-r-2" />
                           )}
@@ -103,7 +105,7 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
                         </>
                       )}
 
-                      {/* 6. THE CARD (Wrapped to ensure it sits above the lines) */}
+                      {/* C. The card, wrapped so `z-10` lifts it clear of the bracket lines above. */}
                       <div className="relative z-10 w-full">
                         <SpielCardUltraCompact
                           spielData={spielData}

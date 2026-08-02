@@ -4,16 +4,6 @@ import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
-// Bans the stock `tv`, which merges `text-fluid-*` as a colour and silently drops a text colour set
-// beside it (see `src/shared/utils/tv.ts`). Spread into every `no-restricted-imports` block rather
-// than given its own: flat config resolves a rule by LAST match, so a separate block would replace
-// the layer-boundary patterns below instead of adding to them.
-const RESTRICTED_TV_IMPORT = {
-  name: "tailwind-variants",
-  importNames: ["tv", "createTV"],
-  message: "Import { tv } from '@/shared/utils/tv' — the stock one drops text colours next to a text-fluid-* size.",
-};
-
 const LAYER_BOUNDARY = {
   core: {
     group: ["@/features/**", "@/shared/**", "**/features/**", "**/shared/**"],
@@ -48,21 +38,11 @@ const eslintConfig = defineConfig([
   // so a blanket cross-feature ban would flag mostly-correct sites (ADR-0012).
   {
     files: ["src/core/**/*.{ts,tsx}"],
-    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT], patterns: [LAYER_BOUNDARY.core] }] },
+    rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.core] }] },
   },
   {
     files: ["src/shared/**/*.{ts,tsx}"],
-    ignores: ["src/shared/utils/tv.ts"],
-    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT], patterns: [LAYER_BOUNDARY.shared] }] },
-  },
-  // `tv.ts` builds the wrapper, so it keeps the layer boundary but not the tv ban.
-  {
-    files: ["src/shared/utils/tv.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.shared] }] },
-  },
-  {
-    files: ["src/features/**/*.{ts,tsx}", "src/app/**/*.{ts,tsx}"],
-    rules: { "no-restricted-imports": ["error", { paths: [RESTRICTED_TV_IMPORT] }] },
   },
 
   {

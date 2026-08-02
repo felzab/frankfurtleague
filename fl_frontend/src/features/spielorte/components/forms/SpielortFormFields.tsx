@@ -63,7 +63,7 @@ export function SpielortFormFields<T extends SpielortDraft>({
         <Label className={FIELD_LABEL}>Standard Mietpreis</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
-          <NumberField.Input className="text-fluid-sm w-full py-0" />
+          <NumberField.Input className="fluid-sm w-full py-0" />
           <NumberField.IncrementButton />
         </NumberField.Group>
         <FieldError className={FIELD_ERROR}>{errors?.["default_mietpreis"]}</FieldError>

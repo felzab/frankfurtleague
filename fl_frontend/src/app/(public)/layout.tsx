@@ -8,9 +8,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <>
       <SkipToContentLink />
 
-      {/* box-content is load-bearing: the old h-[55px] was 54px of content plus the 1px border
-          under border-box, i.e. exactly --navbar-height, which the <nav> inside also uses. Without
-          box-content this would be 53px of content and the nav would overflow it by a pixel.
+      {/* box-content is load-bearing: h-[55px] under box-content is 54px of content plus the 1px
+          border, i.e. exactly --navbar-height, which the <nav> inside also uses. Under border-box it
+          would be 53px of content and the nav would overflow it by a pixel.
           No Suspense around TopNav, deliberately: it is fully static (sync, no data), so a boundary
           here guards nothing and just adds a resumable slot to the PPR shell. The header, nav and
           links are part of the static shell; the only request-time holes on these routes live in

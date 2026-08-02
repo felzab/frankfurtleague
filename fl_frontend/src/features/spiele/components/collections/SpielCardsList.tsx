@@ -25,11 +25,11 @@ export function SpielCardsList({ spiele, today, onAdminEdit }: { spiele: FLSpiel
       {/* Guarded, so a list that has never been clicked mounts no overlay at all. This
           component is instantiated once per collection — six on the admin action-required accordion,
           two on the landing grid, one each on spielsuche, spielhistorie and the active spielplan tab
-          — and each instance used to mount a full Modal.Backdrop / Container / Dialog tree plus its
-          react-aria overlay machinery on first paint, to show nothing.
-          The cost is the close animation: unmounting on `null` skips HeroUI's exit transition, so
-          the modal disappears rather than fading. Accepted by the owner, 2026-07-31, who valued the
-          mount saving over the transition. `AdminEditSpielDataModal` has always behaved this way. */}
+          — so mounting unconditionally would put a full Modal.Backdrop / Container / Dialog tree
+          plus its react-aria overlay machinery on first paint at every one of them, to show nothing.
+          The cost is the close animation: unmounting on `null` skips HeroUI's exit transition, so the
+          modal disappears rather than fading. Accepted by the owner, 2026-07-31, who valued the mount
+          saving over the transition. `AdminEditSpielDataModal` behaves the same way. */}
       {selectedSpiel && (
         <SpielDetailsModal
           spielData={selectedSpiel}

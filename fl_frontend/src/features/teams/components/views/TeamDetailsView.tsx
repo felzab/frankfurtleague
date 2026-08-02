@@ -14,6 +14,7 @@ import { computeErgebnisFor } from "@/features/spiele/utils";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { ExpandableDescription } from "@/shared/components/ui/ExpandableDescription";
+import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { sortByDate } from "@/shared/utils/date";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
 
@@ -92,23 +93,23 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
   const teamMapUrl = buildMapsSearchUrl(formattedTeamAddress);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 flex w-full flex-col gap-y-8 pb-12 duration-400">
+    <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 pb-12`}>
       {/* Back Navigation Button */}
       <Button
         onPress={() => {
           router.back();
         }}
-        className="bg-surface border-border text-foreground hover:bg-muted text-fluid-xs mb-[-12px] flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+        className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-[-12px] flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
         <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
         <span>Zurück</span>
       </Button>
 
       {/* Header Info Card */}
       <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4`}>
-        <h1 className="text-fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h1>
+        <h1 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h1>
 
         {/* Offizieller Schulname. No emptiness guard: both schemas now require it. */}
-        <p className="text-fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
+        <p className="fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>
 
         <div className="flex flex-col gap-y-1 pt-2">
           <Link
@@ -116,7 +117,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
             rel="noopener noreferrer"
             prefetch={false}
             href={teamData.website_url}
-            className="text-fluid-xs text-brand font-bold hover:underline">
+            className="fluid-xs text-brand font-bold hover:underline">
             🌐 Schul-Website öffnen
           </Link>
 
@@ -124,7 +125,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
             href={teamMapUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-fluid-xs text-brand font-bold hover:underline">
+            className="fluid-xs text-brand font-bold hover:underline">
             📍 {formattedTeamAddress}
           </Link>
         </div>
@@ -138,12 +139,11 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
 
       {/* Saison Stats Section */}
       <div className="flex flex-col gap-y-4">
-        <h2 className="text-fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
+        <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
 
-        {/* Five cards, one code path. "Punkte" used to sit outside the map with key={5} — one added
-            stat away from colliding with the map's own indices — and carried variant="secondary",
-            which renders identically to "default". `desktopOnly` is the only real
-            difference between it and the other four. */}
+        {/* Five cards, one code path — including "Punkte", which differs from the other four only by
+            `desktopOnly`. Lifting it out of the map would mean a hand-written key alongside the map's
+            own indices, and a variant that renders identically to the default. */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           {[
             { label: "Spiele", value: teamData.statistik.anzahl_gespielte_spiele, desktopOnly: false },
@@ -168,8 +168,8 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
               // `" hidden lg:block"` is silently removed and the classes glue together.
               className={`${card()} ${stat.desktopOnly ? "hidden lg:block" : ""}`}>
               <Card.Content className="py-4 text-center">
-                <p className="text-fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
-                <p className="text-fluid-lg text-foreground font-extrabold">{stat.value}</p>
+                <p className="fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
+                <p className="fluid-lg text-foreground font-extrabold">{stat.value}</p>
               </Card.Content>
             </Card>
           ))}
@@ -178,7 +178,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
 
       {/* Games Timeline */}
       <div className="mt-4 size-full">
-        <h2 className="text-fluid-lg text-foreground mb-6 font-extrabold tracking-tight">Saisonspiele</h2>
+        <h2 className="fluid-lg text-foreground mb-6 font-extrabold tracking-tight">Saisonspiele</h2>
         <SaisonSpieleTimeline
           spiele={teamSpiele}
           teamId={teamData.id}

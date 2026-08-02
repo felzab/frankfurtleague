@@ -29,8 +29,8 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
 
         {/** Game Metadata */}
         <div className="flex h-full w-fit flex-col items-start">
-          <span className="text-fluid-sm text-foreground font-bold">{spielDatum}</span>
-          <span className="text-fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
+          <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
+          <span className="fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
         </div>
 
         {/** Who vs. Who — equal 1fr tracks keep the score centered whatever the shorthand lengths. */}
@@ -41,7 +41,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
               teamName={spielData.team1.name}
               teamId={spielData.team1.team_id}
               teamShorthand={spielData.team1.shorthand}>
-              <strong className="text-fluid-base hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
+              <strong className="fluid-base hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
                 {spielData.team1.shorthand}
               </strong>
             </TeamPopoverMenu>
@@ -49,7 +49,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
 
           {/* The result in the status chips' tint formula -- the owner's reference chip look. */}
           <span
-            className={`text-fluid-xs rounded-md px-1.5 py-0.5 text-center font-extrabold ${
+            className={`fluid-xs rounded-md px-1.5 py-0.5 text-center font-extrabold ${
               spielData.ergebnis !== null ? "bg-success/15 text-success-strong" : "bg-danger/15 text-danger-strong"
             }`}>
             {spielErgebnis}
@@ -60,7 +60,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
               teamName={spielData.team2.name}
               teamId={spielData.team2.team_id}
               teamShorthand={spielData.team2.shorthand}>
-              <strong className="text-fluid-base hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
+              <strong className="fluid-base hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
                 {spielData.team2.shorthand}
               </strong>
             </TeamPopoverMenu>

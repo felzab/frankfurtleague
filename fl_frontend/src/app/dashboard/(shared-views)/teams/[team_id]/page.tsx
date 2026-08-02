@@ -52,11 +52,11 @@ export default async function TeamDetailsPage(props: NextPageProps<{ team_id: st
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
 
-  // A missing team is a 404; a response in the wrong shape is a broken contract. Checked in that
-  // order so each reaches the right place: the shape check used to sit *after* a combined
-  // `!teamsRes || format !== "list"` notFound(), which made it unreachable and reported a backend
-  // contract violation to the user as "Team nicht gefunden" -- the same conflation the catch above
-  // exists to avoid, since notFound() is not an error and never reaches onRequestError.
+  // A missing team is a 404; a response in the wrong shape is a broken contract. Checked separately
+  // and in that order so each reaches the right place. A combined
+  // `!teamsRes || format !== "list"` notFound() makes the shape check unreachable and reports a
+  // backend contract violation as "Team nicht gefunden" -- the same conflation the catch above exists
+  // to avoid, since notFound() is not an error and never reaches onRequestError.
   if (!teamsRes) {
     notFound();
   }
@@ -70,7 +70,7 @@ export default async function TeamDetailsPage(props: NextPageProps<{ team_id: st
     notFound();
   }
 
-  // Legal here: the scope is already dynamic via the connection() above (R3a-B4.1 constraint).
+  // Legal here: the scope is already dynamic via the connection() above (ADR-0009).
   const today = getGermanTodayStr();
 
   return (

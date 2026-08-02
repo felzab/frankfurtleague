@@ -14,9 +14,6 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
  * Static marketing chrome, with the one data-dependent region — the recent/upcoming grid — isolated
  * behind `Suspense`. That split is the whole point of the page's structure: the shell is prerendered
  * and the data hole streams in, so the page paints without waiting on the backend.
- *
- * The skeleton reserves exactly six cards per section because the query behind it is capped at six,
- * which is what makes the swap shift nothing.
  */
 export default function LandingPage() {
   return (
@@ -37,16 +34,16 @@ export default function LandingPage() {
               {/* `/10`, not `/15`: the label is 13.9px bold, i.e. normal-size text under WCAG, so it needs
                   4.5:1 against its own tint. A 10% tint measures 4.70:1 in the dark theme and 7.69:1 in
                   the light one; 15% drops the dark reading to 4.42:1. Re-measure if --accent-brand moves. */}
-              <div className="border-brand/30 bg-brand/10 text-fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
+              <div className="border-brand/30 bg-brand/10 fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
                 <span className="bg-brand-solid size-2 animate-ping rounded-full" />
                 Saison 2026
               </div>
 
-              <h1 className="text-fluid-3xl font-black tracking-tight uppercase">
+              <h1 className="fluid-3xl font-black tracking-tight uppercase">
                 Die Saison läuft! Wer holt sich den <span className="text-brand">Titel</span>?
               </h1>
 
-              <p className="text-fluid-sm text-foreground-muted max-w-xl font-medium">
+              <p className="fluid-sm text-foreground-muted max-w-xl font-medium">
                 Sehe alle wichtigen Daten der Frankfurt-League ein, verfolge Spieltage, Ergebnisse, Tabellen und mehr...
               </p>
             </div>
@@ -76,10 +73,10 @@ export default function LandingPage() {
               prefetch={false}
               className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
-                <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Schulen & Kader</span>
-                <span className="text-fluid-sm text-foreground font-black">Alle Teams durchstöbern</span>
+                <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Schulen & Kader</span>
+                <span className="fluid-sm text-foreground font-black">Alle Teams durchstöbern</span>
               </div>
-              <span className="text-fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
+              <span className="fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
             </Link>
 
             {/* CTA Card 2: Tabelle */}
@@ -88,10 +85,10 @@ export default function LandingPage() {
               prefetch={false}
               className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
-                <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Ranking</span>
-                <span className="text-fluid-sm text-foreground font-black">Tabellenstand & Platzierungen</span>
+                <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Ranking</span>
+                <span className="fluid-sm text-foreground font-black">Tabellenstand & Platzierungen</span>
               </div>
-              <span className="text-fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
+              <span className="fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
             </Link>
 
             {/* CTA Card 3: Spielplan */}
@@ -100,10 +97,10 @@ export default function LandingPage() {
               prefetch={false}
               className={`${card({ interactive: true })} group relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
-                <span className="text-fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchday</span>
-                <span className="text-fluid-sm text-foreground font-black">Ansetzungen & Ergebnisse</span>
+                <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchday</span>
+                <span className="fluid-sm text-foreground font-black">Ansetzungen & Ergebnisse</span>
               </div>
-              <span className="text-fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
+              <span className="fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
             </Link>
           </div>
         </div>
@@ -112,7 +109,7 @@ export default function LandingPage() {
         <div className="border-border bg-surface relative flex w-full flex-col items-center justify-between gap-6 overflow-hidden rounded-2xl border px-4 py-4 shadow-xs sm:px-6 lg:flex-row lg:py-6">
           <div className="relative z-10 flex items-center gap-3">
             <span className="bg-brand-solid min-h-2 min-w-2 animate-pulse rounded-full" />
-            <span className="text-fluid-sm text-foreground font-bold">Du hast Fragen zum Turnierablauf oder möchtest mit uns sprechen?</span>
+            <span className="fluid-sm text-foreground font-bold">Du hast Fragen zum Turnierablauf oder möchtest mit uns sprechen?</span>
           </div>
 
           <div className="relative z-10 flex w-full flex-col items-stretch gap-3 sm:flex-row lg:w-auto lg:shrink-0">
@@ -134,12 +131,13 @@ export default function LandingPage() {
 
       {/* GAMES CONTAINER */}
       <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
-        {/* The fallback is the real layout in skeleton form, not a spinner. It used to be one centred
-            line, so while the matches loaded the page was a few hundred pixels shorter than it would
-            be: the footer rode up into view and then everything jumped down when the data landed.
-            `SpielCardSkeleton` is dimensionally identical to `SpielCard` — see the note there — so
-            two headed sections of six skeletons occupy exactly the space two sections of six cards
-            will, and nothing moves when they are replaced. */}
+        {/* The fallback is the real layout in skeleton form rather than a spinner, so the page holds
+            roughly its final height while the matches load. A short fallback leaves the page a few
+            hundred pixels shorter than it will be, which pulls the footer into view and then jumps
+            everything down when the data lands. `SpielCardSkeleton` is dimensionally identical to
+            `SpielCard` — see the note there — so the reserved rows are exactly as tall as the real
+            ones. It deliberately reserves fewer than the six cards the query can return;
+            `VISIBILITY` in that file explains why under-reserving is the safe direction. */}
         <Suspense fallback={<RecentAndUpcomingSpieleGridSkeleton />}>
           <RecentAndUpcomingSpieleGrid />
         </Suspense>

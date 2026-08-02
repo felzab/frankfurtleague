@@ -1,4 +1,4 @@
-import { tv } from "@/shared/utils/tv";
+import { tv } from "tailwind-variants";
 
 /**
  * The app's "nothing here" language. Eight views rendered a blank region when their collection was
@@ -12,8 +12,8 @@ import { tv } from "@/shared/utils/tv";
 const emptyState = tv({
   slots: {
     root: "border-border bg-surface flex w-full flex-col items-center justify-center gap-2 rounded-2xl border p-10 text-center shadow-sm",
-    title: "text-fluid-base font-bold",
-    hint: "text-fluid-sm text-foreground-muted font-medium",
+    title: "fluid-base font-bold",
+    hint: "fluid-sm text-foreground-muted font-medium",
   },
   variants: {
     tone: {
@@ -24,11 +24,26 @@ const emptyState = tv({
   defaultVariants: { tone: "neutral" },
 });
 
-export function EmptyState({ title, hint, tone }: { title: string; hint?: string; tone?: "neutral" | "positive" }) {
+/**
+ * `className` reaches the panel itself, not a wrapper. It exists for one job — letting a caller give
+ * the panel a `min-h-*` so a section that has nothing to show still reserves the height it would have
+ * had — and a wrapper cannot do that, because the panel does not stretch to fill one.
+ */
+export function EmptyState({
+  title,
+  hint,
+  tone,
+  className,
+}: {
+  title: string;
+  hint?: string;
+  tone?: "neutral" | "positive";
+  className?: string;
+}) {
   const styles = emptyState({ tone });
 
   return (
-    <div className={styles.root()}>
+    <div className={styles.root({ className })}>
       <p className={styles.title()}>{title}</p>
       {hint && <p className={styles.hint()}>{hint}</p>}
     </div>

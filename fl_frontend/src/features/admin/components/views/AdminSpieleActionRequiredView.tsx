@@ -8,6 +8,7 @@ import { Accordion } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "../../utils";
@@ -37,7 +38,8 @@ export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overv
           return (
             <Accordion.Item
               key={category}
-              /* Removed overflow-hidden so nothing gets clipped */
+              /* `card()` and nothing else — in particular no `overflow-hidden`, which would clip the
+                 team popovers the cards inside this panel open. */
               className={card()}>
               {/* `level={2}` sits these six under the page `h1`. `Accordion.Heading` already emits a
                   real heading wrapping the trigger (react-aria-components defaults it to `h3`), so
@@ -46,18 +48,18 @@ export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overv
                 <Accordion.Trigger className="hover:bg-muted/40 flex w-full flex-row items-center justify-between rounded-2xl px-6 py-5 text-left transition-colors">
                   <div className="flex flex-col gap-y-1">
                     <div className="flex items-center gap-x-3">
-                      <span className="text-fluid-base text-foreground font-extrabold tracking-tight">{label.name}</span>
+                      <span className="fluid-base text-foreground font-extrabold tracking-tight">{label.name}</span>
                       {/* The `-solid` fills hold one deep value in both themes, so white stays legible
                           on them. The plain `danger`/`success` accents are tuned as tints and
                           measured 3.30:1 light / 2.28:1 dark behind this 12px bold count. */}
                       <span
-                        className={`text-fluid-xxs inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 font-extrabold shadow-sm ${
+                        className={`fluid-xxs inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 font-extrabold shadow-sm ${
                           hasItems ? "bg-danger-solid text-danger-solid-foreground" : "bg-success-solid text-success-solid-foreground"
                         }`}>
                         {spiele.length}
                       </span>
                     </div>
-                    <span className="text-fluid-xxs text-foreground-muted font-medium">{label.desc}</span>
+                    <span className="fluid-xxs text-foreground-muted font-medium">{label.desc}</span>
                   </div>
                   <Accordion.Indicator className="text-foreground-muted transition-transform duration-200">
                     <ChevronsDownWide
@@ -71,9 +73,12 @@ export function AdminSpieleActionRequiredView({ overviewSpiele, today }: { overv
               <Accordion.Panel>
                 <Accordion.Body className="border-border flex w-full flex-col items-center border-t px-2 py-6 lg:px-6">
                   {hasItems ? (
+                    // Cascades like every other `SpielCard` grid. It reads especially well here
+                    // because the trigger is an accordion expanding: the cards arrive into the space
+                    // the panel is opening rather than being there the instant it does.
                     <div
                       role="list"
-                      className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                      className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
                       <AdminSpielCardsList
                         spiele={spiele}
                         today={today}

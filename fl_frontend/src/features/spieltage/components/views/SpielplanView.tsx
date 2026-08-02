@@ -5,6 +5,7 @@ import { Tabs } from "@heroui/react";
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
+import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
 import type { FLSpielplan } from "../../schemas";
 
@@ -27,7 +28,8 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
   }
 
   return (
-    // Updated to flex-1 and flex-col so it handles height naturally without jumping.
+    // `flex-1` and `flex-col` so the panel takes its height from its content rather than from a
+    // fixed value, which is what stops the page jumping between Spieltage of different sizes.
     // The arrival animation lives here rather than on each panel: this element mounts once
     // per page visit and never again on a tab press, so the rise plays exactly when it should — the
     // page settling into place — and cannot be replayed or interrupted by switching Spieltag.
@@ -36,7 +38,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
     // against its nearest scrollport (`<main>`, further up and untransformed). And the animation only
     // ever runs at mount, when the scroller is still at the top and nothing is stuck yet — measured
     // at rest, the root's `transform` is `none` with zero live animations.
-    <Tabs className="animate-in fade-in slide-in-from-bottom-4 relative flex w-full flex-1 flex-col items-center duration-400">
+    <Tabs className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
       {pageHeading}
 
       <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
@@ -49,7 +51,8 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
               <Tabs.Tab
                 key={spieltagData.id}
                 id={spieltagData.id}
-                /* shrink-0 removed! whitespace-nowrap handles the sizing naturally. */
+                /* `whitespace-nowrap` is what keeps a Spieltag label on one line, and it does so by
+                   widening the tab — so the tab needs no `shrink-0` of its own inside the scroller. */
                 className={`${TAB_ITEM} flex h-11 items-center px-5 whitespace-nowrap md:px-6`}>
                 {spieltagData.name}
                 <Tabs.Indicator className={TAB_INDICATOR} />
@@ -65,26 +68,23 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
           key={spieltagData.id}
           id={spieltagData.id}
           className="max-w-page w-full px-4 pt-0 pb-4 outline-none sm:px-8">
-          {/* The entry animation lives here and NOT on `Tabs.Panel`. RAC keeps a deselected panel
-              mounted until `panel.getAnimations()` all settle (`useExitAnimation`), and
-              `getAnimations()` does not look at descendants — so an `animate-in` on the panel itself
-              made a fast tab switch hold the previous panel on screen for the rest of its enter
-              animation, which is the leftover-cards flicker. Identical visually.
+          {/* The switch animation belongs on the CARDS, never on `Tabs.Panel` or on this container.
 
-              The rise moved up to the `Tabs` root, which mounts once, so it no longer replays on
-              every press. The switch animation is now `cards-cascade` (defined in
-              `globals.css`) and it sits on the CARDS, not on this container.
+              Two independent reasons, and both matter. RAC keeps a deselected panel mounted until
+              `panel.getAnimations()` all settle (`useExitAnimation`), and `getAnimations()` does not
+              look at descendants — so an `animate-in` on the panel itself makes a fast tab switch
+              hold the previous panel on screen for the rest of its enter animation, which reads as
+              leftover cards. And animating this container fades the whole grid as one block, which
+              still reads as the content mutating in place, because every card lands at exactly the
+              screen position the previous Spieltag's card occupied. Only staggering the cards puts
+              them in sequence, and the eye follows a sequence rather than catching one flash.
 
-              That took three goes, and the first two were aimed at the wrong thing. Timing was never
-              it: 400ms, 150ms and a fade-from-50% all flickered identically, which is the tell — if
-              very different durations look the same, duration is not the variable. The owner named
-              the real cause: every card lands at exactly the screen position the previous Spieltag's
-              card occupied, so animating this container fades the whole grid as one block and still
-              reads as the content mutating in place. Staggering the cards puts them in sequence
-              instead, and the eye follows a sequence rather than catching a single flash. */}
+              So `cards-cascade` (defined in `globals.css`) goes on the grid below, and the one-off
+              rise sits on the `Tabs` root, which mounts once per visit and so never replays on a
+              press. */}
           <div
             role="list"
-            className="cards-cascade grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
             {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}

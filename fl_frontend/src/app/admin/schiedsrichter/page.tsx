@@ -8,10 +8,10 @@ import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-// Not async: the chrome no longer waits on the referee list. The page title used to be a
-// prop on a client element built after `await getSchiedsrichter()`, so a static heading sat behind a
-// FastAPI round-trip. `connection()` moves down into SchiedsrichterTable with the fetch it guards —
-// ADR-0009's requirement is that nothing fetches at build time, and that still holds.
+// Not async, so the chrome never waits on the referee list. Passing the page title to a client
+// element built after `await getSchiedsrichter()` would put a static heading behind a FastAPI
+// round-trip. `connection()` sits down in SchiedsrichterTable with the fetch it guards — ADR-0009
+// requires only that nothing fetches at build time.
 export default function AdminSchiedsrichterPage() {
   return (
     <AdminCrudShell

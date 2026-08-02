@@ -47,19 +47,19 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
           <Table.Header>
             <Table.Column
               isRowHeader
-              className="bg-muted text-foreground-muted text-fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+              className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
               Name
             </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted text-fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
               Kontakt
             </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted text-fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
               Schule / Verein
             </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted text-fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
               Std. Honorar
             </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted text-fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
               Aktionen
             </Table.Column>
           </Table.Header>
@@ -70,7 +70,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             items={filteredSchiedsrichter}
             renderEmptyState={() => (
               <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                <p className="text-fluid-sm text-foreground-muted font-medium">
+                <p className="fluid-sm text-foreground-muted font-medium">
                   {schiedsrichterQuery ? "Keine Schiedsrichter für diese Suche gefunden." : "Es wurden noch keine Schiedsrichter angelegt."}
                 </p>
               </div>
@@ -87,17 +87,17 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                       width={18}
                       height={18}
                     />
-                    <span className="text-fluid-sm text-foreground font-semibold">{schiedsrichter.name}</span>
+                    <span className="fluid-sm text-foreground font-semibold">{schiedsrichter.name}</span>
                   </div>
                 </Table.Cell>
 
                 {/* 2. Kontakt (Stacked Email and Phone) */}
                 <Table.Cell className="px-6 py-4">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-fluid-sm text-foreground">
+                    <span className="fluid-sm text-foreground">
                       {schiedsrichter.kontakt.email || <span className="text-foreground-muted/50 italic">Keine E-Mail</span>}
                     </span>
-                    <span className="text-fluid-xs text-foreground-muted">
+                    <span className="fluid-xs text-foreground-muted">
                       {schiedsrichter.kontakt.telefon || <span className="text-foreground-muted/50 italic">Keine Telefonnummer</span>}
                     </span>
                   </div>
@@ -105,14 +105,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
                 {/* 3. Schule / Verein */}
                 <Table.Cell className="px-6 py-4">
-                  <span className="text-fluid-sm text-foreground">
+                  <span className="fluid-sm text-foreground">
                     {schiedsrichter.schule || <span className="text-foreground-muted/50 italic">—</span>}
                   </span>
                 </Table.Cell>
 
                 {/* 4. Honorar */}
                 <Table.Cell className="px-6 py-4">
-                  <span className="bg-muted text-foreground text-fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
+                  <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
                     {formatEuro(schiedsrichter.default_payment)}
                   </span>
                 </Table.Cell>

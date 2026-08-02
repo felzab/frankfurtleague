@@ -6,7 +6,7 @@
  * variants mean, is on the export.
  */
 
-import { tv } from "@/shared/utils/tv";
+import { tv } from "tailwind-variants";
 
 /**
  * The one card appearance. Surveyed across all 8 `<Card>` mounts and the 4

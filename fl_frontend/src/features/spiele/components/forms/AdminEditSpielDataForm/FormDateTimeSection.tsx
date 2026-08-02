@@ -40,7 +40,7 @@ export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
           {/* HeroUI styles literal segments (the "." and ":") with `text-muted`, which is a
               *background* token -- about 1.1:1 against the field surface, so the separators were
               effectively invisible. `data-type` comes from react-aria on every segment. */}
-          <DateField.Input className="text-fluid-sm">
+          <DateField.Input className="fluid-sm">
             {(segment) => (
               <DateField.Segment
                 segment={segment}
@@ -54,7 +54,7 @@ export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
             </DatePicker.Trigger>
           </DateField.Suffix>
         </DateField.Group>
-        <Description className="text-fluid-xxs text-foreground-muted">Wähle das Datum aus, an dem das Spiel stattfindet</Description>
+        <Description className="fluid-xxs text-foreground-muted">Wähle das Datum aus, an dem das Spiel stattfindet</Description>
         <FieldError className={FIELD_ERROR} />
         <DatePicker.Popover className="p-2">
           <Calendar
@@ -87,7 +87,7 @@ export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
         defaultValue={spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null}>
         <Label className={FIELD_LABEL}>Uhrzeit</Label>
         <TimeField.Group className="border-border bg-surface text-foreground rounded-lg border">
-          <TimeField.Input className="text-fluid-sm">
+          <TimeField.Input className="fluid-sm">
             {(segment) => (
               <TimeField.Segment
                 segment={segment}
@@ -96,7 +96,7 @@ export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
             )}
           </TimeField.Input>
         </TimeField.Group>
-        <Description className="text-fluid-xxs text-foreground-muted">Die Uhrzeit des Anpfiffs</Description>
+        <Description className="fluid-xxs text-foreground-muted">Die Uhrzeit des Anpfiffs</Description>
         <FieldError className={FIELD_ERROR} />
       </TimeField>
     </div>

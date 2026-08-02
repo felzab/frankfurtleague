@@ -39,7 +39,7 @@ export function SidemenuFooter({
           }`}
           aria-label="Zur öffentlichen Website">
           <ArrowRightToSquare className="h-[18px] w-[18px] shrink-0" />
-          {!isDesktopCollapsed && <span className="text-fluid-sm font-medium">Zur Website</span>}
+          {!isDesktopCollapsed && <span className="fluid-sm font-medium">Zur Website</span>}
         </Link>
       </IconTooltip>
 
@@ -58,7 +58,7 @@ export function SidemenuFooter({
           ) : (
             <LayoutSideContentLeft className="h-[18px] w-[18px] shrink-0" />
           )}
-          {!isDesktopCollapsed && <span className="text-fluid-sm font-medium">Menü einklappen</span>}
+          {!isDesktopCollapsed && <span className="fluid-sm font-medium">Menü einklappen</span>}
         </button>
       </IconTooltip>
     </div>

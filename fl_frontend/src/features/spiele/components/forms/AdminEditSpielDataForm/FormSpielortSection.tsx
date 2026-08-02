@@ -109,10 +109,10 @@ export function FormSpielortSection({
         <Label className={FIELD_LABEL}>Mietpreis</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
-          <NumberField.Input className="text-fluid-sm w-full py-0" />
+          <NumberField.Input className="fluid-sm w-full py-0" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description className="text-fluid-xxs text-foreground-muted">Der Mietpreis für den Spielort</Description>
+        <Description className="fluid-xxs text-foreground-muted">Der Mietpreis für den Spielort</Description>
         <FieldError className={FIELD_ERROR} />
       </NumberField>
     </InlineCreateAutocomplete>

@@ -93,7 +93,7 @@ export function ConfirmDeleteModal({
       }>
       <div className="flex min-h-[80px] flex-col justify-center gap-4 px-3 pt-2">
         {confirmStep === 1 ? (
-          <p className="text-fluid-sm text-foreground-muted leading-relaxed">
+          <p className="fluid-sm text-foreground-muted leading-relaxed">
             Möchtest du {entityLabel}
             <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
               {entityName}
@@ -115,7 +115,7 @@ export function ConfirmDeleteModal({
               />
               Bist du dir wirklich sicher?
             </div>
-            <p className="text-fluid-sm text-foreground-muted leading-relaxed">
+            <p className="fluid-sm text-foreground-muted leading-relaxed">
               Diese Aktion kann <strong className="text-foreground">nicht</strong> rückgängig gemacht werden. {consequence}
             </p>
           </div>
