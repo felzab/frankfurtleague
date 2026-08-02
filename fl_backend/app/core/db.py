@@ -33,7 +33,7 @@ from motor.motor_asyncio import (
     AsyncIOMotorDatabase,
 )
 
-from app.core.config import get_config
+from app.core.config import BackendConfig, get_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import DatabaseUnavailableException
 from app.core.logging import fl_logger
@@ -85,10 +85,16 @@ async def get_db_client(request: Request) -> AsyncIOMotorClient:
     return request.app.state.db_client
 
 
-async def get_database(request: Request) -> AsyncIOMotorDatabase:
+async def get_database(
+    request: Request,
+    config: BackendConfig = Depends(get_config),
+) -> AsyncIOMotorDatabase:
+    # Through `Depends`, not `get_config()` directly: an app built with injected settings must reach
+    # THAT database name. Reading the global here would have every collection dependency quietly
+    # resolve against the real one while the guards used the injected keys.
     if not hasattr(request.app.state, "db_client"):
         raise DatabaseUnavailableException(error_code="DB-CONN-001")
-    return request.app.state.db_client[get_config().db_base_name]
+    return request.app.state.db_client[config.db_base_name]
 
 
 async def get_spiele_collection(

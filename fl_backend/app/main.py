@@ -76,9 +76,11 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     Build the application.
 
     `config` is injectable so a test can supply its own settings object rather than arranging the
-    environment and hoping about import order. Passing one also overrides `get_config` for the
-    request-scoped dependencies, so the guards in `core/security.py` check the keys given here.
+    environment and hoping about import order. Passing one also substitutes it for the request-scoped
+    `Depends(get_config)`, so the guards in `core/security.py` and the database name in `core/db.py`
+    all agree with what this app was built from.
     """
+    injected = config is not None
     config = config or get_config()
 
     # Before the app exists, so a failure while constructing it is logged in the right format.
@@ -109,8 +111,11 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     def root():
         return "Hello World"
 
-    # So the request-scoped `Depends(get_config)` in the guards resolves to the settings this app was
-    # built with, rather than to whatever the environment would produce.
-    app.dependency_overrides[get_config] = lambda: config
+    # ONLY when a caller supplied settings. `dependency_overrides` is FastAPI's substitution seam for
+    # tests, so installing it unconditionally would spend it in production to replace `get_config`
+    # with a function returning exactly what `get_config` returns -- and would leave a test unable to
+    # tell its own override from the factory's.
+    if injected:
+        app.dependency_overrides[get_config] = lambda: config
 
     return app
