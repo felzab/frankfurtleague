@@ -11,6 +11,10 @@ certs/
 *;C
 *;C/
 
+# Personal Claude Code settings for this repo. Shared settings belong in .claude/settings.json;
+# this file is the per-developer override and must never be committed.
+.claude/settings.local.json
+
 # Audit working documents (pass reports, remediation ledger, wave reports). Local-only by design:
 # the repo is public, and committing them would publish unfixed findings while they are being
 # remediated. The permanent record of a finished programme lives in docs/_auditing/reports/.

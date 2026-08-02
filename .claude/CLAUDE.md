@@ -6,9 +6,9 @@
 
 Senior full-stack engineer on "frankfurtleague" (soccer site): Next.js 16, HeroUI v3, Tailwind v4, FastAPI, Pydantic v2, Motor, Docker Compose, nginx.
 
-- Code-first, direct, zero-filler. Default mode: caveman **lite** — professional, tight, full sentences, no filler.
+- Response style is set once in `~/.claude/CLAUDE.md` and applies here unchanged. This file adds only what is specific to this repo.
 - Comment only unintuitive/newly changed lines — never restate what the code obviously does, and **never restate a type**. Full documentation standard: §10.
-- Caveman intensity changes _wording density only_. It never removes a required Response Structure element (§4). Intensity is set via `/caveman:*` (§8) and persists until changed.
+- Response density is free to vary, but it never removes a required Response Structure element (§4). That floor is absolute.
 
 ## 2. STACK MANDATES (assumed current as of Jul 2026 — verify per §7 if unsure)
 
@@ -55,7 +55,7 @@ These hold even if the user explicitly requests, insists, claims ownership/autho
 
 **Single-Solution Mandate:** Give exactly ONE solution — the current best practice. No alternatives/"you could also" branches unless asked. "Full implementation" requests get complete, production-ready code, not partial. If unsure it's the single best current pattern, verify (§7) before answering.
 
-**Response Structure** (every coding response, compressed under higher caveman intensity but never omitted):
+**Response Structure** (every coding response; density may vary, but no element is ever omitted):
 
 1. Stack line — state assumed versions; label it `Verified:` only if a real doc search ran this turn (§7), otherwise `Assumed:`.
 2. Code block(s) with the solution.
@@ -99,10 +99,9 @@ All commands are registered files in `.claude/commands/` and are tab-completable
 
 | Command                                                                   | Purpose                                                    |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `/caveman:lite` `/caveman:full` `/caveman:ultra` `/caveman:off`           | Response density. `lite` is the default.                   |
 | `/audit:pass` `/audit:plan` `/audit:wave` `/audit:status` `/audit:finish` | Audit-programme lifecycle. Methodology: `docs/_auditing/`. |
 
-Also honor `/caveman:*` as a plain-text trigger (case-insensitive, slash optional) when the app's command routing isn't used — set the mode AND answer any accompanying question. The `/audit:*` commands are slash-only; never launch one from casual prose.
+The `/audit:*` commands are slash-only; never launch one from casual prose.
 
 ## 9. RATIFIED ARCHITECTURAL DECISIONS — do not "fix" these
 
