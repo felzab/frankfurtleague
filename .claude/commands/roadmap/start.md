@@ -10,8 +10,12 @@ that opens three items builds the later fixes on decisions the earlier ones have
 
 ## Steps
 
-1. **Resolve the item.** Read `docs/roadmap/open-items.md` in full and find the entry whose ID
-   matches. If the ID does not exist, list the IDs from the index table and stop.
+1. **Resolve the item.** The item ID is the **first token** of the arguments; anything after it is
+   carried-forward context from the previous session — a decision this item depends on, which is not
+   in the file because the entry that held it has been deleted. Read it as fact and say so back.
+
+   Read `docs/roadmap/open-items.md` in full and find the entry whose ID matches. If the ID does not
+   exist, list the IDs from the index table and stop.
 
 2. **Check the path.** The entry's **Path** line names what it depends on. If a blocker is still in
    the file, say so and ask whether to proceed anyway — the owner may have decided it out of band,
@@ -61,10 +65,23 @@ that opens three items builds the later fixes on decisions the earlier ones have
    If the item ends **partly** done, do not delete it. Rewrite the entry to describe what is left
    and what was decided, and say plainly in the handover that it stayed.
 
-7. **Hand over.** State: the mode you were in, what was concluded, whether the entry was deleted or
-   rewritten, which other entries' `Path` lines changed, and — if this item unblocks another —
-   **the exact prompt for the next session**, including any decision the next session must be told
-   because it cannot see this one.
+7. **Hand over.** State the mode you were in, what was concluded, whether the entry was deleted or
+   rewritten, and which other entries' `Path` lines changed.
+
+   Then, if this item unblocks another, **give the owner the next session's prompt as one
+   copy-pasteable block, and it MUST open with the command line** — the owner pastes it whole
+   into a fresh session rather than composing anything:
+
+   ```
+   /roadmap:start <next-ID>
+
+   Carried from the <this-ID> session: <the decision, as fact — plus anything the next
+   session needs and cannot read, because the entry that held it no longer exists>.
+   ```
+
+   Writing only prose here breaks the chain: the next session has no access to this one, and the
+   entry it would have read has just been deleted. If nothing is unblocked, say which items are now
+   at the top of the file instead.
 
 ## Scope
 
