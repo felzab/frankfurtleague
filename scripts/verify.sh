@@ -15,10 +15,10 @@
 #   1. selfcheck.sh  — the scripts themselves (instant)
 #   2. pnpm verify   — formats, then types, lint, next build, unit tests
 #   3. pnpm audit:prod — runtime dependency advisories only
-#   4. ruff + pytest  — fl_backend lint and the DEFAULT test tier (the db-marked tests need a
-#                       mongod and stay out, so this path needs no Docker — see ADR-0030)
-#   5. docker build  — BOTH images, which pnpm verify does not cover
-#   6. an image check — is instrumentation.js actually inside the frontend image?
+#   4. ruff + pyright + pytest — fl_backend lint, TYPES and the default test tier. No Docker.
+#   5. pytest -m db  — the db-marked tests against a real mongod (ADR-0030). Needs Docker
+#   6. docker build  — BOTH images, which pnpm verify does not cover
+#   7. an image check — is instrumentation.js actually inside the frontend image?
 #
 # WHY STEPS 5 AND 6 EXIST:
 #   `pnpm verify` has been green while the image was broken. Twice.
@@ -29,8 +29,9 @@
 #
 # USAGE:
 #   ./scripts/verify.sh           everything (the image build takes a few minutes)
-#   ./scripts/verify.sh --quick   skip the image build — NOT sufficient before a merge if you
-#                                 touched src/core/config.ts, src/core/auth.ts or src/instrumentation.ts
+#   ./scripts/verify.sh --quick   skip everything that needs Docker: the db test tier and the image
+#                                 build. NOT sufficient before a merge if you touched
+#                                 src/core/config.ts, src/core/auth.ts or src/instrumentation.ts
 #   ./scripts/verify.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -65,11 +66,17 @@ else
   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit --prod"
 fi
 
-step "fl_backend  (ruff + pytest, default tier)"
+step "fl_backend  (ruff + pyright + pytest, default tier)"
 _py="$(venv_python)"
 ( cd fl_backend && "$_py" -m ruff check app tests && "$_py" -m ruff format --check app tests )   || die "ruff failed in fl_backend. Fix with:  cd fl_backend && .venv/Scripts/python -m ruff format app tests"
+# ruff does not check types and pytest only runs what it executes, so without this the gate was green
+# while Pylance showed errors in the editor -- and five reached main that way. Same checker, same
+# config: [tool.pyright] in fl_backend/pyproject.toml points at the venv, without which pyright
+# resolves no third-party import and reports over a hundred phantom errors.
+( cd fl_backend && "$_py" -m pyright ) || die "pyright found type errors in fl_backend.
+       These are the same errors Pylance shows in the editor."
 ( cd fl_backend && "$_py" -m pytest ) || die "fl_backend tests failed."
-ok "backend lint and schema tests pass"
+ok "backend lint, types and schema tests pass"
 
 if (( QUICK )); then
   printf '\n'; warn "Skipped the image build (--quick). Do NOT merge on this alone if you touched"
@@ -78,6 +85,14 @@ if (( QUICK )); then
 fi
 
 require_docker
+
+# The other test tier, and it is here rather than beside the default one because it needs the daemon
+# that --quick exists to avoid. Locally this was the gap: `pytest -m db` ran only in CI, so a change
+# that broke the pipeline against a real mongod passed every local gate (ADR-0030).
+step "fl_backend  (pytest -m db, against a real mongod)"
+( cd fl_backend && "$_py" -m pytest -m db ) || die "fl_backend db-tier tests failed.
+       testcontainers starts and removes mongo:8 itself; a failure here is the code, not the daemon."
+ok "db-tier tests pass"
 
 # Reclaim the throwaway images on EVERY exit path, registered before the first build that creates
 # them. It has to be a trap: `die` calls exit directly, so a plain line at the end of the script only

@@ -57,6 +57,9 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.0",
+    # The type checker the editor already runs as Pylance. In the venv so `verify.sh` runs the SAME
+    # one, rather than the gate and the editor disagreeing about whether the code is correct.
+    "pyright>=1.1.406",
     # Starts a real mongod for the `db`-marked tests (ADR-0030). Only those tests import it, and
     # they are deselected by default, so a normal `pytest` run never loads it or touches Docker.
     "testcontainers[mongodb]>=4.15.0",
@@ -110,3 +113,17 @@ pythonpath = ["."]
 markers = [
     "db: needs a real mongod via testcontainers. Deselected by default; run with `pytest -m db`.",
 ]
+
+[tool.pyright]
+# The type checker the EDITOR already runs. Without it in the gate, Pylance was the only thing that
+# saw these errors and only for whoever had the file open -- three of them reached `main` behind a
+# green `verify.sh`, because ruff lints and pytest executes and neither checks a type.
+#
+# venvPath/venv are what make this meaningful: without them pyright resolves no third-party import,
+# reports ~137 phantom errors and is rightly ignored.
+venvPath = "."
+venv = ".venv"
+include = ["app", "tests"]
+# `basic` rather than `strict`. Strict demands an annotation on every symbol including test locals,
+# which is a different project from "the editor and the gate agree".
+typeCheckingMode = "basic"

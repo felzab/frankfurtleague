@@ -24,7 +24,7 @@ while proving nothing.
 """
 
 import re
-from typing import Iterator
+from typing import Any, Callable, Iterator
 
 import pytest
 from fastapi.routing import APIRoute
@@ -39,7 +39,7 @@ APP = create_app(build_test_config())
 
 HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
 
-SLICE_GUARDS = {verify_access_base, verify_access_admin, verify_access_system}
+SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
 # `/` is FastAPI's own hello-world route and belongs to no slice. `/system/is_live` is the container
 # healthcheck and is deliberately unguarded -- a healthcheck that needs a secret fails for the wrong
@@ -67,10 +67,13 @@ def api_routes() -> Iterator[APIRoute]:
                 yield route
 
 
+# `route.methods or ()` because Starlette types it `set[str] | None`. FastAPI always populates it, so
+# the fallback is unreachable -- but writing it is cheaper than asserting a framework's internals, and
+# it is what lets a type checker read this file at all.
 ROUTES_BY_OPERATION = {
     (strip_convertors(route.path), method.lower()): route
     for route in api_routes()
-    for method in route.methods
+    for method in (route.methods or ())
     if method.lower() in HTTP_METHODS
 }
 
@@ -81,9 +84,16 @@ PUBLISHED_OPERATIONS = sorted(
 MUTATIONS = [(path, method) for path, method in PUBLISHED_OPERATIONS if method != "get"]
 
 
-def guards_of(route: APIRoute) -> set[object]:
-    """The slice guards reaching a route, router-level ones included — collections and the like dropped."""
-    return {dependency.call for dependency in route.dependant.dependencies} & SLICE_GUARDS
+def guards_of(route: APIRoute) -> set[Callable[..., Any]]:
+    """
+    The slice guards reaching a route, router-level ones included — collections and the like dropped.
+
+    `set[Callable]` rather than `set[object]`: `set` is invariant, so the narrower element type is not
+    assignable to the wider one, and `object` was a wrong answer that happened to read as a safe one.
+    `dependency.call` is optional on Starlette's model and the `None` is dropped rather than carried.
+    """
+    calls = {dependency.call for dependency in route.dependant.dependencies if dependency.call is not None}
+    return calls & SLICE_GUARDS
 
 
 def test_the_published_surface_and_the_mounted_routes_are_the_same_set():

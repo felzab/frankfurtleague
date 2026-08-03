@@ -59,6 +59,11 @@ at all. That boundary is deliberate and belongs to the planned `fl_backend` audi
 strategy across those layers rather than a suite designed twice — and which now inherits a working
 `mongod` fixture rather than having to invent one.
 
+**Both tiers run in the full `./scripts/verify.sh`.** The db tier sits behind that script's
+`require_docker`, so `--quick` runs the default tier alone and a full run covers everything. `pyright`
+runs there too, in the same step as ruff: the editor's Pylance and the gate now use one checker and one
+config.
+
 ## Layout
 
 ```
