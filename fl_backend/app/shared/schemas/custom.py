@@ -82,14 +82,16 @@ class CustomObjectIdAnnotation:
 CustomObjectId = Annotated[ObjectId, CustomObjectIdAnnotation]
 
 
-def parse_string_to_oid(v: str) -> ObjectId:
-    try:
-        return ObjectId(v)
-    except InvalidId as invalid_id_error:
-        raise ValueError("Invalid ObjectId format") from invalid_id_error
-
-
-CustomRouteObjectId = Annotated[str, AfterValidator(parse_string_to_oid)]
+# The path-parameter spelling, and deliberately the SAME type rather than a second one. A path segment
+# arrives as a string and the union branch above converts it, so this needs no converter of its own --
+# and the separate one it used to have declared `Annotated[str, ...]` while returning an ObjectId. That
+# lie is not cosmetic: every endpoint's id parameter typed as `str` means a type checker cannot see the
+# write path's id handling at all, which is how five `reportArgumentType` errors reached `main`.
+#
+# Kept as a distinct NAME because it says where the value comes from, and because `by_id()` in
+# app/core/routing.py constrains the same parameter to 24 hex characters at the ROUTING layer -- the two
+# belong together and the name is what pairs them.
+CustomRouteObjectId = CustomObjectId
 
 
 def parse_empty_string_to_none(value: Any) -> Any:

@@ -14,6 +14,7 @@ so one container serves both (ADR-0030).
 """
 
 import copy
+import logging
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -25,6 +26,16 @@ from pymongo.database import Database
 from app.core.config import BackendConfig
 from app.main import create_app
 from tests.config import build_test_config
+
+# testcontainers removes its reaper container from an `atexit` hook, which makes an HTTP call, which
+# urllib3 logs at DEBUG -- by which point pytest has closed the stream its capture handler writes to.
+# The logging module catches that itself and prints "--- Logging error ---" with a full traceback to
+# stderr, AFTER a passing run and with the teardown having succeeded (the call returns 204).
+#
+# Silenced at the source rather than by suppressing logging errors globally: `raiseExceptions = False`
+# would hide real handler failures too. urllib3's DEBUG stream is per-request chatter to the Docker
+# daemon and diagnoses nothing here -- a container that fails to start raises instead.
+logging.getLogger("urllib3").setLevel(logging.INFO)
 
 
 @pytest.fixture(scope="session")
