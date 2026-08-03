@@ -31,18 +31,18 @@ would poison a shared entry; dynamically constructed tag strings unreachable by 
 
 A3. **Shells and streaming.** Per route segment: `loading.tsx` / `error.tsx` / `not-found`
 coverage as a table, Suspense placement between each dynamic hole and the static shell, and —
-the check the previous programme learned to run — **measure the built shells**: prerendered
-HTML sizes per route group, `$RX` count in served HTML, `resumable` errors in the log. A hook
-above a boundary (`useSearchParams` without Suspense) silently collapses a whole route group's
-shells; a build-time clock read in the static shell 500s every request while build markers
-look normal.
+this check is only real if measured — **measure the built shells**: prerendered HTML sizes per
+route group, `$RX` count in served HTML, `resumable` errors in the log. A hook above a boundary
+(`useSearchParams` without Suspense) silently collapses a whole route group's shells; a
+build-time clock read in the static shell 500s every request while the build markers look
+entirely normal.
 
 A4. **Client boundary placement.** Per `"use client"` file: is the directive on the smallest
 interactive component, or is a subtree shipped for one leaf? Flag client files importing
 `src/core/*`. Before proposing any directive removal, grep the file for **render props** — a
 Server Component may not pass a function to a Client Component, neither `tsc` nor the build
-catches it on a dynamic route, and one removal in the previous programme shipped a broken page
-(the rule is now CLAUDE.md §6).
+catches it on a dynamic route, and it throws at request time on the live page. The rule is
+CLAUDE.md §6.
 
 A5. **Route conventions.** `await params`/`await searchParams` handling, `generateMetadata`
 correctness (self-canonicals, per-page titles; every `generateMetadata` doing a fetch must
@@ -58,7 +58,8 @@ SECTION B — TYPES AND VALIDATION
 B1. **Response validation, both directions.** The required table, one row per `apiClient` call
 site: schema passed | too permissive (`z.any`/`z.unknown`/`.passthrough`/needless `.optional`)
 | **fields the backend sends that the schema fails to declare** — zod's default strip mode
-silently discards them, the class the previous audit missed entirely | verdict.
+silently discards them, and an audit checking only for over-permissiveness cannot see this
+class at all | verdict.
 
 B2. **Server-action input validation.** Per action: client-supplied input parsed through a schema
 before use, or trusted? Report each unvalidated field with its assumed type. Authorization is

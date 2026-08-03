@@ -20,8 +20,9 @@ enforced CSP with `react/no-danger` as compensating control (ADR-0016), the kept
 THE CHECKS, in priority order:
 
 S1. **Server-action authorization.** The required table, one row per exported function in every
-`"use server"` module — derive the module list by grep, never from a written list (the write
-path has moved slices before): export file:line | mutates what | session check | role check |
+`"use server"` module — **derive the module list by grep, never from a written list**, because
+code moves between slices and a written list goes stale silently: export file:line | mutates
+what | session check | role check |
 the exact guard line or NONE | verdict. Server actions are directly invocable RPC endpoints;
 the proxy gates page navigation only. Every unguarded mutating action is CRITICAL, with a
 one-sentence exploit.
@@ -50,10 +51,10 @@ assumptions.
 
 S6. **Enumeration and side channels.** For every authentication-adjacent flow: does _any_
 observable — response body, **navigation target, timing, status code** — distinguish a valid
-from an invalid principal? The previous programme equalised a response body while the address
-bar stayed a perfect admin-membership oracle; compare full behaviour, not payloads. Plus
-redirect/navigation safety: every destination derived from input validated against an
-allowlist or same-origin check.
+from an invalid principal? **Compare the full observable behaviour, never the payload alone:**
+equalising a response body leaves the address bar a perfect membership oracle when the
+underlying call navigates differently per branch. Plus redirect and navigation safety: every
+destination derived from input is validated against an allowlist or a same-origin check.
 
 S7. **Error and log leakage.** Error boundaries, the logger, instrumentation, every `console.*` in
 `src`: what each emits in a production build and who can see it — stack traces, backend URLs,
@@ -73,11 +74,13 @@ resolution overrides against the ranges their dependents declare (the `sharp` ov
 deliberately floats — re-check against the current framework version), Dockerfile/dockerignore
 secret hygiene by rule inspection only.
 
-FIX PRESCRIPTIONS: any fix touching auth config, CSP, cookies or container runtime must be
-verified against a built image or the running stack before being prescribed, or explicitly
-labelled unverified — four of the previous run's fixes were unshippable as written for exactly
-this reason. Severity honesty: no reachable path → INFO at most; and never soften a real CRITICAL
-because the app is small.
+FIX PRESCRIPTIONS: any fix touching auth config, CSP, cookies or container runtime must be verified
+against a built image or the running stack before being prescribed, or explicitly labelled
+unverified. **A security fix reasoned about rather than measured is routinely unshippable** — a
+stricter CSP requiring a per-request nonce disables every script on prerendered routes, and a gate on
+`NODE_ENV === "production"` refuses to boot the local stack, which deliberately runs the production
+image over plain-HTTP localhost. Severity honesty: no reachable path means INFO at most, and never
+soften a real CRITICAL because the app is small.
 
 BOUNDARIES — not this pass: caching/validation shape → f3 · structure → f2 · a11y/UX → pass 5 ·
 styling/performance → pass 6 · nginx/compose/TLS as such → the ops programme.

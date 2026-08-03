@@ -25,9 +25,9 @@ THE CHECKS, in priority order:
 1. **THE ROUTING TABLE, EXHAUSTIVELY.** The required table, one row per `location`/`server` block
    across both nginx configs: match | proxies to | auth in front of it (none / app-level / topology)
    | headers applied | notes. Then the inverse: for each service, every path reachable from the
-   internet and every path reachable only on the compose network. Probe the match semantics the way
-   the frontend audit probed the proxy matcher — prefix vs exact, trailing slash, case,
-   `default_server` fallthrough, and what an unmatched Host lands on.
+   internet and every path reachable only on the compose network. **Probe the match semantics
+   rather than reading them** — prefix versus exact, trailing slash, case, `default_server`
+   fallthrough, and what an unmatched Host lands on.
 
 2. **TOPOLOGY-ONLY CONTROLS.** Merge b3's inventory (if present) with your own from check 1: every
    control that is purely an absence or a network boundary, each with — what it protects, what

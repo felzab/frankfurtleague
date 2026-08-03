@@ -5,8 +5,8 @@ Paste into a fresh session (or run via `/audit:pass frontend 5`).
 ---
 
 Audit pass 5 of 6 on `./fl_frontend`. Lens: ACCESSIBILITY AND UX STATE COVERAGE. Styling-system
-consistency and performance are pass 6 — this lens was one oversized pass in the previous
-programme and is deliberately split.
+consistency and performance are pass 6 — the two lenses are deliberately kept apart, because
+together they produce a report too large to load in a remediation session.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the
 report to `docs/audit/f5-a11y-ux.md`. Read the f1–f4 reports first; cite, do not re-report.
@@ -23,11 +23,12 @@ SECTION A — ACCESSIBILITY
 
 1. **Overlay correctness.** Enumerate the modals/popovers/drawers (derive the list), and per
    overlay: focus trap, restore on close, Escape, labelled dialog, scroll lock — noting which
-   behaviour comes from library primitives versus hand-rolled code. Watch the three traps the
-   previous programme hit repeatedly: library `*.Trigger` components already render a focusable
-   button (nesting a `<button>` inside one is invalid HTML and a double tab stop — it happened
-   three times); overlays survive client-side navigation unless wired to the shared
-   navigation-close hook; never anchor a popover inside a `position: fixed` overlay.
+   behaviour comes from library primitives and which is hand-rolled. Three recurring traps to check
+   every time: a library `*.Trigger` component already renders a focusable button, so nesting a
+   `<button>` inside one is invalid HTML and a double tab stop; overlays survive client-side
+   navigation unless wired to the shared navigation-close hook, because a client-side navigation is
+   not a light-dismiss interaction; and a popover anchored inside a `position: fixed` overlay is
+   mispositioned, because positioning against `document.body` adds `documentElement.scrollTop`.
 
 2. **Keyboard reachability.** Click handlers on non-interactive elements, custom dropdowns, table
    row interactions, anything reachable by pointer only. Verify by driving the running app where
@@ -40,12 +41,13 @@ SECTION A — ACCESSIBILITY
    defined `false` (it builds a controlled error that outranks native validation), pending states
    preventing double submit, cleared numeric fields not coercing to 0.
 
-4. **Names and semantics.** Accessible names on icon-only controls (name and tooltip-description
-   are different things), heading hierarchy per route including empty-data branches (four `sr-only`
-   h1s once existed only in the populated branch), landmarks, list semantics (`role="list"` never
-   on `display:contents` wrappers or elements owning another role), alt text. The name inventory
-   must cover **rendered output or library source**, not just `src` greps — the component library
-   has hardcoded English names no `src` grep can see.
+4. **Names and semantics.** Accessible names on icon-only controls (a name and a tooltip description
+   are different things), heading hierarchy per route **including the empty-data branch** — a
+   heading placed only in the populated branch disappears exactly when the page has least context —
+   landmarks, list semantics (`role="list"` never on a `display: contents` wrapper or an element
+   owning another role), alt text. The name inventory must cover **rendered output or library
+   source**, not just `src` greps: the component library carries hardcoded English names that no
+   `src` grep can see.
 
 5. **Language consistency.** German UI throughout: user-visible strings, accessible names,
    validation messages (zod union errors surface the union's message — branch messages are

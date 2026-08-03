@@ -7,9 +7,9 @@ after the programme's final pass, in a fresh session.
 
 **Steps:**
 
-1. Read `docs/_auditing/README.md` (the lifecycle and state model), `docs/_auditing/ledger-template.md`
-   in full, and `docs/_auditing/lessons.md` §7–8 (how the previous ledger broke, and wave-ordering
-   lessons).
+1. Read `docs/_auditing/README.md` (the lifecycle and the artifacts), `docs/_auditing/ledger-template.md`
+   in full, and `docs/_auditing/lessons.md` §7–8 (ledger failure modes, and wave-ordering
+   constraints).
 2. Inventory the reports: read each report's **summary table and verdict/fix-priority sections
    only** — never a whole report. Build the source-reports table from them.
 3. Collect Wave 0 material: every cross-surface question the reports filed, every owner decision
@@ -22,9 +22,9 @@ after the programme's final pass, in a fresh session.
    ordering constraints). Use as many waves as the structure needs; split any wave whose PR would
    be unreviewable. Derive each wave's Part 6 `{SECTIONS}` list mechanically from its rows' `§`
    column.
-6. Write the ledger from the template, create the `wave-reports.md` stub with its template header
-   (copy the report template section from `docs/_auditing/ledger-template.md`'s Part 4b reference),
-   and seed `wave-reports.md` with an empty section list.
+6. Write the ledger from the template, then create `docs/audit/wave-reports.md` as a stub: the
+   per-wave report template (derived from the ledger template's Part 4.4 requirements) plus an empty
+   section list, one heading per planned wave.
 7. Present the owner: the wave plan as a short table (wave | theme | row count | depends on), the
    full Wave 0 question batch (each with evidence and a recommendation), and stop. **Wave 0's
    answers must be recorded in the ledger before any `/audit:wave` runs.**

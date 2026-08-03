@@ -22,7 +22,9 @@ row `[x]`, `[-]` or `[!]` with reasons; no `[ ]`/`[~]`), every wave has its sect
    analysis intact** — an open item whose reasoning lives only in `docs/audit/` is lost when it is
    deleted. Extract any newly ratified decision into `docs/_decisions/` first.
 4. Update `docs/_auditing/lessons.md` with this programme's new lessons — missteps, false
-   positives, environment traps — merged into the existing themes, not appended as a new dump.
+   positives, environment traps — each verified before it is written, and merged into the existing
+   sections rather than appended as a new dump. Lessons are stated so that a reader who has never
+   seen this programme understands them: no programme names, no wave numbers, no finding IDs.
 5. Present the final report to the owner and ask for explicit confirmation before deleting
    anything. Only after a clear yes: delete the local `docs/audit/` directory — it is gitignored
    and untracked, so this is a plain filesystem delete with no commit involved, and **nothing in it

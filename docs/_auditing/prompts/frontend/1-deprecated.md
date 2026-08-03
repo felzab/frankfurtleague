@@ -34,9 +34,10 @@ THE CHECKS:
 3. **Legacy idioms outside the table** — "current framework, wrong idiom": `"use server"` on files
    that are Server Components rather than action modules; deep imports into `next/dist/**` or other
    private internals; duplicated schema/type definitions that have already drifted; dead config
-   keys referencing packages not in `package.json`. Before flagging an idiom as outdated, verify
-   the current recommendation against the official docs (CLAUDE.md §7 sources) — do not assert
-   idiom from memory; one such assertion in the previous run was itself stale.
+   keys referencing packages not in `package.json`. **Before flagging an idiom as outdated, verify
+   the current recommendation against the official documentation** (CLAUDE.md §7 lists the sources).
+   Never assert an idiom from memory — an audit that recommends replacing a current API with a
+   deprecated one is worse than no finding.
 
 4. **Version drift.** Installed versions (from `package.json`) versus current stable for the six
    §2-mandated technologies, with breaking changes that affect this repo. Where §2's own claims

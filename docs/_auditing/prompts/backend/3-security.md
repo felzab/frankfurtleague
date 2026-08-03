@@ -32,9 +32,9 @@ THE CHECKS, in priority order:
 
 2. **QUERY INJECTION SURFACE.** Every place user-influenced input becomes part of a Mongo query or
    pipeline: can an attacker introduce operator keys (`$where`, `$gt`, dict-shaped values where a
-   scalar is assumed)? Are ids validated (`CustomObjectId` — note b2's BE-6 JSON-mode finding makes
-   this reachable-dependent: state whether any path parses ids via `model_validate_json`)? Regex
-   built from input anywhere (ReDoS / pattern injection)? Sort/projection fields taken from input?
+   scalar is assumed)? Are ids validated? `CustomObjectId`'s JSON-mode gap (b2's check 2) makes this
+   reachability-dependent — state whether any path parses ids via `model_validate_json`. Regex built
+   from input anywhere (ReDoS or pattern injection)? Sort or projection fields taken from input?
 
 3. **RESOURCE-EXHAUSTION SURFACE.** Unbounded or expensive work reachable per request: `limit`
    bounds actually enforced, unindexed scans in the pipelines, `$lookup` fan-out on attacker-chosen
@@ -46,20 +46,21 @@ THE CHECKS, in priority order:
    logs — especially personal data (referee contact details, emails) and secrets. State per
    `logger.*`/`print` call what it emits in production and who can read it.
 
-5. **DATA-EXPOSURE REVIEW.** Which endpoints serve personal data (contact fields) at which tier —
-   is anything personal reachable at `base` tier that only the admin UI needs? Is soft-deleted
-   (`is_inactive`) data still served anywhere it should not be?
+5. **DATA-EXPOSURE REVIEW.** Which endpoints serve personal data (contact fields) at which tier — is
+   anything personal reachable at `base` tier that only the admin UI needs? Is retired data (a
+   non-null `inactive_since`, ADR-0032) still served anywhere it should not be?
 
 6. **DEPENDENCY AND RUNTIME SURFACE.** Audit the dependency set for known advisories using the
    available tooling (`uv`/`pip-audit` if present — say which ran); check pins in `pyproject.toml`
    are floors that CI actually respects; Python version consistency between `pyproject`, the
    Dockerfile and CI.
 
-7. **STARTUP AND CONFIG HARDENING.** `app/core/config.py` and `main.py`: does the app fail closed
-   on missing/malformed configuration, naming variable names only? Are docs endpoints
-   (`/docs`, `/openapi.json`) exposed, and to whom given the nginx routing (verify — the
-   documentation ledger records Swagger as unreachable from outside; confirm at current configs)?
-   CORS configuration versus the actual caller model.
+7. **STARTUP AND CONFIG HARDENING.** `app/core/config.py` and `main.py`: does the app fail closed on
+   missing or malformed configuration, naming variable names only? Are the docs endpoints (`/docs`,
+   `/openapi.json`) exposed, and to whom, given the nginx routing? They are expected to be
+   unreachable from outside because they sit at the app root, which nginx sends to Next — **confirm
+   that at the current configs rather than assuming it**. CORS configuration versus the actual
+   caller model.
 
 8. **TOPOLOGY-ONLY CONTROLS INVENTORY.** Every control that exists _only_ as network topology (no
    in-band check): list them with what breaks if an nginx location is ever added or the compose
@@ -71,10 +72,11 @@ compose-network access is real but must be rated for that position, not for the 
 Theoretical risk with no reachable path is INFO at most. Do not soften a genuine CRITICAL because
 the app is small.
 
-FIX PRESCRIPTIONS: any fix touching auth flow, config gating, or container runtime must be verified
-against the running stack or a built image before being prescribed — four of the frontend security
-pass's fixes were unshippable because they reasoned about the deployment instead of measuring it.
-If you cannot verify, label the prescription unverified.
+FIX PRESCRIPTIONS: any fix touching auth flow, config gating or container runtime must be verified
+against the running stack or a built image before being prescribed. **A security fix reasoned about
+rather than measured is routinely unshippable** — a gate that looks correct can refuse to boot the
+local stack, and a check can fail to resolve its imports inside a bundled image. If you cannot
+verify, label the prescription unverified.
 
 BOUNDARIES — not this pass: write→read consistency → B1 · constraint/mirror divergence → B2 ·
 module layout, tests, tooling → B4 · nginx/compose/TLS/headers themselves → ops passes (hand them

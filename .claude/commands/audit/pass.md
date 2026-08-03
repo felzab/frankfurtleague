@@ -7,7 +7,7 @@ Run the audit pass named by the arguments: `$ARGUMENTS` (surface, then pass numb
 
 **Steps:**
 
-1. Resolve the prompt file: `docs/_auditing/prompts/<surface>-<n>-*.md` (frontend 1–6,
+1. Resolve the prompt file: `docs/_auditing/prompts/<surface>/<n>-*.md` (frontend 1–6,
    backend 1–4, ops 1–2). If it does not exist, list the available prompts from
    `docs/_auditing/prompts/README.md` and stop.
 2. Read `docs/_auditing/prompts/_shared-protocol.md` in full, then the resolved prompt file in
