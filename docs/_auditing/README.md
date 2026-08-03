@@ -42,25 +42,42 @@ graph TD
 `/audit:status` reconstructs programme state and resumes interrupted work. Run it first after any
 crash, token exhaustion, or return from a break.
 
-**Phase rules:**
+**One programme audits one surface.** Its working documents all live in `docs/audit/`, so a second
+programme cannot run beside it. The `crosscut` pass is the exception that needs no second programme:
+it derives both halves of every seam from the code, so it works whichever surface is being audited.
 
-1. **Passes are report-only.** Zero fixes, zero source changes. A pass writes one report and stops.
-2. **Passes run in numbered order within a surface**, because each cites the earlier reports of its
-   surface instead of re-reporting their findings. A `crosscut` pass, which audits the seams between
-   surfaces, runs after every surface pass in the programme.
-3. **The ledger is built once**, after the last pass, from each report's **summary table and
-   verdict** only — never a whole report. Those two sections are therefore a contract: the shared
-   protocol requires every finding, question, needs-human item and decision-to-confirm to be
-   reachable from them, so nothing the ledger needs is stranded in the body.
-4. **Wave 0 completes before any code changes.** Answers to blocking questions routinely invert
-   findings — a fix written against an unanswered question can be the exact opposite of correct.
-5. **A wave is one branch, one pull request, one fresh session.**
-6. **Close** writes the final report, then deletes `docs/audit/`. The final report is the only
-   artifact that survives, so it must be self-contained: no claim in it may depend on a deleted
-   file (DS12).
+### 1.1 Passes
 
-Wave count is whatever the dependency structure needs. Split any wave whose pull request would be
-too large to review.
+One lens per session, each writing one report. **Report-only: zero fixes, zero source changes.**
+Passes run in their numbered order within a surface, because each cites the earlier reports of its
+own surface instead of re-reporting their findings. The `crosscut` pass runs last.
+
+### 1.2 Ledger
+
+Built **once**, after the last pass, from each report's **summary table and verdict only** — never a
+whole report. Those two sections are a contract: the shared protocol requires every finding,
+question, needs-human item and decision-to-confirm to be reachable from them, so nothing the ledger
+needs is stranded in a report body.
+
+The ledger collects the questions that block work, maps one defect appearing in several reports
+under different lenses into fix-once items, and assigns every finding to a wave.
+
+### 1.3 Wave 0
+
+Every blocking question answered and every owner decision settled **before any code changes**.
+Answers routinely invert findings — a fix written against an unanswered question can be the exact
+opposite of correct.
+
+### 1.4 Waves
+
+**One wave = one branch = one pull request = one fresh session.** Wave count is whatever the
+dependency structure needs; split any wave whose pull request would be too large to review. Each
+wave verifies its findings, batches its owner questions, implements, and runs the close-out in §4.
+
+### 1.5 Close
+
+The final report is written, then `docs/audit/` is deleted. That report is the only artifact that
+survives, so it must be **self-contained**: no claim in it may depend on a deleted file (DS12).
 
 ---
 
@@ -119,24 +136,27 @@ too large to review.
   row or report section says, edit that text to state the final position and log the change under
   "Revisions after first publication".
 
-### When a session dies
+### Recording work as it happens
 
-Sessions die — context exhaustion, token budgets, crashes. Every phase is built so a fresh session
-continues with minimal waste. `/audit:status` automates both reconciliations below.
+**This is how every pass and every wave runs, not a recovery procedure.** Work is written to disk as
+it completes, so that at every moment the files on disk state what is done. That a dead session can
+then be resumed cheaply is the consequence, not the purpose.
 
-**A pass** writes its coverage ledger first and appends the report **check by check as each check
-completes**, never holding the report in memory for one final write. A killed pass leaves its
-finished checks on disk. On resume: read the existing report, continue from the first check with no
-section or a section marked `INCOMPLETE`, and do not redo completed checks.
+**In a pass:** write the coverage ledger skeleton before starting check 1, then append the report
+**check by check as each check completes**, filling that check's ledger row at the same moment.
+Never hold the report in memory for one final write.
 
-**A wave** commits code per row or small row-group and updates the ledger **at the same moment** —
-`[~]` the moment work on a row starts, `[x]` when its commit lands. A killed wave leaves the branch
-and the on-disk ledger agreeing about what is done. On resume: read the wave's rows, run `git log`
-and `git diff main...`, reconcile (a `[~]` row means inspect the diff — the work may be partial),
-and continue from the first unfinished row.
+**In a wave:** commit code per row or small row-group, and update the ledger **at the same moment** —
+`[~]` when work on a row starts, `[x]` when its commit lands. **Never batch a whole wave into one
+commit.** A large uncommitted diff is unreviewable while it exists and unrecoverable if it is lost,
+and it hides which rows are actually finished from everyone including the session writing it.
 
-**Never batch a whole wave into one commit.** One large uncommitted diff is the most expensive state
-to die in.
+**Because of that discipline, resuming is mechanical.** A killed pass leaves its finished checks on
+disk: continue from the first check with no section or one marked `INCOMPLETE`, and do not redo
+completed checks. A killed wave leaves the branch and the on-disk ledger agreeing: read the wave's
+rows, run `git log` and `git diff main...`, reconcile — a `[~]` row means inspect the diff, the work
+may be partial — and continue from the first unfinished row. `/audit:status` automates both
+reconciliations.
 
 ---
 

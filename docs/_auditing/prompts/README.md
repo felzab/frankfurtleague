@@ -7,7 +7,7 @@ prompts/
 ├── frontend/             6 passes
 ├── backend/              4 passes
 ├── ops/                  2 passes
-└── crosscut/             1 pass, run last, only in a multi-surface programme
+└── crosscut/             1 pass, run last in every programme
 ```
 
 | Surface  | Pass | Lens                                      | Prompt                                                                   |

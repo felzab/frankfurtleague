@@ -2,8 +2,8 @@
 
 Paste into a fresh session (or run via `/audit:pass crosscut 1`).
 
-**Run this pass last**, after every surface pass in the programme. It reads their reports and needs
-them to exist. Skip it in a single-surface programme — it has nothing to join.
+**Run this pass last in every programme**, after that programme's surface passes. The seams exist
+whichever surface is being audited, and they belong to none of them.
 
 ---
 
@@ -11,8 +11,20 @@ Audit pass 1 of 1 on the seams. Lens: CONTRACTS AND SEAMS BETWEEN SURFACES — e
 surfaces have to agree, and nothing in either surface can tell that they do not.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/x1-contracts-seams.md`. Read the summary table and verdict of every earlier report in
-`docs/audit/`; cite them by section and do not re-report their findings.
+to `docs/audit/x1-contracts-seams.md`.
+
+**This pass derives both sides from the code and depends on no other report.** Only one surface is
+audited at a time, so at most one surface's working reports exist in `docs/audit/`; an earlier
+surface's are gone, because `docs/audit/` is deleted at programme close and a final report preserves
+the account, not the join tables. Build every inventory below yourself. **Never treat a report as
+the source for one half of a join** — a table read rather than derived is a table one programme out
+of date, which is exactly the defect class this pass exists to catch.
+
+Reports are consulted only so this pass cites rather than re-reports. **Consult at most one per
+surface, the most recent that exists:** the current programme's working reports in `docs/audit/` if
+they are there, otherwise the newest `docs/_auditing/reports/<yyyy-mm>-<surface>.md` by its date
+prefix. Read only its summary table and verdict. State in the report header which report you used
+per surface, or that none existed.
 
 WHY THIS PASS EXISTS: a per-surface lens finds what its own tree can show it. **A seam defect is
 correct on both sides and wrong in between**, so no single-surface pass can see it, and no gate can
@@ -41,22 +53,23 @@ THE CHECKS, in priority order:
    ratifies `GET /{id}` existing on every resource with most having no caller.
 
 2. **SCHEMA-TO-ROUTE BINDING.** The field-level comparison of every Pydantic model against its zod
-   mirror belongs to backend pass B2 — cite its table, do not rebuild it. What belongs here is the
-   binding B2 cannot see: **for each route with a caller, is the schema that call site parses with
-   the mirror of the model that route actually returns?** A correct schema applied to the wrong route
+   mirror belongs to backend pass B2 — cite it if its report is the one you consulted for that
+   surface, and do not rebuild it. What belongs here is the binding B2 cannot see: **for each route
+   with a caller, is the schema that call site parses with the mirror of the model that route
+   actually returns?** A correct schema applied to the wrong route
    passes every per-surface check. Report per call site: route | model the handler returns | schema
    the caller passes | same pair, or mismatched. Include every route whose handler returns a raw
    response with no declared `response_model`, since nothing on either side pins those.
 
 3. **WRITE → INVALIDATION → READ, ACROSS THE SEAM.** The required table, one row per server action
-   that mutates: action | backend route it calls | what that route actually writes, per the backend's
-   own write→read map | cache tags the action invalidates | the queries those tags serve | does the
-   invalidated set cover everything the backend write changed? A backend write with a fan-out the
-   frontend does not know about is invisible to the frontend's own invalidation map, which is why
-   this check cannot live in the frontend pass.
+   that mutates: action | backend route it calls | **what that route actually writes, read from the
+   handler** — including any fan-out into other collections | cache tags the action invalidates |
+   the queries those tags serve | does the invalidated set cover everything the backend write
+   changed? A backend write with a fan-out the frontend does not know about is invisible to the
+   frontend's own invalidation map, which is why this check cannot live in the frontend pass.
 
-4. **AUTHORIZATION, END TO END.** Join the frontend's per-call-site tier table against the backend's
-   per-route guard table. One row per pair: entry point (public page / admin page / route handler) |
+4. **AUTHORIZATION, END TO END.** Derive both halves: each call site's `authType`, and each backend
+   route's router-level guard. One row per pair: entry point (public page / admin page / route handler) |
    action or call site | `authType` sent | guard the backend route requires | minimum privilege the
    operation actually needs | verdict. **A public entry point that transitively reaches an
    admin-guarded route, or a route whose guard is weaker than its effect, is CRITICAL** with a
@@ -86,7 +99,10 @@ THE CHECKS, in priority order:
    a lint rule, a schema check, or nothing. Produce the table: seam | current enforcement | what a
    regression would look like in production | cheapest control that would catch it. **This table is
    the pass's most durable output** — the seams have no owner, so every one left unenforced will
-   drift again.
+   drift again, and a control added here is a seam this pass never has to check by hand again. On a
+   re-run, start from the previous programme's enforcement decisions in `docs/_decisions/` and the
+   controls actually present in the gate: a seam already enforced needs its control verified, not
+   its contract re-derived.
 
 CROSS-SURFACE QUESTIONS: at a seam, "which side is right" is frequently a product decision rather
 than a technical one, and picking silently produces a fix in the wrong half. Collect and batch every
@@ -94,5 +110,5 @@ such question per the shared protocol, each naming both readings and what each w
 
 BOUNDARIES — not this pass: anything visible from inside one surface. Per-surface structure, dead
 code, styling, accessibility, performance, and single-surface security all belong to their own
-passes; cite those reports rather than re-deriving. If a check here surfaces a single-surface defect,
-record it in one line and name the owning surface — it is a handoff, not a finding of this pass.
+passes. If a check here surfaces a single-surface defect, record it in one line under the verdict's
+cross-surface handoffs and name the owning surface — it is a handoff, not a finding of this pass.
