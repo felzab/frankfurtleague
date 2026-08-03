@@ -10,6 +10,8 @@ INTEGRITY. Security and authorization are pass 4 — not this pass.
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/f3-rsc-data.md`. Read the f1 and f2 reports first; cite, do not re-report.
 
+DELIVERABLE: three required tables — the mutation→invalidation map (A1), the per-segment shell coverage table (A3), and the per-call-site response-validation table (B1). Report each in full, not only its gap rows.
+
 CONTEXT — derive, do not assume: `cacheComponents` is on; data reaches the frontend exclusively
 through `src/core/api.ts` against FastAPI. The caching design is ratified — two granular tags with
 unconditional base tags (ADR-0001), the season default server-side (ADR-0002), `connection()`
@@ -80,4 +82,5 @@ Priority order: A1, B1, A3, A2, B2, A4, B4, B3, A5, B5, A6.
 
 BOUNDARIES — not this pass: deprecated idioms → f1 · structure/duplication → f2 · authorization,
 secret exposure, injection, error leakage → pass 4 · a11y/UX → pass 5 · styling/performance →
-pass 6.
+pass 6 · **whether the backend write behind an action changes more than the invalidated tags cover**
+→ crosscut pass X1, which joins A1's table against the backend's own write→read map.

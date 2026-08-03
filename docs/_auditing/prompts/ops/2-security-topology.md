@@ -13,6 +13,8 @@ file contents. Write the report to `docs/audit/o2-security-topology.md`. Read
 `docs/audit/o1-build-deploy.md` first, and the backend b3 report if it exists — its check 8 hands
 this pass an inventory of controls that exist only as topology.
 
+DELIVERABLE: two required tables — the exhaustive routing table (check 1) and the topology-only controls inventory (check 2), merged with the one backend pass B3 hands over. The second is what a future nginx or compose edit gets checked against.
+
 CONTEXT — derive from the configs, not from memory: nginx fronts everything; `/api` routes to
 FastAPI, everything else to Next; the browser never reaches FastAPI directly; several protections
 are deliberate _absences_ (no nginx location for `POST /api/revalidate` — ADR-0015; FastAPI's

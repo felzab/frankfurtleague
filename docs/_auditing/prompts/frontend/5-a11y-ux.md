@@ -11,13 +11,14 @@ together they produce a report too large to load in a remediation session.
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the
 report to `docs/audit/f5-a11y-ux.md`. Read the f1–f4 reports first; cite, do not re-report.
 
+DELIVERABLE: the per-view state matrix (check 6) is required. Every accessibility finding names the failing interaction, never only a rule number, and anything needing a real keyboard or screen reader is tagged needs-human rather than guessed.
+
 CONTEXT — derive, do not assume: HeroUI is react-aria-based, which sets the baseline; `jsx-a11y`
 runs at `error`, so anything it catches is already impossible — this pass hunts what it cannot
 see. Ratified state to check conformance against: one `--focus`-driven indicator app-wide with two
 recorded exceptions (field-like controls border-brand; collection options deliberately
 indicatorless — a recorded WCAG 2.4.7 deviation, do not re-flag it), the two recorded sub-AA chip
-states, the drawer's no-trap decision with its reversal trigger. Every accessibility finding names
-the failing **interaction** ("keyboard users cannot reach X"), never just a rule number.
+states, the drawer's no-trap decision with its reversal trigger.
 
 SECTION A — ACCESSIBILITY
 
@@ -67,11 +68,8 @@ SECTION C — UX STATE COVERAGE
 8. **Locale formatting.** Dates/times/numbers through the shared Berlin-pinned formatters and the
    one-placeholder-per-category constants, never ad-hoc `toLocale*` calls.
 
-Priority order: A1, A3, A2, A4, C6, C7, A5, C8.
-
-EXIT NOTE: findings whose verification requires a real keyboard or screen reader get a
-"needs-human" tag rather than a guessed verdict — the remediation ledger turns those into owner
-gate clauses.
+Priority order: A1, A3, A2, A4, C6, C7, A5, C8. Needs-human findings go in the verdict's
+needs-human list, where the ledger turns them into wave exit-gate clauses.
 
 BOUNDARIES — not this pass: styling tokens, dark mode, class repetition, performance → pass 6 ·
 form input _validation shape_ → f3 · anything the a11y lint rule already errors on.

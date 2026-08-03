@@ -8,7 +8,16 @@ has changed since Part 6 was written.
 ---
 
 ```
-Working {WAVE} of docs/audit/0-remediation-ledger.md, on its own branch.
+Working {WAVE} of docs/audit/0-remediation-ledger.md.
+
+DONE MEANS: every row of this wave is `[x]`, `[-]` or `[!]` with its evidence;
+the full gate passed; the wave report exists; the branch is pushed; and the pull
+request title and body are printed. Anything less is an unfinished wave, however
+much code landed.
+
+BRANCH FIRST. If you are not already on this wave's branch, create
+`wave-<id>-<kebab-name>` off current main before the first edit. One wave = one
+branch = one pull request. Never commit to main, never merge locally.
 
 READ FIRST, in this order:
 1. docs/_auditing/lessons.md — the traps this wave will otherwise walk into. Its
@@ -38,9 +47,12 @@ code:
   not others can be worse than no fix;
 - the proposed fix is safe — every replacement snippet in a report is untested
   code that has never been executed.
-Record the outcome per row: confirmed / stale / false positive / count-corrected.
-A false positive closes `[-]` with its evidence; that is a first-class result,
-not a failure.
+Record the outcome ON THE LEDGER ROW, not only in the session: confirmed /
+stale / false positive / count-corrected, with the evidence. A false positive
+closes `[-]` with that evidence; it is a first-class result, not a failure.
+Verification is a phase of its own — do it for every row this wave touches
+before planning any fix, not row by row as you reach them, because one
+verification result routinely changes what a later row should do.
 
 Read each row's FULL text, including any "Forward constraint", before acting on
 it. The ledger row wins wherever it contradicts the source report, and later
@@ -62,6 +74,10 @@ whole wave without stopping again, except for genuinely new discoveries.
 PHASE 3 — EXECUTE, in table order.
 - Verify library behaviour at its source in node_modules or the installed
   package before building on any assumption about it.
+- A fix is not done when it compiles. Confirm it changes the thing it was
+  supposed to change — a test, a measurement, a rendered check. Where a fix does
+  not work, MEASURE rather than trying plausible causes: if changing the
+  parameter changes nothing, that parameter is not the variable.
 - Where a change is visual, the default is that both sides become identical.
   Keeping a difference needs the owner's agreement first, and the reason goes in
   the pull request description. Ask when unsure whether to abstract — a little
@@ -89,24 +105,28 @@ committing, and state plainly what stays unverified.
 
 PHASE 4 — CLOSE OUT, in this exact order, identical every wave:
 
-1. GATE. Run ./scripts/verify.sh — the full form when the wave touches
-   src/core/config.ts, src/core/auth.ts, src/instrumentation.ts or rendering,
-   --quick otherwise. Report its actual output and exit code; never the word
-   "passing", never a hand-typed substitute chain. It mutates the tree because
-   the formatter runs first — commit what it reformats, and READ the post-gate
-   diff: the formatter has corrupted conditional class strings before.
+1. GATE. Run the FULL ./scripts/verify.sh. The only wave that may use --quick is
+   one that changed documentation only; any wave touching source, config,
+   scripts, Docker or CI runs the full form regardless of how small the change
+   looks. Report its actual output and exit code; never the word "passing",
+   never a hand-typed substitute chain.
 
-2. EXIT GATE. Confirm this wave's own clauses. A clause needing a human or
-   wall-clock time becomes its own row with a trigger — never tick it unverified,
-   never stall the wave on it.
+2. WHAT THE GATE REWROTE. It mutates the tree because the formatter runs first.
+   Commit what it reformats, and READ the post-gate diff: the formatter has
+   corrupted conditional class strings before, and nothing else in the gate sees
+   that.
 
-3. INDEPENDENT REVIEW. Review the wave's full diff as unreviewed code from a
+3. EXIT GATE. Confirm this wave's own clauses, manual ones included. A clause
+   needing a human or wall-clock time becomes its own row with a trigger — never
+   tick it unverified, never stall the wave on it.
+
+4. INDEPENDENT REVIEW. Review the wave's full diff as unreviewed code from a
    stranger, against CLAUDE.md and the ADRs — not by re-checking the list that
    produced it. Verify every ticked row against the diff at ALL its call sites.
    This reliably finds shipped defects, including regressions introduced earlier
    in this same wave. Fix what it finds before proceeding.
 
-4. WAVE REPORT + LESSONS, same step, same commit. Write this wave's section in
+5. WAVE REPORT + LESSONS, same step, same commit. Write this wave's section in
    docs/audit/wave-reports.md, FOR HUMANS: an opening paragraph a non-engineer
    can read, changes explained as defect → fix → visible effect in full
    sentences, row IDs in passing only so a reader never needs the ledger open,
@@ -119,12 +139,12 @@ PHASE 4 — CLOSE OUT, in this exact order, identical every wave:
    of docs/_auditing/lessons.md. Never append a per-wave dump at the end of that
    file.
 
-5. CONSISTENCY SWEEP. Rows against code, report against final state, numbers, row
+6. CONSISTENCY SWEEP. Rows against code, report against final state, numbers, row
    ownership, forward instructions. Where anything changed after a row or section
    was written, REVISE it in place — never append a correction below text that
    still says the old thing.
 
-6. PUSH AND HAND OVER. Push the branch, then print in one copy-paste block the
+7. PUSH AND HAND OVER. Push the branch, then print in one copy-paste block the
    pull request title in the repo convention (`Scope: what changed`,
    docs/workflows/) and the body: what the branch achieves, what was verified and
    how, what was deliberately left undone, every resolved divergence, and ADR

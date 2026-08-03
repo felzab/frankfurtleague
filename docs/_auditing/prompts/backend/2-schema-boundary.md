@@ -12,6 +12,8 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 to `docs/audit/b2-schema-boundary.md`. Read `docs/audit/b1-consistency.md` first; cite it rather
 than re-reporting.
 
+DELIVERABLE: the two-sided contract table (check 1) is required — one row per field of every response model that has a zod mirror, both directions, no field omitted. It is the pass's primary output.
+
 CONTEXT — derive, do not assume: the Pydantic models live in `app/api/*/schemas.py` and
 `app/shared/schemas/`; their zod mirrors in `fl_frontend/src/features/*/schemas.ts` and
 `fl_frontend/src/shared/schemas.ts`. The two are **hand-maintained mirrors with no generation step**
@@ -81,4 +83,5 @@ shared protocol rather than deciding silently.
 
 BOUNDARIES — not this pass: whether a write lands where reads read → B1 · injection through these
 models, auth on the endpoints → B3 · where schema code _lives_, duplication, dead schemas → B4 ·
-the frontend's own use of its schemas → the frontend passes.
+the frontend's own use of its schemas → the frontend passes · **which call site parses which route
+with which schema** → crosscut pass X1, which joins this table against the actual call graph.

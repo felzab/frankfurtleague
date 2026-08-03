@@ -16,6 +16,8 @@ both `.dockerignore`s, `nginx/` (routing only — security posture is pass O2), 
 (`next.config.ts` `output`, `pyproject` build metadata). `scripts/README.md` and
 `docs/ops/{overview,spec}.md` are the documented claims this pass checks reality against.
 
+DELIVERABLE: the gate coverage map (check 5) is required — failure class against what catches it, including the classes nothing catches. Every image claim comes from a built image, never from reading the Dockerfile.
+
 THE LENS, stated once: **local-green is not image-green.** Every check in this pass asks what only
 the built artifact or the real pipeline can show. The defect classes it exists to catch, each of
 which passes a green local gate silently:

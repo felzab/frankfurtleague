@@ -10,6 +10,8 @@ against an older version of the stack, or a current API used in an outdated idio
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/f1-deprecated.md`.
 
+DELIVERABLE: one report section per row of the current CLAUDE.md §2 deprecation table (check 1), plus sections for checks 2–4. Every row of that table gets a section even at zero occurrences, naming the searches run.
+
 CONTEXT — derive, do not assume: read the **current** deprecation table in `.claude/CLAUDE.md` §2
 at run time (never a copy — the table has been amended before) and the ratified decisions in §9 /
 `docs/_decisions/`, several of which read as violations of §2 and are deliberate.

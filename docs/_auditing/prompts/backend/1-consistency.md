@@ -18,6 +18,8 @@ projections, never from field names.** A write and a read can name the same fiel
 documents. That gap is invisible to any name-based comparison and can survive indefinitely, because
 every individual piece of code reads correctly on its own.
 
+DELIVERABLE: the write→read map (check 1) is required and is reported in full, not only its gap rows. The denormalisation inventory (check 2) and the out-of-band constraint inventory (check 8) are required lists.
+
 CONTEXT — derive, do not assume: enumerate the collections from `app/core/db.py`; the write sites by
 grepping for the CRUD helpers in `app/core/crud.py` and for raw Motor calls (`update_*`, `insert_*`,
 `delete_*`, `$set`, `$inc`, `find_one_and_*`, `bulk`); and the read pipelines from each `services.py`.

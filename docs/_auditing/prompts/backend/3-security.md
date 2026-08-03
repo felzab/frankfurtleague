@@ -11,6 +11,8 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 rule there is absolute. Write the report to `docs/audit/b3-security.md`. Read the b1 and b2 reports
 first; where b2 flagged missing validation, treat it here only as an exploitability question.
 
+DELIVERABLE: two required tables — the per-endpoint authorization table (check 1) and the topology-only controls inventory (check 8), the latter handed to ops pass O2. Every finding states the network position its exploit requires.
+
 CONTEXT — derive, do not assume: auth is internal API keys in tiers (base / system / admin),
 checked in `app/core/security.py` / `dependencies.py`; the only caller is the Next.js server (the
 browser never reaches FastAPI directly), and nginx routes `/api` to FastAPI — so **network topology

@@ -114,27 +114,33 @@ tick it unverified, and never stall the wave on it.\>
 ## 4.1 Gate
 
 ```bash
-./scripts/verify.sh          # full: frontend verify + audit + backend ruff/pyright/pytest + both images + sanity
-./scripts/verify.sh --quick  # skips the image builds and the database test tier
+./scripts/verify.sh
 ```
 
-**Run the script, never a hand-typed chain** — a hand-typed chain is a chain someone drops a link
-from. Any new check goes _inside_ the script, so no future session has to be told about it.
-`--quick` is not sufficient for changes touching `src/core/config.ts`, `src/core/auth.ts`,
-`src/instrumentation.ts`, or anything only a built image exercises. Report the actual output and
-exit code, never the word "passing".
+**The full gate runs on every wave.** The single exception is a wave that changed **documentation
+only**, which may use `./scripts/verify.sh --quick`. Any wave touching source, config, scripts,
+Docker or CI runs the full form regardless of how small the change looks — the defect classes that
+pass a partial gate and break the built image are exactly the ones that look harmless in a diff.
 
-The gate mutates the tree — the formatter runs in write mode first. Commit what it reformats, and
-**read the post-gate diff**: the formatter has corrupted conditional class strings before.
+**Run the script, never a hand-typed chain** — a hand-typed chain is a chain someone drops a link
+from. Any new check goes _inside_ the script, so no future session has to be told about it. Report
+the actual output and exit code, never the word "passing".
 
 Record the lint-warning baseline here at Wave 1, so later waves can tell new violations from
 inherited ones.
 
-## 4.2 Exit-gate clauses
+## 4.2 Handle what the gate rewrote
 
-Confirm this wave's own exit gate, manual clauses included.
+The gate mutates the tree — the formatter runs in write mode first. Commit what it reformats, as its
+own commit when the reformat is large, and **read the post-gate diff**: the formatter has corrupted
+conditional class strings before, and nothing else in the gate sees that.
 
-## 4.3 Independent review
+## 4.3 Confirm the wave's own exit gate
+
+Every clause, manual ones included. A clause needing a human or wall-clock time becomes its own row
+with a trigger — never tick it unverified, and never stall the wave on it.
+
+## 4.4 Independent review
 
 Review the wave's full diff **as unreviewed code from a stranger**, against CLAUDE.md and the ADRs —
 not by re-checking the list that produced it. Verify every ticked row against the diff at **all** its
@@ -142,7 +148,7 @@ call sites, not the one the report named. File what it finds: fix in-wave if thi
 otherwise open a row in the wave that owns it. This is a phase, not an owner favour, and it reliably
 finds shipped defects.
 
-## 4.4 Wave report and lessons harvest
+## 4.5 Wave report and lessons harvest
 
 Write this wave's section in `wave-reports.md` using the template there. **A wave is not finished
 until its report exists.** Then trim the ledger rows — rows are status, the report is the story.
@@ -163,7 +169,7 @@ matching section of [`../_auditing/lessons.md`](../_auditing/lessons.md). Merge 
 sections; never append a per-wave dump. Programme-local detail stays in the wave report; only the
 durable, transferable lesson moves.
 
-## 4.5 Consistency sweep
+## 4.6 Consistency sweep
 
 **Revise in place. Never append a correction below text that still says the old thing.** Five checks:
 
@@ -174,7 +180,7 @@ durable, transferable lesson moves.
 5. **Forward instructions** — this wave's Part 6 entry, and any constraints written onto later rows,
    reflect what was actually decided.
 
-## 4.6 Push and hand over
+## 4.7 Push and hand over
 
 Push the branch, then print in one copy-paste block the pull request **title**
 (`Scope: what changed`) and **body**. The body must **stand alone**: `docs/audit/` is untracked, so a

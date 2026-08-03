@@ -10,6 +10,8 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 rule is absolute. Write the report to `docs/audit/f4-security.md`. Read the f1–f3 reports first;
 where f3 flagged missing input validation, treat it here only as exploitability.
 
+DELIVERABLE: two required tables — the per-export server-action authorization table (S1) and the per-segment protected-route table (S3). Every finding carries a concrete exploit sentence.
+
 CONTEXT — derive, do not assume: auth is next-auth via `src/core/auth.ts` with a proxy matcher on
 `/admin/:path*` **plus** an in-layout `getAdminSession()` guard (defence in depth — verify both
 still exist rather than assuming either); the frontend holds tiered internal API keys used by
@@ -83,4 +85,6 @@ image over plain-HTTP localhost. Severity honesty: no reachable path means INFO 
 soften a real CRITICAL because the app is small.
 
 BOUNDARIES — not this pass: caching/validation shape → f3 · structure → f2 · a11y/UX → pass 5 ·
-styling/performance → pass 6 · nginx/compose/TLS as such → the ops programme.
+styling/performance → pass 6 · nginx/compose/TLS as such → the ops passes · **whether the tier a
+call site sends matches the guard the backend route requires** → crosscut pass X1, which joins S4's
+table against the backend's per-route guard table.

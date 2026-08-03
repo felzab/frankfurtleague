@@ -3,13 +3,14 @@ description: Run one audit pass — /audit:pass <backend|ops|frontend> <n>
 ---
 
 Run the audit pass named by the arguments: `$ARGUMENTS` (surface, then pass number — e.g.
-`backend 1`, `ops 2`).
+`backend 1`, `ops 2`, `crosscut 1`).
 
 **Steps:**
 
 1. Resolve the prompt file: `docs/_auditing/prompts/<surface>/<n>-*.md` (frontend 1–6,
-   backend 1–4, ops 1–2). If it does not exist, list the available prompts from
-   `docs/_auditing/prompts/README.md` and stop.
+   backend 1–4, ops 1–2, crosscut 1). If it does not exist, list the available prompts from
+   `docs/_auditing/prompts/README.md` and stop. `crosscut` runs last and requires the other
+   surfaces' reports to exist — if they do not, say so and stop.
 2. Read `docs/_auditing/prompts/_shared-protocol.md` in full, then the resolved prompt file in
    full. The shared protocol governs everything: report structure, coverage ledger first,
    incremental writing, the resume protocol (check whether the target report already exists before

@@ -10,6 +10,8 @@ TOOLING CONFIG.
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/b4-architecture.md`. Read the b1–b3 reports first; cite, do not re-report.
 
+DELIVERABLE: the per-layer test-strategy table (check 5) is required, and it must design ONE strategy across the untested layers rather than a list of per-layer suggestions.
+
 BASELINE — verify before starting, do not trust: `ruff check` and `ruff format --check` over `app`
 and `tests`, `pyright` over both, and `pytest` are all expected to be clean and green. State the
 counts you actually observe. Findings in this pass are therefore judgment calls, not lint output —

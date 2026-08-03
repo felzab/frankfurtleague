@@ -29,6 +29,8 @@ row `[x]`, `[-]` or `[!]` with reasons; no `[ ]`/`[~]`), every wave has its sect
    anything. Only after a clear yes: delete the local `docs/audit/` directory — it is gitignored
    and untracked, so this is a plain filesystem delete with no commit involved, and **nothing in it
    is recoverable afterwards**; that is why steps 2–4 must be genuinely complete first.
-6. Run `./scripts/verify.sh --quick` (formatting drift in the committed docs would fail the gate),
-   commit the final report and any doc updates, push, and print the PR title and body for the
-   owner.
+6. Run the gate, commit the final report and any doc updates, push, and print the PR title and body
+   for the owner. `--quick` is sufficient here **only because this step changes documentation
+   only** — that is the single sanctioned exception to the full-gate rule. If anything under
+   `fl_frontend/`, `fl_backend/`, `scripts/`, `nginx/` or `.github/` changed, run the full
+   `./scripts/verify.sh`.

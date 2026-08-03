@@ -10,7 +10,16 @@ an unverified lesson is a rumour with a heading — and then merged into the mat
 same commit as the work that found it. Merge into the existing sections; never append a per-run dump
 at the end. Only one session edits this file at a time.
 
-**Where this file names a file, function or flag, verify it against the code before relying on it.**
+**How this file stays true.** A lesson is a durable rule. Anything that can change underneath it —
+which checks a script runs today, which files trigger which gate, a library's current behaviour, a
+version number — is **cited, never restated**, so this file cannot drift out of agreement with its
+source. Two consequences when writing a lesson:
+
+- State the failure mode and the rule it produced. Point at the source for the current mechanics:
+  `scripts/README.md` and the scripts themselves for what the gate covers, `docs/_decisions/` for
+  ratified decisions, the installed package for library behaviour.
+- **Where this file names a file, function, flag or version, verify it against the source before
+  relying on it.** A named example is an illustration of the rule, not a current-state claim.
 
 ---
 
@@ -152,15 +161,19 @@ later.
 
 ## 5. The gate — what it catches, what it cannot, and its own traps
 
-- **A green local gate is not a green image.** Two classes have shipped past a green
-  `pnpm verify`: a module-scope environment read that only fails in the builder stage, and a file
-  that compiles at the repository root but is not traced into `output: "standalone"` — which silently
-  disabled an environment gate and all production error logging. `./scripts/verify.sh` therefore
-  builds both images and sanity-checks the output. `--quick` is not sufficient when touching
-  `src/core/config.ts`, `src/core/auth.ts` or `src/instrumentation.ts`.
+**What the gate actually runs is defined by `scripts/verify.sh` and documented in
+`scripts/README.md`. Read those for its current coverage; this section holds only the rules that
+outlive any particular set of checks.**
+
+- **A green local gate is not a green image.** Two classes have shipped past a green in-package
+  verify: a module-scope environment read that only fails in the builder stage, and a file that
+  compiles at the repository root but is not traced into `output: "standalone"` — which silently
+  disabled an environment gate and all production error logging. This is why the repository's gate
+  builds the images and sanity-checks their contents, and why an audit wave runs the full form
+  unless it changed documentation only.
 - **Run the script, never a hand-typed chain.** A hand-typed chain is a chain someone drops a link
-  from; one dropped formatter step shipped mis-formatted files. Any new check goes _inside_ `verify`
-  so no session has to be told about it.
+  from; one dropped formatter step shipped mis-formatted files. **Any new check goes _inside_ the
+  script**, so no session has to be told about it and no lesson has to name it.
 - **The gate mutates the tree** — the formatter runs in write mode first. Commit what it reformats,
   as its own commit when the reformat is large, and **read the post-gate diff**: the formatter's
   Tailwind plugin can corrupt a conditional class string by gluing a separating space written inside
