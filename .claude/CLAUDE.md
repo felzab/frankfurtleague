@@ -203,7 +203,6 @@ the ADR.
 | 0012 | Scope a cross-feature import lint to anything but `core` and `shared`                             |
 | 0013 | Cache `getAdminSpieleActionRequired`                                                              |
 | 0014 | Remove `checkIsReady`, `getSystemInfo`, or the system key while its branch stands                 |
-| 0015 | Add an nginx location for `POST /api/revalidate`; use `updateTag` there                           |
 | 0016 | Disable `react/no-danger`, or add a second CSP                                                    |
 | 0025 | Write `text-fluid-*` — the scale is `fluid-sm`, and no such utility exists                        |
 | 0026 | Store or cache team statistics; hardcode 3/1/0; consult `is_canceled` for the table               |
@@ -215,6 +214,7 @@ the ADR.
 | 0032 | Make `inactive_since` a boolean; revive a retired row by creating it — 409 is correct             |
 | 0033 | Write `status` outside `POST /saisons/{id}/activate`; add a DELETE to `saisons` or `saison_teams` |
 | 0034 | Move a guard onto an endpoint, merge the two routers, or delete an uncalled `GET /{id}`           |
+| 0035 | Re-add a reference-data invalidation endpoint; treat sub-24h reference staleness as a defect      |
 
 ## 8. Documentation
 

@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no
@@ -48,8 +48,7 @@ sanctioned exception is Auth.js reaching **its own** database. **Never give the 
 that makes the boundary a matter of trust rather than of configuration, and nothing then enforces it.
 
 **Only nginx publishes ports.** The two application containers are reachable solely from inside the
-compose network, which is what makes `POST /api/revalidate` an internal endpoint without any additional
-gate.
+compose network, so anything not in nginx's routing table simply does not exist for the internet.
 
 **There is a Cloudflare proxy in front, and this page did not say so until 2026-08-01.** It was found
 by reading response headers (`Server: cloudflare`, `CF-RAY`) while debugging something unrelated, which
@@ -95,8 +94,10 @@ nginx matches by longest prefix:
 | `/`              | frontend                              |
 
 Because `/api` goes to the backend, **the frontend's own route handlers are unreachable from the
-internet except under `/api/auth`**. `POST /api/revalidate` depends on exactly this. Adding an nginx
-location for it would publish an endpoint that is currently protected by topology.
+internet except under `/api/auth`** — and Auth.js is the only route handler the frontend has
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md) removed
+the other). A future internal-only route would be protected by exactly this topology, and adding an
+nginx location for one publishes it.
 
 FastAPI's Swagger UI is affected the same way: it sits at the app root (`/docs`), not under `/api`, so
 the public `/docs` path reaches Next instead. The API documentation is a development and in-network

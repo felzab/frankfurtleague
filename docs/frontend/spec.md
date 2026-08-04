@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -128,29 +128,22 @@ change. That rule is what prevents recreating the twenty.
 ## 5. Out-of-band invalidation
 
 `saisons`, `spieler` and `spieltage` have no write surface and are cached for a day, so an edit made
-directly in MongoDB is served stale for up to 24 hours.
+directly in MongoDB is served stale until the cache expires — **at most 24 hours, and that bound is
+the whole mechanism**
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). There is
+no invalidation endpoint for these caches, and none may be added while the resources have no admin
+write surface; the durable fix is an admin page that invalidates as it saves (`updateTag` inside
+the action, ADR-0001), which is open items FB-3 and FB-6.
 
-`POST /api/revalidate` exists for that case. It accepts a **resource name from a fixed set of three**,
-never a raw tag, authenticates with a bearer token compared in constant time, and clears every tag
-whose content depends on that resource.
+To make an edit visible sooner, recreate the frontend container — the cache lives in its
+filesystem, so recreation starts empty at the cost of every cached page, not three tags. The
+command is in [`docs/workflows/README.md`](../workflows/README.md).
 
-**A resource is not the same thing as a tag, and for `saisons` the difference matters.** A season edit
-clears `saisons`, `spiele`, `spieltage` **and** `teams`, because a season decides which season an
-omitted `saison_id` means (ADR-0002) and its `rules` score the league table `/teams` derives from the
-matches (ADR-0026). Clearing only `saisons` would leave a rollover, or a change to the points scheme,
-invisible on the public pages for a day. `spieler` and `spieltage` clear only themselves — neither is
-season-resolved on the read path. The mapping is `AFFECTED_TAGS` in the route.
-
-Three things about it are load-bearing:
-
-- **It is unreachable from a browser**, because nginx routes `/api` to FastAPI and only `/api/auth` to
-  Next. The only caller is inside the compose network. **Adding an nginx location for this path would
-  publish it.**
-- It must use `revalidateTag`, not `updateTag` — the latter throws in a Route Handler, because it
-  exists for read-your-own-writes inside a Server Action.
-- **`AFFECTED_TAGS` is the thing to update when a read starts depending on a new resource.** It is the
-  only place that knows a `/teams` response is a function of the `saisons` document, and nothing fails
-  loudly when it is wrong — the page just serves yesterday's answer.
+**A season edit is the case where the daily bound matters most**: a season decides which season an
+omitted `saison_id` means (ADR-0002), and its `rules` score the league table `/teams` derives from
+the matches (ADR-0026) — so a rollover or a points-scheme change touches `spiele`, `spieltage` and
+`teams` answers too, and stays partially invisible until their entries expire or the container is
+recreated.
 
 ## 6. Deliberate duplication: the three match cards
 
@@ -240,9 +233,8 @@ no component tests and no end-to-end suite.
 | I12 | `AdminEditSpielDataForm` takes lookup lists as props, never `useAdmin()`            | props signature                                                                         | `spiele` would depend on `admin`, undoing the write-path move                                                                                              |
 | I13 | Before deleting a `"use client"` directive, check for render props                  | review                                                                                  | A Server Component may not pass a function to a Client Component. Neither `tsc` nor `next build` catches it on a dynamic route — it throws at request time |
 | I14 | `revalidateTag` in route handlers, `updateTag` in server actions                    | route/action split                                                                      | `updateTag` throws in a route handler                                                                                                                      |
-| I15 | No nginx location for `/api/revalidate`                                             | `nginx/*.conf`                                                                          | An internal-only endpoint becomes internet-reachable                                                                                                       |
-| I16 | The three `SpielCard` variants stay separate                                        | review                                                                                  | See §6                                                                                                                                                     |
-| I17 | A `saisons` revalidation clears `spiele`, `spieltage` and `teams` too               | `AFFECTED_TAGS` in the route                                                            | A rollover or a change to the season's points scheme stays invisible on the public pages for a day, with nothing failing                                   |
+| I15 | The three `SpielCard` variants stay separate                                        | review                                                                                  | See §6                                                                                                                                                     |
+| I16 | No invalidation endpoint for the reference caches (ADR-0035)                        | absence under `src/app/api/`                                                            | A second out-of-band mechanism would re-carry the security posture and tag mapping the removal retired; staleness under 24 h is the documented cost        |
 
 ## 11. Violation → remedy
 

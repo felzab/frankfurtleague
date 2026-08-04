@@ -1,10 +1,10 @@
 # ADR-0015 — Backend-triggered revalidation through an in-network route
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)
 **Date:** 2026-07-30
 **Surface:** frontend, ops
 **Supersedes:** —
-**Superseded by:** —
+**Superseded by:** [ADR-0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)
 **Source:** remediation ledger question Q5, implemented as BE-3
 
 ## Context

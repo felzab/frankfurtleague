@@ -25,7 +25,7 @@ chapters belong to the frontend and backend security passes — do not duplicate
 
 CONTEXT — derive from the configs, not from memory: nginx fronts everything; `/api` routes to
 FastAPI, everything else to Next; the browser never reaches FastAPI directly; several protections
-are deliberate _absences_ (no nginx location for `POST /api/revalidate` — ADR-0015; FastAPI's
+are deliberate _absences_ (no invalidation endpoint for the reference caches — ADR-0035; FastAPI's
 `/docs` unreachable from outside because it sits at the app root, which nginx sends to Next). An
 absence-as-control is invisible in a config review unless it is on a list — building that list is
 this pass's most important output.

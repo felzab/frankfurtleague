@@ -242,8 +242,8 @@ jobs:
     env:
       # `next build` collects page data, which evaluates modules that read the environment. There is
       # no .env in a clean checkout, so the startup gate correctly rejects every variable and the
-      # build dies on /api/revalidate. This does NOT weaken the gate: the env schema is still
-      # enforced for real by local.sh and on every deploy.
+      # build dies on the first module that reads config. This does NOT weaken the gate: the env
+      # schema is still enforced for real by local.sh and on every deploy.
       SKIP_ENV_VALIDATION: "true"
       # Needed even with validation skipped: core/db.ts constructs a MongoClient at MODULE SCOPE, and
       # `new MongoClient(undefined)` throws. Same placeholder the Dockerfile uses.

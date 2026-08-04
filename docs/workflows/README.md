@@ -407,25 +407,18 @@ the machine is outside the repo.
 `saisons`, `spieler` and `spieltage` are cached for a day, and **no code path observes a change to
 them** — the write endpoints exist
 ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)) and nothing in
-the app calls one yet, so an edit is invisible until the cache expires. Waiting is acceptable: 24
-hours at worst. To force it sooner, call `/api/revalidate` from inside the frontend container — the
-route is unreachable through nginx, and the key is read from the container's own environment, so it
-never touches your shell history:
+the app calls one yet, so an edit is invisible until the cache expires. That staleness is bounded by
+design ([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)):
+24 hours at worst, and there is no invalidation endpoint. To make the edit visible sooner, recreate
+the frontend container — its cache lives in the container filesystem, so recreation starts empty at
+the cost of every cached page:
 
 ```bash
-# prod (Linux) — resource is saisons, spieler or spieltage
-docker compose exec -T frontend node -e '
-  const res = await fetch("http://127.0.0.1:3000/api/revalidate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.INTERNAL_API_KEY_SYSTEM}` },
-    body: JSON.stringify({ resource: process.argv[1] }),
-  });
-  if (res.status !== 204) { console.error(`failed: HTTP ${res.status}`); process.exit(1); }
-' saisons
+# prod (Linux)
+docker compose up -d --force-recreate frontend
 ```
 
-See [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md), which retires when FB-3 and
-FB-6 give these resources admin pages that invalidate as they save.
+The durable fix is FB-3 and FB-6: admin pages that invalidate as they save.
 
 ### Before any hand edit that a code change depends on
 
@@ -523,11 +516,11 @@ A new season needs, at minimum:
    ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
 6. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.
 
-Then force revalidation for `saisons` and `spieltage` — the in-container call under "After editing
-seasons, players or matchdays directly in MongoDB" above. **Still by hand**, for the same reason:
-the endpoints exist but no UI calls them, so nothing in the app knows a rollover happened
-([ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md) retires when FB-3 and FB-6 land,
-not with the endpoints).
+Then recreate the frontend container so the rollover is visible immediately, or accept the daily
+cache expiry — the command and the reasoning are under "After editing seasons, players or matchdays
+directly in MongoDB" above
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). Nothing
+in the app knows a rollover happened until FB-3 and FB-6 give these resources admin pages.
 
 ### Certificate renewal
 

@@ -173,10 +173,10 @@ happens twice a year at most, by hand, on a date nobody is watching — the same
 hardcoded badge has. What triggers it, where it is sent from, and whether it belongs in the frontend at
 all are open; a scheduled job reading `saisons.end_date` is the obvious shape.
 
-**It also closes the manual revalidation step.** A page that saves through these endpoints can
-invalidate its own cache tags, which is what
-[ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md) retires on — together with FB-3,
-and not before.
+**It also ends the reference caches' staleness window.** A page that saves through these endpoints
+invalidates its own cache tags as it saves — the durable fix
+[ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md) defers to,
+landing together with FB-3 and not before.
 
 **Path:** independent; the API is built. Batch with FB-3, which is the same shell over the same
 generic components.
@@ -395,21 +395,16 @@ pays a Mongo query for an answer that changes once a year.
 
 The consideration that makes it non-trivial is still **invalidation**. Seasons are edited by hand
 today — the endpoints exist and no UI calls one (FB-6) — so no code path observes the active season
-flipping or the points changing in practice; a
-naive process-lifetime cache serves the old answer until a restart. The candidates: a TTL measured in
-minutes, which bounds the staleness without needing an event; a hook on the ADR-0015 revalidation
-route, which already exists and already fans a `saisons` edit out to the frontend's `spiele`,
-`spieltage` and `teams` caches, so the backend cache is the one participant missing; or the write path,
-which BE-4 built. **Prefer the second if it can be made to work** — it is the only one where an existing
-operational step (the hand-run `saisons` revalidation call in `docs/workflows/README.md`) already fires
-at exactly the right moment, and it makes the frontend and backend caches invalidate from one action
-rather than two.
-
-**A third hook now exists and is not yet wired.** `PATCH /saisons/{saison_id}` and
-`POST /saisons/{saison_id}/activate` are the two writes that can change either answer, and they are the
-exact points at which a process-lifetime cache could be dropped with no staleness at all. That makes the
-in-process cache the cheapest of the three candidates rather than the most fragile — but only for edits
-that go through the API, and today none do.
+flipping or the points changing in practice; a naive process-lifetime cache serves the old answer
+until a restart. Two candidates
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md) removed a
+third — there is no frontend revalidation route to hook): **a TTL measured in minutes**, which
+bounds the staleness without needing an event and mirrors how the frontend's own reference caches
+are bounded; or **a drop on the write path BE-4 built** — `PATCH /saisons/{saison_id}` and
+`POST /saisons/{saison_id}/activate` are the only writes that can change either answer, and they
+are the exact points where a process-lifetime cache drops with no staleness at all. The write-path
+hook is the cheapest and cleanest, but it covers only edits that go through the API, and today none
+do — so it wants the TTL as its backstop until FB-6 exists.
 
 **Path:** independent. Nothing blocks it.
 
