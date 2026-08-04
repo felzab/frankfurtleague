@@ -75,6 +75,11 @@ select = [
     "F",  # pyflakes
     "I",  # isort (alphabetizes your imports!)
     "B",  # flake8-bugbear
+    # Modernisations with a mechanical fix and no judgment in them — `re.I` spelled out as
+    # `re.IGNORECASE` is the motivating case, caught by an editor while the gate could not see it.
+    # Measured at zero findings across app and tests when selected, so it costs nothing today.
+    # This is NOT the `UP` family, which is a real migration and belongs to roadmap item BE-7.
+    "FURB",  # refurb — mechanical modernisations
     # Docstring FORMATTING only (docs/_standard, decision DS4). Deliberately NOT the D1xx
     # missing-docstring family: requiring a docstring on every symbol manufactures boilerplate, and
     # the standard asks for prose where there is a reason to record, not coverage for its own sake.

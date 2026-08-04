@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `9ffbbfc`, 2026-08-05
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -19,8 +19,8 @@ git show 65be39a          # the closing commit — its body is the record
 names the same item.
 
 **IDs are never reused.** F4 is closed; nothing else may be called F4. New items take the next free
-number in their prefix, counting retired ids too — so the next ops item is **OPS-6**, even though
-the open file's highest is OPS-3.
+number in their prefix, **counting retired ids too** — so the next ops item is **OPS-8**, because
+OPS-6 is retired here and OPS-7 is still open.
 
 ## The log
 
@@ -38,6 +38,7 @@ the open file's highest is OPS-3.
 | 10  | BE-4  | Six reference collections could only be read; edits went straight into MongoDB      | BE, FE, Ops | L      | —                      | [`3d7f701`](https://github.com/felzab/frankfurtleague/commit/3d7f701) |
 | 11  | OPS-4 | Script terminal output varied by script, with no recorded standard                  | Ops         | M      | — (batched with OPS-5) | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
 | 12  | OPS-5 | Every pull request ran the full gate and both CodeQL analyses, whatever it touched  | Ops         | M      | — (batched with OPS-4) | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
+| 13  | OPS-6 | Whether a pull request body should index its commits, when their bodies say it      | Ops         | S      | —                      | [`e31d187`](https://github.com/felzab/frankfurtleague/commit/e31d187) |
 
 ## What each one produced
 
@@ -71,3 +72,9 @@ no row here — its commit is the whole story.
   test rather than generated from them. It opened nothing. Two findings that were not decisions left
   it for permanent homes instead: the two scoped database users in `docs/ops/overview.md`, and the
   rule that a data change is ordered against the **deployed** image in `docs/workflows/README.md`.
+- **OPS-6** → [ADR-0036](../_decisions/0036-a-pull-request-body-summarises-the-branch.md), the rule
+  that a body summarises the branch and never indexes its commits, plus the orientation sentence a
+  multi-commit body opens with. It opened nothing. One finding that was not a decision left it for a
+  permanent home instead: the forty-five merged bodies were read on GitHub and do follow the
+  template, so the Titles-and-bodies section of `docs/workflows/README.md` now states a dated
+  reading rather than a caveat.

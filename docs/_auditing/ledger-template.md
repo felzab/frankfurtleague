@@ -243,8 +243,8 @@ durable, transferable lesson moves.
 
 Push the branch, then print in one copy-paste block the pull request **title**
 (`Scope: what changed`) and **body**. The body must **stand alone**: `docs/audit/` is untracked, so a
-reviewer on GitHub can see neither this file nor the wave report — never point at them. `gh` is not
-installed; the owner creates the pull request and merges it.
+reviewer on GitHub can see neither this file nor the wave report — never point at them. Open it with
+`gh pr create --draft`; marking it ready and merging are the owner's.
 
 ---
 

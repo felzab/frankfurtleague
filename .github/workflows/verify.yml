@@ -65,6 +65,17 @@ jobs:
             ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
           fi
 
+      # Commit messages are checked HERE rather than in the docs job, because they are the one thing
+      # in this repository with no path: a frontend-only pull request skips the docs scope entirely,
+      # and its messages would then never be checked before a merge. This job runs on every pull
+      # request and already has the full history the range needs. It uses the runner's own python --
+      # scripts/check_commits.py imports nothing outside the standard library, on purpose.
+      - name: Check the branch's commit messages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 scripts/check_commits.py --base "origin/${BASE_REF}"
+
   scripts:
     needs: changes
     if: needs.changes.outputs.scripts == 'true'
@@ -74,6 +85,14 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+      - name: Create the backend virtualenv
+        # The scripts scope lints scripts/*.py with the repository's own ruff, which lives in this
+        # venv. verify.sh resolves .venv/bin/python (Linux) itself.
+        working-directory: fl_backend
+        run: uv sync --dev
       - name: Ensure shellcheck is available
         # selfcheck.sh check 9 falls back to pulling koalaman/shellcheck via Docker when there is no
         # local binary, which is slow and needs the daemon. The GitHub runner image normally ships

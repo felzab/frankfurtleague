@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `f2a8458`, 2026-08-05
+**Verified against:** `9ffbbfc`, 2026-08-05
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -63,10 +63,34 @@ git commit          # opens the editor; a one-line -m loses the part that matter
 git push -u origin short-kebab-name
 ```
 
-`gh` is deliberately not installed, so the pull request is created in the browser — the push prints
-a `pull/new/…` link straight to the form. Title and body follow
-[`message-templates.md`](message-templates.md). Merge it there with the **merge commit** button, and
-delete the remote branch when GitHub offers.
+```bash
+# 4b — open it as a draft, never as ready
+gh pr create --draft --title "Scope: what changed" --body-file <path>
+```
+
+**Every pull request is opened as a draft, whoever opens it.** A draft runs CI exactly as a ready
+one does and **cannot be merged until it is marked ready**, so the window between "here is the
+branch" and "I have read it" is a state GitHub enforces rather than one everybody remembers. That
+window is where a pull request actually lives: it is handed over before it is reviewed, and marking
+it ready is the act of saying it survived review.
+
+Title and body follow [`message-templates.md`](message-templates.md). Marking ready and merging are
+**the owner's, and only the owner's** — merge with the **merge commit** button, and delete the
+remote branch when GitHub offers.
+
+`gh` is installed and authenticated, and the boundary is worth stating precisely because the tool
+no longer draws it by being absent:
+
+| Run                                                            | Never run                          |
+| -------------------------------------------------------------- | ---------------------------------- |
+| `gh pr create --draft` — opening one, always in this form      | `gh pr create` without `--draft`   |
+| `gh pr view`, `gh pr checks`, `gh run view` — reading anything | `gh pr ready` — that is the review |
+| `gh pr edit --body-file` — correcting a body after a change    | `gh pr merge`                      |
+
+**Editing beats reopening.** Pushing another commit updates an open pull request in place, and
+`gh pr edit` rewrites the title and body without touching anything else; the number and the URL
+survive both. The only change that costs something is rewriting the branch's own commits, which
+moves every line a review comment is anchored to.
 
 ```bash
 # 5 — bring the merge back down and clean up
@@ -136,8 +160,12 @@ The convention is consistent across the whole history and is **not** Conventiona
 Scope: what changed
 ```
 
-Sentence case after the scope. The scope is a real area of the codebase — `Frontend`, `Backend`,
-`Ops`, `Docs`, `Repo`, `Brand`. Real examples:
+Sentence case after the scope, no trailing period, and the scope comes from the closed-ish table in
+[`message-templates.md`](message-templates.md) — twelve real areas, and a new one is reported rather
+than refused. Subjects here are **declarative rather than imperative**, which departs from the
+convention most projects follow and is deliberate: the whole convention-era history reads that way,
+and a log that is consistent with itself beats one that matches a rule it never followed. Real
+examples:
 
 ```
 Frontend: named component exports, and one folder rule for all of them
@@ -177,6 +205,13 @@ No issue-closing keywords, no emoji, and no trailers. There is no exception for 
 commits: work is never signed as AI-generated (CLAUDE.md, §2), which overrides any tool default
 that would append a `Co-Authored-By` line.
 
+**None of that rests on memory any more.** `scripts/check_commits.py` refuses a message with no
+body, an unwrapped line, a malformed subject, a trailer, an emoji or an issue-closing keyword — as a
+`commit-msg` hook when you write it, in the `--docs` gate scope before you push, and in CI on every
+pull request. It reads the branch's commits only, never history, which predates the convention.
+What it refuses and what it merely reports, and why the two lists are different lists, is in
+[`message-templates.md`](message-templates.md).
+
 **Copy-paste form: [`message-templates.md`](message-templates.md).** That page holds the shape; this
 one holds the reasoning.
 
@@ -197,25 +232,36 @@ merge point that groups them.
 
 ### Titles and bodies
 
-> **Not directly verifiable from the repository.** PR titles and bodies live on GitHub, and `gh` is not
-> installed on this machine. What follows is derived from the commit convention, which the PR should
-> match — treat it as the standard rather than as an observation.
+> **Confirmed by reading, not by the gate.** Bodies live on GitHub, so this section was checked
+> against the forty-five merged pull requests on 2026-08-05. Every human-authored body follows the
+> template. Dependabot's do not, and are outside it — the bot writes its own. Re-check with
+> `gh pr list --state merged --json number,title` and `gh pr view <n> --json body` rather than
+> reasoning from the commit convention.
 
 **Title:** the same shape as a commit subject — `Scope: what changed`. For a single-commit PR, use the
 commit subject verbatim.
 
-**Body:** for a single-commit PR, the commit body already says it; a short pointer is enough. For a
-multi-commit PR, summarise at the level the commits do not — what the branch achieves as a whole, and
-anything a reviewer should check first.
+**Body: a summary of the branch, never an index of its commits**
+([ADR-0036](../_decisions/0036-a-pull-request-body-summarises-the-branch.md)). GitHub renders every
+commit of a pull request in its own tab, each with its full body one click away, so a body listing
+one line per commit reproduces a view the reviewer already has — fifteen times over, on a branch the
+size of the one merged as `738c2b3`.
 
-Worth including, because this repo's history shows they matter:
+- **A single-commit PR** gets a pointer, because the commit body already says it.
+- **A multi-commit PR opens with one orientation sentence** — how many commits there are and what
+  they do, grouped by theme — and then summarises at the level no commit reaches: what the branch
+  achieves as a whole, and anything a reviewer should look at first.
 
-- **What was verified, and how.** Especially for anything the type checker cannot see: RSC boundaries,
-  cache invalidation, rendered output.
-- **Anything deliberately left undone**, and why.
+Three things only the body can carry, which is why the template's headings are what they are:
+
+- **What was verified, and how.** A gate invocation covers the branch; no single commit's body can
+  claim it. Especially for anything the type checker cannot see: RSC boundaries, cache invalidation,
+  rendered output.
+- **Anything deliberately left undone**, and why — including work proposed to the owner and awaiting
+  a decision, which is not a change any commit made.
 - **A link to the ADR** if the change touches a ratified decision.
 
-Do not restate the diff.
+Do not restate the diff, and do not restate the Commits tab.
 
 **A PR body must stand alone.** `docs/audit/` is gitignored, so a reviewer sees none of it — never
 point at anything under it from a body. Open items live in [`docs/roadmap/open-items.md`](../roadmap/open-items.md).
@@ -296,14 +342,14 @@ enforceable rather than merely documented.
 
 Settings → Rules → Rulesets, one branch ruleset targeting the default branch, enforcement **Active**.
 
-| Rule                                  | Setting                        |
-| ------------------------------------- | ------------------------------ |
-| Restrict deletions                    | on                             |
-| Block force pushes                    | on                             |
-| Require a pull request before merging | on, **required approvals `0`** |
-| Require status checks to pass         | on, check: **`verify`**        |
-| Require linear history                | **off**                        |
-| Bypass list                           | **empty**                      |
+| Rule                                  | Setting                                 |
+| ------------------------------------- | --------------------------------------- |
+| Restrict deletions                    | on                                      |
+| Block force pushes                    | on                                      |
+| Require a pull request before merging | on, **required approvals `0`**          |
+| Require status checks to pass         | on, checks: **`verify`**, **`pr-body`** |
+| Require linear history                | **off**                                 |
+| Bypass list                           | **empty**                               |
 
 Three of those are counter-intuitive and must not be "corrected":
 
@@ -315,8 +361,16 @@ Three of those are counter-intuitive and must not be "corrected":
   the maintainer's own. To perform a deliberate history rewrite, set the ruleset to **Disabled**, do
   it, and re-enable; that two-step is the intended escape hatch.
 
-`verify` is the only required check. CodeQL deliberately is **not** required: it reports two checks
-and an upstream query-pack problem would block merges for a reason unrelated to the change.
+**Two required checks.** `verify` is `.github/workflows/verify.yml`'s aggregate job. `pr-body` is
+`.github/workflows/pr-body.yml`, which holds the body to
+[ADR-0036](../_decisions/0036-a-pull-request-body-summarises-the-branch.md) and is a separate
+workflow because it listens for `edited` — subscribing `verify.yml` to that event would rebuild both
+images every time a description gained a comma. **Each required check is added by hand in this
+panel; a workflow existing does not make it required**, so a new one reports until someone adds it
+here.
+
+CodeQL deliberately is **not** required: it reports two checks and an upstream query-pack problem
+would block merges for a reason unrelated to the change.
 
 ### Actions
 

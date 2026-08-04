@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `9ffbbfc`, 2026-08-05
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
@@ -21,31 +21,60 @@ documentation, which is why merges are never squashed.
 Scope: what changed
 
 Area. What was wrong or missing, and why that mattered. What the change does
-about it, described as behaviour rather than as a diff. Wrapped at roughly 76
-characters.
+about it, described as behaviour rather than as a diff. Where an earlier
+assumption turned out to be wrong -- one made in a previous commit, a code
+comment or an audit report -- say so here. Wrapped at roughly 76 characters.
 
 Second area. One paragraph per area the commit touches, each led by the area
-it concerns.
+it concerns. Where a real alternative was rejected, name it and what decided
+it, in the paragraph whose change it belongs to.
 
-Verified against the running stack: what was actually run or checked, and the
-result. Name what could not be verified and why.
+Verified. What was actually run and what it returned -- the gate invocation
+and its exit code, plus any manual check and its result. Name what could not
+be verified, and why.
 ```
+
+**All four of the elements below appear in that shape**, which is the point of it: the two that are
+easiest to forget — a wrong earlier assumption, and the rejected alternative — are prompted for
+inside the paragraph they belong to rather than given headings of their own. A body is prose, not a
+form.
 
 ### The subject
 
-`Scope: what changed` — sentence case after the scope, ideally under ~72 characters so
-`git log --oneline` does not wrap.
+`Scope: what changed` — sentence case after the scope, and **no trailing period**. Aim under 72
+characters, which is where GitHub truncates a title in a list view and where `git log --oneline`
+wraps an 80-column terminal.
 
-The **scope** is a real area of the codebase or of the programme in progress. Real examples from
-this history:
+**72 is a target here and not a limit**, and the gate treats it that way: it reports a subject past
+72 and fails one past 100. Measured over the last eighty non-merge commits, thirty-eight run past
+72, because the two-clause subject below is idiomatic and worth its length. Past 100 a subject is
+unreadable everywhere rather than truncated in one view, which is a different problem.
 
-| Scope     | Used for                                          |
-| --------- | ------------------------------------------------- |
-| `Backend` | a change confined to `fl_backend`                 |
-| `Repo`    | repository-level files — licence, config, tooling |
-| `Docs`    | `docs/` content                                   |
-| `Brand`   | the brand mark and everything generated from it   |
-| `Ops`     | deployment, images, nginx, CI                     |
+The **scope** is a real area of the codebase or of the programme in progress:
+
+| Scope           | Used for                                                  |
+| --------------- | --------------------------------------------------------- |
+| `Frontend`      | a change confined to `fl_frontend`                        |
+| `Backend`       | a change confined to `fl_backend`                         |
+| `Database`      | a change to the data itself, or to the constraints on it  |
+| `Ops`           | deployment, images, nginx                                 |
+| `CI`            | `.github/workflows/`                                      |
+| `Repo`          | repository-level files — licence, config, tooling         |
+| `Docs`          | `docs/` content                                           |
+| `Roadmap`       | `docs/roadmap/` — opening, closing or re-ranking an entry |
+| `Auditing`      | `docs/_auditing/` — the audit method itself               |
+| `Brand`         | the brand mark and everything generated from it           |
+| `Frontend deps` | Dependabot's frontend updates                             |
+| `Backend deps`  | Dependabot's backend updates                              |
+
+A scope outside that set is **reported, never refused** — a genuinely new area is a reason to add a
+row here, not a reason for the gate to reject the commit that needed it.
+
+**Subjects are declarative, not imperative**, and that is a deliberate departure from the convention
+most projects follow. "Fix the parser" completes the sentence "if applied, this commit will …";
+`Backend: the league table counts the Gruppenphase` instead states what is true once it lands. The
+whole convention-era history reads that way, and consistency across a log is worth more than
+matching a convention it never followed. Do not "correct" it.
 
 A **two-clause subject joined by ", and"** is idiomatic here when one commit makes two related
 changes, and is better than splitting a coherent change in two:
@@ -71,8 +100,30 @@ And four things stay out: restating the diff, issue-closing keywords, emoji, and
 no sanctioned trailer: work is never signed as AI-generated — no `Co-Authored-By`, no "generated
 with" line — and that rule (CLAUDE.md, §2) overrides any tool default that would add one.
 
-**Wrap at roughly 76 characters.** Nothing enforces it; it is what makes `git log` readable in a
-terminal.
+**Wrap at roughly 76 characters** — it is what makes `git log` readable in a terminal, where git
+indents a body by four. The gate fails a line past 100, which is not a wrap that ran a little wide
+but a paragraph nobody wrapped at all.
+
+### What the gate enforces, and what it only reports
+
+`scripts/check_commits.py` runs inside the `--docs` scope and again in CI on every pull request. It
+reads **only the commits on your branch** — never history, which predates this convention and reads
+"WIP" and "Fixed bug". Merge and revert subjects are git's, so it skips them.
+
+| Refused                                                    | Reported                            |
+| ---------------------------------------------------------- | ----------------------------------- |
+| A subject that is not `Scope: what changed`                | A subject past 72 characters        |
+| A subject ending in a period, or past 100 characters       | A scope outside the table above     |
+| A non-blank second line — git then reads it all as subject | A body that records no verification |
+| No body at all                                             |                                     |
+| Any line past 100 characters, URLs excepted                |                                     |
+| A trailer, an issue-closing keyword, an emoji              |                                     |
+
+**The split is deliberate.** Everything on the left is true or false without reading the change;
+everything on the right needs judgment, and a check that cries wolf gets suppressed
+([`../_standard/5-currency.md`](../_standard/5-currency.md)). Advisories do not appear in a green
+run — the gate captures a passing step's output — so read them with
+`./scripts/verify.sh --docs --verbose`, or by running the checker directly.
 
 **The same-commit currency rule (CLAUDE.md, documentation):** a change that invalidates a documented claim
 updates that documentation in the same commit. It is the only mechanism that actually prevents
@@ -98,16 +149,22 @@ full analysis -- moves to the new docs/roadmap/open-items.md. All nine
 referencing documents are repointed; zero references to the ledger remain.
 ```
 
-### Optional: wire the template into git
+### Wire the check into git, once per clone
 
-A `.gitmessage` file plus one config line pre-fills the editor for every commit:
+`.githooks/commit-msg` refuses a message that breaks any of the rules on the left above, at the one
+moment fixing it is free. Git does not version the hooks directory it actually uses, so one config
+line per clone points it at the one this repository does version:
 
 ```bash
 # dev (Windows, Git Bash) — repo-local, so it does not affect other projects
-git config commit.template .gitmessage
+git config core.hooksPath .githooks
 ```
 
-Worth its one file and one command only if the shape is ever hard to remember.
+**The hook is convenience; the gate is the enforcement.** A fresh clone has no hook until someone
+runs that line, which is exactly why the same checker runs in `./scripts/verify.sh --docs` and in
+CI on every pull request. Anything the hook catches, the gate catches too — later, and after a
+rebase costs something. A refused message is not lost: git keeps it, and the hook prints the
+`git commit -F` line that reuses it.
 
 ---
 
@@ -119,6 +176,12 @@ Every change reaches `main` through a PR, merged with a merge commit.
 never point at anything under it from a PR body, and never assume the reader has the working
 documents. Open items live in [`../roadmap/open-items.md`](../roadmap/open-items.md).
 
+**A PR body summarises the branch; it never indexes the branch's commits**
+([ADR-0036](../_decisions/0036-a-pull-request-body-summarises-the-branch.md)). GitHub's Commits tab
+is already that index, with every commit body one click away and no hand-written copy to go stale.
+
+**Dependabot's pull requests are out of scope.** The bot writes its own bodies; leave them alone.
+
 ### Title
 
 The same shape as a commit subject: `Scope: what changed`. For a single-commit PR, use that
@@ -127,8 +190,13 @@ commit's subject verbatim.
 ### Template
 
 ```
+One orientation sentence, for a multi-commit PR only: how many commits there are and what they do,
+grouped by theme rather than listed one per line. Name a commit's SHA only where a reader has to
+find that specific commit.
+
 What the branch achieves as a whole, at a level the individual commits do not — one or two
-paragraphs. For a single-commit PR, the commit body already says it and a pointer is enough.
+paragraphs. For a single-commit PR, this is the whole body, and the commit's own body already
+says most of it.
 
 **Verified.** The `./scripts/verify.sh` invocation — its scopes and its exit code — and the parts
 worth naming, with numbers. Plus any manual check and its result. Say plainly what could not be
@@ -145,6 +213,52 @@ why.
 
 Drop a heading rather than padding it: a PR with nothing left undone should not carry an empty
 "Left undone".
+
+### The orientation sentence
+
+**A multi-commit PR opens with one sentence saying how many commits there are and what they do.**
+Group them by theme; a fifteen-commit branch gets four themes, not fifteen lines. It is the one
+sentence that tells a reviewer how big the thing in front of them is before they decide where to
+start.
+
+The standing case for naming SHAs is a **roadmap closure**, where which commit did what is the
+fact the record depends on — the closing commit is what `Closed in` points at in
+[`../roadmap/closed-items.md`](../roadmap/closed-items.md), and the removal commit is what shows
+the two-commit protocol was followed:
+
+```
+Two commits, one item. 1acfc49 closes DB-3 -- the live saison_teams documents no longer carry the
+statistik field that ADR-0026's derivation orphaned -- and 41b158e removes the entry, per the
+two-commit protocol in docs/roadmap/README.md.
+```
+
+Everywhere else, name a SHA only when a reader has to find that commit and the Commits tab would
+not lead them to it quickly.
+
+### What the body gate enforces, and what it only reports
+
+`scripts/check_pr_body.py` runs in CI on every pull request — `.github/workflows/pr-body.yml`, which
+listens for `edited` as well as `opened`, so a body corrected after review turns the check green
+without an unrelated push. It cannot run in `./scripts/verify.sh`: the body is not in the
+repository, and does not exist yet when the gate runs.
+
+| Refused                                                             | Reported                 |
+| ------------------------------------------------------------------- | ------------------------ |
+| An empty body, or the template submitted with its placeholder prose | A summary over 200 words |
+| No `**Verified.**` paragraph                                        |                          |
+| Three or more list items each carrying a commit hash                |                          |
+| A summary over 500 words above the first heading                    |                          |
+
+**Three, not two, is the commit-index threshold** — a roadmap closure names both its SHAs and is
+correct to (see the orientation sentence above). **`Verified` is the one heading never legitimately
+dropped**, because every pull request here runs the gate; the other three are unchecked precisely so
+the rule to drop a heading rather than pad it stays true. Dependabot is skipped entirely.
+
+Check an open one by hand:
+
+```bash
+gh pr view 48 --json body -q .body | python scripts/check_pr_body.py -
+```
 
 ### Reviewer's first look
 
