@@ -4,14 +4,21 @@
 prompts/
 ├── _shared-protocol.md   how to run any pass: what "done" means, report structure, resume, handoff
 ├── remediation-wave.md   the session prompt for every remediation wave
+├── risk/                 1 pass, run FIRST in every programme
 ├── frontend/             6 passes
 ├── backend/              4 passes
 ├── ops/                  2 passes
-└── crosscut/             1 pass, run last in every programme
+└── crosscut/             1 pass, run LAST in every programme
 ```
+
+**Risk first, surface passes in the middle, crosscut last.** The risk pass supplies the consequence
+axis — what would actually hurt — and assigns coverage to the passes that follow. The surface passes
+find the defects. The crosscut pass covers the seams, which belong to no surface. A programme that
+runs only the middle is a programme whose lenses are all shaped like the stack.
 
 | Surface  | Pass | Lens                                      | Prompt                                                                   |
 | -------- | ---- | ----------------------------------------- | ------------------------------------------------------------------------ |
+| Risk     | 1    | Failure modes and audit coverage          | [`risk/1-failure-modes.md`](risk/1-failure-modes.md)                     |
 | Frontend | 1    | Deprecated and legacy patterns            | [`frontend/1-deprecated.md`](frontend/1-deprecated.md)                   |
 | Frontend | 2    | Architecture, dead code, tooling          | [`frontend/2-architecture.md`](frontend/2-architecture.md)               |
 | Frontend | 3    | RSC and caching semantics, validation     | [`frontend/3-rsc-data.md`](frontend/3-rsc-data.md)                       |
@@ -46,7 +53,9 @@ archaeology.
 
 - Number it inside its surface folder as `<n>-<kebab-lens>.md` and add a row above. `/audit:pass`
   resolves `<surface>/<n>-*.md` by glob, so nothing else needs updating.
-- Name the report path the pass writes to: `docs/audit/<surface-initial><n>-<lens>.md`.
+- Name the report path the pass writes to: `docs/audit/<prefix><n>-<lens>.md`, where the prefix is
+  `r` risk · `f` frontend · `b` backend · `o` ops · `x` crosscut. The prefixes are one character and
+  distinct, so a report is identifiable from its filename alone.
 - **Split a lens rather than letting one report grow too large to load.** A pass whose report cannot
   be opened in a wave session is a pass whose findings cannot be worked. Roughly eighteen checks
   across four themes is two passes, not one.

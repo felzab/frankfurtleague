@@ -10,7 +10,9 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 rule is absolute. Write the report to `docs/audit/f4-security.md`. Read the f1–f3 reports first;
 where f3 flagged missing input validation, treat it here only as exploitability.
 
-DELIVERABLE: two required tables — the per-export server-action authorization table (S1) and the per-segment protected-route table (S3). Every finding carries a concrete exploit sentence.
+DELIVERABLE: three required tables — the ASVS coverage table (S0), the per-export server-action
+authorization table (S1), and the per-segment protected-route table (S3). Every finding carries a
+concrete exploit sentence.
 
 CONTEXT — derive, do not assume: auth is next-auth via `src/core/auth.ts` with a proxy matcher on
 `/admin/:path*` **plus** an in-layout `getAdminSession()` guard (defence in depth — verify both
@@ -20,6 +22,19 @@ enforced CSP with `react/no-danger` as compensating control (ADR-0016), the kept
 (ADR-0014), the topology-protected revalidation route (ADR-0015).
 
 THE CHECKS, in priority order:
+
+S0. **ASVS coverage.** Anchor this pass to **OWASP ASVS**, the Application Security Verification
+Standard (<https://github.com/OWASP/ASVS>), rather than to a hand-rolled checklist. Follow the
+shared protocol's rule on external standards: **fetch the current version and state it in the
+header; never reproduce the control list from memory.** Target **Level 1** as the floor; Level 2
+controls are decisions to confirm, not defects, and every `not applicable` carries its reason.
+Cover the chapters that apply to a browser-facing application with a session: authentication and
+session management, access control, validation and encoding, error handling and logging, and the
+browser security chapter covering headers, CSP and cookies. One coverage table: control | what
+implements it here, with the file | evidence | `met` / `gap` / `not applicable` with reason.
+**Every `gap` becomes a numbered finding below** with a file:line and an exploit sentence; a gap
+named only in the coverage table is an observation. The checks that follow run in full regardless
+of what ASVS covers — the standard is a floor, not the lens.
 
 S1. **Server-action authorization.** The required table, one row per exported function in every
 `"use server"` module — **derive the module list by grep, never from a written list**, because

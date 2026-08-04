@@ -7,11 +7,13 @@ Run the audit pass named by the arguments: `$ARGUMENTS` (surface, then pass numb
 
 **Steps:**
 
-1. Resolve the prompt file: `docs/_auditing/prompts/<surface>/<n>-*.md` (frontend 1–6,
+1. Resolve the prompt file: `docs/_auditing/prompts/<surface>/<n>-*.md` (risk 1, frontend 1–6,
    backend 1–4, ops 1–2, crosscut 1). If it does not exist, list the available prompts from
-   `docs/_auditing/prompts/README.md` and stop. `crosscut` runs last in a programme, after that
-   programme's surface passes; it derives both halves of every seam from the code, so it needs no
-   other surface's report to exist.
+   `docs/_auditing/prompts/README.md` and stop.
+   - `risk` runs **first** in a programme. Its failure-mode register assigns coverage to the later
+     passes, so running it after them wastes most of its value — say so if asked to run it late.
+   - `crosscut` runs **last**, after that programme's surface passes. It derives both halves of
+     every seam from the code, so it needs no other surface's report to exist.
 2. Read `docs/_auditing/prompts/_shared-protocol.md` in full, then the resolved prompt file in
    full. The shared protocol governs everything: report structure, coverage ledger first,
    incremental writing, the resume protocol (check whether the target report already exists before

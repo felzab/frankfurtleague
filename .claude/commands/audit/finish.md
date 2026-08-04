@@ -12,7 +12,9 @@ row `[x]`, `[-]` or `[!]` with reasons; no `[ ]`/`[~]`), every wave has its sect
 **Steps:**
 
 1. Read `docs/_auditing/final-report-template.md` in full, and the completed programme's ledger and
-   wave reports (this is the one context where reading them whole is the job).
+   wave reports (this is the one context where reading them whole is the job). Also read the most
+   recent earlier report for this surface in `docs/_auditing/reports/`, if one exists — section 2
+   compares against it.
 2. Write `docs/_auditing/reports/<yyyy-mm>-<surface>.md` following the template. The completeness
    bar is the owner's: every major change fully described; every minor change in at least one
    bullet. The report must be self-contained (DS12) — no claim may depend on `docs/audit/`

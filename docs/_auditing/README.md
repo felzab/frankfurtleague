@@ -49,8 +49,22 @@ it derives both halves of every seam from the code, so it works whichever surfac
 ### 1.1 Passes
 
 One lens per session, each writing one report. **Report-only: zero fixes, zero source changes.**
-Passes run in their numbered order within a surface, because each cites the earlier reports of its
-own surface instead of re-reporting their findings. The `crosscut` pass runs last.
+
+**The order is risk → surface → crosscut, and it is not arbitrary:**
+
+1. **`risk` first.** It enumerates what would actually hurt, traces each outcome to the paths that
+   could produce it, and assigns every one to the pass that should look there. Without it every lens
+   is shaped like the stack, and a hazard nobody's lens covers is invisible rather than reported. Its
+   register also sets the severity every later pass inherits, so severity means the same thing across
+   the programme.
+2. **Surface passes**, in their numbered order, because each cites the earlier reports of its own
+   surface instead of re-reporting their findings. Each reads the register rows assigned to it and
+   states in its verdict whether it covered them.
+3. **`crosscut` last.** The seams between surfaces belong to none of them. It derives both halves of
+   every seam from the code, so it runs in any programme.
+
+Every pass ends by naming the **controls that would prevent recurrence** for the classes it found.
+Those become the ledger's guardrail backlog.
 
 ### 1.2 Ledger
 
@@ -60,7 +74,14 @@ question, needs-human item and decision-to-confirm to be reachable from them, so
 needs is stranded in a report body.
 
 The ledger collects the questions that block work, maps one defect appearing in several reports
-under different lenses into fix-once items, and assigns every finding to a wave.
+under different lenses into fix-once items, and assigns every finding to a wave. It also carries two
+things that are not findings: the **guardrail backlog**, merged from every pass's
+controls-that-prevent-recurrence list, and the **failure-mode register carry-over**, which records
+what the programme did about every hazard the risk pass registered — a ledger row, an accepted risk,
+or a roadmap item, never nothing.
+
+**Schedule guardrails early.** A control landing in Wave 1 catches mistakes made in every wave after
+it; the same control landing last catches nothing.
 
 ### 1.3 Wave 0
 
@@ -78,6 +99,11 @@ wave verifies its findings, batches its owner questions, implements, and runs th
 
 The final report is written, then `docs/audit/` is deleted. That report is the only artifact that
 survives, so it must be **self-contained**: no claim in it may depend on a deleted file (DS12).
+
+It also compares itself against the previous programme on the same surface — findings by severity,
+the false-positive rate, findings in classes an earlier guardrail should have prevented, and hazards
+left uncovered. **A programme should find less than the last one**, and this is the only place that
+question is asked.
 
 ---
 

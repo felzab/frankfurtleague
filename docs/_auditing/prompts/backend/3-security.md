@@ -11,7 +11,9 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 rule there is absolute. Write the report to `docs/audit/b3-security.md`. Read the b1 and b2 reports
 first; where b2 flagged missing validation, treat it here only as an exploitability question.
 
-DELIVERABLE: two required tables — the per-endpoint authorization table (check 1) and the topology-only controls inventory (check 8), the latter handed to ops pass O2. Every finding states the network position its exploit requires.
+DELIVERABLE: three required tables — the standards coverage table (check 0), the per-endpoint
+authorization table (check 1), and the topology-only controls inventory (check 8), the last handed to
+ops pass O2. Every finding states the network position its exploit requires.
 
 CONTEXT — derive, do not assume: auth is internal API keys in tiers (base / system / admin),
 checked in `app/core/security.py` / `dependencies.py`; the only caller is the Next.js server (the
@@ -22,6 +24,29 @@ compose-network, or a compromised frontend key. Verify the nginx configs (`nginx
 calling anything unreachable — do not assert topology from memory.
 
 THE CHECKS, in priority order:
+
+0. **STANDARDS COVERAGE.** Anchor this pass to two published control lists rather than to a
+   hand-rolled checklist, per the shared protocol's rule on external standards — **fetch the current
+   version of each and state it in the header; never reproduce either from memory.**
+
+   - **OWASP ASVS**, the Application Security Verification Standard
+     (<https://github.com/OWASP/ASVS>). Target **Level 1** as the floor, and treat Level 2 controls
+     as decisions to confirm rather than defects: this is a small public site with one privileged
+     operator, so some Level 2 controls are legitimately not applicable — but each N/A carries its
+     reason. Cover the chapters that apply to an API with no browser-facing session of its own:
+     authentication and access control, validation and encoding, error handling and logging,
+     configuration, and data protection. Chapters covering surfaces this service does not have are
+     one `not applicable` row each, not silence.
+   - **OWASP API Security Top 10, 2023 edition**
+     (<https://owasp.org/API-Security/editions/2023/en/0x11-t10/>). Ten rows, no exceptions. Broken
+     object-level and function-level authorization, and unrestricted resource consumption, are the
+     ones this architecture is most exposed to.
+
+   Produce one coverage table per list: control | what implements it here, with the file | evidence |
+   `met` / `gap` / `not applicable` with reason. **Every `gap` row becomes a numbered finding below**
+   with a file:line and an exploit sentence — a gap named only in the coverage table is an
+   observation, not a finding. The checks that follow are this codebase's own lens and run in full
+   regardless of what the standards cover.
 
 1. **PER-ENDPOINT AUTHORIZATION TABLE.** The required table, one row per route in every
    `app/api/*/router.py`: method+path | handler file:line | dependency chain | key tier required |

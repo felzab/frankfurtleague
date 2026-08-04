@@ -92,6 +92,10 @@ PHASE 3 — EXECUTE, in table order.
   edit and diff against that snapshot afterwards.
 - A new finding becomes a row in the wave that will fix it — not a silent fix
   here, unless this wave introduced it.
+- A fix removes one instance; a control removes the class. Where this wave has a
+  guardrail row in the ledger's Part 1b, land the control BEFORE the fixes it
+  covers, so it catches mistakes made in this wave rather than only in later
+  ones. Write the control so it fails on the old code first, then fix.
 
 Two environment facts, so you do not misread them as bugs (lessons.md §6 has the
 rest): the embedded browser pane does not composite while hidden, so geometry
@@ -116,9 +120,15 @@ PHASE 4 — CLOSE OUT, in this exact order, identical every wave:
    corrupted conditional class strings before, and nothing else in the gate sees
    that.
 
-3. EXIT GATE. Confirm this wave's own clauses, manual ones included. A clause
-   needing a human or wall-clock time becomes its own row with a trigger — never
-   tick it unverified, never stall the wave on it.
+3. EXIT GATE AND GUARDRAILS. Confirm this wave's own clauses, manual ones
+   included. A clause needing a human or wall-clock time becomes its own row
+   with a trigger — never tick it unverified, never stall the wave on it.
+   Then confirm the guardrails: for every defect class this wave fixed, either
+   the control from the ledger's Part 1b is in place AND was demonstrated
+   failing against the old code, or a row records why no control is possible.
+   A control never shown to fail on the defect it targets is an untested
+   assertion — a rule can pass every one of its tests with its load-bearing
+   part deleted.
 
 4. INDEPENDENT REVIEW. Review the wave's full diff as unreviewed code from a
    stranger, against CLAUDE.md and the ADRs — not by re-checking the list that

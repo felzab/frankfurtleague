@@ -11,7 +11,10 @@ together they produce a report too large to load in a remediation session.
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the
 report to `docs/audit/f5-a11y-ux.md`. Read the f1–f4 reports first; cite, do not re-report.
 
-DELIVERABLE: the per-view state matrix (check 6) is required. Every accessibility finding names the failing interaction, never only a rule number, and anything needing a real keyboard or screen reader is tagged needs-human rather than guessed.
+DELIVERABLE: two required tables — the WCAG 2.2 Level AA conformance table (check 0) and the
+per-view state matrix (check 6). Every accessibility finding names the failing **interaction**
+("keyboard users cannot reach X"), never only a criterion number, and anything needing a real
+keyboard or screen reader is tagged needs-human rather than guessed.
 
 CONTEXT — derive, do not assume: HeroUI is react-aria-based, which sets the baseline; `jsx-a11y`
 runs at `error`, so anything it catches is already impossible — this pass hunts what it cannot
@@ -21,6 +24,26 @@ indicatorless — a recorded WCAG 2.4.7 deviation, do not re-flag it), the two r
 states, the drawer's no-trap decision with its reversal trigger.
 
 SECTION A — ACCESSIBILITY
+
+0. **WCAG 2.2 Level AA conformance table.** Anchor this pass to the published criteria rather than to
+   a hand-rolled checklist. **WCAG 2.2 is the current W3C Recommendation** (<https://www.w3.org/TR/WCAG22/>,
+   also published as ISO/IEC 40500:2025); WCAG 3.0 remains a draft and is not the target. Follow the
+   shared protocol's rule on external standards: **fetch the current criteria list and state the
+   version in the header; never reproduce it from memory.**
+
+   One row per Level A and Level AA success criterion — every one, no omissions: criterion | how this
+   app satisfies it, with the component or file | evidence, including how it was checked | `met` /
+   `gap` / `not applicable` with reason / `needs-human`. Level AAA is out of scope except where the
+   app already claims it.
+
+   Two recorded deviations exist and are decisions, not gaps: collection options are deliberately
+   indicatorless, a recorded 2.4.7 deviation, and two chip states are recorded sub-AA. Mark them
+   `gap (accepted)` with the pointer to the record — never silently `met`, and never re-flagged as
+   new findings.
+
+   **Every `gap` becomes a numbered finding below** naming the failing interaction. The checks that
+   follow run in full regardless: they cover what conformance criteria do not, which is most of what
+   actually makes an interface usable.
 
 1. **Overlay correctness.** Enumerate the modals/popovers/drawers (derive the list), and per
    overlay: focus trap, restore on close, Escape, labelled dialog, scroll lock — noting which
@@ -68,7 +91,7 @@ SECTION C — UX STATE COVERAGE
 8. **Locale formatting.** Dates/times/numbers through the shared Berlin-pinned formatters and the
    one-placeholder-per-category constants, never ad-hoc `toLocale*` calls.
 
-Priority order: A1, A3, A2, A4, C6, C7, A5, C8. Needs-human findings go in the verdict's
+Priority order: A0, A1, A3, A2, A4, C6, C7, A5, C8. Needs-human findings go in the verdict's
 needs-human list, where the ledger turns them into wave exit-gate clauses.
 
 BOUNDARIES — not this pass: styling tokens, dark mode, class repetition, performance → pass 6 ·

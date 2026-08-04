@@ -25,7 +25,9 @@ a plan for what to do next.
   pass prompt, an earlier report, or memory.
 - **Read the programme's earlier reports before starting** — only the sections you need, never a
   whole file — and cite them by section instead of re-reporting their findings. Respect their
-  "already correct" lists.
+  "already correct" lists. If a failure-mode register exists (`docs/audit/r1-failure-modes.md`), read
+  the rows its coverage map assigns to this pass **before** starting check 1; they are part of this
+  pass's scope.
 - **Check ratified decisions before flagging anything.** CLAUDE.md §9 and `docs/_decisions/` list
   patterns that read as violations and are deliberate. A finding that contradicts an ADR is not a
   finding; it is at most a clearly-labelled "decision to revisit" entry naming the ADR.
@@ -56,7 +58,7 @@ a plan for what to do next.
    - **replacement:** the concrete fix
    - **evidence:** one of `read` (judged by reading the code) · `grepped (<n> sites)` ·
      `measured (<what was measured, with the number>)` · `unverified (<why>)`
-   - a severity tag: `CRITICAL / HIGH / MED / LOW / INFO`
+   - a severity tag from the rubric below
    - for a security finding, **exploit:** who can do what, concretely. Theoretical risk with no
      reachable path is INFO at most.
 
@@ -69,10 +71,46 @@ a plan for what to do next.
 
 5. **Verdict** — see the contract below.
 
+### Severity is consequence, not category
+
+Severity states **what happens if this is real**, never how alarming the code looks. Two axes:
+consequence, and whether the failure announces itself.
+
+| Severity     | Assign it when                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **CRITICAL** | Data is lost or corrupted, an unauthorised party can write or read what they must not, or personal data is exposed — and a reachable path exists |
+| **HIGH**     | The system serves a **wrong answer as fact** with nothing indicating it, or a control that other things depend on is absent or defeated          |
+| **MED**      | A visible failure: something breaks loudly, a user is blocked, or a documented behaviour does not hold                                           |
+| **LOW**      | Friction, inconsistency or maintenance cost, with correct behaviour throughout                                                                   |
+| **INFO**     | No reachable path, or an observation with no defect behind it                                                                                    |
+
+**A silent wrong answer outranks a loud outage.** An outage is noticed and fixed within the hour; a
+league table that has quietly been wrong for a month is believed. Where a finding could sit in two
+rows, the one that fails silently takes the higher.
+
+Two rules that override the table: a finding reachable only from a privileged position is rated
+**for that position**, not for the open internet — and it is still real, so do not drop it. And never
+soften a genuine CRITICAL because the project is small.
+
+If a failure-mode register from the risk pass exists in `docs/audit/`, use its severity for any
+outcome it already rated, rather than re-deriving one. It was confirmed with the owner.
+
+### Anchoring to an external standard
+
+Where a pass names an external standard, **fetch the current control list at run time and state the
+exact version you used in the report header.** Never reproduce a control list from memory, and never
+copy one into a prompt — a stale control list is worse than none, because it reads as coverage.
+
+A standard is covered with a table, one row per control group: control | what implements it here,
+with the file | evidence | `met` / `gap` / `not applicable`. **Every `not applicable` carries its
+reason**, because an unexplained N/A is indistinguishable from a control nobody looked at. The table
+is a floor, not the lens: the pass's own numbered checks still run, and a defect the standard has no
+control for is still a finding.
+
 ### The verdict is the ledger's input contract
 
 The ledger is built from each report's **summary table and verdict only**. Anything reachable from
-neither is invisible to the plan and will never be worked. The verdict therefore carries all five of
+neither is invisible to the plan and will never be worked. The verdict therefore carries all seven of
 these, each as its own labelled list:
 
 1. **Overall state** of the surface under this lens, in a short paragraph.
@@ -85,9 +123,30 @@ these, each as its own labelled list:
    clauses.
 5. **Cross-surface handoffs** — anything this lens found that belongs to another surface's pass or
    programme, named with the owning surface.
+6. **Controls that would prevent recurrence** — see below.
+7. **Risk-register coverage** — see below. Omit only if no register exists.
 
 Findings themselves live in the numbered sections and are referenced from the summary table by ID.
 The verdict points; it does not restate.
+
+### Controls that would prevent recurrence
+
+**A fix removes one instance; a control removes the class.** Group this pass's findings by defect
+class and, per class, name the cheapest thing that would fail on the next occurrence: a lint rule, a
+test, a schema or type constraint, a database validator, a gate step, or **nothing available**.
+
+State the class, the candidate control, roughly what it would cost, and what it would **not** catch.
+Where the honest answer is that no automated control is possible, say so — that is itself the finding
+that justifies auditing the area again. The ledger turns these into guardrail rows, and a guardrail
+row is worth more than the findings that produced it, because it is the only kind of work that makes
+the next programme smaller.
+
+### Risk-register coverage
+
+If `docs/audit/r1-failure-modes.md` exists, its coverage map assigns register rows to passes. **List
+every row assigned to this pass and state `covered` / `partly covered` / `not covered`, each with a
+reason.** A register row is not discharged by a pass simply having run: say what you actually looked
+at. A row you could not cover is a gap the ledger must see, not an omission to leave silent.
 
 ## Traversal
 

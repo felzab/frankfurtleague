@@ -45,8 +45,21 @@ of the work without the deleted working documents. Cite the method rather than r
 
 One table, before → after, for everything measurable: findings by severity and how each closed
 (`fixed` / `won't-fix with evidence` / `false positive` / `superseded`), test counts, lint baseline,
-bundle and shell sizes, coverage of any new guardrails. This is the section that makes "the audit
-was worth it" checkable rather than asserted.
+bundle and shell sizes, and the guardrails added with what each now catches. This is the section
+that makes "the audit was worth it" checkable rather than asserted.
+
+### Compared with the previous programme on this surface
+
+A second table, against the most recent earlier report for the same surface in
+`docs/_auditing/reports/`, or the sentence "first programme on this surface" if there is none. Four
+numbers, each with its delta: findings by severity · **the false-positive rate**, which says whether
+the passes are getting more accurate · findings in classes that a guardrail from a previous
+programme was supposed to have prevented · register rows left `NOT COVERED`.
+
+**A programme should find less than the last one.** If it did not, say so plainly and give the
+reading: the surface grew, the lenses got sharper, or the guardrails are not holding. This is the
+only place that question gets asked, and an audit programme nobody measures is an audit programme
+that cannot be shown to work.
 
 ## 3. Major changes, fully described
 

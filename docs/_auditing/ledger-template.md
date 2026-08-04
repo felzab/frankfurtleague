@@ -77,6 +77,31 @@ This is consistently the cheapest, highest-value item in a programme.\>
 
 ---
 
+# Part 1b — The guardrail backlog
+
+\<Every "controls that would prevent recurrence" entry from every report, merged and deduplicated:
+`G-n` | defect class it closes | the control (lint rule, test, schema constraint, database
+validator, gate step) | findings it would have caught | cost | wave.
+
+**A guardrail row is worth more than the findings that produced it**, because it is the only work
+that makes the next programme smaller. Schedule guardrails EARLY — a rule landing in Wave 1 catches
+mistakes made in every wave after it, and the same rule landing in the last wave catches nothing.
+
+Where the honest answer is that no automated control is possible, record that too, with the reason.
+It is what justifies auditing that area again rather than assuming it stays fixed.\>
+
+---
+
+# Part 1c — Failure-mode register carry-over
+
+\<If the programme ran the risk pass, copy its register rows here with their coverage outcome, and
+add a row for every `NOT COVERED` entry and every pass that reported a register row as not covered.
+Each becomes either a ledger row, an accepted risk with the owner's reasoning, or a roadmap item —
+never nothing. This is the audit's own coverage record, and it is the part a reader six months later
+uses to decide whether the programme was thorough.\>
+
+---
+
 # Part 2 — Cross-report overlap map
 
 \<The passes run independently against the same tree, so one defect surfaces in several reports
@@ -139,6 +164,12 @@ conditional class strings before, and nothing else in the gate sees that.
 
 Every clause, manual ones included. A clause needing a human or wall-clock time becomes its own row
 with a trigger — never tick it unverified, and never stall the wave on it.
+
+**Also confirm this wave's guardrails.** For every defect class this wave fixed, either the control
+from Part 1b is in place and demonstrated failing on the old code, or a row records why no control
+is possible. A control that was never shown to fail on the defect it targets is not a control — it
+is an untested assertion, and the pattern has shipped before: a rule whose load-bearing part could
+be deleted with every one of its tests still passing.
 
 ## 4.4 Independent review
 
