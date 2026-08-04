@@ -21,13 +21,14 @@
 #   7. machine-specific scripts declare which platform they target
 #   8. a script's --help matches the flags it actually accepts
 #   9. shellcheck — a local binary if present, otherwise the official Docker image
+#  10. actionlint on the workflow files, which are pipeline code and rot the same way
 #
 # USAGE:
 #   ./scripts/selfcheck.sh
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-RUNNABLE=(local.sh verify.sh publish.sh deploy.sh)
+RUNNABLE=(local.sh verify.sh publish.sh deploy.sh ci_scopes.sh)
 FAILURES=0
 note_fail() { warn "$*"; FAILURES=$(( FAILURES + 1 )); }
 
@@ -169,6 +170,31 @@ case "$sc_rc" in
   0) info "no findings in any script" ;;
   2) info "unavailable (no local binary and no Docker) — skipped" ;;
   *) note_fail "shellcheck reported findings:"; printf '%s\n' "$sc_out" | head -40 | detail ;;
+esac
+
+step "10. actionlint on the workflows"
+# The workflow files are pipeline code: actionlint validates their expressions, job graphs, action
+# inputs and embedded shell — the class of bug that otherwise surfaces only on the first live run.
+# Same availability ladder as shellcheck: local binary, else the pinned Docker image, else skip.
+# With no arguments actionlint finds .github/workflows itself, from the working directory.
+run_actionlint() {
+  if command -v actionlint >/dev/null 2>&1; then
+    actionlint
+    return
+  fi
+  if docker version >/dev/null 2>&1; then
+    MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/repo" -w /repo rhysd/actionlint:1.7.7
+    return
+  fi
+  return 2
+}
+
+al_out=""; al_rc=0
+al_out="$(run_actionlint 2>&1)" || al_rc=$?
+case "$al_rc" in
+  0) info "no findings in any workflow" ;;
+  2) info "unavailable (no local binary and no Docker) — skipped" ;;
+  *) note_fail "actionlint reported findings:"; printf '%s\n' "$al_out" | head -40 | detail ;;
 esac
 
 printf '\n'

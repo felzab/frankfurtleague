@@ -64,30 +64,18 @@ jobs:
           fetch-depth: 0
       - name: Map changed paths to languages
         id: map
+        # scripts/ci_scopes.sh is the repository's one path mapping; this job reads its `frontend`
+        # and `backend` lines and ignores the rest. A markdown-only change inside fl_frontend/
+        # therefore analyses nothing, exactly like the verify workflow's test tiers.
         env:
           BASE_REF: ${{ github.base_ref }}
           EVENT: ${{ github.event_name }}
         run: |
-          set -euo pipefail
-          frontend=false; backend=false
-          if [ "$EVENT" != "pull_request" ]; then
-            frontend=true; backend=true
+          if [ "$EVENT" = "pull_request" ]; then
+            ./scripts/ci_scopes.sh "origin/${BASE_REF}" >> "$GITHUB_OUTPUT"
           else
-            base="$(git merge-base "origin/${BASE_REF}" HEAD)"
-            files="$(git diff --name-only "$base" HEAD)"
-            while IFS= read -r f; do
-              case "$f" in
-                fl_frontend/*) frontend=true ;;
-                fl_backend/*) backend=true ;;
-                .github/workflows/codeql.yml) frontend=true; backend=true ;;
-              esac
-            done <<< "$files"
+            ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
           fi
-          {
-            echo "frontend=$frontend"
-            echo "backend=$backend"
-          } >> "$GITHUB_OUTPUT"
-          echo "languages: frontend=$frontend backend=$backend"
 
   # Two jobs rather than one matrix: a job-level `if` cannot select matrix rows per language, and
   # separate jobs keep what the matrix bought -- separate databases, parallel runs, one language's

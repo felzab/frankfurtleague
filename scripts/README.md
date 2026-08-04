@@ -15,6 +15,7 @@ either.
 | `publish.sh`   | dev — Windows | Build both images, tag with the commit, push to ghcr.io       |
 | `deploy.sh`    | prod — Linux  | Pull and restart in place, verify health, roll back           |
 | `selfcheck.sh` | any           | Test the scripts themselves                                   |
+| `ci_scopes.sh` | any           | Map changed paths to gate scopes; both CI workflows read it   |
 | `_lib.sh`      | —             | Shared helpers; sourced, never run directly                   |
 
 ```bash
@@ -118,10 +119,10 @@ served because nginx waits on `service_healthy`.
 ## `selfcheck.sh` — test the scripts
 
 `verify.sh` runs this first; reach for it directly after editing anything in `scripts/`. `bash -n`
-validates syntax only — the nine checks, listed in the script's own header, cover what it misses:
-undefined helpers, drifted `--help` text, and the two defects Windows hides (CRLF endings, and an
-executable bit that `chmod +x` in Git Bash never reaches), either of which works locally and fails
-on the server.
+validates syntax only — the checks, listed in the script's own header, cover what it misses:
+undefined helpers, drifted `--help` text, workflow files that only fail on their first live run
+(actionlint), and the two defects Windows hides (CRLF endings, and an executable bit that
+`chmod +x` in Git Bash never reaches), either of which works locally and fails on the server.
 
 ## Conventions
 
