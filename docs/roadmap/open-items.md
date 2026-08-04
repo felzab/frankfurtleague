@@ -5,7 +5,7 @@
 Findings and undecided questions with real analysis, plus the owner's ranked backlog (added
 2026-08-02). The original entries migrated here from the documentation programme's ledger when that
 file was retired (2026-08-01); each keeps its full reasoning so the eventual decision is taken with
-the analysis in hand. The backend audit prompts (`docs/_auditing/prompts/backend-*.md`) seed several
+the analysis in hand. The backend audit prompts (`docs/_auditing/prompts/backend/`) seed several
 of these as their starting checks.
 
 **Everything that has left this file is logged in [`closed-items.md`](closed-items.md)** — one row per
@@ -524,7 +524,7 @@ separate 217s from the PR's 136s, and the 411s outlier is what an uncached build
 
 **Two boundaries, so this does not become a third copy of work already scoped.**
 
-- **Ops audit pass O1 owns correctness** (`_auditing/prompts/ops-1-build-deploy.md`): its check 4
+- **Ops audit pass O1 owns correctness** (`_auditing/prompts/ops/1-build-deploy.md`): its check 4
   asks whether each script does what its header claims, and its check 5 builds the gate's coverage
   map and verifies `verify.yml` runs what it says. **This item asks what the pipeline costs and
   whether its structure is right** — a different question about the same files. Cite O1's findings
@@ -630,7 +630,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 
 **Trigger to revisit:** the second time a restore breaks this way, or any move to a setup where the
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
-(`_auditing/prompts/ops-1-build-deploy.md`, check 4) covers script failure modes and owns this.
+(`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
 ### 21 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 

@@ -8,7 +8,9 @@ Audit pass 3 of 6 on `./fl_frontend`. Lens: RSC AND CACHING SEMANTICS, TYPE AND 
 INTEGRITY. Security and authorization are pass 4 — not this pass.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/f3-rsc-data.md`. Read the f1 and f2 reports first; cite, do not re-report.
+to `docs/audit/programme/f3-rsc-data.md`. Read the f1 and f2 reports first; cite, do not re-report.
+
+DELIVERABLE: three required tables — the mutation→invalidation map (A1), the per-segment shell coverage table (A3), and the per-call-site response-validation table (B1). Report each in full, not only its gap rows.
 
 CONTEXT — derive, do not assume: `cacheComponents` is on; data reaches the frontend exclusively
 through `src/core/api.ts` against FastAPI. The caching design is ratified — two granular tags with
@@ -31,18 +33,18 @@ would poison a shared entry; dynamically constructed tag strings unreachable by 
 
 A3. **Shells and streaming.** Per route segment: `loading.tsx` / `error.tsx` / `not-found`
 coverage as a table, Suspense placement between each dynamic hole and the static shell, and —
-the check the previous programme learned to run — **measure the built shells**: prerendered
-HTML sizes per route group, `$RX` count in served HTML, `resumable` errors in the log. A hook
-above a boundary (`useSearchParams` without Suspense) silently collapses a whole route group's
-shells; a build-time clock read in the static shell 500s every request while build markers
-look normal.
+this check is only real if measured — **measure the built shells**: prerendered HTML sizes per
+route group, `$RX` count in served HTML, `resumable` errors in the log. A hook above a boundary
+(`useSearchParams` without Suspense) silently collapses a whole route group's shells; a
+build-time clock read in the static shell 500s every request while the build markers look
+entirely normal.
 
 A4. **Client boundary placement.** Per `"use client"` file: is the directive on the smallest
 interactive component, or is a subtree shipped for one leaf? Flag client files importing
 `src/core/*`. Before proposing any directive removal, grep the file for **render props** — a
 Server Component may not pass a function to a Client Component, neither `tsc` nor the build
-catches it on a dynamic route, and one removal in the previous programme shipped a broken page
-(the rule is now CLAUDE.md §6).
+catches it on a dynamic route, and it throws at request time on the live page. The rule is
+CLAUDE.md §6.
 
 A5. **Route conventions.** `await params`/`await searchParams` handling, `generateMetadata`
 correctness (self-canonicals, per-page titles; every `generateMetadata` doing a fetch must
@@ -58,7 +60,8 @@ SECTION B — TYPES AND VALIDATION
 B1. **Response validation, both directions.** The required table, one row per `apiClient` call
 site: schema passed | too permissive (`z.any`/`z.unknown`/`.passthrough`/needless `.optional`)
 | **fields the backend sends that the schema fails to declare** — zod's default strip mode
-silently discards them, the class the previous audit missed entirely | verdict.
+silently discards them, and an audit checking only for over-permissiveness cannot see this
+class at all | verdict.
 
 B2. **Server-action input validation.** Per action: client-supplied input parsed through a schema
 before use, or trusted? Report each unvalidated field with its assumed type. Authorization is
@@ -79,4 +82,5 @@ Priority order: A1, B1, A3, A2, B2, A4, B4, B3, A5, B5, A6.
 
 BOUNDARIES — not this pass: deprecated idioms → f1 · structure/duplication → f2 · authorization,
 secret exposure, injection, error leakage → pass 4 · a11y/UX → pass 5 · styling/performance →
-pass 6.
+pass 6 · **whether the backend write behind an action changes more than the invalidated tags cover**
+→ crosscut pass X1, which joins A1's table against the backend's own write→read map.

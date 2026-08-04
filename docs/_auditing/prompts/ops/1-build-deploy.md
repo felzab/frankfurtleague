@@ -8,7 +8,7 @@ Audit pass 1 of 2 on the ops surface. Lens: BUILD AND DEPLOY CORRECTNESS — doe
 what was verified, and does every step of the pipeline do what its documentation claims.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/o1-build-deploy.md`.
+to `docs/audit/programme/o1-build-deploy.md`.
 
 SCOPE — the ops surface as `docs/README.md` defines it: `docker-compose*.yml`, both Dockerfiles,
 both `.dockerignore`s, `nginx/` (routing only — security posture is pass O2), everything in
@@ -16,13 +16,17 @@ both `.dockerignore`s, `nginx/` (routing only — security posture is pass O2), 
 (`next.config.ts` `output`, `pyproject` build metadata). `scripts/README.md` and
 `docs/ops/{overview,spec}.md` are the documented claims this pass checks reality against.
 
-MOTIVATING HISTORY, all real: `pnpm verify` was green twice while the built image was broken;
-`instrumentation.ts` compiled at the repo root and was silently not traced into
-`output: "standalone"`, disabling the env gate and all production error logging; both
-`.dockerignore`s had ~75 markdown-escaped patterns that matched nothing, shipping host
-`node_modules`/`__pycache__` into Linux images; CI once failed on an action version that had never
-existed. The lens, stated once: **local-green is not image-green — every check in this pass asks
-what only the built artifact or the real pipeline can show.**
+DELIVERABLE: the gate coverage map (check 5) is required — failure class against what catches it, including the classes nothing catches. Every image claim comes from a built image, never from reading the Dockerfile.
+
+THE LENS, stated once: **local-green is not image-green.** Every check in this pass asks what only
+the built artifact or the real pipeline can show. The defect classes it exists to catch, each of
+which passes a green local gate silently:
+
+- a file that compiles at the repository root but is not traced into `output: "standalone"`, which
+  can disable a startup gate and all production error logging without any error anywhere;
+- an ignore pattern that matches nothing and looks identical to one that matches, so host build
+  artifacts ship into Linux images;
+- a CI action version that does not exist, which fails only when CI runs.
 
 THE CHECKS, in priority order:
 
@@ -33,9 +37,10 @@ THE CHECKS, in priority order:
    asset set complete. Backend: bytecode/source layout, no test/venv leakage. Compare image size
    and layer list against the last published tags for unexplained growth.
 
-2. **DOCKERIGNORE AND DOCKERFILE TRUTH.** Every ignore pattern actually matches something or is
-   documented as prospective (the escaping damage was invisible precisely because dead patterns
-   look identical to live ones — spot-check by building with a probe). Dockerfiles: base images
+2. **DOCKERIGNORE AND DOCKERFILE TRUTH.** Every ignore pattern actually matches something, or is
+   documented as prospective. **Spot-check by building a probe image**: a dead pattern is invisible
+   to inspection because it looks identical to a live one, and the build context cannot be probed by
+   watching transfer sizes, since transfer is lazy and per-step. Dockerfiles: base images
    pinned and current-enough, `ARG`s consistent with `packageManager`/`engines`/`requires-python`,
    layer ordering sane for caching, no build step depending on network state it does not pin.
 
@@ -43,8 +48,9 @@ THE CHECKS, in priority order:
    when a variable is absent — the startup gate should fail closed, verify the chain
    healthcheck → `service_healthy` → nginx never starting), depends_on conditions, volumes and
    mounts (certs, configs — `deploy.sh` checks some of these; do the checks match the mounts?),
-   restart policies, port exposure. Diff local vs prod compose and verify every divergence is
-   intended and documented (both files carry H5 headers with invariants — check the claims).
+   restart policies, port exposure. Diff the local and production compose files and verify every
+   divergence is intended and documented — both files carry header blocks stating their invariants,
+   so check those claims against what the file actually does.
 
 4. **SCRIPTS VS THEIR DOCUMENTATION.** For each script in `scripts/`: does it do what its header
    and `scripts/README.md` claim? Failure modes: what happens on a dirty tree, a half-pulled
@@ -69,10 +75,10 @@ THE CHECKS, in priority order:
    what does a _failed_ deploy leave running? Is the previous version still serveable? Does the
    documented rollback path actually reference images that exist after a normal publish cycle?
 
-CROSS-SURFACE QUESTIONS: which manual steps are ritual (accepted) versus trap (undocumented
-dependency on the operator remembering something) is owner knowledge — collect and batch per the
-shared protocol, with `scripts/revalidate_reference_data.sh` (the BE-4 runbook step) as a known
-example of an accepted manual step.
+CROSS-SURFACE QUESTIONS: which manual steps are accepted ritual, and which are traps that depend on
+the operator remembering something undocumented, is owner knowledge — collect and batch these per
+the shared protocol. `scripts/revalidate_reference_data.sh` is a known example of an accepted manual
+step; check `scripts/README.md` for the others before filing any of them as findings.
 
 BOUNDARIES — not this pass: nginx security posture, headers, TLS, rate limits, secret reachability
 → pass O2 · application-code findings discovered while probing images → file as questions/rows for

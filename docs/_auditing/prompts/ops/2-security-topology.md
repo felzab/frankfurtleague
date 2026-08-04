@@ -9,9 +9,19 @@ network layout protects, and how secrets move through build and deploy.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass — the secrets
 rule is absolute: reachability and handling only, never values; ignore-rule inspection only, never
-file contents. Write the report to `docs/audit/o2-security-topology.md`. Read
-`docs/audit/o1-build-deploy.md` first, and the backend b3 report if it exists — its check 8 hands
+file contents. Write the report to `docs/audit/programme/o2-security-topology.md`. Read
+`docs/audit/programme/o1-build-deploy.md` first, and the backend b3 report if it exists — its check 8 hands
 this pass an inventory of controls that exist only as topology.
+
+DELIVERABLE: two required tables — the exhaustive routing table (check 1) and the topology-only
+controls inventory (check 2), merged with the one backend pass B3 hands over. The second is what a
+future nginx or compose edit gets checked against.
+
+STANDARDS ANCHOR: the configuration, communications and deployment chapters of **OWASP ASVS**
+(<https://github.com/OWASP/ASVS>) cover this pass's edge and transport surface. Per the shared
+protocol, fetch the current version, state it in the header, and report a coverage table for those
+chapters alongside the checks below; every `gap` becomes a numbered finding. Application-level ASVS
+chapters belong to the frontend and backend security passes — do not duplicate their tables here.
 
 CONTEXT — derive from the configs, not from memory: nginx fronts everything; `/api` routes to
 FastAPI, everything else to Next; the browser never reaches FastAPI directly; several protections
@@ -25,9 +35,9 @@ THE CHECKS, in priority order:
 1. **THE ROUTING TABLE, EXHAUSTIVELY.** The required table, one row per `location`/`server` block
    across both nginx configs: match | proxies to | auth in front of it (none / app-level / topology)
    | headers applied | notes. Then the inverse: for each service, every path reachable from the
-   internet and every path reachable only on the compose network. Probe the match semantics the way
-   the frontend audit probed the proxy matcher — prefix vs exact, trailing slash, case,
-   `default_server` fallthrough, and what an unmatched Host lands on.
+   internet and every path reachable only on the compose network. **Probe the match semantics
+   rather than reading them** — prefix versus exact, trailing slash, case, `default_server`
+   fallthrough, and what an unmatched Host lands on.
 
 2. **TOPOLOGY-ONLY CONTROLS.** Merge b3's inventory (if present) with your own from check 1: every
    control that is purely an absence or a network boundary, each with — what it protects, what

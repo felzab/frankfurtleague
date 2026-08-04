@@ -7,7 +7,9 @@ Paste into a fresh session (or run via `/audit:pass frontend 2`).
 Audit pass 2 of 6 on `./fl_frontend`. Lens: ARCHITECTURE, CONSISTENCY, DEAD CODE, TOOLING CONFIG.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/f2-architecture.md`. Read the f1 report first; cite, do not re-report.
+to `docs/audit/programme/f2-architecture.md`. Read the f1 report first; cite, do not re-report.
+
+DELIVERABLE: the layer-edge table (check 2) is required. Every other check gets a section with its findings or an explicit zero-occurrences row.
 
 BASELINE — verify before starting, do not trust: `tsc --noEmit`, `eslint .`, `next build` and
 `node --test` should all be clean/green (state what you actually observe, with counts). Findings in
@@ -25,9 +27,10 @@ THE CHECKS:
    component files instead of the designated module?
 
 2. **Layer boundaries, as an edge table.** Derive the actual import graph (`core` ↔ `shared` ↔
-   `features`, cross-feature edges) and report it as a table of edges, not prose — the previous
-   run's prose underspecified an edge that turned out to run through a single constant. The lint
-   rules enforce `core`/`shared` direction; audit what they do not: cross-feature edges outside the
+   `features`, cross-feature edges) and report it as a table of edges, **never as prose** — prose
+   underspecifies an edge that runs through a single constant, and the table forces every edge to be
+   named. The lint rules enforce `core`/`shared` direction; audit what they do not: cross-feature
+   edges outside the
    sanctioned aggregator, any `eslint-disable` on the layer rules (each needs a named justification
    or is a finding), and type-only edges that would become value edges with one keyword slip.
 
