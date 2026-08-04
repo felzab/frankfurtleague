@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `9ffbbfc`, 2026-08-05
+**Verified against:** `2665a5e`, 2026-08-05
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
@@ -245,14 +245,18 @@ repository, and does not exist yet when the gate runs.
 | Refused                                                             | Reported                 |
 | ------------------------------------------------------------------- | ------------------------ |
 | An empty body, or the template submitted with its placeholder prose | A summary over 200 words |
-| No `**Verified.**` paragraph                                        |                          |
+| No Verified paragraph — bold optional, the section is what counts   |                          |
 | Three or more list items each carrying a commit hash                |                          |
 | A summary over 500 words above the first heading                    |                          |
 
 **Three, not two, is the commit-index threshold** — a roadmap closure names both its SHAs and is
-correct to (see the orientation sentence above). **`Verified` is the one heading never legitimately
+correct to (see the orientation sentence above). **`Verified` is the one section never legitimately
 dropped**, because every pull request here runs the gate; the other three are unchecked precisely so
 the rule to drop a heading rather than pad it stays true. Dependabot is skipped entirely.
+
+**The sections are matched by name, never by their bolding.** The template bolds them and most of
+the merged corpus does not, and two asterisks are not something a reader loses — a check that
+insisted on them refused 27 of 44 merged bodies, several of them among the best written.
 
 Check an open one by hand:
 
