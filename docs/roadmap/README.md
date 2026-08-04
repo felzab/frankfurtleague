@@ -107,7 +107,7 @@ deliverable?**
 | The value is  | That the analysis survives until someone decides | That the work is visible until someone does it |
 | It reads like | Evidence, options, costs                         | A definition of done                           |
 
-A sharper version, borrowed from the ADR test in [`../_standard/2-out-of-code.md`](../_standard/2-out-of-code.md):
+A sharper version, borrowed from the ADR test in [`../_standard/3-out-of-code.md`](../_standard/3-out-of-code.md):
 _would someone reasonably propose the opposite, and would you have to re-derive the argument to
 refuse?_ If yes, it belongs here. If the honest answer is "yes, do that, when I get to it", open an
 issue.

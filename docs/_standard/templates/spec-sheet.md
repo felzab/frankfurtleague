@@ -1,9 +1,10 @@
 <!--
 TEMPLATE — copy to docs/<surface>/spec.md and fill in.
-Guidance: ../2-out-of-code.md, "Layer 2 — spec sheets"
+Guidance: ../3-out-of-code.md, "Layer 2 — spec sheets"
 
 Two non-negotiables:
-  1. Every claim cites a file/line or an ADR. A reader who doubts a row settles it in seconds.
+  1. Every claim carries an ANCHORED citation — `file > symbol`, `file > "fragment"`, or an ADR
+     number. NEVER a line number: it is wrong after any edit above it and nothing detects that (P6).
   2. Invariants are numbered, so code comments and ADRs can reference them.
 
 Accuracy over volume. If something cannot be verified, say so rather than writing plausible prose.
@@ -12,7 +13,7 @@ Delete this comment block.
 
 # <Surface> — spec
 
-**Verified against:** `<commit>`, `<date>`
+**Verified against:** `<sha>`, `<date>`
 **Governing decisions:** ADR-NNNN, ADR-NNNN
 **Scope:** <which directories this covers>
 
@@ -29,9 +30,9 @@ What this surface exposes. Tables, not prose — parameters, endpoints, exports,
 Numbered. Each row needs all four columns — an invariant without a stated failure mode is a preference,
 not a constraint.
 
-| #   | Invariant | Enforced by                             | Breaks how                  |
-| --- | --------- | --------------------------------------- | --------------------------- |
-| I1  |           | `file.ts:12` or "review (CLAUDE.md §N)" | What goes wrong, concretely |
+| #   | Invariant | Enforced by                                       | Breaks how                  |
+| --- | --------- | ------------------------------------------------- | --------------------------- |
+| I1  |           | `file.ts › symbolName` or "review (CLAUDE.md §N)" | What goes wrong, concretely |
 
 ## 3. Violation → remedy
 

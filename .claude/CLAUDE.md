@@ -190,7 +190,16 @@ Each of these reads as a violation of §2 or of ordinary best practice, and each
 
 **`docs/README.md` is the entry point.** From there: `_decisions/` for why (the ADRs), the per-surface `overview.md` and `spec.md` for what, `glossary.md` for the German domain vocabulary, and **`workflows/` for branching, commits, PRs, deployment, the recurring operational tasks, and the commit/PR/issue templates** — consult it before proposing a git or deploy step.
 
-**`docs/_standard/`** defines how the repo is documented — read it before writing or changing documentation. `4-decisions.md` holds DS1–DS15, the decisions about the standard itself.
+**`docs/_standard/`** defines how the repo is documented — read it before writing or changing documentation. **Start at `1-principles.md`**: nine rules (P1–P9) that govern every document in this repo, including prompts, command files and commit bodies. `6-decisions.md` holds the DS decisions about the standard itself; `5-currency.md` holds the rules below.
+
+**Four rules keep documentation true. They are not optional and not deferrable:**
+
+1. **Same commit.** A change that invalidates a documented claim updates that document **in the same commit**. A commit whose docs contradict its code is incomplete, not a commit with a follow-up.
+2. **Before every PR, answer out loud: "what did this change make untrue?"** Then check the module header, the surface spec, the glossary, this file, and any ADR now contradicted. "Nothing" is a valid answer; not asking is not.
+3. **Cite anchors, never line numbers** — `file › symbol` or `` file › `fragment` ``, or an ADR number. A line number is wrong after any edit above it and nothing detects that.
+4. **Only cite an ADR that exists**, and never invent a number to fill a gap. Writing the ADR is part of the change that cites it.
+
+**Write for a reader with no context (P1).** No reference to a session, a conversation, a past programme, or an identifier that does not resolve to something tracked in this repo. A dangling reference is worse than none — it still reads as though it means something. Where a lesson is worth keeping, restate it as a present-tense rule.
 
 - **In code:** module header, then symbol docs, then inline comments. **Never restate a type** — the signature already says it. Document intent, constraints, rejected alternatives and traps.
 - **Documentation names only what exists — comments AND `/docs` alike (DS14).** No "used to", "previously", "this was reverted", no narration of a past edit, nothing documenting an absence. A history note ages badly and quietly becomes wrong, and a spec sheet naming a deleted endpoint reads exactly like one naming a live endpoint. Record a rejected alternative in the **present, as a constraint** ("never X, because Y"). A **measurement with a date is not history** and stays. Exempt, because recording what changed is their job: an ADR's **Context**, `roadmap/closed-items.md`, and an ADR's `Superseded by`. Grep a branch diff before committing and READ the hits — "the former … the latter" is ordinary English:

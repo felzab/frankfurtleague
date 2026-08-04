@@ -1,6 +1,6 @@
 <!--
 TEMPLATE — copy to docs/<surface>/overview.md and fill in.
-Guidance: ../2-out-of-code.md, "Layer 3 — surface overviews"
+Guidance: ../3-out-of-code.md, "Layer 3 — surface overviews"
 
 AROUND 120 LINES, treated as a ceiling. An overview that is growing has started explaining mechanisms,
 and mechanisms belong in the spec sheet.
@@ -16,7 +16,7 @@ Delete this comment block.
 
 # <Surface> — overview
 
-**Verified against:** `<commit>`, `<date>`
+**Verified against:** `<sha>`, `<date>`
 
 Two or three sentences: what this surface is, and the one structural fact that explains most of its
 shape. Lead with the thing a reader would otherwise get wrong.

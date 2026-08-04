@@ -1,6 +1,6 @@
 <!--
 TEMPLATE — copy the appropriate block into the top of a source file.
-Guidance: ../1-in-code.md, "Tier 1 — the module header"
+Guidance: ../2-in-code.md, "Tier 1 — the module header"
 
 Rules are drawn to a fixed column of 110. Because the section labels come from a fixed vocabulary
 (INVARIANTS, DECISIONS, SEE ALSO), the widths below are correct as-is — paste them, do not recompute
@@ -35,8 +35,8 @@ JSDoc hover and `help()` display as the summary, and a row of dashes there is wo
 **A directive stays above the block.** `"use server"` / `"use client"` must be the first line of the
 file, with the header below it — a mistake here fails at request time, not build time.
 
-**Until the ADRs exist**, omit `DECISIONS` and point `SEE ALSO` at the relevant spec sheet instead.
-Only cite an ADR that exists.
+**Only cite an ADR that exists** — the documentation gate fails on a number resolving to no file.
+Where no ADR governs the module, omit `DECISIONS` and let `SEE ALSO` point at the spec sheet.
 
 ## TypeScript, reduced form
 
