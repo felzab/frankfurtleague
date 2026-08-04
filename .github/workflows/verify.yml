@@ -39,6 +39,7 @@ jobs:
       docs: ${{ steps.map.outputs.docs }}
       backend: ${{ steps.map.outputs.backend }}
       frontend: ${{ steps.map.outputs.frontend }}
+      ops: ${{ steps.map.outputs.ops }}
       images: ${{ steps.map.outputs.images }}
       format: ${{ steps.map.outputs.format }}
     steps:
@@ -223,6 +224,20 @@ jobs:
             exit 1
           fi
 
+  # The compose files and nginx's prod.conf have no compiler and no test suite; this scope is the
+  # only thing standing between a typo in either and a failed deploy.
+  ops:
+    needs: changes
+    if: needs.changes.outputs.ops == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run the ops scope
+        run: ./scripts/verify.sh --ops
+
   # Both image builds plus the instrumentation.js presence check -- the two failures the frontend
   # has been green for while the image was broken. On a pull request this runs only when a
   # packaging input changed (Dockerfiles, lockfiles, config.ts, auth.ts, instrumentation.ts),
@@ -244,7 +259,17 @@ jobs:
   # so path filtering can never leave the required check hanging.
   verify:
     needs:
-      [changes, scripts, docs, format, backend, backend-db, frontend, images]
+      [
+        changes,
+        scripts,
+        docs,
+        format,
+        backend,
+        backend-db,
+        frontend,
+        ops,
+        images,
+      ]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -78,10 +78,10 @@ Claude Code", no equivalent. This overrides any default instruction to add one.
 Run `./scripts/verify.sh` before pushing, covering **every surface the branch touched** — the scope
 flags name surfaces and combine (`scripts/README.md` has the table), and no flag runs everything.
 The minimum by change: docs-only → `--docs`, plus `pnpm format` from `fl_frontend/` (commit what it
-rewrites); backend → `--backend --db --docs`; frontend → `--frontend --docs`; `scripts/` → the full
-form; packaging (a Dockerfile, a lockfile, `next.config.ts`, `src/core/config.ts`,
-`src/core/auth.ts`, `src/instrumentation.ts`) → the full form, images included. In doubt → the full
-form. The frontend scope rewrites the tree (the formatter runs first) — commit what it reformats
+rewrites); backend → `--backend --db --docs`; frontend → `--frontend --docs`; nginx or a compose
+file → `--ops`; `scripts/` → the full form; packaging (a Dockerfile, a lockfile, `next.config.ts`,
+`src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts`) → the full form, images
+included. In doubt → the full form. The frontend scope rewrites the tree (the formatter runs first) — commit what it reformats
 and read the diff.
 
 Report the actual exit code. Never the word "passing", never a hand-typed substitute chain.

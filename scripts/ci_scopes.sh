@@ -4,8 +4,8 @@
 # TARGET PLATFORM: any (the CI runner is the consumer; it runs identically on a dev machine, which
 # is how the mapping is tested by hand).
 #
-# Prints one `name=true|false` line per scope to stdout — scripts, docs, backend, frontend, images,
-# format — exactly the shape `$GITHUB_OUTPUT` accepts. The human-readable summary goes to stderr so
+# Prints one `name=true|false` line per scope to stdout — scripts, docs, backend, frontend, ops,
+# images, format — exactly the shape `$GITHUB_OUTPUT` accepts. The human-readable summary goes to stderr so
 # it can never leak into the outputs. Both workflows consume this: verify.yml turns each line into
 # a job condition, and codeql.yml reads the frontend and backend lines to pick analysis languages.
 # Keeping the mapping here rather than inline in a workflow makes it one copy, testable by hand,
@@ -36,8 +36,8 @@ for arg in "$@"; do
 done
 [[ -n "$MODE" ]] || die "Name a base ref (origin/main), or pass --all. See --help."
 
-scripts=false; docs=false; backend=false; frontend=false; images=false; format=false
-all() { scripts=true; docs=true; backend=true; frontend=true; images=true; format=true; }
+scripts=false; docs=false; backend=false; frontend=false; ops=false; images=false; format=false
+all() { scripts=true; docs=true; backend=true; frontend=true; ops=true; images=true; format=true; }
 
 if [[ "$MODE" == "all" ]]; then
   all
@@ -71,15 +71,17 @@ else
       fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; images=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       fl_backend/*) backend=true; docs=true ;;
-      # Prettier's coverage reaches outside fl_frontend (see `format` in fl_frontend/package.json);
-      # these change nothing else CI can check.
-      docker-compose.yml|docker-compose.local.yml|.prettierignore) format=true ;;
+      # The ops scope parses the compose files and runs nginx against prod.conf; prettier also
+      # formats the compose files (see `format` in fl_frontend/package.json).
+      docker-compose.yml|docker-compose.local.yml) ops=true; format=true ;;
+      nginx/*) ops=true ;;
+      .prettierignore) format=true ;;
       # .gitattributes decides line endings at checkout, which is exactly what the scripts' CRLF
       # self-check exists to catch on a fresh clone.
       .gitattributes) scripts=true ;;
       # No automated check exists for these. A deliberate, named list — anything NOT named here
       # falls through to the conservative default below.
-      nginx/*|certs/*|.vscode/*|.gitignore|LICENSE|NOTICE) ;;
+      certs/*|.vscode/*|.gitignore|LICENSE|NOTICE) ;;
       docs/*) docs=true; format=true ;;
       .claude/*|.github/*) docs=true; format=true ;;
       *) all ;;
@@ -87,6 +89,6 @@ else
   done <<< "$files"
 fi
 
-printf 'scripts=%s\ndocs=%s\nbackend=%s\nfrontend=%s\nimages=%s\nformat=%s\n' \
-  "$scripts" "$docs" "$backend" "$frontend" "$images" "$format"
-info "scopes: scripts=$scripts docs=$docs backend=$backend frontend=$frontend images=$images format=$format" >&2
+printf 'scripts=%s\ndocs=%s\nbackend=%s\nfrontend=%s\nops=%s\nimages=%s\nformat=%s\n' \
+  "$scripts" "$docs" "$backend" "$frontend" "$ops" "$images" "$format"
+info "scopes: scripts=$scripts docs=$docs backend=$backend frontend=$frontend ops=$ops images=$images format=$format" >&2

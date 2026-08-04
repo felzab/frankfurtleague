@@ -51,11 +51,12 @@ at the worst moment. Machine-specific scripts refuse to start on the wrong platf
 
 ## `verify.sh` — the pre-merge gate
 
-Six scopes, run in cheapest-to-fail order — the self-check and the documentation gate are instant,
-the backend tier takes seconds, a `next build` takes minutes, an image build longer still. No flag
-means every scope; scope flags combine freely; `--quick` is the four scopes that need no Docker.
-Missing prerequisites fail immediately, before any check runs. Each tool is its own step, tool
-output is captured and shown only when its step fails, and `--verbose` streams everything instead.
+Seven scopes, run in cheapest-to-fail order — the self-check and the documentation gate are
+instant, the backend tier takes seconds, a `next build` takes minutes, an image build longer still.
+No flag means every scope; scope flags combine freely; `--quick` is the four scopes that need no
+Docker. Missing prerequisites fail immediately, before any check runs. Each tool is its own step,
+tool output is captured and shown only when its step fails, and `--verbose` streams everything
+instead.
 
 | Scope        | Runs                                                           | Needs            |
 | ------------ | -------------------------------------------------------------- | ---------------- |
@@ -63,8 +64,14 @@ output is captured and shown only when its step fails, and `--verbose` streams e
 | `--docs`     | `check_docs.py` — citations, links, stamps                     | the backend venv |
 | `--backend`  | `ruff` + `pyright` + `pytest`, default tier                    | the backend venv |
 | `--frontend` | prettier (write), tsc, eslint, `next build`, unit tests, audit | pnpm install     |
+| `--ops`      | both compose files parse; nginx accepts `prod.conf`            | Docker           |
 | `--db`       | `pytest -m db` against a real `mongod`                         | venv + Docker    |
 | `--images`   | both `docker build`s + the `instrumentation.js` presence check | Docker           |
+
+The **ops** scope exists because the compose files and the nginx config have no compiler and no
+test suite — without it, a typo in either surfaces on the server, at deploy time. `nginx -t` runs
+against throwaway self-signed certificates and loopback upstream hosts, because a config test loads
+both.
 
 Three scopes carry the reasoning worth knowing. The **backend** scope exists because the frontend
 toolchain runs nothing against `fl_backend`, whose validation constraints the frontend mirrors rather than

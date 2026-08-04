@@ -87,13 +87,14 @@ entry point in the codebase.
 
 ## 5. The verification gate
 
-`scripts/verify.sh` runs six scopes in cheapest-to-fail order, and the order is the point: the
+`scripts/verify.sh` runs seven scopes in cheapest-to-fail order, and the order is the point: the
 script self-check and the documentation gate are instant, the backend tier (ruff, pyright, pytest)
 takes seconds, the frontend (prettier, tsc, eslint, `next build`, unit tests, then
-the advisory dependency audit) takes minutes, and the database test tier and both image builds —
-with the check that `instrumentation.js` is present in the frontend image — need Docker on top. A
-bare invocation runs everything; scope flags name surfaces and combine (`scripts/README.md` has the
-table). CI runs the same scopes as parallel jobs mapped from the paths a pull request touches.
+the advisory dependency audit) takes minutes, and the ops checks (both compose files parse,
+`nginx -t` accepts `prod.conf`), the database test tier and both image builds — with the check that
+`instrumentation.js` is present in the frontend image — need Docker on top. A bare invocation runs
+everything; scope flags name surfaces and combine (`scripts/README.md` has the table). CI runs the
+same scopes as parallel jobs mapped from the paths a pull request touches.
 
 **The documentation gate** (`scripts/check_docs.py`) fails on a citation that resolves to nothing — a
 dangling ADR number, a dead link, a broken in-page anchor, an anchored citation whose target has gone,

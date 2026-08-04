@@ -15,6 +15,7 @@
 #   docs       check_docs.py — citations, links and stamps (instant; needs the backend venv)
 #   backend    ruff, pyright and the default pytest tier. No Docker
 #   frontend   prettier, tsc, eslint, next build, unit tests, then the dependency audit
+#   ops        both compose files parse, and nginx accepts prod.conf. Needs Docker
 #   db         the db-marked pytest tier against a real mongod (ADR-0030). Needs Docker
 #   images     both docker builds plus the instrumentation.js presence check. Needs Docker
 #
@@ -38,13 +39,14 @@
 #   ./scripts/verify.sh --backend    a backend change pairs this
 #   ./scripts/verify.sh --db         with this, its Docker-backed test tier
 #   ./scripts/verify.sh --frontend
+#   ./scripts/verify.sh --ops
 #   ./scripts/verify.sh --images
 #   ./scripts/verify.sh --verbose    stream every tool's own output instead of capturing it
 #   ./scripts/verify.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FRONTEND=0; RUN_DB=0; RUN_IMAGES=0
+RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FRONTEND=0; RUN_OPS=0; RUN_DB=0; RUN_IMAGES=0
 # shellcheck disable=SC2034  # consumed by _lib.sh's `quietly`, which shellcheck cannot follow
 VERBOSE=0
 # shellcheck disable=SC2034  # same: the loop's `--verbose` arm assigns for `quietly`
@@ -54,6 +56,7 @@ for arg in "$@"; do
     --docs)     RUN_DOCS=1 ;;
     --backend)  RUN_BACKEND=1 ;;
     --frontend) RUN_FRONTEND=1 ;;
+    --ops)      RUN_OPS=1 ;;
     --db)       RUN_DB=1 ;;
     --images)   RUN_IMAGES=1 ;;
     --quick)    RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1 ;;
@@ -64,14 +67,27 @@ for arg in "$@"; do
 done
 
 # No scope named means every scope: the bare invocation stays the full gate.
-if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_DB || RUN_IMAGES) )); then
-  RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1; RUN_DB=1; RUN_IMAGES=1
+if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) )); then
+  RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
 # Fail on a missing prerequisite NOW: without this, a full run on a machine whose Docker is asleep
 # discovers it only at the db tier, minutes of green checks in.
-if (( RUN_DB || RUN_IMAGES )); then
+if (( RUN_OPS || RUN_DB || RUN_IMAGES )); then
   require_docker
+fi
+
+# One EXIT trap serves every Docker scope's cleanup: `die` exits directly, so an inline cleanup
+# line after a failed check would never run.
+if (( RUN_OPS || RUN_IMAGES )); then
+  STANDIN_BE=0; STANDIN_FE=0
+  cleanup() {
+    rm -rf "${REPO_ROOT}/.tmp-nginx-check"
+    if (( STANDIN_BE )); then rm -f fl_backend/.env; fi
+    if (( STANDIN_FE )); then rm -f fl_frontend/.env; fi
+    docker image rm -f frankfurtleague-verify:frontend frankfurtleague-verify:backend >/dev/null 2>&1 || true
+  }
+  trap cleanup EXIT
 fi
 PY=""
 if (( RUN_DOCS || RUN_BACKEND || RUN_DB )); then
@@ -153,6 +169,43 @@ if (( RUN_FRONTEND )); then
   fi
 fi
 
+# --- ops -------------------------------------------------------------------------------------------
+# The compose files and the nginx config have no compiler and no test suite; without this scope a
+# typo in either surfaces on the server, at deploy time.
+if (( RUN_OPS )); then
+  step "ops · compose files parse"
+  # Compose refuses to parse a file whose env_file is missing, and a CI checkout has neither .env.
+  # Stand-ins are created only where the file is absent and removed by the EXIT trap above — a
+  # real .env is never touched.
+  if [[ ! -f fl_backend/.env ]]; then : > fl_backend/.env; STANDIN_BE=1; fi
+  if [[ ! -f fl_frontend/.env ]]; then : > fl_frontend/.env; STANDIN_FE=1; fi
+  quietly docker compose -f docker-compose.yml config --quiet \
+    || die "docker-compose.yml does not parse."
+  quietly docker compose -f docker-compose.local.yml config --quiet \
+    || die "docker-compose.local.yml does not parse."
+  ok "both compose files parse"
+
+  step "ops · nginx accepts prod.conf"
+  # `nginx -t` loads the certificates and resolves every proxy_pass host, so the check supplies a
+  # throwaway self-signed pair and loopback entries for the two upstream names. The temp dir sits
+  # under the repo root because MSYS rewrites /tmp in mount paths (scripts/README.md, Windows) —
+  # the same reason both commands carry MSYS_NO_PATHCONV.
+  rm -rf "${REPO_ROOT}/.tmp-nginx-check"
+  mkdir -p "${REPO_ROOT}/.tmp-nginx-check"
+  # Relative output paths, because a Windows openssl cannot open an MSYS-style absolute path; the
+  # exclusion protects only the subject from MSYS's path rewriting, and is inert on Linux.
+  MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
+    -keyout .tmp-nginx-check/key.pem -out .tmp-nginx-check/cert.pem \
+    || die "could not generate a throwaway certificate for the nginx check."
+  MSYS_NO_PATHCONV=1 quietly docker run --rm \
+    --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
+    -v "/${REPO_ROOT}/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro" \
+    -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
+    nginx:alpine nginx -t \
+    || die "nginx refuses prod.conf — its own explanation is above."
+  ok "nginx accepts prod.conf"
+fi
+
 # --- db --------------------------------------------------------------------------------------------
 # The other test tier, split from the default one because it needs the Docker daemon that --quick
 # exists to avoid. Locally this was the gap: `pytest -m db` ran only in CI, so a change that broke
@@ -165,14 +218,10 @@ testcontainers starts and removes mongo:8 itself; a failure here is the code, no
 fi
 
 # --- images ----------------------------------------------------------------------------------------
+# The EXIT trap above reclaims the throwaway image tags on every exit path — without it, a failed
+# gate leaves both tags behind, where the next run moves them onto fresh images and orphans the old
+# ones as untagged 369 MB layers that nothing but `docker image prune` ever reclaims.
 if (( RUN_IMAGES )); then
-  # Reclaim the throwaway images on EVERY exit path, registered before the first build that creates
-  # them. It has to be a trap: `die` calls exit directly, so a plain line at the end of the script
-  # only runs when the gate passes — and a failed gate then leaves both tags behind, where the next
-  # run moves them onto fresh images and orphans the old ones as untagged 369 MB layers that
-  # nothing but `docker image prune` ever reclaims.
-  trap 'docker image rm -f frankfurtleague-verify:frontend frankfurtleague-verify:backend >/dev/null 2>&1 || true' EXIT
-
   step "images · docker build frontend  (the check the frontend scope cannot do)"
   quietly docker build -f fl_frontend/Dockerfile -t frankfurtleague-verify:frontend fl_frontend \
     || die "The frontend image failed to build. This is the failure the frontend scope cannot see."
@@ -201,6 +250,7 @@ mark scripts  "$RUN_SCRIPTS"
 mark docs     "$RUN_DOCS"
 mark backend  "$RUN_BACKEND"
 mark frontend "$RUN_FRONTEND"
+mark ops      "$RUN_OPS"
 mark db       "$RUN_DB"
 mark images   "$RUN_IMAGES"
 
