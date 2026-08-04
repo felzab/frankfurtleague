@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `738c2b3`, 2026-08-04
+**Verified against:** `f2a8458`, 2026-08-04
 
 Frankfurt-League is a league website: a Next.js frontend, a FastAPI backend, MongoDB, deployed with
 Docker Compose behind nginx on a single host.
@@ -157,11 +157,11 @@ Full rules and the reasoning: [`_standard/`](_standard/), starting at
 
 Recorded rather than acted on. Full analyses in [`roadmap/open-items.md`](roadmap/open-items.md).
 
-| #   | Finding                                                                                | Severity                      |
-| --- | -------------------------------------------------------------------------------------- | ----------------------------- |
-| F1  | `ausstehend` means "today or later" on the server and "later than today" on the client | Question of intent, not a bug |
-| F2  | The Pydantic and Zod models are hand-mirrored, with no generation step                 | Accepted risk                 |
-| F7  | The landing page's season badge is hardcoded, so it goes stale at the rollover         | Cosmetic, but fails silently  |
+| #   | Finding                                                                                | Severity                          |
+| --- | -------------------------------------------------------------------------------------- | --------------------------------- |
+| F1  | `ausstehend` means "today or later" on the server and "later than today" on the client | Question of intent, not a bug     |
+| F2  | The Pydantic and Zod models are hand-mirrored, with no generation step                 | Open — to be checked or generated |
+| F7  | The landing page's season badge is hardcoded, so it goes stale at the rollover         | Cosmetic, but fails silently      |
 
 Resolved findings are rows in [`roadmap/closed-items.md`](roadmap/closed-items.md), each naming the
 commit that closed it.

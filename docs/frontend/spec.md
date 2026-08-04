@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `f2a8458`, 2026-08-04
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -254,9 +254,9 @@ are behaviour that is deliberate — those are the ones that save the most time.
 
 ## 12. Known-open
 
-| #    | Item                                                                    | State                                                               |
-| ---- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| F1   | `ausstehend` means `>= today` on the server and `> today` on the client | Open question of intent, not a filed bug. See the ledger            |
-| F2   | Pydantic and Zod models are hand-mirrored, no generation step           | Accepted. The main drift risk                                       |
-| —    | No in-app sign-out                                                      | Session lifetime (8h) is the only revocation mechanism              |
-| BE-9 | The `is_placeholder` "TBD" team affects bracket rendering               | Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md) |
+| #    | Item                                                                    | State                                                                                                                                                               |
+| ---- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1   | `ausstehend` means `>= today` on the server and `> today` on the client | Open question of intent, not a filed bug. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                       |
+| F2   | Pydantic and Zod models are hand-mirrored, no generation step           | The main drift risk. Open: to be checked against the backend's schemas, or generated from them. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md) |
+| —    | No in-app sign-out                                                      | Session lifetime (8h) is the only revocation mechanism                                                                                                              |
+| BE-9 | The `is_placeholder` "TBD" team affects bracket rendering               | Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                                                                 |

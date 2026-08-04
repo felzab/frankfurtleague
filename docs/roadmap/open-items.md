@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `738c2b3`, 2026-08-04
+**Verified against:** `f2a8458`, 2026-08-04
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -40,36 +40,46 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 ## The path at a glance
 
-| #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on               |
-| --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------ |
-| 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)  |
-| 2   | LOG-1 | Logging and error handling, surveyed then standardised  | FE, BE, Ops | L      | Open     | — (parallel-safe)        |
-| 3   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)        |
-| 4   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                        |
-| 5   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)  |
-| 6   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)  |
-| 7   | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Open     | —                        |
-| 8   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)     |
-| 9   | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE      | M      | Blocked  | BE-9 (part 2 only)       |
-| 10  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)       |
-| 11  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 10, 12)    |
-| 12  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 10, 11)    |
-| 13  | FE-3  | TeamDetailsView rework                                  | FE          | M      | Blocked  | FB-2                     |
-| 14  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on) |
-| 15  | F2    | Pydantic and Zod models are hand-mirrored               | FE, BE      | —      | Standing | standing caution         |
-| 16  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4            |
-| 17  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2            |
-| 18  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded         |
-| 19  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded         |
+| #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
+| --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
+| 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
+| 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
+| 3   | OPS-6 | What a pull request body is for                         | Ops         | S      | Open     | —                         |
+| 4   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Open     | —                         |
+| 5   | LOG-1 | Logging and error handling, surveyed then standardised  | FE, BE, Ops | L      | Open     | — (parallel-safe)         |
+| 6   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
+| 7   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                         |
+| 8   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
+| 9   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
+| 10  | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
+| 11  | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Open     | —                         |
+| 12  | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
+| 13  | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
+| 14  | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
+| 15  | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE      | M      | Blocked  | BE-9 (part 2 only)        |
+| 16  | FE-4  | Mark the teams currently in a playoff place             | FE (+BE)    | M      | Open     | FB-4, FB-2 (both soft)    |
+| 17  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)        |
+| 18  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 17, 19, 20) |
+| 19  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 17, 18, 20) |
+| 20  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 17, 18, 19) |
+| 21  | FE-3  | TeamDetailsView rework                                  | FE          | M      | Blocked  | FB-2                      |
+| 22  | FE-5  | Filters for the Spielsuche                              | FE          | M      | Open     | — (F1 informs it)         |
+| 23  | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | LOG-1 (soft)              |
+| 24  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
+| 25  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
+| 26  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
+| 27  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
+| 28  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
 
 ---
 
 ## Tier 1 — leverage and clocks
 
-F7 leads on its clock: it is an afternoon, and left alone it puts the wrong year on the landing page
-at a rollover nobody will be watching. LOG-1 follows because every item below it is easier to debug
-once it lands, and it blocks nothing. Then the two model decisions that three later entries consume —
-FB-2's disqualification record and BE-9's placeholder team — and last the two admin surfaces, which
+The three cheapest come first on purpose: each is an afternoon, and each makes everything written
+after it correct by default rather than needing a second pass. F7 leads on its clock — left alone it
+puts the wrong year on the landing page at a rollover nobody will be watching. F2 follows them
+because four entries in tier 3 are schema changes and it is what makes a schema change safe. Then
+LOG-1, the two model decisions three later entries consume, and last the two admin surfaces, which
 turn an API nothing calls into something an operator can use and end the reference caches' staleness
 window as a side effect.
 
@@ -85,7 +95,109 @@ currently have — a real trade-off rather than an obvious fix.
 
 **Path:** independent, but deadline-bound — decide before the next season rollover.
 
-### 2 · LOG-1 — Logging and error handling, surveyed then standardised
+### 2 · FE-9 — The polite address form is not applied consistently
+
+**Owner's item, 2026-08-04.** User-facing content addresses the reader informally but politely —
+**`Du`, `Dein`, `Dir`, `Dich`, capitalised** — and never as `Sie` or `Ihr`.
+
+**The site is already mixed**, measured across `fl_frontend/src` on 2026-08-04. Capitalised: the
+Kontakt and Team page descriptions (`erfährst Du`), `KontaktView` (`für Dein Anliegen`, `bei Dir`).
+Lowercase: the Spielsuche description (`die Spiele deines Teams`), `MetaTeamView`
+(`lernst du die Personen`), `SignInForm` (`Prüfe dein Postfach`), `ConfirmDeleteModal`
+(`Möchtest du`, `Bist du dir`), the sign-in emails in `fl_frontend/src/core/authEmail.ts`, and eight
+copies of `Bitte überprüfe deine Eingaben!` across four files — three each in the `schiedsrichter` and
+`spielorte` slices' `actions.ts`, one in `spiele`, and one in `InlineCreateAutocomplete`. The
+capitalising pages are not internally consistent either — the Kontakt description reads `wie Du dich`,
+both forms in one sentence.
+
+**A sentence-initial `Du` is capitalised in German whatever the convention holds**, so occurrences
+such as "Du hast Fragen zum Turnierablauf" are not evidence either way and are not counted above.
+
+Two things this needs beyond the sweep itself:
+
+- **A recorded rule, or it decays the same week.** A one-off pass fixes today's strings and the next
+  component reintroduces the mixture. The rule belongs where a session about to write German copy
+  will actually read it; `docs/frontend/overview.md` and CLAUDE.md are the candidates, and choosing
+  between them is part of this item.
+- **A scope line.** German inside `/docs` and in code comments addresses developers, not users, and
+  is out. The sign-in emails are user-facing and are in.
+
+Whether anything mechanical can hold the rule is open. A lint rule matching the standalone words is
+plausible — word boundaries keep it off `du` inside longer words — but it would also have to be
+scoped to user-facing strings, and nothing in the tree marks which literals those are.
+
+**Path:** independent. Every later item that writes copy — FE-5, FE-6, FB-7 — is cheaper after it.
+
+### 3 · OPS-6 — What a pull request body is for, when the commit bodies already say it
+
+**Owner's item, 2026-08-04:** if the commit bodies already carry the reasoning, should a pull request
+body be one short sentence per change plus a link to each commit?
+
+**Whether a pull request is needed at all is already settled and is not this item's question.**
+`main` is protected by a GitHub ruleset that requires one, with required approvals at `0`
+(`docs/workflows/README.md`). What is open is only what the body carries.
+
+**Half the proposal is already the convention.** `docs/workflows/README.md` says a single-commit pull
+request needs only a pointer, because the commit body says it. What the bullet would change is the
+multi-commit case, where the convention currently asks for a summary "at the level the commits do
+not".
+
+What to weigh when it is worked:
+
+- **A per-commit list already exists.** GitHub renders every commit of a pull request in its own tab,
+  each with its full body one click away, so a body listing one line per commit reproduces a view the
+  reviewer already has.
+- **What no commit can say** is what the branch achieves as a whole, what was verified across it, and
+  what was deliberately left undone. A commit describes its own change; none of them describes the
+  shape of the set.
+- **The body is where this repo's own rules get checked**, which is why
+  `.github/PULL_REQUEST_TEMPLATE.md` pre-fills four headings. Changing the convention means changing
+  that file and `docs/workflows/message-templates.md` in the same commit, or the form and the rule
+  disagree.
+- **This section of the workflows page is marked as not verifiable from the repository**, because
+  pull request bodies live on GitHub and `gh` is deliberately not installed. Any claim about what
+  current bodies look like has to be checked in the browser.
+
+**Path:** independent, and every pull request after it is shorter or better for it.
+
+### 4 · F2 — The Zod mirror of the Pydantic models is unverified
+
+`fl_backend/app/api/spiele/schemas.py` and `fl_frontend/src/features/spiele/schemas.ts` (and their
+siblings) are maintained as mirrors with **no generation step and no check**. This is the main drift
+risk across the boundary and the first thing to check when behaviour looks impossible.
+
+**Owner's item, 2026-08-04: find a way to verify the frontend schemas against the backend's, and
+possibly generate them.** That is what moves this entry out of the standing cautions — it now has a
+plan rather than a trigger.
+
+**The repository has already answered this question once, for a third copy of the same shapes.**
+[ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md) keeps the
+`$jsonSchema` validators hand-written and makes drift a test failure:
+`fl_backend/tests/core/test_constraints.py :: test_every_mirrored_model_matches_its_validator`
+compares field names in the default tier, in under half a second, with no database. Read that ADR before choosing —
+its argument transfers in part, and the part that does not transfer is where this decision lives.
+
+**What exists to build on.** FastAPI publishes an OpenAPI document describing every endpoint's
+shapes, which is what either a checker or a generator would read. It carries no service-level `title`
+or `description` and its Swagger UI is not publicly routed (`docs/backend/spec.md`, Known-open), but
+the document itself is complete.
+
+**Why generation is not obviously the answer.** The Zod schemas carry things an OpenAPI document
+cannot express: per-field German error messages, the draft types that let a currency field be `null`
+while it is mid-edit, and the patch payload composed from the read model's own field schemas rather
+than redeclared. A generated file cannot hold those, so generation means a generated core plus a
+hand-written layer over it — two files where there is one, and the drift moves into the layer.
+Checking has the opposite trade: it costs a test, and it catches only what it compares, so a check on
+field names alone leaves constraints unverified.
+
+**What could not be verified:** whether any generator handles the Pydantic-to-Zod direction well
+enough to be worth the dependency. Nothing was evaluated, and naming a tool here without trying it
+would be the guess this file exists to avoid.
+
+**Path:** this is why FB-5, FB-7, FE-2 and FE-1 are batched — until it lands, every schema change is
+a doubled edit that nothing checks. Landing it first turns that batch from a risk into ordinary work.
+
+### 5 · LOG-1 — Logging and error handling, surveyed then standardised
 
 **Owner's item, 2026-08-02. A consultation programme in two stages, ending in a recorded
 standard.**
@@ -110,9 +222,9 @@ request, not just failing ones. Evidence this is worth deciding deliberately: th
 code brought to it.
 
 **Path:** independent — nothing blocks it and it blocks nothing, so it can run alongside anything
-else in this file. Every later item benefits from landing it early.
+else in this file. FE-6 waits on the identifier it settles.
 
-### 3 · FB-2 — Disqualification becomes a record, not a boolean
+### 6 · FB-2 — Disqualification becomes a record, not a boolean
 
 **Owner's item, 2026-08-02.** Find a way to handle disqualifications properly. Currently teams can
 only **be** disqualified — a bare `is_disqualified` flag on the `saison_teams` junction row — but
@@ -133,11 +245,12 @@ Known consumers once the record exists:
   **joined** into `FLSpiel`, not denormalised into it, so whatever this item stores on the junction
   is what FB-5 reads. There is no second copy to keep in step.
 - FB-3's admin pages, which are the natural place to enter reason and date.
+- FE-4, which has to decide whether a disqualified team can hold a playoff place.
 
-**Path:** the structural half is settled; the field set is not. Feeds FB-5, FE-3 and FB-3 — decide
-the fields here before those consume them.
+**Path:** the structural half is settled; the field set is not. Feeds FB-5, FE-3, FE-4 and FB-3 —
+decide the fields here before those consume them.
 
-### 4 · BE-9 — the "TBD" placeholder team
+### 7 · BE-9 — the "TBD" placeholder team
 
 **State: open. The more interesting of the two backend items, and the one with a clear right
 answer.**
@@ -183,7 +296,7 @@ is the first season created without the TBD row breaking a bracket.
 **Path:** shapes FB-4's auto-advance — writing a winner into the next match's slot is exactly the
 operation the placeholder currently fakes, so decide this model before building that workflow.
 
-### 5 · FB-3 — Admin panel pages for team and spieler data
+### 8 · FB-3 — Admin panel pages for team and spieler data
 
 **Owner's item, 2026-08-02, with emphasis: make new admin panel pages for editing team and spieler
 data.**
@@ -231,7 +344,7 @@ Three things that API decided, which the pages inherit rather than choose:
 **Path:** unblocked. The natural UI home for FB-2's reason/date entry — build
 these with that form section in mind.
 
-### 6 · FB-6 — Admin pages for saisons and spieltage, and the rollover control
+### 9 · FB-6 — Admin pages for saisons and spieltage, and the rollover control
 
 **Opened 2026-08-03, when BE-4 closed.** BE-4 built every endpoint a season rollover needs and no page
 calls one, so the rollover is still done by hand against an API that already exists — which is strictly
@@ -265,17 +378,39 @@ invalidates its own cache tags as it saves — the durable fix
 landing together with FB-3 and not before.
 
 **Path:** independent; the API is built. Batch with FB-3, which is the same shell over the same
-generic components.
+generic components. If `rules` gains FE-4's qualifier count, this is the form that edits it.
 
 ---
 
-## Tier 2 — an afternoon each, and each removes a live doubt
+## Tier 2 — an afternoon each, and the value is already understood
 
-Neither blocks anything, and that is not a reason to rank them below a work package. BE-10 is paid on
-every public request the site serves; F1 is a question of intent that FE-1 would otherwise inherit
-unanswered and then have to answer under a much larger change.
+None of these blocks anything, and under the rubric that is not a reason to rank them below a work
+package. Two are visible defects, two are cheap questions with a live cost, and one is a query paid on
+every public request. Ordered by what each returns for the afternoon it takes.
 
-### 7 · BE-10 — Nothing caches the season document, and every request reads it
+### 10 · FE-8 — `SpielCardCompact` does not survive a narrow screen
+
+**Owner's item, 2026-08-04:** the card does not resize properly on mobile, and the button that opens
+the details modal is the worst of it.
+
+**Where it is.** The card's metadata row is one `flex-row` holding the date, a dash, the time, a
+`SaisonPhaseChip` and — pushed right by `ml-auto` — a fixed 32×32 icon button. Nothing in that row may
+wrap or shrink: the date and time spans carry `w-full` inside a `w-fit` parent, and the button's size
+is fixed in both dimensions. The teams row directly below it is a three-track grid built for exactly
+this problem, with `minmax(0,1fr)` tracks and `truncate` on both names. **The two rows of one card
+follow different rules, and only one of them was written for narrow screens.**
+
+**It renders in one place.** `TeamDetailsView` is the card's only consumer, which bounds the blast
+radius of a fix and also means this and FE-3 touch the same screen.
+
+**Not diagnosed further**, and the width at which it first breaks is not recorded. Verify against the
+local stack at a real mobile viewport rather than a dev server, and record the breakpoint before
+changing classes.
+
+**Path:** independent. FE-3 reworks the view this card renders in, so doing them in either order is
+fine, but doing them together avoids reading the same layout twice.
+
+### 11 · BE-10 — Nothing caches the season document, and every request reads it
 
 **Owner's item, 2026-08-02. Widened the same day, when the league table started being scored with the
 season's `rules`.**
@@ -313,7 +448,64 @@ do — so it wants the TTL as its backstop until FB-6 exists.
 
 **Path:** independent. Nothing blocks it.
 
-### 8 · F1 — Two definitions of `ausstehend`
+### 12 · FE-7 — The two-step delete confirmation loses its backdrop blur
+
+**Owner's item, 2026-08-04.** Reproduction: open a delete confirmation, press the first `Löschen`.
+The dialog advances to its second step and the blurred backdrop behind it goes flat.
+
+**The blur is not this modal's.** It is `ModalShell`'s `Modal.Backdrop variant="blur"`, which
+`FormModal` renders too — so a fix has to be checked against the create and edit dialogs, not only
+this one. `SpielDetailsModal` is the exception: it declares its own backdrop with the same
+`variant="blur"` and is deliberately not on the shell (owner decision, recorded in its module header),
+which makes it both a second place the same bug could appear and the one modal the public ever sees.
+
+**What changes at that moment** is `ConfirmDeleteModal` swapping the step-1 paragraph for the step-2
+alert panel, which enters with `animate-in fade-in slide-in-from-bottom-4`.
+
+**A hypothesis, and it has not been tested.** A transform animation starting inside an element that
+sits under a `backdrop-filter` ancestor is a known way to make a browser stop applying the filter,
+because the compositing layers beneath it are rebuilt. **Test it by removing those animation classes
+before changing anything else** — if the blur survives, the cause is confirmed and the fix is to
+animate a property that does not promote the element, or to move the animation out of the backdrop's
+subtree. Which browsers reproduce it is also not recorded; establish that first, because a
+Chromium-only compositing artefact and a general CSS mistake have different fixes.
+
+Verify against the local stack, never `next dev`.
+
+**Path:** independent.
+
+### 13 · BE-13 — A malformed id is a 404 in a path and a 422 in a query
+
+**Owner's item, 2026-08-04**, asking for one predictable rule.
+
+**What is true today**, and both halves are uniform within themselves:
+
+- **A path segment: 404.** `by_id()` (`fl_backend/app/core/routing.py :: by_id`) spells every
+  id-addressed route with the `objectid` convertor, whose regex is 24 hex characters, so
+  `/spiele/not-an-id` matches no route and never reaches a handler. Every ObjectId-addressed resource
+  uses it. `saisons` differs only because a season id is a four-character string and never an
+  ObjectId at all.
+- **A query parameter: 422.** `GET /spieler?team_id=not-an-id` reaches the filter model, where
+  `team_id` is a `CustomObjectId`, and Pydantic rejects the value.
+
+**The proposed rule cannot be implemented as stated.** "Twenty-four characters and not a valid
+ObjectId" is an empty set: every 24-character hex string constructs an ObjectId, and a 24-character
+string that is not hex fails the convertor's regex and so never reaches validation. There is no case
+in between for a rule to catch.
+
+That leaves two consistent rules, and the cheaper one may be the one already in force:
+
+| Rule                                       | Means                                              | Costs                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------ | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A path identifies, a query validates**   | 404 from a path, 422 from a query — today's answer | Nothing but writing it down. It is a real distinction: a path names a resource and there is no such resource, while a query carries input and the input is wrong                                                                                                                                    |
+| **One status for a malformed id anywhere** | Either drop the convertor, or 404 a bad query id   | Dropping the convertor re-opens what `app/core/routing.py` exists to prevent: `/spiele/action_required` is captured by `/{spiel_id}`, and the router include order in `app/main.py` becomes load-bearing and silent. The two routes cannot share a router — they differ in authorization (ADR-0034) |
+
+**Either way `docs/backend/spec.md` §4 gains a row.** It lists five error codes and says nothing
+about a malformed id, which is why the behaviour reads as accidental.
+
+**Path:** independent. May well end as a documentation change and no code at all.
+
+### 14 · F1 — Two definitions of `ausstehend`
 
 `build_spiele_filter` (`fl_backend/app/api/spiele/services.py :: build_spiele_filter`) filters
 `spiel_status="ausstehend"` as `datum >= today`, **including today**. `computeSpielStatus`
@@ -329,18 +521,19 @@ cancellation first (`isCanceled` wins over any date), while the server treats `i
 `datum` as independent filters. Seeded into backend audit pass B2's semantic-contracts check.
 
 **Path:** independent, but settle it at the latest inside FE-1, whose date ranges change these
-semantics anyway.
+semantics anyway. FE-5 would expose these semantics as a user-facing filter, so it inherits the
+answer.
 
 ---
 
 ## Tier 3 — the work those decisions carry
 
-Dependency order. Ranks 10–12 all touch `FLSpiel`, its Pydantic/Zod mirrors and
-`AdminEditSpielDataForm`. **Batch them**: F2's hand-mirrored schemas make every separate schema change
-a doubled edit with drift risk, so one coordinated pass beats three. BE-12 closes the tier because it
-becomes real only once FB-3 or FB-6 makes retiring a row possible at all.
+Dependency order. Ranks 17–20 all touch `FLSpiel` or `FLTeamStatistik`, their Pydantic/Zod mirrors and
+`AdminEditSpielDataForm`. **Batch them**: until F2 lands, every separate schema change is a doubled
+edit that nothing checks, so one coordinated pass beats four. BE-12 closes the tier because it becomes
+real only once FB-3 or FB-6 makes retiring a row possible at all.
 
-### 9 · FB-4 — Playoff bracket: verify the seeding, then auto-advance winners
+### 15 · FB-4 — Playoff bracket: verify the seeding, then auto-advance winners
 
 **Owner's item, 2026-08-02, in two parts.**
 
@@ -368,9 +561,40 @@ entry. Open questions to settle when built: re-propagation when a result is edit
 cancelled after advancement, and what fills the slot before a winner exists — which is BE-9.
 
 **Path:** part 2 depends on BE-9's model (nullable opponent refs are the thing auto-advance
-fills). Part 1 is cheap — a check plus a consultation — and can be pulled forward at any time.
+fills). Part 1 is cheap — a check plus a consultation — and can be pulled forward at any time; it
+answers half of FE-4, which asks the same question from the table's end.
 
-### 10 · FB-5 — `is_disqualified` inside `FLSpiel`'s team fields
+### 16 · FE-4 — Mark the teams currently in a playoff place in the Saisontabelle
+
+**Owner's item, 2026-08-04:** give the teams that would proceed to the playoffs a visual distinction
+in the Saisontabelle — normally the top two of each group.
+
+**The rendering is the easy half.** `SaisontabelleView` receives each group already ranked, so a
+marker is a row style plus a line of legend copy. Everything that makes this an M rather than an
+afternoon is deciding what "would proceed" means.
+
+- **Nothing in the system knows how many teams advance.** `FLSaison.rules` carries `win_points` and
+  `draw_points` and nothing else, so a `2` written into the component is a constant of exactly the
+  kind [ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md) refused for 3/1/0
+  and F7 still has in the landing page. `rules` is the obvious home, and putting it there makes a
+  season with a different bracket representable — which is also the form FB-6 would edit.
+- **The ranking has two keys and qualification needs a third.**
+  `FLGruppen.from_teams` sorts each group by points, then goal difference, descending. A further tie
+  falls back to the alphabetical order the pipeline delivered, because `build_team_pipeline` sorts by
+  `name` and Python's sort is stable. That is a fine display order and it is not a qualification rule:
+  **marking row 2 asserts a distinction the sort cannot actually make.**
+- **A team with no counting match ranks on zeros.** The pipeline substitutes `ZERO_STATISTIK` where
+  nothing matched, so a team that has played nothing sits at 0 points and 0 difference — above every
+  team with a negative difference. `SaisontabelleView` already prints `N/A` instead of a placement for
+  those rows, and a marker keyed on row index would decorate one regardless.
+- **A disqualified team stays in the table** (the junction lookup in `build_team_pipeline` filters
+  nothing out), so one can hold a marked place. Whether it should is FB-2's record to answer.
+
+**Path:** the same question as FB-4's part 1 from the other end — that item decides which qualifiers
+meet whom, this one decides who qualifies, and the two must agree. Soft dependency on FB-2 for the
+disqualified case.
+
+### 17 · FB-5 — `is_disqualified` inside `FLSpiel`'s team fields
 
 **Owner's item, 2026-08-02.** In order to display the DQ badge in **every** `TeamPopoverMenu`, the
 `FLSpiel` object needs `is_disqualified` in its `team1` and `team2` dictionaries respectively, so
@@ -396,10 +620,44 @@ ADR before reversing it.
 
 Whatever shape FB-2 gives the record, this reads it rather than copying it, so the two cannot drift.
 
-**Path:** field shape depends on FB-2; the storage question is settled. Batch with FE-2 and FE-1
-(same schema surfaces, one mirror pass — see F2).
+**Path:** field shape depends on FB-2; the storage question is settled. Batch with FB-7, FE-2 and
+FE-1 (same schema surfaces, one mirror pass — see F2).
 
-### 11 · FE-2 — Optional per-game notes
+### 18 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
+
+**Owner's item, 2026-08-04:** a team showing fewer games than its group's fixtures should say why.
+The sketch is `Spiele: 2 +1` in two colours, with a tooltip on hover for a pointer and on tap for
+touch.
+
+**What the number actually counts.** `anzahl_gespielte_spiele` counts matches carrying an `ergebnis`
+with both `tore` present (`fl_backend/app/api/teams/services.py :: build_statistik_lookup_stage`). **A
+cancelled match that has a result already counts** — it is a forfeit, and
+[ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md) settles that. So a missing
+game is a match with no result at all, and that covers two different situations: cancelled without a
+result, and not yet played.
+
+**Verify which one is behind the numbers before designing the badge.** The owner's reading is that
+they are cancellations; the pipeline cannot currently tell the two apart, and a badge that says
+"cancelled" about a fixture that simply has not happened yet is worse than no badge.
+
+**What it costs.** `FLTeamStatistik` carries seven fields and no eighth. A count of cancelled matches
+is a new field in the aggregation, the Pydantic model and the Zod mirror — a schema change, which is
+why it belongs in the batch rather than on its own.
+
+**Where it approaches a ratified decision.** ADR-0026 keeps `is_canceled` out of the counting rule,
+and this item would be the first thing to read that flag inside the same pipeline. A separate,
+clearly-named count is not a reversal — **the scoring must not change** — but the boundary belongs in
+a comment at the stage, because the next reader will see `is_canceled` in a pipeline an ADR says does
+not consult it.
+
+**The tooltip is an accessibility question rather than a device question.** A trigger that is
+focusable and announced gives the tap behaviour on touch and the hover behaviour on a pointer without
+branching on the device at all.
+
+**Path:** batch with FB-5, FE-2 and FE-1 — one schema and mirror pass (see F2). Its display half
+depends on nothing.
+
+### 19 · FE-2 — Optional per-game notes
 
 **Owner's item, 2026-08-02.** Add a place for **small notes on every game** — optional, containing
 information about the game such as exciting moments. **Editable in the admin form**
@@ -408,9 +666,9 @@ information about the game such as exciting moments. **Editable in the admin for
 An optional field on `FLSpiel` in both mirrors, a form section, and a display decision (where the
 note appears — `SpielDetailsModal` is the obvious candidate) that is deliberately left open here.
 
-**Path:** batch with FB-5 and FE-1 — same form, same schemas, one mirror pass.
+**Path:** batch with FB-5, FB-7 and FE-1 — same form, same schemas, one mirror pass.
 
-### 12 · FE-1 — Date ranges instead of specific dates for games (heavy)
+### 20 · FE-1 — Date ranges instead of specific dates for games (heavy)
 
 **Owner's item, 2026-08-02.** At some point, implement **date ranges** instead of specific dates
 for games. A heavy change, in the owner's scoping: it would change `AdminEditSpielDataForm`, the
@@ -422,9 +680,9 @@ documents; `computeSpielStatus`'s date comparisons; `formatSpielDisplay` and the
 semantics — a range makes the ausstehend/heute/vergangen ternary genuinely harder, so settle F1's
 intent at the latest here.
 
-**Path:** batch with FB-5 and FE-2 (one schema/mirror/form pass). Resolves or restates F1.
+**Path:** batch with FB-5, FB-7 and FE-2 (one schema/mirror/form pass). Resolves or restates F1.
 
-### 13 · FE-3 — TeamDetailsView rework
+### 21 · FE-3 — TeamDetailsView rework
 
 **Owner's item, 2026-08-02.** Rework `TeamDetailsView` to look nicer — **especially the saison
 progress line at the bottom**, which should also include important notes and milestones like "went
@@ -441,9 +699,59 @@ Contents the rework must carry:
 - a **note on disqualified teams**, which is where FB-2's reason and date get displayed.
 
 **Path:** waits only on FB-2 now. Doing the visual rework before the disqualification record exists
-would mean reworking it twice.
+would mean reworking it twice. FE-8 fixes the compact card this view is the only consumer of.
 
-### 14 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 22 · FE-5 — Filters for the Spielsuche, and Spielhistorie as one of them
+
+**Owner's item, 2026-08-04:** add filters to the Spielsuche, after which Spielhistorie could simply
+link into it with a "past" filter instead of existing as its own page.
+
+**How close the two already are.** `SpielsucheView` fuzzy-searches client-side across seven keys over
+the season already fetched, and shows nothing until the user types. `SpielhistoriePage` fetches a
+different query — `spiel_status: "vergangen"`, sorted by date descending — and hands it to the same
+card list. The pages differ by a server-side filter and a sort order, not by their interface.
+
+Three things to settle when it is worked:
+
+- **Where a filter runs.** The view filters in memory over one season, which is what makes it feel
+  instant and why it cannot find a match outside the selected season. A status filter can work the
+  same way, but F1 records that the two ends define `ausstehend` differently — a filter labelled for
+  users inherits that disagreement and makes it visible.
+- **What the URL carries.** `useDebouncedUrlQuery` already puts the search text in the URL; a filter
+  set has to go there too or a shared link loses it, and `resolveSaisonId` is already reading
+  `searchParams` on these routes.
+- **Whether Spielhistorie stays.** It has its own metadata, canonical URL and Open Graph entry, and
+  it is named in both `fl_frontend/src/features/dashboard/constants.ts` and
+  `fl_frontend/src/app/sitemap.ts`. Folding it into the Spielsuche is a routing and search-visibility
+  decision as much as a UI one: a redirect keeps the URL working, deleting the route does not.
+
+**Path:** independent. Inherits whatever F1 decides.
+
+### 23 · FE-6 — A way to report an error from the error page
+
+**Owner's item, 2026-08-04, with the evaluation he asked for**: is a report affordance worth having
+when everything is already logged?
+
+**Worth having, narrowly, for one thing the logs cannot cover.** `onRequestError` records server
+errors and `StatusPanel` shows the digest that makes one greppable — but the digest is written
+server-side, and `fl_frontend/src/app/error.tsx` says so at the line: server errors are redacted to a
+message plus a digest, "client errors are the user's own code". A client-side render crash therefore
+reaches the same boundary with nothing to quote and nothing recorded. What the user was doing is in no
+log either, and it is usually the difference between a report that reproduces and one that does not.
+**Confirm the client-side case against the local stack before building anything** — it is the whole
+justification, and it has not been reproduced.
+
+**Keep it to a `mailto:`.** The Kontakt page already publishes the address, so a link carrying the
+digest, the route and the time in its subject costs one component and adds no write path. A form
+posting to an endpoint would be a public, unauthenticated write on a site whose backend is otherwise
+reached only by server-side fetches — a new abuse surface for the same information.
+
+**Do not build it before LOG-1.** That item decides whether every request carries a trace id; an
+affordance built first would quote an identifier LOG-1 may replace.
+
+**Path:** soft dependency on LOG-1's identifier decision. Nothing waits on it.
+
+### 24 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Opened 2026-08-03, when BE-4 closed. It is the reason that field is a date rather than a boolean**
 ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
@@ -480,21 +788,10 @@ which needs FB-3 or FB-6 to exist. Doing it before then is designing against zer
 
 ## Tier 4 — standing cautions and watch items
 
-No scheduled action. F2 is a constraint on the work above; the rest have owners or recorded
-triggers.
+No scheduled action. Each of these has a recorded trigger rather than a plan, and an owner elsewhere:
+two are seeded into backend audit passes, two into ops.
 
-### 15 · F2 — Pydantic and Zod models are hand-mirrored
-
-`fl_backend/app/api/spiele/schemas.py` and `fl_frontend/src/features/spiele/schemas.ts` (and their
-siblings) are maintained as mirrors with no generation step. This is the main drift risk across the
-boundary and the first thing to check when behaviour looks impossible. **Accepted, not a defect** —
-recorded so it is stated plainly. The drift _between_ the mirrors is what backend audit pass B2's
-contract table measures.
-
-**Path:** the reason FB-5, FE-1 and FE-2 are batched — every schema change is a doubled edit, so
-fewer passes mean less drift surface.
-
-### 16 · BE-7 — `typing` imports instead of `collections.abc`
+### 25 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -502,7 +799,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 17 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 26 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -511,7 +808,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 18 · OPS-2 — nothing validates the contents of a restored `.env`
+### 27 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -549,7 +846,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 19 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 28 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 
