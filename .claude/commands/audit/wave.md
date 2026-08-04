@@ -34,4 +34,4 @@ session, on its own branch.
 
 The session ends with the branch pushed and a single copy-paste block containing the PR title
 (`Scope: what changed`) and body — the owner's only actions are Create PR and Merge on GitHub.
-Never run `gh pr create` or `gh pr merge` — `gh` is installed, and those two stay the owner's.
+Open it with `gh pr create --draft`. Never `gh pr ready`, never `gh pr merge` — both are the owner's.

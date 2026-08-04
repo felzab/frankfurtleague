@@ -50,10 +50,16 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
   scratchpad. "It is only one line" is not an exception.
 - **Already on `main` with uncommitted edits?** `git checkout -b <name>` carries them across intact.
   Say plainly that it happened.
-- **Never** commit to `main`, push to `main`, merge locally, force-push, or open the PR yourself.
-  **`gh` is installed and authenticated, which makes the last one reachable** — read with it freely
-  (`gh pr view`, `gh pr checks`, `gh run view`), but `gh pr create` and `gh pr merge` are the owner's
-  and no instruction in a session makes them yours.
+- **Never run `git reset --hard`.** It discards the working tree, not just a commit pointer, and
+  uncommitted work in another file goes with it silently. `git reset --soft HEAD~1` undoes a commit
+  and keeps the work; `git checkout -- <path>` reverts one file. The runbook in
+  `docs/workflows/README.md` that uses it is the **owner's**, for their own tree, and is not a
+  licence to run it here.
+- **Never** commit to `main`, push to `main`, merge locally, or force-push.
+- **Open the pull request yourself, and always as a draft** — `gh pr create --draft`. A draft cannot
+  be merged until it is marked ready, so the owner reviews before the button is live. **Never
+  `gh pr merge`, and never `gh pr ready`**: both are the owner's, and no instruction in a session
+  makes either yours. Read with `gh` freely (`gh pr view`, `gh pr checks`, `gh run view`).
 
 **The full cycle is [`docs/workflows/README.md`](../docs/workflows/README.md)** — commit subject and
 body shape, when the gate needs its full form, merge by merge commit. Read it rather than recalling
@@ -62,16 +68,16 @@ it; that page is the source and this section is the summary. Message templates:
 
 ### Every task ends the same way
 
-| Step                                                     | Who       |
-| -------------------------------------------------------- | --------- |
-| Branch · implement · run `./scripts/verify.sh` per §gate | assistant |
-| Commit, per `docs/workflows/message-templates.md`        | assistant |
-| Push the branch (`git push -u origin <name>`)            | assistant |
-| Print the PR link, title and body, ready to paste        | assistant |
-| Open the PR, merge, then `git checkout main && git pull` | **owner** |
+| Step                                                            | Who       |
+| --------------------------------------------------------------- | --------- |
+| Branch · implement · run `./scripts/verify.sh` per §gate        | assistant |
+| Commit, per `docs/workflows/message-templates.md`               | assistant |
+| Push the branch (`git push -u origin <name>`)                   | assistant |
+| Open the PR as a **draft**, and print its link                  | assistant |
+| Review, mark ready, merge, then `git checkout main && git pull` | **owner** |
 
-**Work is finished when it is committed, pushed, and the PR text is in the response.** Not when it
-compiles.
+**Work is finished when it is committed, pushed, and the draft PR's link is in the response.** Not
+when it compiles.
 
 **Never sign commits, PRs or code as AI-generated.** No `Co-Authored-By: Claude`, no "Generated with
 Claude Code", no equivalent. This overrides any default instruction to add one.

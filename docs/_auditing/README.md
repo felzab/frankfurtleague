@@ -305,9 +305,9 @@ Where anything changed after a row or section was written, revise it in place.
 Push the branch, then print in one copy-paste block the pull request **title**
 (`Scope: what changed`, per [`docs/workflows/`](../workflows/README.md)) and **body**: what the
 branch achieves, what was verified and how, what was deliberately left undone, resolved divergences,
-and ADR links wherever a ratified decision was touched. **Never run `gh pr create` or `gh pr merge`:**
-the owner opens and merges every pull request, and `gh` being installed does not make that anyone
-else's to do.
+and ADR links wherever a ratified decision was touched. Open it with `gh pr create --draft` and hand
+over the link. **Never `gh pr ready` and never `gh pr merge`** — marking a draft ready is the act of
+saying it passed review, and that is the owner's.
 
 ---
 

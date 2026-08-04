@@ -169,7 +169,7 @@ PHASE 4 — CLOSE OUT, in this exact order, identical every wave:
    how, what was deliberately left undone, every resolved divergence, and ADR
    links wherever a ratified decision was touched. The body must STAND ALONE —
    docs/audit/ is untracked, so a reviewer on GitHub can see neither the ledger
-   nor the wave report; never point at them. NEVER run gh pr create or
-   gh pr merge -- gh is installed, and creating and merging are still the
-   owner's only step and nobody else's.
+   nor the wave report; never point at them. Open it with gh pr create --draft
+   and hand over the link. NEVER run gh pr ready or gh pr merge -- marking a
+   draft ready says it passed review, and that is the owner's step.
 ```
