@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `3d7f701`, 2026-08-03
+**Verified against:** `df21894`, 2026-08-04
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a

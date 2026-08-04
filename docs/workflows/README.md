@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `e73cc01`, 2026-08-02
+**Verified against:** `df21894`, 2026-08-04
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -228,20 +228,26 @@ point at anything under it from a body. Open items live in [`docs/roadmap/open-i
 ./scripts/verify.sh
 ```
 
-Runs cheapest-to-fail first: script self-checks, then `pnpm verify` (types, lint, formatting,
-`next build`, unit tests), then `pnpm audit:prod`, then **ruff and pytest for the backend**, then both
-image builds, then a check that `instrumentation.js` survived into the frontend image.
+Runs cheapest-to-fail first: script self-checks, the documentation gate, `pnpm verify` (types, lint,
+formatting, `next build`, unit tests), `pnpm audit:prod`, **ruff, pyright and pytest for the
+backend**, the database test tier, both image builds, and a check that `instrumentation.js` survived
+into the frontend image.
 
-`--quick` skips the image builds and is **not sufficient** before a merge touching
-`src/core/config.ts`, `src/core/auth.ts` or `src/instrumentation.ts` — those are where packaging
-problems live.
+The **documentation gate** fails on any citation that resolves to nothing — a dangling ADR number, a
+dead link, a broken anchor, a named path that is not there — in `/docs` and inside source comments
+alike. Rules: [`docs/_standard/5-currency.md`](../_standard/5-currency.md).
+
+`--quick` skips everything that needs Docker: the database test tier and both image builds. It is
+**not sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts` or
+`src/instrumentation.ts` — those are where packaging problems live.
 
 CI runs the same script — `.github/workflows/verify.yml`, `--quick` on pull requests and the full gate
 on pushes to `main`.
 
 That workflow carries a **second job**, `backend-db`, running the backend tests that need a real
-`mongod` ([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)). It is not part
-of `verify.sh` and runs concurrently, so it adds nothing to how long a pull request waits.
+`mongod` ([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)) concurrently
+with `verify`, so the coverage costs a pull request no extra waiting. The full `verify.sh` runs the
+same tier behind its `require_docker`.
 
 > **`pnpm format` reaches outside `fl_frontend`, via a hardcoded list of paths.** It currently covers
 > `../docs`, `../scripts`, `../.claude`, `../.github`, `../README.md`, `../SECURITY.md`,

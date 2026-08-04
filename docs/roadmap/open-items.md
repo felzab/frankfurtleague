@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `3d7f701`, 2026-08-03
+**Verified against:** `df21894`, 2026-08-04
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog (added
 2026-08-02). The original entries migrated here from the documentation programme's ledger when that
