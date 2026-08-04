@@ -8,7 +8,7 @@ Audit pass 3 of 6 on `./fl_frontend`. Lens: RSC AND CACHING SEMANTICS, TYPE AND 
 INTEGRITY. Security and authorization are pass 4 — not this pass.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/f3-rsc-data.md`. Read the f1 and f2 reports first; cite, do not re-report.
+to `docs/audit/programme/f3-rsc-data.md`. Read the f1 and f2 reports first; cite, do not re-report.
 
 DELIVERABLE: three required tables — the mutation→invalidation map (A1), the per-segment shell coverage table (A3), and the per-call-site response-validation table (B1). Report each in full, not only its gap rows.
 

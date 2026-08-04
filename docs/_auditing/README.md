@@ -2,8 +2,20 @@
 
 An **audit programme** is a fixed sequence: read-only passes produce reports, a ledger turns the
 reports into a plan, remediation waves execute the plan one pull request at a time, and a final
-report replaces the working documents. This folder holds the method. Everything a programme
-produces while it runs lives in `docs/audit/`, which is gitignored and deleted at the end.
+report replaces the working documents. This folder holds the method.
+
+Working documents live under `docs/audit/`, which is gitignored, in two tiers:
+
+```
+docs/audit/
+├── register.md    the standing failure-mode register — survives every close, one per repository
+└── programme/     the current programme — reports, ledger, wave reports; deleted at close
+```
+
+**`programme/` is what `/audit:finish` deletes**, which is why it is a folder rather than an
+exception clause: an irreversible delete should have an unambiguous target. The register outlives it
+because hazards are a property of the system, not of one programme, and re-deriving them per surface
+would throw away the part that cost the most — the severities the owner confirmed.
 
 | File / folder                                          | What it holds                                                     |
 | ------------------------------------------------------ | ----------------------------------------------------------------- |
@@ -23,26 +35,39 @@ here; the commands are wrappers.
 
 ```mermaid
 graph TD
-    p["Passes — one lens per session"] --> r["Pass reports in docs/audit/"]
+    p["Passes — one lens per session"] --> r["Pass reports in audit/programme/"]
     r --> l["Remediation ledger"]
     l --> w0["Wave 0 — questions and decisions, answered before any code"]
     w0 --> w["Waves 1..N — one session, one branch, one PR each"]
     w --> f["Final report in docs/_auditing/reports/"]
-    f --> d["docs/audit/ deleted"]
+    f --> d["audit/programme/ deleted; register.md stays"]
 ```
 
-| Phase      | Command           | Sessions      | Writes                                                  |
-| ---------- | ----------------- | ------------- | ------------------------------------------------------- |
-| 1 · Passes | `/audit:pass`     | One per pass  | One report per pass, in `docs/audit/`                   |
-| 2 · Ledger | `/audit:plan`     | One           | `docs/audit/0-remediation-ledger.md`                    |
-| 3 · Wave 0 | —                 | Owner answers | Answers recorded in the ledger                          |
-| 4 · Waves  | `/audit:wave <n>` | One per wave  | Source code, on a branch, plus wave report              |
-| 5 · Close  | `/audit:finish`   | One           | `reports/<yyyy-mm>-<surface>.md`; deletes `docs/audit/` |
+| Phase      | Command           | Sessions      | Writes                                                 |
+| ---------- | ----------------- | ------------- | ------------------------------------------------------ |
+| 1 · Passes | `/audit:pass`     | One per pass  | One report per pass, in `audit/programme/`             |
+| 2 · Ledger | `/audit:plan`     | One           | `docs/audit/programme/0-remediation-ledger.md`         |
+| 3 · Wave 0 | —                 | Owner answers | Answers recorded in the ledger                         |
+| 4 · Waves  | `/audit:wave <n>` | One per wave  | Source code, on a branch, plus wave report             |
+| 5 · Close  | `/audit:finish`   | One           | `reports/<yyyy-mm>-<surface>.md`; deletes `programme/` |
 
 `/audit:status` reconstructs programme state and resumes interrupted work. Run it first after any
 crash, token exhaustion, or return from a break.
 
-**One programme audits one surface.** Its working documents all live in `docs/audit/`, so a second
+**What the owner actually does.** Everything else is the session's job.
+
+1. Run each command above in its own session, `/clear` between them.
+2. Answer the Wave 0 question batch after `/audit:plan`. **Nothing proceeds until this is done** —
+   the ledger carries a `Wave 0 status:` line and `/audit:wave` refuses to run while it says `OPEN`.
+3. Answer each wave's single batched question set.
+4. Per wave: click **Create pull request**, then **Merge**, then `git checkout main && git pull --ff-only`.
+5. Confirm the deletion at `/audit:finish`.
+
+**Each command checks its own preconditions and stops rather than guessing** — a missing ledger, an
+unanswered Wave 0, an earlier wave still open, a dirty tree, a report the code has drifted far past.
+The checks are listed in each command file.
+
+**One programme audits one surface.** Its working documents all live in `audit/programme/`, so a second
 programme cannot run beside it. The `crosscut` pass is the exception that needs no second programme:
 it derives both halves of every seam from the code, so it works whichever surface is being audited.
 
@@ -56,7 +81,7 @@ One lens per session, each writing one report. **Report-only: zero fixes, zero s
    could produce it, and assigns every one to the pass that should look there. Without it every lens
    is shaped like the stack, and a hazard nobody's lens covers is invisible rather than reported. Its
    register also sets the severity every later pass inherits, so severity means the same thing across
-   the programme.
+   the whole programme.
 2. **Surface passes**, in their numbered order, because each cites the earlier reports of its own
    surface instead of re-reporting their findings. Each reads the register rows assigned to it and
    states in its verdict whether it covered them.
@@ -65,6 +90,21 @@ One lens per session, each writing one report. **Report-only: zero fixes, zero s
 
 Every pass ends by naming the **controls that would prevent recurrence** for the classes it found.
 Those become the ledger's guardrail backlog.
+
+**The risk pass writes the standing register, so it is not repeated per surface.** It runs in one of
+two modes, and it decides which by looking:
+
+| Mode        | When                               | What it does                                                                                                                                                 |
+| ----------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Create**  | `audit/register.md` does not exist | Builds it from scratch. The severities go to the owner for confirmation.                                                                                     |
+| **Refresh** | It exists                          | Re-verifies existing rows against current code, adds hazards the code has grown, re-maps coverage to this programme's passes. Confirmed severities are kept. |
+
+A refresh is much cheaper than a create, which is the point: **the expensive part of the register is
+the owner's judgment about what matters, and that is not re-derived.** So auditing the frontend and
+then the backend means one create and one refresh, not two creates.
+
+The refresh is also where staleness is caught. The register records the commit it was last verified
+at; if the code has moved a long way since, the refresh says so before trusting a single row.
 
 ### 1.2 Ledger
 
@@ -97,8 +137,9 @@ wave verifies its findings, batches its owner questions, implements, and runs th
 
 ### 1.5 Close
 
-The final report is written, then `docs/audit/` is deleted. That report is the only artifact that
-survives, so it must be **self-contained**: no claim in it may depend on a deleted file (DS12).
+The final report is written to `reports/`, then `docs/audit/programme/` is deleted. **`register.md`
+stays.** The report is the only artifact of the programme that survives, so it must be
+**self-contained**: no claim in it may depend on a deleted file (DS12).
 
 It also compares itself against the previous programme on the same surface — findings by severity,
 the false-positive rate, findings in classes an earlier guardrail should have prevented, and hazards
@@ -107,36 +148,47 @@ question is asked.
 
 ---
 
-## 2. The artifacts and what survives
+## 2. The artifacts
 
-| Artifact                                          | Holds                                   | Lifetime                      |
-| ------------------------------------------------- | --------------------------------------- | ----------------------------- |
-| Pass reports (`docs/audit/`)                      | Evidence — every finding with file:line | Deleted at close              |
-| The ledger (`docs/audit/0-remediation-ledger.md`) | The plan and its status                 | Deleted at close              |
-| Wave reports (`docs/audit/wave-reports.md`)       | Narrative — what was done and why       | Deleted at close              |
-| Final report (`reports/`)                         | The permanent account                   | Permanent, and self-contained |
+| Artifact                                   | Holds                                   | Lifetime                       |
+| ------------------------------------------ | --------------------------------------- | ------------------------------ |
+| `audit/register.md`                        | Failure modes, their controls, severity | **Standing** — survives closes |
+| `audit/programme/<prefix><n>-*.md`         | Evidence — every finding with file:line | Deleted at close               |
+| `audit/programme/0-remediation-ledger.md`  | The plan and its status                 | Deleted at close               |
+| `audit/programme/wave-reports.md`          | Narrative — what was done and why       | Deleted at close               |
+| `_auditing/reports/<yyyy-mm>-<surface>.md` | The permanent account                   | Permanent, tracked, public     |
 
-**Rules:**
+### Why `audit/` is gitignored
 
-- **A pass report is written once and never edited afterwards.** The ledger amends findings; the
-  reports are not rewritten to match.
+This repository is public. Committing pass reports, the ledger or the register would publish unfixed
+findings — security findings included — while they are still being remediated. CLAUDE.md §3 names
+`docs/audit/` as the one ignored path this workflow may read and write.
+
+Three consequences the protocol works around:
+
+- **The ledger lives on one machine's disk, not in git.** Snapshot it to
+  `audit/programme/.snapshots/<date>-<time>.md` before any bulk edit, so a botched edit has a
+  last-good version to diff against.
+- **Never bulk-edit the ledger with pattern-matched scripts.** Line-scoped edits only.
+- **Every pull request body stands alone.** A reviewer on GitHub can see none of these files, so the
+  body carries its summary itself and never points at one.
+
+### Rules per artifact
+
+- **A pass report is written once and never edited afterwards.** The ledger amends findings; reports
+  are not rewritten to match. Each report records the **commit it was audited at**, so any later
+  phase can measure how far the code has moved since.
 - **The ledger row wins wherever it contradicts a report.** A session acting on a report section
   without reading its ledger row will re-apply a fix that was already reversed.
-- **The ledger is the only artifact that survives a context reset.** It must be complete enough for
-  a fresh session to continue from it plus git alone.
+- **The ledger is the only artifact that survives a context reset.** It must be complete enough for a
+  fresh session to continue from it plus git alone.
 - **A ledger row is status, not story** — a status marker, the constraints a later wave must obey,
   and a link to the wave report, in 150 to 600 characters. Anything longer belongs in the wave
   report.
 - **A wave report is revised in place, never appended to.** Corrections appended below text that
   still says the old thing leave a document contradicting itself.
-- **`docs/audit/` is gitignored**, because this repository is public and committing pass reports or
-  the ledger would publish unfixed findings — security findings included — while they are still
-  being remediated. CLAUDE.md §3 names it as the one ignored path this workflow may read and write.
-- **Snapshot the ledger to `docs/audit/.snapshots/<date>-<time>.md` before any bulk edit**, so a
-  botched edit has a last-good version to diff against.
-- **Never bulk-edit the ledger with pattern-matched scripts.** Line-scoped edits only.
-- **Every pull request body stands alone.** A reviewer on GitHub can see neither the ledger nor the
-  wave report, so the body carries its summary itself and never points at a local file.
+- **The register is amended, never rebuilt.** A hazard whose severity the owner confirmed keeps that
+  severity until the owner changes it.
 
 ---
 
@@ -214,10 +266,18 @@ The gate mutates the tree — the formatter runs in write mode first. Commit wha
 **read the post-gate diff**: the formatter has corrupted conditional class strings before, and
 nothing else in the gate sees that.
 
-### 4.3 Confirm the wave's own exit gate
+### 4.3 Confirm the exit gate and the guardrails
 
-Every clause, manual ones included. A clause that needs a human or wall-clock time becomes its own
-ledger row with a trigger — never tick it unverified, and never stall the wave on it.
+Every exit-gate clause, manual ones included. A clause that needs a human or wall-clock time becomes
+its own ledger row with a trigger — never tick it unverified, and never stall the wave on it.
+
+Then the guardrails. For every defect class this wave fixed, either its control from the ledger's
+guardrail backlog is in place and was **demonstrated failing against the old code**, or a row records
+why no control is possible. A control never shown to fail on its target is an untested assertion — a
+rule can pass every one of its tests with its load-bearing part deleted.
+
+**A control lands at warning level and is flipped to `error` by the wave that clears the last
+violation.** Setting it to `error` while known violations remain fails the gate and blocks the wave.
 
 ### 4.4 Independent review
 

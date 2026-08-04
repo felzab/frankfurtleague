@@ -13,7 +13,7 @@ a plan for what to do next.
 ## Ground rules
 
 - **Report only.** Zero fixes, zero source files changed. Findings are recorded, never acted on.
-- **Write the report to the path the pass prompt names**, under `docs/audit/`, overwriting any
+- **Write the report to the path the pass prompt names**, under `docs/audit/programme/`, overwriting any
   existing file _unless resuming_ (see below). `docs/audit/` is **gitignored and local-only** —
   the repository is public and unfixed findings must not publish. Never commit or stage anything
   under it. CLAUDE.md §3 names it as the one ignored path this workflow may read and write.
@@ -25,9 +25,9 @@ a plan for what to do next.
   pass prompt, an earlier report, or memory.
 - **Read the programme's earlier reports before starting** — only the sections you need, never a
   whole file — and cite them by section instead of re-reporting their findings. Respect their
-  "already correct" lists. If a failure-mode register exists (`docs/audit/r1-failure-modes.md`), read
-  the rows its coverage map assigns to this pass **before** starting check 1; they are part of this
-  pass's scope.
+  "already correct" lists. If the standing register (`docs/audit/register.md`) and this programme's
+  coverage map (`docs/audit/programme/r1-failure-modes.md`) exist, read the rows the map assigns to
+  this pass **before** starting check 1; they are part of this pass's scope.
 - **Check ratified decisions before flagging anything.** CLAUDE.md §9 and `docs/_decisions/` list
   patterns that read as violations and are deliberate. A finding that contradicts an ADR is not a
   finding; it is at most a clearly-labelled "decision to revisit" entry naming the ADR.
@@ -38,8 +38,18 @@ a plan for what to do next.
 
 ## Report structure, in this order
 
-1. **Header** — files-read count and exclusions, installed versions, scope note, any checks cut and
-   why, and for a security pass the secret-handling rule operated under.
+1. **Header**, which must carry:
+
+   - **`Audited at commit: <sha>`** and **`Tree state: clean | dirty (<n> files)`**, both from `git`
+     at the start of the pass. Every later phase measures drift against that SHA, so a report without
+     it cannot be trusted later — and a report written against a dirty tree describes code that may
+     never land, which the reader has to be told.
+   - Files-read count and exclusions, installed versions, scope note.
+   - Any checks cut, and why.
+   - Which earlier reports of this surface existed and were cited. **If an earlier pass has not run,
+     do not stop** — say so here, run anyway, and expect the ledger to have overlap to untangle.
+   - For a security pass, the secret-handling rule operated under; for a standards-anchored pass, the
+     exact standard version fetched.
 
 2. **Coverage ledger** — one row per numbered check: check number · the exact grep patterns used and
    files read · raw occurrence count · finding count. **Write the skeleton of this table — every
@@ -92,8 +102,9 @@ Two rules that override the table: a finding reachable only from a privileged po
 **for that position**, not for the open internet — and it is still real, so do not drop it. And never
 soften a genuine CRITICAL because the project is small.
 
-If a failure-mode register from the risk pass exists in `docs/audit/`, use its severity for any
-outcome it already rated, rather than re-deriving one. It was confirmed with the owner.
+If `docs/audit/register.md` already rates an outcome, **use its severity rather than deriving one**.
+It was confirmed with the owner, and a pass silently re-rating it makes severity mean two things at
+once. Where you believe a rating is wrong, say so as an open question.
 
 ### Anchoring to an external standard
 
@@ -143,7 +154,7 @@ the next programme smaller.
 
 ### Risk-register coverage
 
-If `docs/audit/r1-failure-modes.md` exists, its coverage map assigns register rows to passes. **List
+If `docs/audit/programme/r1-failure-modes.md` exists, its coverage map assigns register rows to passes. **List
 every row assigned to this pass and state `covered` / `partly covered` / `not covered`, each with a
 reason.** A register row is not discharged by a pass simply having run: say what you actually looked
 at. A row you could not cover is a gap the ledger must see, not an omission to leave silent.

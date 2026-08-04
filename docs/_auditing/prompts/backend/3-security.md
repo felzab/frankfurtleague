@@ -8,7 +8,7 @@ Audit pass 3 of 4 on `./fl_backend`. Lens: SECURITY AND AUTHORIZATION — who ca
 untrusted input can reach, and what leaks out.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass — the secrets
-rule there is absolute. Write the report to `docs/audit/b3-security.md`. Read the b1 and b2 reports
+rule there is absolute. Write the report to `docs/audit/programme/b3-security.md`. Read the b1 and b2 reports
 first; where b2 flagged missing validation, treat it here only as an exploitability question.
 
 DELIVERABLE: three required tables — the standards coverage table (check 0), the per-endpoint

@@ -8,7 +8,7 @@ Audit pass 1 of 2 on the ops surface. Lens: BUILD AND DEPLOY CORRECTNESS — doe
 what was verified, and does every step of the pipeline do what its documentation claims.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/o1-build-deploy.md`.
+to `docs/audit/programme/o1-build-deploy.md`.
 
 SCOPE — the ops surface as `docs/README.md` defines it: `docker-compose*.yml`, both Dockerfiles,
 both `.dockerignore`s, `nginx/` (routing only — security posture is pass O2), everything in

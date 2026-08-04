@@ -8,7 +8,7 @@ Audit pass 4 of 4 on `./fl_backend`. Lens: ARCHITECTURE, CONSISTENCY, DEAD CODE,
 TOOLING CONFIG.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/b4-architecture.md`. Read the b1–b3 reports first; cite, do not re-report.
+to `docs/audit/programme/b4-architecture.md`. Read the b1–b3 reports first; cite, do not re-report.
 
 DELIVERABLE: the per-layer test-strategy table (check 5) is required, and it must design ONE strategy across the untested layers rather than a list of per-layer suggestions.
 

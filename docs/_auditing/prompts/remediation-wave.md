@@ -8,7 +8,7 @@ has changed since Part 6 was written.
 ---
 
 ```
-Working {WAVE} of docs/audit/0-remediation-ledger.md.
+Working {WAVE} of docs/audit/programme/0-remediation-ledger.md.
 
 DONE MEANS: every row of this wave is `[x]`, `[-]` or `[!]` with its evidence;
 the full gate passed; the wave report exists; the branch is pushed; and the pull
@@ -23,7 +23,7 @@ READ FIRST, in this order:
 1. docs/_auditing/lessons.md — the traps this wave will otherwise walk into. Its
    §1 (findings are claims), §5 (the gate), §6 (runtime environment), §7 (ledger
    discipline) and §10 (stack-specific facts) all apply to this session directly.
-2. docs/audit/0-remediation-ledger.md — the plan and the state.
+2. docs/audit/programme/0-remediation-ledger.md — the plan and the state.
 3. These report sections, and NOTHING else:
 {SECTIONS}
 
@@ -88,14 +88,23 @@ PHASE 3 — EXECUTE, in table order.
   one uncommitted diff — a dead session must be resumable from the on-disk ledger
   plus git alone.
 - Edit the ledger with line-scoped edits only, never pattern-matched bulk
-  scripts. Snapshot it to docs/audit/.snapshots/<date>-<time>.md before any bulk
+  scripts. Snapshot it to docs/audit/programme/.snapshots/<date>-<time>.md before any bulk
   edit and diff against that snapshot afterwards.
 - A new finding becomes a row in the wave that will fix it — not a silent fix
   here, unless this wave introduced it.
 - A fix removes one instance; a control removes the class. Where this wave has a
   guardrail row in the ledger's Part 1b, land the control BEFORE the fixes it
   covers, so it catches mistakes made in this wave rather than only in later
-  ones. Write the control so it fails on the old code first, then fix.
+  ones. Demonstrate it failing on the old code, THEN fix.
+  Land it at WARNING level with the current violation count recorded on the row
+  as a baseline — setting it to `error` while known violations remain fails the
+  gate and blocks the wave. The wave that clears the last violation flips it to
+  `error` in the same commit. If this wave is that wave, flip it; if the flip is
+  deferred, it is its own row with a trigger, never an intention.
+- If a row turns out to cost materially more than its wave assumed — a
+  three-line fix that is really a refactor — STOP and put it to the owner with
+  the measured size and the options. Absorbing it silently is how a wave becomes
+  unreviewable; dropping it silently is how a finding disappears.
 
 Two environment facts, so you do not misread them as bugs (lessons.md §6 has the
 rest): the embedded browser pane does not composite while hidden, so geometry
@@ -137,7 +146,7 @@ PHASE 4 — CLOSE OUT, in this exact order, identical every wave:
    in this same wave. Fix what it finds before proceeding.
 
 5. WAVE REPORT + LESSONS, same step, same commit. Write this wave's section in
-   docs/audit/wave-reports.md, FOR HUMANS: an opening paragraph a non-engineer
+   docs/audit/programme/wave-reports.md, FOR HUMANS: an opening paragraph a non-engineer
    can read, changes explained as defect → fix → visible effect in full
    sentences, row IDs in passing only so a reader never needs the ledger open,
    and failures, reversals and unresolved anomalies narrated honestly. Then trim

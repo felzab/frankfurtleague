@@ -11,17 +11,17 @@ Audit pass 1 of 1 on the seams. Lens: CONTRACTS AND SEAMS BETWEEN SURFACES — e
 surfaces have to agree, and nothing in either surface can tell that they do not.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/x1-contracts-seams.md`.
+to `docs/audit/programme/x1-contracts-seams.md`.
 
 **This pass derives both sides from the code and depends on no other report.** Only one surface is
-audited at a time, so at most one surface's working reports exist in `docs/audit/`; an earlier
-surface's are gone, because `docs/audit/` is deleted at programme close and a final report preserves
+audited at a time, so at most one surface's working reports exist in `docs/audit/programme/`; an
+earlier surface's are gone, because that folder is deleted at programme close and a final report preserves
 the account, not the join tables. Build every inventory below yourself. **Never treat a report as
 the source for one half of a join** — a table read rather than derived is a table one programme out
 of date, which is exactly the defect class this pass exists to catch.
 
 Reports are consulted only so this pass cites rather than re-reports. **Consult at most one per
-surface, the most recent that exists:** the current programme's working reports in `docs/audit/` if
+surface, the most recent that exists:** the current programme's working reports in `docs/audit/programme/` if
 they are there, otherwise the newest `docs/_auditing/reports/<yyyy-mm>-<surface>.md` by its date
 prefix. Read only its summary table and verdict. State in the report header which report you used
 per surface, or that none existed.

@@ -9,7 +9,7 @@ declares, validates and serves the same thing the frontend mirrors, in both vali
 both the read and write path.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/b2-schema-boundary.md`. Read `docs/audit/b1-consistency.md` first; cite it rather
+to `docs/audit/programme/b2-schema-boundary.md`. Read `docs/audit/programme/b1-consistency.md` first; cite it rather
 than re-reporting.
 
 DELIVERABLE: the two-sided contract table (check 1) is required — one row per field of every response model that has a zod mirror, both directions, no field omitted. It is the pass's primary output.

@@ -9,7 +9,7 @@ consistency and performance are pass 6 — the two lenses are deliberately kept 
 together they produce a report too large to load in a remediation session.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the
-report to `docs/audit/f5-a11y-ux.md`. Read the f1–f4 reports first; cite, do not re-report.
+report to `docs/audit/programme/f5-a11y-ux.md`. Read the f1–f4 reports first; cite, do not re-report.
 
 DELIVERABLE: two required tables — the WCAG 2.2 Level AA conformance table (check 0) and the
 per-view state matrix (check 6). Every accessibility finding names the failing **interaction**

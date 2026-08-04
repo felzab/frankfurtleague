@@ -53,7 +53,7 @@ archaeology.
 
 - Number it inside its surface folder as `<n>-<kebab-lens>.md` and add a row above. `/audit:pass`
   resolves `<surface>/<n>-*.md` by glob, so nothing else needs updating.
-- Name the report path the pass writes to: `docs/audit/<prefix><n>-<lens>.md`, where the prefix is
+- Name the report path the pass writes to: `docs/audit/programme/<prefix><n>-<lens>.md`, where the prefix is
   `r` risk · `f` frontend · `b` backend · `o` ops · `x` crosscut. The prefixes are one character and
   distinct, so a report is identifiable from its filename alone.
 - **Split a lens rather than letting one report grow too large to load.** A pass whose report cannot

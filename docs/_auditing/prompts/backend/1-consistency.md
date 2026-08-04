@@ -8,7 +8,7 @@ Audit pass 1 of 4 on `./fl_backend`. Lens: DATA CONSISTENCY AND WRITE-PATH INTEG
 write land where its readers read, atomically, exactly once, in the right scope.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/b1-consistency.md`.
+to `docs/audit/programme/b1-consistency.md`.
 
 This pass runs FIRST because its defect class is the worst one: a write that silently does not reach
 its readers corrupts data invisibly, and does so for as long as nobody looks.

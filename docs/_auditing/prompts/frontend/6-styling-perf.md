@@ -7,7 +7,7 @@ Paste into a fresh session (or run via `/audit:pass frontend 6`).
 Audit pass 6 of 6 on `./fl_frontend`. Lens: STYLING-SYSTEM CONSISTENCY AND PERFORMANCE.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the
-report to `docs/audit/f6-styling-perf.md`. Read the f1–f5 reports first; cite, do not re-report.
+report to `docs/audit/programme/f6-styling-perf.md`. Read the f1–f5 reports first; cite, do not re-report.
 
 DELIVERABLE: every performance finding carries its number (bytes gzipped, elements mounted, milliseconds) and how it was measured; every contrast finding carries its ratio pair in both themes. A claim without its measurement is filed INFO and labelled unmeasured.
 

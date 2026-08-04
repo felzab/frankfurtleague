@@ -1,14 +1,20 @@
 # Ledger template
 
-Copy everything below the horizontal rule to `docs/audit/0-remediation-ledger.md` once a programme's
-passes are complete, then fill it in. `<Angle-bracketed text>` is a placeholder to replace; every
-other line is a standing rule and copies verbatim.
+Copy everything below the horizontal rule to `docs/audit/programme/0-remediation-ledger.md` once a
+programme's passes are complete, then fill it in. `<Angle-bracketed text>` is a placeholder to
+replace; every other line is a standing rule and copies verbatim.
 
 The rules baked into this template are the countermeasures for the ways a ledger breaks — see
 [`lessons.md` §7](lessons.md#7-ledger-discipline--the-failure-modes-and-their-rules).
 
-**Part order is execution order.** Parts 1 to 3 are built once, before any wave. Part 4 runs at the
-end of every wave, top to bottom, with no reordering. Parts 5 and 6 are reference.
+**Part order is execution order:**
+
+| Parts       | What they are                | When they are written                        |
+| ----------- | ---------------------------- | -------------------------------------------- |
+| 1 · 1b · 1c | Wave 0, guardrails, hazards  | Once, before any wave runs                   |
+| 2 · 3       | Overlap map, the wave tables | Once, before any wave runs                   |
+| 4           | The close-out sequence       | At the end of **every** wave, top to bottom  |
+| 5 · 6       | Session protocol, prompts    | Reference; Part 6 is amended as waves finish |
 
 ---
 
@@ -22,11 +28,20 @@ the _specific report sections_ its wave names — never a whole report, never tw
 and whether it is done_. That file records _what was actually done and why_. Status here, narrative
 there.
 
-**Source reports** (in `docs/audit/`, listed in the order they were written):
+**Wave 0 status: `OPEN`** — every wave is blocked until this reads `SETTLED <date>`. Only the owner's
+answers to Part 1 change it, and `/audit:wave` refuses to run while it says `OPEN`.
 
-| Ref | File     | Findings | CRIT  | HIGH  | Character                       |
-| --- | -------- | -------: | :---: | :---: | ------------------------------- |
-| R1  | \<file\> |    \<n\> | \<n\> | \<n\> | \<one line on the pass's lens\> |
+**Source reports** (in `docs/audit/programme/`, listed in the order they were written):
+
+| Ref | File     | Audited at | Findings | CRIT  | HIGH  | Character                       |
+| --- | -------- | ---------- | -------: | :---: | :---: | ------------------------------- |
+| R1  | \<file\> | \<sha\>    |    \<n\> | \<n\> | \<n\> | \<one line on the pass's lens\> |
+
+**Drift check, re-run at the start of every wave.** Compare each report's `Audited at` SHA against
+`HEAD` with `git log --oneline <sha>..HEAD -- <that surface's path>`. A report the code has moved a
+long way past is a report whose findings need heavier verification, not a report to discard —
+**record the drift on the wave's rows rather than deciding silently.** The gap only grows: the last
+wave of a long programme works from the oldest reports.
 
 ## How to read this file
 
@@ -81,13 +96,26 @@ This is consistently the cheapest, highest-value item in a programme.\>
 
 \<Every "controls that would prevent recurrence" entry from every report, merged and deduplicated:
 `G-n` | defect class it closes | the control (lint rule, test, schema constraint, database
-validator, gate step) | findings it would have caught | cost | wave.
+validator, gate step) | findings it would have caught | cost | **lands in wave** | **enforced from
+wave**.
 
 **A guardrail row is worth more than the findings that produced it**, because it is the only work
 that makes the next programme smaller. Schedule guardrails EARLY — a rule landing in Wave 1 catches
-mistakes made in every wave after it, and the same rule landing in the last wave catches nothing.
+mistakes made in every wave after it, and the same rule landing in the last wave catches nothing.\>
 
-Where the honest answer is that no automated control is possible, record that too, with the reason.
+**A control lands before its violations are fixed, so it needs two waves, not one.** Setting a rule
+to `error` while known violations remain fails the gate on the first run and blocks the wave. The
+sequence that works:
+
+1. **Lands in wave N** — the control is added at warning level, with the current violation count
+   recorded here as an explicit baseline. It is already catching anything **new** from this point.
+2. **Enforced from wave M** — the wave that clears the last violation flips it to `error` in the same
+   commit that removes that violation. If the flip is deferred, that is its own row with a trigger.
+
+A control left permanently at warning level is not a control, it is a report. Every row here names
+the wave that flips it, or records why the class cannot be fully cleared.
+
+\<Where the honest answer is that no automated control is possible, record that too, with the reason.
 It is what justifies auditing that area again rather than assuming it stays fixed.\>
 
 ---
@@ -235,7 +263,7 @@ first unfinished row — `/audit:status` does this. Never accumulate a whole wav
 diff.
 
 **This file is local-only.** `docs/audit/` is gitignored because the repository is public and unfixed
-findings must not publish. Snapshot to `docs/audit/.snapshots/<date>-<time>.md` before any bulk edit,
+findings must not publish. Snapshot to `docs/audit/programme/.snapshots/<date>-<time>.md` before any bulk edit,
 so a botched edit has a last-good version to diff against.
 
 **Front-load the owner's decisions.** Before writing code, inventory every row that needs a human —

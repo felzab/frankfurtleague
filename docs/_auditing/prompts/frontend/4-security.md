@@ -7,7 +7,7 @@ Paste into a fresh session (or run via `/audit:pass frontend 4`).
 Audit pass 4 of 6 on `./fl_frontend`. Lens: SECURITY AND AUTHORIZATION.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass — the secrets
-rule is absolute. Write the report to `docs/audit/f4-security.md`. Read the f1–f3 reports first;
+rule is absolute. Write the report to `docs/audit/programme/f4-security.md`. Read the f1–f3 reports first;
 where f3 flagged missing input validation, treat it here only as exploitability.
 
 DELIVERABLE: three required tables — the ASVS coverage table (S0), the per-export server-action

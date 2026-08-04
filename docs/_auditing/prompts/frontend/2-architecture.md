@@ -7,7 +7,7 @@ Paste into a fresh session (or run via `/audit:pass frontend 2`).
 Audit pass 2 of 6 on `./fl_frontend`. Lens: ARCHITECTURE, CONSISTENCY, DEAD CODE, TOOLING CONFIG.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/f2-architecture.md`. Read the f1 report first; cite, do not re-report.
+to `docs/audit/programme/f2-architecture.md`. Read the f1 report first; cite, do not re-report.
 
 DELIVERABLE: the layer-edge table (check 2) is required. Every other check gets a section with its findings or an explicit zero-occurrences row.
 

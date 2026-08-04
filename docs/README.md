@@ -81,9 +81,11 @@ league table a result edit did not move, is the most recent.
 - [`_auditing/`](_auditing/) — how audit programmes are run: methodology, lessons, prompt library,
   templates, and the permanent [final reports](_auditing/reports/) of completed programmes
   (frontend: [2026-07](_auditing/reports/2026-07-frontend.md)). Driven by the `/audit:*` commands.
-- `audit/` — **gitignored and local-only**: the working documents (pass reports, remediation
-  ledger, wave reports) of whatever audit programme is currently running. Deliberately never
-  committed — the repo is public and unfixed findings must not publish. A finished programme's
-  permanent record is its final report in [`_auditing/reports/`](_auditing/reports/); the 2026-07
-  frontend programme's decisions are the ADRs and its open items live in the
-  [`roadmap/open-items.md`](roadmap/open-items.md).
+- `audit/` — **gitignored and local-only**, in two tiers. `audit/programme/` holds the working
+  documents of whatever audit programme is running — pass reports, remediation ledger, wave reports
+  — and is deleted when that programme closes. `audit/register.md` is the standing failure-mode
+  register and survives every close, because hazards belong to the system rather than to one
+  programme. Neither is ever committed: the repo is public and unfixed findings must not publish. A
+  finished programme's permanent record is its final report in
+  [`_auditing/reports/`](_auditing/reports/); decisions it ratified become ADRs, and its open items
+  live in [`roadmap/open-items.md`](roadmap/open-items.md).

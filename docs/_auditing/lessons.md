@@ -1,7 +1,22 @@
 # Lessons — the traps an audit programme runs into
 
-Read this before running any phase. Sections 1 to 9 are surface-agnostic process rules. Section 10
-holds stack-specific facts that are easy to get wrong and cheap to check.
+Read this before running any phase.
+
+| Section                                                                                                           | Read it when                                        |
+| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| [1 · Reports are claims](#1-an-audit-report-is-a-list-of-claims-not-a-list-of-facts)                              | Starting any wave — this is the one that costs most |
+| [2 · What makes a pass work](#2-what-makes-a-pass-work--keep-these)                                               | Running or writing a pass                           |
+| [3 · What a pass misses](#3-what-a-static-pass-misses-and-what-covers-the-gap)                                    | Deciding whether the programme's coverage is enough |
+| [4 · Verify, don't recall](#4-verify-against-the-installed-library-and-the-live-platform-never-general-knowledge) | About to state how a library or platform behaves    |
+| [5 · The gate](#5-the-gate--what-it-catches-what-it-cannot-and-its-own-traps)                                     | Closing out a wave                                  |
+| [6 · Environment traps](#6-runtime-verification--environment-traps)                                               | Verifying anything at runtime                       |
+| [7 · Ledger discipline](#7-ledger-discipline--the-failure-modes-and-their-rules)                                  | Editing the ledger                                  |
+| [8 · Wave mechanics](#8-wave-mechanics--ordering-scope-and-owner-interaction)                                     | Planning waves or running one                       |
+| [9 · Report and prompt hygiene](#9-report-and-prompt-hygiene)                                                     | Writing a report or a prompt                        |
+| [10 · Stack-specific traps](#10-stack-specific-traps)                                                             | Working in this stack                               |
+
+Sections 1 to 9 are surface-agnostic process rules. Section 10 holds stack-specific facts that are
+easy to get wrong and cheap to check.
 
 **How this file grows.** Every phase feeds it: a pass's handoff and a wave's close-out both include
 a lessons harvest. A new misstep, false positive, library trap or environment trap of durable value

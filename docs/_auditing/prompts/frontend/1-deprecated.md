@@ -8,7 +8,7 @@ Audit pass 1 of 6 on `./fl_frontend`. Lens: DEPRECATED AND LEGACY PATTERNS — a
 against an older version of the stack, or a current API used in an outdated idiom.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
-to `docs/audit/f1-deprecated.md`.
+to `docs/audit/programme/f1-deprecated.md`.
 
 DELIVERABLE: one report section per row of the current CLAUDE.md §2 deprecation table (check 1), plus sections for checks 2–4. Every row of that table gets a section even at zero occurrences, naming the searches run.
 
