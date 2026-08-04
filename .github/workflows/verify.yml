@@ -76,6 +76,9 @@ jobs:
                 # check_docs.py is the docs gate; anything else in scripts/ is documentation the
                 # self-check and prettier both cover.
                 scripts/check_docs.py) scripts=true; docs=true ;;
+                # Markdown anywhere — including inside fl_frontend/ and fl_backend/ — is prose: the
+                # docs gate and the formatter check it, and no test tier can say anything about it.
+                *.md) docs=true; format=true ;;
                 scripts/*) scripts=true; docs=true; format=true ;;
                 # Packaging inputs. The docs scope rides along wherever source comments are
                 # scanned for citations (.ts/.tsx/.py -- see check_docs.py, DS20).

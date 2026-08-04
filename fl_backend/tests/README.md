@@ -20,9 +20,9 @@ have drifted from the models they mirror.
 rejects the specific bad value each constraint exists to stop, and still accepts the legitimate edge
 cases that look like bad values (an empty `stadtteil`, a null `ergebnis` for an unplayed match, an
 integral float `mietpreis`). Plus `FLGruppen.from_teams`, the one piece of real behaviour in the
-schema layer, and `build_team_pipeline` — both what it *says* and, since
+schema layer, and `build_team_pipeline` — both what it _says_ and, since
 [ADR-0030](../../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), what MongoDB
-*computes* from what it says.
+_computes_ from what it says.
 
 **Does not cover:** routers, CRUD, or authentication.
 
@@ -30,10 +30,10 @@ schema layer, and `build_team_pipeline` — both what it *says* and, since
 
 [ADR-0030](../../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), 2026-08-02.
 
-| Tier                       | Selected by            | Needs Docker | Cost                    |
-| -------------------------- | ---------------------- | ------------ | ----------------------- |
-| **Default** — 294 tests    | everything unmarked    | no           | 0.39s                   |
-| **`db`** — 52 tests        | `@pytest.mark.db`      | yes          | 13.0s warm, 21.2s cold |
+| Tier                    | Selected by         | Needs Docker | Cost                   |
+| ----------------------- | ------------------- | ------------ | ---------------------- |
+| **Default** — 294 tests | everything unmarked | no           | 0.39s                  |
+| **`db`** — 52 tests     | `@pytest.mark.db`   | yes          | 13.0s warm, 21.2s cold |
 
 `pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` runs the fast tier only. A
 command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
@@ -103,7 +103,7 @@ real environment. So a checkout with no `.env` runs the whole suite — which is
 failure means the code, never the machine.
 
 **The container fixture lives in the root `conftest.py`**, not in `api/`, because two suites want a
-database now. It is session-scoped, so one `mongod` serves both. It yields the *container* rather than
+database now. It is session-scoped, so one `mongod` serves both. It yields the _container_ rather than
 a client: the pipeline suite reads with pymongo and the constraint suite drives Motor, which needs the
 connection URL.
 
@@ -128,7 +128,7 @@ recommended mode for new suites, which needs none and cannot suffer same-basenam
   alias the models declare, so the tests exercise the shape production actually validates.
 - **Reject-cases are parametrised.** One `pytest.mark.parametrize` per rule, listing every value that
   must fail, so adding a case is one line.
-- **Comments explain the *why*, not the assertion.** Where a constraint exists because of a specific
+- **Comments explain the _why_, not the assertion.** Where a constraint exists because of a specific
   defect, the test says so — see `test_spiele.py`'s `ergebnis` cases, which document the value that
   used to render as a loss for both teams.
 - **A test that touches the database carries `@pytest.mark.db`.** Without it the test runs in the
@@ -137,7 +137,7 @@ recommended mode for new suites, which needs none and cannot suffer same-basenam
 - **The `db` corpus is documented once, in `tests/api/conftest.py`.** Its header derives every
   expected figure by hand; the tests assert against them and do not restate the arithmetic. Each of
   the five seeded teams exists to make exactly one invariant observable.
-- **Assert *which* field failed when more than one could.** A bare `pytest.raises(ValidationError)`
+- **Assert _which_ field failed when more than one could.** A bare `pytest.raises(ValidationError)`
   passes whatever went wrong, so a test can stay green while the constraint it names goes
   unenforced. The `assert_rejects` fixture takes the model, the payload and the field, and fails
   with the list of fields that actually failed. Use it wherever the payload is hand-built rather

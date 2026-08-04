@@ -251,11 +251,13 @@ and a packaging change builds both images before it can merge. A push to `main` 
 The required status check is the workflow's aggregate `verify` job, which fails if any scope job
 failed and passes over the ones path filtering skipped.
 
-> **`pnpm format` reaches outside `fl_frontend`, via a hardcoded list of paths.** It currently covers
-> `../docs`, `../scripts`, `../.claude`, `../.github`, `../README.md`, `../SECURITY.md`,
-> `../CONTRIBUTING.md` and both compose files. Moving, renaming or adding a root-level file therefore
-> requires editing `fl_frontend/package.json` — and a path that no longer exists makes Prettier exit 2,
-> which fails the whole gate. Moving `CLAUDE.md` into `.claude/` broke `main` exactly this way.
+> **`pnpm format` covers the whole repository**: it runs prettier over the repo root, and what stays
+> out is decided by exactly two ignore files — `.prettierignore` at the root (trees prettier must
+> never enter, and local machine files) and `fl_frontend/.prettierignore` (the frontend's own
+> artifacts). There is no path list to keep in step, so moving, renaming or adding a file cannot
+> make the formatter fail on a path that no longer exists — the failure mode that once broke `main`
+> when `CLAUDE.md` moved. The ignore files are the only thing to maintain: a new generated tree
+> that prettier should not touch gets a line in the root ignore file.
 >
 > **Verify with a gate run whose scope includes the formatter — `./scripts/verify.sh --quick` or
 > `--frontend` — never with a hand-written `prettier` command.** Running Prettier directly on the
