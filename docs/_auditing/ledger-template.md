@@ -83,7 +83,7 @@ recommendation. Record the answer inline and dated.\>
 ## 1.3 — Architectural decisions to ratify
 
 \<Findings that the passes flagged and that are in fact deliberate. Ratify each into an ADR under
-`docs/_decisions/` and the CLAUDE.md §9 summary, so no future audit or session re-litigates it.
+`docs/_decisions/` and the CLAUDE.md ratified-decisions index, so no future audit or session re-litigates it.
 This is consistently the cheapest, highest-value item in a programme.\>
 
 ## 1.4 — Work items on other surfaces created by the answers

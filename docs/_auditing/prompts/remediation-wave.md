@@ -58,7 +58,7 @@ Read each row's FULL text, including any "Forward constraint", before acting on
 it. The ledger row wins wherever it contradicts the source report, and later
 waves amend earlier rows.
 
-CLAUDE.md §9 and docs/_decisions/ list ratified decisions. Several read as
+CLAUDE.md's ratified-decisions index and docs/_decisions/ list them. Several read as
 violations and are deliberate. Do not "fix" one without an instruction that
 names it; if you believe one is wrong, say so and stop.
 

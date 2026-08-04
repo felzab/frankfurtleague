@@ -1,6 +1,6 @@
 # Decisions about the documentation standard
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `5ad4a85`, 2026-08-04
 
 `DS` decisions are about **how this repository is documented**, which is why they live here rather
 than in `docs/_decisions/` alongside ADRs about the software itself. The same discipline applies:
@@ -140,7 +140,7 @@ rejects. _`eslint-plugin-jsdoc`._ Its useful rules police `@param` completeness,
 deliberately does not use.
 
 **Consequences.** The load-bearing rule — never restate a type — is not machine-checkable and lives in
-CLAUDE.md §1 as a review judgement.
+CLAUDE.md as a review judgement.
 
 ## DS5 — Citations: ADR numbers
 

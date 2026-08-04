@@ -16,7 +16,7 @@ a plan for what to do next.
 - **Write the report to the path the pass prompt names**, under `docs/audit/programme/`, overwriting any
   existing file _unless resuming_ (see below). `docs/audit/` is **gitignored and local-only** —
   the repository is public and unfixed findings must not publish. Never commit or stage anything
-  under it. CLAUDE.md §3 names it as the one ignored path this workflow may read and write.
+  under it. CLAUDE.md's security section names it as the one ignored path this workflow may read and write.
 - **Verify installed versions first** — `fl_frontend/package.json`, `fl_backend/pyproject.toml` —
   and state them in the report header. Every judgment is relative to those versions, not to training
   data. Where a judgment depends on a library's or a platform's current behaviour, confirm it at the
@@ -28,7 +28,7 @@ a plan for what to do next.
   "already correct" lists. If the standing register (`docs/audit/register.md`) and this programme's
   coverage map (`docs/audit/programme/r1-failure-modes.md`) exist, read the rows the map assigns to
   this pass **before** starting check 1; they are part of this pass's scope.
-- **Check ratified decisions before flagging anything.** CLAUDE.md §9 and `docs/_decisions/` list
+- **Check ratified decisions before flagging anything.** CLAUDE.md's ratified-decisions index and `docs/_decisions/` list
   patterns that read as violations and are deliberate. A finding that contradicts an ADR is not a
   finding; it is at most a clearly-labelled "decision to revisit" entry naming the ADR.
 - **Secrets.** Never read, print, echo, decode or reproduce the contents of `.env*` files or any

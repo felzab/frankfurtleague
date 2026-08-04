@@ -55,7 +55,7 @@ A prerequisite surfaced that none of the five audit passes had found: `FLSpielSc
 — and the action therefore had no season id to invalidate with. Worth carrying as a general suspicion:
 a strict schema hides a _missing_ field as effectively as a loose one hides a wrong value.
 
-**Standing rule, now in CLAUDE.md §6:** every granular tag added must ship with its matching
+**Standing rule, also in CLAUDE.md:** every granular tag added must ship with its matching
 `updateTag` call in the same change. That rule is what prevents recreating the twenty.
 
 The deleted set, by reason:

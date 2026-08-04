@@ -67,7 +67,7 @@ duplicate the theme: `--accent-brand` appears in the public chunk and not the ad
 **There are now two lists to check, and that is the real cost.** ADR-0019's failure mode — a missing
 import renders a component unstyled while every check passes — now has a second way to happen: the right
 import in the wrong file. The mitigation is procedural and repeated in four places: the headers of both
-CSS files, `docs/frontend/overview.md`, and CLAUDE.md §6.
+CSS files, `docs/frontend/overview.md`, and CLAUDE.md's repo-specific traps.
 
 ## Alternatives considered
 

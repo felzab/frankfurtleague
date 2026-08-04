@@ -1,6 +1,6 @@
 # Out-of-code documentation
 
-**Verified against:** `55966d7`, 2026-08-04
+**Verified against:** `5ad4a85`, 2026-08-04
 
 Governs everything under `/docs`. The principles in [`1-principles.md`](1-principles.md) apply here
 too; this chapter adds the shapes.
@@ -167,7 +167,7 @@ Real rows from the `spiele` cache design:
 
 | #   | Invariant                                                                       | Enforced by                                                               | Breaks how                                                                                               |
 | --- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| I1  | Every granular cache tag has a matching `updateTag` in a server action          | review (CLAUDE.md §6)                                                     | Tag never invalidates; looks like coverage, is decoration                                                |
+| I1  | Every granular cache tag has a matching `updateTag` in a server action          | review (a CLAUDE.md rule)                                                 | Tag never invalidates; looks like coverage, is decoration                                                |
 | I2  | Base tags `spiele`/`teams` are invalidated unconditionally on every Spiel write | `fl_frontend/src/features/spiele/actions.ts :: updateTag("spiele")`       | The default read path sends no `saison_id`, so its entries carry only base tags and go permanently stale |
 | I3  | `saison_id` reaches the action as an argument, never on the patch body          | `fl_frontend/src/features/spiele/actions.ts :: patchAdminSpielDataAction` | Pydantic drops undeclared fields silently — a dead field that looks load-bearing                         |
 

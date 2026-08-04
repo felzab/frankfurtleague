@@ -46,9 +46,9 @@ What this surface exposes. Tables, not prose — endpoints, parameters, exports,
 **All four columns, every row.** An invariant with no stated failure mode is a preference rather than
 a constraint, and the last column is what tells a reader whether breaking it fails loudly or quietly.
 
-| #   | Invariant | Enforced by                                          | Breaks how                  |
-| --- | --------- | ---------------------------------------------------- | --------------------------- |
-| I1  |           | `path/file.ts :: symbol`, or "review (CLAUDE.md §N)" | What goes wrong, concretely |
+| #   | Invariant | Enforced by                                              | Breaks how                  |
+| --- | --------- | -------------------------------------------------------- | --------------------------- |
+| I1  |           | `path/file.ts :: symbol`, or "review (a CLAUDE.md rule)" | What goes wrong, concretely |
 
 ## 3. Violation → remedy
 

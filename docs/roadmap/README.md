@@ -141,7 +141,7 @@ rewording.
 
 **Code pointing at an issue: never.** Deleting and recreating this repository on 2026-08-01
 destroyed every issue that existed; a `see #12` in a source comment would now be a permanent
-reference to something that exists nowhere. This is the rule CLAUDE.md §10 already applies to audit
+reference to something that exists nowhere. This is the rule CLAUDE.md's documentation section already applies to audit
 sections — cite ADR numbers, never something expected to disappear — and an issue number is more
 fragile than either. State the reason inline, and if you need a pointer, point at an ADR or an entry
 here, both of which are versioned alongside the code they describe.
