@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `9ffbbfc`, 2026-08-05
+**Verified against:** `bb7a23b`, 2026-08-05
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -54,7 +54,8 @@ git commit          # opens the editor; a one-line -m loses the part that matter
 ```bash
 # 3 — the gate, before pushing: everything, or the scopes covering what you
 #     touched. Full form if you touched config, auth, instrumentation or
-#     packaging — unless the change is comments only, which is --docs
+#     packaging — unless the change is comments only, which is --docs.
+#     The gate checks that choice against the diff before it runs anything
 ./scripts/verify.sh
 ```
 
@@ -291,6 +292,14 @@ alike. Rules: [`docs/_standard/5-currency.md`](../_standard/5-currency.md).
 without the images scope is **not sufficient** before a merge touching `src/core/config.ts`,
 `src/core/auth.ts`, `src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile — those
 are where packaging problems live, and CI builds both images on any pull request touching them.
+
+**The scope you type is checked against the diff before any of it runs**
+([ADR-0037](../_decisions/0037-the-gate-refuses-an-undersized-scope.md)). `scripts/check_scope.py`
+refuses a run that skips the image build while the branch changes a file asking for it by more than
+comments, and reports every other surface the run leaves unproven. Whether a change is comments only
+is decided by a parser — TypeScript's own for `.ts`, `ast` for Python, `tomllib` for TOML — and
+anything it cannot prove counts as code, so a Dockerfile whose only change is a comment still asks
+for the full form. CI skips the check: there the scopes come from the paths, not from a flag.
 
 CI — `.github/workflows/verify.yml` — runs the same scopes as **parallel jobs, mapped from the paths
 a pull request touches**: a docs-only PR runs the documentation gate and a formatting check, a

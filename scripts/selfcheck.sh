@@ -22,6 +22,8 @@
 #   8. a script's --help matches the flags it actually accepts
 #   9. shellcheck — a local binary if present, otherwise the official Docker image
 #  10. actionlint on the workflow files, which are pipeline code and rot the same way
+#  11. the comment-only classifier answers both directions — the one gate decision whose wrong
+#      answer is silent
 #
 # USAGE:
 #   ./scripts/selfcheck.sh
@@ -196,6 +198,56 @@ case "$al_rc" in
   2) info "unavailable (no local binary and no Docker) — skipped" ;;
   *) note_fail "actionlint reported findings:"; printf '%s\n' "$al_out" | head -40 | detail ;;
 esac
+
+step "11. The gate's comment-only classifier"
+# check_scope.py decides whether a change to a packaging path is a documentation change, and a WRONG
+# ANSWER IS SILENT: classify a real code change as comments and the image build never runs before the
+# push. These fixtures pin both directions, including the two cases a line-level rule gets wrong — a
+# `//` inside a string literal, and a Dockerfile, which is deliberately never classified at all
+# (ADR-0037).
+#
+# The fixtures sit under the repo root and are passed as RELATIVE paths: MSYS rewrites an absolute
+# POSIX path such as mktemp's /tmp/... into a Windows one that the interpreter cannot open, which is
+# the same conversion scripts/README.md warns about for bind mounts.
+classifier="$(any_python || true)"
+if [[ -z "$classifier" ]]; then
+  info "no python found — skipped"
+else
+  fixtures=".tmp-scope-fixtures"
+  rm -rf "$fixtures"; mkdir -p "$fixtures"
+  trap 'rm -rf "${REPO_ROOT}/.tmp-scope-fixtures"' EXIT
+
+  # Every fixture pair is <name>.old.<ext> and <name>.new.<ext>, with the expected verdict below.
+  printf 'const marker = "a//b";\n// first\n'          > "$fixtures/comment.old.ts"
+  printf 'const marker = "a//b";\n// second\n'         > "$fixtures/comment.new.ts"
+  printf 'const marker = "a//b";\n'                    > "$fixtures/code.old.ts"
+  printf 'const marker = "a//c";\n'                    > "$fixtures/code.new.ts"
+  printf 'x = 1  # one\ndef f():\n    "doc"\n    return x\n'   > "$fixtures/comment.old.py"
+  printf 'x = 1  # two\ndef f():\n    "other doc"\n    return x\n' > "$fixtures/comment.new.py"
+  printf 'x = 1\n'                                     > "$fixtures/code.old.py"
+  printf 'x = 2\n'                                     > "$fixtures/code.new.py"
+  printf 'FROM node:26\n# first\n'                     > "$fixtures/dockerfile.old.Dockerfile"
+  printf 'FROM node:26\n# second\n'                    > "$fixtures/dockerfile.new.Dockerfile"
+
+  expect_verdict() {
+    local name="$1" ext="$2" want="$3" got
+    got="$("$classifier" scripts/check_scope.py --compare "${fixtures}/${name}.old.${ext}" "${fixtures}/${name}.new.${ext}" 2>&1 || true)"
+    if [[ "$got" == "$want" ]]; then
+      info "${name}.${ext} — ${want}"
+    else
+      note_fail "${name}.${ext}: the classifier said '${got}', expected '${want}'"
+    fi
+  }
+  expect_verdict comment    ts         comment-only
+  expect_verdict code       ts         code
+  expect_verdict comment    py         comment-only
+  expect_verdict code       py         code
+  # Not a gap: a `#` in a Dockerfile heredoc is not a comment, so it is never classified at all.
+  expect_verdict dockerfile Dockerfile code
+
+  rm -rf "$fixtures"
+  trap - EXIT
+fi
 
 printf '\n'
 if (( FAILURES == 0 )); then

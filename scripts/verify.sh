@@ -24,6 +24,11 @@
 # The two Docker scopes stay last even though the db tier is quick when warm: everything before
 # them runs daemon-free, which keeps the no-Docker form a strict prefix of the full gate.
 #
+# Before all of them runs one check that is not a scope: check_scope.py compares the scopes named
+# below against what the branch actually changed, refuses a run whose diff touches a packaging path
+# with more than comments while the images scope stays off, and reports every other surface the run
+# leaves unproven (ADR-0037). It is skipped in CI, which maps its own scopes from the paths.
+#
 # Each scope's reasoning — why it exists and what only it can catch — is in scripts/README.md.
 #
 # Tool output is captured and shown only when a step fails, so a green run reads as one line per
@@ -94,6 +99,42 @@ fi
 PY=""
 if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   PY="$(venv_python)"
+fi
+
+# --- scope -------------------------------------------------------------------------------------------
+# Before any scope runs, because refusing an undersized run in two seconds is the whole point: the
+# same refusal after a next build has already cost the minutes it exists to save. The scope flags are
+# chosen by whoever types them and nothing else reads the diff back, so this is where the rule that a
+# comment-only edit is a documentation change stops depending on memory (ADR-0037).
+#
+# Skipped in CI, where the scopes are separate jobs an aggregate check combines and the mapping is
+# derived from the paths rather than typed. There is no single invocation there for the question to
+# be about, and verify.sh --docs in the docs job would fail for a missing images scope another job
+# is running concurrently.
+if [[ -n "${CI:-}" ]]; then
+  skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
+else
+  step "scope · does this run cover what the branch changed?"
+  SCOPES_RAN=""
+  add_scope() { if (( $2 )); then SCOPES_RAN+="$1 "; fi; }
+  add_scope scripts  "$RUN_SCRIPTS"
+  add_scope docs     "$RUN_DOCS"
+  add_scope backend  "$RUN_BACKEND"
+  add_scope frontend "$RUN_FRONTEND"
+  add_scope ops      "$RUN_OPS"
+  add_scope db       "$RUN_DB"
+  add_scope images   "$RUN_IMAGES"
+
+  SCOPE_PY="$(any_python || true)"
+  if [[ -z "$SCOPE_PY" ]]; then
+    skip "no python found — this run was not checked against the diff"
+  # Not through `quietly`: the advisory findings are the useful half and a green run should still
+  # print them.
+  elif "$SCOPE_PY" scripts/check_scope.py --ran "$SCOPES_RAN"; then
+    ok "the scopes named cover the change"
+  else
+    die "This run is not wide enough to merge on. The finding above names the file and the flag."
+  fi
 fi
 
 # --- scripts ---------------------------------------------------------------------------------------
@@ -296,9 +337,4 @@ if [[ -z "$not_run" ]]; then
 else
   ok "Green:${ran}. ($(fmt_duration "$SECONDS") total)"
   skip "not run:${not_run}"
-  if (( ! RUN_IMAGES )); then
-    warn "The image build did not run. Do NOT merge on this alone if you touched
-fl_frontend/src/core/config.ts, src/core/auth.ts, src/instrumentation.ts, next.config.ts,
-a lockfile or a Dockerfile. Locally that is:  ./scripts/verify.sh --images"
-  fi
 fi

@@ -94,9 +94,18 @@ included. In doubt → the full form. The frontend scope rewrites the tree (the 
 and read the diff.
 
 **A comment-only edit is a documentation change, whatever file holds it.** Correcting a citation in
-`src/core/config.ts` or in a Dockerfile is `--docs` plus `pnpm format`, not the full form: what picks
-the scope is what the change could break, and a comment breaks documentation. The moment a hunk in
-one of those files touches a line that runs, the packaging rule above applies again.
+`src/core/config.ts` is `--docs` plus `pnpm format`, not the full form: what picks the scope is what
+the change could break, and a comment breaks documentation. The moment a hunk in that file touches a
+line that runs, the packaging rule above applies again.
+
+**The carve-out reaches only as far as a parser does** ([ADR-0037](../docs/_decisions/0037-the-gate-refuses-an-undersized-scope.md)):
+TypeScript, Python and TOML. **A comment in a Dockerfile, a workflow or a shell script still asks for
+the full form**, because a `#` inside a heredoc or a string is not a comment and nothing available
+can tell the two apart — and those are the files where a wrong answer costs the most.
+
+**None of this rests on memory.** `./scripts/verify.sh` compares the scope you named against the
+branch's diff before it runs anything, refuses a run that skips the image build while a file asking
+for it changed by more than comments, and reports every other surface left unproven.
 
 Report the actual exit code. Never the word "passing", never a hand-typed substitute chain.
 
@@ -234,6 +243,7 @@ the ADR.
 | 0033 | Write `status` outside `POST /saisons/{id}/activate`; add a DELETE to `saisons` or `saison_teams` |
 | 0034 | Move a guard onto an endpoint, merge the two routers, or delete an uncalled `GET /{id}`           |
 | 0035 | Re-add a reference-data invalidation endpoint; treat sub-24h reference staleness as a defect      |
+| 0037 | Let the comment classifier shrink a CI job; add a flag that suppresses the images refusal         |
 
 ## 8. Documentation
 

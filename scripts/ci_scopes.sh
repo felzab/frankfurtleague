@@ -19,6 +19,10 @@
 #   ./scripts/ci_scopes.sh origin/main   scopes for the diff between HEAD and its merge base
 #                                        with the named ref
 #   ./scripts/ci_scopes.sh --all         every scope true — a push to main proves everything
+#   ./scripts/ci_scopes.sh --stdin       scopes for a file list read from stdin, one path per line,
+#                                        instead of one computed from a diff. scripts/check_scope.py
+#                                        uses this to ask the same mapping about a list it has
+#                                        already filtered, so there is still only one copy of it
 #   ./scripts/ci_scopes.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -27,14 +31,15 @@ MODE=""
 for arg in "$@"; do
   case "$arg" in
     --all)     MODE="all" ;;
+    --stdin)   MODE="stdin" ;;
     --help|-h) usage ;;
     --*)       die "Unknown option: ${arg}. Try --help." ;;
     *)
-      [[ -z "$MODE" ]] || die "Give one base ref, or --all — not both."
+      [[ -z "$MODE" ]] || die "Give one base ref, --all or --stdin — not more than one."
       MODE="base" ; BASE_REF="$arg" ;;
   esac
 done
-[[ -n "$MODE" ]] || die "Name a base ref (origin/main), or pass --all. See --help."
+[[ -n "$MODE" ]] || die "Name a base ref (origin/main), or pass --all or --stdin. See --help."
 
 scripts=false; docs=false; backend=false; frontend=false; ops=false; images=false; format=false
 all() { scripts=true; docs=true; backend=true; frontend=true; ops=true; images=true; format=true; }
@@ -42,8 +47,12 @@ all() { scripts=true; docs=true; backend=true; frontend=true; ops=true; images=t
 if [[ "$MODE" == "all" ]]; then
   all
 else
-  base="$(git merge-base "$BASE_REF" HEAD)" || die "No merge base between '${BASE_REF}' and HEAD."
-  files="$(git diff --name-only "$base" HEAD)"
+  if [[ "$MODE" == "stdin" ]]; then
+    files="$(cat)"
+  else
+    base="$(git merge-base "$BASE_REF" HEAD)" || die "No merge base between '${BASE_REF}' and HEAD."
+    files="$(git diff --name-only "$base" HEAD)"
+  fi
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
     case "$f" in

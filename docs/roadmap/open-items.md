@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `9ffbbfc`, 2026-08-05
+**Verified against:** `bb7a23b`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -44,7 +44,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
 | 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
-| 3   | OPS-7 | Nothing checks the gate scope against the diff          | Ops         | S      | Open     | —                         |
+| 3   | OPS-7 | Nothing checks the gate scope against the diff          | Ops         | S      | Closed   | —                         |
 | 4   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Open     | —                         |
 | 5   | LOG-1 | Logging and error handling, surveyed then standardised  | FE, BE, Ops | L      | Open     | — (parallel-safe)         |
 | 6   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
@@ -168,6 +168,20 @@ only the first leaves the rule advisory; doing only the second finds it late.
 
 **Path:** independent. It makes the gate-scope rule mechanical rather than remembered, which every
 change in this file relies on.
+
+**Concluded by [ADR-0037](../_decisions/0037-the-gate-refuses-an-undersized-scope.md).**
+`scripts/check_scope.py` runs first in every local `verify.sh` invocation: it fails a run whose diff
+reaches the image build with a change that is more than comments, and reports every other unproven
+surface. The classifier is exact where a parser exists — TypeScript, Python, TOML — and answers
+"code" everywhere else, Dockerfiles and shell included.
+
+Two findings that were not decisions were rehomed rather than kept here. **CI already enforced the
+floor**: `ci_scopes.sh` maps an unrecognised path to every scope and the aggregate `verify` job is
+required on `main`, so a packaging change could never merge without its image build whatever the
+author ran locally — which is why the item produced no second CI check, recorded in ADR-0037's
+alternatives. And **the carve-out is narrower than CLAUDE.md stated**: a Dockerfile comment still
+asks for the full form, because a `#` inside a heredoc is not a comment and nothing available can
+tell the two apart. CLAUDE.md's gate section now says so.
 
 ### 4 · F2 — The Zod mirror of the Pydantic models is unverified
 
