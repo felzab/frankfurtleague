@@ -18,6 +18,11 @@ either.
 | `ci_scopes.sh` | any           | Map changed paths to gate scopes; both CI workflows read it   |
 | `_lib.sh`      | —             | Shared helpers; sourced, never run directly                   |
 
+Two checkers are python rather than shell, and one of them never runs in the gate:
+`check_docs.py` and `check_commits.py` are steps of `verify.sh`, while **`check_pr_body.py` runs
+only in CI** — a pull request body is not in the repository and does not exist when the gate runs,
+so `.github/workflows/pr-body.yml` is the only place it is addressable.
+
 ```bash
 # ship a change
 ./scripts/verify.sh                     # dev:  everything must be green

@@ -1,0 +1,40 @@
+# Holds a pull request body to ADR-0036 and docs/workflows/message-templates.md.
+#
+# A SEPARATE workflow from verify.yml on purpose. This one has to listen for `edited`, so that a
+# body corrected after review turns the check green without an unrelated push — and subscribing
+# verify.yml to `edited` would re-run the whole gate, image builds included, every time somebody
+# fixes a typo in a description.
+#
+# It is therefore NOT part of verify.yml's aggregate `verify` job, which is the ruleset's required
+# check. To make this one block a merge as well, add `pr-body` to the required status checks on
+# `main` — the checklist is in docs/workflows/README.md, Repository settings.
+name: pr-body
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-body-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  body:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the pull request body
+        # The body is attacker-controlled text on a public repository, so it reaches the script
+        # through the environment and stdin — never by interpolating `${{ }}` into `run:`, which is
+        # the standard script-injection shape. The same rule is stated in verify.yml's changes job.
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: printf '%s' "$PR_BODY" | python3 scripts/check_pr_body.py - --author "$PR_AUTHOR"

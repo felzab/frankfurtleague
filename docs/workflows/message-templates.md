@@ -235,6 +235,31 @@ two-commit protocol in docs/roadmap/README.md.
 Everywhere else, name a SHA only when a reader has to find that commit and the Commits tab would
 not lead them to it quickly.
 
+### What the body gate enforces, and what it only reports
+
+`scripts/check_pr_body.py` runs in CI on every pull request — `.github/workflows/pr-body.yml`, which
+listens for `edited` as well as `opened`, so a body corrected after review turns the check green
+without an unrelated push. It cannot run in `./scripts/verify.sh`: the body is not in the
+repository, and does not exist yet when the gate runs.
+
+| Refused                                                             | Reported                 |
+| ------------------------------------------------------------------- | ------------------------ |
+| An empty body, or the template submitted with its placeholder prose | A summary over 200 words |
+| No `**Verified.**` paragraph                                        |                          |
+| Three or more list items each carrying a commit hash                |                          |
+| A summary over 500 words above the first heading                    |                          |
+
+**Three, not two, is the commit-index threshold** — a roadmap closure names both its SHAs and is
+correct to (see the orientation sentence above). **`Verified` is the one heading never legitimately
+dropped**, because every pull request here runs the gate; the other three are unchecked precisely so
+the rule to drop a heading rather than pad it stays true. Dependabot is skipped entirely.
+
+Check an open one by hand:
+
+```bash
+gh pr view 48 --json body -q .body | python scripts/check_pr_body.py -
+```
+
 ### Reviewer's first look
 
 If one thing in the branch deserves attention before the rest, say so in the first line. That is the

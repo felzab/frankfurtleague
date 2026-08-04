@@ -342,14 +342,14 @@ enforceable rather than merely documented.
 
 Settings → Rules → Rulesets, one branch ruleset targeting the default branch, enforcement **Active**.
 
-| Rule                                  | Setting                        |
-| ------------------------------------- | ------------------------------ |
-| Restrict deletions                    | on                             |
-| Block force pushes                    | on                             |
-| Require a pull request before merging | on, **required approvals `0`** |
-| Require status checks to pass         | on, check: **`verify`**        |
-| Require linear history                | **off**                        |
-| Bypass list                           | **empty**                      |
+| Rule                                  | Setting                                 |
+| ------------------------------------- | --------------------------------------- |
+| Restrict deletions                    | on                                      |
+| Block force pushes                    | on                                      |
+| Require a pull request before merging | on, **required approvals `0`**          |
+| Require status checks to pass         | on, checks: **`verify`**, **`pr-body`** |
+| Require linear history                | **off**                                 |
+| Bypass list                           | **empty**                               |
 
 Three of those are counter-intuitive and must not be "corrected":
 
@@ -361,8 +361,16 @@ Three of those are counter-intuitive and must not be "corrected":
   the maintainer's own. To perform a deliberate history rewrite, set the ruleset to **Disabled**, do
   it, and re-enable; that two-step is the intended escape hatch.
 
-`verify` is the only required check. CodeQL deliberately is **not** required: it reports two checks
-and an upstream query-pack problem would block merges for a reason unrelated to the change.
+**Two required checks.** `verify` is `.github/workflows/verify.yml`'s aggregate job. `pr-body` is
+`.github/workflows/pr-body.yml`, which holds the body to
+[ADR-0036](../_decisions/0036-a-pull-request-body-summarises-the-branch.md) and is a separate
+workflow because it listens for `edited` — subscribing `verify.yml` to that event would rebuild both
+images every time a description gained a comma. **Each required check is added by hand in this
+panel; a workflow existing does not make it required**, so a new one reports until someone adds it
+here.
+
+CodeQL deliberately is **not** required: it reports two checks and an upstream query-pack problem
+would block merges for a reason unrelated to the change.
 
 ### Actions
 
