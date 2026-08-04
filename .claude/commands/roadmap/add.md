@@ -86,10 +86,9 @@ This command adds and re-ranks. **It never closes, deletes or implements anythin
      moved each one. A re-rank nobody can audit is a re-rank the owner has to redo.
 
 8. **Update everything else that indexes these entries**, because CLAUDE.md's same-commit rule
-   requires it. Search the repository for the ids and for the tables that list them —
-   `docs/README.md` carries an open-findings table, the spec sheets carry `Known-open` sections, and
-   the audit prompts seed checks from these entries. Add the new item wherever its kind is listed;
-   leave the rest alone.
+   requires it. Search the repository for the ids and for the tables that list them — each surface
+   spec sheet carries a `Known-open` section, and the audit prompts seed checks from these entries.
+   Add the new item wherever its kind is listed; leave the rest alone.
 
 9. **Restamp** `docs/roadmap/open-items.md`'s `Verified against` line to the commit you verified it
    at, per `docs/_standard/5-currency.md`. Editing a stamped page without moving its stamp fails the
