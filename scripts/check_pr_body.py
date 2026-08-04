@@ -18,8 +18,8 @@ and by hand against an open one:
 
   Failing, because each is objectively true or false without reading the branch:
     1. the body is not empty, and is not the template with its placeholder prose still in it
-    2. it carries a `**Verified.**` paragraph - every pull request here runs the gate, so this is
-       the one heading that is never legitimately dropped
+    2. it carries a Verified paragraph, bolded or not - every pull request here runs the gate, so
+       this is the one section that is never legitimately dropped
     3. it does not index its commits: three or more list items each carrying a commit hash is the
        shape ADR-0036 exists to refuse, because GitHub's Commits tab already renders it
     4. the summary above the first heading is under 500 words
@@ -66,10 +66,21 @@ TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
     "The `./scripts/verify.sh` invocation — its scopes and its exit code",
 )
 
-# A heading in the form: a bolded phrase ending in a period, at the start of a line.
-HEADING: Final = re.compile(r"^\*\*[A-Z][^*]{2,40}\.\*\*", re.MULTILINE)
+# The form's sections, anchored by name rather than by typography. Bold is OPTIONAL on purpose: the
+# template writes `**Verified.**` while most of the merged corpus writes a bare `Verified.`, and the
+# difference is two asterisks rather than anything a reader loses. Requiring the bold form failed 27
+# of 44 merged bodies including several of the best — a check that cries wolf gets suppressed
+# (docs/_standard/5-currency.md), and what the form asks for is that the section be there at all.
+#
+# Named alternation rather than a general "bolded phrase" pattern: a paragraph opening "Rankings.
+# Twenty-eight entries ..." is prose, and a looser rule would read it as a heading and cut the
+# measured summary short — silently, and in the direction that hides a finding.
+SECTION_LEAD: Final = re.compile(
+    r"^\**(?:Verified|Decisions taken|Left undone|Governed by|Reviewer'?s first look)\b",
+    re.MULTILINE | re.IGNORECASE,
+)
 
-VERIFIED_HEADING: Final = re.compile(r"^\*\*Verified\.?\*\*", re.MULTILINE)
+VERIFIED_HEADING: Final = re.compile(r"^\**Verified\b", re.MULTILINE | re.IGNORECASE)
 
 # A list item carrying a commit hash: "- abc1234 ...", "* `abc1234` — ...", "1. abc1234 ...".
 COMMIT_LIST_ITEM: Final = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+`?[0-9a-f]{7,40}`?\b")
@@ -82,8 +93,8 @@ class Finding:
 
 
 def summary_of(body: str) -> str:
-    """Everything above the first `**Heading.**`, which is what the form calls the summary."""
-    match = HEADING.search(body)
+    """Everything above the first of the form's named sections — what the form calls the summary."""
+    match = SECTION_LEAD.search(body)
     return body[: match.start()] if match else body
 
 
@@ -114,7 +125,7 @@ def check_body(body: str, author: str = "") -> list[Finding]:
             break
 
     if not VERIFIED_HEADING.search(body):
-        findings.append(Finding("fail", "no `**Verified.**` paragraph -- name the gate invocation and its exit code"))
+        findings.append(Finding("fail", "no Verified paragraph -- name the gate invocation and its exit code (bold optional)"))
 
     run = longest_commit_run(body)
     if run >= 3:
