@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `e340056`, 2026-08-01
+**Verified against:** `df21894`, 2026-08-04
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -117,25 +117,35 @@ entry point in the codebase.
 
 ## 7. The verification gate
 
-`scripts/verify.sh` runs, cheapest-to-fail first: script self-checks, `pnpm verify` (types, lint,
-formatting, `next build`, unit tests), `pnpm audit:prod`, then **ruff and pytest for the backend**, then
-both image builds, then a check that `instrumentation.js` is present in the frontend image.
+`scripts/verify.sh` runs cheapest-to-fail first, and the order is the point: a script self-check, the
+documentation gate, `pnpm verify` (types, lint, formatting, `next build`, unit tests),
+`pnpm audit:prod`, ruff and pyright and pytest for the backend, the database test tier, both image
+builds, and a check that `instrumentation.js` is present in the frontend image.
 
-The backend step exists because `pnpm verify` runs nothing against `fl_backend`, and the frontend
-mirrors roughly forty backend validation constraints rather than enforcing them — so those constraints
-had no regression net at all. It needs the backend virtualenv (`cd fl_backend && uv sync --dev`).
+**The documentation gate** (`scripts/check_docs.py`) fails on a citation that resolves to nothing — a
+dangling ADR number, a dead link, a broken in-page anchor, an anchored citation whose target has gone,
+a named path that is not there — across `/docs` and inside source comments alike. It is the one
+currency defence that does not depend on somebody remembering (DS18, DS20).
 
-It runs the **default** test tier only. The `db`-marked tests need a `mongod`
-([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)) and deliberately stay
-out of the gate, so `--quick` needs no Docker daemon; they run in the `backend-db` CI job instead,
-concurrently with `verify` and therefore at no cost to how long a pull request waits.
+**The backend steps** exist because `pnpm verify` runs nothing against `fl_backend`, and the frontend
+mirrors the backend's validation constraints rather than enforcing them, so those constraints would
+otherwise have no regression net. `pyright` is separate from `ruff` because ruff checks no types, and
+type errors visible in the editor were reaching `main` without it. All of it needs the backend
+virtualenv (`cd fl_backend && uv sync --dev`).
 
-The image steps exist because code that compiles can still fail to build inside the image, or be
+**Both test tiers run.** The `db`-marked tests need a real `mongod`
+([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), so they sit behind
+`require_docker` alongside the image builds — which means `--quick` skips them and needs no daemon.
+CI runs them as a separate `backend-db` job as well, concurrently with `verify`, so a pull request
+waits no longer for the coverage.
+
+**The image steps** exist because code that compiles can still fail to build inside the image, or be
 omitted from the standalone output entirely.
 
-`--quick` skips the image builds and is **not sufficient** before a merge touching
-`src/core/config.ts`, `src/core/auth.ts` or `src/instrumentation.ts` — those are where packaging
-problems live.
+`--quick` skips everything needing Docker: the database tier and both image builds. It is **not
+sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts` or
+`src/instrumentation.ts` — those are where packaging problems live. An audit remediation wave runs the
+full form regardless of what it touched, unless it changed documentation only.
 
 ## 8. Known-open
 
