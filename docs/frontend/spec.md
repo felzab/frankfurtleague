@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `6df0573`, 2026-08-03
+**Verified against:** `df21894`, 2026-08-04
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -157,10 +157,10 @@ Three things about it are load-bearing:
 | #   | Invariant                                                                           | Enforced by                    | Breaks how                                                                                                                                                 |
 | --- | ----------------------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | I1  | Every granular cache tag has a matching `updateTag` in a server action              | review                         | The tag never invalidates; reads as coverage, is decoration                                                                                                |
-| I2  | Base tags `spiele`/`teams` invalidate unconditionally on a match write              | `spiele/actions.ts:42-43`      | The default read path's entries carry only base tags and go stale until expiry                                                                             |
+| I2  | Base tags `spiele`/`teams` invalidate unconditionally on a match write              | `fl_frontend/src/features/spiele/actions.ts :: updateTag("spiele")` | The default read path's entries carry only base tags and go stale until expiry                                                                             |
 | I3  | `saison_id` reaches the action as an argument, never on the patch body              | `spiele/actions.ts` signature  | The backend model does not declare it; Pydantic drops it silently, leaving a dead field that looks load-bearing                                            |
-| I4  | A failed season-id parse never fails the edit                                       | `spiele/actions.ts:51`         | An admin's work rejected over a cache optimisation                                                                                                         |
-| I5  | Write payloads compose from the read model's field schemas                          | `spiele/schemas.ts:87-99`      | Read and write shapes drift apart                                                                                                                          |
+| I4  | A failed season-id parse never fails the edit                                       | `fl_frontend/src/features/spiele/actions.ts :: FLSpielSchema.shape.saison_id.safeParse` | An admin's work rejected over a cache optimisation                                                                                                         |
+| I5  | Write payloads compose from the read model's field schemas                          | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema` | Read and write shapes drift apart                                                                                                                          |
 | I6  | `await connection()` precedes every page data fetch                                 | each page or its async child   | `docker compose build` fails — the builder stage has no reachable backend                                                                                  |
 | I7  | Every admin server action starts with `getAdminSession()`                           | all seven actions              | Unauthenticated mutation                                                                                                                                   |
 | I8  | `getAdminSession()`'s return value must be checked                                  | naming only                    | It neither throws nor redirects; calling it bare guards nothing                                                                                            |
