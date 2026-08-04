@@ -47,11 +47,11 @@ assertion. `mongomock` is not an option — it raises `NotImplementedError` for 
 
 **Why the marker, rather than just adding them.** The fast tier is the asset: a suite that runs in
 under half a second gets run. Putting a container behind every `pytest` invocation would also make
-Docker a prerequisite of `./scripts/verify.sh --quick`, which is what CI runs on every pull request.
+Docker a prerequisite of the gate's backend scope and of `--quick`, neither of which needs a daemon.
 
-`scripts/verify.sh` therefore runs the **default** tier only. The `db` tier runs in its own parallel
-CI job (`backend-db` in `.github/workflows/verify.yml`), which costs a pull request no extra wall
-clock because it finishes inside the longer `verify` job.
+The gate's `--backend` scope therefore runs the **default** tier only; the `db` tier is its own
+scope, `--db`, and its own parallel CI job (`backend-db` in `.github/workflows/verify.yml`), which
+runs whenever a pull request touches `fl_backend` and costs it no extra wall clock.
 
 **What is still uncovered, named because it is load-bearing.** Routers, CRUD and auth have no tests
 at all. That boundary is deliberate and belongs to the planned `fl_backend` audit, which wants one
@@ -172,6 +172,6 @@ cd fl_backend && uv run pytest -m db
 The first run pulls `mongo:8` (about 1.3 GB) if it is not already cached; afterwards the container
 starts in under two seconds. Everything is torn down when the session ends.
 
-The fast tier also runs as step 4 of the full gate, `./scripts/verify.sh`, alongside `ruff` over
-`app` and `tests`. The `db` tier deliberately does **not**, so the gate needs no daemon on the
-`--quick` path; it runs in the `backend-db` CI job instead.
+The fast tier also runs as the backend scope of the full gate, `./scripts/verify.sh`, alongside
+`ruff` over `app` and `tests`. The `db` tier is the separate `--db` scope, so the gate needs no
+daemon on the `--quick` path; in CI it is the `backend-db` job.

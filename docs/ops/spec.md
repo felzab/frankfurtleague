@@ -87,10 +87,13 @@ entry point in the codebase.
 
 ## 5. The verification gate
 
-`scripts/verify.sh` runs cheapest-to-fail first, and the order is the point: a script self-check, the
-documentation gate, `pnpm verify` (types, lint, formatting, `next build`, unit tests),
-`pnpm audit:prod`, ruff and pyright and pytest for the backend, the database test tier, both image
-builds, and a check that `instrumentation.js` is present in the frontend image.
+`scripts/verify.sh` runs six scopes in cheapest-to-fail order, and the order is the point: the
+script self-check and the documentation gate are instant, the backend tier (ruff, pyright, pytest)
+takes seconds, the frontend (`pnpm verify`: types, lint, formatting, `next build`, unit tests, then
+the advisory `pnpm audit:prod`) takes minutes, and the database test tier and both image builds —
+with the check that `instrumentation.js` is present in the frontend image — need Docker on top. A
+bare invocation runs everything; scope flags name surfaces and combine (`scripts/README.md` has the
+table). CI runs the same scopes as parallel jobs mapped from the paths a pull request touches.
 
 **The documentation gate** (`scripts/check_docs.py`) fails on a citation that resolves to nothing — a
 dangling ADR number, a dead link, a broken in-page anchor, an anchored citation whose target has gone,
@@ -104,18 +107,19 @@ type errors visible in the editor were reaching `main` without it. All of it nee
 virtualenv (`cd fl_backend && uv sync --dev`).
 
 **Both test tiers run.** The `db`-marked tests need a real `mongod`
-([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), so they sit behind
-`require_docker` alongside the image builds — which means `--quick` skips them and needs no daemon.
-CI runs them as a separate `backend-db` job as well, concurrently with `verify`, so a pull request
-waits no longer for the coverage.
+([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), so they are their own
+scope behind `require_docker` — which means `--quick` skips them and needs no daemon. In CI they are
+the `backend-db` job, run concurrently whenever a pull request touches `fl_backend`, so the coverage
+costs no extra waiting.
 
-**The image steps** exist because code that compiles can still fail to build inside the image, or be
+**The image scope** exists because code that compiles can still fail to build inside the image, or be
 omitted from the standalone output entirely.
 
 `--quick` skips everything needing Docker: the database tier and both image builds. It is **not
-sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts` or
-`src/instrumentation.ts` — those are where packaging problems live. An audit remediation wave runs the
-full form regardless of what it touched, unless it changed documentation only.
+sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts`,
+`src/instrumentation.ts` or a Dockerfile — those are where packaging problems live, and CI builds
+both images on any pull request touching them. An audit remediation wave runs the full form
+regardless of what it touched, unless it changed documentation only.
 
 ## 6. Invariants
 
@@ -136,14 +140,14 @@ full form regardless of what it touched, unless it changed documentation only.
 
 ## 7. Violation → remedy
 
-| Symptom                                                  | Cause                                                            | Remedy                                                                 |
-| -------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                 |
-| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                 |
-| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                            |
-| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I3 — repeat every header in that block                                 |
-| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                    |
-| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                       |
+| Symptom                                                  | Cause                                                            | Remedy                                                                                                                      |
+| -------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                                                                      |
+| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                                                                      |
+| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                                                                                 |
+| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I3 — repeat every header in that block                                                                                      |
+| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                                                                         |
+| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                                                                            |
 | Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | `POST /api/revalidate` from inside the frontend container — command in [`docs/workflows/README.md`](../workflows/README.md) |
 | League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | The same call with `saisons` clears all four tags                                                                           |
 

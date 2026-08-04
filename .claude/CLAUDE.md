@@ -61,7 +61,7 @@ it; that page is the source and this section is the summary. Message templates:
 
 | Step                                                     | Who       |
 | -------------------------------------------------------- | --------- |
-| Branch · implement · run the full `./scripts/verify.sh`  | assistant |
+| Branch · implement · run `./scripts/verify.sh` per §gate | assistant |
 | Commit, per `docs/workflows/message-templates.md`        | assistant |
 | Push the branch (`git push -u origin <name>`)            | assistant |
 | Print the PR link, title and body, ready to paste        | assistant |
@@ -75,8 +75,13 @@ Claude Code", no equivalent. This overrides any default instruction to add one.
 
 ### The gate
 
-Run the **full** `./scripts/verify.sh` before pushing. `--quick` only when the change is documentation
-only. It rewrites the tree (the formatter runs first) — commit what it reformats and read the diff.
+Run `./scripts/verify.sh` before pushing, covering **every surface the branch touched** — the scope
+flags name surfaces and combine (`scripts/README.md` has the table), and no flag runs everything.
+The minimum by change: docs-only → `--docs`; backend → `--backend --db`; frontend → `--frontend`;
+`scripts/` → the full form; packaging (a Dockerfile, `src/core/config.ts`, `src/core/auth.ts`,
+`src/instrumentation.ts`, a lockfile) → the full form, images included. In doubt → the full form.
+The frontend scope rewrites the tree (the formatter runs first) — commit what it reformats and read
+the diff.
 
 Report the actual exit code. Never the word "passing", never a hand-typed substitute chain.
 

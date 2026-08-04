@@ -75,9 +75,9 @@ updates:
       - dependency-name: pydantic-core
 
   # --- Base images ----------------------------------------------------------------------------
-  # Both Dockerfiles pin their base image. A base-image bump is the one update here that the
-  # `--quick` PR gate cannot fully validate: it only proves the image builds on `main`, so treat a
-  # merged base-image PR as a reason to run the full gate locally before publishing.
+  # Both Dockerfiles pin their base image. A Dockerfile change triggers the `images` CI job on the
+  # pull request itself (.github/workflows/verify.yml), so a base-image bump proves both images
+  # build before it merges.
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:

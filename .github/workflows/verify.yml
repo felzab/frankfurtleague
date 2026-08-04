@@ -1,14 +1,14 @@
 name: verify
 
-# The gate that `scripts/verify.sh` has always been, now actually run.
+# The gate that `scripts/verify.sh` is, run as parallel jobs mapped to the surfaces a change
+# touches. The `changes` job diffs the pull request against its base and turns paths into scope
+# flags; each job below runs one `verify.sh` scope and starts only when its scope is touched. A
+# push to main runs every scope unconditionally — main is the record of whether a commit is
+# deployable, and the unfiltered run also backstops the path mapping itself.
 #
-# Pull requests run --quick (no image build) because the image build takes minutes and most PRs
-# cannot break packaging. Pushes to main run the full gate, including both image builds and the
-# instrumentation.js check -- the two things `pnpm verify` has been green for while the image was
-# broken.
-#
-# If you touch src/core/config.ts, src/core/auth.ts or src/instrumentation.ts, the PR run is NOT
-# sufficient on its own. Those are where packaging problems live.
+# The required status check on main is the `verify` job at the bottom: it aggregates every other
+# job and fails if any of them failed. It reports on every run — skipped scope jobs count as
+# passes — so the ruleset's required check never waits on a job that path filtering skipped.
 
 on:
   pull_request:
@@ -28,9 +28,204 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  verify:
+  # Turns the changed paths into scope flags. The mapping errs conservative: a file the case
+  # statement does not recognise turns every scope on, so a new kind of file can never silently
+  # skip validation. Only paths named in the "no automated check exists" arm run nothing.
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      scripts: ${{ steps.map.outputs.scripts }}
+      docs: ${{ steps.map.outputs.docs }}
+      backend: ${{ steps.map.outputs.backend }}
+      frontend: ${{ steps.map.outputs.frontend }}
+      images: ${{ steps.map.outputs.images }}
+      format: ${{ steps.map.outputs.format }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          # The token is not needed after checkout. Leaving it in .git/config would expose it to
+          # every later step, including anything a dependency's install script decides to run.
+          persist-credentials: false
+          # Full history: the diff below needs the merge base with the target branch.
+          fetch-depth: 0
+
+      - name: Map changed paths to scopes
+        id: map
+        # Values reach the script through env, never by interpolating `${{ }}` into `run:` --
+        # that interpolation is the standard script-injection shape.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          scripts=false; docs=false; backend=false; frontend=false; images=false; format=false
+          all() { scripts=true; docs=true; backend=true; frontend=true; images=true; format=true; }
+
+          if [ "$EVENT" != "pull_request" ]; then
+            all
+          else
+            base="$(git merge-base "origin/${BASE_REF}" HEAD)"
+            files="$(git diff --name-only "$base" HEAD)"
+            while IFS= read -r f; do
+              [ -n "$f" ] || continue
+              case "$f" in
+                # The gate itself, or this pipeline: prove everything.
+                .github/workflows/*) all ;;
+                scripts/*.sh) all ;;
+                # check_docs.py is the docs gate; anything else in scripts/ is documentation the
+                # self-check and prettier both cover.
+                scripts/check_docs.py) scripts=true; docs=true ;;
+                scripts/*) scripts=true; docs=true; format=true ;;
+                # Packaging inputs. The docs scope rides along wherever source comments are
+                # scanned for citations (.ts/.tsx/.py -- see check_docs.py, DS20).
+                fl_frontend/Dockerfile|fl_frontend/.dockerignore) images=true ;;
+                fl_backend/Dockerfile|fl_backend/.dockerignore) images=true ;;
+                fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
+                  frontend=true; images=true; docs=true ;;
+                fl_frontend/package.json|fl_frontend/pnpm-lock.yaml) frontend=true; images=true ;;
+                fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; images=true ;;
+                fl_frontend/*) frontend=true; docs=true ;;
+                fl_backend/*) backend=true; docs=true ;;
+                # Prettier's coverage reaches outside fl_frontend (see `format` in
+                # fl_frontend/package.json); these change nothing else CI can check.
+                docker-compose.yml|docker-compose.local.yml) format=true ;;
+                # No automated check exists for these. A deliberate, named list -- anything NOT
+                # named here falls through to the conservative default below.
+                nginx/*|certs/*|.gitignore|.gitattributes|LICENSE|NOTICE) ;;
+                *.md) docs=true; format=true ;;
+                docs/*) docs=true; format=true ;;
+                .claude/*|.github/*) docs=true; format=true ;;
+                *) all ;;
+              esac
+            done <<< "$files"
+          fi
+
+          {
+            echo "scripts=$scripts"
+            echo "docs=$docs"
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+            echo "images=$images"
+            echo "format=$format"
+          } >> "$GITHUB_OUTPUT"
+          echo "scopes: scripts=$scripts docs=$docs backend=$backend frontend=$frontend images=$images format=$format"
+
+  scripts:
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Ensure shellcheck is available
+        # selfcheck.sh check 9 falls back to pulling koalaman/shellcheck via Docker when there is no
+        # local binary, which is slow and needs the daemon. The GitHub runner image normally ships
+        # shellcheck already, so install only if it is genuinely missing rather than paying for an
+        # apt update on every run.
+        run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+      - name: Run the scripts scope
+        run: ./scripts/verify.sh --scripts
+
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: the documentation gate verifies `Verified against` stamps as ancestors
+          # and diffs stamped pages against the merge base, neither of which a shallow clone can do.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+      - name: Create the backend virtualenv
+        # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
+        working-directory: fl_backend
+        run: uv sync --dev
+      - name: Run the docs scope
+        run: ./scripts/verify.sh --docs
+
+  # Prettier in check mode over everything its coverage list names. This job exists for changes
+  # OUTSIDE fl_frontend -- docs, workflows, compose files -- which the formatter still governs; when
+  # the frontend job runs, its own gate already includes the same check, so this one stands down.
+  format:
+    needs: changes
+    if: needs.changes.outputs.format == 'true' && needs.changes.outputs.frontend != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          # Pinned rather than read from packageManager: that field lives in fl_frontend/package.json,
+          # and the action looks at the repository root.
+          version: 11.18.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: fl_frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        working-directory: fl_frontend
+        run: pnpm install --frozen-lockfile
+      - name: Check formatting
+        working-directory: fl_frontend
+        run: pnpm format:check
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+      - name: Create the backend virtualenv
+        working-directory: fl_backend
+        run: uv sync --dev
+      - name: Run the backend scope
+        run: ./scripts/verify.sh --backend
+
+  # The `db`-marked backend tests, which start a real mongod and execute the league-table pipeline
+  # against it (ADR-0030). A separate job rather than a step in `backend`: jobs run concurrently,
+  # so the mongod pull and run cost a pull request no extra wall-clock time. The `db` MARKER is a
+  # property of the test suite, not of this pipeline: `pytest -m db` selects these tests under any
+  # arrangement.
+  backend-db:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+      - name: Create the backend virtualenv
+        working-directory: fl_backend
+        run: uv sync --dev
+      - name: Run the db scope
+        run: ./scripts/verify.sh --db
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     # CI runs `pnpm build` on the RUNNER HOST, not inside the image -- so none of the Dockerfile's
     # ENV lines apply here. These three reproduce what the builder stage sets, and fl_frontend/
@@ -50,99 +245,60 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          # The token is not needed after checkout. Leaving it in .git/config would expose it to
-          # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
-
-      - name: Ensure shellcheck is available
-        # selfcheck.sh check 9 falls back to pulling koalaman/shellcheck via Docker when there is no
-        # local binary, which is slow and needs the daemon. The GitHub runner image normally ships
-        # shellcheck already, so install only if it is genuinely missing rather than paying for an
-        # apt update on every run.
-        run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
-
       - uses: pnpm/action-setup@v6.0.9
         with:
-          # Pinned rather than read from packageManager: that field lives in fl_frontend/package.json,
-          # and the action looks at the repository root.
           version: 11.18.0
-
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: 26
           cache: pnpm
           cache-dependency-path: fl_frontend/pnpm-lock.yaml
-
       - name: Install frontend dependencies
         working-directory: fl_frontend
         run: pnpm install --frozen-lockfile
-
-      - uses: astral-sh/setup-uv@v9.0.0
-        with:
-          enable-cache: true
-
-      - name: Create the backend virtualenv
-        # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
-        # uv fetches the interpreter that pyproject.toml's requires-python demands.
-        working-directory: fl_backend
-        run: uv sync --dev
-
-      # Two steps rather than one with a conditional inside the shell. A `${{ }}` expression
-      # interpolated into a `run:` block is the standard script-injection shape, and avoiding it
-      # entirely is cheaper than auditing which contexts happen to be safe.
-      - name: Run the gate (pull request)
-        if: github.event_name == 'pull_request'
-        run: ./scripts/verify.sh --quick
-
-      - name: Run the gate (main)
-        if: github.event_name == 'push'
-        run: ./scripts/verify.sh
-
+      - name: Run the frontend scope
+        run: ./scripts/verify.sh --frontend
       - name: Fail if the gate reformatted anything
-        # verify.sh step 2 runs `pnpm format` in WRITE mode, so a run can leave changes behind. That
-        # is deliberate on a developer machine and unacceptable in CI: it means the committed tree
-        # was not formatted. Diff rather than assume.
+        # The frontend scope runs `pnpm format` in WRITE mode, so a run can leave changes behind.
+        # That is deliberate on a developer machine and unacceptable in CI: it means the committed
+        # tree was not formatted. Diff rather than assume.
         run: |
           if ! git diff --exit-code; then
             echo "::error::The gate reformatted files. Run 'cd fl_frontend && pnpm format' and commit the result."
             exit 1
           fi
 
-  # The `db`-marked backend tests, which start a real mongod and execute the league-table pipeline
-  # against it (ADR-0030). The full `verify.sh` runs them too, behind its `require_docker`; this job
-  # is what covers a PULL REQUEST, where the gate runs `--quick` and skips everything needing a
-  # daemon. On a push to main the two overlap by about 20 seconds -- noted for OPS-5, which owns the
-  # pipeline's shape, rather than restructured here.
-  #
-  # A SEPARATE job, not a step inside `verify`, and that is the whole cost argument. Jobs run
-  # concurrently, so a pull request waits on the slower one -- `verify` at about 136 seconds against
-  # this job's 60-90 -- and adding this changes the wait by nothing. Folding it into `verify` would
-  # add its image pull to the critical path instead.
-  #
-  # PROVISIONAL. Open item OPS-5 audits and restructures the whole pipeline, and this job's shape is
-  # explicitly its to change -- merge it, cache it, move it behind a path filter. What is NOT
-  # provisional is the marker: `pytest -m db` selects these tests under any CI arrangement.
-  backend-db:
+  # Both image builds plus the instrumentation.js presence check -- the two failures `pnpm verify`
+  # has been green for while the image was broken. On a pull request this runs only when a
+  # packaging input changed (Dockerfiles, lockfiles, config.ts, auth.ts, instrumentation.ts),
+  # which closes the old gap where no PR ever built an image; on main it always runs.
+  images:
+    needs: changes
+    if: needs.changes.outputs.images == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          # Same reasoning as the job above: the token is not needed once the tree is on disk.
           persist-credentials: false
+      - name: Run the images scope
+        run: ./scripts/verify.sh --images
 
-      - uses: astral-sh/setup-uv@v9.0.0
-        with:
-          enable-cache: true
-
-      - name: Create the backend virtualenv
-        working-directory: fl_backend
-        run: uv sync --dev
-
-      - name: Execute the derived league table against a real mongod
-        # testcontainers starts mongo:8 itself and removes it afterwards; the runner already has a
-        # Docker daemon, so nothing else is needed here. `-m db` overrides the `-m "not db"` in
-        # pyproject's addopts, because addopts are prepended rather than merged.
-        working-directory: fl_backend
-        run: uv run pytest -m db
+  # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
+  # It runs on every event -- skipped scope jobs read as success, failed or cancelled ones fail it --
+  # so path filtering can never leave the required check hanging.
+  verify:
+    needs:
+      [changes, scripts, docs, format, backend, backend-db, frontend, images]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any job failed or was cancelled
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e 'to_entries | map(select(.value.result == "failure" or .value.result == "cancelled")) | length == 0' >/dev/null \
+            || { echo "::error::A scope job failed -- its own log has the findings."; exit 1; }
+          echo "every scope that ran is green"

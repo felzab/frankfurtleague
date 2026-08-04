@@ -513,13 +513,19 @@ def main() -> int:
         print("      no files found -- nothing to check", file=sys.stderr)
         return 0
 
+    # CI checkouts have no local branch for the base, only its remote-tracking ref -- without this
+    # fallback the two branch-diff checks below silently ran against nothing on every CI run.
+    base = args.base
+    if git("rev-parse", "--verify", base) is None and git("rev-parse", "--verify", f"origin/{base}") is not None:
+        base = f"origin/{base}"
+
     existing = adr_numbers()
     findings: list[Finding] = []
     for path in files:
         findings.extend(check_file(path, existing))
     findings.extend(check_stamps(files))
-    findings.extend(check_stamp_freshness(args.base))
-    findings.extend(check_history_phrases(args.base))
+    findings.extend(check_stamp_freshness(base))
+    findings.extend(check_history_phrases(base))
 
     failures = [f for f in findings if f.severity == "fail"]
     reports = [f for f in findings if f.severity == "report"]

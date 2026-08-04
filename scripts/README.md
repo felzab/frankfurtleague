@@ -4,14 +4,14 @@ Operational scripts for building, testing, running and deploying Frankfurt-Leagu
 
 ## Quick reference
 
-| Script                         | Run on        | Purpose                                                          |
-| ------------------------------ | ------------- | ---------------------------------------------------------------- |
-| `verify.sh`                    | any           | Full pre-merge gate: checks, both test suites, both image builds |
-| `local.sh`                     | dev — Windows | Run the production image locally, behind nginx                   |
-| `publish.sh`                   | dev — Windows | Build, tag with the commit, push to ghcr.io                      |
-| `deploy.sh`                    | prod — Linux  | Pull and restart, verify health, roll back                       |
-| `selfcheck.sh`                 | any           | Test the scripts themselves                                      |
-| `_lib.sh`                      | —             | Shared helpers; sourced, never run directly                      |
+| Script         | Run on        | Purpose                                                          |
+| -------------- | ------------- | ---------------------------------------------------------------- |
+| `verify.sh`    | any           | Full pre-merge gate: checks, both test suites, both image builds |
+| `local.sh`     | dev — Windows | Run the production image locally, behind nginx                   |
+| `publish.sh`   | dev — Windows | Build, tag with the commit, push to ghcr.io                      |
+| `deploy.sh`    | prod — Linux  | Pull and restart, verify health, roll back                       |
+| `selfcheck.sh` | any           | Test the scripts themselves                                      |
+| `_lib.sh`      | —             | Shared helpers; sourced, never run directly                      |
 
 One script lives outside this directory, because it needs `sharp` from the frontend's own
 dependencies: **`fl_frontend/scripts/generate-brand-assets.mjs`**, run as `pnpm brand` from
@@ -135,35 +135,45 @@ started and visitors got a refused connection rather than a page of 502s.
 ## `verify.sh` — pre-merge gate
 
 ```bash
-./scripts/verify.sh            # everything
-./scripts/verify.sh --quick    # skip the image builds
+./scripts/verify.sh                 # everything — the full gate
+./scripts/verify.sh --quick         # everything that runs without Docker
+./scripts/verify.sh --backend --db  # scope flags name surfaces and combine freely
 ```
 
-Runs, cheapest-to-fail first:
+Six scopes, run in cheapest-to-fail order — the self-check and the documentation gate are instant,
+the backend tier takes seconds, a `next build` takes minutes, an image build longer still:
 
-1. `selfcheck.sh` — the scripts themselves
-2. `pnpm verify` — types, lint, formatting, `next build`, unit tests
-3. `pnpm audit:prod` — runtime dependency advisories
-4. `ruff` + `pytest` — `fl_backend` lint and the default test tier
-5. `docker build` — both images
-6. an image check — that `instrumentation.js` is present in the frontend image
+| Scope        | Runs                                                               | Needs            |
+| ------------ | ------------------------------------------------------------------ | ---------------- |
+| `--scripts`  | `selfcheck.sh` — the scripts themselves                            | —                |
+| `--docs`     | `check_docs.py` — citations, links, stamps                         | the backend venv |
+| `--backend`  | `ruff` + `pyright` + `pytest`, default tier                        | the backend venv |
+| `--frontend` | `pnpm verify` (prettier, tsc, eslint, build, tests) + `audit:prod` | pnpm install     |
+| `--db`       | `pytest -m db` against a real `mongod`                             | venv + Docker    |
+| `--images`   | both `docker build`s + the `instrumentation.js` presence check     | Docker           |
 
-Step 4 exists because `pnpm verify` runs **nothing** against `fl_backend`. The backend holds ~40
-validation constraints that the frontend mirrors rather than enforces, and until this step they had
-no regression net at all — see [`fl_backend/tests/README.md`](../fl_backend/tests/README.md) and
-ledger row BE-5. It needs the backend virtualenv: `cd fl_backend && uv sync --dev`.
+No flag means every scope. `--quick` is the first four — everything that needs no Docker daemon.
+Missing prerequisites fail immediately, before any check runs.
 
-**Step 4 runs the default tier only, and that is deliberate.** The `db`-marked tests start a real
-`mongod` ([ADR-0030](../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)); pulling
-them into the gate would make `--quick` — the path CI runs on every pull request — require a Docker
-daemon it currently does not. They run in the `backend-db` CI job, or by hand with
-`cd fl_backend && uv run pytest -m db`.
+The backend scope exists because `pnpm verify` runs **nothing** against `fl_backend`. The backend
+holds validation constraints that the frontend mirrors rather than enforces, and without this scope
+they would have no regression net — see [`fl_backend/tests/README.md`](../fl_backend/tests/README.md).
+The `db`-marked tests are their own scope because they start a real `mongod`
+([ADR-0030](../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), and folding them
+into the backend scope would make Docker a prerequisite of a scope that otherwise needs none.
 
-Steps 5 and 6 exist because `pnpm verify` cannot see packaging problems: code that compiles can still
-fail to build inside the image, or be omitted from `output: "standalone"` entirely.
+The images scope exists because `pnpm verify` cannot see packaging problems: code that compiles can
+still fail to build inside the image, or be omitted from `output: "standalone"` entirely. The
+dependency audit is advisory — it warns rather than fails, because an advisory published upstream
+overnight should not block an unrelated merge.
 
-> `--quick` is **not** sufficient before a merge that touches `src/core/config.ts`, `src/core/auth.ts`
-> or `src/instrumentation.ts`. Those are where packaging problems live.
+> A run without the images scope is **not** sufficient before a merge that touches
+> `src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts` or a Dockerfile. Those are
+> where packaging problems live — CI builds the images on any pull request touching them, and
+> locally that is `./scripts/verify.sh --images`.
+
+CI (`.github/workflows/verify.yml`) runs these scopes as parallel jobs, mapped from the paths a
+pull request touches; a push to `main` runs all of them.
 
 ---
 
@@ -404,14 +414,14 @@ immediately rather than after a platform or Docker check.
 Every line a script prints goes through the helpers in `scripts/_lib.sh` — no script writes its own
 formatting. One vocabulary, one verb per meaning:
 
-| Line          | Helper   | Means                                                                 |
-| ------------- | -------- | --------------------------------------------------------------------- |
-| `==> Title`   | `step`   | One phase of work begins; starts that step's timer                    |
-| ` ok  …`      | `ok`     | A phase or check passed; a step of 3s or longer shows its elapsed time |
-| `  ·  …`      | `info`   | Neutral progress detail                                               |
-| ` --  …`      | `skip`   | Deliberately not run, and why — dim, so it cannot read as a pass      |
-| ` !!  …`      | `warn`   | Wrong but not fatal; stderr                                           |
-| `  ✗  …`      | `die`    | Fatal; stderr, non-zero exit                                          |
+| Line        | Helper | Means                                                                  |
+| ----------- | ------ | ---------------------------------------------------------------------- |
+| `==> Title` | `step` | One phase of work begins; starts that step's timer                     |
+| ` ok  …`    | `ok`   | A phase or check passed; a step of 3s or longer shows its elapsed time |
+| `  ·  …`    | `info` | Neutral progress detail                                                |
+| ` --  …`    | `skip` | Deliberately not run, and why — dim, so it cannot read as a pass       |
+| ` !!  …`    | `warn` | Wrong but not fatal; stderr                                            |
+| `  ✗  …`    | `die`  | Fatal; stderr, non-zero exit                                           |
 
 Three rules complete it. **Multi-line messages are written naturally** — the helpers indent
 continuation lines to the message column themselves, so no call site hand-aligns anything.

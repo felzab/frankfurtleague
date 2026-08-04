@@ -52,8 +52,8 @@ git commit          # opens the editor; a one-line -m loses the part that matter
 ```
 
 ```bash
-# 3 — the gate, before pushing. Not --quick if you touched config, auth,
-#     instrumentation or packaging
+# 3 — the gate, before pushing: everything, or the scopes covering what you
+#     touched. Full form if you touched config, auth, instrumentation or packaging
 ./scripts/verify.sh
 ```
 
@@ -228,26 +228,28 @@ point at anything under it from a body. Open items live in [`docs/roadmap/open-i
 ./scripts/verify.sh
 ```
 
-Runs cheapest-to-fail first: script self-checks, the documentation gate, `pnpm verify` (types, lint,
-formatting, `next build`, unit tests), `pnpm audit:prod`, **ruff, pyright and pytest for the
-backend**, the database test tier, both image builds, and a check that `instrumentation.js` survived
-into the frontend image.
+Six scopes in cheapest-to-fail order — script self-checks, the documentation gate, **ruff, pyright
+and pytest for the backend**, `pnpm verify` (types, lint, formatting, `next build`, unit tests) with
+the advisory dependency audit, the database test tier, and both image builds with a check that
+`instrumentation.js` survived into the frontend image. A bare invocation runs everything; scope
+flags name surfaces and combine — the table is in [`scripts/README.md`](../../scripts/README.md).
 
 The **documentation gate** fails on any citation that resolves to nothing — a dangling ADR number, a
 dead link, a broken anchor, a named path that is not there — in `/docs` and inside source comments
 alike. Rules: [`docs/_standard/5-currency.md`](../_standard/5-currency.md).
 
-`--quick` skips everything that needs Docker: the database test tier and both image builds. It is
-**not sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts` or
-`src/instrumentation.ts` — those are where packaging problems live.
+`--quick` skips everything that needs Docker: the database test tier and both image builds. A run
+without the images scope is **not sufficient** before a merge touching `src/core/config.ts`,
+`src/core/auth.ts`, `src/instrumentation.ts` or a Dockerfile — those are where packaging problems
+live, and CI builds both images on any pull request touching them.
 
-CI runs the same script — `.github/workflows/verify.yml`, `--quick` on pull requests and the full gate
-on pushes to `main`.
-
-That workflow carries a **second job**, `backend-db`, running the backend tests that need a real
-`mongod` ([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)) concurrently
-with `verify`, so the coverage costs a pull request no extra waiting. The full `verify.sh` runs the
-same tier behind its `require_docker`.
+CI — `.github/workflows/verify.yml` — runs the same scopes as **parallel jobs, mapped from the paths
+a pull request touches**: a docs-only PR runs the documentation gate and a formatting check, a
+backend PR runs the backend tier with its `backend-db` database job
+([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)) and nothing frontend,
+and a packaging change builds both images before it can merge. A push to `main` runs every scope.
+The required status check is the workflow's aggregate `verify` job, which fails if any scope job
+failed and passes over the ones path filtering skipped.
 
 > **`pnpm format` reaches outside `fl_frontend`, via a hardcoded list of paths.** It currently covers
 > `../docs`, `../scripts`, `../.claude`, `../.github`, `../README.md`, `../SECURITY.md`,
@@ -255,8 +257,10 @@ same tier behind its `require_docker`.
 > requires editing `fl_frontend/package.json` — and a path that no longer exists makes Prettier exit 2,
 > which fails the whole gate. Moving `CLAUDE.md` into `.claude/` broke `main` exactly this way.
 >
-> **Verify with `./scripts/verify.sh --quick`, never with a hand-written `prettier` command.** Running
-> Prettier directly on the paths you happen to remember is what let that breakage through.
+> **Verify with a gate run whose scope includes the formatter — `./scripts/verify.sh --quick` or
+> `--frontend` — never with a hand-written `prettier` command.** Running Prettier directly on the
+> paths you happen to remember is what let that breakage through. In CI, the `format` job runs the
+> check for changes outside `fl_frontend`.
 
 > **When bumping an action version, verify the tag exists by fetching
 > `https://raw.githubusercontent.com/<owner>/<repo>/<tag>/action.yml`.** A 404 means the tag is not
@@ -547,18 +551,15 @@ class of failure that hurts most when you can least afford it.
 **Rollback by pinned tag, verified from the image's own label.** Reading what is live rather than
 recalling it is the correct instinct.
 
-### The gap that was closed, and the one that replaced it
+### Execution and enforcement, both in place
 
-This section used to read "nothing runs the gate": `verify.sh` was thorough and entirely manual, with
-no CI of any kind. **That is fixed** — `.github/workflows/verify.yml` runs the same script, `--quick`
-on pull requests and the full gate on pushes to `main`, so a tired evening merge that skipped it is
-no longer indistinguishable from one that did not.
+**The gate executes on every change**: `.github/workflows/verify.yml` runs `verify.sh`'s scopes as
+parallel jobs mapped to the paths a pull request touches, and every scope on a push to `main` — so a
+tired evening merge that skipped the local gate is indistinguishable from none.
 
-**The residual is enforcement rather than execution.** CI _runs_ on a PR; nothing _requires_ it to
-have passed before the merge button works. That is a branch-protection rule on `main` (require the
-status check, and require a PR), and it is worth setting up — particularly now, since the repository
-was deleted and recreated during the 2026-08-01 history rewrite, which discards any protection rules
-that existed before.
+**And passing it is required**: the ruleset on `main` (see Repository settings) demands the
+aggregate `verify` check before the merge button works. Skipping the gate therefore takes a
+deliberate act — disabling the ruleset, which is its documented escape hatch — never an oversight.
 
 ### What is fine as-is, and should not be "fixed"
 
