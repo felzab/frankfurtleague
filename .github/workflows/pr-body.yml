@@ -27,7 +27,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  body:
+  # The job id is what GitHub lists in required status checks — the workflow's `name` never appears
+  # there. It matches the workflow's own name so that the entry in the ruleset reads as the thing it
+  # is, the way verify.yml's aggregate job is called `verify`.
+  pr-body:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
