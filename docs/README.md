@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `27f7fd9`, 2026-08-04
+**Verified against:** `af67d7d`, 2026-08-04
 
 Frankfurt-League is a league website: a Next.js frontend, a FastAPI backend, MongoDB, deployed with
 Docker Compose behind nginx on a single host.
