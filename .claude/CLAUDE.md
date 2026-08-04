@@ -8,7 +8,12 @@ session · §7 ratified decisions · everything else.
 Two corollaries that prevent the most common errors:
 
 - **Check §7 before calling anything a violation.** Those patterns look wrong and are deliberate.
-- **When this file disagrees with an ADR or with the code, this file is stale.** Say so; do not enforce it.
+- **When something disagrees with this file, the ADR decides which one is wrong.** This file is a
+  summary; `docs/_decisions/` is the source.
+  - The ADR matches the code → **this file is stale.** Say so, do not enforce it, and correct it.
+  - The ADR matches this file → **the code is the violation.** Enforce the rule.
+  - No ADR covers it → raise it rather than guessing. Silently picking a side is how the two drift
+    further apart.
 
 ---
 
@@ -46,6 +51,11 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
 - **Already on `main` with uncommitted edits?** `git checkout -b <name>` carries them across intact.
   Say plainly that it happened.
 - **Never** commit to `main`, push to `main`, merge locally, force-push, or open the PR yourself.
+
+**The full cycle is [`docs/workflows/README.md`](../docs/workflows/README.md)** — commit subject and
+body shape, when the gate needs its full form, merge by merge commit. Read it rather than recalling
+it; that page is the source and this section is the summary. Message templates:
+[`message-templates.md`](../docs/workflows/message-templates.md).
 
 ### Every task ends the same way
 
