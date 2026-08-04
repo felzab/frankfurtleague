@@ -54,8 +54,8 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 11  | BE-10 | Nothing caches the season document, read every request   | BE          | S      | Open     | —                        |
 | 12  | F7    | Hardcoded season badge on the landing page               | FE          | S      | Open     | — (before rollover)      |
 | 13  | BE-12 | Nothing purges a row whose `inactive_since` is old       | BE, DB      | M      | Open     | — (ADR-0032's follow-on) |
-| 14  | OPS-4 | One output standard for `scripts/`                       | Ops         | M      | Open     | — (batch with OPS-5)     |
-| 15  | OPS-5 | Scripts and CI, audited and optimised for what they cost | Ops         | M      | Open     | — (batch with OPS-4)     |
+| 14  | OPS-4 | One output standard for `scripts/`                       | Ops         | M      | Closed   | — (batch with OPS-5)     |
+| 15  | OPS-5 | Scripts and CI, audited and optimised for what they cost | Ops         | M      | Closed   | — (batch with OPS-4)     |
 | 16  | F1    | Two definitions of `ausstehend`                          | FE, BE      | S      | Open     | — (latest with FE-1)     |
 | 17  | F2    | Pydantic and Zod models are hand-mirrored                | FE, BE      | —      | Standing | standing caution         |
 | 18  | BE-7  | `typing` imports instead of `collections.abc`            | BE          | —      | Standing | audit pass B4            |
@@ -479,6 +479,13 @@ nothing.
 **Path:** independent. **Batch with OPS-5** — both require reading every script in `scripts/` end to
 end, and doing that twice is the only real cost either of them carries.
 
+**Closed, 2026-08-04.** The standard exists and every script follows it: one vocabulary
+(`step`/`ok`/`info`/`skip`/`warn`/`die`, with `detail` for supporting output), one message column
+the helpers align themselves, colour and step timing decided centrally — recorded at the
+definitions in `scripts/_lib.sh`, summarised in `scripts/README.md`, and matched by
+`scripts/check_docs.py`. The consultation step was overridden by the owner's direct instruction to
+implement in one pass. No ADR: the standard's home is the library beside the code it governs.
+
 ### 15 · OPS-5 — Scripts and CI, audited and optimised for what they cost
 
 **Owner's item, 2026-08-02.** A full audit and following optimisation of **all scripts** and **the
@@ -539,6 +546,18 @@ separate 217s from the PR's 136s, and the 411s outlier is what an uncached build
 provisional in the workflow itself and its shape belongs to this entry — merge it, cache it, put it
 behind a path filter, or leave it. The `db` **marker** is not provisional and is not yours to change:
 it is a property of the test suite, and `pytest -m db` selects those tests under any arrangement.
+
+**Closed, 2026-08-04.** Every open question got its answer. The quick/full split is replaced
+outright: `verify.sh` splits into six surface scopes, and CI runs them as parallel jobs mapped from
+the paths a pull request touches, so a change pays for exactly the checks that can say something
+about it — including the images scope on packaging paths, which no pull request built before.
+`verify` **is** required on `main`, by the ruleset documented under Repository settings in
+`docs/workflows/README.md`; the required check keeps that name as an aggregate job. The `backend-db`
+job's provisional shape settles as the `db` scope's own path-filtered job. Prettier covers the
+repository instead of a hand-kept path list; CodeQL analyses only the language a pull request
+touched. The cache-hit question was left unmeasured deliberately — the runners' own timings on the
+new shape are the measurement that matters, and the first post-merge runs provide it. No ADR: the
+shape is recorded in the workflows themselves and in `docs/workflows/README.md`.
 
 ### 16 · F1 — Two definitions of `ausstehend`
 
