@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -87,65 +87,69 @@ entry point in the codebase.
 
 ## 5. The verification gate
 
-`scripts/verify.sh` runs cheapest-to-fail first, and the order is the point: a script self-check, the
-documentation gate, `pnpm verify` (types, lint, formatting, `next build`, unit tests),
-`pnpm audit:prod`, ruff and pyright and pytest for the backend, the database test tier, both image
-builds, and a check that `instrumentation.js` is present in the frontend image.
+`scripts/verify.sh` runs seven scopes in cheapest-to-fail order, and the order is the point: the
+script self-check and the documentation gate are instant, the backend tier (ruff, pyright, pytest)
+takes seconds, the frontend (prettier, tsc, eslint, `next build`, unit tests, then
+the advisory dependency audit) takes minutes, and the ops checks (both compose files parse,
+`nginx -t` accepts `prod.conf`), the database test tier and both image builds — with the check that
+`instrumentation.js` is present in the frontend image — need Docker on top. A bare invocation runs
+everything; scope flags name surfaces and combine (`scripts/README.md` has the table). CI runs the
+same scopes as parallel jobs mapped from the paths a pull request touches.
 
 **The documentation gate** (`scripts/check_docs.py`) fails on a citation that resolves to nothing — a
 dangling ADR number, a dead link, a broken in-page anchor, an anchored citation whose target has gone,
 a named path that is not there — across `/docs` and inside source comments alike. It is the one
 currency defence that does not depend on somebody remembering (DS18, DS20).
 
-**The backend steps** exist because `pnpm verify` runs nothing against `fl_backend`, and the frontend
+**The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`, and the frontend
 mirrors the backend's validation constraints rather than enforcing them, so those constraints would
 otherwise have no regression net. `pyright` is separate from `ruff` because ruff checks no types, and
 type errors visible in the editor were reaching `main` without it. All of it needs the backend
 virtualenv (`cd fl_backend && uv sync --dev`).
 
 **Both test tiers run.** The `db`-marked tests need a real `mongod`
-([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), so they sit behind
-`require_docker` alongside the image builds — which means `--quick` skips them and needs no daemon.
-CI runs them as a separate `backend-db` job as well, concurrently with `verify`, so a pull request
-waits no longer for the coverage.
+([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), so they are their own
+scope behind `require_docker` — which means `--quick` skips them and needs no daemon. In CI they are
+the `backend-db` job, run concurrently whenever a pull request touches `fl_backend`, so the coverage
+costs no extra waiting.
 
-**The image steps** exist because code that compiles can still fail to build inside the image, or be
+**The image scope** exists because code that compiles can still fail to build inside the image, or be
 omitted from the standalone output entirely.
 
 `--quick` skips everything needing Docker: the database tier and both image builds. It is **not
-sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts` or
-`src/instrumentation.ts` — those are where packaging problems live. An audit remediation wave runs the
-full form regardless of what it touched, unless it changed documentation only.
+sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts`,
+`src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile — those are where packaging
+problems live, and CI builds both images on any pull request touching them. An audit remediation
+wave runs the full form regardless of what it touched, unless it changed documentation only.
 
 ## 6. Invariants
 
 | #   | Invariant                                                              | Enforced by                                                         | Breaks how                                                                                                     |
 | --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| I1  | Only nginx publishes ports                                             | `docker-compose.yml`                                                | Application containers become directly reachable; `/api/revalidate` loses its only protection                  |
-| I2  | **No nginx location for `/api/revalidate`**                            | absence in `nginx/*.conf`                                           | An internal, key-authenticated endpoint becomes internet-facing                                                |
-| I3  | Security headers are repeated in every `location` that sets any header | `/_next/static/` block                                              | `add_header` in a location **replaces** the inherited set — the location silently loses HSTS, CSP and the rest |
-| I4  | A `default_server` block rejects unknown hosts                         | `ssl_reject_handshake on`                                           | Any `Host` header reaches Next, forwarded verbatim by the proxy                                                |
-| I5  | Sign-in rate limiting applies to POST only                             | the `map` producing an empty key otherwise                          | An empty key is exempt from `limit_req`; without the map, GET `/signin` would be throttled too                 |
-| I6  | The builder stage has no reachable backend or real env                 | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL` | Anything fetching the API or parsing `AUTH_URL` at module scope fails the image build                          |
-| I7  | Production never builds                                                | `deploy.sh` only pulls                                              | A failed build on the server is an outage                                                                      |
-| I8  | Both images build before either is pushed                              | `publish.sh`                                                        | Production could pull a frontend whose backend does not exist                                                  |
-| I9  | Publishing refuses a dirty tree by default                             | `publish.sh`                                                        | A tag naming a commit must be rebuildable from that commit                                                     |
-| I10 | Deploy recreates containers in place                                   | `deploy.sh`                                                         | `down`/`up` turns a seconds-long interruption into a full outage                                               |
-| I11 | Scripts use LF line endings and carry the git executable bit           | `selfcheck.sh` checks 2 and 3                                       | Windows hides both; the script works locally and fails on the server                                           |
-| I12 | The three API keys are 64 characters and match on both sides           | frontend env schema; backend config                                 | Every request 401s with `REQ-AUTH-00x`                                                                         |
+| I1  | Only nginx publishes ports                                             | `docker-compose.yml`                                                | Application containers become directly reachable from the host network                                         |
+| I2  | Security headers are repeated in every `location` that sets any header | `/_next/static/` block                                              | `add_header` in a location **replaces** the inherited set — the location silently loses HSTS, CSP and the rest |
+| I3  | A `default_server` block rejects unknown hosts                         | `ssl_reject_handshake on`                                           | Any `Host` header reaches Next, forwarded verbatim by the proxy                                                |
+| I4  | Sign-in rate limiting applies to POST only                             | the `map` producing an empty key otherwise                          | An empty key is exempt from `limit_req`; without the map, GET `/signin` would be throttled too                 |
+| I5  | The builder stage has no reachable backend or real env                 | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL` | Anything fetching the API or parsing `AUTH_URL` at module scope fails the image build                          |
+| I6  | Production never builds                                                | `deploy.sh` only pulls                                              | A failed build on the server is an outage                                                                      |
+| I7  | Both images build before either is pushed                              | `publish.sh`                                                        | Production could pull a frontend whose backend does not exist                                                  |
+| I8  | Publishing refuses a dirty tree by default                             | `publish.sh`                                                        | A tag naming a commit must be rebuildable from that commit                                                     |
+| I9  | Deploy recreates containers in place                                   | `deploy.sh`                                                         | `down`/`up` turns a seconds-long interruption into a full outage                                               |
+| I10 | Scripts use LF line endings and carry the git executable bit           | `selfcheck.sh` checks 2 and 3                                       | Windows hides both; the script works locally and fails on the server                                           |
+| I11 | The three API keys are 64 characters and match on both sides           | frontend env schema; backend config                                 | Every request 401s with `REQ-AUTH-00x`                                                                         |
 
 ## 7. Violation → remedy
 
-| Symptom                                                  | Cause                                                            | Remedy                                                                 |
-| -------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                 |
-| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                 |
-| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                            |
-| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I3 — repeat every header in that block                                 |
-| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                    |
-| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                       |
-| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | `./scripts/revalidate_reference_data.sh <saisons\|spieler\|spieltage>` |
-| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | `./scripts/revalidate_reference_data.sh saisons` clears all four tags  |
+| Symptom                                                  | Cause                                                            | Remedy                                                                                      |
+| -------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                                      |
+| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                                      |
+| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                                                 |
+| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I2 — repeat every header in that block                                                      |
+| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                                         |
+| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                                            |
+| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | Bounded by design (ADR-0035): wait for the daily expiry, or recreate the frontend container |
+| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | Same remedy; recreation drops every cached page at once                                     |
 
 ## 8. Known-open
 

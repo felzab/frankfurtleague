@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog (added
 2026-08-02). The original entries migrated here from the documentation programme's ledger when that
@@ -39,29 +39,27 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 ## The path at a glance
 
-| #   | ID    | Item                                                     | Surfaces    | Effort | Status   | Depends on               |
-| --- | ----- | -------------------------------------------------------- | ----------- | ------ | -------- | ------------------------ |
-| 1   | LOG-1 | Logging and error handling, surveyed then standardised   | FE, BE, Ops | L      | Open     | — (parallel-safe)        |
-| 2   | FB-3  | Admin pages for team and spieler data                    | FE, BE      | L      | Open     | — (API built, ADR-0034)  |
-| 3   | FB-6  | Admin pages for saisons and spieltage, and the rollover  | FE, BE      | L      | Decided  | — (ADR-0033 settles it)  |
-| 4   | BE-9  | Replace the "TBD" placeholder team                       | BE, FE      | L      | Open     | —                        |
-| 5   | FB-2  | Disqualification becomes a record, not a boolean         | FE, BE, DB  | M      | Open     | — (model decided)        |
-| 6   | FB-4  | Playoff bracket: verify seeding, then auto-advance       | FE, BE      | M      | Blocked  | BE-9 (part 2 only)       |
-| 7   | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields         | FE, BE      | S      | Blocked  | FB-2 (field shape)       |
-| 8   | FE-1  | Date ranges instead of specific dates                    | FE (+BE)    | XL     | Open     | — (batch with 9, 10)     |
-| 9   | FE-2  | Optional per-game notes                                  | FE (+BE)    | S      | Open     | — (batch with 8, 10)     |
-| 10  | FE-3  | TeamDetailsView rework                                   | FE          | M      | Blocked  | FB-2                     |
-| 11  | BE-10 | Nothing caches the season document, read every request   | BE          | S      | Open     | —                        |
-| 12  | F7    | Hardcoded season badge on the landing page               | FE          | S      | Open     | — (before rollover)      |
-| 13  | BE-12 | Nothing purges a row whose `inactive_since` is old       | BE, DB      | M      | Open     | — (ADR-0032's follow-on) |
-| 14  | OPS-4 | One output standard for `scripts/`                       | Ops         | M      | Open     | — (batch with OPS-5)     |
-| 15  | OPS-5 | Scripts and CI, audited and optimised for what they cost | Ops         | M      | Open     | — (batch with OPS-4)     |
-| 16  | F1    | Two definitions of `ausstehend`                          | FE, BE      | S      | Open     | — (latest with FE-1)     |
-| 17  | F2    | Pydantic and Zod models are hand-mirrored                | FE, BE      | —      | Standing | standing caution         |
-| 18  | BE-7  | `typing` imports instead of `collections.abc`            | BE          | —      | Standing | audit pass B4            |
-| 19  | BE-6  | `CustomObjectId` validates nothing in JSON mode          | BE          | —      | Standing | audit pass B2            |
-| 20  | OPS-2 | Nothing validates the contents of a restored `.env`      | Ops         | —      | Standing | trigger recorded         |
-| 21  | OPS-3 | Crawler policy split between robots.txt and Cloudflare   | Ops         | —      | Standing | trigger recorded         |
+| #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on               |
+| --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------ |
+| 1   | LOG-1 | Logging and error handling, surveyed then standardised  | FE, BE, Ops | L      | Open     | — (parallel-safe)        |
+| 2   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)  |
+| 3   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)  |
+| 4   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                        |
+| 5   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)        |
+| 6   | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE      | M      | Blocked  | BE-9 (part 2 only)       |
+| 7   | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)       |
+| 8   | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 9, 10)     |
+| 9   | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 8, 10)     |
+| 10  | FE-3  | TeamDetailsView rework                                  | FE          | M      | Blocked  | FB-2                     |
+| 11  | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Open     | —                        |
+| 12  | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (before rollover)      |
+| 13  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on) |
+| 14  | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)     |
+| 15  | F2    | Pydantic and Zod models are hand-mirrored               | FE, BE      | —      | Standing | standing caution         |
+| 16  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4            |
+| 17  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2            |
+| 18  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded         |
+| 19  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded         |
 
 ---
 
@@ -175,10 +173,10 @@ happens twice a year at most, by hand, on a date nobody is watching — the same
 hardcoded badge has. What triggers it, where it is sent from, and whether it belongs in the frontend at
 all are open; a scheduled job reading `saisons.end_date` is the obvious shape.
 
-**It also closes the manual revalidation step.** A page that saves through these endpoints can
-invalidate its own cache tags, which is what
-[ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md) retires on — together with FB-3,
-and not before.
+**It also ends the reference caches' staleness window.** A page that saves through these endpoints
+invalidates its own cache tags as it saves — the durable fix
+[ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md) defers to,
+landing together with FB-3 and not before.
 
 **Path:** independent; the API is built. Batch with FB-3, which is the same shell over the same
 generic components.
@@ -397,20 +395,16 @@ pays a Mongo query for an answer that changes once a year.
 
 The consideration that makes it non-trivial is still **invalidation**. Seasons are edited by hand
 today — the endpoints exist and no UI calls one (FB-6) — so no code path observes the active season
-flipping or the points changing in practice; a
-naive process-lifetime cache serves the old answer until a restart. The candidates: a TTL measured in
-minutes, which bounds the staleness without needing an event; a hook on the ADR-0015 revalidation
-route, which already exists and already fans a `saisons` edit out to the frontend's `spiele`,
-`spieltage` and `teams` caches, so the backend cache is the one participant missing; or the write path,
-which BE-4 built. **Prefer the second if it can be made to work** — it is the only one where the existing
-operational step (`./scripts/revalidate_reference_data.sh saisons`) already fires at exactly the right
-moment, and it makes the frontend and backend caches invalidate from one action rather than two.
-
-**A third hook now exists and is not yet wired.** `PATCH /saisons/{saison_id}` and
-`POST /saisons/{saison_id}/activate` are the two writes that can change either answer, and they are the
-exact points at which a process-lifetime cache could be dropped with no staleness at all. That makes the
-in-process cache the cheapest of the three candidates rather than the most fragile — but only for edits
-that go through the API, and today none do.
+flipping or the points changing in practice; a naive process-lifetime cache serves the old answer
+until a restart. Two candidates
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md) removed a
+third — there is no frontend revalidation route to hook): **a TTL measured in minutes**, which
+bounds the staleness without needing an event and mirrors how the frontend's own reference caches
+are bounded; or **a drop on the write path BE-4 built** — `PATCH /saisons/{saison_id}` and
+`POST /saisons/{saison_id}/activate` are the only writes that can change either answer, and they
+are the exact points where a process-lifetime cache drops with no staleness at all. The write-path
+hook is the cheapest and cleanest, but it covers only edits that go through the API, and today none
+do — so it wants the TTL as its backstop until FB-6 exists.
 
 **Path:** independent. Nothing blocks it.
 
@@ -459,87 +453,7 @@ prospective item, opened so the field's purpose is recorded rather than rediscov
 **Path:** independent, and genuinely not urgent — it becomes real the first time something is retired,
 which needs FB-3 or FB-6 to exist. Doing it before then is designing against zero rows.
 
-### 14 · OPS-4 — One output standard for `scripts/`
-
-**Owner's item, 2026-08-02. A consultation item, ending in a recorded standard.**
-
-Go over **all scripts** again and optimise their outputs — the way things are printed to the
-terminal: **highly informative, readable, and consistent across every script**. The process the
-owner wants: **provide options** (candidate output styles), **consult him on what he likes best**,
-then apply the winner everywhere.
-
-What exists today: `scripts/_lib.sh` already centralises `step` / `ok` / `warn` / `die`, so the
-scripts share a vocabulary — the standard would formalise and extend it rather than start from
-nothing.
-
-**The decided standard must be recorded** — the owner asked for this explicitly. Candidate homes:
-`scripts/README.md` (where script conventions already live) or `docs/_standard/`; decide with him.
-
-**Path:** independent. **Batch with OPS-5** — both require reading every script in `scripts/` end to
-end, and doing that twice is the only real cost either of them carries.
-
-### 15 · OPS-5 — Scripts and CI, audited and optimised for what they cost
-
-**Owner's item, 2026-08-02.** A full audit and following optimisation of **all scripts** and **the
-whole CI pipeline**.
-
-**This is a latency and structure item, and never a cost item.** `felzab/frankfurtleague` is public
-and GitHub Actions is free on standard runners for public repositories with no minute cap, so every
-second saved here buys developer waiting time and nothing else. Stating it up front because the
-obvious framing — "optimise CI" — usually means a bill, and here there is none to reduce.
-
-**The baseline, measured 2026-08-02** from the public Actions API over every completed run the API
-returns:
-
-| Workflow | Trigger        | n   | Median | Max  |
-| -------- | -------------- | --- | ------ | ---- |
-| `verify` | `pull_request` | 27  | 136s   | 157s |
-| `verify` | `push` to main | 27  | 217s   | 411s |
-| `codeql` | `pull_request` | 28  | 59s    | 73s  |
-| `codeql` | `push` to main | 26  | 88s    | 169s |
-
-The two workflows run concurrently, so a pull request waits on `verify` — about **136 seconds** —
-and `codeql` is free in wall-clock terms. On `main` the full gate's two image builds are what
-separate 217s from the PR's 136s, and the 411s outlier is what an uncached build costs.
-
-**What this item should answer, none of it decided:**
-
-- **Is `--quick` on a pull request and the full gate on `main` still the right split?** It is the
-  single decision that shapes both numbers above, and `verify.yml` already documents the case where
-  it is not sufficient (`src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts`).
-- **Is `verify` a required status check on `main` at all?** The unauthenticated API reports
-  `required_status_checks.enforcement_level: "off"` with no contexts — but that endpoint does not see
-  repository **rulesets**, so it proves nothing and has to be read from the repository settings. If
-  nothing is required, CI is advisory and a red pull request is mergeable, which would outrank every
-  optimisation question in this entry.
-- **Does the pipeline pay for work it does not need?** A backend-only change currently pays for
-  `pnpm install` and `next build`; both workflows check out and set up independently; and
-  `verify.sh` runs `pnpm verify` with prettier in **write** mode, which then requires a tree-diff
-  step in CI to catch what the formatter just changed. Splitting jobs by surface and running the
-  formatter in check mode are both real options with real trade-offs.
-- **Are the `uv` and `pnpm` caches actually hitting?** Both are configured; neither is measured.
-- **Inside `scripts/`, is the ordering still right?** `verify.sh` runs its six steps serially,
-  cheapest-to-fail-first, which is a deliberate and good property — the question is whether any
-  independent step could overlap without losing it.
-
-**Two boundaries, so this does not become a third copy of work already scoped.**
-
-- **Ops audit pass O1 owns correctness** (`_auditing/prompts/ops/1-build-deploy.md`): its check 4
-  asks whether each script does what its header claims, and its check 5 builds the gate's coverage
-  map and verifies `verify.yml` runs what it says. **This item asks what the pipeline costs and
-  whether its structure is right** — a different question about the same files. Cite O1's findings
-  here; never re-report them.
-- **OPS-4 owns terminal output.** It is the same reading pass over `scripts/` for a different
-  purpose, which is why the two are batched rather than merely adjacent.
-
-**Path:** independent, and batched with OPS-4. **It has already inherited one job.**
-[ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md) added `backend-db` to
-`verify.yml` on 2026-08-02, running the backend tests that need a real `mongod`. That job is marked
-provisional in the workflow itself and its shape belongs to this entry — merge it, cache it, put it
-behind a path filter, or leave it. The `db` **marker** is not provisional and is not yours to change:
-it is a property of the test suite, and `pytest -m db` selects those tests under any arrangement.
-
-### 16 · F1 — Two definitions of `ausstehend`
+### 14 · F1 — Two definitions of `ausstehend`
 
 `build_spiele_filter` (`fl_backend/app/api/spiele/services.py :: build_spiele_filter`) filters
 `spiel_status="ausstehend"` as `datum >= today`, **including today**. `computeSpielStatus`
@@ -564,7 +478,7 @@ semantics anyway.
 No scheduled action. F2 is a constraint on the work above; the rest have owners or recorded
 triggers.
 
-### 17 · F2 — Pydantic and Zod models are hand-mirrored
+### 15 · F2 — Pydantic and Zod models are hand-mirrored
 
 `fl_backend/app/api/spiele/schemas.py` and `fl_frontend/src/features/spiele/schemas.ts` (and their
 siblings) are maintained as mirrors with no generation step. This is the main drift risk across the
@@ -575,7 +489,7 @@ contract table measures.
 **Path:** the reason tier 3's schema items (FB-5, FE-1, FE-2) are batched — every schema change is
 a doubled edit, so fewer passes mean less drift surface.
 
-### 18 · BE-7 — `typing` imports instead of `collections.abc`
+### 16 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -583,7 +497,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 19 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 17 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -592,7 +506,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 20 · OPS-2 — nothing validates the contents of a restored `.env`
+### 18 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -608,20 +522,18 @@ then resolved an SRV record that cannot exist, the startup ping raised `Configur
 backend crash-looped, nginx never started because it waits on `service_healthy`, and the site was
 down until the character was found by reading a stack trace.
 
-**What exists today** is manual: the shape checks in
-[`scripts/README.md`](../../scripts/README.md) under "Restoring a server checkout" — required names
-present, the Mongo host with credentials stripped, the three API keys 64 characters and matching.
-They reveal structure without printing a secret, and running them would have caught this in seconds.
-But they are a checklist someone has to remember, which is the same class of control that failed
-here.
+**Nothing checks a restored value today**, manually or automatically. A restore recreates both
+`.env` files by hand from the password manager, every existing preflight tests only that files and
+keys exist, and a malformed value surfaces as a container that never becomes healthy — diagnosed
+from its log, not from any check.
 
 **The options, none obviously right:**
 
-| Option                                                  | Catches                                 | Cost                                                                                                              |
-| ------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Leave it manual                                         | Nothing automatically                   | Zero. The checklist exists and the failure is loud, contained and roughly ten minutes to diagnose once recognised |
-| Name-presence preflight in `deploy.sh`                  | A missing key                           | Small. **Would not have caught this incident** — the key was present and merely wrong                             |
-| Resolve the Mongo SRV record in `deploy.sh` before `up` | Exactly this class, plus a dead cluster | Adds a network dependency to a deploy step, and a DNS blip becomes a refused deploy                               |
+| Option                                                  | Catches                                 | Cost                                                                                     |
+| ------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Leave it unchecked                                      | Nothing automatically                   | Zero. The failure is loud, contained and roughly ten minutes to diagnose once recognised |
+| Name-presence preflight in `deploy.sh`                  | A missing key                           | Small. **Would not have caught this incident** — the key was present and merely wrong    |
+| Resolve the Mongo SRV record in `deploy.sh` before `up` | Exactly this class, plus a dead cluster | Adds a network dependency to a deploy step, and a DNS blip becomes a refused deploy      |
 
 **The trade to weigh** is that the third option is the only one that would have helped, and it makes
 deployment fail for reasons unrelated to the deployment. Given the failure is already contained —
@@ -632,7 +544,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 21 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 19 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 

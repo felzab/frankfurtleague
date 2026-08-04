@@ -20,9 +20,9 @@ have drifted from the models they mirror.
 rejects the specific bad value each constraint exists to stop, and still accepts the legitimate edge
 cases that look like bad values (an empty `stadtteil`, a null `ergebnis` for an unplayed match, an
 integral float `mietpreis`). Plus `FLGruppen.from_teams`, the one piece of real behaviour in the
-schema layer, and `build_team_pipeline` — both what it *says* and, since
+schema layer, and `build_team_pipeline` — both what it _says_ and, since
 [ADR-0030](../../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), what MongoDB
-*computes* from what it says.
+_computes_ from what it says.
 
 **Does not cover:** routers, CRUD, or authentication.
 
@@ -30,10 +30,10 @@ schema layer, and `build_team_pipeline` — both what it *says* and, since
 
 [ADR-0030](../../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), 2026-08-02.
 
-| Tier                       | Selected by            | Needs Docker | Cost                    |
-| -------------------------- | ---------------------- | ------------ | ----------------------- |
-| **Default** — 294 tests    | everything unmarked    | no           | 0.39s                   |
-| **`db`** — 52 tests        | `@pytest.mark.db`      | yes          | 13.0s warm, 21.2s cold |
+| Tier                    | Selected by         | Needs Docker | Cost (2026-08-04)                        |
+| ----------------------- | ------------------- | ------------ | ---------------------------------------- |
+| **Default** — 395 tests | everything unmarked | no           | under half a second                      |
+| **`db`** — 54 tests     | `@pytest.mark.db`   | yes          | 14.3s warm; cold adds the `mongo:8` pull |
 
 `pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` runs the fast tier only. A
 command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs
@@ -47,11 +47,11 @@ assertion. `mongomock` is not an option — it raises `NotImplementedError` for 
 
 **Why the marker, rather than just adding them.** The fast tier is the asset: a suite that runs in
 under half a second gets run. Putting a container behind every `pytest` invocation would also make
-Docker a prerequisite of `./scripts/verify.sh --quick`, which is what CI runs on every pull request.
+Docker a prerequisite of the gate's backend scope and of `--quick`, neither of which needs a daemon.
 
-`scripts/verify.sh` therefore runs the **default** tier only. The `db` tier runs in its own parallel
-CI job (`backend-db` in `.github/workflows/verify.yml`), which costs a pull request no extra wall
-clock because it finishes inside the longer `verify` job.
+The gate's `--backend` scope therefore runs the **default** tier only; the `db` tier is its own
+scope, `--db`, and its own parallel CI job (`backend-db` in `.github/workflows/verify.yml`), which
+runs whenever a pull request touches `fl_backend` and costs it no extra wall clock.
 
 **What is still uncovered, named because it is load-bearing.** Routers, CRUD and auth have no tests
 at all. That boundary is deliberate and belongs to the planned `fl_backend` audit, which wants one
@@ -103,7 +103,7 @@ real environment. So a checkout with no `.env` runs the whole suite — which is
 failure means the code, never the machine.
 
 **The container fixture lives in the root `conftest.py`**, not in `api/`, because two suites want a
-database now. It is session-scoped, so one `mongod` serves both. It yields the *container* rather than
+database now. It is session-scoped, so one `mongod` serves both. It yields the _container_ rather than
 a client: the pipeline suite reads with pymongo and the constraint suite drives Motor, which needs the
 connection URL.
 
@@ -128,7 +128,7 @@ recommended mode for new suites, which needs none and cannot suffer same-basenam
   alias the models declare, so the tests exercise the shape production actually validates.
 - **Reject-cases are parametrised.** One `pytest.mark.parametrize` per rule, listing every value that
   must fail, so adding a case is one line.
-- **Comments explain the *why*, not the assertion.** Where a constraint exists because of a specific
+- **Comments explain the _why_, not the assertion.** Where a constraint exists because of a specific
   defect, the test says so — see `test_spiele.py`'s `ergebnis` cases, which document the value that
   used to render as a loss for both teams.
 - **A test that touches the database carries `@pytest.mark.db`.** Without it the test runs in the
@@ -137,7 +137,7 @@ recommended mode for new suites, which needs none and cannot suffer same-basenam
 - **The `db` corpus is documented once, in `tests/api/conftest.py`.** Its header derives every
   expected figure by hand; the tests assert against them and do not restate the arithmetic. Each of
   the five seeded teams exists to make exactly one invariant observable.
-- **Assert *which* field failed when more than one could.** A bare `pytest.raises(ValidationError)`
+- **Assert _which_ field failed when more than one could.** A bare `pytest.raises(ValidationError)`
   passes whatever went wrong, so a test can stay green while the constraint it names goes
   unenforced. The `assert_rejects` fixture takes the model, the payload and the field, and fails
   with the list of fields that actually failed. Use it wherever the payload is hand-built rather
@@ -172,6 +172,6 @@ cd fl_backend && uv run pytest -m db
 The first run pulls `mongo:8` (about 1.3 GB) if it is not already cached; afterwards the container
 starts in under two seconds. Everything is torn down when the session ends.
 
-The fast tier also runs as step 4 of the full gate, `./scripts/verify.sh`, alongside `ruff` over
-`app` and `tests`. The `db` tier deliberately does **not**, so the gate needs no daemon on the
-`--quick` path; it runs in the `backend-db` CI job instead.
+The fast tier also runs as the backend scope of the full gate, `./scripts/verify.sh`, alongside
+`ruff` over `app` and `tests`. The `db` tier is the separate `--db` scope, so the gate needs no
+daemon on the `--quick` path; in CI it is the `backend-db` job.

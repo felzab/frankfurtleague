@@ -7,9 +7,8 @@
 #  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────
 #
 #   • ONLY nginx publishes ports. The application containers are reachable solely from inside
-#     `frankfurtleague-net`, which is what makes the frontend's /api/revalidate route unreachable
-#     from the internet without any further gate. A `ports:` entry on frontend or backend removes
-#     that silently.
+#     `frankfurtleague-net`, so anything nginx does not route simply does not exist for the
+#     internet. A `ports:` entry on frontend or backend removes that silently.
 #   • nginx waits on both upstreams being HEALTHY, not merely started, so an unhealthy deploy is
 #     never served to anyone.
 #   • The moving `:latest` tag of each package is what `deploy.sh` pulls with no argument. Rollback

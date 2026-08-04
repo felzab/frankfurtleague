@@ -7,8 +7,9 @@
  *
  *   • Base tag only. `saisons` has no frontend write surface, so a granular tag could never be
  *     invalidated by anything — it would read as coverage and provide none.
- *   • Because nothing in the app writes seasons, a direct database edit is served stale until the tag
- *     is cleared out of band. That is what `POST /api/revalidate` exists for.
+ *   • Because nothing in the app writes seasons, a direct database edit is served stale until the
+ *     daily cacheLife expires or the container is recreated — there is no invalidation endpoint, by
+ *     decision (ADR-0035).
  *   • `getCurrentSaison` takes no filters on purpose: "current" is a backend determination, and a
  *     second definition here would be one that could disagree.
  *

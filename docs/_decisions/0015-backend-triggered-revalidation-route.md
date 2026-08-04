@@ -1,10 +1,10 @@
 # ADR-0015 — Backend-triggered revalidation through an in-network route
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)
 **Date:** 2026-07-30
 **Surface:** frontend, ops
 **Supersedes:** —
-**Superseded by:** —
+**Superseded by:** [ADR-0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)
 **Source:** remediation ledger question Q5, implemented as BE-3
 
 ## Context
@@ -26,7 +26,8 @@ The owner confirmed such edits do happen, occasionally.
 - Authenticates with `Bearer` + `INTERNAL_API_KEY_SYSTEM`, compared with `timingSafeEqual` after a
   length check.
 - Calls `revalidateTag(resource, "max")` — the **coarse base tag only**.
-- Called by `scripts/revalidate_reference_data.sh`, which runs inside the frontend container.
+- Called by hand from inside the frontend container (the invocation is documented in
+  `docs/workflows/README.md`); no code path in the repository calls it.
 
 ## Consequences
 

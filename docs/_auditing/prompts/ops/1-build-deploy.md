@@ -60,11 +60,12 @@ THE CHECKS, in priority order:
    `selfcheck.sh` actually cover the invariants the other scripts rely on?
 
 5. **THE GATE'S COVERAGE MAP.** Build the required table: failure class | caught by
-   `pnpm verify`? | by `verify.sh` full? | by CI? | by nothing. Include the known residents of
+   the frontend scope? | by `verify.sh` full? | by CI? | by nothing. Include the known residents of
    "by nothing" (rendered-output defects, cache-tag wiring, anything behind auth) and hunt for new
-   ones. Verify CI (`verify.yml`) runs the same script it claims (quick on PR, full on main), that
-   the tree-diff step still guards the write-mode formatter, and that every action version exists
-   (check the raw `action.yml` URL — release pages summarise unreliably).
+   ones. Verify CI (`verify.yml`) runs the scopes its path mapping claims (scope jobs per touched
+   surface on a PR, everything on main), that the tree-diff step still guards the write-mode
+   formatter, and that every action version exists (check the raw `action.yml` URL — release pages
+   summarise unreliably).
 
 6. **PUBLISH AND ROLLBACK.** `publish.sh` builds both images before pushing either (verify — this
    is the property that lets coupled FE/BE changes ship in one PR); tags carry the commit as an
@@ -77,8 +78,9 @@ THE CHECKS, in priority order:
 
 CROSS-SURFACE QUESTIONS: which manual steps are accepted ritual, and which are traps that depend on
 the operator remembering something undocumented, is owner knowledge — collect and batch these per
-the shared protocol. `scripts/revalidate_reference_data.sh` is a known example of an accepted manual
-step; check `scripts/README.md` for the others before filing any of them as findings.
+the shared protocol. The frontend-container recreation after an out-of-band reference edit
+(`docs/workflows/README.md`, ADR-0035) is a known example of an accepted manual step; check
+`scripts/README.md` for the others before filing any of them as findings.
 
 BOUNDARIES — not this pass: nginx security posture, headers, TLS, rate limits, secret reachability
 → pass O2 · application-code findings discovered while probing images → file as questions/rows for

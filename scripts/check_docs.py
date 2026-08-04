@@ -111,7 +111,9 @@ class Finding:
     detail: str
 
     def line(self) -> str:
-        return f"  {self.file}: {self.detail}  [{self.check}]"
+        # Six spaces: the message column of the scripts' shared output standard (scripts/_lib.sh),
+        # so findings read as `detail` lines under the gate's step heading.
+        return f"      {self.file}: {self.detail}  [{self.check}]"
 
 
 def is_placeholder(text: str) -> bool:
@@ -508,34 +510,40 @@ def main() -> int:
 
     files = tracked_files()
     if not files:
-        print("  no files found -- nothing to check", file=sys.stderr)
+        print("      no files found -- nothing to check", file=sys.stderr)
         return 0
+
+    # CI checkouts have no local branch for the base, only its remote-tracking ref -- without this
+    # fallback the two branch-diff checks below silently ran against nothing on every CI run.
+    base = args.base
+    if git("rev-parse", "--verify", base) is None and git("rev-parse", "--verify", f"origin/{base}") is not None:
+        base = f"origin/{base}"
 
     existing = adr_numbers()
     findings: list[Finding] = []
     for path in files:
         findings.extend(check_file(path, existing))
     findings.extend(check_stamps(files))
-    findings.extend(check_stamp_freshness(args.base))
-    findings.extend(check_history_phrases(args.base))
+    findings.extend(check_stamp_freshness(base))
+    findings.extend(check_history_phrases(base))
 
     failures = [f for f in findings if f.severity == "fail"]
     reports = [f for f in findings if f.severity == "report"]
 
     if failures:
-        print(f"\n  {len(failures)} failing finding(s) in enforced paths ({', '.join(ENFORCED_PATHS)}):")
+        print(f"\n      {len(failures)} failing finding(s) in enforced paths ({', '.join(ENFORCED_PATHS)}):")
         for finding in failures:
             print(finding.line())
 
     if reports:
-        print(f"\n  {len(reports)} finding(s) outside enforced paths, or advisory:")
+        print(f"\n      {len(reports)} finding(s) outside enforced paths, or advisory:")
         for finding in reports if args.all else reports[:10]:
             print(finding.line())
         if not args.all and len(reports) > 10:
-            print(f"  ... and {len(reports) - 10} more -- run with --all to see them")
+            print(f"      ... and {len(reports) - 10} more -- scripts/check_docs.py --all lists every one")
 
     docs = sum(1 for f in files if f.suffix == ".md")
-    print(f"\n  scanned {docs} documents and {len(files) - docs} source files against {len(existing)} ADRs")
+    print(f"\n      scanned {docs} documents and {len(files) - docs} source files against {len(existing)} ADRs")
     return 1 if failures else 0
 
 

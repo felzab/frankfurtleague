@@ -198,9 +198,9 @@ shells to stubs, and was reverted after measurement.
 
 **Reference-data staleness.** `saisons`, `spieler` and `spieltage` are cached for a day and have no
 write surface, and out-of-band Mongo edits are a real workflow — so edits were served stale for up
-to 24 h with no recourse. `POST /api/revalidate` (§3.1) plus `scripts/revalidate_reference_data.sh`
+to 24 h with no recourse. `POST /api/revalidate` (§3.1) plus an operator-run revalidation call
 close the gap; the durable fix (a real backend write path that revalidates itself, retiring the
-script) is recorded as open item BE-4 in `docs/roadmap/open-items.md`.
+manual step) is recorded as open item BE-4 in `docs/roadmap/open-items.md`.
 
 ### 3.4 Layer boundaries and type integrity
 

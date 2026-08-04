@@ -1,0 +1,17 @@
+# Repo-root ignore list for prettier, which `pnpm format` / `pnpm format:check` run over the WHOLE
+# repository from fl_frontend (see `format` in fl_frontend/package.json). Passing --ignore-path
+# replaces prettier's default lookup (.gitignore + .prettierignore in the invoking directory), so
+# the gitignored trees prettier must never enter are repeated here; fl_frontend/.prettierignore
+# still covers the frontend's own artifacts. Patterns resolve relative to this file.
+
+.git
+docs/audit
+certs
+fl_backend/.venv
+__pycache__
+
+# Local, machine-specific files that are not part of the tree the gate measures.
+.vscode
+.pytest_cache
+.claude/settings.local.json
+

@@ -40,10 +40,12 @@ Run the gate before opening the PR:
 ./scripts/verify.sh --quick
 ```
 
-CI runs the same script, and `main` requires it to pass. The full form — no `--quick` — also builds
-both Docker images, and is what you want if you touched `src/core/config.ts`, `src/core/auth.ts`,
-`src/instrumentation.ts`, or anything about packaging. [`scripts/README.md`](scripts/README.md)
-covers the rest of the tooling, including the Windows-specific traps.
+CI runs the same script's scopes as parallel jobs, mapped to the paths your PR touches, and `main`
+requires the aggregate `verify` check to pass. The full form — no flags — also builds both Docker
+images, and is what you want if you touched `src/core/config.ts`, `src/core/auth.ts`,
+`src/instrumentation.ts`, or anything about packaging; CI builds the images for exactly those paths
+on a pull request. [`scripts/README.md`](scripts/README.md) covers the rest of the tooling,
+including the scope flags and the Windows-specific traps.
 
 ## Licence
 

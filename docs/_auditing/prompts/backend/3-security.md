@@ -18,7 +18,8 @@ ops pass O2. Every finding states the network position its exploit requires.
 CONTEXT — derive, do not assume: auth is internal API keys in tiers (base / system / admin),
 checked in `app/core/security.py` / `dependencies.py`; the only caller is the Next.js server (the
 browser never reaches FastAPI directly), and nginx routes `/api` to FastAPI — so **network topology
-is a load-bearing control** (ADR-0015 protects `POST /api/revalidate` this way). That means every
+is a load-bearing control** (FastAPI's own `/docs` is unreachable for exactly this reason). That
+means every
 reachability judgment must state which network position the attacker holds: internet via nginx,
 compose-network, or a compromised frontend key. Verify the nginx configs (`nginx/*.conf`) before
 calling anything unreachable — do not assert topology from memory.

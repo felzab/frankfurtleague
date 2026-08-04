@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `5ad4a85`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -52,8 +52,8 @@ git commit          # opens the editor; a one-line -m loses the part that matter
 ```
 
 ```bash
-# 3 — the gate, before pushing. Not --quick if you touched config, auth,
-#     instrumentation or packaging
+# 3 — the gate, before pushing: everything, or the scopes covering what you
+#     touched. Full form if you touched config, auth, instrumentation or packaging
 ./scripts/verify.sh
 ```
 
@@ -172,8 +172,9 @@ What makes them work, and what to keep doing:
   because the collection API could need client-rendered descendants. It does work ..."
 - They name the rejected alternative when there was one.
 
-No issue-closing keywords and no emoji. No trailers either, with one exception: assistant-authored
-commits carry a `Co-Authored-By:` line as their last line.
+No issue-closing keywords, no emoji, and no trailers. There is no exception for assistant-authored
+commits: work is never signed as AI-generated (CLAUDE.md, §2), which overrides any tool default
+that would append a `Co-Authored-By` line.
 
 **Copy-paste form: [`message-templates.md`](message-templates.md).** That page holds the shape; this
 one holds the reasoning.
@@ -228,35 +229,42 @@ point at anything under it from a body. Open items live in [`docs/roadmap/open-i
 ./scripts/verify.sh
 ```
 
-Runs cheapest-to-fail first: script self-checks, the documentation gate, `pnpm verify` (types, lint,
-formatting, `next build`, unit tests), `pnpm audit:prod`, **ruff, pyright and pytest for the
-backend**, the database test tier, both image builds, and a check that `instrumentation.js` survived
-into the frontend image.
+Seven scopes in cheapest-to-fail order — script self-checks, the documentation gate, **ruff,
+pyright and pytest for the backend**, the frontend toolchain (prettier, tsc, eslint, `next build`,
+unit tests) with the advisory dependency audit, the ops checks (compose files and nginx config),
+the database test tier, and both image builds with a check that `instrumentation.js` survived into
+the frontend image. A bare invocation runs everything; scope flags name surfaces and combine — the
+table is in [`scripts/README.md`](../../scripts/README.md).
 
 The **documentation gate** fails on any citation that resolves to nothing — a dangling ADR number, a
 dead link, a broken anchor, a named path that is not there — in `/docs` and inside source comments
 alike. Rules: [`docs/_standard/5-currency.md`](../_standard/5-currency.md).
 
-`--quick` skips everything that needs Docker: the database test tier and both image builds. It is
-**not sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts` or
-`src/instrumentation.ts` — those are where packaging problems live.
+`--quick` skips everything that needs Docker: the database test tier and both image builds. A run
+without the images scope is **not sufficient** before a merge touching `src/core/config.ts`,
+`src/core/auth.ts`, `src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile — those
+are where packaging problems live, and CI builds both images on any pull request touching them.
 
-CI runs the same script — `.github/workflows/verify.yml`, `--quick` on pull requests and the full gate
-on pushes to `main`.
+CI — `.github/workflows/verify.yml` — runs the same scopes as **parallel jobs, mapped from the paths
+a pull request touches**: a docs-only PR runs the documentation gate and a formatting check, a
+backend PR runs the backend tier with its `backend-db` database job
+([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)) and nothing frontend,
+and a packaging change builds both images before it can merge. A push to `main` runs every scope.
+The required status check is the workflow's aggregate `verify` job, which fails if any scope job
+failed and passes over the ones path filtering skipped.
 
-That workflow carries a **second job**, `backend-db`, running the backend tests that need a real
-`mongod` ([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)) concurrently
-with `verify`, so the coverage costs a pull request no extra waiting. The full `verify.sh` runs the
-same tier behind its `require_docker`.
-
-> **`pnpm format` reaches outside `fl_frontend`, via a hardcoded list of paths.** It currently covers
-> `../docs`, `../scripts`, `../.claude`, `../.github`, `../README.md`, `../SECURITY.md`,
-> `../CONTRIBUTING.md` and both compose files. Moving, renaming or adding a root-level file therefore
-> requires editing `fl_frontend/package.json` — and a path that no longer exists makes Prettier exit 2,
-> which fails the whole gate. Moving `CLAUDE.md` into `.claude/` broke `main` exactly this way.
+> **`pnpm format` covers the whole repository**: it runs prettier over the repo root, and what stays
+> out is decided by exactly two ignore files — `.prettierignore` at the root (trees prettier must
+> never enter, and local machine files) and `fl_frontend/.prettierignore` (the frontend's own
+> artifacts). There is no path list to keep in step, so moving, renaming or adding a file cannot
+> make the formatter fail on a path that no longer exists — the failure mode that once broke `main`
+> when `CLAUDE.md` moved. The ignore files are the only thing to maintain: a new generated tree
+> that prettier should not touch gets a line in the root ignore file.
 >
-> **Verify with `./scripts/verify.sh --quick`, never with a hand-written `prettier` command.** Running
-> Prettier directly on the paths you happen to remember is what let that breakage through.
+> **Verify with a gate run whose scope includes the formatter — `./scripts/verify.sh --quick` or
+> `--frontend` — never with a hand-written `prettier` command.** Running Prettier directly on the
+> paths you happen to remember is what let that breakage through. In CI, the `format` job runs the
+> check for changes outside `fl_frontend`.
 
 > **When bumping an action version, verify the tag exists by fetching
 > `https://raw.githubusercontent.com/<owner>/<repo>/<tag>/action.yml`.** A 404 means the tag is not
@@ -397,16 +405,21 @@ the machine is outside the repo.
 
 ### After editing seasons, players or matchdays directly in MongoDB
 
+`saisons`, `spieler` and `spieltage` are cached for a day, and **no code path observes a change to
+them** — the write endpoints exist
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)) and nothing in
+the app calls one yet, so an edit is invisible until the cache expires. That staleness is bounded by
+design ([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)):
+24 hours at worst, and there is no invalidation endpoint. To make the edit visible sooner, recreate
+the frontend container — its cache lives in the container filesystem, so recreation starts empty at
+the cost of every cached page:
+
 ```bash
-./scripts/revalidate_reference_data.sh saisons
+# prod (Linux)
+docker compose up -d --force-recreate frontend
 ```
 
-Those three resources are cached for a day, and **no code path observes a change to them** — the write
-endpoints exist ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md))
-and nothing in the app calls one yet, so an edit is still invisible until the cache expires. Forgetting
-is not harmful: 24 hours at worst.
-See [ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md), which retires when FB-3 and
-FB-6 give these resources admin pages that invalidate as they save.
+The durable fix is FB-3 and FB-6: admin pages that invalidate as they save.
 
 ### Before any hand edit that a code change depends on
 
@@ -504,10 +517,11 @@ A new season needs, at minimum:
    ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
 6. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.
 
-Then run the revalidation script for `saisons` and `spieltage`. **Still by hand**, for the same reason:
-the endpoints exist but no UI calls them, so nothing in the app knows a rollover happened
-([ADR-0015](../_decisions/0015-backend-triggered-revalidation-route.md) retires when FB-3 and FB-6 land,
-not with the endpoints).
+Then recreate the frontend container so the rollover is visible immediately, or accept the daily
+cache expiry — the command and the reasoning are under "After editing seasons, players or matchdays
+directly in MongoDB" above
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). Nothing
+in the app knows a rollover happened until FB-3 and FB-6 give these resources admin pages.
 
 ### Certificate renewal
 
@@ -534,18 +548,15 @@ class of failure that hurts most when you can least afford it.
 **Rollback by pinned tag, verified from the image's own label.** Reading what is live rather than
 recalling it is the correct instinct.
 
-### The gap that was closed, and the one that replaced it
+### Execution and enforcement, both in place
 
-This section used to read "nothing runs the gate": `verify.sh` was thorough and entirely manual, with
-no CI of any kind. **That is fixed** — `.github/workflows/verify.yml` runs the same script, `--quick`
-on pull requests and the full gate on pushes to `main`, so a tired evening merge that skipped it is
-no longer indistinguishable from one that did not.
+**The gate executes on every change**: `.github/workflows/verify.yml` runs `verify.sh`'s scopes as
+parallel jobs mapped to the paths a pull request touches, and every scope on a push to `main` — so
+a merge whose author skipped the local gate is checked exactly as one whose author ran it.
 
-**The residual is enforcement rather than execution.** CI _runs_ on a PR; nothing _requires_ it to
-have passed before the merge button works. That is a branch-protection rule on `main` (require the
-status check, and require a PR), and it is worth setting up — particularly now, since the repository
-was deleted and recreated during the 2026-08-01 history rewrite, which discards any protection rules
-that existed before.
+**And passing it is required**: the ruleset on `main` (see Repository settings) demands the
+aggregate `verify` check before the merge button works. Skipping the gate therefore takes a
+deliberate act — disabling the ruleset, which is its documented escape hatch — never an oversight.
 
 ### What is fine as-is, and should not be "fixed"
 
@@ -562,11 +573,11 @@ squashing would collapse several carefully written bodies into one.
 gap between "merged" and "live" — and for a site whose owner is also its only operator, that gap is
 worth more than the automation.
 
-### One assessment that was reversed
+### Templates, served and binding
 
-Until 2026-08-01 this page argued **against** message templates: with one maintainer and bodies this
-consistent, a template would be filled in from habit rather than read. That reasoning was sound for
-a private repository and stopped being sound when this one went public — the audience for an issue
-form is people who have never read any of this. [`message-templates.md`](message-templates.md) is
-the result. It stays a reference you copy from rather than a form GitHub enforces, which keeps the
-original objection answered for the PR case while serving the new audience for the issue case.
+[`message-templates.md`](message-templates.md) is the source of every message form, and GitHub
+serves its copies — `.github/PULL_REQUEST_TEMPLATE.md` pre-fills each PR body, and
+`.github/ISSUE_TEMPLATE/` carries the issue forms for the audience that has never read this page.
+The forms bind the maintainer exactly as they bind an outside contributor: a PR body follows the
+template rather than habit, and a change to the source page updates the served copies in the same
+commit.

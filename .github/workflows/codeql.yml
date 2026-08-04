@@ -5,10 +5,16 @@ name: codeql
 # repository already treats invisible configuration as a defect worth documenting. Here the query
 # suite, the schedule and the trigger set are version-controlled and reviewable like everything else.
 #
+# TRIGGERS. A pull request runs analysis only when first-party code changed at all (the `paths`
+# filter), and then only for the language whose tree changed (the `changes` job) -- a docs-only PR
+# runs nothing, a backend-only PR analyses Python alone. A push to main always analyses both, so
+# the Security tab tracks every main commit; the weekly schedule picks up newly published queries
+# against code that has not changed. CodeQL is deliberately NOT a required check, so a skipped
+# analysis blocks nothing.
+#
 # WHAT THIS DOES NOT COVER, so nobody mistakes a green run for an audit: CodeQL finds
 # pattern-matchable vulnerability classes -- injection, XSS, path traversal, unsafe deserialization.
-# It has no opinion about business logic. It cannot see that team statistics are written to one
-# collection and read from another (open item F4), nor an authorization gap that is a valid program
+# It has no opinion about business logic. It cannot see an authorization gap that is a valid program
 # doing the wrong thing. Those belong to the audit programme in docs/_auditing/.
 #
 # Dependencies are NOT installed for either language. CodeQL analyses source for JavaScript/
@@ -17,6 +23,10 @@ name: codeql
 
 on:
   pull_request:
+    paths:
+      - "fl_frontend/**"
+      - "fl_backend/**"
+      - ".github/workflows/codeql.yml"
   push:
     branches: [main]
   # Query packs are updated upstream, so a scheduled run finds newly published queries against code
@@ -37,36 +47,76 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  analyze:
-    name: analyze (${{ matrix.language }})
+  # Which language trees did this event touch? On anything but a pull request, both.
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    strategy:
-      # One language failing should not hide the other language's results.
-      fail-fast: false
-      matrix:
-        # `javascript-typescript` covers fl_frontend, `python` covers fl_backend. The matrix is
-        # GitHub's own recommendation over a comma-separated list: separate databases, run in
-        # parallel, reported separately.
-        language: [javascript-typescript, python]
-
+    timeout-minutes: 5
+    outputs:
+      frontend: ${{ steps.map.outputs.frontend }}
+      backend: ${{ steps.map.outputs.backend }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           # Same reasoning as verify.yml: the token is not needed after checkout, and leaving it in
           # .git/config exposes it to every later step.
           persist-credentials: false
+          # Full history for the merge-base diff below.
+          fetch-depth: 0
+      - name: Map changed paths to languages
+        id: map
+        # scripts/ci_scopes.sh is the repository's one path mapping; this job reads its `frontend`
+        # and `backend` lines and ignores the rest. A markdown-only change inside fl_frontend/
+        # therefore analyses nothing, exactly like the verify workflow's test tiers.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            ./scripts/ci_scopes.sh "origin/${BASE_REF}" >> "$GITHUB_OUTPUT"
+          else
+            ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
+          fi
 
+  # Two jobs rather than one matrix: a job-level `if` cannot select matrix rows per language, and
+  # separate jobs keep what the matrix bought -- separate databases, parallel runs, one language's
+  # failure never hiding the other's results.
+  analyze-javascript:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - name: Initialise CodeQL
         uses: github/codeql-action/init@v4.37.3
         with:
-          languages: ${{ matrix.language }}
+          # Covers fl_frontend.
+          languages: javascript-typescript
           build-mode: none
           # The default suite is deliberate. `security-extended` adds queries and false positives in
           # roughly equal measure, and this codebase has already been through a manual security pass
           # -- so start quiet and escalate on evidence, which is the same rule the audit method uses.
           # To escalate: add `queries: security-extended` here.
+      - name: Analyse
+        uses: github/codeql-action/analyze@v4.37.3
 
+  analyze-python:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v4.37.3
+        with:
+          # Covers fl_backend.
+          languages: python
+          build-mode: none
+          # Same reasoning as the JavaScript job: default suite, escalate on evidence.
       - name: Analyse
         uses: github/codeql-action/analyze@v4.37.3

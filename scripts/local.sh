@@ -16,7 +16,7 @@
 #   ./scripts/local.sh              build changed layers, start, wait for health
 #   ./scripts/local.sh --fresh      ALSO delete the volumes first (see below)
 #   ./scripts/local.sh --logs       start, then follow the frontend log
-#   ./scripts/local.sh --down       stop the stack and exit
+#   ./scripts/local.sh --down       stop the stack and exit; with --fresh, also delete the volumes
 #   ./scripts/local.sh --help
 #
 # WHY --fresh IS NOT THE DEFAULT:
@@ -47,7 +47,17 @@ require_platform windows
 require_docker
 
 if (( DOWN )); then
-  step "Stopping the local stack"; docker compose -f "$COMPOSE" down; ok "stopped"; exit 0
+  # --fresh combines: stop AND delete the volumes, instead of being silently ignored.
+  if (( FRESH )); then
+    step "Stopping the local stack and removing volumes"
+    docker compose -f "$COMPOSE" down -v
+    ok "stopped — the next start rebuilds Next's cache from scratch"
+  else
+    step "Stopping the local stack"
+    docker compose -f "$COMPOSE" down
+    ok "stopped"
+  fi
+  exit 0
 fi
 
 require_file "fl_frontend/.env" "The frontend container reads it via env_file. Copy it from your password manager."
@@ -74,17 +84,17 @@ step "Waiting for health"
 if wait_healthy "$COMPOSE" frontend 150 && wait_healthy "$COMPOSE" backend 150; then
   printf '\n'
   ok "Local stack is up: http://localhost:3000"
-  printf '      %s\n' "Security headers:  curl -sI http://localhost:3000 | grep -i content-security-policy"
-  printf '      %s\n' "Logs:              docker compose -f $COMPOSE logs -f frontend"
-  printf '      %s\n' "Stop:              ./scripts/local.sh --down"
+  detail "Security headers:  curl -sI http://localhost:3000 | grep -i content-security-policy" \
+         "Logs:              docker compose -f $COMPOSE logs -f frontend" \
+         "Stop:              ./scripts/local.sh --down"
 else
   printf '\n'
   die "The stack came up unhealthy. If you see 'Invalid environment variables', fix those names in the .env files — that is the startup gate doing its job."
 fi
 
 # An `if` block, not `(( FOLLOW )) && ...`: as the final command of the script, that compound
-# evaluates to 1 whenever FOLLOW is 0, so a completely successful run exited non-zero. Any caller
-# checking the exit status read every success as a failure.
+# evaluates to 1 whenever FOLLOW is 0, so a completely successful run exits non-zero and any caller
+# checking the exit status reads every success as a failure.
 if (( FOLLOW )); then
   docker compose -f "$COMPOSE" logs -f frontend
 fi

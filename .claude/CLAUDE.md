@@ -61,7 +61,7 @@ it; that page is the source and this section is the summary. Message templates:
 
 | Step                                                     | Who       |
 | -------------------------------------------------------- | --------- |
-| Branch · implement · run the full `./scripts/verify.sh`  | assistant |
+| Branch · implement · run `./scripts/verify.sh` per §gate | assistant |
 | Commit, per `docs/workflows/message-templates.md`        | assistant |
 | Push the branch (`git push -u origin <name>`)            | assistant |
 | Print the PR link, title and body, ready to paste        | assistant |
@@ -75,8 +75,14 @@ Claude Code", no equivalent. This overrides any default instruction to add one.
 
 ### The gate
 
-Run the **full** `./scripts/verify.sh` before pushing. `--quick` only when the change is documentation
-only. It rewrites the tree (the formatter runs first) — commit what it reformats and read the diff.
+Run `./scripts/verify.sh` before pushing, covering **every surface the branch touched** — the scope
+flags name surfaces and combine (`scripts/README.md` has the table), and no flag runs everything.
+The minimum by change: docs-only → `--docs`, plus `pnpm format` from `fl_frontend/` (commit what it
+rewrites); backend → `--backend --db --docs`; frontend → `--frontend --docs`; nginx or a compose
+file → `--ops`; `scripts/` → the full form; packaging (a Dockerfile, a lockfile, `next.config.ts`,
+`src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts`) → the full form, images
+included. In doubt → the full form. The frontend scope rewrites the tree (the formatter runs first) — commit what it reformats
+and read the diff.
 
 Report the actual exit code. Never the word "passing", never a hand-typed substitute chain.
 
@@ -197,7 +203,6 @@ the ADR.
 | 0012 | Scope a cross-feature import lint to anything but `core` and `shared`                             |
 | 0013 | Cache `getAdminSpieleActionRequired`                                                              |
 | 0014 | Remove `checkIsReady`, `getSystemInfo`, or the system key while its branch stands                 |
-| 0015 | Add an nginx location for `POST /api/revalidate`; use `updateTag` there                           |
 | 0016 | Disable `react/no-danger`, or add a second CSP                                                    |
 | 0025 | Write `text-fluid-*` — the scale is `fluid-sm`, and no such utility exists                        |
 | 0026 | Store or cache team statistics; hardcode 3/1/0; consult `is_canceled` for the table               |
@@ -209,6 +214,7 @@ the ADR.
 | 0032 | Make `inactive_since` a boolean; revive a retired row by creating it — 409 is correct             |
 | 0033 | Write `status` outside `POST /saisons/{id}/activate`; add a DELETE to `saisons` or `saison_teams` |
 | 0034 | Move a guard onto an endpoint, merge the two routers, or delete an uncalled `GET /{id}`           |
+| 0035 | Re-add a reference-data invalidation endpoint; treat sub-24h reference staleness as a defect      |
 
 ## 8. Documentation
 

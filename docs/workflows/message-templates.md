@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `5ad4a85`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
@@ -67,8 +67,9 @@ Four things earn their place, because a diff cannot show them:
    a code comment or a previous commit.
 4. **The rejected alternative**, when there was one, and what decided it.
 
-And four things stay out: restating the diff, issue-closing keywords, emoji, and trailers — with
-one exception, below.
+And four things stay out: restating the diff, issue-closing keywords, emoji, and trailers. There is
+no sanctioned trailer: work is never signed as AI-generated — no `Co-Authored-By`, no "generated
+with" line — and that rule (CLAUDE.md, §2) overrides any tool default that would add one.
 
 **Wrap at roughly 76 characters.** Nothing enforces it; it is what makes `git log` readable in a
 terminal.
@@ -76,11 +77,6 @@ terminal.
 **The same-commit currency rule (CLAUDE.md, documentation):** a change that invalidates a documented claim
 updates that documentation in the same commit. It is the only mechanism that actually prevents
 drift.
-
-**The one sanctioned trailer.** Assistant-authored commits carry
-`Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>` as the last line. That is the only trailer
-in use; `workflows.md`'s "no trailers" describes the human-authored convention and this is the
-stated exception to it.
 
 ### Worked example
 
@@ -111,8 +107,7 @@ A `.gitmessage` file plus one config line pre-fills the editor for every commit:
 git config commit.template .gitmessage
 ```
 
-Not currently set up; mentioned because it costs one file and one command if the shape is ever hard
-to remember.
+Worth its one file and one command only if the shape is ever hard to remember.
 
 ---
 
@@ -135,8 +130,9 @@ commit's subject verbatim.
 What the branch achieves as a whole, at a level the individual commits do not — one or two
 paragraphs. For a single-commit PR, the commit body already says it and a pointer is enough.
 
-**Verified.** `./scripts/verify.sh` exit 0 — <the parts worth naming, with numbers>. Plus any
-manual check and its result.
+**Verified.** The `./scripts/verify.sh` invocation — its scopes and its exit code — and the parts
+worth naming, with numbers. Plus any manual check and its result. Say plainly what could not be
+verified, and why.
 
 **Decisions taken.** Anything where a person chose between real options, with the reasoning.
 Divergences resolved during the work belong here too.
@@ -159,8 +155,8 @@ one piece of routing a diff cannot provide.
 
 ## Issues
 
-New ground: this repository ran for its whole history without issues, because it had one maintainer
-working through PRs. They matter now that the repository is public.
+Issues exist for an audience that has never read this page: the repository is public, and the
+tracker is the one channel an outside reporter can watch.
 
 Two boundaries decide whether something is an issue at all:
 
@@ -227,12 +223,13 @@ For the maintainer's own tracked work.
 
 ---
 
-## Making these appear automatically
+## The GitHub-served copies
 
-Everything above is a reference you copy from. GitHub can serve the PR and issue forms directly —
-`.github/PULL_REQUEST_TEMPLATE.md` pre-fills the PR body, and `.github/ISSUE_TEMPLATE/*.yml` turns
-the issue forms above into structured fields with a link to `SECURITY.md` in the chooser.
+GitHub serves these forms directly: `.github/PULL_REQUEST_TEMPLATE.md` pre-fills every PR body with
+the template above, and `.github/ISSUE_TEMPLATE/` turns the issue forms into structured fields,
+with the security-advisory and roadmap boundaries repeated in the chooser
+(`.github/ISSUE_TEMPLATE/config.yml`).
 
-**Not currently wired up.** It is worth doing for issues specifically, because their audience is
-people who have never read this page; the PR template matters less while there is one maintainer
-who writes bodies from habit.
+**This page is the source; the served copies follow it.** A change here updates them in the same
+commit (CLAUDE.md, documentation) — the two drifting apart is exactly the failure the same-commit
+rule exists to prevent, and the forms bind the maintainer the same as any outside contributor.

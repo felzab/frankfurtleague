@@ -17,7 +17,7 @@
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
- *   docs/ops/spec.md — invariant I5, the sign-in rate limit
+ *   docs/ops/spec.md — invariant I4, the sign-in rate limit
  */
 import { unstable_rethrow } from "next/navigation";
 

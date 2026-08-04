@@ -21,13 +21,14 @@
 #   7. machine-specific scripts declare which platform they target
 #   8. a script's --help matches the flags it actually accepts
 #   9. shellcheck — a local binary if present, otherwise the official Docker image
+#  10. actionlint on the workflow files, which are pipeline code and rot the same way
 #
 # USAGE:
 #   ./scripts/selfcheck.sh
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-RUNNABLE=(local.sh verify.sh publish.sh deploy.sh revalidate_reference_data.sh)
+RUNNABLE=(local.sh verify.sh publish.sh deploy.sh ci_scopes.sh)
 FAILURES=0
 note_fail() { warn "$*"; FAILURES=$(( FAILURES + 1 )); }
 
@@ -39,7 +40,7 @@ done
 step "2. Line endings are LF"
 # A shell script with CRLF fails outright on Linux:
 #   bash: ./deploy.sh: /usr/bin/env bash^M: bad interpreter: No such file or directory
-# deploy.sh and revalidate_reference_data.sh RUN on the Linux server, so this is not cosmetic.
+# deploy.sh RUNS on the Linux server, so this is not cosmetic.
 # .gitattributes (`* text=auto eol=lf`) means git stores LF and a fresh Linux checkout is safe, but a
 # file copied directly, or an editor writing CRLF, bypasses that. Windows tolerates CRLF, so this is
 # precisely the class of defect that is invisible on the machine that introduces it.
@@ -48,7 +49,7 @@ step "2. Line endings are LF"
 #   - awk /\r/  : MSYS awk STRIPS CR on input, so it never matches on Windows — the one
 #                  platform where CRLF is actually introduced. Silently useless.
 #   - grep for a literal CR: same problem, and it puts the character being detected into the
-#                  detector, which is how an earlier version matched itself and flagged everything.
+#                  detector — which then matches itself and flags every script.
 for f in scripts/*.sh; do
   if [[ -n "$(tr -dc '\r' < "$f")" ]]; then
     note_fail "$(basename "$f") has CRLF endings. Fix:  tr -d '\r' < $f > t && mv t $f && chmod +x $f"
@@ -82,7 +83,7 @@ DEFINED="$(grep -oE '^[a-z_]+\(\)' scripts/_lib.sh | tr -d '()' | sort -u)"
 for f in "${RUNNABLE[@]}"; do
   [[ -f "scripts/$f" ]] || continue
   # Anything that looks like one of our helpers: our naming is consistent enough to enumerate.
-  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|image_[a-z_]+|git_[a-z_]+|step|ok|info|warn|die|usage|on_error)\b' "scripts/$f" | sort -u || true)"
+  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|image_[a-z_]+|git_[a-z_]+|step|ok|info|skip|warn|die|detail|quietly|fmt_duration|usage|on_error)\b' "scripts/$f" | sort -u || true)"
   missing=""
   while IFS= read -r fn; do
     [[ -z "$fn" ]] && continue
@@ -96,7 +97,7 @@ for f in "${RUNNABLE[@]}"; do
 done
 
 step "5. --help works from an unrelated directory"
-for f in local.sh verify.sh publish.sh deploy.sh; do
+for f in "${RUNNABLE[@]}"; do
   if ( cd / && bash "${REPO_ROOT}/scripts/$f" --help >/dev/null 2>&1 ); then
     info "$f --help"
   else
@@ -111,7 +112,7 @@ step "6. Unknown options are rejected, without requiring Docker"
 # pipeline fail if ANY stage failed, and the script under test is SUPPOSED to exit non-zero. So the
 # pipeline reported failure on every script that behaved correctly. Capturing first separates
 # "did it exit non-zero" (expected) from "did it say the right thing" (what we are checking).
-for f in local.sh verify.sh publish.sh deploy.sh; do
+for f in "${RUNNABLE[@]}"; do
   out="$(bash "scripts/$f" --definitely-not-an-option 2>&1 || true)"
   if [[ "$out" == *"Unknown option"* ]]; then
     info "$f"
@@ -123,15 +124,15 @@ done
 step "7. Machine-specific scripts declare a target platform"
 # Only the scripts that MUST run on one machine. verify.sh and selfcheck.sh only read and build, so
 # pinning them to one OS would be an artificial restriction that also blocks CI.
-for f in local.sh publish.sh deploy.sh revalidate_reference_data.sh; do
+for f in local.sh publish.sh deploy.sh; do
   if grep -q "require_platform" "scripts/$f"; then info "$f"; else note_fail "$f has no require_platform guard"; fi
 done
 
 step "8. Documented flags match accepted flags"
 # Catches drift between a script's --help header and its case statement. Compared by READING both,
-# never by running the script: an earlier version of this check invoked each flag for real, which
-# meant `local.sh --fresh` tore down the local stack as a side effect of a documentation test.
-for f in local.sh verify.sh publish.sh deploy.sh revalidate_reference_data.sh; do
+# never by running the script: invoking each flag for real means `local.sh --fresh` tears down the
+# local stack as a side effect of a documentation test.
+for f in "${RUNNABLE[@]}"; do
   # Header only: take the contiguous comment block and STOP at the first line of code. Reading a
   # fixed line range instead compared the code against itself, because the case statement fell
   # inside the range -- so the check passed while a genuinely undocumented flag was present.
@@ -168,7 +169,32 @@ sc_out="$(run_shellcheck scripts/*.sh 2>&1)" || sc_rc=$?
 case "$sc_rc" in
   0) info "no findings in any script" ;;
   2) info "unavailable (no local binary and no Docker) — skipped" ;;
-  *) note_fail "shellcheck reported findings:"; printf '%s\n' "$sc_out" | head -40 | sed 's/^/       /' ;;
+  *) note_fail "shellcheck reported findings:"; printf '%s\n' "$sc_out" | head -40 | detail ;;
+esac
+
+step "10. actionlint on the workflows"
+# The workflow files are pipeline code: actionlint validates their expressions, job graphs, action
+# inputs and embedded shell — the class of bug that otherwise surfaces only on the first live run.
+# Same availability ladder as shellcheck: local binary, else the pinned Docker image, else skip.
+# With no arguments actionlint finds .github/workflows itself, from the working directory.
+run_actionlint() {
+  if command -v actionlint >/dev/null 2>&1; then
+    actionlint
+    return
+  fi
+  if docker version >/dev/null 2>&1; then
+    MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/repo" -w /repo rhysd/actionlint:1.7.7
+    return
+  fi
+  return 2
+}
+
+al_out=""; al_rc=0
+al_out="$(run_actionlint 2>&1)" || al_rc=$?
+case "$al_rc" in
+  0) info "no findings in any workflow" ;;
+  2) info "unavailable (no local binary and no Docker) — skipped" ;;
+  *) note_fail "actionlint reported findings:"; printf '%s\n' "$al_out" | head -40 | detail ;;
 esac
 
 printf '\n'

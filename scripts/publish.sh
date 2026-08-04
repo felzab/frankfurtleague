@@ -65,8 +65,8 @@ if git_clean; then
   QUALIFIER="sha-${SHA}"
 else
   (( ALLOW_DIRTY )) || die "The working tree has uncommitted changes.
-       A tag naming a commit must be reproducible FROM that commit, and this one would not be.
-       Commit your work, or pass --allow-dirty for a deliberate hotfix."
+A tag naming a commit must be reproducible FROM that commit, and this one would not be.
+Commit your work, or pass --allow-dirty for a deliberate hotfix."
   QUALIFIER="sha-${SHA}-dirty"
   warn "Publishing an uncommitted tree as ${QUALIFIER} — this image cannot be rebuilt from git."
 fi
@@ -108,8 +108,8 @@ if docker run --rm --entrypoint sh "$IMAGE_FRONTEND" -c '[ -f .next/server/instr
   ok "instrumentation.js is in the image (env gate + error logging will run)"
 else
   die "instrumentation.js is MISSING from the frontend image.
-       It must live at fl_frontend/src/instrumentation.ts — from the repo root it is dropped
-       from output:\"standalone\" without any error. NOTHING has been pushed."
+It must live at fl_frontend/src/instrumentation.ts — from the repo root it is dropped
+from output:\"standalone\" without any error. NOTHING has been pushed."
 fi
 
 if (( DRY_RUN )); then
@@ -125,8 +125,8 @@ for t in "$IMAGE_FRONTEND" "$TAG_FE" "$IMAGE_BACKEND" "$TAG_BE"; do
   # Progress deliberately NOT suppressed: a first push of a ~370 MB image is minutes of silence
   # otherwise, which is indistinguishable from a hang.
   docker push "$t" || die "push failed for ${t}.
-       If this is an authentication error, log in with a token carrying write:packages:
-         docker login ghcr.io -u felzab"
+If this is an authentication error, log in with a token carrying write:packages:
+  docker login ghcr.io -u felzab"
 done
 ok "all four tags pushed"
 
@@ -160,6 +160,6 @@ fi
 
 printf '\n'
 ok "Published ${QUALIFIER} from ${BRANCH}"
-printf '       %s\n' "On the server, deploy it:   ./scripts/deploy.sh"
-printf '       %s\n' "Or pin exactly this build:  ./scripts/deploy.sh ${QUALIFIER}"
-printf '       %s\n' "See what is live:           ./scripts/deploy.sh --status"
+detail "On the server, deploy it:   ./scripts/deploy.sh" \
+       "Or pin exactly this build:  ./scripts/deploy.sh ${QUALIFIER}" \
+       "See what is live:           ./scripts/deploy.sh --status"
