@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `55966d7`, 2026-08-04
+**Verified against:** `5ad4a85`, 2026-08-04
 
 Applies to `fl_frontend/src` and `fl_backend/app`. The principles in
 [`1-principles.md`](1-principles.md) apply here too; this chapter adds what is specific to source
@@ -28,7 +28,7 @@ Every example is real code from the `spiele` slice, so one subject runs through 
 Both sides of the stack are fully typed. `@param filters - Query filters` restates what
 `filters: FLSpieleFilterParams` already says, and every restatement is one more thing that can go out of
 date on its own. This is not machine-checkable; it is a review judgement, and it is recorded in
-CLAUDE.md §1.
+CLAUDE.md's quality bar.
 
 Document **why**, the constraint, the rejected alternative, the trap. Not what the next line does.
 
@@ -356,7 +356,7 @@ Deliberately minimal.
 | ruff `D` (pydocstyle) | A narrow **formatting** subset, so docstrings that exist are shaped alike. The selected codes are in `fl_backend/pyproject.toml` under `[tool.ruff.lint]` — read them there rather than from a copy |
 | ruff `D1xx`           | **Excluded.** `D103` would demand a docstring on every function and manufacture exactly the boilerplate this standard rejects                                                                       |
 | `eslint-plugin-jsdoc` | **Not added.** Its useful rules police `@param` completeness, which this standard does not use                                                                                                      |
-| never restate a type  | Not enforceable. Review judgement, recorded in CLAUDE.md §1                                                                                                                                         |
+| never restate a type  | Not enforceable. Review judgement, recorded in CLAUDE.md                                                                                                                                            |
 
 The rule selections live in `fl_backend/pyproject.toml` and `fl_frontend/eslint.config.mjs`. Read
 them there; a copy here would be one more thing that can disagree with the source (P4).

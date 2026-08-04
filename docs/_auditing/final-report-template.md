@@ -97,7 +97,7 @@ sentences. The completeness bar applies hardest here.
 
 ## 4. Decisions ratified
 
-The decisions the programme settled into ADRs and the CLAUDE.md §9 summary, as a table with one-line
+The decisions the programme settled into ADRs and the CLAUDE.md ratified-decisions index, as a table with one-line
 descriptions and ADR links. These are the programme's most durable output — they are what stops a
 future audit re-litigating the same patterns.
 

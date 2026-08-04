@@ -32,7 +32,7 @@ request and by `getAdminSession()` in every server action. An HTTP hop there wou
 every authorized operation to satisfy a rule whose purpose — keeping business data behind one validated
 API — is not engaged.
 
-**CLAUDE.md §2's database rule is scoped to _application data_ for this reason.** A second direct
+**CLAUDE.md's database rule is scoped to _application data_ for this reason.** A second direct
 `MongoClient` in the frontend is a real violation, not a precedent this establishes.
 
 The development-mode branch caching the client on `global` is not part of this decision; it is the

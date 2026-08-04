@@ -35,11 +35,10 @@ that opens three items builds the later fixes on decisions the earlier ones have
    An entry can be two modes in sequence (verify → implement). Do **not** slide from one into the
    next without checking in — the checkpoint is the point.
 
-4. **Ask for what the entry says you need.** Several entries name a dependency on the owner: DB-1
-   offers additional database resources, FB-4 requires that standard bracket conventions be checked
-   and the owner consulted before anything changes, OPS-4 wants candidate output styles to choose
-   from, LOG-1 carries a standing reminder to raise the `trace_id`-on-every-request question. Raise
-   these at the start, not after the work is done.
+4. **Ask for what the entry says you need.** Entries name their own dependencies on the owner —
+   a resource to be provided, a convention to be checked before anything changes, options to choose
+   between, a standing question to raise. Read the entry for these and put them **at the start**, not
+   after the work is done.
 
 5. **Do the work**, following the whole cycle in `docs/workflows/README.md` — branch first (a hook
    enforces it), commit with a real body, `./scripts/verify.sh` before pushing, hand over the PR
@@ -50,7 +49,7 @@ that opens three items builds the later fixes on decisions the earlier ones have
    a one-line row in `docs/roadmap/closed-items.md` keeps the pointer to it. Deleting an entry is not
    optional cleanup, and leaving it is how the file stops being trustworthy.
 
-   **The two-commit protocol is set by the owner (2026-08-02) and is mandatory.** Full rationale:
+   **The two-commit protocol is mandatory.** Full rationale:
    [Closing an entry](../../../docs/roadmap/README.md#closing-an-entry-two-commits-not-one). Both
    commits go in **one pull request**.
 
@@ -60,7 +59,7 @@ that opens three items builds the later fixes on decisions the earlier ones have
      exists only in a commit body is one nobody will find. Add its row to `docs/_decisions/README.md`.
    - **Search the whole repo for the ID**, not just `open-items.md`: the spec sheets, the glossary,
      the audit prompts and module headers all reference these IDs (`docs/backend/spec.md` cites F4 as
-     invariant I1, for instance). Update every reference here — CLAUDE.md §10 requires it.
+     invariant I1, for instance). Update every reference here — CLAUDE.md's same-commit rule requires it.
    - In `open-items.md`, set the entry's **`Status` to `Closed`** in the "path at a glance" table and
      add a short block to the entry naming what concluded it: the ADR numbers, and where each finding
      that was _not_ a decision was rehomed. **Leave the entry in place.**
@@ -78,8 +77,7 @@ that opens three items builds the later fixes on decisions the earlier ones have
    - **Insert any new entries** the work produced, with their own `Status`.
    - **Fix every `Path` line that named it.** An entry that said "blocked by F4" must not still say
      so once F4 is gone — replace it with the decision F4 reached, stated as a fact.
-   - **Re-derive the `Status` of EVERY row in the table, not just the ones you worked on** (owner,
-     2026-08-02). Statuses are interdependent: `Blocked` is a claim about another entry, so removing
+   - **Re-derive the `Status` of EVERY row in the table, not just the ones you worked on.** Statuses are interdependent: `Blocked` is a claim about another entry, so removing
      one or landing a decision silently changes rows nobody edited. Walk the whole table. The
      derivation, first match wins: concluded but still present → `Closed`; anything in its
      `Depends on` still in the file → `Blocked`; a caution or a recorded trigger → `Standing`; an ADR

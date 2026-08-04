@@ -44,7 +44,7 @@ interactive component, or is a subtree shipped for one leaf? Flag client files i
 `src/core/*`. Before proposing any directive removal, grep the file for **render props** — a
 Server Component may not pass a function to a Client Component, neither `tsc` nor the build
 catches it on a dynamic route, and it throws at request time on the live page. The rule is
-CLAUDE.md §6.
+CLAUDE.md's repo-specific traps.
 
 A5. **Route conventions.** `await params`/`await searchParams` handling, `generateMetadata`
 correctness (self-canonicals, per-page titles; every `generateMetadata` doing a fetch must

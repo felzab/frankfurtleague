@@ -69,7 +69,7 @@ THE CHECKS, in priority order:
 
 8. **DOCUMENTATION CURRENCY.** Every module carries a header and every endpoint a docstring, under
    the rule that a code change invalidating a documented claim updates the doc in the same commit
-   (CLAUDE.md §10). Sample for drift: headers whose invariants no longer match the code, docstrings
+   (CLAUDE.md, documentation). Sample for drift: headers whose invariants no longer match the code, docstrings
    contradicted by behaviour. Report drift as findings; do not rewrite documentation in this pass.
 
 BOUNDARIES — not this pass: write→read consistency → b1 · contract divergence → b2 · auth,

@@ -58,7 +58,7 @@ tool the project runs.
 
 The mitigation is procedural rather than technical, and therefore has to be repeated rather than
 trusted: the checklist lives in [`docs/frontend/overview.md`](../frontend/overview.md#adding-a-heroui-component),
-the block in `globals.css` carries it in its header, and **CLAUDE.md §6 requires it be restated
+the block in `globals.css` carries it in its header, and **CLAUDE.md requires it be restated
 whenever a HeroUI component is added or considered.** Three copies is deliberate for a failure mode
 with no automated net.
 

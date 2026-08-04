@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `5ad4a85`, 2026-08-04
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
@@ -73,7 +73,7 @@ one exception, below.
 **Wrap at roughly 76 characters.** Nothing enforces it; it is what makes `git log` readable in a
 terminal.
 
-**The same-commit currency rule (CLAUDE.md §10):** a change that invalidates a documented claim
+**The same-commit currency rule (CLAUDE.md, documentation):** a change that invalidates a documented claim
 updates that documentation in the same commit. It is the only mechanism that actually prevents
 drift.
 

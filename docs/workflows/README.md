@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `5ad4a85`, 2026-08-04
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -180,7 +180,7 @@ one holds the reasoning.
 
 > **Since 2026-08-01, one rule constrains commits:** a change that invalidates a documented claim
 > updates the doc **in the same commit**. That is the only mechanism preventing documentation drift, and
-> it lives in CLAUDE.md §10.
+> it lives in CLAUDE.md's documentation section.
 
 ---
 

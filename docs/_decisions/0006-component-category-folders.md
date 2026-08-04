@@ -40,7 +40,7 @@ The categories are not arbitrary — they carry different rendering constraints:
 
 Knowing the category tells you roughly whether to expect `"use client"`, which matters because that
 directive has a non-obvious failure mode — see [ADR-0009](0009-connection-guards-every-data-fetch.md)'s
-sibling note on render props in CLAUDE.md §6.
+sibling note on render props in CLAUDE.md's repo-specific traps.
 
 ## Alternatives considered
 

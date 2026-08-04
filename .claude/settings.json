@@ -3,11 +3,35 @@
   "permissions": {
     "deny": [
       "Read(**/.env)",
+      "Write(**/.env)",
+      "Edit(**/.env)",
       "Read(**/.env.*)",
+      "Write(**/.env.*)",
+      "Edit(**/.env.*)",
       "Read(**/*.pem)",
+      "Write(**/*.pem)",
+      "Edit(**/*.pem)",
       "Read(**/id_rsa*)",
+      "Write(**/id_rsa*)",
+      "Edit(**/id_rsa*)",
       "Read(**/credentials.json)",
-      "Read(./certs/**)"
+      "Write(**/credentials.json)",
+      "Edit(**/credentials.json)",
+      "Read(./certs/**)",
+      "Write(./certs/**)",
+      "Edit(./certs/**)",
+      "Read(**/kubeconfig)",
+      "Write(**/kubeconfig)",
+      "Edit(**/kubeconfig)",
+      "Read(**/*-service-account*.json)",
+      "Write(**/*-service-account*.json)",
+      "Edit(**/*-service-account*.json)",
+      "Read(**/*.key)",
+      "Write(**/*.key)",
+      "Edit(**/*.key)",
+      "Read(**/*.p12)",
+      "Write(**/*.p12)",
+      "Edit(**/*.p12)"
     ],
     "allow": [
       "Bash(git status:*)",
@@ -38,6 +62,11 @@
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-branch-bash.sh\"",
+            "timeout": 10
+          },
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-local-compose.sh\"",

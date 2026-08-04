@@ -161,7 +161,7 @@ question is asked.
 ### Why `audit/` is gitignored
 
 This repository is public. Committing pass reports, the ledger or the register would publish unfixed
-findings — security findings included — while they are still being remediated. CLAUDE.md §3 names
+findings — security findings included — while they are still being remediated. CLAUDE.md's security section names
 `docs/audit/` as the one ignored path this workflow may read and write.
 
 Three consequences the protocol works around:
@@ -254,7 +254,7 @@ only**, which may use `./scripts/verify.sh --quick`. Any wave touching source, c
 Docker or CI runs the full form, whatever the change looks like — the classes that pass a partial
 gate and break the built image are exactly the ones that look harmless in a diff.
 
-This is deliberately stricter than the repository-wide minimum in CLAUDE.md §4. An audit wave ships
+This is deliberately stricter than the repository-wide minimum in CLAUDE.md. An audit wave ships
 changes that were reasoned about rather than requested, so it carries the higher bar.
 
 Report the script's **actual output and exit code**. Never the word "passing", never a hand-typed
@@ -314,7 +314,7 @@ Prompts rot where they hardcode facts. Four rules:
 - **Derive counts, inventories and versions at run time.** State the grep that produces a list, never
   the list. State "the file count you actually read", never a number. Any fact baked into a prompt
   drifts from the code and is then wrong in a way no gate detects.
-- **Reference a checklist by its source** (CLAUDE.md §2, an ADR, a spec sheet) instead of copying it,
+- **Reference a checklist by its source** (CLAUDE.md, an ADR, a spec sheet) instead of copying it,
   so the prompt cannot disagree with the source.
 - **Shared discipline lives once**, in [`prompts/_shared-protocol.md`](prompts/_shared-protocol.md).
   A pass prompt carries only its lens: scope, numbered checks, required tables, priority order,
