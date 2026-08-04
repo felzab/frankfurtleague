@@ -13,4 +13,5 @@ __pycache__
 # Local, machine-specific files that are not part of the tree the gate measures.
 .vscode
 .pytest_cache
+.claude/settings.local.json
 

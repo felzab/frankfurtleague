@@ -73,8 +73,8 @@ into the backend scope would give a Docker prerequisite to a scope that needs no
 scope exists because `pnpm verify` cannot see packaging problems: code that compiles can still fail
 to build inside the image, or be omitted from `output: "standalone"` entirely — so a run without it
 is **not sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts`,
-`src/instrumentation.ts` or a Dockerfile. The dependency audit warns rather than fails — an
-advisory published upstream overnight should not block an unrelated merge.
+`src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile. The dependency audit warns
+rather than fails — an advisory published upstream overnight should not block an unrelated merge.
 
 CI (`.github/workflows/verify.yml`) runs these scopes as parallel jobs, mapped from the paths a
 pull request touches — including the images scope for exactly the packaging paths above; a push to

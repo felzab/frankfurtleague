@@ -30,10 +30,10 @@ _computes_ from what it says.
 
 [ADR-0030](../../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), 2026-08-02.
 
-| Tier                    | Selected by         | Needs Docker | Cost                   |
-| ----------------------- | ------------------- | ------------ | ---------------------- |
-| **Default** — 294 tests | everything unmarked | no           | 0.39s                  |
-| **`db`** — 52 tests     | `@pytest.mark.db`   | yes          | 13.0s warm, 21.2s cold |
+| Tier                    | Selected by         | Needs Docker | Cost (2026-08-04)                        |
+| ----------------------- | ------------------- | ------------ | ---------------------------------------- |
+| **Default** — 395 tests | everything unmarked | no           | under half a second                      |
+| **`db`** — 54 tests     | `@pytest.mark.db`   | yes          | 14.3s warm; cold adds the `mongo:8` pull |
 
 `pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` runs the fast tier only. A
 command-line `-m` overrides it — addopts are prepended rather than merged — so `pytest -m db` runs

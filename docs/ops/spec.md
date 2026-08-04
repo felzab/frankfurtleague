@@ -117,9 +117,9 @@ omitted from the standalone output entirely.
 
 `--quick` skips everything needing Docker: the database tier and both image builds. It is **not
 sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts`,
-`src/instrumentation.ts` or a Dockerfile — those are where packaging problems live, and CI builds
-both images on any pull request touching them. An audit remediation wave runs the full form
-regardless of what it touched, unless it changed documentation only.
+`src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile — those are where packaging
+problems live, and CI builds both images on any pull request touching them. An audit remediation
+wave runs the full form regardless of what it touched, unless it changed documentation only.
 
 ## 6. Invariants
 

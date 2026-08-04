@@ -76,9 +76,10 @@ IMAGE_BACKEND="${REPO_BACKEND}:latest"
 #     to the same column.
 #
 # Colour: on for a terminal, and in GitHub Actions, whose log renders ANSI. NO_COLOR set to
-# anything forces it off (https://no-color.org), FORCE_COLOR forces it on. Redirected local logs
-# therefore stay clean of escape codes.
-if [[ -n "${NO_COLOR:-}" ]]; then
+# anything forces it off (https://no-color.org), FORCE_COLOR forces it on — except FORCE_COLOR=0,
+# which the npm ecosystem defines as "off" and which is honoured here the same way. Redirected
+# local logs therefore stay clean of escape codes.
+if [[ -n "${NO_COLOR:-}" || "${FORCE_COLOR:-}" == "0" ]]; then
   _colour=0
 elif [[ -t 1 || -n "${FORCE_COLOR:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
   _colour=1

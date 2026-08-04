@@ -25,7 +25,8 @@
 #   ./scripts/verify.sh --quick      everything that runs without Docker: no db tier, no images.
 #                                    NOT sufficient before a merge if you touched
 #                                    fl_frontend/src/core/config.ts, src/core/auth.ts,
-#                                    src/instrumentation.ts or a Dockerfile
+#                                    src/instrumentation.ts, next.config.ts, a lockfile or a
+#                                    Dockerfile
 #   ./scripts/verify.sh --scripts    one scope. Scope flags combine freely — for example
 #   ./scripts/verify.sh --docs       a documentation-only change needs only this one, and
 #   ./scripts/verify.sh --backend    a backend change pairs this
@@ -183,7 +184,7 @@ else
   skip "not run:${not_run}"
   if (( ! RUN_IMAGES )); then
     warn "The image build did not run. Do NOT merge on this alone if you touched
-fl_frontend/src/core/config.ts, src/core/auth.ts, src/instrumentation.ts or a Dockerfile.
-Locally that is:  ./scripts/verify.sh --images"
+fl_frontend/src/core/config.ts, src/core/auth.ts, src/instrumentation.ts, next.config.ts,
+a lockfile or a Dockerfile. Locally that is:  ./scripts/verify.sh --images"
   fi
 fi

@@ -241,8 +241,8 @@ alike. Rules: [`docs/_standard/5-currency.md`](../_standard/5-currency.md).
 
 `--quick` skips everything that needs Docker: the database test tier and both image builds. A run
 without the images scope is **not sufficient** before a merge touching `src/core/config.ts`,
-`src/core/auth.ts`, `src/instrumentation.ts` or a Dockerfile — those are where packaging problems
-live, and CI builds both images on any pull request touching them.
+`src/core/auth.ts`, `src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile — those
+are where packaging problems live, and CI builds both images on any pull request touching them.
 
 CI — `.github/workflows/verify.yml` — runs the same scopes as **parallel jobs, mapped from the paths
 a pull request touches**: a docs-only PR runs the documentation gate and a formatting check, a
@@ -557,8 +557,8 @@ recalling it is the correct instinct.
 ### Execution and enforcement, both in place
 
 **The gate executes on every change**: `.github/workflows/verify.yml` runs `verify.sh`'s scopes as
-parallel jobs mapped to the paths a pull request touches, and every scope on a push to `main` — so a
-tired evening merge that skipped the local gate is indistinguishable from none.
+parallel jobs mapped to the paths a pull request touches, and every scope on a push to `main` — so
+a merge whose author skipped the local gate is checked exactly as one whose author ran it.
 
 **And passing it is required**: the ruleset on `main` (see Repository settings) demands the
 aggregate `verify` check before the merge button works. Skipping the gate therefore takes a

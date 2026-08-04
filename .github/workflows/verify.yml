@@ -86,17 +86,23 @@ jobs:
                 fl_backend/Dockerfile|fl_backend/.dockerignore) images=true ;;
                 fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
                   frontend=true; images=true; docs=true ;;
-                fl_frontend/package.json|fl_frontend/pnpm-lock.yaml) frontend=true; images=true ;;
+                # next.config.ts owns output:"standalone" and the file tracing the image copies;
+                # pnpm-workspace.yaml owns the build-scripts policy the in-image install obeys. Both
+                # can break only the image while the host build stays green.
+                fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/next.config.ts|fl_frontend/pnpm-workspace.yaml)
+                  frontend=true; images=true ;;
                 fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; images=true ;;
                 fl_frontend/*) frontend=true; docs=true ;;
                 fl_backend/*) backend=true; docs=true ;;
                 # Prettier's coverage reaches outside fl_frontend (see `format` in
                 # fl_frontend/package.json); these change nothing else CI can check.
-                docker-compose.yml|docker-compose.local.yml) format=true ;;
+                docker-compose.yml|docker-compose.local.yml|.prettierignore) format=true ;;
+                # .gitattributes decides line endings at checkout, which is exactly what the
+                # scripts' CRLF self-check exists to catch on a fresh clone.
+                .gitattributes) scripts=true ;;
                 # No automated check exists for these. A deliberate, named list -- anything NOT
                 # named here falls through to the conservative default below.
-                nginx/*|certs/*|.gitignore|.gitattributes|LICENSE|NOTICE) ;;
-                *.md) docs=true; format=true ;;
+                nginx/*|certs/*|.vscode/*|.gitignore|LICENSE|NOTICE) ;;
                 docs/*) docs=true; format=true ;;
                 .claude/*|.github/*) docs=true; format=true ;;
                 *) all ;;
