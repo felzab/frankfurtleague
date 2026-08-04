@@ -12,7 +12,12 @@ name: pr-body
 
 on:
   pull_request:
-    types: [opened, edited, reopened, ready_for_review]
+    # `edited` is why this workflow is separate at all. `synchronize` is here for a different
+    # reason: GitHub resolves a required status check against the HEAD commit, so a check that does
+    # not re-run on a push leaves the newest commit with no result — and a required check with no
+    # result blocks the merge permanently rather than passing. The job is a checkout and one python
+    # run, so paying it per push is cheap insurance against that.
+    types: [opened, edited, reopened, ready_for_review, synchronize]
 
 permissions:
   contents: read
