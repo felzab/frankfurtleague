@@ -18,11 +18,7 @@
 #   db         the db-marked pytest tier against a real mongod (ADR-0030). Needs Docker
 #   images     both docker builds plus the instrumentation.js presence check. Needs Docker
 #
-# WHY THE LAST THREE EXIST: `pnpm verify` has been green while the image was broken. Twice.
-#   - a module-scope read of AUTH_URL failed only in the builder stage, where there is no .env;
-#   - instrumentation.ts at the repo root compiled, passed every test, and was then dropped from
-#     the standalone output — silently disabling the startup env gate AND all production error
-#     logging. The images scope is a one-command check for exactly that.
+# Each scope's reasoning — why it exists and what only it can catch — is in scripts/README.md.
 #
 # USAGE:
 #   ./scripts/verify.sh              everything — the full gate. The image builds take minutes
@@ -37,9 +33,6 @@
 #   ./scripts/verify.sh --frontend
 #   ./scripts/verify.sh --images
 #   ./scripts/verify.sh --help
-#
-# CI (.github/workflows/verify.yml) runs these same scopes as parallel jobs, mapped from the paths
-# a pull request touches; a push to main runs all of them.
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 

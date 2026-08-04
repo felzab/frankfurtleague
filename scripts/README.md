@@ -4,8 +4,9 @@
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says
-which script to reach for and why each is shaped the way it is. Every script prints its own usage
-with `--help`, and that header is the authority on flags — nothing below restates one.
+which script to reach for and carries only the knowledge that spans scripts; **each script's own
+header carries its usage and its reasoning**, printed by `--help`, and nothing below restates
+either.
 
 | Script         | Run on        | Purpose                                                       |
 | -------------- | ------------- | ------------------------------------------------------------- |
@@ -70,13 +71,10 @@ separate because its tests start a real `mongod`
 ([ADR-0030](../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), and folding them
 into the backend scope would give a Docker prerequisite to a scope that needs none. The **images**
 scope exists because `pnpm verify` cannot see packaging problems: code that compiles can still fail
-to build inside the image, or be omitted from `output: "standalone"` entirely. The dependency audit
-warns rather than fails — an advisory published upstream overnight should not block an unrelated
-merge.
-
-> A run without the images scope is **not** sufficient before a merge that touches
-> `src/core/config.ts`, `src/core/auth.ts`, `src/instrumentation.ts` or a Dockerfile — that is
-> where packaging problems live.
+to build inside the image, or be omitted from `output: "standalone"` entirely — so a run without it
+is **not sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts`,
+`src/instrumentation.ts` or a Dockerfile. The dependency audit warns rather than fails — an
+advisory published upstream overnight should not block an unrelated merge.
 
 CI (`.github/workflows/verify.yml`) runs these scopes as parallel jobs, mapped from the paths a
 pull request touches — including the images scope for exactly the packaging paths above; a push to
@@ -84,19 +82,16 @@ pull request touches — including the images scope for exactly the packaging pa
 
 ## `local.sh` — production image, locally
 
-Serves on <http://localhost:3000> and waits until both services report healthy. `--fresh` is not
-the default because it deletes the volumes holding Next.js's build cache, turning a seconds-long
-start into minutes; reach for it when the stack behaves in a way the code does not explain, which
-usually means a stale cached asset.
+Serves on <http://localhost:3000> and waits until both services report healthy. Why dev mode proves
+nothing about packaging, and why `--fresh` is not the default, are reasoned in the script's own
+header — `./scripts/local.sh --help`.
 
 ## `publish.sh` — build and push
 
-Builds both images **before** pushing either, so a failed backend build cannot leave production
-able to pull a frontend that expects it. Refuses a dirty tree by default: a tag naming a commit
-must be rebuildable from that commit. Each publish writes four tags — `latest` and `sha-<commit>`
-per package ([ADR-0017](../docs/_decisions/0017-ghcr-two-public-packages.md)) — plus OCI labels
-recording the commit, which is how `deploy.sh --status` answers "what is live" without trusting a
-movable tag name.
+Builds, tags and pushes both images. The ordering (both built before either is pushed), the tag
+scheme ([ADR-0017](../docs/_decisions/0017-ghcr-two-public-packages.md)), the OCI labels and the
+automatic pruning of superseded local `sha-` tags are all reasoned in the script's own header. Two
+things live only here:
 
 **Authentication needs a classic token with `write:packages`** (`docker login ghcr.io -u felzab`).
 A fine-grained token _appears_ to work — login succeeds — and then the push fails with
@@ -105,41 +100,27 @@ package write permission only at push time and a first push is a _create_ that r
 not cover. If a previous login stored another token, `docker logout ghcr.io` first. The server
 needs no token at all: both packages are public and pull anonymously.
 
-**Local superseded `sha-` tags are pruned automatically** after every successful push — the
-registry is the rollback mechanism, so a local sha tag is only a build byproduct. **Registry
-pruning stays manual and optional** (public packages are free); when pruning, keep roughly the last
-five `sha-` tags per package and never delete what is live (`./scripts/deploy.sh --status`), what
-`latest` shares a digest with, or an **untagged version created alongside a tag still in use** —
-those are BuildKit provenance attestations the tagged image references by digest, and deleting one
-corrupts the tag it belongs to.
+**Registry pruning stays manual and optional** (public packages are free). When pruning, keep
+roughly the last five `sha-` tags per package and never delete what is live
+(`./scripts/deploy.sh --status`), what `latest` shares a digest with, or an **untagged version
+created alongside a tag still in use** — those are BuildKit provenance attestations the tagged
+image references by digest, and deleting one corrupts the tag it belongs to.
 
 ## `deploy.sh` — go live
 
-Never builds. Checks the files nginx mounts, pulls, records the currently-live commit from the OCI
-label, recreates the containers **in place** — seconds of interruption instead of the full outage
-`down`/`up` would cause — waits for health, then confirms the live security headers. An unhealthy
-deploy is never served: nginx waits on `service_healthy`, and the script prints the rollback
-command and exits non-zero. With no argument it deploys what `publish.sh` last pushed; with a
-`sha-<commit>` tag it deploys, or rolls back to, exactly that build.
+Never builds — pulls, recreates the containers in place, waits for health, and prints the rollback
+command on failure; the steps and their reasoning are in the script's own header. With a
+`sha-<commit>` argument it deploys, or rolls back to, exactly that build: rollback works by pulling
+the pinned tag, so **the registry is the rollback mechanism**, and an unhealthy deploy is never
+served because nginx waits on `service_healthy`.
 
 ## `selfcheck.sh` — test the scripts
 
 `verify.sh` runs this first; reach for it directly after editing anything in `scripts/`. `bash -n`
-validates syntax only — these nine checks cover what it misses, and checks 2 and 3 exist because
-Windows hides both problems (it tolerates CRLF, and `chmod +x` in Git Bash never reaches git), so a
-script can work locally and fail on the server.
-
-| #   | Check                                                      |
-| --- | ---------------------------------------------------------- |
-| 1   | every script parses                                        |
-| 2   | line endings are LF                                        |
-| 3   | the executable bit is set in git                           |
-| 4   | every helper a script calls is defined in `_lib.sh`        |
-| 5   | `--help` works from any directory                          |
-| 6   | unknown options are rejected                               |
-| 7   | machine-specific scripts declare a platform                |
-| 8   | `--help` matches the flags the code accepts                |
-| 9   | shellcheck — local binary if present, otherwise via Docker |
+validates syntax only — the nine checks, listed in the script's own header, cover what it misses:
+undefined helpers, drifted `--help` text, and the two defects Windows hides (CRLF endings, and an
+executable bit that `chmod +x` in Git Bash never reaches), either of which works locally and fails
+on the server.
 
 ## Conventions
 
@@ -153,23 +134,10 @@ before any environmental check, so a typo fails instantly.
 ### The output standard
 
 Every line a script prints goes through the helpers in `scripts/_lib.sh` — no script writes its own
-formatting. One vocabulary, one verb per meaning:
-
-| Line        | Helper | Means                                                                  |
-| ----------- | ------ | ---------------------------------------------------------------------- |
-| `==> Title` | `step` | One phase of work begins; starts that step's timer                     |
-| ` ok  …`    | `ok`   | A phase or check passed; a step of 3s or longer shows its elapsed time |
-| `  ·  …`    | `info` | Neutral progress detail                                                |
-| ` --  …`    | `skip` | Deliberately not run, and why — dim, so it cannot read as a pass       |
-| ` !!  …`    | `warn` | Wrong but not fatal; stderr                                            |
-| `  ✗  …`    | `die`  | Fatal; stderr, non-zero exit                                           |
-
-Three rules complete it. **Multi-line messages are written naturally** — the helpers indent
-continuation lines to the message column themselves. **Supporting output goes through `detail`**,
-which indents its arguments or stdin to the same column. **Colour is decided centrally**: on for a
-terminal and for GitHub Actions, off when redirected, `NO_COLOR`/`FORCE_COLOR` override. The
-precise behaviour is documented at the definitions in `scripts/_lib.sh`, which is the authority
-when this table and the code disagree; `scripts/check_docs.py` prints to the same columns.
+formatting. One vocabulary, one verb per meaning — `step`, `ok`, `info`, `skip`, `warn`, `die`,
+with `detail` for supporting output — one message column that the helpers align themselves, and
+colour decided centrally. **The standard is recorded at the definitions in `scripts/_lib.sh`**;
+`scripts/check_docs.py` prints to the same columns, so the whole gate reads as one voice.
 
 ## Troubleshooting
 
