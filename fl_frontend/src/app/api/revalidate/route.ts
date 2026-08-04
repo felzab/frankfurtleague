@@ -34,7 +34,8 @@ import { logger } from "@/core/logging";
 import type { NextRequest } from "next/server";
 
 // The caller names a resource, never a tag. Anything else is rejected before it reaches the cache.
-// The only caller is `scripts/revalidate_reference_data.sh`, from inside the compose network.
+// No code path calls this route: an operator invokes it by hand from inside the compose network
+// (the command is in `docs/workflows/README.md`), because nginx never routes to it.
 const RevalidatePayloadSchema = z.object({
   resource: z.enum(["saisons", "spieler", "spieltage"]),
 });

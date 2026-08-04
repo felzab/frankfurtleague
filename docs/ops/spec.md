@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -144,8 +144,8 @@ full form regardless of what it touched, unless it changed documentation only.
 | Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I3 — repeat every header in that block                                 |
 | Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                    |
 | Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                       |
-| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | `./scripts/revalidate_reference_data.sh <saisons\|spieler\|spieltage>` |
-| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | `./scripts/revalidate_reference_data.sh saisons` clears all four tags  |
+| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | `POST /api/revalidate` from inside the frontend container — command in [`docs/workflows/README.md`](../workflows/README.md) |
+| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | The same call with `saisons` clears all four tags                                                                           |
 
 ## 8. Known-open
 

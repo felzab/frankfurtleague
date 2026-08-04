@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog (added
 2026-08-02). The original entries migrated here from the documentation programme's ledger when that
@@ -402,9 +402,10 @@ naive process-lifetime cache serves the old answer until a restart. The candidat
 minutes, which bounds the staleness without needing an event; a hook on the ADR-0015 revalidation
 route, which already exists and already fans a `saisons` edit out to the frontend's `spiele`,
 `spieltage` and `teams` caches, so the backend cache is the one participant missing; or the write path,
-which BE-4 built. **Prefer the second if it can be made to work** — it is the only one where the existing
-operational step (`./scripts/revalidate_reference_data.sh saisons`) already fires at exactly the right
-moment, and it makes the frontend and backend caches invalidate from one action rather than two.
+which BE-4 built. **Prefer the second if it can be made to work** — it is the only one where an existing
+operational step (the hand-run `saisons` revalidation call in `docs/workflows/README.md`) already fires
+at exactly the right moment, and it makes the frontend and backend caches invalidate from one action
+rather than two.
 
 **A third hook now exists and is not yet wired.** `PATCH /saisons/{saison_id}` and
 `POST /saisons/{saison_id}/activate` are the two writes that can change either answer, and they are the

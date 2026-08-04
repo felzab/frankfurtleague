@@ -77,8 +77,9 @@ THE CHECKS, in priority order:
 
 CROSS-SURFACE QUESTIONS: which manual steps are accepted ritual, and which are traps that depend on
 the operator remembering something undocumented, is owner knowledge — collect and batch these per
-the shared protocol. `scripts/revalidate_reference_data.sh` is a known example of an accepted manual
-step; check `scripts/README.md` for the others before filing any of them as findings.
+the shared protocol. The reference-data revalidation call in `docs/workflows/README.md` is a known
+example of an accepted manual step; check `scripts/README.md` for the others before filing any of
+them as findings.
 
 BOUNDARIES — not this pass: nginx security posture, headers, TLS, rate limits, secret reachability
 → pass O2 · application-code findings discovered while probing images → file as questions/rows for

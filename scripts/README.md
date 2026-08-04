@@ -10,7 +10,6 @@ Operational scripts for building, testing, running and deploying Frankfurt-Leagu
 | `local.sh`                     | dev — Windows | Run the production image locally, behind nginx                   |
 | `publish.sh`                   | dev — Windows | Build, tag with the commit, push to ghcr.io                      |
 | `deploy.sh`                    | prod — Linux  | Pull and restart, verify health, roll back                       |
-| `revalidate_reference_data.sh` | prod — Linux  | Drop the frontend cache for one reference resource               |
 | `selfcheck.sh`                 | any           | Test the scripts themselves                                      |
 | `_lib.sh`                      | —             | Shared helpers; sourced, never run directly                      |
 
@@ -346,25 +345,6 @@ frontend:  healthy
 
 That `commit` line comes from the image's own label, not from the tag name: a tag can be moved, a label
 cannot.
-
----
-
-## `revalidate_reference_data.sh` — clear a stale cache
-
-```bash
-./scripts/revalidate_reference_data.sh saisons
-./scripts/revalidate_reference_data.sh spieler
-./scripts/revalidate_reference_data.sh spieltage
-```
-
-Run it after editing one of those three collections **directly in MongoDB**. They are cached for a day
-and have no admin write surface, so nothing invalidates them automatically. Everything else — matches,
-venues, referees — the admin UI already invalidates when you save.
-
-The request runs inside the frontend container, because `/api/revalidate` is not exposed through nginx
-and the API key is read from the container's own environment. The key never reaches your shell history.
-
-Forgetting to run it is not harmful; the cache expires within 24 hours regardless.
 
 ---
 

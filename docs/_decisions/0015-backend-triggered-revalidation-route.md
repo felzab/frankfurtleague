@@ -26,7 +26,8 @@ The owner confirmed such edits do happen, occasionally.
 - Authenticates with `Bearer` + `INTERNAL_API_KEY_SYSTEM`, compared with `timingSafeEqual` after a
   length check.
 - Calls `revalidateTag(resource, "max")` — the **coarse base tag only**.
-- Called by `scripts/revalidate_reference_data.sh`, which runs inside the frontend container.
+- Called by hand from inside the frontend container (the invocation is documented in
+  `docs/workflows/README.md`); no code path in the repository calls it.
 
 ## Consequences
 

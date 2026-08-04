@@ -6,7 +6,7 @@
  *   • Base tag only. `spieler` has no frontend write surface, so no action can invalidate a granular
  *     tag on it.
  *   • Squads are edited directly in the database, so a change is served stale for up to a day unless
- *     `POST /api/revalidate` is called — `scripts/revalidate_reference_data.sh spieler` does that.
+ *     `POST /api/revalidate` is called by hand — the invocation is in `docs/workflows/README.md`.
  *   • Only `vorname` is guaranteed present on a player; surname, number and position may all be null.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
