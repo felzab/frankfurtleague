@@ -1,6 +1,6 @@
 # `_standard` — how this repository is documented
 
-**Verified against:** `55966d7`, 2026-08-04
+**Verified against:** `738c2b3`, 2026-08-04
 
 Read [`1-principles.md`](1-principles.md) before writing anything. Everything else in this folder
 describes a particular shape; that chapter describes what all of them must be.
@@ -12,7 +12,7 @@ describes a particular shape; that chapter describes what all of them must be.
 | [`3-out-of-code.md`](3-out-of-code.md) | What goes in `/docs`, and where?                               |
 | [`4-adr-guide.md`](4-adr-guide.md)     | Is this a decision, and how do I record it?                    |
 | [`5-currency.md`](5-currency.md)       | How does any of this stay true as the code moves?              |
-| [`6-decisions.md`](6-decisions.md)     | Why is the standard itself shaped this way? (DS1–DS19)         |
+| [`6-decisions.md`](6-decisions.md)     | Why is the standard itself shaped this way? (the DS log)       |
 | [`templates/`](templates/)             | Copy-paste starting points                                     |
 
 Applies to `fl_frontend`, `fl_backend`, and the deployment and ops surface.

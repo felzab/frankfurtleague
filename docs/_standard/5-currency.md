@@ -1,6 +1,6 @@
 # Currency — how documentation stays true
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `738c2b3`, 2026-08-04
 
 A documentation standard that only says how to write is a standard that produces accurate documents
 once. This chapter is about the other problem: keeping them accurate while the code moves.
@@ -166,6 +166,13 @@ Fix it in place and move on. Three specifics:
 **No scheduled review.** A quarterly documentation review is realistic only if it actually runs, and
 with a single maintainer it does not. Every mechanism above is attached to work that was going to
 happen anyway.
+
+**A sweep of the whole corpus exists and nothing here depends on it.** `/docs:audit` reads every
+document and every comment against this standard and reports what the four defences structurally
+cannot see — a page no change has touched, a sentence a stranger could not act on, a fact stated in
+two places. It is invoked, never scheduled, so it is a way of catching up rather than a defence:
+treating it as one would weaken the four that hold without anyone remembering. It is described with
+the rest of the auditing machinery in [`../_auditing/README.md`](../_auditing/README.md).
 
 **No coverage target.** A percentage would manufacture filler on the symbols whose names already say
 everything, which is the outcome DS3 and DS4 exist to prevent.
