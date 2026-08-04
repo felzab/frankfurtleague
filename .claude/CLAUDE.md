@@ -51,6 +51,9 @@ git checkout main && git pull --ff-only origin main && git checkout -b short-keb
 - **Already on `main` with uncommitted edits?** `git checkout -b <name>` carries them across intact.
   Say plainly that it happened.
 - **Never** commit to `main`, push to `main`, merge locally, force-push, or open the PR yourself.
+  **`gh` is installed and authenticated, which makes the last one reachable** — read with it freely
+  (`gh pr view`, `gh pr checks`, `gh run view`), but `gh pr create` and `gh pr merge` are the owner's
+  and no instruction in a session makes them yours.
 
 **The full cycle is [`docs/workflows/README.md`](../docs/workflows/README.md)** — commit subject and
 body shape, when the gate needs its full form, merge by merge commit. Read it rather than recalling

@@ -63,10 +63,23 @@ git commit          # opens the editor; a one-line -m loses the part that matter
 git push -u origin short-kebab-name
 ```
 
-`gh` is deliberately not installed, so the pull request is created in the browser — the push prints
-a `pull/new/…` link straight to the form. Title and body follow
-[`message-templates.md`](message-templates.md). Merge it there with the **merge commit** button, and
-delete the remote branch when GitHub offers.
+**The owner creates the pull request and merges it, and nobody else does** — not an assistant, not a
+script, whatever tooling is to hand. The push prints a `pull/new/…` link straight to the form; title
+and body follow [`message-templates.md`](message-templates.md). Merge it there with the **merge
+commit** button, and delete the remote branch when GitHub offers.
+
+`gh` is installed and authenticated, and the boundary it sits on is worth stating precisely because
+the tool no longer draws it:
+
+| Use `gh` for                                                          | Never use `gh` for          |
+| --------------------------------------------------------------------- | --------------------------- |
+| Reading a pull request and its body — `gh pr view <n>`                | `gh pr create`              |
+| Checking what CI did — `gh pr checks`, `gh run view`, `gh run watch`  | `gh pr merge`               |
+| Reading review comments, labels and the diff GitHub actually resolved | Anything that writes `main` |
+
+Creating and merging are the owner's, by the same rule that makes `main` protected in the first
+place. Reading is what `gh` is for here, and it is what makes claims about GitHub state checkable
+rather than derived — the Titles-and-bodies section below is the first thing that changed for it.
 
 ```bash
 # 5 — bring the merge back down and clean up
@@ -197,10 +210,11 @@ merge point that groups them.
 
 ### Titles and bodies
 
-> **Confirmed by reading, not by the gate.** Bodies live on GitHub and `gh` is deliberately not
-> installed, so this section was checked in the browser on 2026-08-05 across the forty-five merged
-> pull requests. Every human-authored body follows the template. Dependabot's do not, and are
-> outside it — the bot writes its own.
+> **Confirmed by reading, not by the gate.** Bodies live on GitHub, so this section was checked
+> against the forty-five merged pull requests on 2026-08-05. Every human-authored body follows the
+> template. Dependabot's do not, and are outside it — the bot writes its own. Re-check with
+> `gh pr list --state merged --json number,title` and `gh pr view <n> --json body` rather than
+> reasoning from the commit convention.
 
 **Title:** the same shape as a commit subject — `Scope: what changed`. For a single-commit PR, use the
 commit subject verbatim.
