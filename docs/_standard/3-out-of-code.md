@@ -1,6 +1,6 @@
 # Out-of-code documentation
 
-**Verified against:** `e954e51`, 2026-08-04
+**Verified against:** `55966d7`, 2026-08-04
 
 Governs everything under `/docs`. The principles in [`1-principles.md`](1-principles.md) apply here
 too; this chapter adds the shapes.
@@ -9,6 +9,17 @@ too; this chapter adds the shapes.
 says nothing about what the system currently is — which is what spec sheets and overviews are for.
 
 Every example is the `spiele` slice, the same subject as [`2-in-code.md`](2-in-code.md).
+
+| Section                                                    | Covers                                |
+| ---------------------------------------------------------- | ------------------------------------- |
+| [The three layers](#the-three-layers)                      | Which shape answers which question    |
+| [Folder layout](#folder-layout)                            | Where a new document goes             |
+| [Layer 1 — ADRs](#layer-1--adrs)                           | Pointer to the ADR chapter            |
+| [Layer 2 — spec sheets](#layer-2--spec-sheets)             | Anatomy, and the tables that carry it |
+| [Layer 3 — surface overviews](#layer-3--surface-overviews) | Scope and the length ceiling          |
+| [Diagrams](#diagrams)                                      | Mermaid, C4 levels 1–3                |
+| [The glossary](#the-glossary)                              | One entry per domain term             |
+| [Keeping pages current](#keeping-pages-current)            | Pointer to the currency chapter       |
 
 ---
 
@@ -104,7 +115,7 @@ Four reasons, in order of how much they bite:
    | Cache tags (ADR-0001)            |      tags declared and invalidated      | `patch_spiel_data` rewrites team stats per season |                                               |
    | Season default (ADR-0002)        | removed a serialised lookup on 8 routes |                 the router change                 |                                               |
    | Revalidation route (ADR-0015)    |           Next route handler            |                    the caller                     |           nginx routing, `scripts/`           |
-   | `connection()` guards (ADR-0009) |                13 pages                 |                                                   | Docker builder stage has no reachable backend |
+   | `connection()` guards (ADR-0009) |            every page fetch             |                                                   | Docker builder stage has no reachable backend |
 
 2. **The number is a permanent identity cited from code.** A flat folder means the path never changes.
    Scope does move here — the Spiel write path migrated from `admin` to `spiele` in Wave 8 — and a
@@ -154,11 +165,11 @@ The layer that makes a claim checkable. Two things distinguish a spec sheet from
 
 Real rows from the `spiele` cache design:
 
-| #   | Invariant                                                                       | Enforced by                              | Breaks how                                                                                               |
-| --- | ------------------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| I1  | Every granular cache tag has a matching `updateTag` in a server action          | review (CLAUDE.md §6)                    | Tag never invalidates; looks like coverage, is decoration                                                |
-| I2  | Base tags `spiele`/`teams` are invalidated unconditionally on every Spiel write | `actions.ts › updateTag("spiele")`       | The default read path sends no `saison_id`, so its entries carry only base tags and go permanently stale |
-| I3  | `saison_id` reaches the action as an argument, never on the patch body          | `actions.ts › patchAdminSpielDataAction` | Pydantic drops undeclared fields silently — a dead field that looks load-bearing                         |
+| #   | Invariant                                                                       | Enforced by                                                               | Breaks how                                                                                               |
+| --- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| I1  | Every granular cache tag has a matching `updateTag` in a server action          | review (CLAUDE.md §6)                                                     | Tag never invalidates; looks like coverage, is decoration                                                |
+| I2  | Base tags `spiele`/`teams` are invalidated unconditionally on every Spiel write | `fl_frontend/src/features/spiele/actions.ts :: updateTag("spiele")`       | The default read path sends no `saison_id`, so its entries carry only base tags and go permanently stale |
+| I3  | `saison_id` reaches the action as an argument, never on the patch body          | `fl_frontend/src/features/spiele/actions.ts :: patchAdminSpielDataAction` | Pydantic drops undeclared fields silently — a dead field that looks load-bearing                         |
 
 Note the third column. An invariant without a stated failure mode is a preference; with one, it is a
 constraint someone can weigh.
@@ -183,7 +194,7 @@ Template: [`templates/spec-sheet.md`](templates/spec-sheet.md).
 
 ## Layer 3 — surface overviews
 
-**Around 120 lines, and treat that as a ceiling.** The three that exist land between 101 and 125.
+**Around 120 lines, treated as a ceiling.**
 
 The number matters less than what it forces: an overview that is growing is one that has started
 explaining mechanisms, and mechanisms belong in the spec sheet. If a section is describing _how_
@@ -254,7 +265,7 @@ Example entry:
 >
 > **Means:** which stage of the season a match belongs to.
 > **In code:** `FLSaisonPhase` — `gruppenphase` · `viertelfinale` · `halbfinale` · `finale`
-> (`fl_backend/app/api/spiele/schemas.py:8`).
+> (`fl_backend/app/api/spiele/schemas.py :: FLSaisonPhase`).
 > **Pitfalls:** `"playoffs"` is _not_ one of the four values. It is a query-only alias, compiled by
 > `build_spiele_filter` to `saison_phase != "gruppenphase"`. It never appears on a stored document.
 
