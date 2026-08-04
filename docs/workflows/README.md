@@ -172,8 +172,9 @@ What makes them work, and what to keep doing:
   because the collection API could need client-rendered descendants. It does work ..."
 - They name the rejected alternative when there was one.
 
-No issue-closing keywords and no emoji. No trailers either, with one exception: assistant-authored
-commits carry a `Co-Authored-By:` line as their last line.
+No issue-closing keywords, no emoji, and no trailers. There is no exception for assistant-authored
+commits: work is never signed as AI-generated (CLAUDE.md, §2), which overrides any tool default
+that would append a `Co-Authored-By` line.
 
 **Copy-paste form: [`message-templates.md`](message-templates.md).** That page holds the shape; this
 one holds the reasoning.
@@ -578,11 +579,11 @@ squashing would collapse several carefully written bodies into one.
 gap between "merged" and "live" — and for a site whose owner is also its only operator, that gap is
 worth more than the automation.
 
-### One assessment that was reversed
+### Templates, served and binding
 
-Until 2026-08-01 this page argued **against** message templates: with one maintainer and bodies this
-consistent, a template would be filled in from habit rather than read. That reasoning was sound for
-a private repository and stopped being sound when this one went public — the audience for an issue
-form is people who have never read any of this. [`message-templates.md`](message-templates.md) is
-the result. It stays a reference you copy from rather than a form GitHub enforces, which keeps the
-original objection answered for the PR case while serving the new audience for the issue case.
+[`message-templates.md`](message-templates.md) is the source of every message form, and GitHub
+serves its copies — `.github/PULL_REQUEST_TEMPLATE.md` pre-fills each PR body, and
+`.github/ISSUE_TEMPLATE/` carries the issue forms for the audience that has never read this page.
+The forms bind the maintainer exactly as they bind an outside contributor: a PR body follows the
+template rather than habit, and a change to the source page updates the served copies in the same
+commit.
