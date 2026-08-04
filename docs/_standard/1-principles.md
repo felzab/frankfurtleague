@@ -1,6 +1,6 @@
 # Principles — the rules every document obeys
 
-**Verified against:** `55966d7`, 2026-08-04
+**Verified against:** `af67d7d`, 2026-08-04
 
 These apply to **everything written down in this repository**: module headers, symbol docs, inline
 comments, `/docs` pages, ADRs, prompts, command files, commit bodies and pull request descriptions.
@@ -122,8 +122,9 @@ reason a constraint exists.
 
 ## P6 — Anchor a citation to something that survives an edit
 
-**Never cite a line number.** `actions.ts:42-43` is wrong the moment anything is inserted above line
-42, and nothing anywhere detects it.
+**Never cite a line number.** A citation of the form `<file>:<line>` is wrong the moment anything is
+inserted above that line, and only the documentation gate detects it — by rejecting the form
+outright, because there is no way to tell a correct line number from a stale one.
 
 Cite in this order of preference:
 

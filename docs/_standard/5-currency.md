@@ -1,6 +1,6 @@
 # Currency — how documentation stays true
 
-**Verified against:** `55966d7`, 2026-08-04
+**Verified against:** `af67d7d`, 2026-08-04
 
 A documentation standard that only says how to write is a standard that produces accurate documents
 once. This chapter is about the other problem: keeping them accurate while the code moves.
@@ -76,17 +76,20 @@ The mechanical layer, and the reason the other three are more than good intentio
 
 **Implemented in `scripts/check_docs.py`, run by `scripts/verify.sh`.** What it checks:
 
-| Check                                                                                                   | Failure means                                                | Verdict  |
-| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------- |
-| Every `ADR-NNNN` cited anywhere resolves to a file in `docs/_decisions/`                                | A citation points at nothing — the reader finds no reasoning | **Fail** |
-| Every relative markdown link resolves to an existing file                                               | A moved or renamed file left a dead link                     | **Fail** |
-| Every in-page `#anchor` link matches a heading in that file                                             | A renamed heading left a link that silently goes nowhere     | **Fail** |
-| Every `<file> :: <anchor>` citation: the file resolves unambiguously and the anchor still appears in it | The claim's evidence is gone; the claim may be too           | **Fail** |
-| Every backticked repo path exists, unless git ignores it                                                | The page names something that is not there (P3)              | **Fail** |
-| Every `Verified against` SHA is an ancestor of `HEAD`                                                   | The stamp is fabricated, or history was rewritten under it   | **Fail** |
-| A stamped SHA that this clone does not contain                                                          | Usually a shallow clone rather than a defect                 | Report   |
-| Files a page **cites** changed since that page's stamp                                                  | The page **may** be stale — a human decides                  | Report   |
-| DS14's history phrases in the branch diff                                                               | Possibly a P3 violation — the hits must be read              | Report   |
+| Check                                                                                                   | Failure means                                                                               | Verdict  |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------- |
+| Every `ADR-NNNN` cited anywhere resolves to a file in `docs/_decisions/`                                | A citation points at nothing — the reader finds no reasoning                                | **Fail** |
+| Every relative markdown link resolves to an existing file                                               | A moved or renamed file left a dead link                                                    | **Fail** |
+| Every in-page `#anchor` link matches a heading in that file                                             | A renamed heading left a link that silently goes nowhere                                    | **Fail** |
+| Every `<file> :: <anchor>` citation: the file resolves unambiguously and the anchor still appears in it | The claim's evidence is gone; the claim may be too                                          | **Fail** |
+| Every backticked repo path exists, unless git ignores it                                                | The page names something that is not there (P3)                                             | **Fail** |
+| Every `Verified against` SHA is an ancestor of `HEAD`                                                   | The stamp is fabricated, or history was rewritten under it                                  | **Fail** |
+| A stamped page changed on this branch moved its stamp too                                               | The page was edited without being re-checked, so its stamp vouches for work nobody verified | **Fail** |
+| No citation anywhere uses a line number                                                                 | The form P6 bans, and the only one nothing else can detect                                  | **Fail** |
+| Drift past the limit the script sets                                                                    | Nobody has looked at this page while its code moved a long way                              | **Fail** |
+| A stamped SHA that this clone does not contain                                                          | Usually a shallow clone rather than a defect                                                | Report   |
+| Files a page **cites** changed since that page's stamp                                                  | The page **may** be stale — a human decides                                                 | Report   |
+| DS14's history phrases in the branch diff                                                               | Possibly a P3 violation — the hits must be read                                             | Report   |
 
 Four properties of the implementation worth knowing, because each is a deliberate choice rather than
 an omission:
@@ -102,6 +105,11 @@ an omission:
 - **Drift is measured against the files a page cites, never against the page itself.** Editing a page
   is not evidence its claims went stale, and counting it as such would make every documentation commit
   report drift on the file it had just corrected.
+
+**The stamp is only as good as what forces it to move.** Two of those rows are what make it mean
+anything: a page edited without its stamp moving is caught at the moment of the edit, and a page
+nobody has touched while its cited code moved a long way is caught by the drift limit. Without them a
+genuine-but-ancient SHA passes forever and the line degrades into decoration (DS22).
 
 **Enforcement is scoped, and widens deliberately.** A failing check fails the run only for paths
 listed in the script's `ENFORCED_PATHS`; everywhere else it is counted and reported. The repository

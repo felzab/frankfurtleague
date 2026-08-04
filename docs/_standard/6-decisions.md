@@ -1,6 +1,6 @@
 # Decisions about the documentation standard
 
-**Verified against:** `55966d7`, 2026-08-04
+**Verified against:** `af67d7d`, 2026-08-04
 
 `DS` decisions are about **how this repository is documented**, which is why they live here rather
 than in `docs/_decisions/` alongside ADRs about the software itself. The same discipline applies:
@@ -642,3 +642,42 @@ compliant document trains its reader to ignore it.
 
 **Rejected.** _Let any document narrate history where it seems useful._ That is the rule P3 replaced,
 and the reason it exists.
+
+## DS22 — A claimed mechanism is demonstrated failing on what it claims to prevent
+
+**Decided:** 2026-08-04
+
+**Decision.** When this standard says something is enforced, the enforcement is demonstrated failing
+**on the defect the claim names** — not merely on the defect the implementation happens to check.
+The demonstration is part of the change that makes the claim, and it is recorded with it.
+
+**Context.** Two claims in this standard were hollow at the moment they were written, and both
+survived a review that was looking for exactly that.
+
+The currency claim said the gate enforces that pages stay current. What was built checks that a
+`Verified against` SHA is a real ancestor of `HEAD` — which detects a **forged** stamp and says
+nothing about a **stale** one. An old but genuine SHA passes forever. The check was tested against a
+fabricated SHA, it failed as designed, and the gap stayed invisible because the test was written from
+the implementation rather than from the claim.
+
+The citation claim said line numbers are banned. Nothing detected one. Six had already been found by
+hand, every one of them pointing at the wrong line, and the gate that shipped afterwards would have
+found none of them.
+
+The common cause is not carelessness. **An author testing their own mechanism writes the test from
+what they built**, because that is what is in mind; the claim is a sentence written earlier, and the
+distance between the two is invisible from the inside. A rule is needed precisely because attention
+does not cover it.
+
+**Consequences.**
+
+- The demonstration is a specific artefact: a fixture exhibiting the named defect, and evidence the
+  check fails on it. "The check passes on the current tree" is not evidence of anything.
+- It applies to every enforcement claim, including one whose mechanism is a human step. Where a claim
+  cannot be demonstrated, it is downgraded to a convention **in the text**, so nobody relies on it.
+- This is the same rule an audit wave applies to a guardrail, for the same reason: a control never
+  shown to fail on its target is an untested assertion.
+
+**Rejected.** _Rely on review to notice the gap._ Both hollow claims were reviewed, by an author
+looking for design flaws, and both survived. Review is what produced the gap, so review cannot be the
+control for it.

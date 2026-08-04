@@ -82,6 +82,21 @@ LINK_RE: Final = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+?)(?:#[^)]*)?\)")
 CITATION_RE: Final = re.compile(r"`([^`\n]+? :: [^`\n]+?)`")
 BACKTICK_RE: Final = re.compile(r"`([^`\n]+?)`")
 STAMP_RE: Final = re.compile(r"\*\*Verified against:\*\*\s*`?([0-9a-f]{7,40})`?")
+STAMP_LINE_RE: Final = re.compile(r"(?m)^.*\*\*Verified against:\*\*.*$")
+
+# A line-number citation is wrong after any edit above it and nothing else detects that, which is why
+# P6 bans it outright. Matches a backticked path with a trailing :N or :N-M.
+#
+# The extension must be 2 to 5 LETTERS, which is what separates a path from the other things that
+# carry a dot and a colon: a contrast ratio (4.5:1) and a version (22.1.0) both have a digit where a
+# file has an extension, and flagging either would be the false positive that gets the check
+# switched off.
+LINE_CITATION_RE: Final = re.compile(r"`([^`\n]*\.[A-Za-z]{2,5}:\d+(?:-\d+)?)`")
+
+# Drift past this many commits stops being "possibly stale" and becomes "nobody has looked". Most
+# changes to a cited file leave the claim true, so the number is deliberately large: below it the
+# check would fire constantly and be turned off, which is the failure mode it exists to avoid.
+DRIFT_FAIL_AFTER: Final = 25
 
 Severity = Literal["fail", "report"]
 
@@ -118,10 +133,21 @@ def strip_fences(text: str) -> str:
 
 
 def git(*args: str) -> str | None:
-    """Run git and return stdout, or None if the command failed. Never raises."""
+    """Run git and return stdout, or None if the command failed. Never raises.
+
+    UTF-8 is forced rather than left to the platform default: `git show` returns file CONTENT, and
+    on a Windows codepage that decode raises on the first em dash. Reading a document through git is
+    the only way to compare it against its state on another ref, so this has to be safe for prose.
+    """
     try:
         done = subprocess.run(
-            ("git", *args), cwd=REPO_ROOT, capture_output=True, text=True, check=False
+            ("git", *args),
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
     except OSError:
         return None
@@ -297,6 +323,15 @@ def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
         if not is_placeholder(citation):
             found.extend(_check_citation(citation, rel, sev))
 
+    # P6 bans line-number citations outright. Nothing else can detect one: it stays syntactically
+    # valid and merely stops pointing at what it names, so it has to be caught at the form.
+    for citation in sorted(set(LINE_CITATION_RE.findall(body))):
+        if is_placeholder(citation):
+            continue
+        found.append(
+            Finding(sev, "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (P6)")
+        )
+
     # Links, anchors and bare backticked paths are markdown conventions; a comment does not use them.
     if not is_markdown:
         return found
@@ -313,7 +348,11 @@ def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
             found.append(Finding(sev, "link", rel, f"link target does not exist: {raw_target}"))
 
     for token in sorted(set(BACKTICK_RE.findall(body))):
+        # A line-number citation is already reported above; it can never exist as a path, so letting
+        # the path check fire too would give one defect two findings.
         if " :: " in token or is_placeholder(token) or not token.startswith(REPO_PREFIXES):
+            continue
+        if LINE_CITATION_RE.fullmatch(f"`{token}`"):
             continue
         if not (REPO_ROOT / token).exists() and not is_gitignored(token):
             found.append(Finding(sev, "path", rel, f"path named but not present: {token}"))
@@ -378,10 +417,66 @@ def check_stamps(paths: Iterable[Path]) -> list[Finding]:
         moved = git("log", "--oneline", f"{sha}..HEAD", "--", *cited)
         if moved:
             count = len(moved.split("\n"))
+            if count > DRIFT_FAIL_AFTER:
+                found.append(
+                    Finding(
+                        sev, "drift", rel,
+                        f"{count} commits have touched files this page cites since its stamp "
+                        f"(limit {DRIFT_FAIL_AFTER}) -- re-verify the page against the code, then restamp",
+                    )
+                )
+            else:
+                found.append(
+                    Finding(
+                        "report", "drift", rel,
+                        f"{count} commit(s) touched files this page cites since its stamp -- re-verify",
+                    )
+                )
+    return found
+
+
+def check_stamp_freshness(base: str) -> list[Finding]:
+    """A stamped page changed on this branch must also change its stamp.
+
+    The stamp claims someone checked the page against a commit. Editing the page without moving it
+    leaves that claim attached to work the author did not verify, and no other check can tell the
+    difference -- an old SHA is a valid ancestor forever. If the page was genuinely still correct,
+    restamping says so; that is the whole point of the line.
+    """
+    # Against the merge base and the WORKING TREE, not HEAD. The gate runs before a commit exists, so
+    # comparing committed state would let the edit through on the run that could still have caught it.
+    fork = git("merge-base", base, "HEAD")
+    if fork is None:
+        return []
+    changed = git("diff", "--name-only", fork, "--", "*.md")
+    if not changed:
+        return []
+
+    found: list[Finding] = []
+    for rel in changed.split("\n"):
+        if not rel:
+            continue
+        path = REPO_ROOT / rel
+        if not path.is_file() or _skipped(path):
+            continue
+        try:
+            current = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if STAMP_RE.search(strip_fences(current)) is None:
+            continue
+
+        before = git("show", f"{fork}:{rel}")
+        if before is None:  # added on this branch, so there is no earlier stamp to compare
+            continue
+        old_line = STAMP_LINE_RE.search(before)
+        new_line = STAMP_LINE_RE.search(current)
+        if old_line and new_line and old_line.group(0) == new_line.group(0):
             found.append(
                 Finding(
-                    "report", "drift", rel,
-                    f"{count} commit(s) touched files this page cites since its stamp -- re-verify",
+                    severity_for(path), "stamp", rel,
+                    "changed on this branch without its `Verified against` line moving -- "
+                    "restamp it, or say why the page still holds",
                 )
             )
     return found
@@ -421,6 +516,7 @@ def main() -> int:
     for path in files:
         findings.extend(check_file(path, existing))
     findings.extend(check_stamps(files))
+    findings.extend(check_stamp_freshness(args.base))
     findings.extend(check_history_phrases(args.base))
 
     failures = [f for f in findings if f.severity == "fail"]
