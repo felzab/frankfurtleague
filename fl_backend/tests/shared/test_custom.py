@@ -53,9 +53,9 @@ def test_accepts_times_with_seconds(value):
     assert _Time.model_validate({"value": value}).value == value
 
 
-# The frontend used to accept both of these and the backend never has, so the admin form could
-# submit a time the API answered with a 422. The frontend was tightened to match; this pins the
-# backend side of that contract.
+# The backend accepts none of these, and the frontend schema must not accept them either: a form
+# that submits a time this rejects produces a 422 the user cannot act on. This pins the backend half
+# of that contract, so the mirror has something to be checked against.
 @pytest.mark.parametrize("value", ["14:30", "14:30:00.5", "24:00:00", "14:60:00", "2:30:00"])
 def test_rejects_times_without_seconds_or_out_of_range(value):
     """Missing seconds and fractional seconds — the two shapes the frontend used to send and the API answered with 422."""

@@ -107,7 +107,7 @@ ALREADY DECIDED — report against these, do not re-litigate them:
   settles with measurements. A default-tier test compares the two copies, so drift between them is a
   test failure, not an audit finding.
 - [ADR-0032](../../../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md) and
-  [ADR-0033](../../../_decisions/0033-one-write-path-for-saison-status.md) — creating never revives a
+  [ADR-0033](../../../_decisions/0033-one-active-season-and-one-path-to-it.md) — creating never revives a
   retired row, and a natural-key collision on create is a **409**, which is correct rather than a bug.
   `saison_teams` has no DELETE and `saisons` has no DELETE; neither is an incomplete CRUD surface to
   complete.

@@ -25,10 +25,11 @@ def test_rejects_an_empty_required_name(team, field):
         FLTeam.model_validate(team(**{field: ""}))
 
 
-# description is the counterpart: genuinely optional prose, so "" is legal. This pair is
-# audit row R3a-B1.3 -- the two fields used to disagree about emptiness.
+# `description` is the counterpart to the required fields above: genuinely optional prose, so "" is
+# legal. The pair is tested together because the two must not agree about emptiness -- one rejects it
+# and one accepts it, and a change that aligns them silently breaks whichever side it moves.
 def test_accepts_an_empty_description(team):
-    """The counterpart: `description` is genuinely optional prose, so "" is legal. The two used to disagree."""
+    """`description` is optional prose, so "" is legal -- unlike the required fields tested above."""
     assert FLTeam.model_validate(team(description="")).description == ""
 
 
@@ -133,11 +134,13 @@ class TestFLGruppen:
         assert [t.name for t in grouped.root["A"]] == ["Better", "Worse"]
 
     # Validation already rejects these, so reaching the guard requires model_construct, which skips
-    # validation. Owner decision: fail loudly. Previously such a team went into an "UNKNOWN" bucket
-    # that the frontend silently discarded, so it vanished from the league table with no error.
+    # validation. The guard must FAIL LOUDLY: never route an unrecognised group into a catch-all
+    # bucket, because the frontend discards one silently and the team vanishes from the league table
+    # with nothing reported anywhere.
     #
-    # "X" is the case that matters: the guard used to test `not team.gruppe`, which catches "" and
-    # None but let any other value through to a bare KeyError -- an unhandled 500 rather than the
+    # "X" is the case that matters, and it is why the guard must not test `not team.gruppe`: that
+    # catches "" and None but lets any other value through to a bare KeyError -- an unhandled 500
+    # rather than the
     # deliberate error. Parametrised so neither branch can regress unnoticed.
     @pytest.mark.parametrize("gruppe", ["", "X", "a", " ", "AB"])
     def test_refuses_a_team_it_cannot_place(self, team, gruppe):

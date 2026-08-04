@@ -10,7 +10,7 @@ this one does not.
   Failing, because each is objectively broken and cheap to fix:
     1. every ADR-NNNN citation resolves to a file in docs/_decisions/
     2. every relative markdown link resolves to an existing file
-    3. every `path :: anchor` citation resolves - the file exists AND the anchor appears in it
+    3. every citation of the form <path> :: <anchor> resolves - the file exists AND the anchor
     4. every backticked repo path exists
 
   Reporting, because a hit is evidence rather than proof and a check that cries wolf gets ignored:
@@ -19,10 +19,9 @@ this one does not.
 
  ENFORCEMENT SCOPE ---------------------------------------------------------------------------------
 
- A failing check FAILS the run only for files under ENFORCED_PATHS; everywhere else it is counted and
- reported. The repository adopts the standard folder by folder, so a repo-wide hard failure would
- have to be suppressed until every folder conformed, and a suppressed check is worse than no check.
- Widening enforcement is one edit to that tuple.
+ The whole repository is enforced: every failing check fails the run, wherever the file lives.
+ ENFORCED_PATHS narrows that when a folder is mid-adoption, because a hard failure a folder cannot yet
+ satisfy has to be suppressed, and a suppressed check is worse than no check.
 
  SCANNING RULES ------------------------------------------------------------------------------------
 
@@ -46,13 +45,22 @@ from typing import Final, Iterable, Literal
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent
 
 # Failures here fail the run. Everything else is reported only -- see ENFORCEMENT SCOPE above.
-ENFORCED_PATHS: Final[tuple[str, ...]] = ("docs/_standard",)
+ENFORCED_PATHS: Final[tuple[str, ...]] = ("",)  # "" matches every path: the whole repository
 
-# Every tracked markdown file is scanned; these subtrees are not.
-#   _standard/templates -- its relative links resolve from where a template is COPIED to, and each
-#                          template says so. Checking them here reports the design as a defect.
-#   docs/audit          -- gitignored working documents of a running audit programme.
-SKIP_DIRS: Final[tuple[str, ...]] = ("docs/_standard/templates", "docs/audit", "node_modules", ".venv")
+# Scanned subtrees exclude these:
+#   docs/audit   -- gitignored working documents of a running audit programme, absent from any clone.
+#   node_modules -- vendored, and not ours to hold to this standard.
+#   .venv        -- same.
+SKIP_DIRS: Final[tuple[str, ...]] = ("docs/audit", "node_modules", ".venv")
+
+# Templates are skipped entirely. Their links and placeholders resolve from wherever a template is
+# COPIED to, never from the template itself, so checking one in place reports the design as a defect.
+# A file is a template if it sits in a templates/ directory or its name ends -template.md.
+TEMPLATE_MARKERS: Final[tuple[str, ...]] = ("/templates/", "-template.md")
+
+# Source files carry the same citations as documentation and rot the same way, so their COMMENTS are
+# scanned too (DS20). Only comments: a path-shaped string in executable code is data, not a claim.
+SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".py")
 
 # Top-level directories a backticked path must start with to be treated as a repo path. Anything else
 # in backticks is prose -- a bare `queries.ts` names a KIND of file, not one file.
@@ -121,12 +129,14 @@ def git(*args: str) -> str | None:
 
 
 def _skipped(path: Path) -> bool:
-    """True for anything under a SKIP_DIRS entry, at any depth.
+    """True for a template, or anything under a SKIP_DIRS entry at any depth.
 
-    The entry may be a full prefix (`docs/audit`) or a single segment (`node_modules`), and the
-    latter has to match at any depth -- `fl_frontend/node_modules/...` is what actually occurs.
+    A SKIP_DIRS entry may be a full prefix (`docs/audit`) or a single segment (`node_modules`), and
+    the latter has to match at any depth -- `fl_frontend/node_modules/...` is what actually occurs.
     """
     rel = path.relative_to(REPO_ROOT).as_posix()
+    if any(marker in f"/{rel}" for marker in TEMPLATE_MARKERS):
+        return True
     segments = rel.split("/")
     return any(
         rel == d or rel.startswith(f"{d}/") or ("/" not in d and d in segments)
@@ -134,13 +144,57 @@ def _skipped(path: Path) -> bool:
     )
 
 
-def tracked_markdown() -> list[Path]:
-    """Every tracked .md file, minus SKIP_DIRS. Tracked-only, so gitignored trees never appear."""
-    listing = git("ls-files", "*.md")
+def comments_only(text: str, suffix: str) -> str:
+    """Everything outside a comment blanked out, with the line count preserved.
+
+    A path or an ADR number inside executable code is a string the program uses, not a claim made to
+    a reader, so only comments are scanned. Block comments and docstrings are tracked across lines.
+    A `//` inside a URL is harmless: link checking skips http and https regardless.
+    """
+    triple_double = '"""'
+    triple_single = "'''"
+    is_ts = suffix in (".ts", ".tsx")
+    keep: list[str] = []
+    in_block = False
+
+    for line in text.split("\n"):
+        if in_block:
+            keep.append(line)
+            if is_ts:
+                if "*/" in line:
+                    in_block = False
+            elif (line.count(triple_double) + line.count(triple_single)) % 2 == 1:
+                in_block = False
+            continue
+
+        if is_ts:
+            if "/*" in line and "*/" not in line:
+                in_block = True
+                keep.append(line)
+            else:
+                keep.append(line if ("/*" in line or "//" in line) else "")
+            continue
+
+        quotes = line.count(triple_double) + line.count(triple_single)
+        stripped = line.lstrip()
+        if stripped.startswith((triple_double, triple_single)) and quotes % 2 == 1:
+            in_block = True
+            keep.append(line)
+        else:
+            keep.append(line if ("#" in line or quotes) else "")
+
+    return "\n".join(keep)
+
+
+def tracked_files() -> list[Path]:
+    """Every tracked document and source file, minus skips. Gitignored trees never appear."""
+    patterns = ("*.md", *(f"*{suffix}" for suffix in SOURCE_SUFFIXES))
+    listing = git("ls-files", *patterns)
     if listing is None:
-        return sorted(p for p in REPO_ROOT.rglob("*.md") if not _skipped(p))
-    paths = [REPO_ROOT / line for line in listing.split("\n") if line]
-    return sorted(p for p in paths if p.is_file() and not _skipped(p))
+        candidates = [p for pat in patterns for p in REPO_ROOT.rglob(pat)]
+    else:
+        candidates = [REPO_ROOT / line for line in listing.split("\n") if line]
+    return sorted({p for p in candidates if p.is_file() and not _skipped(p)})
 
 
 def heading_anchors(body: str) -> set[str]:
@@ -197,7 +251,7 @@ def _resolve(file_part: str) -> list[Path]:
 
 
 def _check_citation(citation: str, rel: str, sev: Severity) -> list[Finding]:
-    """`some/file.ts :: anchor` -- the file must exist and the anchor must appear inside it."""
+    """A <file> :: <anchor> citation: the file must exist and the anchor must appear inside it."""
     file_part, _, anchor = citation.partition(" :: ")
     file_part, anchor = file_part.strip(), anchor.strip()
     if not file_part or not anchor:
@@ -226,16 +280,26 @@ def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
     """Every failing check, for one file."""
     rel = path.relative_to(REPO_ROOT).as_posix()
     sev = severity_for(path)
+    is_markdown = path.suffix == ".md"
     try:
-        body = strip_fences(path.read_text(encoding="utf-8"))
+        raw = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
         return [Finding("fail", "unreadable", rel, str(exc))]
+    body = strip_fences(raw) if is_markdown else comments_only(raw, path.suffix)
 
     found: list[Finding] = []
 
     for number in sorted(set(ADR_RE.findall(body))):
         if number not in existing_adrs:
             found.append(Finding(sev, "adr", rel, f"ADR-{number} resolves to no file in docs/_decisions/"))
+
+    for citation in sorted(set(CITATION_RE.findall(body))):
+        if not is_placeholder(citation):
+            found.extend(_check_citation(citation, rel, sev))
+
+    # Links, anchors and bare backticked paths are markdown conventions; a comment does not use them.
+    if not is_markdown:
+        return found
 
     anchors = heading_anchors(body)
     for raw_target in sorted(set(LINK_RE.findall(body))):
@@ -247,11 +311,6 @@ def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
             continue
         if not (path.parent / raw_target).resolve().exists():
             found.append(Finding(sev, "link", rel, f"link target does not exist: {raw_target}"))
-
-    for citation in sorted(set(CITATION_RE.findall(body))):
-        if is_placeholder(citation):
-            continue
-        found.extend(_check_citation(citation, rel, sev))
 
     for token in sorted(set(BACKTICK_RE.findall(body))):
         if " :: " in token or is_placeholder(token) or not token.startswith(REPO_PREFIXES):
@@ -352,9 +411,9 @@ def main() -> int:
     parser.add_argument("--base", default="main", help="base ref for the history-phrase diff (default: main)")
     args = parser.parse_args()
 
-    files = tracked_markdown()
+    files = tracked_files()
     if not files:
-        print("  no markdown files found -- nothing to check", file=sys.stderr)
+        print("  no files found -- nothing to check", file=sys.stderr)
         return 0
 
     existing = adr_numbers()
@@ -379,7 +438,8 @@ def main() -> int:
         if not args.all and len(reports) > 10:
             print(f"  ... and {len(reports) - 10} more -- run with --all to see them")
 
-    print(f"\n  scanned {len(files)} markdown files, {len(existing)} ADRs")
+    docs = sum(1 for f in files if f.suffix == ".md")
+    print(f"\n  scanned {docs} documents and {len(files) - docs} source files against {len(existing)} ADRs")
     return 1 if failures else 0
 
 

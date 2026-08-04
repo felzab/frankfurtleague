@@ -2,13 +2,12 @@
 
 ## What this suite is for
 
-Wave 4 of the [audit remediation](../../docs/audit/0-remediation-ledger.md) moved roughly forty
-validation rules out of the frontend and into the backend, on the principle that **the backend is the
-source of truth and the frontend mirrors it**. Each rule was verified once, by hand, in a throwaway
-script. This suite is that verification made permanent.
+**The backend is the source of truth and the frontend mirrors it**, so the validation rules live
+here. This suite pins them.
 
 Without it, any of those constraints could be relaxed — to make a stubborn 422 go away, say — and
-nothing would notice. That gap is ledger row **BE-5**.
+nothing would notice, because a loosened rule fails no test and breaks no build. Every rule a
+frontend schema mirrors is one this suite must keep honest.
 
 ## What it covers, and what it deliberately does not
 

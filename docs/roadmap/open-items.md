@@ -383,14 +383,14 @@ The backend defaults `saison_id` to the current season when none is passed
 `/spiele`, `/spieltage`, `/teams` and `/saisons/current` all route through it, so most public traffic
 pays a Mongo query for an answer that changes once a year.
 
-**Two things make this worse than it was when the item was written.**
+**Two things make this expensive.**
 
-- **The query is no longer only for the default.** Since
-  [ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md), `GET /teams` needs the
-  season's `rules.win_points` / `draw_points` to score the derived table, so it reads the season
-  document on **every** call — including calls that name a season explicitly, which previously touched
-  the `saisons` collection not at all. `pull_saison_id_and_rules` already folds both halves into one
-  query, which is the cheap part of the fix and is done; the round trip itself is what remains.
+- **The query is not only for the default season.**
+  [ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md) makes `GET /teams` score
+  the derived table from the season's `rules.win_points` / `draw_points`, so it reads the season
+  document on **every** call, including calls that name a season explicitly.
+  `pull_saison_id_and_rules` folds both halves into one query, which is the cheap part of the fix and
+  is in place; the round trip itself is what remains.
 - **`rules` is about as static as data gets.** It has never changed, and a season that changed its
   points scheme mid-season would be a different competition. The same is true of which season is
   active — twice a year at most, and by hand.
@@ -541,9 +541,9 @@ it is a property of the test suite, and `pytest -m db` selects those tests under
 
 ### 16 · F1 — Two definitions of `ausstehend`
 
-`build_spiele_filter` (`fl_backend/app/api/spiele/services.py:30-31`) filters
+`build_spiele_filter` (`fl_backend/app/api/spiele/services.py :: build_spiele_filter`) filters
 `spiel_status="ausstehend"` as `datum >= today`, **including today**. `computeSpielStatus`
-(`fl_frontend/src/features/spiele/utils.ts:16-17`) derives `ausstehend` as `datum > today`,
+(`fl_frontend/src/features/spiele/utils.ts :: ausstehend`) derives `ausstehend` as `datum > today`,
 **excluding today** — a match today is `heute`.
 
 Consequence: a match today is returned by the "upcoming" query and then labelled `heute` by its own
