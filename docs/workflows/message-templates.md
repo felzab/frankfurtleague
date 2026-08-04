@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `9ffbbfc`, 2026-08-05
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
@@ -119,6 +119,12 @@ Every change reaches `main` through a PR, merged with a merge commit.
 never point at anything under it from a PR body, and never assume the reader has the working
 documents. Open items live in [`../roadmap/open-items.md`](../roadmap/open-items.md).
 
+**A PR body summarises the branch; it never indexes the branch's commits**
+([ADR-0036](../_decisions/0036-a-pull-request-body-summarises-the-branch.md)). GitHub's Commits tab
+is already that index, with every commit body one click away and no hand-written copy to go stale.
+
+**Dependabot's pull requests are out of scope.** The bot writes its own bodies; leave them alone.
+
 ### Title
 
 The same shape as a commit subject: `Scope: what changed`. For a single-commit PR, use that
@@ -127,8 +133,13 @@ commit's subject verbatim.
 ### Template
 
 ```
+One orientation sentence, for a multi-commit PR only: how many commits there are and what they do,
+grouped by theme rather than listed one per line. Name a commit's SHA only where a reader has to
+find that specific commit.
+
 What the branch achieves as a whole, at a level the individual commits do not — one or two
-paragraphs. For a single-commit PR, the commit body already says it and a pointer is enough.
+paragraphs. For a single-commit PR, this is the whole body, and the commit's own body already
+says most of it.
 
 **Verified.** The `./scripts/verify.sh` invocation — its scopes and its exit code — and the parts
 worth naming, with numbers. Plus any manual check and its result. Say plainly what could not be
@@ -145,6 +156,27 @@ why.
 
 Drop a heading rather than padding it: a PR with nothing left undone should not carry an empty
 "Left undone".
+
+### The orientation sentence
+
+**A multi-commit PR opens with one sentence saying how many commits there are and what they do.**
+Group them by theme; a fifteen-commit branch gets four themes, not fifteen lines. It is the one
+sentence that tells a reviewer how big the thing in front of them is before they decide where to
+start.
+
+The standing case for naming SHAs is a **roadmap closure**, where which commit did what is the
+fact the record depends on — the closing commit is what `Closed in` points at in
+[`../roadmap/closed-items.md`](../roadmap/closed-items.md), and the removal commit is what shows
+the two-commit protocol was followed:
+
+```
+Two commits, one item. 1acfc49 closes DB-3 -- the live saison_teams documents no longer carry the
+statistik field that ADR-0026's derivation orphaned -- and 41b158e removes the entry, per the
+two-commit protocol in docs/roadmap/README.md.
+```
+
+Everywhere else, name a SHA only when a reader has to find that commit and the Commits tab would
+not lead them to it quickly.
 
 ### Reviewer's first look
 

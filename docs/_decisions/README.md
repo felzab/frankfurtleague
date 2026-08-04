@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Thirty-four decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Thirty-six decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -46,7 +46,7 @@ written.
 | [0012](0012-admin-is-an-aggregator-slice.md)                          | `admin` is an aggregator; cross-feature lints must be scoped       | frontend               | Accepted       | 2026-07-29 |
 | [0013](0013-admin-action-required-uncached.md)                        | `getAdminSpieleActionRequired` is deliberately uncached            | frontend               | Accepted       | 2026-07-29 |
 | [0014](0014-keep-the-system-endpoints.md)                             | Keep the unused system endpoints and their API key                 | frontend, backend, ops | Accepted       | 2026-07-29 |
-| [0015](0015-backend-triggered-revalidation-route.md)                  | Backend-triggered revalidation through an in-network route         | frontend, ops          | Accepted       | 2026-07-30 |
+| [0015](0015-backend-triggered-revalidation-route.md)                  | Backend-triggered revalidation through an in-network route         | frontend, ops          | **Superseded** | 2026-07-30 |
 | [0016](0016-single-enforced-csp.md)                                   | One enforced CSP, with `react/no-danger` as the control            | ops, frontend          | Accepted       | 2026-07-30 |
 | [0017](0017-ghcr-two-public-packages.md)                              | ghcr.io, two public packages, one per service                      | ops                    | Accepted       | 2026-08-01 |
 | [0018](0018-no-meta-keywords.md)                                      | Ship no `keywords` meta tag                                        | frontend               | Accepted       | 2026-08-01 |
@@ -66,12 +66,14 @@ written.
 | [0032](0032-soft-deletion-is-a-date-not-a-flag.md)                    | Soft deletion is a date, not a flag, and creating never revives    | backend, frontend      | Accepted       | 2026-08-02 |
 | [0033](0033-one-active-season-and-one-path-to-it.md)                  | One active season, one path to it; a team leaves only by DQ        | backend                | Accepted       | 2026-08-02 |
 | [0034](0034-the-write-path-is-resource-first-in-a-second-router.md)   | The write path is resource-first, in a second router per slice     | backend, frontend      | Accepted       | 2026-08-02 |
+| [0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md) | Reference-data staleness is bounded by cache lifetime              | frontend, ops          | Accepted       | 2026-08-04 |
+| [0036](0036-a-pull-request-body-summarises-the-branch.md)             | A pull request body summarises the branch, not its commits         | ops                    | Accepted       | 2026-08-05 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
 **By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · ops: 0009 · 0011 · 0014 ·
-0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · frontend: all except 0017, 0027, 0030, 0031 and 0033.
+0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · frontend: all except 0017, 0027, 0030, 0031, 0033 and 0036.
 
 ## Considered, and deliberately not made an ADR
 

@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `f2a8458`, 2026-08-05
+**Verified against:** `9ffbbfc`, 2026-08-05
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -197,25 +197,35 @@ merge point that groups them.
 
 ### Titles and bodies
 
-> **Not directly verifiable from the repository.** PR titles and bodies live on GitHub, and `gh` is not
-> installed on this machine. What follows is derived from the commit convention, which the PR should
-> match — treat it as the standard rather than as an observation.
+> **Confirmed by reading, not by the gate.** Bodies live on GitHub and `gh` is deliberately not
+> installed, so this section was checked in the browser on 2026-08-05 across the forty-five merged
+> pull requests. Every human-authored body follows the template. Dependabot's do not, and are
+> outside it — the bot writes its own.
 
 **Title:** the same shape as a commit subject — `Scope: what changed`. For a single-commit PR, use the
 commit subject verbatim.
 
-**Body:** for a single-commit PR, the commit body already says it; a short pointer is enough. For a
-multi-commit PR, summarise at the level the commits do not — what the branch achieves as a whole, and
-anything a reviewer should check first.
+**Body: a summary of the branch, never an index of its commits**
+([ADR-0036](../_decisions/0036-a-pull-request-body-summarises-the-branch.md)). GitHub renders every
+commit of a pull request in its own tab, each with its full body one click away, so a body listing
+one line per commit reproduces a view the reviewer already has — fifteen times over, on a branch the
+size of the one merged as `738c2b3`.
 
-Worth including, because this repo's history shows they matter:
+- **A single-commit PR** gets a pointer, because the commit body already says it.
+- **A multi-commit PR opens with one orientation sentence** — how many commits there are and what
+  they do, grouped by theme — and then summarises at the level no commit reaches: what the branch
+  achieves as a whole, and anything a reviewer should look at first.
 
-- **What was verified, and how.** Especially for anything the type checker cannot see: RSC boundaries,
-  cache invalidation, rendered output.
-- **Anything deliberately left undone**, and why.
+Three things only the body can carry, which is why the template's headings are what they are:
+
+- **What was verified, and how.** A gate invocation covers the branch; no single commit's body can
+  claim it. Especially for anything the type checker cannot see: RSC boundaries, cache invalidation,
+  rendered output.
+- **Anything deliberately left undone**, and why — including work proposed to the owner and awaiting
+  a decision, which is not a change any commit made.
 - **A link to the ADR** if the change touches a ratified decision.
 
-Do not restate the diff.
+Do not restate the diff, and do not restate the Commits tab.
 
 **A PR body must stand alone.** `docs/audit/` is gitignored, so a reviewer sees none of it — never
 point at anything under it from a body. Open items live in [`docs/roadmap/open-items.md`](../roadmap/open-items.md).

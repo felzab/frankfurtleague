@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `f2a8458`, 2026-08-04
+**Verified against:** `9ffbbfc`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -44,7 +44,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
 | 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
-| 3   | OPS-6 | What a pull request body is for                         | Ops         | S      | Open     | —                         |
+| 3   | OPS-6 | What a pull request body is for                         | Ops         | S      | Closed   | —                         |
 | 4   | OPS-7 | Nothing checks the gate scope against the diff          | Ops         | S      | Open     | —                         |
 | 5   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Open     | —                         |
 | 6   | LOG-1 | Logging and error handling, surveyed then standardised  | FE, BE, Ops | L      | Open     | — (parallel-safe)         |
@@ -160,6 +160,18 @@ What to weigh when it is worked:
   current bodies look like has to be checked in the browser.
 
 **Path:** independent, and every pull request after it is shorter or better for it.
+
+**Concluded 2026-08-05.**
+[ADR-0036](../_decisions/0036-a-pull-request-body-summarises-the-branch.md) settles it: the body
+summarises the branch and never indexes its commits, and a multi-commit pull request opens with one
+orientation sentence grouping the commits by theme. The proposal as put — one sentence per commit
+plus a link — is rejected on the evidence, and the ADR carries it. The rule is stated in
+[`../workflows/message-templates.md`](../workflows/message-templates.md), in
+[`../workflows/README.md`](../workflows/README.md) and in `.github/PULL_REQUEST_TEMPLATE.md`, which
+the same-commit rule requires to agree. Two findings that were not decisions were rehomed rather than
+recorded here: that the forty-five merged bodies do follow the template, which turns the
+Titles-and-bodies caveat from "not verifiable" into a dated reading, and that Dependabot's pull
+requests are outside the convention, which is now a scope line on both pages.
 
 ### 4 · OPS-7 — Nothing tells a comment-only change from a code change when the gate scope is picked
 
