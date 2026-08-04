@@ -30,9 +30,9 @@ What this surface exposes. Tables, not prose — parameters, endpoints, exports,
 Numbered. Each row needs all four columns — an invariant without a stated failure mode is a preference,
 not a constraint.
 
-| #   | Invariant | Enforced by                                       | Breaks how                  |
-| --- | --------- | ------------------------------------------------- | --------------------------- |
-| I1  |           | `file.ts › symbolName` or "review (CLAUDE.md §N)" | What goes wrong, concretely |
+| #   | Invariant | Enforced by                                        | Breaks how                  |
+| --- | --------- | -------------------------------------------------- | --------------------------- |
+| I1  |           | `file.ts :: symbolName` or "review (CLAUDE.md §N)" | What goes wrong, concretely |
 
 ## 3. Violation → remedy
 

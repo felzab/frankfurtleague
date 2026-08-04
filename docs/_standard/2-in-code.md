@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `e954e51`, 2026-08-04
+**Verified against:** `55966d7`, 2026-08-04
 
 Applies to `fl_frontend/src` and `fl_backend/app`. The principles in
 [`1-principles.md`](1-principles.md) apply here too; this chapter adds what is specific to source
@@ -8,6 +8,16 @@ files.
 
 Every example is real code from the `spiele` slice, so one subject runs through this chapter,
 [`3-out-of-code.md`](3-out-of-code.md) and the templates.
+
+| Section                                                             | Covers                                        |
+| ------------------------------------------------------------------- | --------------------------------------------- |
+| [The rule that outranks the rest](#the-rule-that-outranks-the-rest) | Never restate a type                          |
+| [Three altitudes](#three-altitudes)                                 | Which tier a given fact belongs to            |
+| [Tier 1 — the module header](#tier-1--the-module-header)            | Shape, placement, what goes in INVARIANTS     |
+| [Tier 2 — symbol documentation](#tier-2--symbol-documentation)      | Where a docstring is required, and tests      |
+| [Tier 3 — inline comments](#tier-3--inline-comments)                | The surprise, at the line                     |
+| [Citations](#citations)                                             | What a comment may cite                       |
+| [Enforcement](#enforcement)                                         | What is checked mechanically, and what is not |
 
 ---
 

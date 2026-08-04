@@ -1,6 +1,6 @@
 # Principles — the rules every document obeys
 
-**Verified against:** `e954e51`, 2026-08-04
+**Verified against:** `55966d7`, 2026-08-04
 
 These apply to **everything written down in this repository**: module headers, symbol docs, inline
 comments, `/docs` pages, ADRs, prompts, command files, commit bodies and pull request descriptions.
@@ -80,9 +80,16 @@ be verified, say so plainly rather than writing plausible prose.
 
 The three that rot fastest, in order:
 
-1. **Counts and measurements** — "31 ADRs", "199 JSDoc blocks", "12 slices". Derive them at read time
-   or omit them. A count is only worth writing when it is the point of the sentence, and then it
-   carries its date.
+1. **Counts and measurements.** "N ADRs", "N slices", "N files carry a header" — every one of these
+   is wrong at some point after it is written, and a reader who checks and finds it wrong stops
+   trusting the page. Derive a count at read time or omit it. **A count is worth writing only when
+   it is the point of the sentence**, and then it carries the date it was measured, which makes it a
+   record rather than a claim about now.
+
+   **This applies inside an ADR's `Context` too.** That section may describe the prior state, but a
+   bare number there still reads to a skimming reader as a current fact. Describe the shape of the
+   problem — "an index that had fallen behind its own contents" — rather than counting it.
+
 2. **What a tool currently does** — which lint rules are on, which files a script checks. Cite the
    config; never restate it.
 3. **Line numbers.** See [P6](#p6--anchor-a-citation-to-something-that-survives-an-edit).
@@ -112,12 +119,12 @@ reason a constraint exists.
 
 Cite in this order of preference:
 
-| Form                                | Example                                  | Survives            |
-| ----------------------------------- | ---------------------------------------- | ------------------- |
-| A file plus a symbol                | `actions.ts › patchAdminSpielDataAction` | Any edit above it   |
-| A file plus a short quoted fragment | `` actions.ts › `updateTag("spiele")` `` | Any edit above it   |
-| A file alone                        | `app/core/constraints.py`                | Anything but a move |
-| An ADR number                       | ADR-0001                                 | Permanently         |
+| Form                                | Example                                                                   | Survives            |
+| ----------------------------------- | ------------------------------------------------------------------------- | ------------------- |
+| A file plus a symbol                | `fl_frontend/src/features/spiele/actions.ts :: patchAdminSpielDataAction` | Any edit above it   |
+| A file plus a short quoted fragment | `fl_frontend/src/features/spiele/actions.ts :: updateTag("spiele")`       | Any edit above it   |
+| A file alone                        | `app/core/constraints.py`                                                 | Anything but a move |
+| An ADR number                       | ADR-0001                                                                  | Permanently         |
 
 Both anchored forms are machine-checkable: the file must exist and the symbol or fragment must still
 appear in it. That is what turns a citation from an assertion into something the gate can verify — see
@@ -132,10 +139,14 @@ read in full by people who did not need it.
 For anything longer than roughly a hundred lines, add navigation — a table of sections against the
 question each answers. Prose alone does not let a reader skip.
 
-## P8 — Structure for both readers
+## P8 — Every document serves a human reader and an assistant, and neither is sacrificed
 
-Everything here is read by people and by an assistant, and the two want the same things more often
-than not:
+**Everything written here is read by both.** A page optimised only for a person becomes prose an
+assistant has to infer rules from; a page optimised only for an assistant becomes a rule dump nobody
+can orient in. Where the two genuinely pull apart, the human reader wins on **structure** and the
+assistant wins on **precision** — a clear heading and an unambiguous rule under it satisfies both.
+
+In practice they want the same things:
 
 - **Rules as lists, one rule per item**, so a rule can be quoted without dragging its neighbours.
 - **Tables for anything enumerable**: options, mappings, contracts, comparisons.

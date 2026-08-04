@@ -1,6 +1,6 @@
 # Currency — how documentation stays true
 
-**Verified against:** `e954e51`, 2026-08-04
+**Verified against:** `55966d7`, 2026-08-04
 
 A documentation standard that only says how to write is a standard that produces accurate documents
 once. This chapter is about the other problem: keeping them accurate while the code moves.
@@ -47,7 +47,7 @@ Every claim about current behaviour cites something, and the citation is anchore
 (P6): a file plus a symbol, or a file plus a short quoted fragment. **Never a line number.**
 
 ```markdown
-| I2 | Base tags are invalidated unconditionally | `actions.ts › updateTag("spiele")` | … |
+| I2 | Base tags are invalidated unconditionally | `fl_frontend/src/features/spiele/actions.ts :: updateTag("spiele")` | … |
 ```
 
 Two properties follow, and both matter:
@@ -74,28 +74,44 @@ code is an incomplete commit, not a commit with a follow-up.
 The mechanical layer, and the reason the other three are more than good intentions. It runs inside
 `./scripts/verify.sh`, so no session and no person has to be told about it.
 
-**What it must check, and what each failure means:**
+**Implemented in `scripts/check_docs.py`, run by `scripts/verify.sh`.** What it checks:
 
-| Check                                                                    | Failure means                                                | Verdict  |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------ | -------- |
-| Every `ADR-NNNN` cited anywhere resolves to a file in `docs/_decisions/` | A citation points at nothing — the reader finds no reasoning | **Fail** |
-| Every relative markdown link resolves to an existing file                | A moved or renamed file left a dead link                     | **Fail** |
-| Every `file › symbol` citation: the file exists and the symbol appears   | The claim's evidence is gone; the claim may be too           | **Fail** |
-| Every `file › \`fragment\`` citation: the fragment still appears         | Same                                                         | **Fail** |
-| Every bare code path cited in `/docs` exists                             | The page names something that is not there (P3)              | **Fail** |
-| Every `Verified against: <sha>` names an ancestor of `HEAD`              | The stamp is fabricated or the history was rewritten         | **Fail** |
-| Cited files changed since the page's `Verified against` commit           | The page **may** be stale — a human decides                  | Report   |
-| The banned-history phrases of DS14 appear in the branch diff             | Possibly a P3 violation — the hits must be read              | Report   |
+| Check                                                                                                   | Failure means                                                | Verdict  |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------- |
+| Every `ADR-NNNN` cited anywhere resolves to a file in `docs/_decisions/`                                | A citation points at nothing — the reader finds no reasoning | **Fail** |
+| Every relative markdown link resolves to an existing file                                               | A moved or renamed file left a dead link                     | **Fail** |
+| Every in-page `#anchor` link matches a heading in that file                                             | A renamed heading left a link that silently goes nowhere     | **Fail** |
+| Every `<file> :: <anchor>` citation: the file resolves unambiguously and the anchor still appears in it | The claim's evidence is gone; the claim may be too           | **Fail** |
+| Every backticked repo path exists, unless git ignores it                                                | The page names something that is not there (P3)              | **Fail** |
+| Every `Verified against` SHA is an ancestor of `HEAD`                                                   | The stamp is fabricated, or history was rewritten under it   | **Fail** |
+| A stamped SHA that this clone does not contain                                                          | Usually a shallow clone rather than a defect                 | Report   |
+| Files a page **cites** changed since that page's stamp                                                  | The page **may** be stale — a human decides                  | Report   |
+| DS14's history phrases in the branch diff                                                               | Possibly a P3 violation — the hits must be read              | Report   |
 
-The last two are reports rather than failures on purpose: a cited file changing does not prove a claim
-is wrong, and "the former … the latter" is ordinary English. **A check that cries wolf gets
-suppressed**, and a suppressed check is worse than none.
+Four properties of the implementation worth knowing, because each is a deliberate choice rather than
+an omission:
 
-**`_standard/templates/` is excluded from the link check.** A template's relative links are written to
-resolve from where the file will be copied to, not from the template itself, and each template says so.
+- **Fenced code blocks are stripped before anything is extracted.** A link or citation inside a fence
+  is a worked example, and a template is made almost entirely of those.
+- **Placeholder text is skipped everywhere** — anything containing `<` `>` `{` `}` `*` `?` or the
+  literal `NNNN`. That is what lets a template ship `<sha>` and `ADR-NNNN` on purpose, and it is also
+  how a document describes the citation syntax without the checker treating the description as a
+  citation.
+- **A gitignored path is never a failure.** `docs/audit/` is named across the process documentation
+  and is absent from every clone by design.
+- **Drift is measured against the files a page cites, never against the page itself.** Editing a page
+  is not evidence its claims went stale, and counting it as such would make every documentation commit
+  report drift on the file it had just corrected.
 
-**`_standard/` is checked like everything else** (DS19). It makes claims about current state — which
-rules are selected, which documents exist — and those go stale exactly like any other claim.
+**Enforcement is scoped, and widens deliberately.** A failing check fails the run only for paths
+listed in the script's `ENFORCED_PATHS`; everywhere else it is counted and reported. The repository
+adopts the standard folder by folder, and a repo-wide hard failure before every folder conformed would
+have to be suppressed — a suppressed check being worse than no check. Widening is one edit to that
+tuple, and each widening belongs in the commit that makes the folder conform.
+
+The three reporting checks are reports rather than failures on purpose: a cited file changing does not
+prove a claim wrong, a shallow clone is not a defect, and "the former … the latter" is ordinary
+English. **A check that cries wolf gets suppressed.**
 
 ### Defence 4 — the close-out question
 

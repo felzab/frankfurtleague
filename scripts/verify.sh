@@ -13,12 +13,13 @@
 #
 # WHAT IT RUNS, cheapest-to-fail first:
 #   1. selfcheck.sh  — the scripts themselves (instant)
-#   2. pnpm verify   — formats, then types, lint, next build, unit tests
-#   3. pnpm audit:prod — runtime dependency advisories only
-#   4. ruff + pyright + pytest — fl_backend lint, TYPES and the default test tier. No Docker.
-#   5. pytest -m db  — the db-marked tests against a real mongod (ADR-0030). Needs Docker
-#   6. docker build  — BOTH images, which pnpm verify does not cover
-#   7. an image check — is instrumentation.js actually inside the frontend image?
+#   2. check_docs.py — documentation citations, links and stamps (instant)
+#   3. pnpm verify   — formats, then types, lint, next build, unit tests
+#   4. pnpm audit:prod — runtime dependency advisories only
+#   5. ruff + pyright + pytest — fl_backend lint, TYPES and the default test tier. No Docker.
+#   6. pytest -m db  — the db-marked tests against a real mongod (ADR-0030). Needs Docker
+#   7. docker build  — BOTH images, which pnpm verify does not cover
+#   8. an image check — is instrumentation.js actually inside the frontend image?
 #
 # WHY STEPS 5 AND 6 EXIST:
 #   `pnpm verify` has been green while the image was broken. Twice.
@@ -55,6 +56,15 @@ else
   die "scripts/selfcheck.sh failed. Run it directly to see why:  ./scripts/selfcheck.sh"
 fi
 
+# A dangling ADR number, a dead link and a citation whose anchor has gone are all invisible to every
+# other check here, and all three read to a future reader as though they still mean something. The
+# standard's other currency defences depend on somebody remembering; this one does not (DS18).
+step "documentation gate  (citations, links, stamps)"
+_py="$(venv_python)"
+"$_py" scripts/check_docs.py || die "The documentation gate failed. Each finding above names its file
+       and what no longer resolves. Rules: docs/_standard/5-currency.md"
+ok "documentation references resolve"
+
 step "pnpm verify  (prettier --write, then tsc, eslint, next build, node --test)"
 ( cd fl_frontend && pnpm verify ) || die "pnpm verify failed. Fix that before looking at anything else."
 ok "pnpm verify exit 0"
@@ -67,7 +77,6 @@ else
 fi
 
 step "fl_backend  (ruff + pyright + pytest, default tier)"
-_py="$(venv_python)"
 ( cd fl_backend && "$_py" -m ruff check app tests && "$_py" -m ruff format --check app tests )   || die "ruff failed in fl_backend. Fix with:  cd fl_backend && .venv/Scripts/python -m ruff format app tests"
 # ruff does not check types and pytest only runs what it executes, so without this the gate was green
 # while Pylance showed errors in the editor -- and five reached main that way. Same checker, same

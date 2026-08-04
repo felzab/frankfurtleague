@@ -1,6 +1,6 @@
 # Decisions about the documentation standard
 
-**Verified against:** `e954e51`, 2026-08-04
+**Verified against:** `55966d7`, 2026-08-04
 
 `DS` decisions are about **how this repository is documented**, which is why they live here rather
 than in `docs/_decisions/` alongside ADRs about the software itself. The same discipline applies:
@@ -18,7 +18,7 @@ decision that supersedes this one.
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------- | ---- |
 | [DS1](#ds1--in-code-style-tiered)                                            | In-code style: tiered                                          | code |
 | [DS2](#ds2--module-header-h5-hybrid)                                         | Module header: H5 hybrid                                       | code |
-| [DS3](#ds3--coverage-headers--endpoints--surprises)                          | Coverage: headers, endpoints, surprises                        | code |
+| [DS3](#ds3--coverage-headers-endpoints-surprises)                            | Coverage: headers, endpoints, surprises                        | code |
 | [DS4](#ds4--enforcement-a-narrow-ruff-d-subset-and-nothing-else)             | Enforcement: narrow ruff `D` subset only                       | code |
 | [DS5](#ds5--citations-adr-numbers)                                           | Citations: ADR numbers                                         | code |
 | [DS6](#ds6--docs-standard-adrs--spec-sheets--overviews)                      | `/docs` standard: three layers                                 | docs |
@@ -40,13 +40,15 @@ decision that supersedes this one.
 
 ## DS1 — In-code style: tiered
 
+**Decided:** 2026-08-01
+
 **Decision.** Three altitudes: module header, symbol docs, inline comments. One hard rule — never
 restate a type.
 
-**Context.** Measured before deciding: the frontend carried **199** JSDoc blocks across **93 of 216**
-files; the backend **13** triple-quoted strings across **6** files, using `#` comments for rationale
-instead. The voice was already consistent on both sides. So the real question was not "pick a style"
-but "what do the existing 199 blocks become, and how does the backend catch up".
+**Context.** Measured before deciding: the frontend already carried JSDoc blocks on roughly half its
+files, while the backend documented its rationale almost entirely in `#` comments with very few
+docstrings. The voice was already consistent on both sides. So the real question was not "pick a
+style" but "what do the existing blocks become, and how does the backend catch up".
 
 **Rejected.**
 
@@ -65,6 +67,8 @@ but "what do the existing 199 blocks become, and how does the backend catch up".
 larger gap, and it is the side carrying the harder invariants.
 
 ## DS2 — Module header: H5 hybrid
+
+**Decided:** 2026-08-01
 
 **Decision.** Labelled sections (`INVARIANTS`, `DECISIONS`, `SEE ALSO`) separated by horizontal rules,
 drawn to a fixed column of 110.
@@ -99,6 +103,8 @@ build time — a failure mode this codebase has already been bitten by — and t
 
 ## DS3 — Coverage: headers, endpoints, surprises
 
+**Decided:** 2026-08-01
+
 **Decision.** A missing docstring is a defect in exactly three places: every module, every FastAPI
 endpoint, and anywhere with a _why_ worth recording. Everything else is judgement.
 
@@ -114,6 +120,8 @@ FastAPI, but FastAPI's own `/docs` and `/openapi.json` sit at the app root, whic
 whose names already say everything.
 
 ## DS4 — Enforcement: a narrow ruff `D` subset, and nothing else
+
+**Decided:** 2026-08-01
 
 **Decision.** Add ruff `D` rules covering docstring **formatting** only. Exclude the `D1xx`
 missing-docstring family. Do not add `eslint-plugin-jsdoc`.
@@ -134,6 +142,8 @@ CLAUDE.md §1 as a review judgement.
 
 ## DS5 — Citations: ADR numbers
 
+**Decided:** 2026-08-01
+
 **Decision.** Comments cite ADR numbers. Existing inline audit IDs (`D2`, `R3b-S9.1b`, `R4 §6.3`,
 `§9 A7`) get rewritten during the ADR extraction.
 
@@ -147,6 +157,8 @@ fill a gap. Writing the ADR is therefore part of the change that cites it, and t
 fails on a citation resolving to no file.
 
 ## DS6 — `/docs` standard: ADRs + spec sheets + overviews
+
+**Decided:** 2026-08-01
 
 **Decision.** Three layers with three different update triggers: an append-only ADR log, spec sheets
 with cited invariants, and short narrative overviews (~120 lines). Plus a glossary.
@@ -173,18 +185,22 @@ invention, which is what makes it cheap relative to its value.
 
 ## DS7 — Location: central `/docs`, per surface
 
+**Decided:** 2026-08-01
+
 **Decision.** Everything under `/docs`, organised as frontend / backend / ops. Per-slice pages only
 where a slice deviates from the template. No per-file documentation.
 
 **Context.** The in-code decisions (DS1–DS2) put per-file documentation in module headers, so a
 colocated README layer would duplicate it.
 
-**Rejected.** _Per-slice pages for all twelve slices_ — twelve more files that can go stale, most
-saying "follows the template". _Colocated READMEs_ — scatters cross-cutting material and leaves ops,
+**Rejected.** _A page per slice_ — one more file per slice that can go stale, most of them saying
+"follows the template". _Colocated READMEs_ — scatters cross-cutting material and leaves ops,
 glossary and ADRs homeless. _Central plus colocated stubs_ — the module headers already provide
 discoverability from the code.
 
 ## DS8 — Currency: citations and the same-commit rule
+
+**Decided:** 2026-08-01
 
 **Decision.** Every claim cites its source; every page that describes current state carries a
 `Verified against` line; a change that invalidates a claim updates the doc **in the same commit**.
@@ -210,6 +226,8 @@ convention.
 
 ## DS9 — CLAUDE.md §9 shrinks to a pointer table
 
+**Decided:** 2026-08-01
+
 **Decision.** Each of the eight ratified decisions becomes one imperative line plus its ADR number. The
 argument moves into the ADR.
 
@@ -226,6 +244,8 @@ from what it points at.
 
 ## DS10 — Diagrams: mermaid, C4 levels 1–3
 
+**Decided:** 2026-08-01
+
 **Decision.** Mermaid, so diagrams render in-repo without a build step. C4 levels 1–3 (context,
 container, component) only. Diagrams live in surface overviews, and in a spec sheet where a data flow
 is genuinely hard in prose. Not in ADRs.
@@ -240,6 +260,8 @@ node labels, as some renderers choke on them.
 
 ## DS11 — Glossary: one central file
 
+**Decided:** 2026-08-01
+
 **Decision.** `docs/glossary.md`. One entry per term: the German word, a one-line English gloss, where
 it lives in code, and the pitfalls.
 
@@ -253,8 +275,7 @@ appears on a stored document. That costs an hour to rediscover and thirty second
 
 ## DS12 — Documents are self-contained; the audit is never the substance
 
-**Decided 2026-08-01**, amending the programme's original instruction to cite the audit rather than
-re-derive settled questions.
+**Decided:** 2026-08-01
 
 **Decision.** No document — in code or in `/docs` — may carry a reference to `docs/audit/` as the
 substance of a claim. Where the audit settled a question, the reasoning is **written out in full**, in
@@ -284,7 +305,7 @@ instead of re-deriving it"), which assumed the audit was permanent.
 
 ## DS13 — Every test carries a sentence saying what it covers
 
-**Decided 2026-08-01.**
+**Decided:** 2026-08-01
 
 **Decision.** Every test function gets a docstring: normally one sentence, occasionally a short block
 where the reason it exists is not obvious. This applies to both suites.
@@ -341,8 +362,7 @@ rather than a general property.
 
 ## DS14 — Documentation names only what exists
 
-**Decided 2026-08-02** by the owner, after a backend session left three module headers explaining where
-their endpoints had moved from.
+**Decided:** 2026-08-02
 
 **Decision.** No document — a module header, a symbol docstring, an inline comment, a spec sheet, an
 overview — may refer to a file, symbol, field, endpoint or behaviour that is not in the repository at
@@ -391,8 +411,7 @@ repository at which someone would come back and delete it, so "temporary" means 
 
 ## DS15 — A module header points at the ADR; it does not restate it
 
-**Decided 2026-08-02** by the owner, in the same session and for the same reason: two module headers had
-each grown a two-hundred-word section arguing a decision that was about to become an ADR.
+**Decided:** 2026-08-02
 
 **Decision.** Where reasoning is long enough to need its own paragraph and governs more than the file it
 sits in, the header states the **rule in one or two lines** and cites the ADR. The argument — the
@@ -431,6 +450,8 @@ the one that goes stale, in the file a reader trusts most because it is next to 
 
 ## DS16 — Documentation is written for a reader with no context
 
+**Decided:** 2026-08-04
+
 **Decision.** Every document must be fully understandable to someone encountering the repository for
 the first time: no reference to a conversation, a working session, a past effort, or an identifier
 that does not resolve to something tracked in the repository. Where the lesson behind such a
@@ -462,6 +483,8 @@ reader who matters — the one who was not there — and it reads to them as a m
 
 ## DS17 — Citations are anchored, never line numbers
 
+**Decided:** 2026-08-04
+
 **Decision.** A claim cites a file plus a **symbol** or a short **quoted fragment**, an ADR number, or
 a bare file path. **Never a line number.**
 
@@ -488,16 +511,21 @@ are what separates a spec sheet from confident prose.
 
 ## DS18 — Currency is enforced by the gate, not by diligence
 
+**Decided:** 2026-08-04
+
 **Decision.** Documentation currency rests on four defences, of which one is mechanical: anchored
 citations at write time, the same-commit rule at change time, **a documentation check inside
 `./scripts/verify.sh`**, and a close-out question before every pull request.
 
-The check fails the gate on: an ADR citation resolving to no file, a relative markdown link resolving
-to no file, an anchored citation whose file or symbol is gone, a code path named in `/docs` that does
-not exist, and a `Verified against` SHA that is not an ancestor of `HEAD`. It reports without failing
-on: cited files that changed since a page's stamp, and the DS14 history phrases in a branch diff.
+It is implemented as `scripts/check_docs.py` and run by `scripts/verify.sh`. The check list, the
+reasoning for which findings fail and which only report, and the four scanning rules that keep it
+quiet are recorded in [`5-currency.md`](5-currency.md).
 
-Recorded in [`5-currency.md`](5-currency.md).
+**Enforcement is scoped rather than repo-wide from day one.** Failures fail the run only inside the
+paths the script lists; elsewhere they are counted and reported. Adopting the standard folder by
+folder means a repo-wide hard failure would have to be suppressed until every folder conformed, and a
+suppressed check is worse than none. Widening the scope belongs in the commit that makes a folder
+conform, so the two never separate.
 
 **Context.** The previous currency rule had four parts, of which three depended on someone
 remembering and one depended on a tracking document that has since been deleted. The one genuinely
@@ -505,9 +533,11 @@ load-bearing part — the same-commit rule — is sound but unenforceable by its
 `Verified against` stamp was never validated against anything, so a stamp could be written without
 the check it claims to record having happened.
 
-Evidence that diligence alone does not hold: the standard's own chapters accumulated references to
-deleted files, a decision table listing eleven entries when it held fifteen, and a claim that a set
-of documents did not exist when thirty-four of them did.
+Evidence that diligence alone does not hold comes from this folder itself, which had been
+maintained by diligence and nothing else. Its chapters had accumulated references to deleted files,
+an index that had fallen behind the entries it indexed, a claim that a body of documents did not
+exist when it did, and a tool configuration described as proposed long after it was applied. Each
+was written by someone who cared about the standard, and none of them was noticed by reading.
 
 **Consequences.**
 
@@ -526,14 +556,16 @@ such changes leave the claim true, so the check would fire constantly and be tur
 
 ## DS19 — The standard is not exempt from itself
 
+**Decided:** 2026-08-04
+
 **Decision.** `_standard/` carries `Verified against` stamps and obeys every principle it defines,
 including those about naming only what exists and writing for a reader with no context.
 
 **Context.** The standard previously exempted itself on the grounds that it defines rules rather than
-describing code. The exemption is why it rotted: by the time it was reviewed it referenced a deleted
-tracking document in four places, described a set of ADRs as unwritten when thirty-four existed,
-listed eleven decisions in a table of fifteen, and carried a lint configuration as proposed that had
-long since been applied.
+describing code. The exemption is why it drifted. Every failure class the standard warns about had
+appeared in it: pointers into a deleted document, an index behind its own contents, a body of
+documents described as not yet existing after they were written, and a tool configuration recorded
+as proposed after it had been applied.
 
 The reasoning behind the exemption was wrong in a specific way: the standard **does** describe current
 state. "These lint rules are selected", "these documents exist", "this is tracked there" are all
