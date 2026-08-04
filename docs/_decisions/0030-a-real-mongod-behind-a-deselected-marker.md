@@ -56,7 +56,8 @@ default, executed in its own parallel CI job.**
   and `--quick` still needs no Docker daemon. Only its step label and header comment changed.
 
 **The marker is the load-bearing half.** It is a property of the test suite, so no CI restructuring
-can invalidate it; the job is a property of the pipeline, and OPS-5 owns it.
+can invalidate it; the job is a property of the pipeline, whose current shape
+`.github/workflows/verify.yml` records — `pytest -m db` selects these tests under any arrangement.
 
 ## Consequences
 
