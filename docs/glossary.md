@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `6df0573`, 2026-08-03
+**Verified against:** `df21894`, 2026-08-04
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
