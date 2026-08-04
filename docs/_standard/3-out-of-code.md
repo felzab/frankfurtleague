@@ -1,12 +1,14 @@
-# Out-of-code documentation standard
+# Out-of-code documentation
 
-**Adopted 2026-08-01** (decisions DS6–DS11). Governs everything under `/docs`.
+**Verified against:** `e954e51`, 2026-08-04
 
-**No, it is not just ADRs.** ADRs are one of three layers. The other two — spec sheets and surface
-overviews — do jobs an ADR cannot: an ADR records _why a decision was taken_, and says nothing about
-what the system currently is or how to use it.
+Governs everything under `/docs`. The principles in [`1-principles.md`](1-principles.md) apply here
+too; this chapter adds the shapes.
 
-Every example below is the `spiele` slice, the same subject as [`1-in-code.md`](1-in-code.md).
+**ADRs are one of three layers, not the whole of it.** An ADR records why a decision was taken and
+says nothing about what the system currently is — which is what spec sheets and overviews are for.
+
+Every example is the `spiele` slice, the same subject as [`2-in-code.md`](2-in-code.md).
 
 ---
 
@@ -79,7 +81,7 @@ coding assistant rather than documentation of the project, and it is loaded auto
 
 ## Layer 1 — ADRs
 
-Covered in full in [`3-adr-guide.md`](3-adr-guide.md). Template: [`templates/adr.md`](templates/adr.md).
+Covered in full in [`4-adr-guide.md`](4-adr-guide.md). Template: [`templates/adr.md`](templates/adr.md).
 
 The short version: one decision, dated, numbered, with its rejected alternatives. Never rewritten — when
 reversed, you write a new one and change two lines in the old one. Cited from code by number.
@@ -126,7 +128,10 @@ one.
 
 The layer that makes a claim checkable. Two things distinguish a spec sheet from prose:
 
-1. **Every claim cites a file/line or an ADR.** A reader who doubts a row can settle it in seconds.
+1. **Every claim carries an anchored citation** — a file plus a symbol or a quoted fragment, or an
+   ADR number. **Never a line number** (P6): it is wrong after any edit above it and nothing detects
+   that. A reader who doubts a row settles it in seconds, and the gate can check the anchor still
+   resolves.
 2. **Invariants are numbered**, so code comments and ADRs can reference them.
 
 ### Anatomy
@@ -134,7 +139,6 @@ The layer that makes a claim checkable. Two things distinguish a spec sheet from
 ```markdown
 # <Surface> — spec
 
-**Verified against:** <commit>, <date>
 **Governing decisions:** ADR-000N, ADR-000M
 
 ## 1. Contract what this surface exposes, as tables
@@ -150,11 +154,11 @@ The layer that makes a claim checkable. Two things distinguish a spec sheet from
 
 Real rows from the `spiele` cache design:
 
-| #   | Invariant                                                                       | Enforced by            | Breaks how                                                                                               |
-| --- | ------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| I1  | Every granular cache tag has a matching `updateTag` in a server action          | review (CLAUDE.md §6)  | Tag never invalidates; looks like coverage, is decoration                                                |
-| I2  | Base tags `spiele`/`teams` are invalidated unconditionally on every Spiel write | `actions.ts:42-43`     | The default read path sends no `saison_id`, so its entries carry only base tags and go permanently stale |
-| I3  | `saison_id` reaches the action as an argument, never on the patch body          | `actions.ts` signature | Pydantic drops undeclared fields silently — a dead field that looks load-bearing                         |
+| #   | Invariant                                                                       | Enforced by                              | Breaks how                                                                                               |
+| --- | ------------------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| I1  | Every granular cache tag has a matching `updateTag` in a server action          | review (CLAUDE.md §6)                    | Tag never invalidates; looks like coverage, is decoration                                                |
+| I2  | Base tags `spiele`/`teams` are invalidated unconditionally on every Spiel write | `actions.ts › updateTag("spiele")`       | The default read path sends no `saison_id`, so its entries carry only base tags and go permanently stale |
+| I3  | `saison_id` reaches the action as an argument, never on the patch body          | `actions.ts › patchAdminSpielDataAction` | Pydantic drops undeclared fields silently — a dead field that looks load-bearing                         |
 
 Note the third column. An invariant without a stated failure mode is a preference; with one, it is a
 constraint someone can weigh.
@@ -260,30 +264,18 @@ That last line is the kind of thing that costs an hour to rediscover and thirty 
 
 ## Keeping pages current
 
-Four rules (DS8):
+The mechanisms are [`5-currency.md`](5-currency.md) — anchored citations, the same-commit rule, the
+documentation gate, and the close-out question. Two things specific to `/docs`:
 
-1. **Every claim cites** a file/line or an ADR.
-2. **Every page that describes current state carries** a `**Verified against:** <commit>, <date>` line
-   near the top — the overviews, the specs, the glossary, `workflows/`, `README.md`.
+**Open items are tracked in [`../roadmap/open-items.md`](../roadmap/open-items.md).** A discrepancy
+found while documenting is **recorded, not fixed** — it goes there with its analysis and the code
+stays untouched, because a documentation change that quietly also changes behaviour is unreviewable.
+When an item is concluded its entry is deleted and a pointer row is added to
+[`../roadmap/closed-items.md`](../roadmap/closed-items.md), so the id stays findable and the analysis
+lives in exactly one place: the closing commit.
 
-   **ADRs do not**, and must not: an ADR is dated to when the decision was _taken_ and describes what
-   was true then, so "verified against" would imply a re-check that never happens. Its `Date` field is
-   the equivalent. The `_standard/` files and the ledger are likewise exempt — they define the standard
-   and track the work rather than describing the code.
-
-3. **A code change that invalidates a documented claim updates the doc in the same commit.** This is
-   the only rule that actually prevents drift, and it goes into CLAUDE.md.
-4. **Open items are tracked in [`../roadmap/open-items.md`](../roadmap/open-items.md)** — findings
-   recorded while documenting go there, with their analyses, rather than being acted on. When one is
-   concluded its entry is deleted and a pointer row is added to
-   [`../roadmap/closed-items.md`](../roadmap/closed-items.md), so the id stays findable and the
-   analysis stays in exactly one place: the closing commit.
-
-### Accuracy outranks volume
-
-**A confidently wrong document is worse than a missing one.** If something cannot be verified, the page
-says so plainly rather than guessing. Bugs and discrepancies found while documenting are **recorded, not
-fixed** — they go to the ledger's findings section, and the code stays untouched.
+**A confidently wrong page is worse than a missing one** (P4, P9). Where something cannot be verified,
+the page says so plainly rather than filling the gap with plausible prose.
 
 ### Documents must be self-contained (DS12)
 
@@ -313,7 +305,7 @@ costs more here than in a comment — a reader has no way to tell the two apart 
 Two shapes are banned by name: **narrating an edit** ("this endpoint moved from `/api/v0/admin/…`") and
 **documenting an absence for its own sake** (a paragraph about a variant that is gone). A **rejected
 alternative** is neither, and stays — written in the present, as a constraint. Full argument:
-[DS14](4-decisions.md#ds14--documentation-names-only-what-exists).
+[DS14](6-decisions.md#ds14--documentation-names-only-what-exists).
 
 Three places are exempt because recording what changed is their job, and only within it: an **ADR's
 `Context` section**, which has to describe the state the decision replaced or the decision is

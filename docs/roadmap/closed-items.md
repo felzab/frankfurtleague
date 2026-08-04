@@ -61,7 +61,7 @@ no row here — its commit is the whole story.
   deletion is a date, and creating never revives), [0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)
   (one active season, one path to it) and [0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)
   (resource-first URLs in a second router per slice). It also produced **DS14 and DS15** in
-  [`../_standard/4-decisions.md`](../_standard/4-decisions.md), and opened **FB-6** (admin pages for
+  [`../_standard/6-decisions.md`](../_standard/6-decisions.md), and opened **FB-6** (admin pages for
   seasons and matchdays, plus the rollover control) and **BE-12** (the purge `inactive_since` is a
   date for). It unblocked FB-3 and left ADR-0015 standing: the endpoints exist, no UI calls one.
 - **DB-2** → [ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md),

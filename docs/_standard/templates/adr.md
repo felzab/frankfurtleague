@@ -1,6 +1,6 @@
 <!--
 TEMPLATE — copy to docs/_decisions/NNNN-short-slug.md and fill in.
-Guidance: ../3-adr-guide.md
+Guidance: ../4-adr-guide.md
 
 Before writing: does this pass the test? "Would someone reasonably propose the opposite next year,
 and would I have to re-derive the argument to refuse?" If no, it is not an ADR.
@@ -15,9 +15,9 @@ Delete this comment block.
 **Surface:** <frontend | backend | ops — list every one it touches; several is normal>
 **Supersedes:** —
 **Superseded by:** —
-**Source:** <PROVENANCE ONLY — where this decision originally came from, e.g. "CLAUDE.md §9 A5".
-The ADR must stand alone without it: write the full argument below, never "see the audit"
-(DS12). docs/audit/ is expected to be deleted.>
+**Source:** <OPTIONAL, PROVENANCE ONLY — where this decision originally came from. Omit it unless
+the ADR is being written up later than the decision it records. The ADR must stand alone without
+it: write the full argument below rather than pointing at where it was first made (DS12).>
 
 ## Context
 

@@ -1,13 +1,18 @@
 # Decisions about the documentation standard
 
-Fifteen decisions. DS1–DS13 were taken **2026-08-01** by the owner, choosing from worked samples
-written against real repo code; the samples were disposable and have been deleted as planned, so the
-rationale — and critically, the **rejected** alternatives — are recorded here. DS14 and DS15 were taken
-**2026-08-02**, after a session's own documentation broke both of them.
+**Verified against:** `e954e51`, 2026-08-04
 
-These are `DS` (documentation standard) decisions. They are _about how the repo is documented_, which
-is why they live here rather than in `docs/_decisions/` alongside ADRs about the software itself. Same
-discipline applies: **do not edit a decision's reasoning; supersede it.**
+`DS` decisions are about **how this repository is documented**, which is why they live here rather
+than in `docs/_decisions/` alongside ADRs about the software itself. The same discipline applies:
+**do not edit a decision's reasoning; supersede it.**
+
+Each entry records what was decided, what forced the choice, and what was rejected. The rejected
+alternatives are the part that stops a settled question being reopened.
+
+**Correcting a broken pointer is not editing the reasoning.** Where an entry cites something that has
+stopped resolving — a renamed file, a retired tracking id — the pointer is replaced by naming the
+thing in words. The argument itself is never touched: if an argument was wrong, that is a new
+decision that supersedes this one.
 
 | #                                                                            | Decision                                                       | Area |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------- | ---- |
@@ -18,7 +23,7 @@ discipline applies: **do not edit a decision's reasoning; supersede it.**
 | [DS5](#ds5--citations-adr-numbers)                                           | Citations: ADR numbers                                         | code |
 | [DS6](#ds6--docs-standard-adrs--spec-sheets--overviews)                      | `/docs` standard: three layers                                 | docs |
 | [DS7](#ds7--location-central-docs-per-surface)                               | Location: central `/docs`, per surface                         | docs |
-| [DS8](#ds8--currency-citations--same-commit-rule--ledger)                    | Currency: citations, same-commit rule, ledger                  | docs |
+| [DS8](#ds8--currency-citations-and-the-same-commit-rule)                     | Currency: citations and the same-commit rule                   | docs |
 | [DS9](#ds9--claudemd-9-shrinks-to-a-pointer-table)                           | CLAUDE.md §9 → pointer table                                   | docs |
 | [DS10](#ds10--diagrams-mermaid-c4-levels-13)                                 | Diagrams: mermaid, C4 levels 1–3                               | docs |
 | [DS11](#ds11--glossary-one-central-file)                                     | Glossary: one central file                                     | docs |
@@ -26,6 +31,10 @@ discipline applies: **do not edit a decision's reasoning; supersede it.**
 | [DS13](#ds13--every-test-carries-a-sentence-saying-what-it-covers)           | Every test carries a sentence saying what it covers            | code |
 | [DS14](#ds14--documentation-names-only-what-exists)                          | Documentation names only what exists                           | both |
 | [DS15](#ds15--a-module-header-points-at-the-adr-it-does-not-restate-it)      | A module header points at the ADR; it does not restate it      | code |
+| [DS16](#ds16--documentation-is-written-for-a-reader-with-no-context)         | Documentation is written for a reader with no context          | both |
+| [DS17](#ds17--citations-are-anchored-never-line-numbers)                     | Citations are anchored, never line numbers                     | both |
+| [DS18](#ds18--currency-is-enforced-by-the-gate-not-by-diligence)             | Currency is enforced by the gate, not by diligence             | both |
+| [DS19](#ds19--the-standard-is-not-exempt-from-itself)                        | The standard is not exempt from itself                         | docs |
 
 ---
 
@@ -109,8 +118,9 @@ whose names already say everything.
 **Decision.** Add ruff `D` rules covering docstring **formatting** only. Exclude the `D1xx`
 missing-docstring family. Do not add `eslint-plugin-jsdoc`.
 
-Proposed starting set: `D200`, `D205`, `D209`, `D210`, `D419` — **exact codes to be confirmed when the
-config is applied** (ledger P2-8). They are proposed here, not verified.
+The selected codes live in `fl_backend/pyproject.toml` under `[tool.ruff.lint]`. Read them there
+rather than from a copy here — a restated tool configuration is one of the fastest things to go stale
+(P4).
 
 **Context.** Neither side enforces anything today: `pyproject.toml` selects `E, W, F, I, B` with
 `ignore = ["B008"]`; `eslint.config.mjs` registers no JSDoc plugin.
@@ -127,13 +137,14 @@ CLAUDE.md §1 as a review judgement.
 **Decision.** Comments cite ADR numbers. Existing inline audit IDs (`D2`, `R3b-S9.1b`, `R4 §6.3`,
 `§9 A7`) get rewritten during the ADR extraction.
 
-**Context.** Inline audit citations are common in the current code and are load-bearing — they are how
-a reader finds the reasoning. They dangle the moment `docs/audit/` is archived, renumbered or
-superseded, which is a live possibility (ledger P3-5).
+**Context.** A citation into a working document is load-bearing while it resolves — it is how a reader
+finds the reasoning — and dangles the moment that document is archived, renumbered or deleted.
+`docs/audit/` is deleted by design at the end of every audit programme, so every citation into it has
+a known expiry date.
 
-**Consequences.** Ordering constraint: **only cite an ADR that exists.** The rewrite (P2-9) depends on
-the extraction (P3-1). Until then, existing audit IDs stay as they are rather than being replaced with
-invented numbers.
+**Consequences.** Ordering constraint: **only cite an ADR that exists**, and never invent a number to
+fill a gap. Writing the ADR is therefore part of the change that cites it, and the documentation gate
+fails on a citation resolving to no file.
 
 ## DS6 — `/docs` standard: ADRs + spec sheets + overviews
 
@@ -156,9 +167,9 @@ all, because they record what was decided _then_.
 - _Narrative alone._ Cannot be patched: one wrong paragraph means rewriting the section, so it gets
   rewritten yearly or never.
 
-**Consequences.** The ADR layer is disproportionately valuable here because roughly fifteen ADRs already
-exist in argued form, trapped in a 298 KB ledger and a 277 KB report file that cannot practically be
-loaded. Extraction is mostly transcription.
+**Consequences.** The ADR layer recovers reasoning that would otherwise stay trapped in working
+documents too large to load and slated for deletion. That recovery is transcription rather than
+invention, which is what makes it cheap relative to its value.
 
 ## DS7 — Location: central `/docs`, per surface
 
@@ -173,17 +184,22 @@ saying "follows the template". _Colocated READMEs_ — scatters cross-cutting ma
 glossary and ADRs homeless. _Central plus colocated stubs_ — the module headers already provide
 discoverability from the code.
 
-## DS8 — Currency: citations + same-commit rule + ledger
+## DS8 — Currency: citations and the same-commit rule
 
-**Decision.** Every claim cites a file/line or an ADR; every page **that describes current state**
-carries a `Verified against <commit>` line; a change that invalidates a claim updates the doc **in the
-same commit**; the ledger tracks coverage and staleness.
+**Decision.** Every claim cites its source; every page that describes current state carries a
+`Verified against` line; a change that invalidates a claim updates the doc **in the same commit**.
 
-**Amended 2026-08-01**, on the first consistency pass: the stamp is scoped to pages describing current
-state. ADRs are exempt and must stay exempt — an ADR is dated to when the decision was taken, so a
-"verified against" line would imply a re-check that by design never happens. `_standard/` and the ledger
-are exempt for the same kind of reason: they define the standard and track the work, rather than
-describing the code.
+Superseded in two respects by later decisions, which sharpened rather than reversed it:
+[DS17](#ds17--citations-are-anchored-never-line-numbers) fixes the citation form, and
+[DS18](#ds18--currency-is-enforced-by-the-gate-not-by-diligence) makes the whole thing mechanical.
+
+**Amended:** the stamp is scoped to pages describing current state. **ADRs are exempt and must stay
+exempt** — an ADR is dated to when the decision was taken, so a "verified against" line would imply a
+re-check that by design never happens.
+
+The exemption once extended to `_standard/` as well, on the reasoning that it defines rules rather
+than describing code. [DS19](#ds19--the-standard-is-not-exempt-from-itself) removes that: the standard
+does make claims about current state, and exempting it is why it drifted.
 
 **Rejected.** _Verified-against stamps alone_ — staleness becomes visible but nothing obliges a fix.
 _Periodic re-verification passes_ — realistic only if the pass actually gets run, and with one
@@ -259,9 +275,9 @@ instead of re-deriving it"), which assumed the audit was permanent.
 
 - Phase 2 documents are longer than they would otherwise be, and that is the cost being accepted on
   purpose: self-containment is worth more than brevity here.
-- **Raises the stakes on the ADR extraction (P3-1).** It is no longer merely the highest-value item —
-  it is a **prerequisite for deleting the audit at all**. Nothing may be deleted until its reasoning
-  exists somewhere self-contained.
+- **Nothing may be deleted until its reasoning exists somewhere self-contained.** Recording a
+  decision in an ADR is a prerequisite for retiring the working document it came from, not a
+  follow-up to it.
 - The same rule governs cross-references inside `/docs`: a spec sheet states its invariant in full and
   cites the ADR for the argument. It never substitutes the citation for the statement.
 - Consistent with DS5, which had already banned audit IDs from code comments for the same reason.
@@ -412,3 +428,124 @@ rejected_.
 **Rejected.** _Keep the reasoning in the header and let the ADR be the formal copy._ That is two copies
 of an argument with two different update triggers, and the header is the one nobody revisits — so it is
 the one that goes stale, in the file a reader trusts most because it is next to the code.
+
+## DS16 — Documentation is written for a reader with no context
+
+**Decision.** Every document must be fully understandable to someone encountering the repository for
+the first time: no reference to a conversation, a working session, a past effort, or an identifier
+that does not resolve to something tracked in the repository. Where the lesson behind such a
+reference is worth keeping, it is **restated as a rule in the present** rather than told as an
+account.
+
+Recorded as [P1](1-principles.md#p1--write-for-a-reader-who-has-no-context).
+
+**Context.** Documentation written during a working session inherits that session's context for free,
+so its author cannot feel what is missing. Reviewing the repository's process documentation against
+an outside reader found the failure throughout: references to programmes a reader cannot see,
+identifiers pointing at deleted files, and in one case a guide that spent half its length arguing for
+a decision the repository had already taken and implemented.
+
+**A dangling identifier is worse than no citation**, because it still reads as though it means
+something. A reader cannot distinguish a pointer to a deleted tracking document from one to a live
+tracked item, so they either waste time searching or silently lose the reasoning.
+
+**Consequences.**
+
+- A lesson learned from a specific incident survives as a rule; the incident does not.
+- An identifier may be cited only when it resolves to something tracked: an ADR number, a roadmap id,
+  a file path, a commit. This is checkable, and DS18 checks it.
+- Persuasion belongs in an ADR's `Alternatives considered`, which is where a settled argument is
+  recorded once. Reference documentation states the rule and moves on.
+
+**Rejected.** _Allow session references where they add colour._ The colour is invisible to the only
+reader who matters — the one who was not there — and it reads to them as a missing prerequisite.
+
+## DS17 — Citations are anchored, never line numbers
+
+**Decision.** A claim cites a file plus a **symbol** or a short **quoted fragment**, an ADR number, or
+a bare file path. **Never a line number.**
+
+Recorded as [P6](1-principles.md#p6--anchor-a-citation-to-something-that-survives-an-edit).
+
+**Context.** The standard previously mandated file-and-line citations for every spec-sheet claim. A
+line number is wrong the moment anything is inserted above it, which happens on almost every commit
+to the file, and nothing anywhere detects it. So the citation form intended to make claims checkable
+was instead the fastest-rotting content in `/docs`.
+
+**Consequences.**
+
+- Anchored citations survive edits above them and break only when the thing cited actually changes,
+  which is exactly when a claim should be re-examined.
+- They are **machine-checkable**: the file must exist and the symbol or fragment must appear in it.
+  This is what makes DS18 possible; with line numbers there is nothing to check against.
+- Existing line-number citations are converted as the pages carrying them are next touched, rather
+  than in one sweep — a mass edit of every spec sheet is a large diff with no behavioural content and
+  a high chance of introducing errors of its own.
+
+**Rejected.** _Keep line numbers and regenerate them with a script._ It would have to parse prose to
+know what each citation meant, and a wrong regeneration is silent. _Drop citations entirely._ They
+are what separates a spec sheet from confident prose.
+
+## DS18 — Currency is enforced by the gate, not by diligence
+
+**Decision.** Documentation currency rests on four defences, of which one is mechanical: anchored
+citations at write time, the same-commit rule at change time, **a documentation check inside
+`./scripts/verify.sh`**, and a close-out question before every pull request.
+
+The check fails the gate on: an ADR citation resolving to no file, a relative markdown link resolving
+to no file, an anchored citation whose file or symbol is gone, a code path named in `/docs` that does
+not exist, and a `Verified against` SHA that is not an ancestor of `HEAD`. It reports without failing
+on: cited files that changed since a page's stamp, and the DS14 history phrases in a branch diff.
+
+Recorded in [`5-currency.md`](5-currency.md).
+
+**Context.** The previous currency rule had four parts, of which three depended on someone
+remembering and one depended on a tracking document that has since been deleted. The one genuinely
+load-bearing part — the same-commit rule — is sound but unenforceable by itself, and the
+`Verified against` stamp was never validated against anything, so a stamp could be written without
+the check it claims to record having happened.
+
+Evidence that diligence alone does not hold: the standard's own chapters accumulated references to
+deleted files, a decision table listing eleven entries when it held fifteen, and a claim that a set
+of documents did not exist when thirty-four of them did.
+
+**Consequences.**
+
+- Writing an ADR becomes part of the change that cites it rather than a follow-up, because the gate
+  fails on a citation to a file that is not there.
+- The two reporting checks are deliberately not failures. A cited file changing does not prove a claim
+  wrong, and the history phrases match ordinary English. **A check that cries wolf gets suppressed**,
+  and a suppressed check is worse than none.
+- The check lives inside `verify.sh` rather than beside it, so no session and no person has to be told
+  it exists.
+
+**Rejected.** _A scheduled documentation review._ Realistic only if it runs; with one maintainer it
+does not. _A coverage percentage._ It would manufacture filler on symbols whose names already say
+everything, which DS3 and DS4 exist to prevent. _Failing the gate when a cited file changes._ Most
+such changes leave the claim true, so the check would fire constantly and be turned off.
+
+## DS19 — The standard is not exempt from itself
+
+**Decision.** `_standard/` carries `Verified against` stamps and obeys every principle it defines,
+including those about naming only what exists and writing for a reader with no context.
+
+**Context.** The standard previously exempted itself on the grounds that it defines rules rather than
+describing code. The exemption is why it rotted: by the time it was reviewed it referenced a deleted
+tracking document in four places, described a set of ADRs as unwritten when thirty-four existed,
+listed eleven decisions in a table of fifteen, and carried a lint configuration as proposed that had
+long since been applied.
+
+The reasoning behind the exemption was wrong in a specific way: the standard **does** describe current
+state. "These lint rules are selected", "these documents exist", "this is tracked there" are all
+claims about the repository, and they go stale exactly like any other.
+
+**Consequences.**
+
+- The chapters state rules and cite configuration rather than restating it, so most of what could go
+  stale is removed at the source rather than tracked.
+- Where a chapter must describe current state, it is stamped and the gate checks the stamp.
+- The exemption survives in one place only: **an ADR carries no stamp**, because it is dated to when
+  its decision was taken and a stamp would imply a re-check that by design never happens.
+
+**Rejected.** _Keep the exemption and review the standard manually._ That is the arrangement that
+produced the drift being fixed.

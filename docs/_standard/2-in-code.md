@@ -1,9 +1,13 @@
-# In-code documentation standard
+# In-code documentation
 
-**Adopted 2026-08-01** (decisions DS1–DS5). Applies to `fl_frontend/src` and `fl_backend/app`.
+**Verified against:** `e954e51`, 2026-08-04
 
-Every example below is real code from the `spiele` slice, so the same subject runs through this file,
-[`2-out-of-code.md`](2-out-of-code.md) and the templates.
+Applies to `fl_frontend/src` and `fl_backend/app`. The principles in
+[`1-principles.md`](1-principles.md) apply here too; this chapter adds what is specific to source
+files.
+
+Every example is real code from the `spiele` slice, so one subject runs through this chapter,
+[`3-out-of-code.md`](3-out-of-code.md) and the templates.
 
 ---
 
@@ -108,9 +112,8 @@ goes below the directive and says so.
  */
 ```
 
-**Until the ADRs exist, `DECISIONS` is omitted and `SEE ALSO` points at the spec sheets instead** —
-DS5 permits citing only an ADR that exists. Swapping spec-sheet references for ADR numbers is ledger
-item P2-9.
+**Cite only an ADR that exists** (DS5) — the gate fails on a number that resolves to no file. Where
+no ADR governs the module, omit `DECISIONS` and let `SEE ALSO` point at the spec sheet.
 
 ### TypeScript — reduced form, for a small module
 
@@ -267,7 +270,7 @@ const tags: string[] = ["spiele"];
 ```
 
 ```python
-    # Resolved here, not as a field default: a default is a constant and cannot reach the DB (BE-1).
+    # Resolved here, not as a field default: a default is a constant and cannot reach the DB (ADR-0002).
     if filters.saison_id is None:
 ```
 
@@ -288,9 +291,8 @@ Comments cite **ADR numbers**, never audit IDs.
 Audit IDs dangle the moment `docs/audit/` is archived, renumbered or superseded. ADR numbers are
 permanent by construction.
 
-**Only cite an ADR that exists.** Existing inline audit citations get rewritten as part of the ADR
-extraction (ledger item P2-9, which depends on P3-1) — until then, leave them alone rather than
-inventing numbers.
+**Only cite an ADR that exists**, and never invent a number to fill a gap. The documentation gate
+fails on a citation resolving to no file in `docs/_decisions/`.
 
 ---
 
@@ -299,7 +301,7 @@ inventing numbers.
 ### Name only what exists
 
 **A comment describes what the code IS. Never what it WAS, and never that something is absent.** Full
-argument: [DS14](4-decisions.md#ds14--documentation-names-only-what-exists).
+argument: [DS14](6-decisions.md#ds14--documentation-names-only-what-exists).
 
 A rejected alternative is worth recording and does not break this rule — write it in the **present, as
 a constraint**, aimed at the reader about to propose it again:
@@ -323,7 +325,7 @@ git diff main...HEAD -U0 | grep -niE "former|used to|was removed|no longer|previ
 
 **A header section running past about five lines, or repeated in a second file, is an ADR that has not
 been written yet.** State the rule in one or two lines, cite the number, and let the argument live in
-the ADR. Full argument: [DS15](4-decisions.md#ds15--a-module-header-points-at-the-adr-it-does-not-restate-it).
+the ADR. Full argument: [DS15](6-decisions.md#ds15--a-module-header-points-at-the-adr-it-does-not-restate-it).
 
 The claim must be stated in full (DS12); the **argument** is what gets cited (DS5). A reader who never
 opens the ADR must still know not to violate the rule — what they lose is _why_, never _what_.
@@ -339,25 +341,12 @@ opens the ADR must still know not to violate the rule — what they lose is _why
 
 Deliberately minimal.
 
-| Tool                  | Decision                                                                                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ruff `D` (pydocstyle) | **Add a narrow formatting subset** so docstrings that exist are shaped alike. Proposed: `D200`, `D205`, `D209`, `D210`, `D419`. Exact codes confirmed when applied (ledger P2-8) |
-| ruff `D1xx`           | **Excluded.** `D103` would demand a docstring on every function and manufacture exactly the boilerplate this standard rejects                                                    |
-| `eslint-plugin-jsdoc` | **Not added.** Its useful rules police `@param` completeness, which this standard does not use                                                                                   |
-| never restate a type  | Not enforceable. Review judgement, recorded in CLAUDE.md §1                                                                                                                      |
+| Tool                  | Decision                                                                                                                                                                                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ruff `D` (pydocstyle) | A narrow **formatting** subset, so docstrings that exist are shaped alike. The selected codes are in `fl_backend/pyproject.toml` under `[tool.ruff.lint]` — read them there rather than from a copy |
+| ruff `D1xx`           | **Excluded.** `D103` would demand a docstring on every function and manufacture exactly the boilerplate this standard rejects                                                                       |
+| `eslint-plugin-jsdoc` | **Not added.** Its useful rules police `@param` completeness, which this standard does not use                                                                                                      |
+| never restate a type  | Not enforceable. Review judgement, recorded in CLAUDE.md §1                                                                                                                                         |
 
-Current config for reference: `pyproject.toml` selects `E, W, F, I, B` with `ignore = ["B008"]`;
-`eslint.config.mjs` registers no JSDoc plugin.
-
----
-
-## Where this started
-
-Measured 2026-08-01, before any change: the frontend had **199** `/** … */` blocks across **93 of 216**
-`.ts`/`.tsx` files; the backend had **13** triple-quoted strings across **6** files, carrying its
-rationale in `#` comments instead. The voice was already consistent across both.
-
-**This standard is a formalization of existing practice, not a migration.** Most existing blocks
-already qualify as tier 2 or tier 3. The work is additive: module headers where they are missing, and
-the backend catching up to the frontend's density — which matters most because the backend carries the
-harder invariants.
+The rule selections live in `fl_backend/pyproject.toml` and `fl_frontend/eslint.config.mjs`. Read
+them there; a copy here would be one more thing that can disagree with the source (P4).

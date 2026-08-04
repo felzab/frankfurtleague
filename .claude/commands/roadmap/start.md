@@ -56,7 +56,7 @@ that opens three items builds the later fixes on decisions the earlier ones have
 
    **Commit 1 — the closing commit.** The work itself, plus:
 
-   - **Write the ADR if a decision was taken**, per `docs/_standard/3-adr-guide.md`. A decision that
+   - **Write the ADR if a decision was taken**, per `docs/_standard/4-adr-guide.md`. A decision that
      exists only in a commit body is one nobody will find. Add its row to `docs/_decisions/README.md`.
    - **Search the whole repo for the ID**, not just `open-items.md`: the spec sheets, the glossary,
      the audit prompts and module headers all reference these IDs (`docs/backend/spec.md` cites F4 as
