@@ -1,0 +1,18 @@
+# scripts/ruff.toml — makes the repository's Python rules apply to the gate's own tooling.
+#
+# Ruff resolves configuration by walking up from the file it is checking. fl_backend/pyproject.toml
+# therefore governs fl_backend/ and nothing else, so check_docs.py and check_commits.py resolved no
+# configuration at all and fell back to ruff's defaults — a different rule set from the one this
+# repository chose. An editor flagged findings the gate could not produce, which is the failure the
+# `[tool.pyright]` block in fl_backend/pyproject.toml already records for types.
+#
+# `extend` rather than a copy: the rule selection stays in exactly one file. This one adds nothing
+# and overrides nothing, and it must stay that way — the moment it carries its own `select`, the two
+# can disagree and the problem is back.
+#
+# It lives HERE and not at the repository root on purpose. A root config would also become the
+# nearest config for fl_backend/, which moves isort's idea of the source root: `app` stops resolving
+# as first-party and every import block in the backend is reshuffled. Scoping it to scripts/ leaves
+# the backend's own resolution untouched.
+
+extend = "../fl_backend/pyproject.toml"

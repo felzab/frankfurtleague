@@ -65,13 +65,24 @@ SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".py")
 # Top-level directories a backticked path must start with to be treated as a repo path. Anything else
 # in backticks is prose -- a bare `queries.ts` names a KIND of file, not one file.
 REPO_PREFIXES: Final[tuple[str, ...]] = (
-    "fl_frontend/", "fl_backend/", "docs/", "scripts/", "nginx/", ".claude/", ".github/",
+    "fl_frontend/",
+    "fl_backend/",
+    "docs/",
+    "scripts/",
+    "nginx/",
+    ".claude/",
+    ".github/",
 )
 
 # DS14's banned shapes. Reported, never failed: "the former ... the latter" is ordinary English, so
 # every hit has to be read by a person.
 HISTORY_PHRASES: Final[tuple[str, ...]] = (
-    "used to", "was removed", "previously", "moved here", "formerly", "no longer",
+    "used to",
+    "was removed",
+    "previously",
+    "moved here",
+    "formerly",
+    "no longer",
 )
 
 FENCE_RE: Final = re.compile(r"^\s*(```|~~~)")
@@ -166,10 +177,7 @@ def _skipped(path: Path) -> bool:
     if any(marker in f"/{rel}" for marker in TEMPLATE_MARKERS):
         return True
     segments = rel.split("/")
-    return any(
-        rel == d or rel.startswith(f"{d}/") or ("/" not in d and d in segments)
-        for d in SKIP_DIRS
-    )
+    return any(rel == d or rel.startswith(f"{d}/") or ("/" not in d and d in segments) for d in SKIP_DIRS)
 
 
 def comments_only(text: str, suffix: str) -> str:
@@ -249,7 +257,9 @@ def is_gitignored(token: str) -> bool:
     return (
         subprocess.run(
             ("git", "check-ignore", "-q", token),
-            cwd=REPO_ROOT, capture_output=True, check=False,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            check=False,
         ).returncode
         == 0
     )
@@ -330,9 +340,7 @@ def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
     for citation in sorted(set(LINE_CITATION_RE.findall(body))):
         if is_placeholder(citation):
             continue
-        found.append(
-            Finding(sev, "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (P6)")
-        )
+        found.append(Finding(sev, "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (P6)"))
 
     # Links, anchors and bare backticked paths are markdown conventions; a comment does not use them.
     if not is_markdown:
@@ -392,7 +400,7 @@ def check_stamps(paths: Iterable[Path]) -> list[Finding]:
         sev = severity_for(path)
         try:
             raw = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        except OSError, UnicodeDecodeError:
             continue
         body = strip_fences(raw)
         match = STAMP_RE.search(body)
@@ -407,7 +415,9 @@ def check_stamps(paths: Iterable[Path]) -> list[Finding]:
 
         is_ancestor = subprocess.run(
             ("git", "merge-base", "--is-ancestor", sha, "HEAD"),
-            cwd=REPO_ROOT, capture_output=True, check=False,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            check=False,
         ).returncode
         if is_ancestor != 0:
             found.append(Finding(sev, "stamp", rel, f"commit {sha} is not an ancestor of HEAD"))
@@ -422,7 +432,9 @@ def check_stamps(paths: Iterable[Path]) -> list[Finding]:
             if count > DRIFT_FAIL_AFTER:
                 found.append(
                     Finding(
-                        sev, "drift", rel,
+                        sev,
+                        "drift",
+                        rel,
                         f"{count} commits have touched files this page cites since its stamp "
                         f"(limit {DRIFT_FAIL_AFTER}) -- re-verify the page against the code, then restamp",
                     )
@@ -430,7 +442,9 @@ def check_stamps(paths: Iterable[Path]) -> list[Finding]:
             else:
                 found.append(
                     Finding(
-                        "report", "drift", rel,
+                        "report",
+                        "drift",
+                        rel,
                         f"{count} commit(s) touched files this page cites since its stamp -- re-verify",
                     )
                 )
@@ -463,7 +477,7 @@ def check_stamp_freshness(base: str) -> list[Finding]:
             continue
         try:
             current = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        except OSError, UnicodeDecodeError:
             continue
         if STAMP_RE.search(strip_fences(current)) is None:
             continue
@@ -476,9 +490,10 @@ def check_stamp_freshness(base: str) -> list[Finding]:
         if old_line and new_line and old_line.group(0) == new_line.group(0):
             found.append(
                 Finding(
-                    severity_for(path), "stamp", rel,
-                    "changed on this branch without its `Verified against` line moving -- "
-                    "restamp it, or say why the page still holds",
+                    severity_for(path),
+                    "stamp",
+                    rel,
+                    "changed on this branch without its `Verified against` line moving -- restamp it, or say why the page still holds",
                 )
             )
     return found
@@ -490,16 +505,10 @@ def check_history_phrases(base: str) -> list[Finding]:
     if not diff:
         return []
     pattern = re.compile("|".join(re.escape(p) for p in HISTORY_PHRASES), re.IGNORECASE)
-    hits = [
-        line[1:].strip()
-        for line in diff.split("\n")
-        if line.startswith("+") and not line.startswith("+++") and pattern.search(line)
-    ]
+    hits = [line[1:].strip() for line in diff.split("\n") if line.startswith("+") and not line.startswith("+++") and pattern.search(line)]
     if not hits:
         return []
-    return [
-        Finding("report", "history", "(branch diff)", f"{len(hits)} added line(s) match a DS14 phrase -- read them")
-    ]
+    return [Finding("report", "history", "(branch diff)", f"{len(hits)} added line(s) match a DS14 phrase -- read them")]
 
 
 def main() -> int:

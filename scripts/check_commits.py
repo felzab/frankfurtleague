@@ -84,10 +84,10 @@ KNOWN_SCOPES: Final[frozenset[str]] = frozenset(
 # the convention (docs/workflows/message-templates.md, The body); the third is CLAUDE.md section 2,
 # and it is here because it is the one a tool default will add on its own.
 BANNED: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
-    (re.compile(r"^\s*Co-authored-by:", re.I | re.M), "a Co-authored-by trailer"),
-    (re.compile(r"^\s*Signed-off-by:", re.I | re.M), "a Signed-off-by trailer"),
-    (re.compile(r"Generated with|Co-Authored-By: Claude|Claude Code", re.I), "an AI-authorship signature"),
-    (re.compile(r"\b(clos(e|es|ed)|fix(es|ed)?|resolv(e|es|ed))\s+#\d+", re.I), "an issue-closing keyword"),
+    (re.compile(r"^\s*Co-authored-by:", re.IGNORECASE | re.MULTILINE), "a Co-authored-by trailer"),
+    (re.compile(r"^\s*Signed-off-by:", re.IGNORECASE | re.MULTILINE), "a Signed-off-by trailer"),
+    (re.compile(r"Generated with|Co-Authored-By: Claude|Claude Code", re.IGNORECASE), "an AI-authorship signature"),
+    (re.compile(r"\b(clos(e|es|ed)|fix(es|ed)?|resolv(e|es|ed))\s+#\d+", re.IGNORECASE), "an issue-closing keyword"),
 )
 
 # Emoji and pictographs. Ranges rather than a library, because this script may not import anything
@@ -99,7 +99,7 @@ EMOJI: Final = re.compile(
 # A line that is one long unbroken token is a URL or a path, and wrapping it would break it.
 UNWRAPPABLE: Final = re.compile(r"^\S+$|https?://\S{40,}")
 
-VERIFIED_HINT: Final = re.compile(r"\bverif\w+|\bexit 0\b|\bchecked\b|\bran\b", re.I)
+VERIFIED_HINT: Final = re.compile(r"\bverif\w+|\bexit 0\b|\bchecked\b|\bran\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -114,9 +114,7 @@ class Finding:
 
 
 def git(*args: str) -> str | None:
-    result = subprocess.run(
-        ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace"
-    )
+    result = subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
     return result.stdout.strip() if result.returncode == 0 else None
 
 

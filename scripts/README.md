@@ -60,13 +60,24 @@ instead.
 
 | Scope        | Runs                                                                | Needs            |
 | ------------ | ------------------------------------------------------------------- | ---------------- |
-| `--scripts`  | `selfcheck.sh` — the scripts themselves                             | —                |
+| `--scripts`  | `selfcheck.sh`, then `ruff` over `scripts/*.py`                     | the backend venv |
 | `--docs`     | `check_docs.py` — citations, links, stamps; then `check_commits.py` | the backend venv |
 | `--backend`  | `ruff` + `pyright` + `pytest`, default tier                         | the backend venv |
 | `--frontend` | prettier (write), tsc, eslint, `next build`, unit tests, audit      | pnpm install     |
 | `--ops`      | both compose files parse; nginx accepts `prod.conf`                 | Docker           |
 | `--db`       | `pytest -m db` against a real `mongod`                              | venv + Docker    |
 | `--images`   | both `docker build`s + the `instrumentation.js` presence check      | Docker           |
+
+**The scripts scope lints its own python**, and `scripts/ruff.toml` is what makes that possible.
+ruff resolves configuration by walking up from the file it is checking, so `fl_backend/pyproject.toml`
+governs the backend and nothing else — `check_docs.py` and `check_commits.py` resolved no
+configuration at all and fell back to ruff's defaults. An editor could therefore report a finding
+this gate had no way to produce, which is the failure the `[tool.pyright]` block in that same
+pyproject records for types. `scripts/ruff.toml` carries one `extend` line and must never grow a
+`select` of its own, or the two can disagree again. It is scoped to `scripts/` rather than placed at
+the repository root because a root config would become the nearest config for `fl_backend/` too,
+moving isort's source root: `app` stops resolving as first-party and every backend import block is
+reshuffled. The cost of the scope is that `--scripts` now needs the backend venv.
 
 **Commit messages ride in the docs scope**, which is not a filing accident: in this repository the
 commit bodies are documentation — merges are never squashed so that they survive — and `--docs` is

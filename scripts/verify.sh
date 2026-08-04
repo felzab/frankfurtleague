@@ -11,7 +11,8 @@
 #
 # THE SCOPES, in the order they run (cheapest to fail first — the backend tier runs in seconds,
 # a next build in minutes, an image build in more):
-#   scripts    selfcheck.sh — the scripts themselves (instant)
+#   scripts    selfcheck.sh, then ruff over scripts/*.py — the scripts themselves (instant;
+#              the ruff step needs the backend venv)
 #   docs       check_docs.py — citations, links and stamps, then check_commits.py — the branch's
 #              commit messages, which are documentation here (instant; needs the backend venv)
 #   backend    ruff, pyright and the default pytest tier. No Docker
@@ -91,7 +92,7 @@ if (( RUN_OPS || RUN_IMAGES )); then
   trap cleanup EXIT
 fi
 PY=""
-if (( RUN_DOCS || RUN_BACKEND || RUN_DB )); then
+if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
   PY="$(venv_python)"
 fi
 
@@ -102,6 +103,15 @@ if (( RUN_SCRIPTS )); then
   step "scripts · selfcheck"
   quietly bash scripts/selfcheck.sh || die "scripts/selfcheck.sh failed — its findings are above."
   ok "scripts are internally consistent"
+
+  # Nothing linted the gate's own python until scripts/ruff.toml existed. ruff resolves its config
+  # by walking up from the file it is checking, so fl_backend/pyproject.toml governed the backend
+  # and nothing else, and these two files fell back to ruff's defaults — which is how an editor came
+  # to report a finding this gate could not produce. That file points ruff back at the one config.
+  step "scripts · ruff  (lint, and format in check mode)"
+  ( quietly "$PY" -m ruff check scripts && quietly "$PY" -m ruff format --check scripts ) \
+    || die "ruff failed in scripts/. Fix with:  fl_backend/.venv/Scripts/python -m ruff format scripts"
+  ok "the gate's own python is clean"
 fi
 
 # --- docs ------------------------------------------------------------------------------------------
