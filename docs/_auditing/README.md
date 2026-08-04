@@ -29,6 +29,9 @@ would throw away the part that cost the most — the severities the owner confir
 The `/audit:*` commands in `.claude/commands/audit/` load and apply these files. Behaviour lives
 here; the commands are wrappers.
 
+**One audit here is not a programme: `/docs:audit`.** See
+[the documentation sweep](#5-the-documentation-sweep-not-a-programme) below.
+
 ---
 
 ## 1. The lifecycle
@@ -307,7 +310,38 @@ and ADR links wherever a ratified decision was touched. `gh` is not installed �
 
 ---
 
-## 5. Prompt hygiene
+## 5. The documentation sweep, not a programme
+
+**`/docs:audit` audits what is written down rather than what runs**, so almost nothing above applies
+to it: no register, no ledger, no waves, no final report, and no `programme/` folder to delete. It is
+listed here because this is where audits are described, and separated here because treating it as a
+programme would put a second one beside the running one — which §1 forbids for good reasons that do
+not apply to reading prose.
+
+| It shares                                                                | It does not have                                    |
+| ------------------------------------------------------------------------ | --------------------------------------------------- |
+| Report-only: the audit session fixes nothing                             | A risk pass, a register, severities the owner sets  |
+| Findings are claims, re-verified before anything acts on them            | A ledger and waves — fixes go in one pull request   |
+| Working documents under `docs/audit/`, gitignored on a public repository | A permanent report; a sweep's value expires quickly |
+
+**The corpus is every document and every comment**: `/docs`, the repository-root documents, CLAUDE.md,
+the command files, and the module headers, docstrings and comments in the source, which the standard
+covers exactly as it covers a spec sheet (DS20). It is partitioned into segments, and each segment
+goes to an agent that reads it **in full** and has seen none of the rest — independence is the
+mechanism, because the session that wrote a page cannot feel what is missing from it.
+
+It runs against `docs/_standard/`, and finds the classes the four defences in
+[`../_standard/5-currency.md`](../_standard/5-currency.md) structurally cannot: a page no change has
+touched, a sentence a stranger could not act on, a fact stated in two places, a citation that
+resolves but is not evidence for the claim beside it.
+
+**`/docs:audit` reports and `/docs:audit fix` repairs, never in one session.** An audit that fixes as
+it goes stops looking at the point it starts repairing, and then grades its own work. The report goes
+to `docs/audit/documentation-<yyyy-mm-dd>.md` — beside `programme/`, never inside it, because
+`/audit:finish` deletes that folder and a sweep is not part of any programme's lifecycle. Behaviour
+is in `.claude/commands/docs/audit.md`.
+
+## 6. Prompt hygiene
 
 Prompts rot where they hardcode facts. Four rules:
 

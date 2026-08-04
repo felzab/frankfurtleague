@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `738c2b3`, 2026-08-04
 
 Frankfurt-League is a league website: a Next.js frontend, a FastAPI backend, MongoDB, deployed with
 Docker Compose behind nginx on a single host.
@@ -128,6 +128,10 @@ Documentation drifts unless something stops it. Four defences, and only the thir
    nothing — a dangling ADR number, a dead link, a broken anchor, a missing path — in `/docs` and
    inside source comments alike.
 4. **One question before every pull request:** what did this change make untrue?
+
+All four are local to a change, so none of them sees a page that no change touched. `/docs:audit`
+sweeps the whole corpus against the standard when it is run — described in
+[`_auditing/`](_auditing/), because it is an audit rather than a defence.
 
 Pages describing current state carry a **`Verified against`** line naming the commit someone last
 checked them against. ADRs deliberately do not: an ADR is dated to when its decision was taken, so a

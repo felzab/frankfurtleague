@@ -1,14 +1,17 @@
 # `roadmap` — open items and future ideas
 
+**Verified against:** `738c2b3`, 2026-08-04
+
 What this folder holds, and the boundary that keeps it honest:
 
 - [`open-items.md`](open-items.md) — **known open items**: findings and undecided questions that
   have real analysis behind them but no decision yet. Each entry keeps its full reasoning, so the
-  decision is taken with the analysis in hand rather than re-derived. **The file is ranked (owner,
-  2026-08-02):** entries are ordered into tiers so reading top to bottom gives the suggested
-  working order, and each entry that participates in a dependency carries a **Path** line. Some
-  entries are issue-shaped feature work parked there at the owner's direction, so the ordering
-  lives in one place — the issue boundary below still applies to everything else.
+  decision is taken with the analysis in hand rather than re-derived. **The file is ranked:** reading
+  top to bottom gives the suggested working order, by the rubric in
+  [How the file is ranked](#how-the-file-is-ranked), and each entry that participates in a dependency
+  carries a **Path** line. Some entries are issue-shaped feature work parked there at the owner's
+  direction, so the ordering lives in one place — the issue boundary below still applies to
+  everything else.
 - [`closed-items.md`](closed-items.md) — **the log of everything that has left the open file.** One
   row per item, no prose: id, what it was in a line, and the commit that closed it. Added by the
   owner, 2026-08-02, because deletion alone made a closed item unfindable unless you already knew it
@@ -27,6 +30,59 @@ not copied there and never should be: the row is a pointer, and `git show <sha>`
 lines in other entries that named it, and the references elsewhere in the repo — the spec sheets, the
 glossary and the audit prompts all cite these IDs. An item that ends only partly done is rewritten
 rather than deleted, and gets no row.
+
+## How the file is ranked
+
+**Rank by what it costs to leave the item undone, never by what it costs to do it.** Those are
+different questions, and only the first is a priority. An entry's own effort is a tie-break, and it
+breaks ties toward the cheaper item.
+
+Five tests, applied in order. **The first one that separates two entries decides**; the rest are not
+consulted.
+
+| #   | Test               | Ask                                                                                                                                              |
+| --- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Leverage**       | Does landing it make the work after it cheaper, safer, or possible at all? A convention, a model decision, a page nothing else can be built on   |
+| 2   | **A clock**        | Is there a date, or an unwatched event, after which it is wrong or more expensive? A rollover, a field collecting free text, a growing migration |
+| 3   | **Cost of delay**  | Does work done before it have to be redone after it? A doubled edit across two hand-mirrored schemas is the shape to look for                    |
+| 4   | **Value per cost** | Among what is left, which removes the most doubt for the least work?                                                                             |
+| 5   | **Dependency**     | A blocked entry ranks no higher than its blocker, and never drags its blocker up to meet it                                                      |
+
+**Test 4 is the one this file gets wrong.** An afternoon that settles a question outranks a work
+package that adds a feature, and it keeps outranking it however large the feature is. The failure
+mode is real and has a direction: big items look important, so they drift up, and the cheap item that
+would have made three of them easier sits near the bottom being cheap.
+
+**Four things that must never decide a rank:**
+
+- **Size, in either direction.** A large item is not important because it is large, and a small one
+  is not unimportant because it is small. Size enters only at test 4, and only between items the
+  first three tests could not separate.
+- **Surface or theme.** Putting the frontend entries together reads well and ranks nothing. An
+  entry's surface is a column, not a position.
+- **Batching.** Items batched to share one schema pass are _executed_ together — that belongs in a
+  `Path` line. It never promotes the least important member of the batch to the rank of the most.
+- **Age.** How long an entry has sat here says nothing about what it costs to leave it sitting.
+
+### The tiers
+
+Tiers are bands the tests produce, not categories an entry is filed into. An entry moves tier the
+moment the tests say so.
+
+| Tier                        | Holds                                                                        | Ordered within by                           |
+| --------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------- |
+| **1 — leverage and clocks** | Whatever passes test 1 or test 2: enablers, and anything with a date on it   | Leverage first, then the cheaper item first |
+| **2 — the work they carry** | Items that a tier-1 decision, page or convention makes cheap — or possible   | Dependency order                            |
+| **3 — independent**         | Blocks nothing, blocked by nothing, no clock                                 | Value per cost                              |
+| **4 — standing**            | No scheduled action: a caution, or a finding whose trigger is recorded in it | Grouped, not ranked                         |
+
+**Re-rank the whole file whenever an entry is added or removed, and rewrite each tier's opening
+paragraph to describe the entries actually in it.** Ranks are positional: a stale one is worse than
+no number at all, and a tier whose prose describes entries that have moved out of it is worse still.
+Where the rubric and the current order disagree, **the order is wrong** — the rubric is the rule and
+the numbers are its output.
+
+---
 
 ## Closing an entry: two commits, not one
 

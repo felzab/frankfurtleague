@@ -242,4 +242,9 @@ never restate a type.
 Registered in `.claude/commands/`, tab-completable, **slash-only — never launch one from prose**.
 Behaviour lives in those files.
 
-`/audit:*` — audit programme lifecycle · `/roadmap:start <ID>` — work one open item to a conclusion.
+| Command               | Does                                                                         |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `/audit:*`            | Audit programme lifecycle                                                    |
+| `/roadmap:start <ID>` | Work one open item to a conclusion                                           |
+| `/roadmap:add`        | Turn described items into ranked roadmap entries, then re-rank the file      |
+| `/docs:audit`         | Sweep every document and comment against `docs/_standard/`; `fix` applies it |
