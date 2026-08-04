@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `27f7fd9`, 2026-08-04
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -152,29 +152,7 @@ Three things about it are load-bearing:
   only place that knows a `/teams` response is a function of the `saisons` document, and nothing fails
   loudly when it is wrong — the page just serves yesterday's answer.
 
-## 6. Invariants
-
-| #   | Invariant                                                                           | Enforced by                                                                             | Breaks how                                                                                                                                                 |
-| --- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I1  | Every granular cache tag has a matching `updateTag` in a server action              | review                                                                                  | The tag never invalidates; reads as coverage, is decoration                                                                                                |
-| I2  | Base tags `spiele`/`teams` invalidate unconditionally on a match write              | `fl_frontend/src/features/spiele/actions.ts :: updateTag("spiele")`                     | The default read path's entries carry only base tags and go stale until expiry                                                                             |
-| I3  | `saison_id` reaches the action as an argument, never on the patch body              | `spiele/actions.ts` signature                                                           | The backend model does not declare it; Pydantic drops it silently, leaving a dead field that looks load-bearing                                            |
-| I4  | A failed season-id parse never fails the edit                                       | `fl_frontend/src/features/spiele/actions.ts :: FLSpielSchema.shape.saison_id.safeParse` | An admin's work rejected over a cache optimisation                                                                                                         |
-| I5  | Write payloads compose from the read model's field schemas                          | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema`           | Read and write shapes drift apart                                                                                                                          |
-| I6  | `await connection()` precedes every page data fetch                                 | each page or its async child                                                            | `docker compose build` fails — the builder stage has no reachable backend                                                                                  |
-| I7  | Every admin server action starts with `getAdminSession()`                           | all seven actions                                                                       | Unauthenticated mutation                                                                                                                                   |
-| I8  | `getAdminSession()`'s return value must be checked                                  | naming only                                                                             | It neither throws nor redirects; calling it bare guards nothing                                                                                            |
-| I9  | `core` imports neither `shared` nor `features`; `shared` does not import `features` | ESLint `no-restricted-imports`                                                          | Infrastructure gains a dependency on the app                                                                                                               |
-| I10 | No barrel files                                                                     | review                                                                                  | Tree-shaking across the RSC boundary is defeated                                                                                                           |
-| I11 | Named exports under `src/`, defaults only where Next.js requires                    | review                                                                                  | A filename/export mismatch becomes a silent rename instead of a compile error                                                                              |
-| I12 | `AdminEditSpielDataForm` takes lookup lists as props, never `useAdmin()`            | props signature                                                                         | `spiele` would depend on `admin`, undoing the write-path move                                                                                              |
-| I13 | Before deleting a `"use client"` directive, check for render props                  | review                                                                                  | A Server Component may not pass a function to a Client Component. Neither `tsc` nor `next build` catches it on a dynamic route — it throws at request time |
-| I14 | `revalidateTag` in route handlers, `updateTag` in server actions                    | route/action split                                                                      | `updateTag` throws in a route handler                                                                                                                      |
-| I15 | No nginx location for `/api/revalidate`                                             | `nginx/*.conf`                                                                          | An internal-only endpoint becomes internet-reachable                                                                                                       |
-| I16 | The three `SpielCard` variants stay separate                                        | review                                                                                  | See §7                                                                                                                                                     |
-| I17 | A `saisons` revalidation clears `spiele`, `spieltage` and `teams` too               | `AFFECTED_TAGS` in the route                                                            | A rollover or a change to the season's points scheme stays invisible on the public pages for a day, with nothing failing                                   |
-
-## 7. Deliberate duplication: the three match cards
+## 6. Deliberate duplication: the three match cards
 
 `SpielCard`, `SpielCardCompact` and `SpielCardUltraCompact` read as copy-paste and are not. They differ
 in chip count (two, one, none), in full team names versus two-letter shorthands, and in the container
@@ -186,7 +164,7 @@ Their genuinely shared code is already extracted: `formatSpielDisplay` in `spiel
 three presentation values all of them need. That extraction was itself a bug fix — an unplayed match
 rendered `"- : -"` in one card and `"-:-"` in the other two, on the same screen.
 
-## 8. Environment
+## 7. Environment
 
 Validated at startup by `@t3-oss/env-nextjs` (`core/config.ts`). Failure prints **names only**, never
 values.
@@ -213,7 +191,7 @@ gated on hostname rather than `NODE_ENV`, because the local stack runs the produ
 `AUTH_TRUST_HOST` is deliberately **not** declared: `@auth/core` reads `AUTH_URL` first in the same
 chain, and `AUTH_URL` is mandatory, so the variable can never be reached.
 
-## 9. Lint rules that encode a decision
+## 8. Lint rules that encode a decision
 
 | Rule                                                | Why it exists                                                                                                                                                                                                                                                                                                                                                                             |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -223,7 +201,7 @@ chain, and `AUTH_URL` is mandatory, so the variable can never be reached.
 | `no-restricted-imports` on `core`/`shared`          | Layer boundaries, scoped deliberately narrowly — see the overview                                                                                                                                                                                                                                                                                                                         |
 | `@typescript-eslint/consistent-type-imports`        | Type-only imports are erased; mixing them risks pulling runtime modules across the RSC boundary                                                                                                                                                                                                                                                                                           |
 
-## 10. Testing
+## 9. Testing
 
 **Runner:** Node's built-in test runner — `node --test`, driven through `pnpm test`. There is no Vitest
 or Jest, and no test config file. TypeScript path aliases are resolved by `tsconfig-alias-hook.mjs`,
@@ -244,7 +222,45 @@ it is each ecosystem's default, and both defaults exist for a reason:
 The seven test files cover pure functions only — schema validators, formatters, derivations. There are
 no component tests and no end-to-end suite.
 
-## 11. Known-open
+## 10. Invariants
+
+| #   | Invariant                                                                           | Enforced by                                                                             | Breaks how                                                                                                                                                 |
+| --- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I1  | Every granular cache tag has a matching `updateTag` in a server action              | review                                                                                  | The tag never invalidates; reads as coverage, is decoration                                                                                                |
+| I2  | Base tags `spiele`/`teams` invalidate unconditionally on a match write              | `fl_frontend/src/features/spiele/actions.ts :: updateTag("spiele")`                     | The default read path's entries carry only base tags and go stale until expiry                                                                             |
+| I3  | `saison_id` reaches the action as an argument, never on the patch body              | `spiele/actions.ts` signature                                                           | The backend model does not declare it; Pydantic drops it silently, leaving a dead field that looks load-bearing                                            |
+| I4  | A failed season-id parse never fails the edit                                       | `fl_frontend/src/features/spiele/actions.ts :: FLSpielSchema.shape.saison_id.safeParse` | An admin's work rejected over a cache optimisation                                                                                                         |
+| I5  | Write payloads compose from the read model's field schemas                          | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema`           | Read and write shapes drift apart                                                                                                                          |
+| I6  | `await connection()` precedes every page data fetch                                 | each page or its async child                                                            | `docker compose build` fails — the builder stage has no reachable backend                                                                                  |
+| I7  | Every admin server action starts with `getAdminSession()`                           | all seven actions                                                                       | Unauthenticated mutation                                                                                                                                   |
+| I8  | `getAdminSession()`'s return value must be checked                                  | naming only                                                                             | It neither throws nor redirects; calling it bare guards nothing                                                                                            |
+| I9  | `core` imports neither `shared` nor `features`; `shared` does not import `features` | ESLint `no-restricted-imports`                                                          | Infrastructure gains a dependency on the app                                                                                                               |
+| I10 | No barrel files                                                                     | review                                                                                  | Tree-shaking across the RSC boundary is defeated                                                                                                           |
+| I11 | Named exports under `src/`, defaults only where Next.js requires                    | review                                                                                  | A filename/export mismatch becomes a silent rename instead of a compile error                                                                              |
+| I12 | `AdminEditSpielDataForm` takes lookup lists as props, never `useAdmin()`            | props signature                                                                         | `spiele` would depend on `admin`, undoing the write-path move                                                                                              |
+| I13 | Before deleting a `"use client"` directive, check for render props                  | review                                                                                  | A Server Component may not pass a function to a Client Component. Neither `tsc` nor `next build` catches it on a dynamic route — it throws at request time |
+| I14 | `revalidateTag` in route handlers, `updateTag` in server actions                    | route/action split                                                                      | `updateTag` throws in a route handler                                                                                                                      |
+| I15 | No nginx location for `/api/revalidate`                                             | `nginx/*.conf`                                                                          | An internal-only endpoint becomes internet-reachable                                                                                                       |
+| I16 | The three `SpielCard` variants stay separate                                        | review                                                                                  | See §6                                                                                                                                                     |
+| I17 | A `saisons` revalidation clears `spiele`, `spieltage` and `teams` too               | `AFFECTED_TAGS` in the route                                                            | A rollover or a change to the season's points scheme stays invisible on the public pages for a day, with nothing failing                                   |
+
+## 11. Violation → remedy
+
+The symptom-first index, for the reader who has the bug and does not yet know the cause. Several rows
+are behaviour that is deliberate — those are the ones that save the most time.
+
+| Symptom                                                     | Cause                                                                     | Remedy                                                                      |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| An admin edit saves, but the list still shows the old data  | The entry carries only base tags, and only a granular tag was invalidated | I2 — the base `updateTag`s must stay unconditional                          |
+| A page never refreshes after a season is edited             | A `saisons` write has to clear four tag families, not one                 | I17 — check `AFFECTED_TAGS` still lists `spiele`, `spieltage` and `teams`   |
+| A field the admin form sends never reaches the database     | The backend model does not declare it, and Pydantic drops it silently     | I3 — pass it as an action argument, never on the patch body                 |
+| The image build fails on a page that builds locally         | A page fetches without `await connection()`; the builder has no backend   | I6 — add the guard before the fetch; it need not sit in the default export  |
+| A dynamic route throws at request time but the build passed | A Server Component passes a render prop to a Client Component             | I13 — restore the `"use client"` directive. No gate catches this one        |
+| `updateTag` throws inside a route handler                   | Wrong function for the context                                            | I14 — `revalidateTag` in route handlers, `updateTag` in server actions      |
+| The three match cards look like duplication                 | Working as intended — they differ in chips, names and container (§6)      | Nothing. Extract shared derivation into `utils.ts` rather than merging them |
+| A cache tag exists but nothing ever clears it               | A granular tag on a resource with no write surface                        | I1 — add the matching `updateTag` in the same change, or delete the tag     |
+
+## 12. Known-open
 
 | #    | Item                                                                    | State                                                               |
 | ---- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- |

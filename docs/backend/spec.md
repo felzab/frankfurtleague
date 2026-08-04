@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `27f7fd9`, 2026-08-04
 **Scope:** `fl_backend/`
 
 ---
@@ -116,11 +116,30 @@ rather than stored; the session stays so the endpoint's atomicity does not have 
 the next time it grows.
 
 **Nothing here touches a team.** The league table is computed from the match documents by `GET /teams`
-(§4, I1), so entering a result moves the table on the next read, with no second write to forget. The
+(§5, I1), so entering a result moves the table on the next read, with no second write to forget. The
 frontend still invalidates the `teams` cache tags in the same action — the data it caches changed even
 though no team document did.
 
-## 4. Invariants
+## 4. Error codes
+
+| Code            | Status | Meaning                                                         |
+| --------------- | ------ | --------------------------------------------------------------- |
+| `REQ-AUTH-001`  | 401    | No bearer credentials presented                                 |
+| `REQ-AUTH-002`  | 401    | `base` key invalid                                              |
+| `REQ-AUTH-003`  | 401    | `system` key invalid                                            |
+| `REQ-AUTH-004`  | 401    | `admin` key invalid                                             |
+| `DB-CONN-001`   | 503    | Database client unavailable                                     |
+| `DB-CONN-002`   | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`) |
+| `DB-COMMON-001` | 404    | No document matched the filter                                  |
+| `DB-COMMON-002` | 409    | A unique index refused the write                                |
+
+**409 arrived with the write path.** A `DuplicateKeyError` was an unhandled 500 while nothing could
+write; with seven create endpoints it is an ordinary outcome, so a dedicated handler maps it
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). Starlette
+resolves handlers by walking `type(exc).__mro__`, so registration order does not matter — the most
+specific registered class wins.
+
+## 5. Invariants
 
 | #   | Invariant                                                                                                                                                                                         | Enforced by                                                                                                                                 | Breaks how                                                                                                                                                                                                            |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -148,7 +167,7 @@ though no team document did.
 | I20 | Creating **never revives** a retired row; `POST /{resource}/{id}/reactivate` does ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md))                                          | Every create is a plain insert, so a natural-key collision is a `DuplicateKeyError` → 409                                                   | Reviving from a natural key cannot tell the same club returning from a different club wanting two letters the retired one still holds — and getting it wrong repoints every historical match                          |
 | I17 | A Pydantic model and its validator declare the same field set                                                                                                                                     | `test_every_mirrored_model_matches_its_validator` ([ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md)) | Nothing about editing a model would announce that its validator was forgotten. The validators are hand-written on purpose — generating them would type every ObjectId as a string                                     |
 
-## 5. Violation → remedy
+## 6. Violation → remedy
 
 | Symptom                                          | Cause                                         | Remedy                                                                                          |
 | ------------------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -163,25 +182,6 @@ though no team document did.
 | A retired venue is missing from an admin picker  | The default read filters it out               | Pass `include_inactive=true` — a switch, not a value to match on                                |
 | 401 with `REQ-AUTH-002`                          | Wrong or missing `base` key                   | Check `INTERNAL_API_KEY_BASE` matches on both sides                                             |
 | 503 with `Retry-After: 30`                       | Database unavailable                          | `DB-CONN-001` — check MongoDB                                                                   |
-
-## 6. Error codes
-
-| Code            | Status | Meaning                                                         |
-| --------------- | ------ | --------------------------------------------------------------- |
-| `REQ-AUTH-001`  | 401    | No bearer credentials presented                                 |
-| `REQ-AUTH-002`  | 401    | `base` key invalid                                              |
-| `REQ-AUTH-003`  | 401    | `system` key invalid                                            |
-| `REQ-AUTH-004`  | 401    | `admin` key invalid                                             |
-| `DB-CONN-001`   | 503    | Database client unavailable                                     |
-| `DB-CONN-002`   | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`) |
-| `DB-COMMON-001` | 404    | No document matched the filter                                  |
-| `DB-COMMON-002` | 409    | A unique index refused the write                                |
-
-**409 arrived with the write path.** A `DuplicateKeyError` was an unhandled 500 while nothing could
-write; with seven create endpoints it is an ordinary outcome, so a dedicated handler maps it
-([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). Starlette
-resolves handlers by walking `type(exc).__mro__`, so registration order does not matter — the most
-specific registered class wins.
 
 ## 7. Known-open
 

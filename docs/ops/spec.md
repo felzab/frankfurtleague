@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `27f7fd9`, 2026-08-04
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -85,37 +85,7 @@ prerendered HTML, and the alternative was three mechanisms plus a permanent fram
 compensating control is the `react/no-danger` ESLint rule, which closes the only realistic injection
 entry point in the codebase.
 
-## 5. Invariants
-
-| #   | Invariant                                                              | Enforced by                                                         | Breaks how                                                                                                     |
-| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| I1  | Only nginx publishes ports                                             | `docker-compose.yml`                                                | Application containers become directly reachable; `/api/revalidate` loses its only protection                  |
-| I2  | **No nginx location for `/api/revalidate`**                            | absence in `nginx/*.conf`                                           | An internal, key-authenticated endpoint becomes internet-facing                                                |
-| I3  | Security headers are repeated in every `location` that sets any header | `/_next/static/` block                                              | `add_header` in a location **replaces** the inherited set — the location silently loses HSTS, CSP and the rest |
-| I4  | A `default_server` block rejects unknown hosts                         | `ssl_reject_handshake on`                                           | Any `Host` header reaches Next, forwarded verbatim by the proxy                                                |
-| I5  | Sign-in rate limiting applies to POST only                             | the `map` producing an empty key otherwise                          | An empty key is exempt from `limit_req`; without the map, GET `/signin` would be throttled too                 |
-| I6  | The builder stage has no reachable backend or real env                 | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL` | Anything fetching the API or parsing `AUTH_URL` at module scope fails the image build                          |
-| I7  | Production never builds                                                | `deploy.sh` only pulls                                              | A failed build on the server is an outage                                                                      |
-| I8  | Both images build before either is pushed                              | `publish.sh`                                                        | Production could pull a frontend whose backend does not exist                                                  |
-| I9  | Publishing refuses a dirty tree by default                             | `publish.sh`                                                        | A tag naming a commit must be rebuildable from that commit                                                     |
-| I10 | Deploy recreates containers in place                                   | `deploy.sh`                                                         | `down`/`up` turns a seconds-long interruption into a full outage                                               |
-| I11 | Scripts use LF line endings and carry the git executable bit           | `selfcheck.sh` checks 2 and 3                                       | Windows hides both; the script works locally and fails on the server                                           |
-| I12 | The three API keys are 64 characters and match on both sides           | frontend env schema; backend config                                 | Every request 401s with `REQ-AUTH-00x`                                                                         |
-
-## 6. Violation → remedy
-
-| Symptom                                                  | Cause                                                            | Remedy                                                                 |
-| -------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                 |
-| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                 |
-| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                            |
-| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I3 — repeat every header in that block                                 |
-| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                    |
-| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                       |
-| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | `./scripts/revalidate_reference_data.sh <saisons\|spieler\|spieltage>` |
-| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | `./scripts/revalidate_reference_data.sh saisons` clears all four tags  |
-
-## 7. The verification gate
+## 5. The verification gate
 
 `scripts/verify.sh` runs cheapest-to-fail first, and the order is the point: a script self-check, the
 documentation gate, `pnpm verify` (types, lint, formatting, `next build`, unit tests),
@@ -146,6 +116,36 @@ omitted from the standalone output entirely.
 sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts` or
 `src/instrumentation.ts` — those are where packaging problems live. An audit remediation wave runs the
 full form regardless of what it touched, unless it changed documentation only.
+
+## 6. Invariants
+
+| #   | Invariant                                                              | Enforced by                                                         | Breaks how                                                                                                     |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| I1  | Only nginx publishes ports                                             | `docker-compose.yml`                                                | Application containers become directly reachable; `/api/revalidate` loses its only protection                  |
+| I2  | **No nginx location for `/api/revalidate`**                            | absence in `nginx/*.conf`                                           | An internal, key-authenticated endpoint becomes internet-facing                                                |
+| I3  | Security headers are repeated in every `location` that sets any header | `/_next/static/` block                                              | `add_header` in a location **replaces** the inherited set — the location silently loses HSTS, CSP and the rest |
+| I4  | A `default_server` block rejects unknown hosts                         | `ssl_reject_handshake on`                                           | Any `Host` header reaches Next, forwarded verbatim by the proxy                                                |
+| I5  | Sign-in rate limiting applies to POST only                             | the `map` producing an empty key otherwise                          | An empty key is exempt from `limit_req`; without the map, GET `/signin` would be throttled too                 |
+| I6  | The builder stage has no reachable backend or real env                 | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL` | Anything fetching the API or parsing `AUTH_URL` at module scope fails the image build                          |
+| I7  | Production never builds                                                | `deploy.sh` only pulls                                              | A failed build on the server is an outage                                                                      |
+| I8  | Both images build before either is pushed                              | `publish.sh`                                                        | Production could pull a frontend whose backend does not exist                                                  |
+| I9  | Publishing refuses a dirty tree by default                             | `publish.sh`                                                        | A tag naming a commit must be rebuildable from that commit                                                     |
+| I10 | Deploy recreates containers in place                                   | `deploy.sh`                                                         | `down`/`up` turns a seconds-long interruption into a full outage                                               |
+| I11 | Scripts use LF line endings and carry the git executable bit           | `selfcheck.sh` checks 2 and 3                                       | Windows hides both; the script works locally and fails on the server                                           |
+| I12 | The three API keys are 64 characters and match on both sides           | frontend env schema; backend config                                 | Every request 401s with `REQ-AUTH-00x`                                                                         |
+
+## 7. Violation → remedy
+
+| Symptom                                                  | Cause                                                            | Remedy                                                                 |
+| -------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                 |
+| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                 |
+| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                            |
+| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I3 — repeat every header in that block                                 |
+| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                    |
+| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                       |
+| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | `./scripts/revalidate_reference_data.sh <saisons\|spieler\|spieltage>` |
+| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | `./scripts/revalidate_reference_data.sh saisons` clears all four tags  |
 
 ## 8. Known-open
 

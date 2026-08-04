@@ -1,11 +1,39 @@
 # Glossary
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `27f7fd9`, 2026-08-04
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
 
-Entries give the term, what it means, where it lives, and the part that bites.
+Each entry gives the term, what it means, where it lives, and the part that bites.
+
+**The five that most often cost an hour**, if you read nothing else: `Spieltag` is not `Spiel` ·
+a `Team` document is season-independent · `"playoffs"` is not a stored value · a cancelled match
+with a result still counts · `inactive_since` is a date, never a boolean.
+
+| Term                              | Is                                           | Section               |
+| --------------------------------- | -------------------------------------------- | --------------------- |
+| `Saison`                          | The competition year                         | Core entities         |
+| `Spiel`                           | One match                                    | Core entities         |
+| `Spieltag`                        | A named block of matches — **not** a `Spiel` | Core entities         |
+| `Team`                            | A club, season-independent                   | Core entities         |
+| `Spieler`                         | A person                                     | Core entities         |
+| `Schiedsrichter`                  | A referee                                    | Core entities         |
+| `Spielort`                        | A venue                                      | Core entities         |
+| `Tore`                            | Goals, scored and conceded                   | Attributes and values |
+| `Ergebnis`                        | The score as a string, derived server-side   | Attributes and values |
+| `Gruppe`                          | A group within a season                      | Attributes and values |
+| `saison_phase`                    | Stage of the season                          | Attributes and values |
+| `spiel_status`                    | Match status, derived not stored             | Attributes and values |
+| `is_canceled`                     | Cancelled — and still countable              | Attributes and values |
+| `is_placeholder`                  | The "TBD" team                               | Attributes and values |
+| `is_disqualified`                 | Out of one season, not the league            | Attributes and values |
+| `is_nachgetragen`                 | A squad entry added after the fact           | Attributes and values |
+| `inactive_since`                  | Soft deletion, as a date                     | Attributes and values |
+| `Statistik`                       | The derived league-table figures             | Attributes and values |
+| `Mietpreis`                       | Venue cost, whole euros                      | Attributes and values |
+| `Payment`                         | Referee fee, whole euros                     | Attributes and values |
+| `saison_teams` · `saison_spieler` | The season junctions                         | Attributes and values |
 
 ---
 
@@ -54,13 +82,13 @@ A named block of matches inside a season, with a date range.
 `Spiel`.** A `Spieltag` groups matches; a `Spiel` is one of them. The English "matchday" collides
 badly here, so prefer the German in code and conversation.
 
-### `Team`
+### `Team` — club
 
 **In code:** `teams` collection · `FLTeam` (`fl_backend/app/api/teams/schemas.py`).
 
 **Pitfalls — the most important structural fact in the data model.** A team document is
 **season-independent**. What is season-specific comes from somewhere else, assembled at read time by
-`build_team_pipeline` (`fl_backend/app/api/teams/services.py`):
+`fl_backend/app/api/teams/services.py :: build_team_pipeline`:
 
 | On the `teams` document                                                                     | On the `saison_teams` junction           | Computed from `spiele` |
 | ------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------- |
@@ -194,7 +222,7 @@ One trap the fix has to clear: the placeholder's name embedded in a match is **n
 `teams.name`. Matches 29–31 embed `"Sieger 25."`, `"Sieger 26."` and so on, where the referenced
 document reads `"TBD"` — the field carries a bracket slot label that exists nowhere else.
 
-### `is_disqualified`
+### `is_disqualified` — out of one season
 
 On the `saison_teams` junction — a team is disqualified **for a season**, not permanently.
 

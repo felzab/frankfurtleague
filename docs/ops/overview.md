@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `27f7fd9`, 2026-08-04
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no
@@ -11,7 +11,7 @@ server that can fail a build.
 > rollback procedure and a troubleshooting table. It is thorough and current; this page does not repeat
 > it. What follows is the topology and the constraints that manual assumes.
 
-## Topology
+## How it is organised
 
 ```mermaid
 graph TB
