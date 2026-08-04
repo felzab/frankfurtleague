@@ -79,9 +79,9 @@ returns an access-denied `FormState` rather than throwing.
 The two patch actions also invalidate `spiele` because the backend fans a venue or referee rename out
 into every match document embedding it — so match data really has changed.
 
-**The actions are unchanged by the write path; their transport is not.** Every mutation now addresses
-its resource with the id in the PATH — `PATCH /spielorte/{id}`, `DELETE /schiedsrichter/{id}`,
-`PATCH /spiele/{spiel_id}` — and `/api/v0/admin/*` no longer exists
+**Every mutation addresses its resource with the id in the PATH** — `PATCH /spielorte/{id}`,
+`DELETE /schiedsrichter/{id}`, `PATCH /spiele/{spiel_id}`. There is no admin-prefixed route namespace,
+and adding one would split a resource's writes from its reads
 ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). The payload
 schemas still carry `id`, because they back the admin forms, so each function in `mutations.ts` splits
 it off before sending the body. **A backend payload model that saw an `id` would drop it silently**,

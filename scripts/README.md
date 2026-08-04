@@ -256,10 +256,9 @@ Left alone they never expire on their own. Each publish re-points the moving tag
 image keeps its own sha tag — so it never becomes dangling, and `docker image prune` never reclaims
 it. That is roughly **750 MB per publish**, with no upper bound.
 
-**In the registry, pruning is now optional.** It used to be necessary: Docker Hub's free private
-repository had finite storage. Public packages on ghcr are free and unlimited, so nothing forces a
-delete — the only reason left is keeping the rollback list readable, and that is a matter of taste
-rather than capacity. **When you do prune, do it by hand.** This is deliberately not automated: a
+**In the registry, pruning is optional.** Public packages on ghcr are free and unlimited, so nothing
+forces a delete — the only reason to prune is keeping the rollback list readable, which is a matter of
+taste rather than capacity. **When you do prune, do it by hand.** This is deliberately not automated: a
 botched registry delete destroys rollback history, and rollback is the one thing that has to work on
 your worst day.
 

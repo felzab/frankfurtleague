@@ -104,9 +104,8 @@ export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
 
 /**
  * The admin edit payload, composed from the field schemas above rather than redeclaring them, so
- * the write shape cannot drift from the read shape. It lived in `features/admin` until the write
- * path moved here (ADR-0005); the composition is now intra-slice, which is what made the move
- * worth doing.
+ * the write shape cannot drift from the read shape. That composition is intra-slice and must stay
+ * so: the Spiel write path belongs to this slice, not to `admin` (ADR-0005).
  */
 export const FLPatchSpielDataPayloadSchema = z.object({
   datum: CustomDateStringSchema.nullable(),

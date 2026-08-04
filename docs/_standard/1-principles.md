@@ -4,6 +4,8 @@
 
 These apply to **everything written down in this repository**: module headers, symbol docs, inline
 comments, `/docs` pages, ADRs, prompts, command files, commit bodies and pull request descriptions.
+**A comment is documentation** and carries every rule below, including the mechanical ones — the gate
+checks the citations inside source comments exactly as it checks a spec sheet's (DS20).
 The later chapters describe particular shapes. This chapter describes what all of them must be.
 
 Read this before writing anything. Nine rules, and the first one decides most arguments.
@@ -70,7 +72,13 @@ than "a reduced variant used to exist and was removed".
 A **measurement with a date is not history** and stays. What is banned is the change, not the
 timestamp.
 
-Full argument and the three exempt places: [DS14](6-decisions.md#ds14--documentation-names-only-what-exists).
+**Four documents are exempt, and only within their stated job**, because recording what changed is
+what they are for: an ADR's `Context`, an ADR's `Superseded by`,
+[`roadmap/closed-items.md`](../roadmap/closed-items.md), and a final report in `_auditing/reports/`.
+The list is closed — a document that wants the past tense and is not on it is a document in the wrong
+shape (DS21).
+
+Full argument: [DS14](6-decisions.md#ds14--documentation-names-only-what-exists).
 
 ## P4 — A stale fact is worse than no fact
 

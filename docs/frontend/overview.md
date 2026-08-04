@@ -98,7 +98,8 @@ Where a page splits chrome from a data hole, it lives in the in-file async child
 the two focus exceptions, and the HeroUI import block. **`src/app/admin/admin.css` is a second, smaller
 one**, imported by the admin layout and therefore loaded only under `/admin`. It holds the nine
 component stylesheets no public route can reach — the date/time pickers, the calendar and the
-autocomplete — which is 67 KB the public pages no longer download or parse (ADR-0023).
+autocomplete. Keeping them out of the public bundle is worth 67 KB a public page would otherwise
+download and parse, measured 2026-08-01 (ADR-0023).
 
 **HeroUI is imported component-by-component, not as `@import "@heroui/styles"`.** This is HeroUI's own
 documented mechanism — the v3 release notes call it "ship only the CSS you use" — and it exists because

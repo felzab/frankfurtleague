@@ -83,10 +83,10 @@ CustomObjectId = Annotated[ObjectId, CustomObjectIdAnnotation]
 
 
 # The path-parameter spelling, and deliberately the SAME type rather than a second one. A path segment
-# arrives as a string and the union branch above converts it, so this needs no converter of its own --
-# and the separate one it used to have declared `Annotated[str, ...]` while returning an ObjectId. That
-# lie is not cosmetic: every endpoint's id parameter typed as `str` means a type checker cannot see the
-# write path's id handling at all, which is how five `reportArgumentType` errors reached `main`.
+# arrives as a string and the union branch above converts it, so this needs no converter of its own.
+# NEVER give it a converter of its own that declares `Annotated[str, ...]` while returning an ObjectId:
+# that lie is not cosmetic. Every endpoint's id parameter would type as `str`, and a type checker then
+# cannot see the write path's id handling at all -- a whole class of argument-type error goes unreported.
 #
 # Kept as a distinct NAME because it says where the value comes from, and because `by_id()` in
 # app/core/routing.py constrains the same parameter to 24 hex characters at the ROUTING layer -- the two

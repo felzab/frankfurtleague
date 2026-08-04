@@ -43,9 +43,9 @@ validators on every boot ([ADR-0027](../_decisions/0027-the-database-enforces-it
 it is a `dbAdmin` action that `readWrite` does not carry, so a user with read and write access alone
 builds every index and attaches no validator, and the backend then refuses to start.
 
-The split is what [ADR-0010](../_decisions/0010-authjs-owns-a-direct-mongoclient.md) always implied and
-one credential used to undercut: the sanctioned exception is Auth.js reaching **its own** database, and
-sharing a login made that a matter of trust rather than of configuration.
+The split is what [ADR-0010](../_decisions/0010-authjs-owns-a-direct-mongoclient.md) requires: the
+sanctioned exception is Auth.js reaching **its own** database. **Never give the two a shared login** —
+that makes the boundary a matter of trust rather than of configuration, and nothing then enforces it.
 
 **Only nginx publishes ports.** The two application containers are reachable solely from inside the
 compose network, which is what makes `POST /api/revalidate` an internal endpoint without any additional

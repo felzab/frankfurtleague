@@ -14,27 +14,29 @@ stopped resolving — a renamed file, a retired tracking id — the pointer is r
 thing in words. The argument itself is never touched: if an argument was wrong, that is a new
 decision that supersedes this one.
 
-| #                                                                            | Decision                                                       | Area |
-| ---------------------------------------------------------------------------- | -------------------------------------------------------------- | ---- |
-| [DS1](#ds1--in-code-style-tiered)                                            | In-code style: tiered                                          | code |
-| [DS2](#ds2--module-header-h5-hybrid)                                         | Module header: H5 hybrid                                       | code |
-| [DS3](#ds3--coverage-headers-endpoints-surprises)                            | Coverage: headers, endpoints, surprises                        | code |
-| [DS4](#ds4--enforcement-a-narrow-ruff-d-subset-and-nothing-else)             | Enforcement: narrow ruff `D` subset only                       | code |
-| [DS5](#ds5--citations-adr-numbers)                                           | Citations: ADR numbers                                         | code |
-| [DS6](#ds6--docs-standard-adrs--spec-sheets--overviews)                      | `/docs` standard: three layers                                 | docs |
-| [DS7](#ds7--location-central-docs-per-surface)                               | Location: central `/docs`, per surface                         | docs |
-| [DS8](#ds8--currency-citations-and-the-same-commit-rule)                     | Currency: citations and the same-commit rule                   | docs |
-| [DS9](#ds9--claudemd-9-shrinks-to-a-pointer-table)                           | CLAUDE.md §9 → pointer table                                   | docs |
-| [DS10](#ds10--diagrams-mermaid-c4-levels-13)                                 | Diagrams: mermaid, C4 levels 1–3                               | docs |
-| [DS11](#ds11--glossary-one-central-file)                                     | Glossary: one central file                                     | docs |
-| [DS12](#ds12--documents-are-self-contained-the-audit-is-never-the-substance) | Documents are self-contained; the audit is never the substance | both |
-| [DS13](#ds13--every-test-carries-a-sentence-saying-what-it-covers)           | Every test carries a sentence saying what it covers            | code |
-| [DS14](#ds14--documentation-names-only-what-exists)                          | Documentation names only what exists                           | both |
-| [DS15](#ds15--a-module-header-points-at-the-adr-it-does-not-restate-it)      | A module header points at the ADR; it does not restate it      | code |
-| [DS16](#ds16--documentation-is-written-for-a-reader-with-no-context)         | Documentation is written for a reader with no context          | both |
-| [DS17](#ds17--citations-are-anchored-never-line-numbers)                     | Citations are anchored, never line numbers                     | both |
-| [DS18](#ds18--currency-is-enforced-by-the-gate-not-by-diligence)             | Currency is enforced by the gate, not by diligence             | both |
-| [DS19](#ds19--the-standard-is-not-exempt-from-itself)                        | The standard is not exempt from itself                         | docs |
+| #                                                                                           | Decision                                                       | Area |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---- |
+| [DS1](#ds1--in-code-style-tiered)                                                           | In-code style: tiered                                          | code |
+| [DS2](#ds2--module-header-h5-hybrid)                                                        | Module header: H5 hybrid                                       | code |
+| [DS3](#ds3--coverage-headers-endpoints-surprises)                                           | Coverage: headers, endpoints, surprises                        | code |
+| [DS4](#ds4--enforcement-a-narrow-ruff-d-subset-and-nothing-else)                            | Enforcement: narrow ruff `D` subset only                       | code |
+| [DS5](#ds5--citations-adr-numbers)                                                          | Citations: ADR numbers                                         | code |
+| [DS6](#ds6--docs-standard-adrs--spec-sheets--overviews)                                     | `/docs` standard: three layers                                 | docs |
+| [DS7](#ds7--location-central-docs-per-surface)                                              | Location: central `/docs`, per surface                         | docs |
+| [DS8](#ds8--currency-citations-and-the-same-commit-rule)                                    | Currency: citations and the same-commit rule                   | docs |
+| [DS9](#ds9--claudemd-9-shrinks-to-a-pointer-table)                                          | CLAUDE.md §9 → pointer table                                   | docs |
+| [DS10](#ds10--diagrams-mermaid-c4-levels-13)                                                | Diagrams: mermaid, C4 levels 1–3                               | docs |
+| [DS11](#ds11--glossary-one-central-file)                                                    | Glossary: one central file                                     | docs |
+| [DS12](#ds12--documents-are-self-contained-the-audit-is-never-the-substance)                | Documents are self-contained; the audit is never the substance | both |
+| [DS13](#ds13--every-test-carries-a-sentence-saying-what-it-covers)                          | Every test carries a sentence saying what it covers            | code |
+| [DS14](#ds14--documentation-names-only-what-exists)                                         | Documentation names only what exists                           | both |
+| [DS15](#ds15--a-module-header-points-at-the-adr-it-does-not-restate-it)                     | A module header points at the ADR; it does not restate it      | code |
+| [DS16](#ds16--documentation-is-written-for-a-reader-with-no-context)                        | Documentation is written for a reader with no context          | both |
+| [DS17](#ds17--citations-are-anchored-never-line-numbers)                                    | Citations are anchored, never line numbers                     | both |
+| [DS18](#ds18--currency-is-enforced-by-the-gate-not-by-diligence)                            | Currency is enforced by the gate, not by diligence             | both |
+| [DS19](#ds19--the-standard-is-not-exempt-from-itself)                                       | The standard is not exempt from itself                         | docs |
+| [DS20](#ds20--in-code-documentation-is-covered-by-the-same-currency-system)                 | In-code documentation is covered by the same currency system   | code |
+| [DS21](#ds21--a-completed-programmes-report-is-a-record-and-records-may-use-the-past-tense) | A completed programme's report is a record                     | docs |
 
 ---
 
@@ -581,3 +583,62 @@ claims about the repository, and they go stale exactly like any other.
 
 **Rejected.** _Keep the exemption and review the standard manually._ That is the arrangement that
 produced the drift being fixed.
+
+## DS20 — In-code documentation is covered by the same currency system
+
+**Decided:** 2026-08-04
+
+**Decision.** A comment is documentation, so every currency mechanism applies to it. The
+documentation gate scans the **comments** of every tracked `.ts`, `.tsx` and `.py` file for the same
+citations it checks in `/docs`: ADR numbers and anchored `<file> :: <anchor>` references.
+
+Executable code is not scanned. A path-shaped string in a function body is data the program uses, not
+a claim made to a reader, and checking it would report the program's own behaviour as a defect.
+
+**Context.** The gate scanned markdown only, so the citations carried by source comments — which are
+where most of this repository's reasoning lives — were the one class of reference nothing verified.
+That is the wrong way round: a comment citing a decision sits next to the code a reader trusts most,
+so a dangling number there misleads more effectively than the same number in a document.
+
+The other three currency defences already covered comments in principle. The same-commit rule and the
+close-out question do not care which file a claim lives in, and P3 has always governed comments. Only
+the mechanical defence had a gap, and a defence with a gap that size is the one people rely on.
+
+**Consequences.**
+
+- Deleting or renumbering an ADR now fails the gate if any comment still cites it, which is what
+  makes DS5's cite-by-number rule safe to depend on.
+- A comment may use the anchored citation form, and gets the same guarantee a spec sheet does.
+- Comment extraction is deliberately simple — line comments, block comments and docstrings, tracked
+  across lines. It does not parse either language. A string containing `//` is harmless because link
+  checking ignores http and https anyway, and no other check reads a bare string.
+
+**Rejected.** _Scan whole source files rather than comments only._ Every path constant and every
+route string in the codebase would be read as a citation, and the noise would force the check off.
+_Leave comments to review._ That is the arrangement that left them unchecked.
+
+## DS21 — A completed programme's report is a record, and records may use the past tense
+
+**Decided:** 2026-08-04
+
+**Decision.** P3's ban on naming what does not exist does not reach a document whose subject **is**
+what happened. Four places are exempt, and only within their stated job: an ADR's `Context`, an ADR's
+`Superseded by`, `roadmap/closed-items.md`, and a final report in `_auditing/reports/`.
+
+Everything else — including an ADR's `Decision` and `Consequences`, and every other section of a
+final report — is present tense like any other document.
+
+**Context.** A final report is the permanent account of a completed programme. Its whole purpose is
+to record what was wrong, what changed and what it cost, so a rule requiring it to describe only what
+exists now would make it unwritable. The exemption was implicit and therefore unreliable: the
+history-phrase sweep flagged a final report on every run, and a check that always fires on a
+compliant document trains its reader to ignore it.
+
+**Consequences.**
+
+- The exempt list is closed. A document that finds itself wanting past tense and is not on it is a
+  document in the wrong shape, and the fix is to move the content to one that is.
+- The sweep excludes the four, so a hit anywhere else is worth reading.
+
+**Rejected.** _Let any document narrate history where it seems useful._ That is the rule P3 replaced,
+and the reason it exists.
