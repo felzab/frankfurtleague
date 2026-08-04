@@ -18,7 +18,7 @@
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
- *   docs/frontend/spec.md — section 8, the full variable table
+ *   docs/frontend/spec.md — section 7, the full variable table
  */
 
 import "server-only";

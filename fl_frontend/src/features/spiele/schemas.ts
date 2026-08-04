@@ -19,7 +19,9 @@
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
- *   docs/backend/spec.md — section 4, the field-constraint table both sides must satisfy
+ *   docs/backend/spec.md — section 3, what PATCH /spiele/{spiel_id} does with this payload
+ *   docs/backend/spec.md — invariant I16: no database validator constrains a range, a pattern or a
+ *   length, so these schemas and their Pydantic twin are the only place those constraints are stated
  */
 
 import z from "zod";

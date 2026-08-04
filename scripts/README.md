@@ -1,6 +1,6 @@
 # `scripts/`
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `f2a8458`, 2026-08-05
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says
@@ -82,7 +82,9 @@ into the backend scope would give a Docker prerequisite to a scope that needs no
 scope exists because the frontend toolchain cannot see packaging problems: code that compiles can still fail
 to build inside the image, or be omitted from `output: "standalone"` entirely — so a run without it
 is **not sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts`,
-`src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile. The dependency audit warns
+`src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile — **unless the change is
+confined to comments**, which cannot reach the image at all and are a documentation change wherever
+they sit. The dependency audit warns
 rather than fails — an advisory published upstream overnight should not block an unrelated merge.
 
 CI (`.github/workflows/verify.yml`) runs these scopes as parallel jobs, mapped from the paths a

@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `738c2b3`, 2026-08-04
+**Verified against:** `f2a8458`, 2026-08-04
 
 Frankfurt-League is a league website: a Next.js frontend, a FastAPI backend, MongoDB, deployed with
 Docker Compose behind nginx on a single host.
@@ -153,15 +153,13 @@ Full rules and the reasoning: [`_standard/`](_standard/), starting at
    document and is not.
 3. **`"playoffs"` is not a stored value.** It is a query-only alias for "not gruppenphase".
 
-## Open findings
+## What is open
 
-Recorded rather than acted on. Full analyses in [`roadmap/open-items.md`](roadmap/open-items.md).
+**Everything open lives in [`roadmap/`](roadmap/)** — findings, undecided questions and the owner's
+backlog, each with the full analysis that a decision should be taken with rather than re-derived.
 
-| #   | Finding                                                                                | Severity                      |
-| --- | -------------------------------------------------------------------------------------- | ----------------------------- |
-| F1  | `ausstehend` means "today or later" on the server and "later than today" on the client | Question of intent, not a bug |
-| F2  | The Pydantic and Zod models are hand-mirrored, with no generation step                 | Accepted risk                 |
-| F7  | The landing page's season badge is hardcoded, so it goes stale at the rollover         | Cosmetic, but fails silently  |
-
-Resolved findings are rows in [`roadmap/closed-items.md`](roadmap/closed-items.md), each naming the
-commit that closed it.
+[`open-items.md`](roadmap/open-items.md) is **ranked**: reading it top to bottom gives the suggested
+working order, and [its README](roadmap/README.md#how-the-file-is-ranked) gives the five tests that
+produce that order. Everything that has left it is a row in
+[`closed-items.md`](roadmap/closed-items.md) naming the commit that closed it — look there before
+concluding that an id never existed.

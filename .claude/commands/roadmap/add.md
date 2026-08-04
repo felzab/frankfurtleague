@@ -86,20 +86,40 @@ This command adds and re-ranks. **It never closes, deletes or implements anythin
      moved each one. A re-rank nobody can audit is a re-rank the owner has to redo.
 
 8. **Update everything else that indexes these entries**, because CLAUDE.md's same-commit rule
-   requires it. Search the repository for the ids and for the tables that list them —
-   `docs/README.md` carries an open-findings table, the spec sheets carry `Known-open` sections, and
-   the audit prompts seed checks from these entries. Add the new item wherever its kind is listed;
-   leave the rest alone.
+   requires it. Search the repository for the ids and for the tables that list them — each surface
+   spec sheet carries a `Known-open` section, and the audit prompts seed checks from these entries.
+   Add the new item wherever its kind is listed; leave the rest alone.
 
-9. **Restamp** `docs/roadmap/open-items.md`'s `Verified against` line to the commit you verified it
-   at, per `docs/_standard/5-currency.md`. Editing a stamped page without moving its stamp fails the
-   gate, and moving it without checking the page falsifies a record the gate treats as true.
+9. **Re-read every entry against the code before you ship it.** Researching and writing in one pass
+   is how a claim gets written from a grep that was half-read, and an entry states its evidence
+   confidently enough that nobody checks it again for months.
 
-10. **Ship it as one commit**, following `docs/workflows/README.md` — branch before the first write,
-    `./scripts/verify.sh --docs` plus `pnpm format` from `fl_frontend/` for a documentation-only
-    change, then push and hand over the pull request link, title and body. Report the gate's actual
-    exit code. The two-commit protocol belongs to closing an item and does not apply here.
+   **The gate proves that a citation resolves. Only a reader proves that it supports the claim.** So
+   re-open each file an entry cites and check the things that are wrong most often:
 
-11. **Hand over.** The new ids and where each ranked, the entries that moved and the test that moved
-    them, the questions the owner answered and how each shaped an entry, and anything you could not
-    verify. If a new entry now blocks or unblocks an existing one, say which.
+   - **Every count**, re-derived rather than remembered — "three files", "seven occurrences".
+   - **Every _every_, _only_ and _never_.** A component shared by "every" caller usually has an
+     exception, and the exception is the interesting half of the finding.
+   - **Every claim about a framework** rather than about this repository. If the repo states it in a
+     comment, cite that comment; if nothing states it, mark the claim unverified (P9).
+   - **Every structural promise**: the index table and the `### <rank> ·` headings agree, rank by
+     rank, and no id appears twice.
+
+   Correct what is wrong, and **say in the handover what this step caught** — a step that never
+   reports anything is a step nobody is really running.
+
+10. **Restamp every stamped page this change touched**, not only `docs/roadmap/open-items.md`, per
+    `docs/_standard/5-currency.md`. Step 8 routinely edits spec sheets, and each carries its own
+    `Verified against` line. Editing a stamped page without moving its stamp fails the gate; moving a
+    stamp without re-reading the page falsifies a record the gate treats as true.
+
+11. **Ship it as one commit**, following `docs/workflows/README.md` — branch before the first write,
+    `pnpm format` from `fl_frontend/`, then `./scripts/verify.sh --docs`. That stays the scope even
+    when step 8 sends you into a source file, because a comment-only edit is a documentation change
+    whatever file holds it. Then push and hand over the pull request link, title and body. Report the
+    gate's actual exit code. The two-commit protocol belongs to closing an item and does not apply
+    here.
+
+12. **Hand over.** The new ids and where each ranked, the entries that moved and the test that moved
+    them, the questions the owner answered and how each shaped an entry, what step 9 caught, and
+    anything you could not verify. If a new entry now blocks or unblocks an existing one, say which.

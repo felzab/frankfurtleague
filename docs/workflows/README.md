@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `f2a8458`, 2026-08-05
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -53,7 +53,8 @@ git commit          # opens the editor; a one-line -m loses the part that matter
 
 ```bash
 # 3 — the gate, before pushing: everything, or the scopes covering what you
-#     touched. Full form if you touched config, auth, instrumentation or packaging
+#     touched. Full form if you touched config, auth, instrumentation or
+#     packaging — unless the change is comments only, which is --docs
 ./scripts/verify.sh
 ```
 

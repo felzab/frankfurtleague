@@ -84,6 +84,11 @@ file → `--ops`; `scripts/` → the full form; packaging (a Dockerfile, a lockf
 included. In doubt → the full form. The frontend scope rewrites the tree (the formatter runs first) — commit what it reformats
 and read the diff.
 
+**A comment-only edit is a documentation change, whatever file holds it.** Correcting a citation in
+`src/core/config.ts` or in a Dockerfile is `--docs` plus `pnpm format`, not the full form: what picks
+the scope is what the change could break, and a comment breaks documentation. The moment a hunk in
+one of those files touches a line that runs, the packaging rule above applies again.
+
 Report the actual exit code. Never the word "passing", never a hand-typed substitute chain.
 
 ## 3. Quality bar
