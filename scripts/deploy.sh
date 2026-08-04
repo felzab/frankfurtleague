@@ -31,9 +31,18 @@ for arg in "$@"; do
     --status)  STATUS_ONLY=1 ;;
     --help|-h) usage ;;
     --*)       die "Unknown option: ${arg}. Try --help." ;;
-    *)         PIN="$arg" ;;
+    *)
+      # A second tag would silently win over the first, and which one deploys becomes a matter of
+      # argument order. Refuse instead.
+      [[ -z "$PIN" ]] || die "Two tags given: '${PIN}' and '${arg}'. Deploy pins exactly one build."
+      PIN="$arg" ;;
   esac
 done
+
+if (( STATUS_ONLY )) && [[ -n "$PIN" ]]; then
+  die "--status reports what is running and changes nothing; it does not take a tag.
+To deploy ${PIN}, drop --status."
+fi
 
 # Validate the pin's SHAPE here, with the other argument handling and before any environmental check.
 # Two reasons: a typo fails instantly rather than after a platform and Docker check, and without this
@@ -41,8 +50,8 @@ done
 # the problem.
 if [[ -n "$PIN" && ! "$PIN" =~ ^sha-[0-9a-f]{7,40}(-dirty)?$ ]]; then
   die "'${PIN}' does not look like a published tag.
-       Expected sha-<commit>, for example sha-1a2b3c4.
-       See what is available:  ./scripts/deploy.sh --status"
+Expected sha-<commit>, for example sha-1a2b3c4.
+See what is available:  ./scripts/deploy.sh --status"
 fi
 
 require_platform linux
@@ -62,18 +71,18 @@ if (( STATUS_ONLY )); then
     fi
     img="$(docker inspect --format '{{.Config.Image}}' "$cid")"
     state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")"
-    printf '       %-9s %s\n' "${svc}:" "$state"
-    printf '       %-9s image    %s\n' "" "$img"
-    printf '       %-9s commit   %s\n' "" "$(image_revision_display "$img")"
-    printf '       %-9s built    %s\n' "" "$(image_created_display "$img")"
+    detail "$(printf '%-9s %s' "${svc}:" "$state")" \
+           "$(printf '%-9s image    %s' "" "$img")" \
+           "$(printf '%-9s commit   %s' "" "$(image_revision_display "$img")")" \
+           "$(printf '%-9s built    %s' "" "$(image_created_display "$img")")"
   done
   step "Published builds available to roll back to"
   # Two calls, not one with both repos: `docker image ls` accepts at most one repository argument.
   # Matched on the TAG, not the substring `-sha-`: since ADR-0017 the tag is `sha-1a2b3c4` with no
   # service prefix, so the old substring match would report "none pinned" forever.
-  { docker image ls "$REPO_FRONTEND" --format '       {{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; \
-    docker image ls "$REPO_BACKEND"  --format '       {{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; } \
-    | sort | grep -E ':sha-' || \
+  { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; \
+    docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; } \
+    | sort | grep -E ':sha-' | detail || \
     info "none pinned locally — pull one first: docker pull ${REPO_FRONTEND}:sha-XXXXXXX"
   exit 0
 fi
@@ -88,8 +97,8 @@ require_dir  "certs"            "nginx mounts this read-only for the TLS certifi
 if [[ -n "$PIN" ]]; then
   step "Pinning to ${PIN}"
   docker pull "${REPO_FRONTEND}:${PIN}" || die "No such published tag: ${REPO_FRONTEND}:${PIN}
-       List what exists locally: docker image ls '${REPO_FRONTEND}'
-       Published builds are at https://github.com/felzab?tab=packages"
+List what exists locally: docker image ls '${REPO_FRONTEND}'
+Published builds are at https://github.com/felzab?tab=packages"
   docker pull "${REPO_BACKEND}:${PIN}"  || die "No such published tag: ${REPO_BACKEND}:${PIN}"
   # Point the moving tags at the pinned build, so compose (which references them) picks it up.
   docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND"
@@ -98,9 +107,9 @@ if [[ -n "$PIN" ]]; then
 else
   step "Pulling the current published images"
   docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
-       The packages are public, so this server needs no login. An authentication or
-       'not found' error almost always means the package was left PRIVATE after a
-       first push — check https://github.com/felzab?tab=packages"
+The packages are public, so this server needs no login. An authentication or
+'not found' error almost always means the package was left PRIVATE after a
+first push — check https://github.com/felzab?tab=packages"
   docker pull "$IMAGE_BACKEND"  || die "pull failed for ${IMAGE_BACKEND}"
 fi
 
@@ -131,7 +140,7 @@ step "Waiting for health"
 if wait_healthy "$COMPOSE" backend 150 && wait_healthy "$COMPOSE" frontend 180; then
   printf '\n'; ok "Deploy healthy"
   step "Security headers, as served over HTTPS"
-  if curl -fsSI https://frankfurtleague.de 2>/dev/null | grep -iE "content-security-policy|strict-transport-security" | sed 's/^/       /'; then
+  if curl -fsSI https://frankfurtleague.de 2>/dev/null | grep -iE "content-security-policy|strict-transport-security" | detail; then
     :
   else
     warn "Could not read headers over HTTPS — check nginx and the certificates in certs/."
@@ -144,8 +153,9 @@ if wait_healthy "$COMPOSE" backend 150 && wait_healthy "$COMPOSE" frontend 180; 
     warn "nginx is NOT running — the site is unreachable even though the app is healthy."
     warn "Check:  docker compose -f ${COMPOSE} logs nginx"
   fi
-  printf '\n       %s\n' "What is live:  ./scripts/deploy.sh --status"
-  printf '       %s\n'   "Follow logs:   docker compose -f ${COMPOSE} logs -f frontend"
+  printf '\n'
+  detail "What is live:  ./scripts/deploy.sh --status" \
+         "Follow logs:   docker compose -f ${COMPOSE} logs -f frontend"
 else
   printf '\n'
   warn "THE NEW VERSION IS NOT HEALTHY."

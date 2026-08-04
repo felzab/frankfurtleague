@@ -399,6 +399,29 @@ Two conventions worth knowing: every script resolves the repository root itself,
 from any working directory; and arguments are parsed before any environmental check, so a typo fails
 immediately rather than after a platform or Docker check.
 
+### The output standard
+
+Every line a script prints goes through the helpers in `scripts/_lib.sh` — no script writes its own
+formatting. One vocabulary, one verb per meaning:
+
+| Line          | Helper   | Means                                                                 |
+| ------------- | -------- | --------------------------------------------------------------------- |
+| `==> Title`   | `step`   | One phase of work begins; starts that step's timer                    |
+| ` ok  …`      | `ok`     | A phase or check passed; a step of 3s or longer shows its elapsed time |
+| `  ·  …`      | `info`   | Neutral progress detail                                               |
+| ` --  …`      | `skip`   | Deliberately not run, and why — dim, so it cannot read as a pass      |
+| ` !!  …`      | `warn`   | Wrong but not fatal; stderr                                           |
+| `  ✗  …`      | `die`    | Fatal; stderr, non-zero exit                                          |
+
+Three rules complete it. **Multi-line messages are written naturally** — the helpers indent
+continuation lines to the message column themselves, so no call site hand-aligns anything.
+**Supporting output goes through `detail`**, which indents its arguments or stdin to the same column
+— log excerpts, findings lists, follow-up commands. **Colour is decided centrally**: on for a
+terminal and for GitHub Actions, off when redirected, `NO_COLOR`/`FORCE_COLOR` override. The precise
+behaviour is documented at the definitions in `scripts/_lib.sh`, which is the authority when this
+table and the code disagree. `scripts/check_docs.py` prints to the same columns, so the gate reads
+as one voice.
+
 ---
 
 ## Troubleshooting

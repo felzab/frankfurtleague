@@ -56,19 +56,90 @@ IMAGE_FRONTEND="${REPO_FRONTEND}:latest"
 IMAGE_BACKEND="${REPO_BACKEND}:latest"
 
 # --- Output ----------------------------------------------------------------------------------------
-# Colour only when writing to a terminal, so redirected logs stay clean of escape codes.
-if [[ -t 1 ]]; then
-  C_RESET=$'\033[0m'; C_RED=$'\033[31m'; C_GREEN=$'\033[32m'
-  C_YELLOW=$'\033[33m'; C_BLUE=$'\033[34m'; C_BOLD=$'\033[1m'
+# THE OUTPUT STANDARD. Every script speaks through these helpers and nothing writes its own
+# formatting, so every script reads identically at a glance. The vocabulary, one verb per meaning:
+#
+#   ==> Title       step  — one phase of work. Bold, blank line before, starts the step timer.
+#    ok  message    ok    — a phase or check succeeded. A step that ran 3s or longer gets its
+#                           elapsed time appended automatically.
+#     ·  message    info  — neutral progress detail.
+#    --  message    skip  — something deliberately not run, and why. Dim, so it cannot be
+#                           mistaken for a pass.
+#    !!  message    warn  — wrong but not fatal. Goes to stderr.
+#     ✗  message    die   — fatal. Goes to stderr and exits non-zero.
+#
+# Two rules make the column discipline free at the call site:
+#   - every message column starts at column 7, and a MULTI-LINE message needs no hand alignment —
+#     the helpers indent continuation lines themselves. Write the message naturally.
+#   - supporting output that belongs to the line above it — a log excerpt, a findings list, a
+#     block of follow-up commands — goes through `detail`, which indents its arguments (or stdin)
+#     to the same column.
+#
+# Colour: on for a terminal, and in GitHub Actions, whose log renders ANSI. NO_COLOR set to
+# anything forces it off (https://no-color.org), FORCE_COLOR forces it on. Redirected local logs
+# therefore stay clean of escape codes.
+if [[ -n "${NO_COLOR:-}" ]]; then
+  _colour=0
+elif [[ -t 1 || -n "${FORCE_COLOR:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
+  _colour=1
 else
-  C_RESET=''; C_RED=''; C_GREEN=''; C_YELLOW=''; C_BLUE=''; C_BOLD=''
+  _colour=0
 fi
+if (( _colour )); then
+  C_RESET=$'\033[0m'; C_RED=$'\033[31m'; C_GREEN=$'\033[32m'
+  C_YELLOW=$'\033[33m'; C_BLUE=$'\033[34m'; C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'
+else
+  C_RESET=''; C_RED=''; C_GREEN=''; C_YELLOW=''; C_BLUE=''; C_BOLD=''; C_DIM=''
+fi
+unset _colour
 
-step() { printf '\n%s==> %s%s\n' "$C_BOLD" "$*" "$C_RESET"; }
-ok()   { printf '%s  ok %s %s\n'  "$C_GREEN"  "$C_RESET" "$*"; }
-info() { printf '%s   · %s %s\n'  "$C_BLUE"   "$C_RESET" "$*"; }
-warn() { printf '%s  !! %s %s\n'  "$C_YELLOW" "$C_RESET" "$*" >&2; }
-die()  { printf '\n%s  ✗ %s %s\n\n' "$C_RED" "$C_RESET" "$*" >&2; exit 1; }
+# The single funnel: tag in a four-column gutter, message at column 7, continuation lines indented
+# to match. The tags arrive pre-padded — printf's %4s pads by BYTES, so it mis-pads the multibyte
+# `·` and `✗` — and everything below goes through here.
+_emit() {
+  local colour="$1" tag="$2" first=1 line
+  shift 2
+  while IFS= read -r line; do
+    if (( first )); then
+      printf '%s%s%s  %s\n' "$colour" "$tag" "$C_RESET" "$line"
+      first=0
+    else
+      printf '      %s\n' "$line"
+    fi
+  done <<< "$*"
+}
+
+step() { _STEP_T0=$SECONDS; printf '\n%s==> %s%s\n' "$C_BOLD" "$*" "$C_RESET"; }
+info() { _emit "$C_BLUE"   "   ·" "$*"; }
+skip() { _emit "$C_DIM"    "  --" "$*"; }
+warn() { _emit "$C_YELLOW" "  !!" "$*" >&2; }
+die()  { printf '\n' >&2; _emit "$C_RED" "   ✗" "$*" >&2; printf '\n' >&2; exit 1; }
+
+# ok appends the running step's elapsed time once it is long enough to be worth reading — that is
+# what makes a slow gate's log answer "where did the minutes go" without any caller keeping time.
+ok() {
+  local suffix=""
+  if [[ -n "${_STEP_T0:-}" ]] && (( SECONDS - _STEP_T0 >= 3 )); then
+    suffix=" ${C_DIM}($(fmt_duration $(( SECONDS - _STEP_T0 ))))${C_RESET}"
+  fi
+  _emit "$C_GREEN" "  ok" "$*${suffix}"
+}
+
+# Indents supporting output to the message column: each argument on its own line, or stdin when
+# called with none. Replaces every hand-rolled `sed 's/^/       /'` and aligned printf.
+detail() {
+  if (( $# )); then printf '      %s\n' "$@"
+  else sed 's/^/      /'
+  fi
+}
+
+# 47 -> "47s"; 154 -> "2m 34s". For the ok timer and for a script's own total.
+fmt_duration() {
+  local s="$1"
+  if (( s < 120 )); then printf '%ss' "$s"
+  else printf '%sm %02ds' $(( s / 60 )) $(( s % 60 ))
+  fi
+}
 
 # Prints this script's own header comment as its help text, so usage can never drift from the
 # code. Stops at the first line that is not a comment.
@@ -87,14 +158,11 @@ usage() {
 #   $BASH_COMMAND the text of the command that failed, which is usually all you need to see.
 on_error() {
   local rc="$1" line="$2" cmd="$3"
-  printf '
-%s  ✗ %s %s failed
-' "$C_RED" "$C_RESET" "${SELF##*/}" >&2
-  printf '       line %s:  %s
-' "$line" "$cmd" >&2
-  printf '       exit status %s
-
-' "$rc" >&2
+  printf '\n' >&2
+  _emit "$C_RED" "   ✗" "${SELF##*/} failed
+line ${line}:  ${cmd}
+exit status ${rc}" >&2
+  printf '\n' >&2
   exit "$rc"
 }
 trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
@@ -106,8 +174,8 @@ trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 require_docker() {
   docker version --format '{{.Server.Version}}' >/dev/null 2>&1 \
     || die "Docker is not responding.
-       Start Docker Desktop (Windows) or 'sudo systemctl start docker' (Linux),
-       wait until it reports running, then try again."
+Start Docker Desktop (Windows) or 'sudo systemctl start docker' (Linux),
+wait until it reports running, then try again."
 }
 
 # Keeps the prod script off a laptop and the local script off the server. Both mistakes are one
@@ -121,7 +189,7 @@ require_platform() {
     *)                    have=unknown ;;
   esac
   [[ "$have" == "$want" ]] || die "This script targets ${want}; this machine looks like ${have}.
-       See scripts/README.md for which script belongs to which environment."
+See scripts/README.md for which script belongs to which environment."
 }
 
 # Absolute path to fl_backend's virtualenv interpreter. The venv layout differs by platform --
@@ -135,10 +203,10 @@ venv_python() {
   fi
 }
 
-require_file() { [[ -f "$1" ]] || die "Missing required file: $1
-       ${2:-}"; }
-require_dir()  { [[ -d "$1" ]] || die "Missing required directory: $1
-       ${2:-}"; }
+require_file() { [[ -f "$1" ]] || die "Missing required file: $1${2:+
+$2}"; }
+require_dir()  { [[ -d "$1" ]] || die "Missing required directory: $1${2:+
+$2}"; }
 
 # --- Git -------------------------------------------------------------------------------------------
 git_sha()    { git rev-parse --short=7 HEAD; }
@@ -159,7 +227,7 @@ wait_healthy() {
     cid="$(docker compose -f "$compose_file" ps -q "$service" 2>/dev/null || true)"
     if [[ -z "$cid" ]]; then
       warn "'${service}' has no running container"
-      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | sed 's/^/       /'
+      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | detail
       return 1
     fi
     # A service with no healthcheck reports "" — treat "running" as good enough for those.
@@ -169,14 +237,14 @@ wait_healthy() {
       unhealthy)
         warn "'${service}' reports UNHEALTHY. Its own explanation, if it gave one:"
         docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 \
-          | grep -iE "invalid environment|failed to prepare|error|refused" | head -12 | sed 's/^/       /' \
-          || echo "       (nothing obvious in the log — see the full log below)"
+          | grep -iE "invalid environment|failed to prepare|error|refused" | head -12 | detail \
+          || detail "(nothing obvious in the log — see the full log below)"
         return 1 ;;
     esac
     sleep 3; waited=$(( waited + 3 ))
   done
   warn "'${service}' did not become healthy within ${timeout}s. Last 30 log lines:"
-  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | sed 's/^/       /'
+  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | detail
   return 1
 }
 

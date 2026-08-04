@@ -82,7 +82,7 @@ DEFINED="$(grep -oE '^[a-z_]+\(\)' scripts/_lib.sh | tr -d '()' | sort -u)"
 for f in "${RUNNABLE[@]}"; do
   [[ -f "scripts/$f" ]] || continue
   # Anything that looks like one of our helpers: our naming is consistent enough to enumerate.
-  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|image_[a-z_]+|git_[a-z_]+|step|ok|info|warn|die|usage|on_error)\b' "scripts/$f" | sort -u || true)"
+  called="$(grep -oE '\b(require_[a-z_]+|wait_healthy|image_[a-z_]+|git_[a-z_]+|step|ok|info|skip|warn|die|detail|fmt_duration|usage|on_error)\b' "scripts/$f" | sort -u || true)"
   missing=""
   while IFS= read -r fn; do
     [[ -z "$fn" ]] && continue
@@ -96,7 +96,7 @@ for f in "${RUNNABLE[@]}"; do
 done
 
 step "5. --help works from an unrelated directory"
-for f in local.sh verify.sh publish.sh deploy.sh; do
+for f in "${RUNNABLE[@]}"; do
   if ( cd / && bash "${REPO_ROOT}/scripts/$f" --help >/dev/null 2>&1 ); then
     info "$f --help"
   else
@@ -111,7 +111,7 @@ step "6. Unknown options are rejected, without requiring Docker"
 # pipeline fail if ANY stage failed, and the script under test is SUPPOSED to exit non-zero. So the
 # pipeline reported failure on every script that behaved correctly. Capturing first separates
 # "did it exit non-zero" (expected) from "did it say the right thing" (what we are checking).
-for f in local.sh verify.sh publish.sh deploy.sh; do
+for f in "${RUNNABLE[@]}"; do
   out="$(bash "scripts/$f" --definitely-not-an-option 2>&1 || true)"
   if [[ "$out" == *"Unknown option"* ]]; then
     info "$f"
@@ -131,7 +131,7 @@ step "8. Documented flags match accepted flags"
 # Catches drift between a script's --help header and its case statement. Compared by READING both,
 # never by running the script: an earlier version of this check invoked each flag for real, which
 # meant `local.sh --fresh` tore down the local stack as a side effect of a documentation test.
-for f in local.sh verify.sh publish.sh deploy.sh; do
+for f in "${RUNNABLE[@]}"; do
   # Header only: take the contiguous comment block and STOP at the first line of code. Reading a
   # fixed line range instead compared the code against itself, because the case statement fell
   # inside the range -- so the check passed while a genuinely undocumented flag was present.
@@ -168,7 +168,7 @@ sc_out="$(run_shellcheck scripts/*.sh 2>&1)" || sc_rc=$?
 case "$sc_rc" in
   0) info "no findings in any script" ;;
   2) info "unavailable (no local binary and no Docker) — skipped" ;;
-  *) note_fail "shellcheck reported findings:"; printf '%s\n' "$sc_out" | head -40 | sed 's/^/       /' ;;
+  *) note_fail "shellcheck reported findings:"; printf '%s\n' "$sc_out" | head -40 | detail ;;
 esac
 
 printf '\n'
