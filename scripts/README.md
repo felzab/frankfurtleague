@@ -53,24 +53,25 @@ at the worst moment. Machine-specific scripts refuse to start on the wrong platf
 Six scopes, run in cheapest-to-fail order — the self-check and the documentation gate are instant,
 the backend tier takes seconds, a `next build` takes minutes, an image build longer still. No flag
 means every scope; scope flags combine freely; `--quick` is the four scopes that need no Docker.
-Missing prerequisites fail immediately, before any check runs.
+Missing prerequisites fail immediately, before any check runs. Each tool is its own step, tool
+output is captured and shown only when its step fails, and `--verbose` streams everything instead.
 
-| Scope        | Runs                                                               | Needs            |
-| ------------ | ------------------------------------------------------------------ | ---------------- |
-| `--scripts`  | `selfcheck.sh` — the scripts themselves                            | —                |
-| `--docs`     | `check_docs.py` — citations, links, stamps                         | the backend venv |
-| `--backend`  | `ruff` + `pyright` + `pytest`, default tier                        | the backend venv |
-| `--frontend` | `pnpm verify` (prettier, tsc, eslint, build, tests) + `audit:prod` | pnpm install     |
-| `--db`       | `pytest -m db` against a real `mongod`                             | venv + Docker    |
-| `--images`   | both `docker build`s + the `instrumentation.js` presence check     | Docker           |
+| Scope        | Runs                                                           | Needs            |
+| ------------ | -------------------------------------------------------------- | ---------------- |
+| `--scripts`  | `selfcheck.sh` — the scripts themselves                        | —                |
+| `--docs`     | `check_docs.py` — citations, links, stamps                     | the backend venv |
+| `--backend`  | `ruff` + `pyright` + `pytest`, default tier                    | the backend venv |
+| `--frontend` | prettier (write), tsc, eslint, `next build`, unit tests, audit | pnpm install     |
+| `--db`       | `pytest -m db` against a real `mongod`                         | venv + Docker    |
+| `--images`   | both `docker build`s + the `instrumentation.js` presence check | Docker           |
 
-Three scopes carry the reasoning worth knowing. The **backend** scope exists because `pnpm verify`
-runs nothing against `fl_backend`, whose validation constraints the frontend mirrors rather than
+Three scopes carry the reasoning worth knowing. The **backend** scope exists because the frontend
+toolchain runs nothing against `fl_backend`, whose validation constraints the frontend mirrors rather than
 enforces — [`fl_backend/tests/README.md`](../fl_backend/tests/README.md). The **db** scope is
 separate because its tests start a real `mongod`
 ([ADR-0030](../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), and folding them
 into the backend scope would give a Docker prerequisite to a scope that needs none. The **images**
-scope exists because `pnpm verify` cannot see packaging problems: code that compiles can still fail
+scope exists because the frontend toolchain cannot see packaging problems: code that compiles can still fail
 to build inside the image, or be omitted from `output: "standalone"` entirely — so a run without it
 is **not sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts`,
 `src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile. The dependency audit warns

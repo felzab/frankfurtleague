@@ -89,8 +89,8 @@ entry point in the codebase.
 
 `scripts/verify.sh` runs six scopes in cheapest-to-fail order, and the order is the point: the
 script self-check and the documentation gate are instant, the backend tier (ruff, pyright, pytest)
-takes seconds, the frontend (`pnpm verify`: types, lint, formatting, `next build`, unit tests, then
-the advisory `pnpm audit:prod`) takes minutes, and the database test tier and both image builds —
+takes seconds, the frontend (prettier, tsc, eslint, `next build`, unit tests, then
+the advisory dependency audit) takes minutes, and the database test tier and both image builds —
 with the check that `instrumentation.js` is present in the frontend image — need Docker on top. A
 bare invocation runs everything; scope flags name surfaces and combine (`scripts/README.md` has the
 table). CI runs the same scopes as parallel jobs mapped from the paths a pull request touches.
@@ -100,7 +100,7 @@ dangling ADR number, a dead link, a broken in-page anchor, an anchored citation 
 a named path that is not there — across `/docs` and inside source comments alike. It is the one
 currency defence that does not depend on somebody remembering (DS18, DS20).
 
-**The backend steps** exist because `pnpm verify` runs nothing against `fl_backend`, and the frontend
+**The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`, and the frontend
 mirrors the backend's validation constraints rather than enforcing them, so those constraints would
 otherwise have no regression net. `pyright` is separate from `ruff` because ruff checks no types, and
 type errors visible in the editor were reaching `main` without it. All of it needs the backend

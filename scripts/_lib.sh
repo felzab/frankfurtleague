@@ -134,6 +134,20 @@ detail() {
   fi
 }
 
+# Runs a command with its output captured, and prints that output through `detail` only when the
+# command fails — so a green run stays readable and a red one loses nothing. VERBOSE=1 streams the
+# tool's own output instead of capturing (verify.sh sets it from its own flag).
+quietly() {
+  local out rc=0
+  if (( ${VERBOSE:-0} )); then
+    "$@" || rc=$?
+  else
+    out="$("$@" 2>&1)" || rc=$?
+    if (( rc )); then printf '%s\n' "$out" | detail; fi
+  fi
+  return "$rc"
+}
+
 # 47 -> "47s"; 154 -> "2m 34s". For the ok timer and for a script's own total.
 fmt_duration() {
   local s="$1"

@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `5b71591`, 2026-08-04
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB. **Fifteen routers**: `system`, plus a read and a write router for
@@ -131,7 +131,7 @@ Python's convention and it has a reason: a `tests` package inside `app/` would b
 
 That focus is the point: the frontend mirrors roughly forty backend validation constraints in Zod
 rather than enforcing them itself, and those constraints had no regression net until these tests
-existed. `pnpm verify` on the frontend runs nothing against the backend, so `scripts/verify.sh` runs
+existed. The frontend's toolchain runs nothing against the backend, so `scripts/verify.sh` runs
 ruff and pytest as a separate step.
 
 **What is still uncovered:** routers, CRUD and authentication. That boundary belongs to the planned

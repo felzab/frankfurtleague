@@ -230,8 +230,8 @@ point at anything under it from a body. Open items live in [`docs/roadmap/open-i
 ```
 
 Six scopes in cheapest-to-fail order — script self-checks, the documentation gate, **ruff, pyright
-and pytest for the backend**, `pnpm verify` (types, lint, formatting, `next build`, unit tests) with
-the advisory dependency audit, the database test tier, and both image builds with a check that
+and pytest for the backend**, the frontend toolchain (prettier, tsc, eslint, `next build`, unit
+tests) with the advisory dependency audit, the database test tier, and both image builds with a check that
 `instrumentation.js` survived into the frontend image. A bare invocation runs everything; scope
 flags name surfaces and combine — the table is in [`scripts/README.md`](../../scripts/README.md).
 

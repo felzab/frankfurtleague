@@ -540,7 +540,7 @@ def main() -> int:
         for finding in reports if args.all else reports[:10]:
             print(finding.line())
         if not args.all and len(reports) > 10:
-            print(f"      ... and {len(reports) - 10} more -- run with --all to see them")
+            print(f"      ... and {len(reports) - 10} more -- scripts/check_docs.py --all lists every one")
 
     docs = sum(1 for f in files if f.suffix == ".md")
     print(f"\n      scanned {docs} documents and {len(files) - docs} source files against {len(existing)} ADRs")

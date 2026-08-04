@@ -278,7 +278,7 @@ jobs:
             exit 1
           fi
 
-  # Both image builds plus the instrumentation.js presence check -- the two failures `pnpm verify`
+  # Both image builds plus the instrumentation.js presence check -- the two failures the frontend
   # has been green for while the image was broken. On a pull request this runs only when a
   # packaging input changed (Dockerfiles, lockfiles, config.ts, auth.ts, instrumentation.ts),
   # which closes the old gap where no PR ever built an image; on main it always runs.

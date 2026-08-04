@@ -18,7 +18,13 @@
 #   db         the db-marked pytest tier against a real mongod (ADR-0030). Needs Docker
 #   images     both docker builds plus the instrumentation.js presence check. Needs Docker
 #
+# The two Docker scopes stay last even though the db tier is quick when warm: everything before
+# them runs daemon-free, which keeps the no-Docker form a strict prefix of the full gate.
+#
 # Each scope's reasoning — why it exists and what only it can catch — is in scripts/README.md.
+#
+# Tool output is captured and shown only when a step fails, so a green run reads as one line per
+# step. Streaming everything back is one flag away.
 #
 # USAGE:
 #   ./scripts/verify.sh              everything — the full gate. The image builds take minutes
@@ -33,11 +39,15 @@
 #   ./scripts/verify.sh --db         with this, its Docker-backed test tier
 #   ./scripts/verify.sh --frontend
 #   ./scripts/verify.sh --images
+#   ./scripts/verify.sh --verbose    stream every tool's own output instead of capturing it
 #   ./scripts/verify.sh --help
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 RUN_SCRIPTS=0; RUN_DOCS=0; RUN_BACKEND=0; RUN_FRONTEND=0; RUN_DB=0; RUN_IMAGES=0
+# shellcheck disable=SC2034  # consumed by _lib.sh's `quietly`, which shellcheck cannot follow
+VERBOSE=0
+# shellcheck disable=SC2034  # same: the loop's `--verbose` arm assigns for `quietly`
 for arg in "$@"; do
   case "$arg" in
     --scripts)  RUN_SCRIPTS=1 ;;
@@ -47,6 +57,7 @@ for arg in "$@"; do
     --db)       RUN_DB=1 ;;
     --images)   RUN_IMAGES=1 ;;
     --quick)    RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1 ;;
+    --verbose)  VERBOSE=1 ;;
     --help|-h)  usage ;;
     *)          die "Unknown option: ${arg}. Try --help." ;;
   esac
@@ -71,13 +82,9 @@ fi
 # First because it is instant and because a broken script would make everything below it unreliable.
 # See selfcheck.sh for the class of bug bash -n cannot see.
 if (( RUN_SCRIPTS )); then
-  step "scripts/ self-check"
-  if out="$(bash scripts/selfcheck.sh 2>&1)"; then
-    ok "scripts are internally consistent"
-  else
-    printf '%s\n' "$out" | detail
-    die "scripts/selfcheck.sh failed — its findings are above."
-  fi
+  step "scripts · selfcheck"
+  quietly bash scripts/selfcheck.sh || die "scripts/selfcheck.sh failed — its findings are above."
+  ok "scripts are internally consistent"
 fi
 
 # --- docs ------------------------------------------------------------------------------------------
@@ -85,8 +92,8 @@ fi
 # other check here, and all three read to a future reader as though they still mean something. The
 # standard's other currency defences depend on somebody remembering; this one does not (DS18).
 if (( RUN_DOCS )); then
-  step "documentation gate  (citations, links, stamps)"
-  "$PY" scripts/check_docs.py || die "The documentation gate failed. Each finding above names its file
+  step "docs · citations, links and stamps"
+  quietly "$PY" scripts/check_docs.py || die "The documentation gate failed. Each finding above names its file
 and what no longer resolves. Rules: docs/_standard/5-currency.md"
   ok "documentation references resolve"
 fi
@@ -95,29 +102,51 @@ fi
 # Before the frontend deliberately: this tier finishes in seconds while a next build takes minutes,
 # and cheapest-to-fail-first is the ordering rule of this gate.
 if (( RUN_BACKEND )); then
-  step "fl_backend  (ruff, pyright, pytest — default tier)"
-  ( cd fl_backend && "$PY" -m ruff check app tests && "$PY" -m ruff format --check app tests ) \
+  step "backend · ruff  (lint, and format in check mode)"
+  ( cd fl_backend && quietly "$PY" -m ruff check app tests && quietly "$PY" -m ruff format --check app tests ) \
     || die "ruff failed in fl_backend. Fix with:  cd fl_backend && .venv/Scripts/python -m ruff format app tests"
+  ok "ruff clean"
+
   # ruff does not check types and pytest only runs what it executes, so without this the gate was
   # green while Pylance showed errors in the editor -- and five reached main that way. Same checker,
   # same config: [tool.pyright] in fl_backend/pyproject.toml points at the venv, without which
   # pyright resolves no third-party import and reports over a hundred phantom errors.
-  ( cd fl_backend && "$PY" -m pyright ) || die "pyright found type errors in fl_backend.
+  step "backend · pyright"
+  ( cd fl_backend && quietly "$PY" -m pyright ) || die "pyright found type errors in fl_backend.
 These are the same errors Pylance shows in the editor."
-  ( cd fl_backend && "$PY" -m pytest ) || die "fl_backend tests failed."
-  ok "backend lint, types and default-tier tests pass"
+  ok "no type errors"
+
+  step "backend · pytest  (default tier)"
+  ( cd fl_backend && quietly "$PY" -m pytest ) || die "fl_backend tests failed."
+  ok "default-tier tests pass"
 fi
 
 # --- frontend --------------------------------------------------------------------------------------
 if (( RUN_FRONTEND )); then
-  step "fl_frontend  (prettier in write mode, then tsc, eslint, next build, unit tests)"
-  ( cd fl_frontend && pnpm verify ) || die "pnpm verify failed. Fix that before looking at anything else."
-  ok "pnpm verify exit 0"
+  step "frontend · prettier  (write mode — commit what it reformats)"
+  ( cd fl_frontend && quietly pnpm format ) || die "prettier failed."
+  ok "tree formatted"
+
+  step "frontend · tsc"
+  ( cd fl_frontend && quietly pnpm typecheck ) || die "tsc found type errors."
+  ok "no type errors"
+
+  step "frontend · eslint"
+  ( cd fl_frontend && quietly pnpm lint ) || die "eslint failed."
+  ok "lint clean"
+
+  step "frontend · next build"
+  ( cd fl_frontend && quietly pnpm build ) || die "next build failed."
+  ok "build succeeds"
+
+  step "frontend · unit tests"
+  ( cd fl_frontend && quietly pnpm test ) || die "frontend unit tests failed."
+  ok "unit tests pass"
 
   # Advisory, not fatal: an advisory published upstream overnight should not block an unrelated
-  # merge. It is a separate step, and NOT part of the pnpm verify chain, precisely so it can warn.
-  step "pnpm audit:prod  (runtime advisories only)"
-  if ( cd fl_frontend && pnpm audit:prod ); then
+  # merge — which is exactly why this is not part of any hard-failing chain.
+  step "frontend · dependency audit  (runtime advisories only)"
+  if ( cd fl_frontend && quietly pnpm audit:prod ); then
     ok "no known runtime vulnerabilities"
   else
     warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit"
@@ -129,8 +158,8 @@ fi
 # exists to avoid. Locally this was the gap: `pytest -m db` ran only in CI, so a change that broke
 # the pipeline against a real mongod passed every local gate (ADR-0030).
 if (( RUN_DB )); then
-  step "fl_backend  (pytest -m db, against a real mongod)"
-  ( cd fl_backend && "$PY" -m pytest -m db ) || die "fl_backend db-tier tests failed.
+  step "db · pytest -m db, against a real mongod"
+  ( cd fl_backend && quietly "$PY" -m pytest -m db ) || die "fl_backend db-tier tests failed.
 testcontainers starts and removes mongo:8 itself; a failure here is the code, not the daemon."
   ok "db-tier tests pass"
 fi
@@ -144,21 +173,21 @@ if (( RUN_IMAGES )); then
   # nothing but `docker image prune` ever reclaims.
   trap 'docker image rm -f frankfurtleague-verify:frontend frankfurtleague-verify:backend >/dev/null 2>&1 || true' EXIT
 
-  step "docker build — frontend  (the check pnpm verify cannot do)"
-  docker build -q -f fl_frontend/Dockerfile -t frankfurtleague-verify:frontend fl_frontend >/dev/null \
-    || die "The frontend image failed to build. This is the failure pnpm verify cannot see."
+  step "images · docker build frontend  (the check the frontend scope cannot do)"
+  quietly docker build -f fl_frontend/Dockerfile -t frankfurtleague-verify:frontend fl_frontend \
+    || die "The frontend image failed to build. This is the failure the frontend scope cannot see."
   ok "frontend image builds"
 
-  step "docker build — backend"
-  docker build -q -f fl_backend/Dockerfile -t frankfurtleague-verify:backend fl_backend >/dev/null \
+  step "images · docker build backend"
+  quietly docker build -f fl_backend/Dockerfile -t frankfurtleague-verify:backend fl_backend \
     || die "The backend image failed to build."
   ok "backend image builds"
 
-  step "image sanity: is instrumentation.js actually in the frontend image?"
+  step "images · instrumentation.js is actually in the frontend image"
   # From the repo root this file compiles but is not traced into the standalone output, which
   # silently disables the startup env gate and onRequestError. One command is cheaper than
   # rediscovering it.
-  if docker run --rm --entrypoint sh frankfurtleague-verify:frontend -c '[ -f .next/server/instrumentation.js ]'; then
+  if quietly docker run --rm --entrypoint sh frankfurtleague-verify:frontend -c '[ -f .next/server/instrumentation.js ]'; then
     ok "instrumentation.js present — env gate and error logging will run"
   else
     die "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repo root."
