@@ -94,6 +94,11 @@ one of those files touches a line that runs, the packaging rule above applies ag
 
 Report the actual exit code. Never the word "passing", never a hand-typed substitute chain.
 
+**The gate checks your commit messages too**, inside `--docs`: no body, an unwrapped line, a
+malformed subject, a trailer, an emoji or an issue-closing keyword each fail the run. Write the
+message to the form in `docs/workflows/message-templates.md` the first time — a reword after the
+fact means rebasing a branch you have already pushed.
+
 ## 3. Quality bar
 
 **A passing gate is evidence the code works, never evidence it is right.** Before saying a thing is

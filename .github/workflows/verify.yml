@@ -65,6 +65,17 @@ jobs:
             ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
           fi
 
+      # Commit messages are checked HERE rather than in the docs job, because they are the one thing
+      # in this repository with no path: a frontend-only pull request skips the docs scope entirely,
+      # and its messages would then never be checked before a merge. This job runs on every pull
+      # request and already has the full history the range needs. It uses the runner's own python --
+      # scripts/check_commits.py imports nothing outside the standard library, on purpose.
+      - name: Check the branch's commit messages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 scripts/check_commits.py --base "origin/${BASE_REF}"
+
   scripts:
     needs: changes
     if: needs.changes.outputs.scripts == 'true'

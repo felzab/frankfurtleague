@@ -15,6 +15,12 @@ certs/
 # this file is the per-developer override and must never be committed.
 .claude/settings.local.json
 
+# Python bytecode. scripts/ holds two plain scripts that are normally run, not imported, so this
+# only fills when something imports one -- a test harness, or a REPL. Either way it is a build
+# artifact and one was committed once.
+__pycache__/
+*.pyc
+
 # Audit working documents (pass reports, remediation ledger, wave reports). Local-only by design:
 # the repo is public, and committing them would publish unfixed findings while they are being
 # remediated. The permanent record of a finished programme lives in docs/_auditing/reports/.

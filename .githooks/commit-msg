@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# .githooks/commit-msg — refuse a commit message that breaks the convention, at the one moment
+# fixing it is free.
+# TARGET PLATFORM: any (Git Bash on Windows). Git runs this with the message file as $1.
+#
+# This hook is convenience, never the enforcement. `./scripts/verify.sh --docs` runs the same
+# checker over the whole branch and is what actually binds, because a hook lives in .git/config and
+# a fresh clone has none until someone runs the setup line in docs/workflows/message-templates.md.
+# Anything this catches, the gate catches too — later, and after a rebase costs something.
+#
+# It never blocks on a missing interpreter: a contributor without the backend venv gets the gate's
+# verdict instead of a commit they cannot make.
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+for candidate in "${repo_root}/fl_backend/.venv/Scripts/python.exe" \
+                 "${repo_root}/fl_backend/.venv/bin/python" \
+                 python3 python; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    exec "$candidate" "${repo_root}/scripts/check_commits.py" --message-file "$1"
+  fi
+done
+
+echo "  commit-msg hook: no python found — skipping. ./scripts/verify.sh --docs still checks this." >&2
+exit 0

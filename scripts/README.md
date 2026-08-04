@@ -1,6 +1,6 @@
 # `scripts/`
 
-**Verified against:** `f2a8458`, 2026-08-05
+**Verified against:** `9ffbbfc`, 2026-08-05
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says
@@ -58,15 +58,23 @@ Docker. Missing prerequisites fail immediately, before any check runs. Each tool
 tool output is captured and shown only when its step fails, and `--verbose` streams everything
 instead.
 
-| Scope        | Runs                                                           | Needs            |
-| ------------ | -------------------------------------------------------------- | ---------------- |
-| `--scripts`  | `selfcheck.sh` — the scripts themselves                        | —                |
-| `--docs`     | `check_docs.py` — citations, links, stamps                     | the backend venv |
-| `--backend`  | `ruff` + `pyright` + `pytest`, default tier                    | the backend venv |
-| `--frontend` | prettier (write), tsc, eslint, `next build`, unit tests, audit | pnpm install     |
-| `--ops`      | both compose files parse; nginx accepts `prod.conf`            | Docker           |
-| `--db`       | `pytest -m db` against a real `mongod`                         | venv + Docker    |
-| `--images`   | both `docker build`s + the `instrumentation.js` presence check | Docker           |
+| Scope        | Runs                                                                | Needs            |
+| ------------ | ------------------------------------------------------------------- | ---------------- |
+| `--scripts`  | `selfcheck.sh` — the scripts themselves                             | —                |
+| `--docs`     | `check_docs.py` — citations, links, stamps; then `check_commits.py` | the backend venv |
+| `--backend`  | `ruff` + `pyright` + `pytest`, default tier                         | the backend venv |
+| `--frontend` | prettier (write), tsc, eslint, `next build`, unit tests, audit      | pnpm install     |
+| `--ops`      | both compose files parse; nginx accepts `prod.conf`                 | Docker           |
+| `--db`       | `pytest -m db` against a real `mongod`                              | venv + Docker    |
+| `--images`   | both `docker build`s + the `instrumentation.js` presence check      | Docker           |
+
+**Commit messages ride in the docs scope**, which is not a filing accident: in this repository the
+commit bodies are documentation — merges are never squashed so that they survive — and `--docs` is
+part of every scope combination CLAUDE.md prescribes, so a `--commits` flag would be a flag nobody
+remembers to pass on the change that needed it. `check_commits.py` reads only the branch's own
+commits and imports nothing outside the standard library, which is what lets CI run it on a bare
+runner. The `--ops` scope alone is the one combination that omits it locally; CI closes that gap by
+running the check in the always-on `changes` job, since a commit message has no path to filter on.
 
 The **ops** scope exists because the compose files and the nginx config have no compiler and no
 test suite — without it, a typo in either surfaces on the server, at deploy time. `nginx -t` runs

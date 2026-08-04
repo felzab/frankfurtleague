@@ -12,7 +12,8 @@
 # THE SCOPES, in the order they run (cheapest to fail first — the backend tier runs in seconds,
 # a next build in minutes, an image build in more):
 #   scripts    selfcheck.sh — the scripts themselves (instant)
-#   docs       check_docs.py — citations, links and stamps (instant; needs the backend venv)
+#   docs       check_docs.py — citations, links and stamps, then check_commits.py — the branch's
+#              commit messages, which are documentation here (instant; needs the backend venv)
 #   backend    ruff, pyright and the default pytest tier. No Docker
 #   frontend   prettier, tsc, eslint, next build, unit tests, then the dependency audit
 #   ops        both compose files parse, and nginx accepts prod.conf. Needs Docker
@@ -112,6 +113,15 @@ if (( RUN_DOCS )); then
   quietly "$PY" scripts/check_docs.py || die "The documentation gate failed. Each finding above names its file
 and what no longer resolves. Rules: docs/_standard/5-currency.md"
   ok "documentation references resolve"
+
+  # Commit messages are checked in the docs scope, not a scope of their own, because in this
+  # repository they ARE documentation — merges are never squashed so that they survive — and because
+  # every gate combination CLAUDE.md prescribes already includes --docs. A --commits flag would be a
+  # flag nobody remembers to pass on the change that needed it.
+  step "docs · commit messages on this branch"
+  quietly "$PY" scripts/check_commits.py || die "The commit message gate failed. Each finding above names the
+commit and what is wrong with it. The form is docs/workflows/message-templates.md."
+  ok "commit messages follow the convention"
 fi
 
 # --- backend ---------------------------------------------------------------------------------------

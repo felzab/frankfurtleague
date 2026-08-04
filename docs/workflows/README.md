@@ -63,23 +63,34 @@ git commit          # opens the editor; a one-line -m loses the part that matter
 git push -u origin short-kebab-name
 ```
 
-**The owner creates the pull request and merges it, and nobody else does** — not an assistant, not a
-script, whatever tooling is to hand. The push prints a `pull/new/…` link straight to the form; title
-and body follow [`message-templates.md`](message-templates.md). Merge it there with the **merge
-commit** button, and delete the remote branch when GitHub offers.
+```bash
+# 4b — open it as a draft, never as ready
+gh pr create --draft --title "Scope: what changed" --body-file <path>
+```
 
-`gh` is installed and authenticated, and the boundary it sits on is worth stating precisely because
-the tool no longer draws it:
+**Every pull request is opened as a draft, whoever opens it.** A draft runs CI exactly as a ready
+one does and **cannot be merged until it is marked ready**, so the window between "here is the
+branch" and "I have read it" is a state GitHub enforces rather than one everybody remembers. That
+window is where a pull request actually lives: it is handed over before it is reviewed, and marking
+it ready is the act of saying it survived review.
 
-| Use `gh` for                                                          | Never use `gh` for          |
-| --------------------------------------------------------------------- | --------------------------- |
-| Reading a pull request and its body — `gh pr view <n>`                | `gh pr create`              |
-| Checking what CI did — `gh pr checks`, `gh run view`, `gh run watch`  | `gh pr merge`               |
-| Reading review comments, labels and the diff GitHub actually resolved | Anything that writes `main` |
+Title and body follow [`message-templates.md`](message-templates.md). Marking ready and merging are
+**the owner's, and only the owner's** — merge with the **merge commit** button, and delete the
+remote branch when GitHub offers.
 
-Creating and merging are the owner's, by the same rule that makes `main` protected in the first
-place. Reading is what `gh` is for here, and it is what makes claims about GitHub state checkable
-rather than derived — the Titles-and-bodies section below is the first thing that changed for it.
+`gh` is installed and authenticated, and the boundary is worth stating precisely because the tool
+no longer draws it by being absent:
+
+| Run                                                            | Never run                          |
+| -------------------------------------------------------------- | ---------------------------------- |
+| `gh pr create --draft` — opening one, always in this form      | `gh pr create` without `--draft`   |
+| `gh pr view`, `gh pr checks`, `gh run view` — reading anything | `gh pr ready` — that is the review |
+| `gh pr edit --body-file` — correcting a body after a change    | `gh pr merge`                      |
+
+**Editing beats reopening.** Pushing another commit updates an open pull request in place, and
+`gh pr edit` rewrites the title and body without touching anything else; the number and the URL
+survive both. The only change that costs something is rewriting the branch's own commits, which
+moves every line a review comment is anchored to.
 
 ```bash
 # 5 — bring the merge back down and clean up
@@ -149,8 +160,12 @@ The convention is consistent across the whole history and is **not** Conventiona
 Scope: what changed
 ```
 
-Sentence case after the scope. The scope is a real area of the codebase — `Frontend`, `Backend`,
-`Ops`, `Docs`, `Repo`, `Brand`. Real examples:
+Sentence case after the scope, no trailing period, and the scope comes from the closed-ish table in
+[`message-templates.md`](message-templates.md) — twelve real areas, and a new one is reported rather
+than refused. Subjects here are **declarative rather than imperative**, which departs from the
+convention most projects follow and is deliberate: the whole convention-era history reads that way,
+and a log that is consistent with itself beats one that matches a rule it never followed. Real
+examples:
 
 ```
 Frontend: named component exports, and one folder rule for all of them
@@ -189,6 +204,13 @@ What makes them work, and what to keep doing:
 No issue-closing keywords, no emoji, and no trailers. There is no exception for assistant-authored
 commits: work is never signed as AI-generated (CLAUDE.md, §2), which overrides any tool default
 that would append a `Co-Authored-By` line.
+
+**None of that rests on memory any more.** `scripts/check_commits.py` refuses a message with no
+body, an unwrapped line, a malformed subject, a trailer, an emoji or an issue-closing keyword — as a
+`commit-msg` hook when you write it, in the `--docs` gate scope before you push, and in CI on every
+pull request. It reads the branch's commits only, never history, which predates the convention.
+What it refuses and what it merely reports, and why the two lists are different lists, is in
+[`message-templates.md`](message-templates.md).
 
 **Copy-paste form: [`message-templates.md`](message-templates.md).** That page holds the shape; this
 one holds the reasoning.
