@@ -48,7 +48,7 @@ step "2. Line endings are LF"
 #   - awk /\r/  : MSYS awk STRIPS CR on input, so it never matches on Windows — the one
 #                  platform where CRLF is actually introduced. Silently useless.
 #   - grep for a literal CR: same problem, and it puts the character being detected into the
-#                  detector, which is how an earlier version matched itself and flagged everything.
+#                  detector — which then matches itself and flags every script.
 for f in scripts/*.sh; do
   if [[ -n "$(tr -dc '\r' < "$f")" ]]; then
     note_fail "$(basename "$f") has CRLF endings. Fix:  tr -d '\r' < $f > t && mv t $f && chmod +x $f"
@@ -129,8 +129,8 @@ done
 
 step "8. Documented flags match accepted flags"
 # Catches drift between a script's --help header and its case statement. Compared by READING both,
-# never by running the script: an earlier version of this check invoked each flag for real, which
-# meant `local.sh --fresh` tore down the local stack as a side effect of a documentation test.
+# never by running the script: invoking each flag for real means `local.sh --fresh` tears down the
+# local stack as a side effect of a documentation test.
 for f in "${RUNNABLE[@]}"; do
   # Header only: take the contiguous comment block and STOP at the first line of code. Reading a
   # fixed line range instead compared the code against itself, because the case statement fell

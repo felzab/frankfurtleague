@@ -93,8 +93,8 @@ else
 fi
 
 # An `if` block, not `(( FOLLOW )) && ...`: as the final command of the script, that compound
-# evaluates to 1 whenever FOLLOW is 0, so a completely successful run exited non-zero. Any caller
-# checking the exit status read every success as a failure.
+# evaluates to 1 whenever FOLLOW is 0, so a completely successful run exits non-zero and any caller
+# checking the exit status reads every success as a failure.
 if (( FOLLOW )); then
   docker compose -f "$COMPOSE" logs -f frontend
 fi

@@ -609,20 +609,18 @@ then resolved an SRV record that cannot exist, the startup ping raised `Configur
 backend crash-looped, nginx never started because it waits on `service_healthy`, and the site was
 down until the character was found by reading a stack trace.
 
-**What exists today** is manual: the shape checks in
-[`scripts/README.md`](../../scripts/README.md) under "Restoring a server checkout" — required names
-present, the Mongo host with credentials stripped, the three API keys 64 characters and matching.
-They reveal structure without printing a secret, and running them would have caught this in seconds.
-But they are a checklist someone has to remember, which is the same class of control that failed
-here.
+**Nothing checks a restored value today**, manually or automatically. A restore recreates both
+`.env` files by hand from the password manager, every existing preflight tests only that files and
+keys exist, and a malformed value surfaces as a container that never becomes healthy — diagnosed
+from its log, not from any check.
 
 **The options, none obviously right:**
 
-| Option                                                  | Catches                                 | Cost                                                                                                              |
-| ------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Leave it manual                                         | Nothing automatically                   | Zero. The checklist exists and the failure is loud, contained and roughly ten minutes to diagnose once recognised |
-| Name-presence preflight in `deploy.sh`                  | A missing key                           | Small. **Would not have caught this incident** — the key was present and merely wrong                             |
-| Resolve the Mongo SRV record in `deploy.sh` before `up` | Exactly this class, plus a dead cluster | Adds a network dependency to a deploy step, and a DNS blip becomes a refused deploy                               |
+| Option                                                  | Catches                                 | Cost                                                                                     |
+| ------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Leave it unchecked                                      | Nothing automatically                   | Zero. The failure is loud, contained and roughly ten minutes to diagnose once recognised |
+| Name-presence preflight in `deploy.sh`                  | A missing key                           | Small. **Would not have caught this incident** — the key was present and merely wrong    |
+| Resolve the Mongo SRV record in `deploy.sh` before `up` | Exactly this class, plus a dead cluster | Adds a network dependency to a deploy step, and a DNS blip becomes a refused deploy      |
 
 **The trade to weigh** is that the third option is the only one that would have helped, and it makes
 deployment fail for reasons unrelated to the deployment. Given the failure is already contained —

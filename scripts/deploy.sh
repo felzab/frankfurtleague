@@ -78,8 +78,8 @@ if (( STATUS_ONLY )); then
   done
   step "Published builds available to roll back to"
   # Two calls, not one with both repos: `docker image ls` accepts at most one repository argument.
-  # Matched on the TAG, not the substring `-sha-`: since ADR-0017 the tag is `sha-1a2b3c4` with no
-  # service prefix, so the old substring match would report "none pinned" forever.
+  # Matched on the TAG, not a `-sha-` substring: the tag is `sha-1a2b3c4` with no service prefix
+  # (ADR-0017), so a substring match on `-sha-` reports "none pinned" forever.
   { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; \
     docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; } \
     | sort | grep -E ':sha-' | detail || \

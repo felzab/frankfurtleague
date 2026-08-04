@@ -21,8 +21,8 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # Resolve the repo root from this file's own location and move there. Every script therefore behaves
-# identically no matter which directory it was called from — the mistake that produced several
-# confusing "path not found" build failures before this was added.
+# identically no matter which directory it was called from — without this, a relative path fails
+# with a confusing "path not found" that depends on where the caller happened to stand.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Absolute path of the script that sourced this file, resolved BEFORE the cd below.
@@ -255,10 +255,9 @@ wait_healthy() {
 # `docker image inspect` SUCCEEDS and prints an empty line for a missing label, so a trailing
 # `|| echo unknown` never fires — hence the explicit emptiness test.
 #
-# These return the RAW value with exactly one sentinel: the empty string. An earlier version returned
-# a human-readable "unlabelled (...)" sentence instead, which broke both of its callers in deploy.sh —
-# they still compared against the previous sentinel, and one interpolated the sentence into a
-# suggested command. Formatting for humans belongs to the caller; see image_revision_display.
+# These return the RAW value with exactly one sentinel: the empty string. Never a human-readable
+# sentence — deploy.sh compares the value and interpolates it into a suggested command, and a prose
+# sentinel breaks both. Formatting for humans belongs to the caller; see image_revision_display.
 _image_label() {
   local image="$1" label="$2" value=""
   value="$(docker image inspect --format "{{index .Config.Labels \"${label}\"}}" "$image" 2>/dev/null)" || true

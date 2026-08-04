@@ -63,8 +63,8 @@ if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_DB || RUN
   RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
-# Fail on a missing prerequisite NOW, not after minutes of green checks: a full run on a machine
-# whose Docker is asleep used to discover that only when it reached the db tier.
+# Fail on a missing prerequisite NOW: without this, a full run on a machine whose Docker is asleep
+# discovers it only at the db tier, minutes of green checks in.
 if (( RUN_DB || RUN_IMAGES )); then
   require_docker
 fi
@@ -145,9 +145,9 @@ fi
 if (( RUN_IMAGES )); then
   # Reclaim the throwaway images on EVERY exit path, registered before the first build that creates
   # them. It has to be a trap: `die` calls exit directly, so a plain line at the end of the script
-  # only runs when the gate passes. A failed gate used to leave both tags behind; the next run then
-  # moved them onto fresh images and orphaned the old ones as untagged 369 MB layers that nothing
-  # but `docker image prune` would ever reclaim.
+  # only runs when the gate passes — and a failed gate then leaves both tags behind, where the next
+  # run moves them onto fresh images and orphans the old ones as untagged 369 MB layers that
+  # nothing but `docker image prune` ever reclaims.
   trap 'docker image rm -f frankfurtleague-verify:frontend frankfurtleague-verify:backend >/dev/null 2>&1 || true' EXIT
 
   step "docker build — frontend  (the check pnpm verify cannot do)"
