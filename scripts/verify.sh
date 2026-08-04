@@ -222,13 +222,28 @@ fi
 # gate leaves both tags behind, where the next run moves them onto fresh images and orphans the old
 # ones as untagged 369 MB layers that nothing but `docker image prune` ever reclaims.
 if (( RUN_IMAGES )); then
+  # CI sets VERIFY_IMAGES_CACHE_DIR to carry layers across runs (verify.yml pairs it with
+  # actions/cache and a docker-container builder, because the default docker driver cannot export
+  # a cache). Unset — the local case — it is a plain docker build.
+  build_image() {
+    local name="$1" dockerfile="$2" context="$3"
+    if [[ -n "${VERIFY_IMAGES_CACHE_DIR:-}" ]]; then
+      quietly docker buildx build --load \
+        --cache-from "type=local,src=${VERIFY_IMAGES_CACHE_DIR}/${name}" \
+        --cache-to "type=local,dest=${VERIFY_IMAGES_CACHE_DIR}/${name},mode=max" \
+        -f "$dockerfile" -t "frankfurtleague-verify:${name}" "$context"
+    else
+      quietly docker build -f "$dockerfile" -t "frankfurtleague-verify:${name}" "$context"
+    fi
+  }
+
   step "images · docker build frontend  (the check the frontend scope cannot do)"
-  quietly docker build -f fl_frontend/Dockerfile -t frankfurtleague-verify:frontend fl_frontend \
+  build_image frontend fl_frontend/Dockerfile fl_frontend \
     || die "The frontend image failed to build. This is the failure the frontend scope cannot see."
   ok "frontend image builds"
 
   step "images · docker build backend"
-  quietly docker build -f fl_backend/Dockerfile -t frankfurtleague-verify:backend fl_backend \
+  build_image backend fl_backend/Dockerfile fl_backend \
     || die "The backend image failed to build."
   ok "backend image builds"
 
