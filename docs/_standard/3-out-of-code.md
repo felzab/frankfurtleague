@@ -1,6 +1,6 @@
 # Out-of-code documentation
 
-**Verified against:** `5ad4a85`, 2026-08-04
+**Verified against:** `b9ee9d9`, 2026-08-05
 
 Governs everything under `/docs`. The principles in [`1-principles.md`](1-principles.md) apply here
 too; this chapter adds the shapes.
@@ -114,7 +114,7 @@ Four reasons, in order of how much they bite:
    | -------------------------------- | :-------------------------------------: | :-----------------------------------------------: | :-------------------------------------------: |
    | Cache tags (ADR-0001)            |      tags declared and invalidated      | `patch_spiel_data` rewrites team stats per season |                                               |
    | Season default (ADR-0002)        | removed a serialised lookup on 8 routes |                 the router change                 |                                               |
-   | Revalidation route (ADR-0015)    |           Next route handler            |                    the caller                     |           nginx routing, `scripts/`           |
+   | Reference staleness (ADR-0035)   |      `cacheLife("days")` bounds it      |                                                   |    the container recreation that clears it    |
    | `connection()` guards (ADR-0009) |            every page fetch             |                                                   | Docker builder stage has no reachable backend |
 
 2. **The number is a permanent identity cited from code.** A flat folder means the path never changes.
