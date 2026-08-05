@@ -122,12 +122,15 @@ no row here — its commit is the whole story.
 - **FB-8** → [ADR-0044](../_decisions/0044-a-shoot-out-is-its-own-scoreline.md), the rule that a
   shoot-out is a scoreline of its own on the match, with its winner derived rather than stored, read by
   the bracket and by nothing else — so the league table counts the fixture as the draw it was and the
-  two disagree about it deliberately. It opened nothing, and it completed the bracket: the first
-  knockout round seeds itself from the standings, every later round is fed by the round before, and a
-  level knockout no longer empties everything downstream of it. One finding that was not a decision
-  left it for a permanent home instead: that a season's fixtures are created once and `/spiele`
-  therefore has no POST and no DELETE was written down nowhere at all, and is now
+  two disagree about it deliberately. It completed the bracket: the first knockout round seeds itself
+  from the standings, every later round is fed by the round before, and a level knockout no longer
+  empties everything downstream of it. One finding that was not a decision left it for a permanent home
+  instead: that a season's fixtures are created once and `/spiele` therefore has no POST and no DELETE
+  was written down nowhere at all, and is now
   [ADR-0045](../_decisions/0045-a-seasons-fixtures-are-created-once.md) with invariant I26 beside it.
+  **It opened four entries**, from the review that followed it rather than from the work itself — three
+  places where the bracket knows something and tells nobody (**FB-11**, **FB-12**, **FB-13**) and one
+  standing caution about the seeding walk's cap (**BE-14**).
   **It leaves a production data change owed** — `elfmeterschiessen` is required with no default, so
   every `spiele` document needs the key set before the next deploy, and ADR-0044 carries the runbook.
 - **FB-4** → [ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md), the rule that a
