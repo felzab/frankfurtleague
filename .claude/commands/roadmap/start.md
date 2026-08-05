@@ -11,8 +11,20 @@ that opens three items builds the later fixes on decisions the earlier ones have
 ## Steps
 
 1. **Resolve the item.** The item ID is the **first token** of the arguments; anything after it is
-   carried-forward context from the previous session — a decision this item depends on, which is not
-   in the file because the entry that held it has been deleted. Read it as fact and say so back.
+   carried-forward context from the previous session — what this item depends on and cannot read,
+   because the entry that held it has been deleted.
+
+   **Two kinds of sentence are in there and they get different treatment. Sort them before acting on
+   either, and say back which is which.**
+
+   - **A decision is fact.** "The owner ruled that the first knockout round is always group-seeded."
+     Nobody in this session can re-derive it and no file records it. Take it, restate it, build on it.
+   - **A description of the tree is a claim.** "The backend is done and green", "one file is the only
+     compile blocker", "closed in `abc1234`". Each was true when it was written, and the tree has
+     moved since — a handover sits in someone's clipboard while other work merges. **Check the branch,
+     whether it compiles, and any SHA it names before building on any of it**, and report what you
+     found. A correction here costs one command; the same correction after the work is built on it
+     costs the work.
 
    Read `docs/roadmap/open-items.md` in full and find the entry whose ID matches. If the ID does not
    exist, check `docs/roadmap/closed-items.md` before saying so — a closed id is not a typo, and the
@@ -110,6 +122,21 @@ that opens three items builds the later fixes on decisions the earlier ones have
    Writing only prose here breaks the chain: the next session has no access to this one, and the
    entry it would have read has just been deleted. If nothing is unblocked, say which items are now
    at the top of the file instead.
+
+   **Write the block against the repository as it will be after the removal commit**, not as you read
+   it at the start — the entry carrying the reasoning is gone by then. Stating the decisions is the
+   part every handover already gets right. Three more belong in it, and they are the ones a session
+   that did good work still leaves out:
+
+   - **What this item does NOT achieve, and which entry closes that gap.** An item finishes its own
+     scope while the larger goal stays out of reach more often than not, and a block listing only what
+     the next item needs reads as though the next item were the last one.
+   - **Every precondition no session performs** — a production data change, a value set by hand, a
+     setting in someone's dashboard. These are the only steps that can be skipped indefinitely,
+     because no session's definition of done contains them and the gate cannot see them. Name each one
+     and how to check whether it has happened.
+   - **Which of your own sentences are descriptions rather than decisions**, flagged as such. Step 1
+     asks the next session to sort them; you know which is which and it does not.
 
 ## Scope
 
