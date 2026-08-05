@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `19f18ba`, 2026-08-05
+**Verified against:** `88fbfd4`, 2026-08-05
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -144,17 +144,18 @@ wave runs the full form regardless of what it touched, unless it changed documen
 
 ## 7. Violation → remedy
 
-| Symptom                                                  | Cause                                                            | Remedy                                                                                             |
-| -------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                                             |
-| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                                             |
-| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                                                        |
-| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I2 — repeat every header in that block                                                             |
-| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                                                |
-| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                                                   |
-| Uptime monitor shows green during a backend outage       | The error page streams after headers, so the edge status is 200  | Monitor `GET /api/v0/system/is_live` through the edge instead ([`docs/logging.md`](../logging.md)) |
-| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | Bounded by design (ADR-0035): wait for the daily expiry, or recreate the frontend container        |
-| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | Same remedy; recreation drops every cached page at once                                            |
+| Symptom                                                  | Cause                                                                  | Remedy                                                                                             |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory       | `git pull`, remove the stray directory                                                             |
+| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                               | Fix those names in the relevant `.env`                                                             |
+| Deploy reports healthy but the site is unreachable       | nginx                                                                  | `docker compose logs nginx`                                                                        |
+| Static assets served without security headers            | A `location` block set a header and dropped the inherited set          | I2 — repeat every header in that block                                                             |
+| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                         | Update the healthcheck path in `docker-compose.yml`                                                |
+| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                       | Expected under repeated attempts                                                                   |
+| Uptime monitor shows green during a backend outage       | The error page streams after headers, so the edge status is 200        | Monitor `GET /api/v0/system/is_live` through the edge instead ([`docs/logging.md`](../logging.md)) |
+| Container logs are empty right after a deploy            | `json-file` logs live in the container; `--force-recreate` replaces it | Expected. Copy them off before deploying ([`docs/logging.md`](../logging.md))                      |
+| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                               | Bounded by design (ADR-0035): wait for the daily expiry, or recreate the frontend container        |
+| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points        | Same remedy; recreation drops every cached page at once                                            |
 
 ## 8. Known-open
 

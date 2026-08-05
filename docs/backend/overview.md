@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `88fbfd4`, 2026-08-05
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB. **Fifteen routers**: `system`, plus a read and a write router for
@@ -105,8 +105,11 @@ format is not negotiable.
 
 Every failure is a `BaseAPIException` carrying an `error_code` alongside a message
 (`REQ-AUTH-002`, `DB-CONN-001`, `DB-COMMON-001`), so a log line names a specific failure rather than a
-status class. Three exist today: authorization (401), database unavailable (503, with `Retry-After`),
-and document not found (404).
+status class. Four subclasses exist — authorization (401), database unavailable (503, with
+`Retry-After`), document not found (404) and document conflict (409) — and the handlers in
+`app/core/exception_handlers.py` carry codes of their own for the failures no subclass raises. The
+full table, and the rule that every failure response is `{error_code, correlation_id}`, is
+[`docs/logging.md`](../logging.md).
 
 ## Testing
 

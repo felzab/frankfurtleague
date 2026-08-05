@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `19f18ba`, 2026-08-05
+**Verified against:** `88fbfd4`, 2026-08-05
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
@@ -44,8 +44,16 @@ consequences, stated plainly:
   line is the only record of that page view — which is why the edge logs every request.
 - A **cache fill**'s backend access line joins to the frontend error if the fill fails (the error
   carries the fill's id), but never to the page view that happened to trigger the fill.
+- An **uncached read inside a page render** mints its own id too, and this one is a limitation
+  rather than a framework boundary: a page render seeds no request scope, so the edge id reaches
+  that render's error line (`onRequestError` reads it off the request's own headers) but not the
+  backend call the render made. One query is affected —
+  `fl_frontend/src/features/admin/queries.ts :: getAdminSpieleActionRequired`, uncached by
+  [ADR-0013](_decisions/0013-admin-action-required-uncached.md).
 - A **server action** (every admin write) and a **route handler** run with the real request id
-  end-to-end: their backend lines carry the same id as the nginx line.
+  end-to-end: their backend lines carry the same id as the nginx line, because
+  `fl_frontend/src/shared/utils/serverAction.ts :: runAdminAction` and the route handler read
+  `headers()` — which a page render could also do, but does not today.
 
 Lines written outside any request — boot, lifecycle — carry the sentinel `SYSTEM`, so the
 `correlation_id` key exists on every line.
@@ -97,6 +105,17 @@ boot; a parser skips non-`{` lines.
 Retention is Docker's `json-file` driver, 3 × 10 MB per service (`docker-compose.yml ::
 x-logging`). There is no aggregation and no index; reading production logs is `ssh` plus
 `docker compose logs`.
+
+**The logs live and die with the container, so a deploy starts them from empty.** The driver writes
+to `/var/lib/docker/containers/<container-id>/<container-id>-json.log` on the host, and that
+directory is removed with its container. `stop` and `start` keep the file — the container survives —
+while anything that **replaces** a container discards it: `docker compose down`, and the
+`up -d --force-recreate` that `scripts/deploy.sh` runs on every deploy. Copy anything worth keeping
+off the host **before** deploying:
+
+```bash
+docker compose logs --no-color --timestamps backend > backend-$(date +%F).log
+```
 
 ## Error codes
 
@@ -180,6 +199,21 @@ convention, not by enforcement.
 | Frontend  | `pnpm dev` in `fl_frontend/`                      | `console` via `fl_frontend/.env`                |
 | Backend   | `uv run fastapi dev app/asgi.py` in `fl_backend/` | `console` via `LOG_FORMAT` in `fl_backend/.env` |
 | All three | `./scripts/local.sh`                              | The production stream, exactly as deployed      |
+
+Both console formats share one line shape — padded level, timestamp, `<correlation_id>`, dash,
+message — so the two dev streams read as one convention.
+
+**There is no nginx in dev, and every line still carries an id.** Whichever service receives the
+request mints it instead: the backend's middleware for a direct API call,
+`fl_frontend/src/core/api.ts :: apiClient` for a frontend-originated one. The rule is identical on
+every surface — honour a well-formed incoming id, mint one otherwise — so dev differs only in
+**who** mints, never in whether a line is correlated. What dev cannot demonstrate is a
+**cross-service** join for a page render, because no component there sees both hops;
+`./scripts/local.sh` is where that is exercised.
+
+On Windows, prefix the backend command with `PYTHONUTF8=1` when redirecting its output — the CLI
+banner is not encodable in the default code page ([`scripts/README.md`](../scripts/README.md),
+Troubleshooting).
 
 ## Invariants
 
