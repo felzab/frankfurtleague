@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `bb7a23b`, 2026-08-05
+**Verified against:** `7f695ac`, 2026-08-05
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -309,6 +309,13 @@ and a packaging change builds both images before it can merge. A push to `main` 
 The required status check is the workflow's aggregate `verify` job, which fails if any scope job
 failed and passes over the ones path filtering skipped.
 
+**The images job caches its layers in the Actions cache service**, which buildx reaches directly
+([ADR-0038](../_decisions/0038-the-image-cache-is-the-actions-cache-service.md)) — there is no cache
+archive to download and no cache key to describe the contents wrongly. It is the one job needing a
+credential the runner withholds from `run:` steps, so a local action exposes it first, and the scope
+checks for it before building rather than discovering it at the export, after every layer is
+already built.
+
 > **`pnpm format` covers the whole repository**: it runs prettier over the repo root, and what stays
 > out is decided by exactly two ignore files — `.prettierignore` at the root (trees prettier must
 > never enter, and local machine files) and `fl_frontend/.prettierignore` (the frontend's own
@@ -386,14 +393,18 @@ would block merges for a reason unrelated to the change.
 Settings → Actions → General:
 
 - **Actions permissions** — GitHub-authored actions allowed, plus an allowlist for the two
-  third-party ones in use: `pnpm/action-setup@*` and `astral-sh/setup-uv@*`.
+  third-party ones in use: `pnpm/action-setup@*` and `astral-sh/setup-uv@*`. **An action living in
+  this repository needs no entry** — `./.github/actions/actions-runtime-env` is read from the
+  checkout, which is why owning thirty-two lines beat allowlisting a fourth third-party action
+  ([ADR-0038](../_decisions/0038-the-image-cache-is-the-actions-cache-service.md)).
 - **Every action is pinned to an exact version**, never a floating major tag. A `@v7` tag moves
   under you: what CI executed last week is not necessarily what it executes today, and the window
   where a repointed tag changes your build is exactly the supply-chain risk pinning closes. The
   trade accepted in return is that upstream patches no longer arrive on their own — they arrive as
   a Dependabot pull request, which is what makes the pins sustainable rather than a thing that
   rots. **When adding an action, pin it and verify the tag exists** by fetching its raw
-  `action.yml` (see the note under the verification gate).
+  `action.yml` (see the note under the verification gate). A local `./` action needs no pin: it
+  moves only when a commit moves it, which is the property a pin buys for the others.
 - **Fork pull request workflows** — _require approval for all outside collaborators_. On a public
   repository anyone can fork and open a pull request; without this, a stranger's first PR runs
   workflows unreviewed. Both workflows trigger on `pull_request` rather than `pull_request_target`,

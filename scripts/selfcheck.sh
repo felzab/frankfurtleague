@@ -185,7 +185,10 @@ run_actionlint() {
     return
   fi
   if docker version >/dev/null 2>&1; then
-    MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/repo" -w /repo rhysd/actionlint:1.7.7
+    # 1.7.8 is the floor: earlier versions reject `using: node24` as an invalid runner, which is a
+    # value GitHub documents and supports. Nothing bumps this automatically -- dependabot's
+    # github-actions ecosystem covers `uses:` references, and this is a `docker run`.
+    MSYS_NO_PATHCONV=1 docker run --rm -v "/${REPO_ROOT}:/repo" -w /repo rhysd/actionlint:1.7.12
     return
   fi
   return 2

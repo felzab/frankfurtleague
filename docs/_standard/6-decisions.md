@@ -1,6 +1,6 @@
 # Decisions about the documentation standard
 
-**Verified against:** `5ad4a85`, 2026-08-04
+**Verified against:** `7f695ac`, 2026-08-05
 
 `DS` decisions are about **how this repository is documented**, which is why they live here rather
 than in `docs/_decisions/` alongside ADRs about the software itself. The same discipline applies:
@@ -589,8 +589,9 @@ produced the drift being fixed.
 **Decided:** 2026-08-04
 
 **Decision.** A comment is documentation, so every currency mechanism applies to it. The
-documentation gate scans the **comments** of every tracked `.ts`, `.tsx` and `.py` file for the same
-citations it checks in `/docs`: ADR numbers and anchored `<file> :: <anchor>` references.
+documentation gate scans the **comments** of every tracked `.ts`, `.tsx`, `.js`, `.mjs`, `.cjs` and
+`.py` file for the same citations it checks in `/docs`: ADR numbers and anchored
+`<file> :: <anchor>` references.
 
 Executable code is not scanned. A path-shaped string in a function body is data the program uses, not
 a claim made to a reader, and checking it would report the program's own behaviour as a defect.

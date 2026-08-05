@@ -286,21 +286,18 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/cache@v6.1.0
-        with:
-          path: /tmp/verify-images-cache
-          # Exact hit when nothing packaging-relevant moved; restore-keys reuses the newest cache
-          # otherwise, so a lockfile bump still starts from warm base layers.
-          key: images-${{ hashFiles('fl_frontend/pnpm-lock.yaml', 'fl_backend/uv.lock', 'fl_frontend/Dockerfile', 'fl_backend/Dockerfile') }}
-          restore-keys: |
-            images-
+      # buildx talks to the Actions cache service itself and pulls only the blobs a build actually
+      # needs (ADR-0038), so there is no actions/cache step here and no cache directory to carry.
+      # This action exists only because the runner injects the service credentials into JavaScript
+      # actions and never into a `run:` step.
+      - uses: ./.github/actions/actions-runtime-env
       - name: Create a cache-capable builder
         # The default docker driver cannot export a build cache; the container driver can, and the
         # script's --load brings the built image back to the daemon for the instrumentation check.
         run: docker buildx create --use
       - name: Run the images scope
         env:
-          VERIFY_IMAGES_CACHE_DIR: /tmp/verify-images-cache
+          VERIFY_IMAGES_CACHE: gha
         run: ./scripts/verify.sh --images
 
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.

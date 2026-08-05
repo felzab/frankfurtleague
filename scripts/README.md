@@ -1,6 +1,6 @@
 # `scripts/`
 
-**Verified against:** `bb7a23b`, 2026-08-05
+**Verified against:** `7f695ac`, 2026-08-05
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says
@@ -132,6 +132,16 @@ rather than fails — an advisory published upstream overnight should not block 
 CI (`.github/workflows/verify.yml`) runs these scopes as parallel jobs, mapped from the paths a
 pull request touches — including the images scope for exactly the packaging paths above; a push to
 `main` runs all of them.
+
+**In CI the images scope caches layers through the Actions cache service**, which `VERIFY_IMAGES_CACHE=gha`
+selects ([ADR-0038](../docs/_decisions/0038-the-image-cache-is-the-actions-cache-service.md)). buildx
+authenticates to that service with a credential the runner gives to JavaScript actions and never to a
+`run:` step, so `.github/actions/actions-runtime-env` re-exports it first. **The scope refuses to build
+when that variable is set and the credential is missing.** buildx would fail too — a cache export
+error is fatal unless `ignore-error` is turned on, and it must not be — but only after every layer
+has been built, and with a message naming a missing token rather than the missing step. Locally the
+variable is unset and the build is a plain `docker build` against the daemon's own warm layer
+cache.
 
 ## `local.sh` — production image, locally
 

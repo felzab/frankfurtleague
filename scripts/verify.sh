@@ -283,15 +283,34 @@ fi
 # gate leaves both tags behind, where the next run moves them onto fresh images and orphans the old
 # ones as untagged 369 MB layers that nothing but `docker image prune` ever reclaims.
 if (( RUN_IMAGES )); then
-  # CI sets VERIFY_IMAGES_CACHE_DIR to carry layers across runs (verify.yml pairs it with
-  # actions/cache and a docker-container builder, because the default docker driver cannot export
-  # a cache). Unset — the local case — it is a plain docker build.
+  # CI sets VERIFY_IMAGES_CACHE=gha to carry layers across runs through the Actions cache service
+  # (ADR-0038). verify.yml pairs it with a docker-container builder, because the default docker
+  # driver cannot export a cache at all. Unset — the local case — it is a plain docker build against
+  # the daemon's own layer cache, which is already warm and needs no export.
+  #
+  # The guard below buys a better failure, not a failure that would otherwise be missed. buildx's
+  # `ignore-error` defaults to false, so a backend that cannot authenticate does fail the build — but
+  # the cache export runs AFTER every layer is built, so the cost is the whole build followed by a
+  # message about a missing token rather than the missing step that should have provided it. Checking
+  # first costs nothing and names the cause. Only variable names are read or printed here; the
+  # token's value is never echoed.
+  if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" && -z "${ACTIONS_RUNTIME_TOKEN:-}" ]]; then
+    die "VERIFY_IMAGES_CACHE=gha, but ACTIONS_RUNTIME_TOKEN is not set, so the type=gha backend
+cannot authenticate and buildx would fail the cache export after building everything.
+The credential comes from .github/actions/actions-runtime-env, which must run before
+this step in the job."
+  fi
+
   build_image() {
     local name="$1" dockerfile="$2" context="$3"
-    if [[ -n "${VERIFY_IMAGES_CACHE_DIR:-}" ]]; then
+    if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" ]]; then
+      # scope keeps the two images' caches apart; without it the second build evicts the first's
+      # entries, because a scope is one cache key and buildx overwrites rather than merges.
+      # `version` is deliberately not pinned: buildx picks the live cache service from
+      # ACTIONS_CACHE_SERVICE_V2, and naming the retired one silently disables the cache.
       quietly docker buildx build --load \
-        --cache-from "type=local,src=${VERIFY_IMAGES_CACHE_DIR}/${name}" \
-        --cache-to "type=local,dest=${VERIFY_IMAGES_CACHE_DIR}/${name},mode=max" \
+        --cache-from "type=gha,scope=${name}" \
+        --cache-to "type=gha,scope=${name},mode=max" \
         -f "$dockerfile" -t "frankfurtleague-verify:${name}" "$context"
     else
       quietly docker build -f "$dockerfile" -t "frankfurtleague-verify:${name}" "$context"
