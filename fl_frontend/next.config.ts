@@ -38,6 +38,9 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Development-only, all of it: Next reads `logging.fetches` and `logging.incomingRequests` in the
+  // dev server alone, which is also why the production frontend writes no per-request line of its
+  // own -- that record is nginx's access log (docs/logging.md).
   logging: {
     fetches: {
       fullUrl: false, // Prevents giant URLs in the terminal

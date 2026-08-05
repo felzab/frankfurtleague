@@ -108,13 +108,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // unbounded substring test that would silently swallow any wrapped or aggregated error
       // quoting the string -- and this stream is the main signal that authorization is misbehaving.
       if (error?.name === "AccessDenied") {
-        logger.warn("auth.access_denied", { name: error.name });
+        logger.warn("auth.access_denied", { name: error.name, error_code: "FE-AUTH-001" });
         return;
       }
 
       // Routed through the structured logger: raw console.error emitted the whole Error, and Auth.js
       // errors on the Resend path routinely carry the submitted email address.
-      logger.error("auth.error", error, { name: error?.name });
+      logger.error("auth.error", error, { name: error?.name, error_code: "FE-AUTH-002" });
     },
   },
 });

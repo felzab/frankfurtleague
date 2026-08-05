@@ -50,5 +50,13 @@ export async function register() {
 
   // Importing it *is* the gate. config.ts's onValidationError has already reduced the message to
   // variable NAMES, never values -- verified against a built image, including for a truncated key.
-  await import("./core/config");
+  const { frontend_config } = await import("./core/config");
+
+  // In the JSON format, everything that reaches console.* -- above all Next's own multi-line
+  // `⨯ Error` dumps -- is wrapped into the same one-document-per-line envelope the logger writes
+  // (ADR-0039). Installed here so it is in place before the first request can error.
+  if (frontend_config.LOG_FORMAT === "json") {
+    const { installConsoleShim } = await import("./core/consoleShim");
+    installConsoleShim();
+  }
 }

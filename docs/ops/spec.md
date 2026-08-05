@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `19f18ba`, 2026-08-05
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -41,13 +41,14 @@ this before starting.
 
 Longest-prefix match. Order in the file is irrelevant; specificity decides.
 
-| Location         | Upstream        | Notes                                                               |
-| ---------------- | --------------- | ------------------------------------------------------------------- |
-| `/api/auth`      | `frontend:3000` | Auth.js — more specific than `/api`, so it wins                     |
-| `/api`           | `backend:8000`  | Everything else API                                                 |
-| `= /signin`      | `frontend:3000` | `limit_req zone=signin burst=3 nodelay`                             |
-| `/_next/static/` | `frontend:3000` | `expires max`, `Cache-Control: public, max-age=31536000, immutable` |
-| `/`              | `frontend:3000` | Catch-all                                                           |
+| Location              | Upstream        | Notes                                                                               |
+| --------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| `/api/auth`           | `frontend:3000` | Auth.js — more specific than `/api`, so it wins                                     |
+| `= /api/client-error` | `frontend:3000` | Next route handler, `limit_req zone=clienterr` ([`docs/logging.md`](../logging.md)) |
+| `/api`                | `backend:8000`  | Everything else API                                                                 |
+| `= /signin`           | `frontend:3000` | `limit_req zone=signin burst=3 nodelay`                                             |
+| `/_next/static/`      | `frontend:3000` | `expires max`, `Cache-Control: public, max-age=31536000, immutable`                 |
+| `/`                   | `frontend:3000` | Catch-all                                                                           |
 
 Server blocks: port 80 redirects to HTTPS and strips `www.`; a `default_server` block on 443 rejects
 unknown hosts with `ssl_reject_handshake`; a second HTTPS block serves `www.frankfurtleague.de` and
@@ -63,7 +64,10 @@ terminates there and an origin-side failure can surface as a Cloudflare status c
 neither nginx nor the block responsible.
 
 Proxy headers set globally: `Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`,
-`X-Forwarded-Host`, `X-Forwarded-Port`, HTTP/1.1.
+`X-Forwarded-Host`, `X-Forwarded-Port`, HTTP/1.1 — plus `X-Correlation-ID`, minted from
+`$request_id` unconditionally so a client-supplied id never reaches a log
+([`docs/logging.md`](../logging.md), ADR-0039). Every server block writes the `fl_json` access
+format, which carries the id, `$request_time` and `$upstream_response_time`.
 
 Buffers are enlarged (`proxy_buffer_size 128k`, `proxy_buffers 4 256k`) specifically to stop 502s from
 large Auth.js cookies.
@@ -140,16 +144,17 @@ wave runs the full form regardless of what it touched, unless it changed documen
 
 ## 7. Violation → remedy
 
-| Symptom                                                  | Cause                                                            | Remedy                                                                                      |
-| -------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                                      |
-| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                                      |
-| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                                                 |
-| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I2 — repeat every header in that block                                                      |
-| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                                         |
-| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                                            |
-| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | Bounded by design (ADR-0035): wait for the daily expiry, or recreate the frontend container |
-| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | Same remedy; recreation drops every cached page at once                                     |
+| Symptom                                                  | Cause                                                            | Remedy                                                                                             |
+| -------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `not a directory` from nginx                             | A mounted config file was missing, so Docker created a directory | `git pull`, remove the stray directory                                                             |
+| `Invalid environment variables: <NAMES>` then no traffic | Startup environment gate                                         | Fix those names in the relevant `.env`                                                             |
+| Deploy reports healthy but the site is unreachable       | nginx                                                            | `docker compose logs nginx`                                                                        |
+| Static assets served without security headers            | A `location` block set a header and dropped the inherited set    | I2 — repeat every header in that block                                                             |
+| Backend healthcheck fails after an API version bump      | The check hardcodes `/api/v0/`                                   | Update the healthcheck path in `docker-compose.yml`                                                |
+| Sign-in returns 429                                      | Rate limit, 5/min per IP on POST                                 | Expected under repeated attempts                                                                   |
+| Uptime monitor shows green during a backend outage       | The error page streams after headers, so the edge status is 200  | Monitor `GET /api/v0/system/is_live` through the edge instead ([`docs/logging.md`](../logging.md)) |
+| Reference data stale for up to a day                     | Out-of-band MongoDB edit                                         | Bounded by design (ADR-0035): wait for the daily expiry, or recreate the frontend container        |
+| League table or fixtures stale after a season edit       | Same cause — a season decides the default season and the points  | Same remedy; recreation drops every cached page at once                                            |
 
 ## 8. Known-open
 

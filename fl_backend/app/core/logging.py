@@ -2,16 +2,22 @@
 CORE · structured logging
 
 One logger for the whole service, emitting one JSON document per line in production and colourised
-human output in development.
+human output in development. The JSON field set is shared with the frontend logger so one parser
+reads both streams -- the contract is `docs/logging.md`.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • The trace id is a ContextVar, not a parameter. It is set from the `X-Correlation-ID` header the
-    frontend sends, so one user action can be followed across both services in the logs.
+  • The correlation id is a ContextVar, not a parameter. It is set from the `X-Correlation-ID` header
+    on every request by `CorrelationIdMiddleware`, so one user action can be followed across nginx and
+    both services in the logs.
   • Nothing writes to stdout directly. A stray `print` or bare `console`-style write breaks the
     one-document-per-line contract that makes the output machine-readable.
   • Log the field name, never the submitted value, when reporting a validation failure -- payloads
     routinely carry email addresses and other personal data.
+  • uvicorn's own access log is disabled in the container (`--no-access-log`, Dockerfile CMD);
+    `CorrelationIdMiddleware` writes the per-request line instead, with the correlation id on it.
+    uvicorn's remaining loggers propagate to the root handler configured here, via
+    `app/core/uvicorn_logging.json`.
 """
 
 import json
@@ -19,19 +25,29 @@ import logging
 import logging.config
 import sys
 from contextvars import ContextVar
+from datetime import datetime, timezone
 
 from app.core.config import BackendConfig
 
 FL_LOGGER_NAME = "frankfurtleague"
 
-# The Context Variable to hold our Next.js Trace ID
-trace_id_var: ContextVar[str] = ContextVar("trace_id", default="SYSTEM")
+# Boot and lifecycle lines run outside any request; the sentinel says so explicitly rather than
+# leaving the field absent, so a parser can rely on the key existing on every line.
+NO_REQUEST_SENTINEL = "SYSTEM"
+
+# Holds the id of the request currently being served. Set by CorrelationIdMiddleware.
+correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default=NO_REQUEST_SENTINEL)
+
+# Optional structured fields a call site may pass via `extra=`. Listed once so both formatters and
+# the tests agree on what travels as a field rather than inside the message text.
+STRUCTURED_EXTRAS = ("error_code", "method", "path", "status", "duration_ms")
 
 
-# Injects the Trace ID into the log record
-class TraceIDFilter(logging.Filter):
+class CorrelationIdFilter(logging.Filter):
+    """Injects the current request's correlation id into every log record."""
+
     def filter(self, record: logging.LogRecord) -> bool:
-        record.trace_id = trace_id_var.get()
+        record.correlation_id = correlation_id_var.get()
         return True
 
 
@@ -46,25 +62,39 @@ class LoggingColors:
     RESET = "\x1b[0m"
 
 
+def format_timestamp(created: float) -> str:
+    """UTC, ISO 8601, millisecond precision, `Z` suffix -- identical to the frontend's timestamps."""
+    return datetime.fromtimestamp(created, tz=timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
 class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         log_record = {
+            "timestamp": format_timestamp(record.created),
             "level": record.levelname,
-            "timestamp": self.formatTime(record, self.datefmt),
+            "service": "fl_backend",
+            "correlation_id": getattr(record, "correlation_id", NO_REQUEST_SENTINEL),
+            "message": record.getMessage(),
             "module": record.module,
             "line": record.lineno,
-            "trace_id": getattr(record, "trace_id", "SYSTEM"),
-            "message": record.getMessage(),
         }
-        # Automatically append the traceback if the log is an exception!
-        if record.exc_info:
-            log_record["exception"] = self.formatException(record.exc_info)
+        for field in STRUCTURED_EXTRAS:
+            value = getattr(record, field, None)
+            if value is not None:
+                log_record[field] = value
+        # The same three-key object the frontend logger emits for an Error, so one parser reads both.
+        if record.exc_info and record.exc_info[1] is not None:
+            log_record["error"] = {
+                "name": type(record.exc_info[1]).__name__,
+                "message": str(record.exc_info[1]),
+                "stack": self.formatException(record.exc_info),
+            }
 
         return json.dumps(log_record)
 
 
 class LevelAwareFormatter(logging.Formatter):
-    BASE_LAYOUT = "%(asctime)s | [%(module)s:%(lineno)d] <%(trace_id)s>"
+    BASE_LAYOUT = "%(asctime)s | [%(module)s:%(lineno)d] <%(correlation_id)s>"
     FORMATS = {
         # Standard levels: 1-line, perfectly aligned
         logging.DEBUG: f"{LoggingColors.DEBUG_BG}%(levelname)-8s{LoggingColors.RESET} {BASE_LAYOUT} - %(message)s",
@@ -82,7 +112,12 @@ class LevelAwareFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         formatter = self._formatters.get(record.levelno, self._formatters[logging.INFO])
-        return formatter.format(record)
+        line = formatter.format(record)
+        # The console format carries the code inline; the JSON format carries it as a field.
+        error_code = getattr(record, "error_code", None)
+        if error_code is not None:
+            line = f"{line} [{error_code}]"
+        return line
 
 
 def setup_custom_logger(config: BackendConfig):
@@ -91,8 +126,8 @@ def setup_custom_logger(config: BackendConfig):
         "version": 1,
         "disable_existing_loggers": False,
         "filters": {
-            "trace_id_filter": {
-                "()": TraceIDFilter,
+            "correlation_id_filter": {
+                "()": CorrelationIdFilter,
             }
         },
         "formatters": {
@@ -108,7 +143,7 @@ def setup_custom_logger(config: BackendConfig):
                 "class": "logging.StreamHandler",
                 "stream": sys.stdout,
                 "formatter": selected_formatter,
-                "filters": ["trace_id_filter"],
+                "filters": ["correlation_id_filter"],
             },
         },
         "root": {"handlers": ["console"], "level": config.log_level_app},
@@ -120,8 +155,13 @@ def setup_custom_logger(config: BackendConfig):
             "motor": {"level": config.log_level_db, "propagate": True},
             "pymongo": {"level": config.log_level_db, "propagate": True},
             "uvicorn": {"level": "INFO", "propagate": True},
-            "uvicorn.access": {"level": "INFO", "propagate": True},  # Incoming requests
             "uvicorn.error": {"level": "INFO", "propagate": True},  # Startup/Shutdown
+            # Explicitly OFF, not merely omitted. `--no-access-log` (Dockerfile CMD) silences this
+            # logger before the app is imported -- but dictConfig resets every existing CHILD of a
+            # configured logger ("uvicorn" above) to propagate=True, so leaving it unlisted here
+            # re-enabled it and every request logged twice. CorrelationIdMiddleware writes the one
+            # access line (docs/logging.md).
+            "uvicorn.access": {"level": "INFO", "propagate": False},
             "watchfiles": {"level": "WARNING", "propagate": True},  # File reloader
         },
     }

@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `c6d2511`, 2026-08-05
+**Verified against:** `19f18ba`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -45,7 +45,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
 | 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
 | 3   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Open     | —                         |
-| 4   | LOG-1 | Logging surveyed; standardising it is what remains      | FE, BE, Ops | L      | Open     | — (parallel-safe)         |
+| 4   | LOG-1 | Logging surveyed; standardising it is what remains      | FE, BE, Ops | L      | Closed   | — (parallel-safe)         |
 | 5   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
 | 6   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                         |
 | 7   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
@@ -345,6 +345,24 @@ around it.
 **Path:** independent — nothing blocks it and it blocks nothing, so it can run alongside anything
 else in this file. FE-6 no longer waits on the unit, which is settled above; findings 4 and 14 remain
 input to it.
+
+#### Concluded, 2026-08-05
+
+Stage 2 shipped. The decision is
+[ADR-0039](../_decisions/0039-one-correlation-id-per-request-one-document-per-line.md); the
+maintained convention — correlation-id design, stream field set, the full error-code table — is
+[`docs/logging.md`](../logging.md), and the code is at it. The findings that were not decisions were
+rehomed as follows: the format and code tables live in `docs/logging.md` (findings 5, 7, 8, 10, 11);
+the second writers were brought under the convention (finding 1: uvicorn via the Dockerfile CMD and
+`app/core/uvicorn_logging.json`, Next via `src/core/consoleShim.ts`); the request scope and the
+action boundary are `src/core/requestScope.ts` and `src/shared/utils/serverAction.ts` (findings 2,
+3, 6); the tests are `fl_backend/tests/core/test_logging.py`,
+`fl_backend/tests/api/test_error_responses.py` and the three frontend `*.test.ts` files beside
+`logFormat.ts`, `correlation.ts` and `actionError.ts` (finding 9); the digest's class-not-incident
+nature is documented in `docs/logging.md` and the bug-report form (finding 4); browser crashes reach
+the log through `src/app/api/client-error/route.ts` (finding 14); the monitoring signal for a
+backend outage is recorded in `docs/ops/spec.md` (finding 12); development logging for all three
+surfaces is `docs/logging.md` and `scripts/README.md` (finding 13).
 
 ### 5 · FB-2 — Disqualification becomes a record, not a boolean
 

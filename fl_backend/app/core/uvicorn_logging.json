@@ -1,0 +1,10 @@
+{
+  "_comment": "Passed to uvicorn via --log-config (Dockerfile CMD). Replaces uvicorn's default config, which attaches its own plain-text handlers with propagate=false -- those handlers would bypass the app's formatter and mix a second format into the stream (docs/logging.md). Here every uvicorn logger propagates to the root handler that app/core/logging.py configures when the application is imported. Lines uvicorn emits before that import fall back to logging.lastResort on stderr.",
+  "version": 1,
+  "disable_existing_loggers": false,
+  "loggers": {
+    "uvicorn": { "level": "INFO", "propagate": true },
+    "uvicorn.error": { "level": "INFO", "propagate": true },
+    "uvicorn.access": { "level": "INFO", "propagate": true }
+  }
+}

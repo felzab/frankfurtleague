@@ -20,6 +20,9 @@
  *     concern.
  *   • Every action here starts with `getAdminSession()` and checks its return value — it neither
  *     throws nor redirects.
+ *   • The action body runs inside `runAdminAction`, which seeds the correlation-id request scope
+ *     and converts a thrown API error into the returned result -- a 409 must reach the form's toast,
+ *     not the error page (docs/logging.md).
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -28,6 +31,7 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
+import { runAdminAction } from "@/shared/utils/serverAction";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData } from "./mutations";
@@ -42,41 +46,43 @@ import type { FormState } from "@/shared/types/types";
  * `patchSpielortAction` and the rest of the admin write path.
  */
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<NonNullable<FormState>> {
-  if (!(await getAdminSession())) {
-    return { success: false, error: "Access Denied: Admin privileges missing" };
-  }
+  return runAdminAction("patchAdminSpielDataAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
 
-  const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
+    const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
 
-  if (!validated.success) {
-    return {
-      success: false,
-      error: "Bitte überprüfe deine Eingaben!",
-      fieldErrors: toFieldErrors(validated.error),
-    };
-  }
+    if (!validated.success) {
+      return {
+        success: false,
+        error: "Bitte überprüfe deine Eingaben!",
+        fieldErrors: toFieldErrors(validated.error),
+      };
+    }
 
-  const patch_operation = await patchAdminSpielData(validated.data);
-  if (!patch_operation.acknowledged) {
-    return { success: false, error: "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten" };
-  }
+    const patch_operation = await patchAdminSpielData(validated.data);
+    if (!patch_operation.acknowledged) {
+      return { success: false, error: "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten" };
+    }
 
-  // The base tags are not redundant with the granular ones below, and must stay. Since ADR-0002 the
-  // default read path sends no `saison_id` at all, so the most common cache entries carry only
-  // `spiele` / `teams`; invalidating by season alone would leave exactly those entries stale.
-  updateTag("spiele");
-  updateTag("teams");
+    // The base tags are not redundant with the granular ones below, and must stay. Since ADR-0002 the
+    // default read path sends no `saison_id` at all, so the most common cache entries carry only
+    // `spiele` / `teams`; invalidating by season alone would leave exactly those entries stale.
+    updateTag("spiele");
+    updateTag("teams");
 
-  // Season comes from the loaded spiel, never from the patch body -- the backend's
-  // PatchSpielDataPayload does not declare `saison_id` and Pydantic would silently drop it. A spiel
-  // that somehow lacks a valid one still gets the base invalidation above, so the edit is never
-  // rejected over a cache concern. Validated with the spiel's own field schema rather than a second
-  // copy of the rule, so the two cannot drift apart.
-  const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
-  if (saisonId.success) {
-    updateTag(`spiele:saison_id:${saisonId.data}`);
-    updateTag(`teams:saison_id:${saisonId.data}`);
-  }
+    // Season comes from the loaded spiel, never from the patch body -- the backend's
+    // PatchSpielDataPayload does not declare `saison_id` and Pydantic would silently drop it. A spiel
+    // that somehow lacks a valid one still gets the base invalidation above, so the edit is never
+    // rejected over a cache concern. Validated with the spiel's own field schema rather than a second
+    // copy of the rule, so the two cannot drift apart.
+    const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
+    if (saisonId.success) {
+      updateTag(`spiele:saison_id:${saisonId.data}`);
+      updateTag(`teams:saison_id:${saisonId.data}`);
+    }
 
-  return { success: Boolean(patch_operation.acknowledged), message: "Die Spieldaten wurden erfolgreich aktualisiert" };
+    return { success: Boolean(patch_operation.acknowledged), message: "Die Spieldaten wurden erfolgreich aktualisiert" };
+  });
 }

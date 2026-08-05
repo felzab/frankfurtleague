@@ -18,7 +18,7 @@ is usually a defect.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  docs/ops/spec.md -- the environment section
+  docs/backend/spec.md -- the environment section
 """
 
 from functools import lru_cache
@@ -27,7 +27,7 @@ from typing import Literal
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "Critical"]
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 # The version every router prefixes itself with, and it is a property of THIS CODE rather than of a
 # deployment. As an environment variable it was a footgun with three warnings around it: the container
@@ -75,9 +75,21 @@ class BackendConfig(BaseSettings):
         default="WARNING",
         description="The minimal level a database related log has to reach to be processed",
     )
-    log_format: Literal["console", "json"] = Field(default="console", description="The default log format")
+    # Defaults to the PRODUCTION format on purpose: a production `.env` that omits the variable must
+    # not silently log ANSI-colourised development output into the container's json-file stream.
+    # Development opts into the readable format explicitly (docs/logging.md).
+    log_format: Literal["console", "json"] = Field(default="json", description="The log format; json unless explicitly set to console")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @field_validator("log_level_app", "log_level_db", "log_format", mode="before")
+    def normalize_logging_case(cls, value: object) -> object:
+        # `LOG_FORMAT=JSON` or `LOG_LEVEL_APP=info` must select the intended branch, not fail the
+        # boot over casing -- a hand-restored `.env` (OPS-2) is exactly where that typo happens.
+        # Anything that is not one of the allowed words still fails loudly via the Literal.
+        if isinstance(value, str):
+            return value.lower() if value.lower() in ("console", "json") else value.upper()
+        return value
 
     @field_validator("mongodb_uri")
     def validate_mongodb_uri(cls, value: SecretStr) -> SecretStr:

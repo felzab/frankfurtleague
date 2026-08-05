@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `f2a8458`, 2026-08-04
+**Verified against:** `19f18ba`, 2026-08-05
 **Scope:** `fl_backend/`
 
 ---
@@ -120,24 +120,43 @@ the next time it grows.
 frontend still invalidates the `teams` cache tags in the same action — the data it caches changed even
 though no team document did.
 
-## 4. Error codes
+## 4. Error codes and failure responses
 
-| Code            | Status | Meaning                                                         |
-| --------------- | ------ | --------------------------------------------------------------- |
-| `REQ-AUTH-001`  | 401    | No bearer credentials presented                                 |
-| `REQ-AUTH-002`  | 401    | `base` key invalid                                              |
-| `REQ-AUTH-003`  | 401    | `system` key invalid                                            |
-| `REQ-AUTH-004`  | 401    | `admin` key invalid                                             |
-| `DB-CONN-001`   | 503    | Database client unavailable                                     |
-| `DB-CONN-002`   | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`) |
-| `DB-COMMON-001` | 404    | No document matched the filter                                  |
-| `DB-COMMON-002` | 409    | A unique index refused the write                                |
+**Every failure response body is `{error_code, correlation_id}`** — the full code table, the field
+contract and the correlation-id design are in [`docs/logging.md`](../logging.md), which every
+failure line and response must follow ([ADR-0039](../_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)).
+The invariant the tests pin here: the code on the wire and in the log is the **exception's own**
+(`fl_backend/app/core/exceptions.py :: BaseAPIException`), checked by
+`fl_backend/tests/api/test_error_responses.py`.
 
 **409 arrived with the write path.** A `DuplicateKeyError` was an unhandled 500 while nothing could
 write; with seven create endpoints it is an ordinary outcome, so a dedicated handler maps it
 ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). Starlette
 resolves handlers by walking `type(exc).__mro__`, so registration order does not matter — the most
 specific registered class wins.
+
+## 4a. Environment
+
+Declared once as a pydantic-settings model (`fl_backend/app/core/config.py :: BackendConfig`);
+fields without a default are required at boot and the process refuses to start without them.
+
+| Variable                      | Constraint                                      | Default    |
+| ----------------------------- | ----------------------------------------------- | ---------- |
+| `API_TRUSTED_HOSTS`           | comma-separated host list                       | — required |
+| `API_CORS_ALLOWED_ORIGINS`    | comma-separated origin list                     | — required |
+| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`     | — required |
+| `DB_BASE_NAME`                | string                                          | — required |
+| `DB_SERVER_SELECTION_TIMEOUT` | int, ms                                         | `15000`    |
+| `DB_MIN_CONNECTIONS`          | int                                             | `5`        |
+| `DB_MAX_CONNECTIONS`          | int                                             | `100`      |
+| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` | — required |
+| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised             | `INFO`     |
+| `LOG_LEVEL_DB`                | same vocabulary, for motor/pymongo              | `WARNING`  |
+| `LOG_FORMAT`                  | `json` \| `console`, case-normalised            | **`json`** |
+
+`LOG_FORMAT` defaults to the **production** format on purpose: a `.env` that omits it must not
+colourise the container stream ([`docs/logging.md`](../logging.md)). `API_VERSION` is deliberately
+not here — it is a constant of the code (`fl_backend/app/core/config.py :: API_VERSION`).
 
 ## 5. Invariants
 

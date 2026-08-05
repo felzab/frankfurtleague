@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `f2a8458`, 2026-08-04
+**Verified against:** `19f18ba`, 2026-08-05
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -63,7 +63,11 @@ Gruppenphase result moves both tables and a playoff result moves only one.
 ## 3. Server actions
 
 Seven admin actions plus one auth action. Every admin action begins with `getAdminSession()` and
-returns an access-denied `FormState` rather than throwing.
+returns an access-denied `FormState` rather than throwing. **Every admin action body runs inside
+`fl_frontend/src/shared/utils/serverAction.ts :: runAdminAction`**, which seeds the correlation-id
+request scope and converts a thrown API error into the `FormState` the form toasts — without it a
+409 (an ordinary create outcome, ADR-0032) crosses the server-action boundary redacted and replaces
+the admin page with the error page ([`docs/logging.md`](../logging.md)).
 
 | Action                       | Slice          | Invalidates                                                          |
 | ---------------------------- | -------------- | -------------------------------------------------------------------- |
@@ -171,7 +175,7 @@ values.
 | `AUTH_SECRET`, `AUTH_RESEND_KEY`               | string                                               |
 | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 characters                                |
 | `ALLOWED_ADMIN_EMAILS`                         | comma-separated, each a valid email                  |
-| `LOG_FORMAT`                                   | string                                               |
+| `LOG_FORMAT`                                   | `json` \| `console`, case-normalised (ADR-0039)      |
 
 `SKIP_ENV_VALIDATION=true` bypasses the gate — used by the Docker builder stage, which has no real
 environment.
@@ -212,8 +216,9 @@ it is each ecosystem's default, and both defaults exist for a reason:
   importable as `app.tests` and would ship with the application. The importlib mode is also what lets
   `tests/` work without `__init__.py` files and lets two test modules share a basename.
 
-The seven test files cover pure functions only — schema validators, formatters, derivations. There are
-no component tests and no end-to-end suite.
+The test files cover pure functions only — schema validators, formatters, derivations, the log-line
+format and the action error mapping ([`docs/logging.md`](../logging.md), invariants L1–L3 and L6).
+There are no component tests and no end-to-end suite.
 
 ## 10. Invariants
 

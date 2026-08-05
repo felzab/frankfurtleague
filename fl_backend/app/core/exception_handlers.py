@@ -5,11 +5,15 @@ Turns every exception into a response. Registered once from `app/main.py`.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • The RESPONSE BODY carries only a trace id. Messages, error codes, validation details and stack
-    traces go to the log, never to the client -- the caller correlates by trace id. Adding the detail
-    to the body would leak schema internals to anyone who can reach the API.
-  • Every handler logs before it returns. A swallowed exception with no log line is invisible.
+  • The RESPONSE BODY carries only the error code and the correlation id. Messages, validation
+    details and stack traces go to the log, never to the client -- the caller correlates by id.
+    Adding the detail to the body would leak schema internals to anyone who can reach the API.
+  • Every handler logs before it returns, and every log line carries its error code as a structured
+    field (`extra={"error_code": ...}`). A swallowed exception with no log line is invisible; a log
+    line without a code is not greppable as a class. The codes are listed in `docs/logging.md`.
 """
+
+from typing import Mapping
 
 from bson.errors import InvalidId
 from fastapi import FastAPI, Request, status
@@ -19,42 +23,49 @@ from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.core.exceptions import BaseAPIException
-from app.core.logging import fl_logger, trace_id_var
+from app.core.logging import correlation_id_var, fl_logger
 
 NO_DATA_TEXT = "//- No Data -//"
 
 
-def get_trace_id() -> str:
-    return trace_id_var.get()
+def error_response(status_code: int, error_code: str, headers: Mapping[str, str] | None = None) -> JSONResponse:
+    """The one failure body shape every handler returns: the code, and the id to quote."""
+    return JSONResponse(
+        status_code=status_code,
+        content={"error_code": error_code, "correlation_id": correlation_id_var.get()},
+        headers=headers,
+    )
 
 
 async def base_api_exception_handler(request: Request, exc: BaseAPIException):
     # Log the specific code and message to the backend
-    fl_logger.warning(f"API Exception ({exc.status_code}): [{getattr(exc, 'error_code', 'API_ERROR')}] {exc.error_detail}")
-
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"trace_id": get_trace_id()},
-        headers=exc.headers,
+    fl_logger.warning(
+        f"API Exception ({exc.status_code}): {exc.error_detail['message']}",
+        extra={"error_code": exc.error_code},
     )
+
+    return error_response(exc.status_code, exc.error_code, headers=exc.headers)
 
 
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
-    fl_logger.warning(f"Pydantic validation failed: {exc.errors() or NO_DATA_TEXT}")
-
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-        content={"trace_id": get_trace_id()},
+    # A ValidationError that escapes a handler is a SERVER-side model failing on server-side data --
+    # request payloads raise RequestValidationError instead (handled above this one by type). 500,
+    # not 422: telling the caller their payload is wrong would point the diagnosis at the wrong side.
+    fl_logger.error(
+        f"Model validation failed outside request parsing: {exc.errors() or NO_DATA_TEXT}",
+        extra={"error_code": "SRV-VAL-001"},
     )
+
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "SRV-VAL-001")
 
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
-    fl_logger.warning(f"Payload validation failed: {exc.errors() or NO_DATA_TEXT}")
-
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-        content={"trace_id": get_trace_id()},
+    fl_logger.warning(
+        f"Payload validation failed: {exc.errors() or NO_DATA_TEXT}",
+        extra={"error_code": "REQ-VAL-001"},
     )
+
+    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001")
 
 
 async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyError):
@@ -68,15 +79,14 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
 
     The index NAME is logged rather than returned. It names the rule that was broken -- which is the
     useful thing when reading the log -- and it also names a collection and its fields, which the
-    response body's trace-id-only contract exists to keep off the wire.
+    minimal failure-body contract exists to keep off the wire.
     """
-    # Logged with a code like every other failure, so the 409s are greppable as one class.
-    fl_logger.warning(f"API Exception (409): [DB-COMMON-002] Unique index refused a write: {failure_message_of(exc)}")
-
-    return JSONResponse(
-        status_code=status.HTTP_409_CONFLICT,
-        content={"trace_id": get_trace_id()},
+    fl_logger.warning(
+        f"Unique index refused a write: {failure_message_of(exc)}",
+        extra={"error_code": "DB-COMMON-002"},
     )
+
+    return error_response(status.HTTP_409_CONFLICT, "DB-COMMON-002")
 
 
 def failure_message_of(exc: DuplicateKeyError) -> str:
@@ -86,30 +96,32 @@ def failure_message_of(exc: DuplicateKeyError) -> str:
 
 async def motor_db_exception_handler(request: Request, exc: PyMongoError):
     # Log the full database crash
-    fl_logger.error(f"Database crash: {str(exc) or NO_DATA_TEXT}", exc_info=True)
-
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"trace_id": get_trace_id()},
+    fl_logger.error(
+        f"Database crash: {str(exc) or NO_DATA_TEXT}",
+        exc_info=True,
+        extra={"error_code": "DB-FAIL-001"},
     )
+
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB-FAIL-001")
 
 
 async def invalid_bson_oid_exception_handler(request: Request, exc: InvalidId):
-    fl_logger.warning(f"Invalid ObjectId format received: {str(exc) or NO_DATA_TEXT}")
-
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={"trace_id": get_trace_id()},
+    fl_logger.warning(
+        f"Invalid ObjectId format received: {str(exc) or NO_DATA_TEXT}",
+        extra={"error_code": "REQ-OID-001"},
     )
+
+    return error_response(status.HTTP_400_BAD_REQUEST, "REQ-OID-001")
 
 
 async def global_catch_all_exception_handler(request: Request, exc: Exception):
-    fl_logger.error(f"Unhandled Server Crash: {str(exc) or NO_DATA_TEXT}", exc_info=True)
-
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"trace_id": get_trace_id()},
+    fl_logger.error(
+        f"Unhandled Server Crash: {str(exc) or NO_DATA_TEXT}",
+        exc_info=True,
+        extra={"error_code": "SRV-FAIL-001"},
     )
+
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "SRV-FAIL-001")
 
 
 def register_exception_handlers(app: FastAPI):
