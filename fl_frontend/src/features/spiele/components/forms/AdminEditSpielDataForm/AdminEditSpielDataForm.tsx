@@ -57,8 +57,8 @@ export function AdminEditSpielDataForm({
   );
 
   const handleFormSubmit = (formData: FormData) => {
-    // No "pick a team" guard: an empty picker is a legitimate answer now, and it is how a bracket
-    // slot the group phase has not filled yet is recorded (ADR-0041).
+    // An empty picker is a legitimate answer, and it is how a bracket slot the group phase has not
+    // filled yet is recorded (ADR-0041) — so both sides submit as they stand, `null` included.
     const payload = {
       spiel_id: spielData.id,
       is_canceled: spielIsCanceled,

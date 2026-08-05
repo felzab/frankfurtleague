@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Description, FieldError, Label, NumberField, Separator, Switch } from "@heroui/react";
 
 import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
@@ -80,11 +81,11 @@ export function FormMatchupSection({
 
   // `?? NaN`, not `?? 0`: NumberField renders an empty box for NaN and a literal "0" for 0, and the
   // readout below distinguishes "no result yet" from "nil-nil" on exactly this test.
-  // The names fall back through the provenance label, so the readout names an unresolved side the way
-  // the bracket does rather than as a generic "Team1".
-  const team1Name = team1Payload?.name || team1Herkunft || "Team1";
+  // The names fall through team, then provenance, then the shared slot placeholder — the same order
+  // every card uses (ADR-0041), so the readout names a side exactly as the bracket does.
+  const team1Name = team1Payload?.name || team1Herkunft || PLACEHOLDER.slot;
   const team1Tore = team1Payload?.tore ?? NaN;
-  const team2Name = team2Payload?.name || team2Herkunft || "Team2";
+  const team2Name = team2Payload?.name || team2Herkunft || PLACEHOLDER.slot;
   const team2Tore = team2Payload?.tore ?? NaN;
 
   return (
@@ -94,8 +95,8 @@ export function FormMatchupSection({
       <h3 className={FORM_SECTION_HEADING}>Begegnung</h3>
 
       {/* Each picker disables whichever team the other side already holds, so a match cannot be a team
-          against itself. Unconditional now: two unresolved sides are two nulls rather than the same
-          placeholder team twice, so there is no case left to exempt (ADR-0041). */}
+          against itself. The rule is unconditional because two unresolved sides are two nulls rather
+          than one team document occupying both (ADR-0041), and `null` disables nothing. */}
 
       {/** Team 1 */}
       <FormTeamPicker

@@ -41,39 +41,39 @@ One `admin_router.py` per slice, beside the reads for the resource it changes
 across seven slices**, each addressed resource-first with the id in the path.
 `tests/api/test_admin_guard.py` walks `app.openapi()["paths"]` and fails if any of them loses its guard.
 
-| Method | Path                                                   | Effect                                                                     |
-| ------ | ------------------------------------------------------ | -------------------------------------------------------------------------- |
-| GET    | `/spiele/action_required`                              | Matches needing attention. Admin-authorized, and uncached (ADR-0013)       |
-| PATCH  | `/spiele/{spiel_id}`                                   | Writes one match; the league table follows from it on read. See §3         |
-| POST   | `/teams`                                               | Creates a club                                                             |
-| PATCH  | `/teams/{team_id}`                                     | Renames a club **and fans it out** into `spiele`, skipping the placeholder |
-| DELETE | `/teams/{team_id}`                                     | Soft delete — stamps `inactive_since`                                      |
-| POST   | `/teams/{team_id}/reactivate`                          | Clears `inactive_since`                                                    |
-| POST   | `/teams/{team_id}/saisons`                             | Adds the club to a season. `saison_id` and `gruppe` on the body            |
-| PATCH  | `/teams/{team_id}/saisons/{saison_id}`                 | Group and disqualification. **No DELETE** — see I19                        |
-| POST   | `/spieler`                                             | Creates a person                                                           |
-| PATCH  | `/spieler/{spieler_id}`                                | Updates a person                                                           |
-| DELETE | `/spieler/{spieler_id}`                                | Soft delete                                                                |
-| POST   | `/spieler/{spieler_id}/reactivate`                     | Clears `inactive_since`                                                    |
-| POST   | `/spieler/{spieler_id}/saisons`                        | Adds a squad row. 409 on a repeat — see I20                                |
-| PATCH  | `/spieler/{spieler_id}/saisons/{saison_id}`            | Team, number, position and stufe for that season                           |
-| DELETE | `/spieler/{spieler_id}/saisons/{saison_id}`            | Soft delete of the squad row, independent of the person                    |
-| POST   | `/spieler/{spieler_id}/saisons/{saison_id}/reactivate` | Brings a player back into a season they already have a row for             |
-| POST   | `/saisons`                                             | Creates a season, always `future` — see I18                                |
-| PATCH  | `/saisons/{saison_id}`                                 | Dates and scoring rules. `status` is on no payload                         |
-| POST   | `/saisons/{saison_id}/activate`                        | **The only path that writes `status`** — see I18                           |
-| POST   | `/spieltage`                                           | Creates a matchday                                                         |
-| PATCH  | `/spieltage/{spieltag_id}`                             | Updates a matchday; `order_val` is what the bracket orders by              |
-| DELETE | `/spieltage/{spieltag_id}`                             | Soft delete                                                                |
-| POST   | `/spieltage/{spieltag_id}/reactivate`                  | Clears `inactive_since`                                                    |
-| POST   | `/spielorte`                                           | Creates a venue; builds `maps_link` server-side                            |
-| PATCH  | `/spielorte/{spielort_id}`                             | Updates a venue **and fans the change out** into every match embedding it  |
-| DELETE | `/spielorte/{spielort_id}`                             | Soft delete                                                                |
-| POST   | `/spielorte/{spielort_id}/reactivate`                  | Clears `inactive_since`                                                    |
-| POST   | `/schiedsrichter`                                      | Creates a referee                                                          |
-| PATCH  | `/schiedsrichter/{id}`                                 | Updates a referee **and fans the name out** into every match embedding it  |
-| DELETE | `/schiedsrichter/{id}`                                 | Soft delete                                                                |
-| POST   | `/schiedsrichter/{id}/reactivate`                      | Clears `inactive_since`                                                    |
+| Method | Path                                                   | Effect                                                                    |
+| ------ | ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| GET    | `/spiele/action_required`                              | Matches needing attention. Admin-authorized, and uncached (ADR-0013)      |
+| PATCH  | `/spiele/{spiel_id}`                                   | Writes one match; the league table follows from it on read. See §3        |
+| POST   | `/teams`                                               | Creates a club                                                            |
+| PATCH  | `/teams/{team_id}`                                     | Renames a club **and fans it out** into `spiele`, with no exception       |
+| DELETE | `/teams/{team_id}`                                     | Soft delete — stamps `inactive_since`                                     |
+| POST   | `/teams/{team_id}/reactivate`                          | Clears `inactive_since`                                                   |
+| POST   | `/teams/{team_id}/saisons`                             | Adds the club to a season. `saison_id` and `gruppe` on the body           |
+| PATCH  | `/teams/{team_id}/saisons/{saison_id}`                 | Group and disqualification. **No DELETE** — see I19                       |
+| POST   | `/spieler`                                             | Creates a person                                                          |
+| PATCH  | `/spieler/{spieler_id}`                                | Updates a person                                                          |
+| DELETE | `/spieler/{spieler_id}`                                | Soft delete                                                               |
+| POST   | `/spieler/{spieler_id}/reactivate`                     | Clears `inactive_since`                                                   |
+| POST   | `/spieler/{spieler_id}/saisons`                        | Adds a squad row. 409 on a repeat — see I20                               |
+| PATCH  | `/spieler/{spieler_id}/saisons/{saison_id}`            | Team, number, position and stufe for that season                          |
+| DELETE | `/spieler/{spieler_id}/saisons/{saison_id}`            | Soft delete of the squad row, independent of the person                   |
+| POST   | `/spieler/{spieler_id}/saisons/{saison_id}/reactivate` | Brings a player back into a season they already have a row for            |
+| POST   | `/saisons`                                             | Creates a season, always `future` — see I18                               |
+| PATCH  | `/saisons/{saison_id}`                                 | Dates and scoring rules. `status` is on no payload                        |
+| POST   | `/saisons/{saison_id}/activate`                        | **The only path that writes `status`** — see I18                          |
+| POST   | `/spieltage`                                           | Creates a matchday                                                        |
+| PATCH  | `/spieltage/{spieltag_id}`                             | Updates a matchday; `order_val` is what the bracket orders by             |
+| DELETE | `/spieltage/{spieltag_id}`                             | Soft delete                                                               |
+| POST   | `/spieltage/{spieltag_id}/reactivate`                  | Clears `inactive_since`                                                   |
+| POST   | `/spielorte`                                           | Creates a venue; builds `maps_link` server-side                           |
+| PATCH  | `/spielorte/{spielort_id}`                             | Updates a venue **and fans the change out** into every match embedding it |
+| DELETE | `/spielorte/{spielort_id}`                             | Soft delete                                                               |
+| POST   | `/spielorte/{spielort_id}/reactivate`                  | Clears `inactive_since`                                                   |
+| POST   | `/schiedsrichter`                                      | Creates a referee                                                         |
+| PATCH  | `/schiedsrichter/{id}`                                 | Updates a referee **and fans the name out** into every match embedding it |
+| DELETE | `/schiedsrichter/{id}`                                 | Soft delete                                                               |
+| POST   | `/schiedsrichter/{id}/reactivate`                      | Clears `inactive_since`                                                   |
 
 **There is no `DELETE /saisons/{id}`**, and none on `/teams/{team_id}/saisons/{saison_id}` either
 ([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)).

@@ -13,8 +13,11 @@ import type { FLSpielTeamField } from "../../schemas";
  * popover at all: there is no team page and no squad to link to (ADR-0041).
  *
  * **The three `SpielCard` variants stay separate** (ADR-0007) and pass their own `text` and layout
- * classes. What is shared here is the single branch whose three copies would each be a crash rather
- * than a cosmetic difference if one of them drifted — reading `.name` off a side that is `null`.
+ * classes. What is shared here is the branch whose copies would each be a crash rather than a
+ * cosmetic difference if one drifted — dereferencing a side that is `null`.
+ * `fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx :: TeamNameLine` makes the
+ * same decision a fourth time and deliberately does not use this component: it renders a plain `Link`
+ * rather than a popover, for the reason recorded there.
  *
  * The interactive classes are added here rather than by the caller, because they belong to the
  * resolved branch alone: `hover:text-brand` on a label nothing opens is a promise the card cannot keep.

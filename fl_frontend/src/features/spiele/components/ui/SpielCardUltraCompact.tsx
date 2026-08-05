@@ -36,19 +36,17 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
         />
 
         {/** Game Metadata */}
-        {/* `shrink-0`: the date and time are fixed-width content that must not wrap, so the pill
-            beside them is what absorbs a narrow column. */}
-        <div className="flex h-full w-fit shrink-0 flex-col items-start">
+        <div className="flex h-full w-fit flex-col items-start">
           <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
           <span className="fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
         </div>
 
         {/** Who vs. Who — equal 1fr tracks keep the score centered whatever the two sides read. */}
         {/* `min-w-0` is what makes the `truncate` below reachable at all. As a flex item this pill
-            defaults to `min-width: auto` and refuses to shrink under `w-fit`, so its `1fr` tracks
-            resolve to the full untruncated content and the pill overflows the bracket column. That
-            was invisible while both sides were two-character shorthands and is not now: an
-            unresolved slot renders its provenance label, which is an order of magnitude longer. */}
+            defaults to `min-width: auto`, so under `w-fit` its `1fr` tracks resolve to the full
+            untruncated content and the pill overflows the bracket column's `max-w-[380px]`. The
+            content that reaches that width is an unresolved slot's provenance label, which is an
+            order of magnitude longer than a two-character shorthand. */}
         <div className="bg-background border-border grid w-fit min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
           {/* TeamPopoverMenu renders display:contents, so z-index has to be applied from outside it. */}
           <span className={`${slotLift(spielData.team1 !== null)} justify-end`}>
