@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Thirty-seven decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Thirty-eight decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -69,13 +69,14 @@ written.
 | [0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md) | Reference-data staleness is bounded by cache lifetime              | frontend, ops          | Accepted       | 2026-08-04 |
 | [0036](0036-a-pull-request-body-summarises-the-branch.md)             | A pull request body summarises the branch, not its commits         | ops                    | Accepted       | 2026-08-05 |
 | [0037](0037-the-gate-refuses-an-undersized-scope.md)                  | The gate refuses a run that skips the image build                  | ops                    | Accepted       | 2026-08-05 |
+| [0038](0038-the-image-cache-is-the-actions-cache-service.md)          | The image build cache is the Actions cache service                 | ops                    | Accepted       | 2026-08-05 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
 **By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · ops: 0009 · 0011 · 0014 ·
-0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · frontend: all except 0017, 0027, 0030, 0031, 0033, 0036
-and 0037.
+0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · frontend: all except 0017, 0027, 0030, 0031,
+0033, 0036, 0037 and 0038.
 
 ## Considered, and deliberately not made an ADR
 

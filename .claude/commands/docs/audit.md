@@ -43,7 +43,8 @@ corpus starts summarising at the point where scanning is what finds things.
 2. **Build the corpus, and derive it — never from a list written here.** Two halves:
 
    - **Out of code:** every `.md` in the repository.
-   - **In code:** every module header, symbol doc, docstring and comment in `.ts`, `.tsx` and `.py`,
+   - **In code:** every module header, symbol doc, docstring and comment in `.ts`, `.tsx`, `.js`,
+     `.mjs`, `.cjs` and `.py`,
      plus the comment blocks in `scripts/`, `nginx/`, the compose files, the Dockerfiles and
      `.github/workflows/`.
 

@@ -58,6 +58,10 @@ else
     case "$f" in
       # The gate itself, or the pipeline that runs it: prove everything.
       .github/workflows/*) all ;;
+      # An action in this repository is pipeline code exactly as a workflow is, and it must be
+      # matched BEFORE the .github/* arm below — which would otherwise map it to docs alone, so the
+      # images job it exists to serve would never run on a change to it.
+      .github/actions/*) all ;;
       scripts/*.sh) all ;;
       # check_docs.py is the docs gate; anything else in scripts/ is documentation the
       # self-check and prettier both cover.
@@ -67,7 +71,7 @@ else
       *.md) docs=true; format=true ;;
       scripts/*) scripts=true; docs=true; format=true ;;
       # Packaging inputs. The docs scope rides along wherever source comments are scanned for
-      # citations (.ts/.tsx/.py — see check_docs.py, DS20).
+      # citations (.ts/.tsx/.js/.mjs/.cjs/.py — see check_docs.py, DS20).
       fl_frontend/Dockerfile|fl_frontend/.dockerignore) images=true ;;
       fl_backend/Dockerfile|fl_backend/.dockerignore) images=true ;;
       fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)

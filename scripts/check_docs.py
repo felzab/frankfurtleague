@@ -60,7 +60,7 @@ TEMPLATE_MARKERS: Final[tuple[str, ...]] = ("/templates/", "-template.md")
 
 # Source files carry the same citations as documentation and rot the same way, so their COMMENTS are
 # scanned too (DS20). Only comments: a path-shaped string in executable code is data, not a claim.
-SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".py")
+SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".py")
 
 # Top-level directories a backticked path must start with to be treated as a repo path. Anything else
 # in backticks is prose -- a bare `queries.ts` names a KIND of file, not one file.
@@ -189,7 +189,10 @@ def comments_only(text: str, suffix: str) -> str:
     """
     triple_double = '"""'
     triple_single = "'''"
-    is_ts = suffix in (".ts", ".tsx")
+    # JavaScript shares TypeScript's comment syntax exactly, so it takes the same branch. Adding a
+    # suffix to SOURCE_SUFFIXES without adding it here would parse it as Python and silently find
+    # no comments at all.
+    is_ts = suffix in (".ts", ".tsx", ".js", ".mjs", ".cjs")
     keep: list[str] = []
     in_block = False
 
