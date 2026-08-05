@@ -319,19 +319,32 @@ access lines with no id. **Not one line of a successful request is correlated on
 handler fires, which happens only on failure. The id is not missing from some paths; it is absent from
 every successful one.
 
-#### What stage 2 opens with
+#### What stage 2 is, given the owner's directions of 2026-08-05
 
-- **ADR or `docs/_standard/` entry?** The owner's call, and it decides the shape of everything after
-  it. The next free ADR number is 0039.
-- **What unit the identifier is**, before anything propagates it: per-request or per-fetch on the
-  frontend, and whether one is minted for every request or only where something fails. Finding 2 is why
-  this cannot be deferred — FE-6 waits on the answer.
-- **Whether a mixed stream is accepted or closed.** Making uvicorn and Next emit the shared format is
-  possible on both sides and is the larger half of the work; accepting two writers and structuring only
-  what the application controls is the cheaper answer and forfeits the access lines.
+**Scope, and it is all four of these.** Every finding above is addressed — none is deferred or
+accepted as it stands. A correlation id reaches **every** request, uniformly across the three
+surfaces, rather than only the requests that fail. **The error-code system is reworked to current
+best practice**, which is wider than finding 5's one-line defect: the scheme itself, the codes it
+carries, and a sweep for the responses and log lines that should carry one and do not. Stage 2 is
+finished only after an **independent review of the whole change**, read as though it were another
+author's, against correctness, intended behaviour and the standards in `CLAUDE.md`.
+
+**Two of the three questions this entry opened with are answered by that scope**, and stage 2 should
+not re-ask them. The identifier is **request-scoped and minted for every request**, which settles the
+unit finding 2 raised and gives FE-6 its answer. The mixed stream of finding 1 is **closed, not
+accepted**, which makes uvicorn's and Next's own writers part of the work rather than a boundary
+around it.
+
+**What still needs the owner, and it is the first thing to put to him:**
+
+- **ADR or `docs/_standard/` entry?** It decides the shape of everything written afterwards — an ADR
+  argues one decision and is never revised, a standard entry states rules in force and is maintained.
+  The next free ADR number is 0039. A rework of this size may well warrant both, one recording the
+  decision and one carrying the convention, and that too is his call.
 
 **Path:** independent — nothing blocks it and it blocks nothing, so it can run alongside anything
-else in this file. FE-6 waits on the identifier it settles, and findings 4 and 14 are input to it.
+else in this file. FE-6 no longer waits on the unit, which is settled above; findings 4 and 14 remain
+input to it.
 
 ### 5 · FB-2 — Disqualification becomes a record, not a boolean
 
@@ -864,10 +877,11 @@ digest, the route and the time in its subject costs one component and adds no wr
 posting to an endpoint would be a public, unauthenticated write on a site whose backend is otherwise
 reached only by server-side fetches — a new abuse surface for the same information.
 
-**Do not build it before LOG-1.** That item decides whether every request carries a trace id; an
-affordance built first would quote an identifier LOG-1 may replace.
+**Do not build it before LOG-1.** The identifier is settled — every request carries a request-scoped
+correlation id, on the owner's direction of 2026-08-05 — but LOG-1 is what puts it there, and an
+affordance built first would quote the digest for want of anything better.
 
-**Path:** soft dependency on LOG-1's identifier decision. Nothing waits on it.
+**Path:** waits on LOG-1's implementation, no longer on its decision. Nothing waits on this.
 
 ### 23 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
