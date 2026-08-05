@@ -37,7 +37,7 @@ function makeSpiel(overrides: Partial<FLSpiel> = {}): FLSpiel {
 }
 
 describe("categorizeActionRequired", () => {
-  it("returns all seven categories even when nothing needs attention", () => {
+  it("returns all eight categories even when nothing needs attention", () => {
     const result = categorizeActionRequired([makeSpiel()], TODAY);
 
     assert.deepEqual(Object.keys(result), Object.keys(ACTION_REQUIRED_LABELS));
@@ -133,5 +133,41 @@ describe("categorizeActionRequired", () => {
   it("does not flag a gruppenphase fixture, however empty", () => {
     const result = categorizeActionRequired([makeSpiel({ saison_phase: "gruppenphase", team1: null, team1_quelle: null })], TODAY);
     assert.deepEqual(result.besetzung_missing, []);
+  });
+
+  // The FB-13 shape: membership comes from the backend's derivation (ADR-0047), so these cases are
+  // about the join, not about any predicate — there is no predicate here to get wrong.
+  it("flags a match named by a bracket fault", () => {
+    const result = categorizeActionRequired([makeSpiel()], TODAY, [{ reason: "same_team", spiel_id: makeSpiel().id, spiel_nr: 1 }]);
+    assert.equal(result.bracket_fault.length, 1);
+  });
+
+  it("puts a match into the category once however many faults name it", () => {
+    const id = makeSpiel().id;
+    const result = categorizeActionRequired([makeSpiel()], TODAY, [
+      { reason: "spiel_missing", spiel_id: id, spiel_nr: 1, quelle_spiel_nr: 98 },
+      { reason: "reference_cycle", spiel_id: id, spiel_nr: 1, quelle_spiel_nr: 99 },
+    ]);
+
+    assert.equal(result.bracket_fault.length, 1);
+  });
+
+  // Not exclusive with `is_canceled`, unlike every other category: calling a match off does not
+  // unwire it, and whatever the bracket puts below it still reads that wiring.
+  it("flags a cancelled match's bracket fault as well as the cancellation", () => {
+    const result = categorizeActionRequired([makeSpiel({ is_canceled: true })], TODAY, [
+      { reason: "same_team", spiel_id: makeSpiel().id, spiel_nr: 1 },
+    ]);
+
+    assert.equal(result.is_canceled.length, 1);
+    assert.equal(result.bracket_fault.length, 1);
+  });
+
+  it("leaves the category empty when no fault names a match in the list", () => {
+    const result = categorizeActionRequired([makeSpiel()], TODAY, [
+      { reason: "same_team", spiel_id: "6890a1b2c3d4e5f607182999", spiel_nr: 29 },
+    ]);
+
+    assert.deepEqual(result.bracket_fault, []);
   });
 });

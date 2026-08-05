@@ -13,6 +13,9 @@
  *   • `authType: "admin"` — the backend's admin router rejects the base key.
  *   • It reads a Spiel schema from the `spiele` slice rather than redeclaring one. `admin` is an
  *     aggregator: importing across slices is what it is for.
+ *   • The response carries `bracket_faults` beside the matches, derived per request by the backend
+ *     (ADR-0047). It is not a list this side can compute: a fault is a contradiction between documents
+ *     of a whole season, and this route returns a filtered handful of them.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -22,12 +25,12 @@
 import { apiClient } from "@/core/api";
 import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
-import { FLSpieleListResponseSchema } from "../spiele/schemas";
+import { FLSpieleActionRequiredResponseSchema } from "../spiele/schemas";
 
-import type { FLSpieleListResponse } from "../spiele/schemas";
+import type { FLSpieleActionRequiredResponse } from "../spiele/schemas";
 
-export const getAdminSpieleActionRequired = async (): Promise<FLSpieleListResponse> => {
+export const getAdminSpieleActionRequired = async (): Promise<FLSpieleActionRequiredResponse> => {
   return runWithIncomingCorrelationId(() =>
-    apiClient<FLSpieleListResponse>("/spiele/action_required", FLSpieleListResponseSchema, { authType: "admin" }),
+    apiClient<FLSpieleActionRequiredResponse>("/spiele/action_required", FLSpieleActionRequiredResponseSchema, { authType: "admin" }),
   );
 };
