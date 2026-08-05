@@ -37,7 +37,7 @@ function makeSpiel(overrides: Partial<FLSpiel> = {}): FLSpiel {
 }
 
 describe("categorizeActionRequired", () => {
-  it("returns all six categories even when nothing needs attention", () => {
+  it("returns all seven categories even when nothing needs attention", () => {
     const result = categorizeActionRequired([makeSpiel()], TODAY);
 
     assert.deepEqual(Object.keys(result), Object.keys(ACTION_REQUIRED_LABELS));
@@ -101,5 +101,37 @@ describe("categorizeActionRequired", () => {
   it("returns empty categories for an empty list", () => {
     const result = categorizeActionRequired([], TODAY);
     for (const spiele of Object.values(result)) assert.deepEqual(spiele, []);
+  });
+
+  // The FB-12 shape: a knockout side with no team and no source is maintained by nobody, so it must
+  // surface here BEFORE the fixture's date makes it an overdue result (ADR-0046).
+  it("flags a knockout side with no team and no source as besetzung_missing", () => {
+    const result = categorizeActionRequired([makeSpiel({ saison_phase: "halbfinale", team1: null, team1_quelle: null })], TODAY);
+    assert.equal(result.besetzung_missing.length, 1);
+  });
+
+  it("flags the shape on either side, but one match only once", () => {
+    const result = categorizeActionRequired(
+      [makeSpiel({ saison_phase: "halbfinale", team1: null, team1_quelle: null, team2: null, team2_quelle: null })],
+      TODAY,
+    );
+    assert.equal(result.besetzung_missing.length, 1);
+  });
+
+  // An empty side with a source is the ordinary state of a running bracket: the resolution fills it
+  // when the feeder match is decided, so nothing needs an admin.
+  it("does not flag an empty side that has a source", () => {
+    const result = categorizeActionRequired(
+      [makeSpiel({ saison_phase: "halbfinale", team1: null, team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "sieger" } })],
+      TODAY,
+    );
+    assert.deepEqual(result.besetzung_missing, []);
+  });
+
+  // A group fixture with an empty side is an unfilled schedule, not an orphaned slot: no group
+  // fixture ever carries a source, so the scope is what keeps this category honest.
+  it("does not flag a gruppenphase fixture, however empty", () => {
+    const result = categorizeActionRequired([makeSpiel({ saison_phase: "gruppenphase", team1: null, team1_quelle: null })], TODAY);
+    assert.deepEqual(result.besetzung_missing, []);
   });
 });

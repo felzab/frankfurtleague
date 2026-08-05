@@ -1,16 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Description, FieldError, Label, NumberField, Separator, Switch } from "@heroui/react";
 
-import { formatQuelle } from "@/features/spiele/utils";
+import { collectUsedQuelleKeys, formatQuelle } from "@/features/spiele/utils";
 import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
-import type { FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
 /**
@@ -39,6 +38,8 @@ import type { FLTeam } from "@/features/teams/schemas";
  * untouched, which is what the hint under the switch tells the admin.
  */
 export function FormMatchupSection({
+  spielData,
+  saisonSpiele,
   teams,
   team1Payload,
   onTeam1Change,
@@ -50,10 +51,11 @@ export function FormMatchupSection({
   onTeam2QuelleChange,
   elfmeterschiessen,
   onElfmeterschiessenChange,
-  saisonPhase,
-  team1InitialData,
-  team2InitialData,
 }: {
+  /** The fixture as it was opened — its phase gates the source controls, its stored sides anchor
+   * both the result-toggle restore and the automatic sides' payload (ADR-0046). */
+  spielData: FLSpiel;
+  saisonSpiele: FLSpiel[];
   teams: FLTeam[];
   team1Payload: FLSpielTeamField | null;
   onTeam1Change: (payload: FLSpielTeamField | null) => void;
@@ -65,11 +67,17 @@ export function FormMatchupSection({
   onTeam2QuelleChange: (value: FLSpielQuelle | null) => void;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
   onElfmeterschiessenChange: (value: FLSpielElfmeterschiessenDraft | null) => void;
-  saisonPhase: FLSaisonPhase;
-  team1InitialData: FLSpielTeamField | null;
-  team2InitialData: FLSpielTeamField | null;
 }) {
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(false);
+
+  const saisonPhase = spielData.saison_phase;
+  const team1InitialData = spielData.team1;
+  const team2InitialData = spielData.team2;
+
+  // Every source another fixture's slot already holds. Memoised by hand because the React Compiler
+  // is deliberately off (see `next.config.ts`): the set is rebuilt from ~30 fixtures otherwise on
+  // every keystroke in the goal fields.
+  const usedQuelleKeys = useMemo(() => collectUsedQuelleKeys(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
 
   const bothSidesResolved = team1Payload !== null && team2Payload !== null;
   const ergebnisIsEditable = ergebnisCanBeEdited && bothSidesResolved;
@@ -147,7 +155,8 @@ export function FormMatchupSection({
 
       {/* Each picker disables whichever team the other side already holds, so a match cannot be a team
           against itself. The rule is unconditional because two unresolved sides are two nulls rather
-          than one team document occupying both (ADR-0041), and `null` disables nothing. */}
+          than one team document occupying both (ADR-0041), and `null` disables nothing. The other
+          side's DRAFT source rides along the same way, so the two sides cannot pick one outcome. */}
 
       {/** Team 1 */}
       <FormTeamPicker
@@ -159,6 +168,10 @@ export function FormMatchupSection({
         quelle={team1Quelle}
         onQuelleChange={onTeam1QuelleChange}
         disabledTeamId={team2Payload?.team_id}
+        spielData={spielData}
+        saisonSpiele={saisonSpiele}
+        usedQuelleKeys={usedQuelleKeys}
+        otherDraftQuelle={team2Quelle}
       />
 
       {/** Team 2 */}
@@ -171,6 +184,10 @@ export function FormMatchupSection({
         quelle={team2Quelle}
         onQuelleChange={onTeam2QuelleChange}
         disabledTeamId={team1Payload?.team_id}
+        spielData={spielData}
+        saisonSpiele={saisonSpiele}
+        usedQuelleKeys={usedQuelleKeys}
+        otherDraftQuelle={team1Quelle}
       />
 
       <Separator className="bg-border" />

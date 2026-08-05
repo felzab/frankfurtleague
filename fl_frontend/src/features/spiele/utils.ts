@@ -24,6 +24,7 @@
 
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
+import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpiel, FLSpielQuelle, FLSpielStatus, FLUnresolvableSlot } from "./schemas";
 
 export const computeSpielStatus = ({
@@ -132,6 +133,63 @@ export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
 
   return `${quelle.ausgang === "sieger" ? "Sieger" : "Verlierer"} ${quelle.spiel_nr}.`;
 };
+
+/**
+ * The rounds in the order they are played. Mirrors `PHASE_RANK` in
+ * `fl_backend/app/api/spiele/services.py`, and exists for the same rule: a bracket slot is fed only by
+ * a knockout match of a strictly earlier round (ADR-0046). The form derives its legal options from
+ * this; the backend refuses anything outside them.
+ */
+const PHASE_RANK: Record<FLSaisonPhase, number> = { gruppenphase: 0, viertelfinale: 1, halbfinale: 2, finale: 3 };
+
+/**
+ * One source as a comparable identity, so "this outcome already feeds a slot" is a set lookup.
+ *
+ * A string rather than the object, because two structurally equal references must collide and object
+ * identity would let them pass. The variant tag leads, so `spiel` 1 can never collide with `platz` 1.
+ */
+export const quelleKey = (quelle: FLSpielQuelle): string =>
+  quelle.type === "spiel" ? `spiel:${quelle.spiel_nr}:${quelle.ausgang}` : `gruppe:${quelle.gruppe}:${quelle.platz}`;
+
+/**
+ * Every source already feeding a slot of the season, excluding the fixture being edited.
+ *
+ * The exclusion is by fixture, not by slot: the edited fixture's own stored sources are re-submitted
+ * rather than duplicated, and its two sides are checked against each other by the caller, which holds
+ * their DRAFT state — this function only sees what is stored.
+ */
+export const collectUsedQuelleKeys = (saisonSpiele: readonly FLSpiel[], editedSpielId: string): Set<string> => {
+  const used = new Set<string>();
+
+  for (const spiel of saisonSpiele) {
+    if (spiel.id === editedSpielId) continue;
+    for (const quelle of [spiel.team1_quelle, spiel.team2_quelle]) {
+      if (quelle !== null) used.add(quelleKey(quelle));
+    }
+  }
+
+  return used;
+};
+
+/**
+ * The matches a slot of `target` may legally be fed by: knockout matches of the same season in a
+ * strictly earlier round, in bracket order (ADR-0046).
+ *
+ * Strictly earlier is also what makes a cycle unpickable — every offered edge points backwards in the
+ * running order, so no chain of them can close. The season filter matters on the one surface whose
+ * list can span seasons: feeding this the wrong season's matches would offer numbers the backend then
+ * rightly refuses.
+ */
+export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<FLSpiel, "id" | "saison_id" | "saison_phase">): FLSpiel[] =>
+  saisonSpiele
+    .filter(
+      (spiel) =>
+        spiel.saison_id === target.saison_id &&
+        spiel.id !== target.id &&
+        spiel.saison_phase !== "gruppenphase" &&
+        PHASE_RANK[spiel.saison_phase] < PHASE_RANK[target.saison_phase],
+    )
+    .sort((a, b) => a.spiel_nr - b.spiel_nr);
 
 /**
  * The success message for an admin match edit, naming any bracket fixtures the write also moved.

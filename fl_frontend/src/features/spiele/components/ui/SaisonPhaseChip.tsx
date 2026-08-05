@@ -111,7 +111,9 @@ const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {
   ),
 };
 
-const PHASE_LABELS: Record<FLSaisonPhase, string> = {
+// Exported for the match picker in `FormTeamPicker`, which names a feeder match by its round: one
+// German spelling of the phases, not two.
+export const PHASE_LABELS: Record<FLSaisonPhase, string> = {
   gruppenphase: "Gruppenphase",
   viertelfinale: "Viertelfinale",
   halbfinale: "Halbfinale",
