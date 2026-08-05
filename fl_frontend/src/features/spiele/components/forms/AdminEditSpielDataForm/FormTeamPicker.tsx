@@ -4,17 +4,31 @@ import { Autocomplete, Description, FieldError, Input, Label, ListBox, SearchFie
 
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
 
 /**
+ * The list entry that empties the side.
+ *
+ * Not a valid `ObjectId` by construction — the id is 24 hex characters, and this is neither that
+ * length nor hex — so it can never collide with a team and `teams.find` can never resolve it.
+ */
+const OPEN_SLOT_KEY = "noch-offen";
+
+/**
  * One side of a fixture: a team picker that may be left empty, and the provenance field beside it.
  *
- * **Clearing the picker is a legitimate answer, not an error.** A playoff slot the group phase has not
+ * **An empty side is a legitimate answer, not an error.** A playoff slot the group phase has not
  * produced yet has no team, and the fixture says so (ADR-0041). What fills the slot on screen is
  * `herkunft` — "Sieger 25." — which the admin types here.
+ *
+ * **That answer is offered in the list**, as its first entry, rather than only through the trigger's
+ * clear button. Emptying a side is a choice about who plays, so it belongs where the other choices
+ * are; the clear button stays as the second route and is what the keyboard and the placeholder agree
+ * with.
  *
  * **The provenance field is always available, including for a resolved side.** It records where this
  * side of the fixture comes from, which stays true once the winner is written in, so it is not a
@@ -43,7 +57,9 @@ export function FormTeamPicker({
   const { contains } = useFilter({ sensitivity: "base" });
 
   const handleTeamSelection = (key: Key | null) => {
-    if (!key) {
+    // Three routes reach the same state, and they are one branch: the list entry, the trigger's clear
+    // button (which reports `null`), and an Autocomplete that never had a selection.
+    if (!key || key === OPEN_SLOT_KEY) {
       onTeamChange(null);
       return;
     }
@@ -68,7 +84,8 @@ export function FormTeamPicker({
       <Autocomplete
         name={`${fieldName}.team_id`}
         className="w-full"
-        placeholder={`${label} auswählen`}
+        // The empty state is a real answer, so the trigger names it rather than nagging for input.
+        placeholder={PLACEHOLDER.slot}
         selectionMode="single"
         value={teamPayload?.team_id ?? null}
         onChange={handleTeamSelection}
@@ -101,6 +118,18 @@ export function FormTeamPicker({
             </SearchField>
 
             <ListBox className="p-1">
+              {/* "No team yet" belongs in the list, because the list is where an admin goes to change
+                  who plays. The trigger's clear button is the same action and is easy to miss: an
+                  unlabelled icon between the value and the chevron, on a control whose whole surface
+                  otherwise means "open the list". `textValue` is what the filter above matches, so
+                  typing "offen" finds this entry rather than hiding it. */}
+              <ListBox.Item
+                id={OPEN_SLOT_KEY}
+                textValue={`${PLACEHOLDER.slot} — steht noch nicht fest`}
+                className="fluid-xs hover:bg-muted border-border text-foreground-muted mb-1 cursor-pointer rounded-lg border-b px-3 py-2 pb-2 font-semibold italic">
+                {PLACEHOLDER.slot} — steht noch nicht fest
+              </ListBox.Item>
+
               {teams.map((item) => (
                 <ListBox.Item
                   key={item.id}
@@ -114,7 +143,7 @@ export function FormTeamPicker({
           </Autocomplete.Filter>
         </Autocomplete.Popover>
         <Description className="fluid-xxs text-foreground-muted">
-          {`Suche ${label} aus, oder lass das Feld leer, wenn die Mannschaft noch nicht feststeht.`}
+          {`Wähle ${label} aus, oder „${PLACEHOLDER.slot}“, solange die Mannschaft noch nicht feststeht.`}
         </Description>
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
