@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `88fbfd4`, 2026-08-05
+**Verified against:** `78f1e70`, 2026-08-05
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
@@ -25,11 +25,11 @@ root like the [glossary](glossary.md); each surface spec cites it rather than re
 its own `$request_id` on every proxied request and discards anything the client sent — an
 attacker-chosen id would otherwise appear verbatim in three surfaces' logs.
 
-| Surface  | Behaviour                                                                                                                                           | Where                                                            |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| nginx    | Mints unconditionally, logs it, forwards it to both upstreams                                                                                       | `nginx/prod.conf :: proxy_set_header X-Correlation-ID`           |
-| Backend  | Honours a well-formed incoming id, mints otherwise, echoes it on the response, binds it to a ContextVar every log record reads                      | `fl_backend/app/core/middlewares.py :: CorrelationIdMiddleware`  |
-| Frontend | Reads the id where a request scope exists; server actions seed that scope from the incoming headers; `apiClient` sends it upstream on every request | `fl_frontend/src/shared/utils/serverAction.ts :: runAdminAction` |
+| Surface  | Behaviour                                                                                                                                               | Where                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| nginx    | Mints unconditionally, logs it, forwards it to both upstreams                                                                                           | `nginx/prod.conf :: proxy_set_header X-Correlation-ID`                             |
+| Backend  | Honours a well-formed incoming id, mints otherwise, echoes it on the response, binds it to a ContextVar every log record reads                          | `fl_backend/app/core/middlewares.py :: CorrelationIdMiddleware`                    |
+| Frontend | Every dynamic caller seeds a request scope from the incoming headers; `apiClient` reads it and sends it upstream, minting only where no scope can exist | `fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId` |
 
 A well-formed id is `[a-f0-9]{8,64}` — both validators (`fl_backend/app/core/middlewares.py ::
 WELL_FORMED_ID`, `fl_frontend/src/core/correlation.ts :: isWellFormedCorrelationId`) refuse anything
@@ -44,16 +44,22 @@ consequences, stated plainly:
   line is the only record of that page view — which is why the edge logs every request.
 - A **cache fill**'s backend access line joins to the frontend error if the fill fails (the error
   carries the fill's id), but never to the page view that happened to trigger the fill.
-- An **uncached read inside a page render** mints its own id too, and this one is a limitation
-  rather than a framework boundary: a page render seeds no request scope, so the edge id reaches
-  that render's error line (`onRequestError` reads it off the request's own headers) but not the
-  backend call the render made. One query is affected —
+- An **uncached read inside a page render** runs under the real request id, because it seeds the
+  scope explicitly. One query is in this position —
   `fl_frontend/src/features/admin/queries.ts :: getAdminSpieleActionRequired`, uncached by
-  [ADR-0013](_decisions/0013-admin-action-required-uncached.md).
-- A **server action** (every admin write) and a **route handler** run with the real request id
-  end-to-end: their backend lines carry the same id as the nginx line, because
-  `fl_frontend/src/shared/utils/serverAction.ts :: runAdminAction` and the route handler read
-  `headers()` — which a page render could also do, but does not today.
+  [ADR-0013](_decisions/0013-admin-action-required-uncached.md) — and being uncached is exactly
+  what makes the seeding legal: `headers()` is a request API, so the same call inside a `"use cache"`
+  scope raises `next-request-in-use-cache` rather than failing quietly.
+- A **server action** (every admin write) and a **route handler** likewise run with the real request
+  id end-to-end: their backend lines carry the same id as the nginx line.
+
+**Everything dynamic seeds through one seam**,
+`fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId`. It reads the
+edge-minted id off the incoming headers, validates it, and runs its caller under it. It lives in
+`shared/` rather than beside the storage in `core/requestScope.ts` for a packaging reason worth
+knowing before moving it: `core/logging.ts` is reachable from the Edge middleware bundle through
+`core/auth.ts` and `src/proxy.ts`, and `next/headers` is a request-only API that must not be bundled
+for that runtime.
 
 Lines written outside any request — boot, lifecycle — carry the sentinel `SYSTEM`, so the
 `correlation_id` key exists on every line.

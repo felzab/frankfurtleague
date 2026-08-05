@@ -7,6 +7,9 @@
  *
  *   • No `"use cache"`, on purpose. This returns admin-authorized data, which has no business in a
  *     cache shared across every visitor. Do not "fix" the inconsistency by adding one.
+ *   • Being uncached is exactly what lets it run inside `runWithIncomingCorrelationId`, so its
+ *     backend call carries the id the edge minted for the page request rather than one of its own.
+ *     Adding `"use cache"` would make that call throw rather than fail quietly (docs/logging.md).
  *   • `authType: "admin"` — the backend's admin router rejects the base key.
  *   • It reads a Spiel schema from the `spiele` slice rather than redeclaring one. `admin` is an
  *     aggregator: importing across slices is what it is for.
@@ -17,11 +20,14 @@
  */
 
 import { apiClient } from "@/core/api";
+import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
 import { FLSpieleListResponseSchema } from "../spiele/schemas";
 
 import type { FLSpieleListResponse } from "../spiele/schemas";
 
 export const getAdminSpieleActionRequired = async (): Promise<FLSpieleListResponse> => {
-  return apiClient<FLSpieleListResponse>("/spiele/action_required", FLSpieleListResponseSchema, { authType: "admin" });
+  return runWithIncomingCorrelationId(() =>
+    apiClient<FLSpieleListResponse>("/spiele/action_required", FLSpieleListResponseSchema, { authType: "admin" }),
+  );
 };

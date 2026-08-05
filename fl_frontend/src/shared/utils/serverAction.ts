@@ -15,15 +15,13 @@
  *      because a handled error never reaches `onRequestError`.
  */
 
-import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 
-import { CORRELATION_HEADER, isWellFormedCorrelationId, mintCorrelationId } from "@/core/correlation";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { runWithRequestScope } from "@/core/requestScope";
 
 import { toActionErrorResult } from "./actionError";
+import { runWithIncomingCorrelationId } from "./correlationScope";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -33,10 +31,7 @@ export async function runAdminAction<T extends { success: boolean }>(
   actionName: string,
   fn: () => Promise<T>,
 ): Promise<T | NonNullable<FormState>> {
-  const incoming = (await headers()).get(CORRELATION_HEADER);
-  const correlationId = isWellFormedCorrelationId(incoming) ? incoming : mintCorrelationId();
-
-  return runWithRequestScope({ correlationId }, async () => {
+  return runWithIncomingCorrelationId(async () => {
     try {
       return await fn();
     } catch (error) {

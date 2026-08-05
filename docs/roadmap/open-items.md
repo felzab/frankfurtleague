@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `91d997d`, 2026-08-05
+**Verified against:** `78f1e70`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -743,12 +743,11 @@ maintained instrumentation packages.
 **What the standard buys over what exists.** Three things, in descending order of how much they are
 worth here:
 
-- **A page render's backend calls join to the page render.** LOG-1 could not achieve this by hand:
-  a Next page render seeds no request scope, so an uncached read inside one mints its own id
-  (`docs/logging.md`, the cache-fill boundary). OpenTelemetry propagates context through the
-  framework's own internals rather than through application code, which is exactly the reach a
-  hand-rolled scope does not have. One query is affected today,
-  `fl_frontend/src/features/admin/queries.ts :: getAdminSpieleActionRequired`.
+- **A CACHED read's backend call joins to the page render that triggered it.** This is the one the
+  hand-rolled scope provably cannot reach: `"use cache"` forbids request APIs, so no application
+  code can carry the request's id into a cache fill (`docs/logging.md`, the cache-fill boundary).
+  OpenTelemetry propagates through the framework's own internals instead. It covers eleven of the
+  twelve queries; the twelfth is uncached and already joins.
 - **Timings become a tree rather than three separate numbers.** Today nginx reports
   `upstream_duration_s` and the backend reports `duration_ms`, and relating them is manual. A span
   tree shows where a slow request actually spent its time, including inside Mongo.
@@ -768,17 +767,15 @@ the same lost-on-deploy stream at the end of it. So the ordering is:
    metadata for a public site into a third party.
 2. **Only then instrument.** The libraries are the cheap half.
 
-**Two cheaper things that would each be a real improvement on their own**, and either is a
-legitimate answer to "not yet" on the whole programme:
+**One cheaper thing that is a real improvement on its own**, and a legitimate answer to "not yet" on
+the whole programme: **ship the logs off the host before they are lost.** A rotating copy, or a log
+driver other than `json-file`. This is the gap that actually costs something today — `deploy.sh`
+recreates the containers and their logs go with them — and it is independent of tracing.
 
-- **Seed the request scope for page renders.** Roughly ten lines: read `headers()` in the one
-  uncached page-render path and wrap the call in
-  `fl_frontend/src/core/requestScope.ts :: runWithRequestScope`, exactly as
-  `fl_frontend/src/shared/utils/serverAction.ts :: runAdminAction` already does. It closes the one
-  _avoidable_ propagation gap without any dependency. **It is deliberately not done**, because if
-  OpenTelemetry lands it is replaced rather than extended — that trade is this entry's to decide.
-- **Ship the logs off the host before they are lost.** A rotating copy, or a log driver other than
-  `json-file`. This is the gap that actually costs something today, and it is independent of tracing.
+**The avoidable half of the propagation gap is already closed**, so this entry does not carry it:
+`fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId` seeds the scope
+for every dynamic caller, the one uncached page-render query included. What is left for
+OpenTelemetry is the half no application code can reach.
 
 **What it would supersede.** ADR-0039's decision that the identifier is a single id on a custom
 header. Reversing that means a new ADR carrying `Supersedes: ADR-0039`, and ADR-0039 gaining its two
