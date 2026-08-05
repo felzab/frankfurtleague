@@ -99,6 +99,22 @@ jobs:
         # shellcheck already, so install only if it is genuinely missing rather than paying for an
         # apt update on every run.
         run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          # Same single-source rule as the format and frontend jobs.
+          package_json_file: fl_frontend/package.json
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: fl_frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        # Only typescript is wanted, and pnpm install is the only way to get it at the pinned
+        # version. Without it selfcheck.sh check 11 exercises the classifier's stdlib halves alone
+        # and its TypeScript half -- the delicate one, and the reason ADR-0037 uses a parser rather
+        # than a regex -- would be tested on no machine but the author's.
+        working-directory: fl_frontend
+        run: pnpm install --frozen-lockfile
       - name: Run the scripts scope
         run: ./scripts/verify.sh --scripts
 

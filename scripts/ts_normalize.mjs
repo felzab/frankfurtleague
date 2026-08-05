@@ -1,0 +1,69 @@
+// scripts/ts_normalize.mjs — do two versions of a TypeScript file differ by anything but comments?
+//
+// Called by scripts/check_scope.py, which has to answer that question exactly for the packaging
+// paths written in TypeScript — fl_frontend/src/core/config.ts, src/core/auth.ts,
+// src/instrumentation.ts and next.config.ts — and cannot get an exact answer from a regex: a `//`
+// inside a string, a template literal or a regular expression is not a comment. TypeScript's own
+// parser is already a dependency because tsc runs in the gate, so the comparison goes through it
+// rather than through a rule that guesses.
+//
+// HOW: parse both versions, then print each back through TypeScript's printer with `removeComments`
+// on. The printer emits from the syntax tree, so type annotations survive and only comments and
+// formatting are dropped — a type-only edit still reads as a change, which is what the gate needs.
+//
+// Prints `same` or `different` on stdout and exits 0. Exits 1 with a reason on stderr when it cannot
+// answer at all — typescript is not installed, or a version does not parse — and the caller then
+// treats the change as code, which is the safe direction.
+//
+//   node scripts/ts_normalize.mjs <old-file> <new-file>
+
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+
+// typescript lives in the frontend's node_modules, not next to this script, so resolution starts
+// from that package rather than from import.meta.url.
+let ts;
+try {
+  ts = createRequire(`${repoRoot}fl_frontend/package.json`)("typescript");
+} catch {
+  console.error(
+    "typescript is not installed — run pnpm install in fl_frontend",
+  );
+  process.exit(1);
+}
+
+const printer = ts.createPrinter({ removeComments: true });
+
+function normalize(path) {
+  const text = readFileSync(path, "utf8");
+  // setParentNodes: true, because the printer walks parents when it emits.
+  const source = ts.createSourceFile(
+    path,
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  // A version that does not parse cleanly may lose content in the printed form, which would make
+  // two different files compare equal. Refuse rather than answer from a damaged tree.
+  if (source.parseDiagnostics?.length) {
+    throw new Error(`${path} does not parse cleanly`);
+  }
+  return printer.printFile(source);
+}
+
+const [oldPath, newPath] = process.argv.slice(2);
+if (!oldPath || !newPath) {
+  console.error("usage: node scripts/ts_normalize.mjs <old-file> <new-file>");
+  process.exit(1);
+}
+
+try {
+  console.log(normalize(oldPath) === normalize(newPath) ? "same" : "different");
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}

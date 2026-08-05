@@ -1,6 +1,6 @@
 # `scripts/`
 
-**Verified against:** `9ffbbfc`, 2026-08-05
+**Verified against:** `bb7a23b`, 2026-08-05
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says
@@ -18,10 +18,17 @@ either.
 | `ci_scopes.sh` | any           | Map changed paths to gate scopes; both CI workflows read it   |
 | `_lib.sh`      | —             | Shared helpers; sourced, never run directly                   |
 
-Two checkers are python rather than shell, and one of them never runs in the gate:
-`check_docs.py` and `check_commits.py` are steps of `verify.sh`, while **`check_pr_body.py` runs
-only in CI** — a pull request body is not in the repository and does not exist when the gate runs,
-so `.github/workflows/pr-body.yml` is the only place it is addressable.
+**`ci_scopes.sh` is the one copy of the path-to-scope mapping.** Both workflows read it, and so does
+`check_scope.py` through its `--stdin` mode, which asks the same mapping about a file list the
+caller has already filtered rather than one computed from a diff.
+
+Four checkers are python rather than shell, and one of them never runs in the gate:
+`check_docs.py`, `check_commits.py` and `check_scope.py` are steps of `verify.sh`, while
+**`check_pr_body.py` runs only in CI** — a pull request body is not in the repository and does not
+exist when the gate runs, so `.github/workflows/pr-body.yml` is the only place it is addressable.
+One helper is javascript for a reason: `ts_normalize.mjs` decides whether two versions of a
+TypeScript file differ by anything but comments, and only TypeScript's own parser knows that a `//`
+inside a string is not a comment.
 
 ```bash
 # ship a change
@@ -73,6 +80,16 @@ instead.
 | `--db`       | `pytest -m db` against a real `mongod`                              | venv + Docker    |
 | `--images`   | both `docker build`s + the `instrumentation.js` presence check      | Docker           |
 
+**Before any of them runs, `check_scope.py` compares the scopes named against what the branch
+actually changed** ([ADR-0037](../docs/_decisions/0037-the-gate-refuses-an-undersized-scope.md)). It
+refuses a run whose diff reaches the image build with a change that is more than comments, and
+merely reports every other surface the run leaves unproven — a run with one scope flag is as often
+mid-work as it is a gate, and a check that fails those gets suppressed. What counts as "more than
+comments" is decided by a parser and never by a `#` rule: TypeScript through its own parser, Python
+through `ast` with docstrings stripped, TOML through `tomllib`, and everything else — Dockerfiles,
+YAML, shell — is code, because that is the safe answer where no parser is available. The check is
+skipped in CI, which maps its own scopes from the paths.
+
 **The scripts scope lints its own python**, and `scripts/ruff.toml` is what makes that possible.
 ruff resolves configuration by walking up from the file it is checking, so `fl_backend/pyproject.toml`
 governs the backend and nothing else — `check_docs.py` and `check_commits.py` resolved no
@@ -108,7 +125,8 @@ to build inside the image, or be omitted from `output: "standalone"` entirely �
 is **not sufficient** before a merge touching `src/core/config.ts`, `src/core/auth.ts`,
 `src/instrumentation.ts`, `next.config.ts`, a lockfile or a Dockerfile — **unless the change is
 confined to comments**, which cannot reach the image at all and are a documentation change wherever
-they sit. The dependency audit warns
+they sit. That carve-out is no longer a thing to remember: `check_scope.py` decides it from the diff
+and refuses the run when the answer is no. The dependency audit warns
 rather than fails — an advisory published upstream overnight should not block an unrelated merge.
 
 CI (`.github/workflows/verify.yml`) runs these scopes as parallel jobs, mapped from the paths a
@@ -155,7 +173,16 @@ served because nginx waits on `service_healthy`.
 validates syntax only — the checks, listed in the script's own header, cover what it misses:
 undefined helpers, drifted `--help` text, workflow files that only fail on their first live run
 (actionlint), and the two defects Windows hides (CRLF endings, and an executable bit that
-`chmod +x` in Git Bash never reaches), either of which works locally and fails on the server.
+`chmod +x` in Git Bash never reaches), either of which works locally and fails on the server. It
+also drives `check_scope.py`'s comment-only classifier over fixtures in both directions, because
+that is the one gate decision whose wrong answer is silent.
+
+**That classifier's TypeScript half needs the frontend's `typescript`, and the scope does not
+require it.** `--scripts` stays runnable on a clone that has never run `pnpm install`: when
+`typescript` does not resolve, the classifier is required to answer "code", and the self-check
+asserts that degradation instead of the real answer. CI's `scripts` job installs the frontend
+dependencies for exactly this reason — otherwise the half that needs a parser rather than a regex
+would be exercised on no machine but the author's.
 
 ## Conventions
 

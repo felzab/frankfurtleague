@@ -218,6 +218,24 @@ venv_python() {
   fi
 }
 
+# Any interpreter able to run the stdlib-only checkers in scripts/: the backend venv's if it is
+# there, otherwise whatever is on PATH. Prints nothing and returns 1 when there is none.
+#
+# Deliberately NOT venv_python, which dies. The scope check runs on every invocation of verify.sh,
+# including `--frontend` on a machine that has never created the backend virtualenv, and making
+# that run fail for a missing venv would be a new prerequisite bought for nothing. The caller
+# decides what an absent interpreter means.
+any_python() {
+  local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
+  local nix="${REPO_ROOT}/fl_backend/.venv/bin/python"
+  if   [[ -x "$win" ]]; then printf '%s' "$win"
+  elif [[ -x "$nix" ]]; then printf '%s' "$nix"
+  elif command -v python3 >/dev/null 2>&1; then printf 'python3'
+  elif command -v python  >/dev/null 2>&1; then printf 'python'
+  else return 1
+  fi
+}
+
 require_file() { [[ -f "$1" ]] || die "Missing required file: $1${2:+
 $2}"; }
 require_dir()  { [[ -d "$1" ]] || die "Missing required directory: $1${2:+
