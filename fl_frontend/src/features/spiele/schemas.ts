@@ -104,15 +104,15 @@ export const FLSpielQuelleGruppeSchema = z.object({
   type: z.literal("gruppe"),
   gruppe: FLGruppenNamesSchema,
   // The message goes on the TYPE check for the same reason `mietpreis`'s does: the reachable failure
-  // is an emptied NumberField, which HeroUI reports as `NaN` rather than as a negative number, and
-  // `NaN` fails `z.int()` before `.positive()` ever runs.
-  platz: z.int({ error: "Bitte gib einen Platz ein." }).positive({ error: "Der Platz muss mindestens 1 sein." }),
+  // is an unpicked placing, which the form drafts as `NaN`, and `NaN` fails `z.int()` before
+  // `.positive()` ever runs.
+  platz: z.int({ error: "Bitte wähle einen Platz aus." }).positive({ error: "Der Platz muss mindestens 1 sein." }),
 });
 export type FLSpielQuelleGruppe = z.infer<typeof FLSpielQuelleGruppeSchema>;
 
 export const FLSpielQuelleSpielSchema = z.object({
   type: z.literal("spiel"),
-  spiel_nr: z.int({ error: "Bitte gib eine Spielnummer ein." }).positive({ error: "Die Spielnummer muss mindestens 1 sein." }),
+  spiel_nr: z.int({ error: "Bitte wähle ein Spiel aus." }).positive({ error: "Die Spielnummer muss mindestens 1 sein." }),
   ausgang: z.enum(["sieger", "verlierer"]),
 });
 export type FLSpielQuelleSpiel = z.infer<typeof FLSpielQuelleSpielSchema>;

@@ -1,11 +1,14 @@
 /**
  * SPIELE · derivation tests
  *
- * Covers the three values every match card derives, the bracket's German labels, and the admin toast's
- * wording. `formatSpielDisplay` is tested for placeholder agreement specifically: the drift it replaced
- * had one card rendering "- : -" while two others rendered "-:-" on the same screen, which no type can
- * catch. `formatQuelle` is tested because it is the ONLY place either codebase turns a stored bracket
- * reference into German (ADR-0042) — nothing else would notice the wording changing.
+ * Covers the three values every match card derives, the bracket's German labels, the admin toast's
+ * wording, and the wiring derivations the edit form's pickers are built from. `formatSpielDisplay` is
+ * tested for placeholder agreement specifically: the drift it replaced had one card rendering "- : -"
+ * while two others rendered "-:-" on the same screen, which no type can catch. `formatQuelle` is
+ * tested because it is the ONLY place either codebase turns a stored bracket reference into German
+ * (ADR-0042) — nothing else would notice the wording changing. The wiring derivations are tested
+ * because what they exclude is what the form cannot offer (ADR-0046) — a wrong filter here silently
+ * reopens an illegal pick.
  */
 
 import assert from "node:assert/strict";
@@ -13,12 +16,15 @@ import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
+  collectUsedQuelleKeys,
   computeErgebnisFor,
   computeSpielStatus,
   formatElfmeterschiessen,
   formatQuelle,
   formatSpielDisplay,
   formatSpielUpdateMessage,
+  listFeederSpiele,
+  quelleKey,
 } from "./utils.ts";
 
 import type { FLSpiel } from "./schemas.ts";
@@ -248,5 +254,89 @@ describe("formatSpielUpdateMessage", () => {
     const message = formatSpielUpdateMessage([30], [{ spiel_nr: 25, gruppe: "A", platz: 5, reason: "gruppe_too_small" }]);
 
     assert.match(message, /Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. Spiel 25 verweist/);
+  });
+});
+
+// A minimal bracket fixture for the wiring derivations: only the fields they read.
+function makeBracketSpiel(
+  id: string,
+  nr: number,
+  phase: FLSpiel["saison_phase"],
+  quelle1: FLSpiel["team1_quelle"] = null,
+  quelle2: FLSpiel["team2_quelle"] = null,
+  saisonId = "2026",
+): FLSpiel {
+  return { id, spiel_nr: nr, saison_phase: phase, saison_id: saisonId, team1_quelle: quelle1, team2_quelle: quelle2 } as FLSpiel;
+}
+
+describe("quelleKey", () => {
+  it("collides exactly when two references name the same outcome", () => {
+    assert.equal(quelleKey({ type: "spiel", spiel_nr: 25, ausgang: "sieger" }), quelleKey({ type: "spiel", spiel_nr: 25, ausgang: "sieger" }));
+    assert.notEqual(
+      quelleKey({ type: "spiel", spiel_nr: 25, ausgang: "sieger" }),
+      quelleKey({ type: "spiel", spiel_nr: 25, ausgang: "verlierer" }),
+    );
+  });
+
+  // The variant tag leads the key, so `spiel` 1 and `platz` 1 can never read as the same source.
+  it("keeps the two variants apart whatever their numbers", () => {
+    assert.notEqual(quelleKey({ type: "spiel", spiel_nr: 1, ausgang: "sieger" }), quelleKey({ type: "gruppe", gruppe: "A", platz: 1 }));
+  });
+});
+
+describe("collectUsedQuelleKeys", () => {
+  const season = [
+    makeBracketSpiel("id-25", 25, "viertelfinale", { type: "gruppe", gruppe: "A", platz: 1 }, { type: "gruppe", gruppe: "B", platz: 2 }),
+    makeBracketSpiel("id-29", 29, "halbfinale", { type: "spiel", spiel_nr: 25, ausgang: "sieger" }, null),
+  ];
+
+  it("collects every stored source except the edited fixture's own", () => {
+    const used = collectUsedQuelleKeys(season, "id-29");
+
+    assert.equal(used.size, 2);
+    assert.ok(used.has(quelleKey({ type: "gruppe", gruppe: "A", platz: 1 })));
+    assert.ok(!used.has(quelleKey({ type: "spiel", spiel_nr: 25, ausgang: "sieger" })));
+  });
+
+  it("collects everything when the edited fixture is not in the list", () => {
+    assert.equal(collectUsedQuelleKeys(season, "id-99").size, 3);
+  });
+});
+
+describe("listFeederSpiele", () => {
+  const season = [
+    makeBracketSpiel("id-1", 1, "gruppenphase"),
+    makeBracketSpiel("id-26", 26, "viertelfinale"),
+    makeBracketSpiel("id-25", 25, "viertelfinale"),
+    makeBracketSpiel("id-29", 29, "halbfinale"),
+    makeBracketSpiel("id-31", 31, "finale"),
+    makeBracketSpiel("id-90", 90, "viertelfinale", null, null, "2025"),
+  ];
+
+  it("offers only knockout matches of a strictly earlier round, in bracket order", () => {
+    const feeders = listFeederSpiele(season, { id: "id-29", saison_id: "2026", saison_phase: "halbfinale" });
+    assert.deepEqual(
+      feeders.map((spiel) => spiel.spiel_nr),
+      [25, 26],
+    );
+  });
+
+  // The first knockout round is seeded from the group phase (ADR-0042): no match feeds it, so the
+  // sieger/verlierer answers legitimately do not exist for it.
+  it("offers nothing to a fixture of the first knockout round", () => {
+    assert.deepEqual(listFeederSpiele(season, { id: "id-25", saison_id: "2026", saison_phase: "viertelfinale" }), []);
+  });
+
+  it("never offers a match of another season, whatever its round", () => {
+    const feeders = listFeederSpiele(season, { id: "id-31", saison_id: "2026", saison_phase: "finale" });
+    assert.ok(feeders.every((spiel) => spiel.saison_id === "2026"));
+  });
+
+  it("never offers the fixture itself", () => {
+    const feeders = listFeederSpiele(season, { id: "id-26", saison_id: "2026", saison_phase: "halbfinale" });
+    assert.deepEqual(
+      feeders.map((spiel) => spiel.id),
+      ["id-25"],
+    );
   });
 });

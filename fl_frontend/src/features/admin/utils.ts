@@ -16,14 +16,14 @@
 import type { FLSpiel } from "../spiele/schemas";
 
 /**
- * The six things that can make a match need admin attention.
+ * The seven things that can make a match need admin attention.
  *
  * A literal union rather than a loose index signature: the categorisation below builds a fully
  * keyed accumulator, so every read is checked and a mistyped category is a compile error instead of
  * a runtime crash on `undefined.spiele`.
  */
 export type ActionRequiredCategory =
-  "ergebnis_pending" | "datum_missing" | "uhrzeit_missing" | "ort_missing" | "schiedsrichter_missing" | "is_canceled";
+  "ergebnis_pending" | "besetzung_missing" | "datum_missing" | "uhrzeit_missing" | "ort_missing" | "schiedsrichter_missing" | "is_canceled";
 
 /**
  * Declaration order is render order — the view maps `typedObjectEntries` straight into the accordion.
@@ -32,6 +32,10 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
   ergebnis_pending: {
     name: "Ergebnis ausstehend",
     desc: "Spiele, die bereits gespielt wurden, aber kein eingetragenes Ergebnis haben",
+  },
+  besetzung_missing: {
+    name: "Offene Besetzung",
+    desc: "K.-o.-Spiele mit einer Seite ohne Mannschaft und ohne Herkunft — sie wird von niemandem gepflegt",
   },
   datum_missing: { name: "Fehlendes Datum", desc: "Spiele ohne eingetragenes Datum" },
   uhrzeit_missing: { name: "Fehlende Uhrzeit", desc: "Spiele ohne eingetragene Uhrzeit" },
@@ -54,6 +58,7 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
 export function categorizeActionRequired(spiele: FLSpiel[], today: string): Record<ActionRequiredCategory, FLSpiel[]> {
   const categorized: Record<ActionRequiredCategory, FLSpiel[]> = {
     ergebnis_pending: [],
+    besetzung_missing: [],
     datum_missing: [],
     uhrzeit_missing: [],
     ort_missing: [],
@@ -74,6 +79,19 @@ export function categorizeActionRequired(spiele: FLSpiel[], today: string): Reco
 
     if (spiel.datum !== null && spiel.datum < today && spiel.ergebnis === null) {
       categorized.ergebnis_pending.push(spiel);
+    }
+
+    // A knockout side with no team AND no source is filled by nothing: the resolution skips a slot
+    // without a `quelle` by design (ADR-0042), so this is the one legal state that stays broken by
+    // default — reported here so it surfaces before the fixture's date passes, not after
+    // (ADR-0046). A Gruppenphase fixture is exempt: an unfilled schedule is not an orphaned slot,
+    // and every group fixture legitimately carries no source forever. Mirrors the backend arm in
+    // `get_spiele_action_required`.
+    if (
+      spiel.saison_phase !== "gruppenphase" &&
+      ((spiel.team1 === null && spiel.team1_quelle === null) || (spiel.team2 === null && spiel.team2_quelle === null))
+    ) {
+      categorized.besetzung_missing.push(spiel);
     }
   }
 

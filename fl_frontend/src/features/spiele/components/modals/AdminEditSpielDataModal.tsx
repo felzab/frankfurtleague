@@ -14,6 +14,7 @@ export function AdminEditSpielDataModal({
   teams,
   spielorte,
   schiedsrichter,
+  saisonSpiele,
   isOpen,
   onClose,
 }: {
@@ -21,6 +22,7 @@ export function AdminEditSpielDataModal({
   teams: FLTeam[];
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
+  saisonSpiele: FLSpiel[];
   isOpen: boolean;
   onClose: () => void;
 }) {
@@ -37,6 +39,7 @@ export function AdminEditSpielDataModal({
         teams={teams}
         spielorte={spielorte}
         schiedsrichter={schiedsrichter}
+        saisonSpiele={saisonSpiele}
         onClose={onClose}
       />
     </FormModal>

@@ -61,7 +61,7 @@ export function AdminSpielCardsList({ spiele, today }: { spiele: FLSpiel[]; toda
 
   // Read here rather than inside the form: the lists are admin's to aggregate, and the form lives
   // in `spiele`, which must not depend on `admin`.
-  const { teams, spielorte, schiedsrichter } = useAdmin();
+  const { teams, spielorte, schiedsrichter, saisonSpiele } = useAdmin();
 
   return (
     <div className="contents">
@@ -77,6 +77,7 @@ export function AdminSpielCardsList({ spiele, today }: { spiele: FLSpiel[]; toda
           teams={teams}
           spielorte={spielorte}
           schiedsrichter={schiedsrichter}
+          saisonSpiele={saisonSpiele}
           isOpen={true}
           onClose={() => setSelectedAdminSpiel(null)}
         />

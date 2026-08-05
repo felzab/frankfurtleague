@@ -16,6 +16,15 @@ import type { FormState } from "@/shared/types/types";
 
 export function toActionErrorResult(error: unknown): NonNullable<FormState> {
   if (error instanceof APIBadStatusError) {
+    if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-001") {
+      // The write path refused bracket wiring the season cannot hold (ADR-0046). The form does not
+      // offer these shapes, so the request was built against a season that has moved — a second
+      // tab, another admin, or a resolution that ran since the page loaded. Reloading is the fix.
+      return {
+        success: false,
+        error: "Die Änderung passt nicht mehr zum aktuellen Turnierbaum — die Saison wurde inzwischen geändert. Bitte lade die Seite neu.",
+      };
+    }
     if (error.statusCode === 409) {
       // The ordinary outcome of a create hitting a unique index (DB-COMMON-002, ADR-0032): the
       // record conflicts with one that exists -- possibly a retired row keeping its slot.

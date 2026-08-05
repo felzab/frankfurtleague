@@ -36,12 +36,14 @@ export function AdminEditSpielDataForm({
   teams,
   spielorte,
   schiedsrichter,
+  saisonSpiele,
   onClose,
 }: {
   spielData: FLSpiel;
   teams: FLTeam[];
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
+  saisonSpiele: FLSpiel[];
   onClose: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -166,6 +168,8 @@ export function AdminEditSpielDataForm({
 
       {/** Team1 vs. Team2 */}
       <FormMatchupSection
+        spielData={spielData}
+        saisonSpiele={saisonSpiele}
         teams={teams}
         team1Payload={team1Payload}
         onTeam1Change={setTeam1Payload}
@@ -177,9 +181,6 @@ export function AdminEditSpielDataForm({
         onTeam2QuelleChange={setTeam2Quelle}
         elfmeterschiessen={elfmeterschiessen}
         onElfmeterschiessenChange={setElfmeterschiessen}
-        saisonPhase={spielData.saison_phase}
-        team1InitialData={spielData.team1}
-        team2InitialData={spielData.team2}
       />
 
       <Separator className="bg-border" />
