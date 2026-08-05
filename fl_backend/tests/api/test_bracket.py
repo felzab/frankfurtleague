@@ -253,8 +253,7 @@ class TestResolveBracket:
 
     def test_a_shootout_also_decides_the_loser(self, fixture_at: FixtureFactory, side: SideFactory):
         """
-        `verlierer` resolves to the side that lost the shoot-out, which is what a third-place play-off
-        would be fed by.
+        `verlierer` resolves to the side that lost the shoot-out, as a third-place play-off would want.
 
         Asserted separately from the winner because the two spellings take different branches, and a
         version reading only the shoot-out's higher count would pass the test above and fail this one.
@@ -269,8 +268,7 @@ class TestResolveBracket:
 
     def test_a_shootout_carries_through_a_whole_round(self, fixture_at: FixtureFactory, side: SideFactory):
         """
-        Two level quarter-finals, both settled on penalties, feeding one semi-final — which fills on
-        BOTH sides rather than stalling on either.
+        Two level quarter-finals settled on penalties feed one semi-final, which fills on BOTH sides.
 
         An end-to-end case rather than one more branch of `_outcome_of`, because a slot a drawn knockout
         leaves empty empties everything downstream of it in turn, and that is the failure this field
@@ -287,8 +285,7 @@ class TestResolveBracket:
 
     def test_a_shootout_is_ignored_where_the_goals_already_decided_it(self, fixture_at: FixtureFactory, side: SideFactory):
         """
-        A shoot-out stored against a fixture one side won on goals states a contradiction, and the goals
-        win it.
+        A shoot-out on a fixture one side won on goals is a contradiction, and the goals win it.
 
         `patch_spiel_data` discards the record on that shape, so this is reachable only by a hand edit —
         and no `$jsonSchema` validator may hold a cross-field rule to refuse it (ADR-0027). Reading the

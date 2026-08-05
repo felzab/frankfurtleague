@@ -247,8 +247,8 @@ export function FormMatchupSection({
             <p
               id="elfmeterschiessen-hint"
               className="fluid-xxs text-foreground-muted leading-normal font-medium">
-              Das Spiel ist unentschieden ausgegangen. Wurde es im Elfmeterschießen entschieden, so trage hier die Treffer ein — der Sieger rückt
-              damit im Turnierbaum weiter. Für die Tabelle bleibt das Spiel ein Unentschieden.
+              Das Spiel ist unentschieden ausgegangen. Wurde es im Elfmeterschießen entschieden, so trage hier die Treffer ein — der Sieger
+              rückt damit im Turnierbaum weiter. Für die Tabelle bleibt das Spiel ein Unentschieden.
             </p>
           </div>
 
@@ -325,7 +325,8 @@ export function FormMatchupSection({
             <p className="fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
           ) : (
             <p className="fluid-xs text-brand font-extrabold tracking-wide">
-              {team1Tore === team2Tore && `Unentschieden${elfmeterSiegerName === null ? "" : ` — ${elfmeterSiegerName} gewinnt im Elfmeterschießen`}`}
+              {team1Tore === team2Tore &&
+                `Unentschieden${elfmeterSiegerName === null ? "" : ` — ${elfmeterSiegerName} gewinnt im Elfmeterschießen`}`}
               {team1Tore > team2Tore && `Sieg für ${team1Name}`}
               {team2Tore > team1Tore && `Sieg für ${team2Name}`}
             </p>

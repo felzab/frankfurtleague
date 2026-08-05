@@ -140,8 +140,7 @@ class FLSpielElfmeterschiessen(BaseModel):
     @model_validator(mode="after")
     def a_shootout_names_a_winner(self) -> "FLSpielElfmeterschiessen":
         """
-        A level shoot-out is refused, because it is the one value this field could hold and still mean
-        nothing.
+        Refuse a level shoot-out: it is the one value this field could hold and still name nobody.
 
         It fails on READ as well as on write, which is the same bargain `ergebnis`'s pattern and
         `mietpreis`'s `ge=0` already strike: the database validator asserts types, presence and enums

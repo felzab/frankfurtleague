@@ -98,6 +98,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "ort": {"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
             "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": "A. Referee", "payment": 20},
             "ergebnis": "2:1",
+            # Null on every fixture that did not finish level, which is almost all of them (ADR-0044).
+            "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_OID,
             "spiel_nr": 1,
             "is_canceled": False,
@@ -219,6 +221,18 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
             "spiele",
             valid_document("spiele", team1={"team_id": TEAM_OID, "name": "Lessing", "tore": "2", "shorthand": "LE"}),
             "goals as a string",
+        ),
+        # The shoot-out object has no variants, so unlike `teamN_quelle` the validator covers all of it
+        # (ADR-0044) -- both counts required, both typed.
+        (
+            "spiele",
+            valid_document("spiele", ergebnis="2:2", elfmeterschiessen={"team1": "4", "team2": 3}),
+            "a shoot-out count stored as a string",
+        ),
+        (
+            "spiele",
+            valid_document("spiele", ergebnis="2:2", elfmeterschiessen={"team1": 4}),
+            "a shoot-out with only one side",
         ),
         ("spieltage", valid_document("spieltage", anzahl_spiele=4.0), "a count stored as a double"),
         ("spieler", valid_document("spieler", vorname=None), "a player with no first name"),
