@@ -1,6 +1,6 @@
 # Principles — the rules every document obeys
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `a57450b`, 2026-08-05
 
 These apply to **everything written down in this repository**: module headers, symbol docs, inline
 comments, `/docs` pages, ADRs, prompts, command files, commit bodies and pull request descriptions.
