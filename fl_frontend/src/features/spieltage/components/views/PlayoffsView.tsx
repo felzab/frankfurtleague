@@ -7,6 +7,8 @@ import { SpielCardUltraCompact } from "@/features/spiele/components/ui/SpielCard
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
+import { orderRoundsByWiring } from "../../utils";
+
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
 
@@ -44,6 +46,11 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
     );
   }
 
+  // The bracket lines below pair matches by index, so the indices have to follow the wiring: the
+  // Spiele arrive in `datum` order, which put matches 25 and 28 on one branch of a fixture whose
+  // sides name 25 and 27 (ADR-0042 stores the edges; nothing about a date respects them).
+  const rounds = orderRoundsByWiring(playoffsSpieltage);
+
   return (
     // flex-1 and pb-12 so it respects the same native scrolling flow as the other pages.
     // The rise and NOT the card cascade, even though this renders a few dozen `SpielCardUltraCompact`s:
@@ -58,7 +65,7 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
       <div className="scrollbar-hide @container w-full snap-x snap-mandatory overflow-x-auto px-4 md:px-8">
         {/* Tree track */}
         <div className="mx-auto flex h-fit w-max flex-row items-stretch gap-8">
-          {playoffsSpieltage.map((playoffsSpieltag, roundIndex) => (
+          {rounds.map((playoffsSpieltag, roundIndex) => (
             /* Responsive column */
             <div
               key={playoffsSpieltag.id}
@@ -72,7 +79,7 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
               <div className="relative flex w-full flex-1 flex-col">
                 {playoffsSpieltag.spiele.map((spielData, spielIndex) => {
                   const isFirstRound = roundIndex === 0;
-                  const isLastRound = roundIndex === playoffsSpieltage.length - 1;
+                  const isLastRound = roundIndex === rounds.length - 1;
                   const isTopNode = spielIndex % 2 === 0;
                   const isBottomNode = spielIndex % 2 !== 0;
                   const hasPartner = isTopNode ? spielIndex + 1 < playoffsSpieltag.spiele.length : true;
