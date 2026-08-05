@@ -13,7 +13,7 @@ rather than a status class. The codes are listed in the backend spec and are par
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  docs/backend/spec.md -- the error-code table
+  docs/logging.md -- the error-code table and the failure-body contract
 """
 
 from typing import Any, Mapping, Optional
@@ -29,6 +29,10 @@ class BaseAPIException(HTTPException):
         message: str,
         headers: Optional[dict[str, str]] = None,
     ):
+        # A real attribute, not only a key inside `detail`: the exception handler logs
+        # `exc.error_code` and the response body carries it, so a code reachable only through the
+        # detail dict is a code every log line silently replaces with a fallback.
+        self.error_code = error_code
         self.error_detail = {"error_code": error_code, "message": message}
         super().__init__(status_code=status_code, detail=self.error_detail, headers=headers)
 

@@ -3,36 +3,76 @@ CORE · request middleware
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • The trace id is taken from the frontend's `X-Correlation-ID` header when present, and only
-    generated when absent. Generating unconditionally would break correlation across the two services,
-    which is the entire point of the header.
+  • The correlation id is taken from the `X-Correlation-ID` header when present AND well-formed, and
+    generated otherwise. Honouring a well-formed header is what correlates a request across nginx and
+    both services; refusing a malformed one is what keeps an attacker-chosen string out of every log
+    line this request produces.
+  • Every request gets exactly one access line, with the correlation id on it. uvicorn's own access
+    log is disabled in the container (Dockerfile CMD), so this middleware is the only per-request
+    record the backend writes.
 """
 
+import re
+import time
 import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from app.core.logging import trace_id_var
+from app.core.logging import correlation_id_var, fl_logger
+
+# 32 lowercase hex is what nginx's $request_id and the frontend's minter produce; the bounds leave
+# room for other well-formed hex ids without admitting arbitrary strings into the logs.
+WELL_FORMED_ID = re.compile(r"[a-f0-9]{8,64}\Z")
+
+
+def resolve_correlation_id(header_value: str | None) -> str:
+    """The incoming id when it is well-formed hex, a freshly minted one otherwise."""
+    if header_value is not None and WELL_FORMED_ID.fullmatch(header_value):
+        return header_value
+    return uuid.uuid4().hex
 
 
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
-    """Injects a Trace ID into every request context for distributed logging."""
+    """Binds a correlation id to every request context and writes the per-request access line."""
 
     async def dispatch(self, request: Request, call_next):
-        # 1. Extract from Next.js, or generate a fresh one
-        trace_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4())[:8])
+        correlation_id = resolve_correlation_id(request.headers.get("X-Correlation-ID"))
 
-        # 2. Bind it to the current async context
-        token = trace_id_var.set(trace_id)
+        # Bind it to the current async context
+        token = correlation_id_var.set(correlation_id)
+        started = time.perf_counter()
 
         try:
-            # 3. Process the request
             response = await call_next(request)
 
-            # 4. Return the Trace ID to Next.js in the response headers
-            response.headers["X-Correlation-ID"] = trace_id
+            # Return the id to the caller in the response headers
+            response.headers["X-Correlation-ID"] = correlation_id
+            self._log_access(request, response.status_code, started, correlation_id)
             return response
+        except Exception:
+            # Reached only when no exception handler produced a response (the catch-all in
+            # exception_handlers.py normally does). The request still gets its access line.
+            self._log_access(request, 500, started, correlation_id)
+            raise
         finally:
-            # 5. CRITICAL: Clean up the context var to prevent memory leaks
-            trace_id_var.reset(token)
+            # CRITICAL: Clean up the context var to prevent memory leaks
+            correlation_id_var.reset(token)
+
+    @staticmethod
+    def _log_access(request: Request, status: int, started: float, correlation_id: str) -> None:
+        # The query string is logged as well as the path: on this API it carries ids and filters,
+        # never personal data -- payloads (which do) are bodies, and bodies are never logged.
+        path = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        fl_logger.info(
+            f"{request.method} {path} -> {status}",
+            extra={
+                # Explicit as well as filter-injected: a handler without CorrelationIdFilter (a
+                # test's capture handler, say) still sees the id on this record.
+                "correlation_id": correlation_id,
+                "method": request.method,
+                "path": path,
+                "status": status,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+            },
+        )

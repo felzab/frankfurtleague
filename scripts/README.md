@@ -1,6 +1,6 @@
 # `scripts/`
 
-**Verified against:** `7f695ac`, 2026-08-05
+**Verified against:** `19f18ba`, 2026-08-05
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says
@@ -50,11 +50,11 @@ header mark and the icons drift apart.
 
 ## Environments
 
-| Environment | What it is                                        | Entry point                  |
-| ----------- | ------------------------------------------------- | ---------------------------- |
-| **dev**     | `next dev` from source, hot reload, no Docker     | `pnpm dev` in `fl_frontend/` |
-| **local**   | the production image, on your machine, with nginx | `./scripts/local.sh`         |
-| **prod**    | published images on the server, never builds      | `./scripts/deploy.sh`        |
+| Environment | What it is                                        | Entry point                                                                      |
+| ----------- | ------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **dev**     | source with hot reload, no Docker                 | `pnpm dev` in `fl_frontend/` · `uv run fastapi dev app/asgi.py` in `fl_backend/` |
+| **local**   | the production image, on your machine, with nginx | `./scripts/local.sh`                                                             |
+| **prod**    | published images on the server, never builds      | `./scripts/deploy.sh`                                                            |
 
 **local** is the only place a packaging problem — a missing standalone file, a failing startup env
 gate, a header nginx does not set — is visible before a deploy: **dev** exercises none of that
@@ -222,6 +222,7 @@ colour decided centrally. **The standard is recorded at the definitions in `scri
 | Deploy reports healthy but the site is unreachable        | Check nginx: `docker compose logs nginx`.                                                                                      |
 | Container unhealthy, health log empty, `FailingStreak: 0` | The app died before the first probe — usually a malformed `.env` value restored by hand. Read `docker compose logs <service>`. |
 | A directory appeared named `something;C`                  | See the Windows note below.                                                                                                    |
+| `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`  | Windows-only, when the output is piped or redirected: the CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`.      |
 
 ### Windows
 

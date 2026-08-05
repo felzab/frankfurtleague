@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `f2a8458`, 2026-08-04
+**Verified against:** `19f18ba`, 2026-08-05
 
 Frankfurt-League is a league website: a Next.js frontend, a FastAPI backend, MongoDB, deployed with
 Docker Compose behind nginx on a single host.
@@ -22,6 +22,7 @@ rest explains how the documentation is organised and why.
 | Write a commit message, a PR or an issue                            | [`workflows/message-templates.md`](workflows/message-templates.md) |
 | Run a script, publish an image, or roll back                        | [`../scripts/README.md`](../scripts/README.md)                     |
 | Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)                                       |
+| Follow a request through the logs, or add an error code             | [`logging.md`](logging.md)                                         |
 | Write or change any documentation                                   | [`_standard/`](_standard/)                                         |
 | Run an audit or remediation programme                               | [`_auditing/`](_auditing/)                                         |
 | See what is planned, and what is deliberately not                   | [`roadmap/open-items.md`](roadmap/open-items.md)                   |
@@ -100,6 +101,7 @@ duplicated here.
 | [`workflows/`](workflows/)   | Branching, commits, pull requests, deployment, and the message templates                    |
 | [`roadmap/`](roadmap/)       | Open items with their analyses, and the closed log naming the commit that closed each       |
 | [`glossary.md`](glossary.md) | The German domain vocabulary                                                                |
+| [`logging.md`](logging.md)   | The logging and error-handling convention: correlation id, streams, error codes             |
 | `audit/`                     | **Gitignored.** Working documents of a running programme — see below                        |
 
 **The two underscored folders are cross-cutting meta**, which is what the prefix marks: they are about

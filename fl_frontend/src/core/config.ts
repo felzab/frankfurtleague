@@ -65,8 +65,14 @@ export const frontend_config = createEnv({
       .transform((str) => str.split(",").map((s) => s.trim().toLowerCase()))
       .pipe(z.array(z.email())),
 
-    // logging
-    LOG_FORMAT: z.string(),
+    // Logging. An enum, not a bare string: the json branch is selected by exact comparison, so a
+    // capitalised or truncated value would silently fall through to ANSI-colourised development
+    // output inside a production container. Case is normalised first for the same reason the
+    // backend normalises it -- a hand-restored `.env` (OPS-2) is where the casing typo happens.
+    LOG_FORMAT: z
+      .string()
+      .transform((value) => value.toLowerCase())
+      .pipe(z.enum(["console", "json"])),
   },
 
   // Must start with NEXT_PUBLIC_

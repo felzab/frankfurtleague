@@ -20,11 +20,12 @@ import z from "zod";
  * This module is pure Zod with no server dependency, so extending the envelope costs nothing.
  *
  * Mirrors `BaseAPIResponse` in `fl_backend/app/shared/schemas/responses.py`, which declares
- * `acknowledged: Literal[0, 1] = 1`. `trace_id` has no counterpart on that model — the backend
- * emits it only in error bodies (`app/core/exception_handlers.py`); on a success response it
- * travels as the `X-Correlation-ID` header. It stays optional here and never arrives.
+ * `acknowledged: Literal[0, 1] = 1` and nothing else. Failure bodies are a different shape entirely
+ * — `{error_code, correlation_id}` (docs/logging.md) — and never reach a schema: `apiClient` throws
+ * on any non-2xx before validation. On a success response the correlation id travels as the
+ * `X-Correlation-ID` header, not in the body.
  */
 // z.literal([0, 1]) is zod 4's shorthand for a union of literals — same output type and the same
 // accept/reject behaviour as z.union([z.literal(0), z.literal(1)]), verified case by case.
-export const BaseAPIResponseSchema = z.object({ acknowledged: z.literal([0, 1]), trace_id: z.string().optional() });
+export const BaseAPIResponseSchema = z.object({ acknowledged: z.literal([0, 1]) });
 export type BaseAPIResponse = z.infer<typeof BaseAPIResponseSchema>;

@@ -7,13 +7,18 @@
  * Collapsing them loses the diagnosis. Reporting a malformed body as a network failure sends the
  * reader to check connectivity when the problem is a schema mismatch.
  *
- * Every error carries the `traceId` sent as `X-Correlation-ID`, so a frontend error can be matched to
- * the backend log line for the same request.
+ * Every error carries a stable `code` (the `FE-*` half of the table in `docs/logging.md`) and the
+ * `correlationId` sent as `X-Correlation-ID`, so a frontend error can be matched to the backend log
+ * line for the same request. A bad status additionally carries `serverErrorCode` — the backend's
+ * own code, read off the response body — which is what lets a caller distinguish "shorthand already
+ * taken" (DB-COMMON-002) from a crash without parsing prose.
  */
 
 export class APIBadStatusError extends Error {
-  traceId: string;
+  readonly code = "FE-API-001";
+  correlationId: string;
   statusCode: number;
+  serverErrorCode?: string;
   url: string;
   endpoint: string;
 
@@ -21,31 +26,37 @@ export class APIBadStatusError extends Error {
     message,
     url,
     statusCode,
+    serverErrorCode,
     endpoint,
-    traceId,
+    correlationId,
     originalError,
   }: {
     message: string;
     url: string;
     statusCode: number;
+    serverErrorCode?: string;
     endpoint: string;
-    traceId: string;
+    correlationId: string;
     originalError?: unknown;
   }) {
     // Merge custom metadata into cause object while preserving original error trace if provided
-    const errorCause = originalError ? { originalError, traceId, statusCode, url, endpoint } : { traceId, statusCode, url, endpoint };
+    const errorCause = originalError
+      ? { originalError, correlationId, statusCode, serverErrorCode, url, endpoint }
+      : { correlationId, statusCode, serverErrorCode, url, endpoint };
     super(message, { cause: errorCause });
 
     this.name = "APIBadStatusError";
-    this.traceId = traceId;
+    this.correlationId = correlationId;
     this.statusCode = statusCode;
+    this.serverErrorCode = serverErrorCode;
     this.url = url;
     this.endpoint = endpoint;
   }
 }
 
 export class APIMalformedDataError extends Error {
-  traceId: string;
+  readonly code = "FE-API-002";
+  correlationId: string;
   statusCode: number;
   url: string;
   endpoint: string;
@@ -55,21 +66,21 @@ export class APIMalformedDataError extends Error {
     url,
     statusCode,
     endpoint,
-    traceId,
+    correlationId,
     zodIssues,
   }: {
     message: string;
     url: string;
     statusCode: number;
     endpoint: string;
-    traceId: string;
+    correlationId: string;
     zodIssues?: unknown;
   }) {
-    const errorCause = zodIssues ? { zodIssues, traceId, url } : { traceId, url };
+    const errorCause = zodIssues ? { zodIssues, correlationId, url } : { correlationId, url };
     super(message, { cause: errorCause });
 
     this.name = "APIMalformedDataError";
-    this.traceId = traceId;
+    this.correlationId = correlationId;
     this.statusCode = statusCode;
     this.url = url;
     this.endpoint = endpoint;
@@ -77,28 +88,29 @@ export class APIMalformedDataError extends Error {
 }
 
 export class APINetworkError extends Error {
-  traceId: string;
+  readonly code = "FE-NET-001";
+  correlationId: string;
   url: string;
   isTimeout: boolean;
 
   constructor({
     message,
     url,
-    traceId,
+    correlationId,
     isTimeout,
     originalError,
   }: {
     message: string;
     url: string;
-    traceId: string;
+    correlationId: string;
     isTimeout: boolean;
     originalError?: unknown;
   }) {
-    const errorCause = originalError ? { originalError, traceId, isTimeout, url } : { traceId, isTimeout, url };
+    const errorCause = originalError ? { originalError, correlationId, isTimeout, url } : { correlationId, isTimeout, url };
     super(message, { cause: errorCause });
 
     this.name = "APINetworkError";
-    this.traceId = traceId;
+    this.correlationId = correlationId;
     this.url = url;
     this.isTimeout = isTimeout;
   }

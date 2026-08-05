@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `2665a5e`, 2026-08-05
+**Verified against:** `19f18ba`, 2026-08-05
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
@@ -299,15 +299,16 @@ Two boundaries decide whether something is an issue at all:
 
 **Where.** Public page, dashboard or admin; and the season if it matters.
 
-**Evidence.** Screenshot, console error, or — if an error page was shown — its digest. The digest
-is written to the server log by instrumentation, so it is the fastest way to find the real error.
+**Evidence.** Screenshot, console error, or — if an error page was shown — its digest **plus the
+time it happened**. A digest names an error class, not a single incident (every network failure
+shares one), so the digest narrows the search and the time and route pin the exact log entry,
+whose correlation id then opens every surface's lines for that request (`docs/logging.md`).
 
 **Environment.** Browser and version, desktop or mobile, and the theme if the problem is visual.
 ```
 
-The **digest** line is the highest-value field on this form: an error page shows a digest, the
-server log holds the matching entry, and quoting it turns "something broke" into an exact
-stack trace.
+The **Evidence** line is the highest-value field on this form: digest plus time plus route is what
+turns "something broke" into one specific set of log lines with a stack trace on them.
 
 ### Feature or change request
 

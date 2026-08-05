@@ -59,9 +59,9 @@ body:
     attributes:
       label: Evidence
       description: >
-        A screenshot or console error. **If an error page was shown, include its digest** — that
-        string is written to the server log, so it is the fastest route from your report to the
-        actual stack trace.
+        A screenshot or console error. **If an error page was shown, include its digest and the
+        time it happened** — the digest narrows the search to an error class, and the time pins
+        the exact server log entry.
     validations:
       required: false
 

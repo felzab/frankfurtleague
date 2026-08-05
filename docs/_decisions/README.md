@@ -70,12 +70,13 @@ written.
 | [0036](0036-a-pull-request-body-summarises-the-branch.md)             | A pull request body summarises the branch, not its commits         | ops                    | Accepted       | 2026-08-05 |
 | [0037](0037-the-gate-refuses-an-undersized-scope.md)                  | The gate refuses a run that skips the image build                  | ops                    | Accepted       | 2026-08-05 |
 | [0038](0038-the-image-cache-is-the-actions-cache-service.md)          | The image build cache is the Actions cache service                 | ops                    | Accepted       | 2026-08-05 |
+| [0039](0039-one-correlation-id-per-request-one-document-per-line.md)  | One correlation id per request, one JSON document per line         | frontend, backend, ops | Accepted       | 2026-08-05 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · ops: 0009 · 0011 · 0014 ·
-0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · frontend: all except 0017, 0027, 0030, 0031,
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · ops: 0009 · 0011 · 0014 ·
+0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · 0039 · frontend: all except 0017, 0027, 0030, 0031,
 0033, 0036, 0037 and 0038.
 
 ## Considered, and deliberately not made an ADR

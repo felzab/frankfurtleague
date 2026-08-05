@@ -14,7 +14,23 @@
  *     while Next loads the module, before `register()` is entered.
  */
 
-export { onRequestError as onRequestError } from "./core/instrumentation";
+import type { onRequestError as logRequestErrorImpl } from "./core/instrumentation";
+
+/**
+ * A guarded wrapper, not a re-export. A static `export { onRequestError } from ...` puts
+ * `core/instrumentation.ts` — and through it the logger's `process.stdout` write — into the EDGE
+ * instrumentation bundle, where the bundler warns on every request that a Node API is unsupported.
+ * The conditional dynamic import is the documented pattern for runtime-specific instrumentation
+ * (https://nextjs.org/docs/app/guides/instrumentation); the guard excludes Edge rather than
+ * requiring Node for the reason in note 2 below. The type-only import above is erased at compile,
+ * so it cannot drag the module back into the Edge graph.
+ */
+export async function onRequestError(...args: Parameters<typeof logRequestErrorImpl>) {
+  if (process.env.NEXT_RUNTIME === "edge") return;
+
+  const { onRequestError: logRequestError } = await import("./core/instrumentation");
+  return logRequestError(...args);
+}
 
 /**
  * Startup environment gate (R3b §S10.3).
@@ -50,5 +66,13 @@ export async function register() {
 
   // Importing it *is* the gate. config.ts's onValidationError has already reduced the message to
   // variable NAMES, never values -- verified against a built image, including for a truncated key.
-  await import("./core/config");
+  const { frontend_config } = await import("./core/config");
+
+  // In the JSON format, everything that reaches console.* -- above all Next's own multi-line
+  // `⨯ Error` dumps -- is wrapped into the same one-document-per-line envelope the logger writes
+  // (ADR-0039). Installed here so it is in place before the first request can error.
+  if (frontend_config.LOG_FORMAT === "json") {
+    const { installConsoleShim } = await import("./core/consoleShim");
+    installConsoleShim();
+  }
 }

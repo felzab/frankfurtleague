@@ -24,7 +24,9 @@ import "server-only";
 import z from "zod";
 
 import { frontend_config } from "./config";
+import { CORRELATION_HEADER, mintCorrelationId } from "./correlation";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "./errors";
+import { getRequestCorrelationId } from "./requestScope";
 
 const BASE_FETCH_AUTH_TYPE = "base";
 const BASE_FETCH_TIMEOUT_MS = 15000;
@@ -64,7 +66,15 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
 };
 
 /** Boilerplate function which handles fetch responses */
-const handleFetchResponse = async ({ res, traceId, endpoint }: { res: Response; traceId: string; endpoint: string }): Promise<unknown> => {
+const handleFetchResponse = async ({
+  res,
+  correlationId,
+  endpoint,
+}: {
+  res: Response;
+  correlationId: string;
+  endpoint: string;
+}): Promise<unknown> => {
   if (res.ok) {
     if (res.status === 204 || res.headers.get("content-length") === "0") return null;
     return res.json();
@@ -78,26 +88,39 @@ const handleFetchResponse = async ({ res, traceId, endpoint }: { res: Response; 
       url: res.url,
       statusCode: res.status,
       endpoint: endpoint,
-      traceId: traceId,
+      correlationId: correlationId,
     });
   }
+
+  // The backend's failure body is `{error_code, correlation_id}` (docs/logging.md). The code is
+  // what lets a caller react to the CLASS of failure -- a 409 from a unique index reads
+  // DB-COMMON-002 -- without parsing prose. Read defensively: an unparseable body must not turn a
+  // bad status into a second, misleading error.
+  const serverErrorCode = await res
+    .clone()
+    .json()
+    .then((body: unknown) => (body && typeof body === "object" && "error_code" in body ? String(body.error_code) : undefined))
+    .catch(() => undefined);
 
   throw new APIBadStatusError({
     message: "API returned a bad status.",
     url: res.url,
     statusCode: res.status,
+    serverErrorCode: serverErrorCode,
     endpoint: endpoint,
-    traceId: traceId,
+    correlationId: correlationId,
   });
 };
 
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
-  // Non-deterministic, and generated inside all 11 `"use cache"` functions — deliberately safe. It
-  // reaches only the X-Correlation-ID header and the error constructors, never the returned value, so
-  // a cache entry is fully determined by the response.
-  // The two consequences are both wanted: a cache hit issues no request and so has no id to
-  // correlate, and thrown API errors are not persisted as cache entries.
-  const traceId = `req_${crypto.randomUUID().substring(0, 8)}`; // Id for this fetch call
+  // The current request's id where a scope exists (server actions and route handlers seed one,
+  // shared/utils/serverAction.ts), a freshly minted id otherwise. The unseeded case is the
+  // `"use cache"` fill: a cached execution is shared across requests by construction, so Next
+  // refuses request APIs there and no page-request id can exist -- the fill's outbound request gets
+  // an id of its own instead (docs/logging.md). Minting inside cached functions is deliberately
+  // safe: the id reaches only the X-Correlation-ID header and the error constructors, never the
+  // returned value, so a cache entry is fully determined by the response.
+  const correlationId = getRequestCorrelationId() ?? mintCorrelationId();
 
   const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, ...customOptions } = options;
 
@@ -106,7 +129,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // silently: `{...new Headers({a: "1"})}` is `{}`, and `{...[["a","1"]]}` is `{0: [...]}`, a
   // garbage header name. No caller passes `headers` today; the type is what invites it.
   const headers = new Headers(getFetchHeaders(authType));
-  headers.set("X-Correlation-ID", traceId);
+  headers.set(CORRELATION_HEADER, correlationId);
   // Caller wins: a per-call header overrides the defaults above.
   new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
@@ -132,7 +155,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       message: "Network request failed. Please check your connection.",
       isTimeout: error instanceof Error && error.name === "AbortError",
       url: urlObj.toString(),
-      traceId: traceId,
+      correlationId: correlationId,
       originalError: error,
     });
 
@@ -149,7 +172,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
     }
 
     try {
-      rawData = await handleFetchResponse({ res: res, traceId: traceId, endpoint: endpoint });
+      rawData = await handleFetchResponse({ res: res, correlationId: correlationId, endpoint: endpoint });
     } catch (error) {
       // Already the right error, and re-wrapping it would lose the status code.
       if (error instanceof APIBadStatusError) throw error;
@@ -164,7 +187,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
         url: res.url,
         statusCode: res.status,
         endpoint: endpoint,
-        traceId: traceId,
+        correlationId: correlationId,
       });
     }
   } finally {
@@ -181,7 +204,7 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       url: res.url,
       statusCode: res.status,
       endpoint: endpoint,
-      traceId: traceId,
+      correlationId: correlationId,
       zodIssues: z.treeifyError(validated.error),
     });
   }

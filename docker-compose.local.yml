@@ -39,6 +39,10 @@ services:
       # because @auth/core derives the session cookie's Secure flag from this protocol. Loopback is
       # the one exemption, and it exists for exactly this stack.
       - AUTH_URL=http://localhost:3000
+      # The point of this stack is the production behaviour, and the developer's .env legitimately
+      # holds `console` for `pnpm dev` -- overridden so the stack always writes the production
+      # stream (docs/logging.md).
+      - LOG_FORMAT=json
     restart: unless-stopped
     networks:
       - frankfurtleague-net
@@ -67,6 +71,10 @@ services:
       context: ./fl_backend
       dockerfile: Dockerfile
     env_file: ./fl_backend/.env
+    environment:
+      # Same reason as the frontend's override above: the stack shows the production stream even
+      # when the developer's .env selects the console format for `fastapi dev`.
+      - LOG_FORMAT=json
     restart: unless-stopped
     networks:
       - frankfurtleague-net

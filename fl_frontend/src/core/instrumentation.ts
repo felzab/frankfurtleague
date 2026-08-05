@@ -10,6 +10,7 @@
  * which silently disables all server error logging.
  */
 
+import { CORRELATION_HEADER, isWellFormedCorrelationId } from "./correlation";
 import { logger } from "./logging";
 
 interface NextRequestContext {
@@ -18,27 +19,49 @@ interface NextRequestContext {
   [key: string]: unknown;
 }
 
+interface NextRequestInfo {
+  path?: string;
+  method?: string;
+  headers?: Record<string, string | string[] | undefined> | Headers;
+  [key: string]: unknown;
+}
+
 interface WebError extends Error {
-  traceId?: string;
+  correlationId?: string;
+  code?: string;
   cause?: {
-    traceId?: string;
+    correlationId?: string;
     statusCode?: number;
     [key: string]: unknown;
   };
 }
 
-export async function onRequestError(err: Error, request: unknown, context: NextRequestContext) {
-  const nextjsDigest = context.digest;
-  const webErr = err as WebError;
+/** The edge-minted id off the failed request's own headers, whichever headers shape Next passes. */
+function correlationIdOf(request: NextRequestInfo): string | undefined {
+  const headers = request.headers;
+  if (!headers) return undefined;
 
+  const raw = headers instanceof Headers ? headers.get(CORRELATION_HEADER) : headers[CORRELATION_HEADER.toLowerCase()];
+  const value = Array.isArray(raw) ? raw[0] : (raw ?? undefined);
+  return isWellFormedCorrelationId(value) ? value : undefined;
+}
+
+export async function onRequestError(err: Error, request: unknown, context: NextRequestContext) {
+  const webErr = err as WebError;
   const cause = webErr.cause || {};
-  const backendTraceId = cause.traceId || webErr.traceId || "NO_TRACE_ID";
-  const statusCode = cause.statusCode || 500;
+
+  // Two ids, doing different jobs: `correlation_id` names the page request that failed (nginx's
+  // edge line carries the same one), `fetch_correlation_id` names the outbound API call whose error
+  // this is -- distinct whenever the fetch ran as a cache fill (docs/logging.md).
+  const requestId = correlationIdOf((request ?? {}) as NextRequestInfo);
+  const fetchId = cause.correlationId || webErr.correlationId;
 
   logger.error("Next.js Server Component Crash", err, {
-    digest: nextjsDigest,
-    traceId: backendTraceId,
+    error_code: "FE-RSC-001",
+    correlation_id: requestId,
+    fetch_correlation_id: fetchId !== requestId ? fetchId : undefined,
+    digest: context.digest,
     route: context.routePath,
-    status: statusCode,
+    status: cause.statusCode || 500,
   });
 }

@@ -12,8 +12,8 @@ needs no environment at all.
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
   • Middleware order is significant. Starlette applies them in reverse registration order, so
-    CorrelationIdMiddleware -- registered last -- runs first and a trace id exists before anything
-    else can log.
+    CorrelationIdMiddleware -- registered last -- runs first and a correlation id exists before
+    anything else can log.
   • `setup_custom_logger` runs BEFORE the app is constructed, so a failure during construction is
     itself logged in the right format.
   • Every router is registered here. A router that is written but not included serves nothing and
