@@ -17,8 +17,12 @@ DELIVERABLE: the two-sided contract table (check 1) is required — one row per 
 CONTEXT — derive, do not assume: the Pydantic models live in `app/api/*/schemas.py` and
 `app/shared/schemas/`; their zod mirrors in `fl_frontend/src/features/*/schemas.ts` and
 `fl_frontend/src/shared/schemas.ts`. The two are **hand-maintained mirrors with no generation step**
-— a standing accepted constraint, tracked as F2 in `docs/roadmap/open-items.md`, not a defect to
-report. The drift _between_ them is this pass's subject. The backend is the ratified source of
+— a ratified decision ([ADR-0040](../../../_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md)),
+not a defect to report. A gate check already compares presence, required, nullable, primitive type
+and enum members against the committed `fl_backend/openapi.json`
+(`fl_frontend/src/core/apiContract.test.ts`), so **this pass's subject is what that check
+deliberately leaves out**: ranges, patterns, lengths, formats and the shapes recorded in its two
+exception lists. The backend is the ratified source of
 truth; the frontend mirrors it. Pydantic validates on the way **out** of Mongo, so read-model
 constraints are load-bearing against stored data, not only against requests.
 

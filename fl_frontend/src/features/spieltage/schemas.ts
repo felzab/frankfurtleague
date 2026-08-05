@@ -27,6 +27,9 @@ export const FLSpieltagSchema = z.object({
   order_val: z.int().nonnegative(),
   saison_phase: FLSaisonPhaseSchema,
   saison_id: z.string().length(4),
+  // The day this matchday was retired, null while it is played (ADR-0032). Declared because the
+  // backend sends it: zod's default strip mode discards an undeclared field with no error.
+  inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSpieltag = z.infer<typeof FLSpieltagSchema>;
 

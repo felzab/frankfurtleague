@@ -6,10 +6,11 @@ Three separate jobs, and the middle one is the reason this file matters more tha
   1. The validators are well-formed — every required field has a declared type, every index names keys
      the validator knows about.
   2. **They have not DRIFTED from the Pydantic models.** A `$jsonSchema` is a third copy of the schema
-     after Pydantic and the Zod mirror, and F2 already records hand-mirroring as this codebase's main
-     drift risk. Unlike the Zod mirror, though, both copies here are importable Python — so the drift
-     is machine-checkable, and `test_every_mirrored_model_matches_its_validator` checks it. Add a field
-     to `FLSpiel` and forget `constraints.py`, and the default `pytest` run fails by name.
+     after Pydantic and the Zod mirror, and hand-mirroring is this codebase's main drift risk. Both
+     copies here are importable Python in one process, so the check is fifteen lines and
+     `test_every_mirrored_model_matches_its_validator` is it. Add a field to `FLSpiel` and forget
+     `constraints.py`, and the default `pytest` run fails by name. The Zod mirror is checked too, and
+     needs a published document as the intermediary to do it (ADR-0040).
   3. The scope ADR-0027 drew is still the scope. Types, presence and enums; no ranges, no patterns, no
      lengths. `test_no_validator_constrains_a_range_or_a_format` is that decision made enforceable,
      because widening it is a one-word edit that would otherwise pass review.

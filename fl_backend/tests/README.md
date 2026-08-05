@@ -30,9 +30,9 @@ _computes_ from what it says.
 
 [ADR-0030](../../docs/_decisions/0030-a-real-mongod-behind-a-deselected-marker.md), 2026-08-02.
 
-| Tier                    | Selected by         | Needs Docker | Cost (2026-08-04)                        |
+| Tier                    | Selected by         | Needs Docker | Cost (2026-08-05)                        |
 | ----------------------- | ------------------- | ------------ | ---------------------------------------- |
-| **Default** — 395 tests | everything unmarked | no           | under half a second                      |
+| **Default** — 426 tests | everything unmarked | no           | under a second                           |
 | **`db`** — 54 tests     | `@pytest.mark.db`   | yes          | 14.3s warm; cold adds the `mongo:8` pull |
 
 `pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` runs the fast tier only. A
@@ -46,7 +46,7 @@ assertion. `mongomock` is not an option — it raises `NotImplementedError` for 
 `pipeline` on `$lookup`, and this pipeline uses both.
 
 **Why the marker, rather than just adding them.** The fast tier is the asset: a suite that runs in
-under half a second gets run. Putting a container behind every `pytest` invocation would also make
+under a second gets run. Putting a container behind every `pytest` invocation would also make
 Docker a prerequisite of the gate's backend scope and of `--quick`, neither of which needs a daemon.
 
 The gate's `--backend` scope therefore runs the **default** tier only; the `db` tier is its own
@@ -86,6 +86,8 @@ tests/
     test_reference_models.py     spielorte, schiedsrichter, spieler, spieltage, saisons
     test_response_envelope.py    every *Response model carries `acknowledged`
     test_admin_guard.py          every non-GET operation is admin-guarded
+    test_openapi_document.py     the committed openapi.json is what the service publishes
+  openapi_document.py            not a test — builds and writes openapi.json (`--write` / `--check`)
 ```
 
 Both `*_execution.py` files pair with a structural sibling, and neither of a pair replaces the other:
@@ -163,7 +165,7 @@ appears again in a `short test summary info` block at the end.
 cd fl_backend && uv run pytest
 ```
 
-That is the fast tier — 294 tests, no Docker. To run the ones that need a real `mongod`:
+That is the fast tier — 426 tests, no Docker. To run the ones that need a real `mongod`:
 
 ```bash
 cd fl_backend && uv run pytest -m db

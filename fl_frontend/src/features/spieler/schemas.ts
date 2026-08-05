@@ -13,7 +13,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomObjectIdStringSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 // Mirrors the backend FLSpieler. Only vorname is mandatory; the rest may legitimately be absent
 // for a player whose squad entry has not been filled in yet. The backend already declared these
@@ -27,6 +27,9 @@ export const FLSpielerSchema = z.object({
   position: z.string().nullable(),
   is_nachgetragen: z.boolean(),
   team_id: CustomObjectIdStringSchema,
+  // The day this player left the club, null while they are on a squad (ADR-0032). Declared because
+  // the backend sends it: zod's default strip mode discards an undeclared field with no error.
+  inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSpieler = z.infer<typeof FLSpielerSchema>;
 

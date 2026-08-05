@@ -1,0 +1,5324 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FastAPI",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v0/system/is_live": {
+      "get": {
+        "summary": "Liveness probe",
+        "description": "Liveness: is this process serving requests?\n\nDeliberately unauthenticated and deliberately does not touch the database -- this is what the\ncontainer healthcheck calls, and it must not fail for reasons a restart cannot fix.",
+        "operationId": "check_is_live_api_v0_system_is_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckIsLiveResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/system/is_ready": {
+      "get": {
+        "summary": "Readiness probe",
+        "description": "Readiness: can this process reach its database?\n\nPings MongoDB and returns 503 with `DB-CONN-002` if it cannot. Requires the system key.",
+        "operationId": "check_is_ready_api_v0_system_is_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckIsReadyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v0/system/info": {
+      "get": {
+        "summary": "Service metadata",
+        "description": "Report the running API version. Requires the system key; not intended for public consumption.",
+        "operationId": "system_info_api_v0_system_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInfoResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v0/spiele": {
+      "get": {
+        "summary": "List Spiele",
+        "description": "List Spiele matching the given filters.\n\nOmitting `saison_id` returns the **current** season, not every season.\n\n`saison_phase` accepts `playoffs` as an alias for \"any phase except gruppenphase\".\n`spiel_status` is resolved against the current German date: `ausstehend` includes today.",
+        "operationId": "get_spiele_api_v0_spiele_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "saison_phase",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "playoffs",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "gruppenphase",
+                    "viertelfinale",
+                    "halbfinale",
+                    "finale"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Phase"
+            }
+          },
+          {
+            "name": "spiel_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ausstehend",
+                    "vergangen",
+                    "heute",
+                    "abgesagt",
+                    "unbekannt"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Spiel Status"
+            }
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "datum",
+                "uhrzeit",
+                "spiel_nr",
+                "saison_phase"
+              ],
+              "type": "string",
+              "default": "datum",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieleListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spiele/{spiel_id}": {
+      "get": {
+        "summary": "One Spiel",
+        "description": "Return one match by its id.\n\nNo season is resolved and no status is derived: the match carries its own `saison_id`, and\n`spiel_status` is a property of a query rather than of a match.",
+        "operationId": "get_spiel_api_v0_spiele__spiel_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieleSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a Spiel",
+        "description": "Update one Spiel.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
+        "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spiel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spiel Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSpielDataPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchSpielDataResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/teams": {
+      "get": {
+        "summary": "List teams, flat or grouped",
+        "description": "List teams for a season.\n\nThe response shape depends on the query: `in_gruppen=true` returns the four groups keyed A-D, and\notherwise a plain list. Check the `format` field to tell them apart.\n\nOmitting `saison_id` returns the **current** season. Group and disqualification are season-scoped\nand come from a junction collection, so a team with no entry for the requested season is absent\nfrom the response entirely. Statistics are season-scoped as well, and are computed from that\nseason's matches on every read rather than stored.\n\n`statistik_scope` chooses which matches those statistics count. It defaults to `gruppenphase` —\nthe league table, which playoff results must not move. Pass `gesamt` for a team's figures across\nevery phase of the season. Both scopes return the same fields.",
+        "operationId": "get_teams_api_v0_teams_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "gruppe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gruppe"
+            }
+          },
+          {
+            "name": "is_disqualified",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Disqualified"
+            }
+          },
+          {
+            "name": "in_gruppen",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "In Gruppen"
+            }
+          },
+          {
+            "name": "include_placeholders",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Placeholders"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "statistik_scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "gruppenphase",
+                "gesamt"
+              ],
+              "type": "string",
+              "default": "gruppenphase",
+              "title": "Statistik Scope"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "name",
+              "type": "string",
+              "default": "name",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/FLTeamsListResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FLTeamsGroupedResponse"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "format",
+                    "mapping": {
+                      "list": "#/components/schemas/FLTeamsListResponse",
+                      "grouped": "#/components/schemas/FLTeamsGroupedResponse"
+                    }
+                  },
+                  "title": "Response Get Teams Api V0 Teams Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a team",
+        "description": "Create a club.\n\n`shorthand` is unique across every club, retired ones included, and the database enforces it\n(ADR-0027) — a duplicate comes back as 409, not as a second team.\n\n**It never revives a retired club, and that is deliberate.** A shorthand collision has two possible\nmeanings — the same club returning, or a different club wanting two letters the old one still\nholds — and nothing in the payload distinguishes them. Reviving on the first reading would, on the\nsecond, silently repoint every historical match of the retired club at a different club's name.\nReactivation is `POST /teams/{team_id}/reactivate`, which names an id and so cannot be ambiguous.\n\nThis creates the club only. It plays no season until it has a junction row, which is\n`POST /teams/{team_id}/saisons` — and until then it is absent from every season-scoped read,\nbecause that join is strict.",
+        "operationId": "post_team_api_v0_teams_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostTeamPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostTeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/teams/{team_id}": {
+      "get": {
+        "summary": "One team",
+        "description": "Return one team, with its group and its statistics for a season.\n\nThe path names **which team**; the query still names **which season's figures to compute**, because\n`gruppe` and `statistik` are season-scoped — the former joined from a junction, the latter derived\nfrom that season's matches on every read (ADR-0026). So `saison_id` and `statistik_scope` remain\nquery parameters here and are not a redundant second identifier.\n\n404 when the id names no team, and equally when it names a team with no junction row for the\nrequested season — the join is strict, and a team that did not play that season has no group and no\ntable position to report.",
+        "operationId": "get_team_api_v0_teams__team_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "statistik_scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "gruppenphase",
+                "gesamt"
+              ],
+              "type": "string",
+              "default": "gruppenphase",
+              "title": "Statistik Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLTeamsSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a team and fan the rename out",
+        "description": "Update a club, then rewrite the name and shorthand embedded in every match it plays in.\n\nThe fan-out is not optional: matches carry a copy of both fields, so without it every match card\nshows the old name indefinitely. There was zero drift across all 31 matches when this was\nmeasured, and that is the state this endpoint exists to preserve.\n\n**It does not run for the placeholder team.** On the playoff matches the embedded `name` is a\nbracket slot label — \"Sieger 25.\" — that exists nowhere else in the database, while the team\ndocument it references reads \"TBD\". Fanning out there would replace three real labels with \"TBD\"\nand there would be no way to recover them (ADR-0028, open item BE-9).",
+        "operationId": "patch_team_api_v0_teams__team_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchTeamPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchTeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Retire a team (soft delete)",
+        "description": "Retire a club from the league.\n\nA SOFT delete: it stamps `inactive_since` and the document stays.\n\nMatches embed a copy of the team and reference it by id, so a hard delete would orphan every\nhistorical match it ever played. Its junction rows are left alone as well — the seasons it played\nin still happened, and its results still count towards those tables.\n\nReversed by `POST /teams/{team_id}/reactivate`, never by creating the club again — the create\nendpoint refuses a shorthand a retired club still holds, because it cannot tell the same club\nreturning from a different one wanting those two letters.",
+        "operationId": "delete_team_api_v0_teams__team_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLTeamWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieltage": {
+      "get": {
+        "summary": "List Spieltage",
+        "description": "List matchdays for a season, ordered by `order_val` rather than by date.\n\nOmitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\".",
+        "operationId": "get_spieltage_api_v0_spieltage_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "saison_phase",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "playoffs",
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "gruppenphase",
+                    "viertelfinale",
+                    "halbfinale",
+                    "finale"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Phase"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "beginn",
+                "ende",
+                "anzahl_spiele",
+                "order_val"
+              ],
+              "type": "string",
+              "default": "order_val",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieltageListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a Spieltag",
+        "description": "Create a matchday.\n\n`order_val` decides where it sits in the bracket and in every ordered listing — not `beginn`, since\nmatchdays routinely share dates. Nothing enforces that two matchdays in a season hold different\n`order_val`s; equal values sort against each other by `beginn` as a tie-break.",
+        "operationId": "post_spieltag_api_v0_spieltage_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSpieltagPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieltagWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieltage/{spieltag_id}": {
+      "get": {
+        "summary": "One Spieltag",
+        "description": "Return one matchday by its id.\n\nAddressed directly, so no season is resolved and a retired matchday is returned rather than\nhidden — a caller holding an id was given it by something.",
+        "operationId": "get_spieltag_api_v0_spieltage__spieltag_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieltag_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieltag Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieltageSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a Spieltag",
+        "description": "Update a matchday.\n\nNo fan-out: matches reference a matchday by id and embed no copy of it, so a renamed or re-dated\nmatchday is picked up by every consumer on the next read.",
+        "operationId": "patch_spieltag_api_v0_spieltage__spieltag_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieltag_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieltag Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSpieltagPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieltagWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Retire a Spieltag (soft delete)",
+        "description": "Retire a matchday. SOFT: it stamps `inactive_since` and the document stays.\n\nIts matches are **not** touched and stay fully readable — `GET /spiele` never joins `spieltage`, so\nthey keep resolving. That is the reason this is soft rather than a delete: a hard one would leave\nevery one of those matches pointing at nothing.",
+        "operationId": "delete_spieltag_api_v0_spieltage__spieltag_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieltag_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieltag Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieltagWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieler": {
+      "get": {
+        "summary": "List Spieler",
+        "description": "List players, normally for one team.\n\nUnlike the other resources, omitting `saison_id` does NOT resolve to the current season here --\ncallers narrow by `team_id` instead. Only `vorname` is guaranteed present on a player.",
+        "operationId": "get_spieler_api_v0_spieler_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saison Id"
+            }
+          },
+          {
+            "name": "is_nachgetragen",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Nachgetragen"
+            }
+          },
+          {
+            "name": "stufe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stufe"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "vorname",
+                "nachname",
+                "stufe",
+                "nummer",
+                "position"
+              ],
+              "type": "string",
+              "default": "position",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a Spieler",
+        "description": "Create a player — the person, and nothing else.\n\nA player created here belongs to no team and appears in no squad list until they have a junction\nrow, which is `POST /spieler/{spieler_id}/saisons`. That split is what makes a player who changes\nclub next season the same person rather than a second record of them.\n\nThere is deliberately **no uniqueness rule on a name**. Two people genuinely can share one, and a\nleague that refused the second would be wrong about the world rather than careful.",
+        "operationId": "post_spieler_api_v0_spieler_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSpielerPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieler/{spieler_id}": {
+      "get": {
+        "summary": "One Spieler",
+        "description": "Return one player — the person only.\n\nDeliberately **not** the flattened squad shape the list returns. Team, number, position and stufe\nare season-scoped and live on a junction row, so a player addressed without a season has none of\nthem; picking a season here would make the answer depend on a default the caller never asked for.\nA squad entry is read through `GET /spieler?team_id=…&saison_id=…`, which is a filter and stays one.",
+        "operationId": "get_spieler_by_id_api_v0_spieler__spieler_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a Spieler's name",
+        "description": "Update a player's name.\n\nNo fan-out: unlike a team or a venue, a player's name is embedded in no other document. Squad lists\nread it through a `$lookup` at request time, so a correction here is visible everywhere at once.",
+        "operationId": "patch_spieler_api_v0_spieler__spieler_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSpielerPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Retire a Spieler (soft delete)",
+        "description": "Retire a player from the league. SOFT: it stamps `inactive_since` and the document stays.\n\nTheir squad rows are **left alone**. The seasons they played still happened, and a squad list for a\npast season should still name them — retiring the person says nothing about their history.\n\nThe date is what a future scheduled purge selects on; without it \"retired\" could only ever mean\n\"eventually\" (open item BE-12).",
+        "operationId": "delete_spieler_api_v0_spieler__spieler_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/saisons": {
+      "get": {
+        "summary": "List Saisons",
+        "description": "List seasons, optionally filtered by status (`past`, `active`, `future`).\n\nUnlike the other resources, this does NOT default to the current season -- listing seasons is the\none case where \"all of them\" is the sensible default.",
+        "operationId": "get_saisons_api_v0_saisons_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "past",
+                    "active",
+                    "future"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "_id",
+                "start_date",
+                "end_date"
+              ],
+              "type": "string",
+              "default": "_id",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonsListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a Saison",
+        "description": "Create a season. It is always created `future` and never `active`.\n\nThe id is supplied rather than generated: `saisons._id` is the four-character season string that\nevery `saison_id` elsewhere in the database references. Reusing an existing one is refused by the\n`_id` index and comes back as a 409.\n\nMaking it live is a separate, deliberate step — `POST /saisons/{saison_id}/activate`.",
+        "operationId": "post_saison_api_v0_saisons_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSaisonPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostSaisonResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/saisons/current": {
+      "get": {
+        "summary": "The active Saison",
+        "description": "Return the season currently marked active.\n\nThis is what every other endpoint resolves an omitted `saison_id` against, so it sits on the hot\npath of most page loads. Exactly one season is expected to have `status: \"active\"`.",
+        "operationId": "get_current_saison_api_v0_saisons_current_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonsSingleResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v0/saisons/{saison_id}": {
+      "get": {
+        "summary": "One Saison",
+        "description": "Return one season by its four-character id.\n\n404 when no season carries that id, rather than an empty list — which is the reason this exists\nseparately from `GET /saisons` rather than as a filter on it.",
+        "operationId": "get_saison_api_v0_saisons__saison_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonsSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a Saison's dates and rules",
+        "description": "Update a season's dates and scoring rules. `status` is deliberately not part of the payload.\n\nEditing `rules.win_points` or `draw_points` changes **every league table for this season on the\nnext read** — the standings are derived from the matches rather than stored (ADR-0026), so there is\nno migration to run and equally nothing to announce that the numbers moved.",
+        "operationId": "patch_saison_api_v0_saisons__saison_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSaisonPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchSaisonResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spielorte": {
+      "get": {
+        "summary": "List Spielorte",
+        "description": "List venues.\n\nDeactivated venues are soft-deleted rather than removed, so they remain retrievable for historical\nmatches. `maps_link` is a Maps search string, not a URL.",
+        "operationId": "get_spielorte_api_v0_spielorte_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "name",
+              "type": "string",
+              "default": "name",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielorteListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a Spielort",
+        "description": "Create a venue.\n\n`maps_link` is built server-side from the name and address and must not be submitted. Despite the\nname it is a Google Maps search string, not a URL.",
+        "operationId": "post_spielort_api_v0_spielorte_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSpielortPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostSpielortResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spielorte/{spielort_id}": {
+      "get": {
+        "summary": "One Spielort",
+        "description": "Return one venue by its id, deactivated ones included.\n\nA caller holding an id was given it by something, and a historical match's venue is exactly the\ncase worth answering.",
+        "operationId": "get_spielort_api_v0_spielorte__spielort_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spielort_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spielort Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielorteSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a Spielort and fan the change out",
+        "description": "Update a venue, then update every Spiel that embeds it.\n\nMatches carry an embedded copy of the venue's name and maps link, so the fan-out is not optional:\nwithout it, match cards keep showing the old name indefinitely.\n\n`mietpreis` is deliberately **not** fanned out. The rent recorded on a match is what was agreed for\nthat match; rewriting it would rewrite history.",
+        "operationId": "patch_spielort_api_v0_spielorte__spielort_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spielort_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spielort Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSpielortPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchSpielortResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deactivate a Spielort (soft delete)",
+        "description": "Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.\n\nMatches embed a copy of the venue, so a hard delete would orphan every historical match that used\nit. Returns the updated document rather than a bare acknowledgement.",
+        "operationId": "delete_spielort_api_v0_spielorte__spielort_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spielort_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spielort Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielortWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/schiedsrichter": {
+      "get": {
+        "summary": "List Schiedsrichter",
+        "description": "List referees.\n\nDeactivated referees are soft-deleted rather than removed, so they remain retrievable for the\nhistorical matches that embed them.",
+        "operationId": "get_schiedsrichter_api_v0_schiedsrichter_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "default_payment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Default Payment"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1024,
+              "minimum": 1,
+              "default": 1024,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "name",
+                "default_payment"
+              ],
+              "type": "string",
+              "default": "name",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a Schiedsrichter",
+        "description": "Create a referee. `inactive_since` is set to null here and is not part of the payload.",
+        "operationId": "post_schiedsrichter_api_v0_schiedsrichter_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSchiedsrichterPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostSchiedsrichterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/schiedsrichter/{schiedsrichter_id}": {
+      "get": {
+        "summary": "One Schiedsrichter",
+        "description": "Return one referee by their id, deactivated ones included.\n\nA historical match embeds a referee and references them by id, which is exactly the case worth\nanswering.",
+        "operationId": "get_schiedsrichter_by_id_api_v0_schiedsrichter__schiedsrichter_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Schiedsrichter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a Schiedsrichter and fan the change out",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name is fanned out. `payment` is deliberately not propagated: the fee recorded on a match\nis what was agreed for that match, and rewriting it would rewrite history.",
+        "operationId": "patch_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Schiedsrichter Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSchiedsrichterPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPatchSchiedsrichterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deactivate a Schiedsrichter (soft delete)",
+        "description": "Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.",
+        "operationId": "delete_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Schiedsrichter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spiele/action_required": {
+      "get": {
+        "summary": "Spiele needing attention",
+        "description": "List Spiele that need an admin's attention.\n\nA match qualifies if it is cancelled, is missing a date, time, venue or referee, or is in the past\nwith no result recorded. Not season-filtered: it spans every season.\n\nDeliberately uncached on the frontend — admin-authorized data does not belong in a shared cache\n(ADR-0013).",
+        "operationId": "get_spiele_action_required_api_v0_spiele_action_required_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieleListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v0/teams/{team_id}/reactivate": {
+      "post": {
+        "summary": "Bring a retired team back",
+        "description": "Clear `inactive_since`, putting a retired club back into every read that hides retired ones.\n\nSeparate from create on purpose. Reviving inside create would have to key off `shorthand`, which\ncannot distinguish the same club returning from a different club wanting two letters the retired\none still holds — and getting that wrong repoints every historical match of the old club at the new\none's name. An id cannot be ambiguous, so reactivation names one.",
+        "operationId": "reactivate_team_api_v0_teams__team_id__reactivate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLTeamWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/teams/{team_id}/saisons": {
+      "post": {
+        "summary": "Enter a team into a season",
+        "description": "Enter a team into a season, in a group.\n\nA team with no row here is **absent from that season entirely** — the join is strict, so it appears\nin no table, no group and no statistics. Entering every participating team is therefore the\nsubstantive step in setting a season up, and it includes the \"TBD\" placeholder, whose missing row\nis a known way to break a playoff bracket (open item BE-9).\n\nOne row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a\nplain insert rather than a revive, because no row here is ever retired — a team leaves a season\nonly by disqualification (ADR-0033).",
+        "operationId": "post_saison_team_api_v0_teams__team_id__saisons_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSaisonTeamPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonTeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}": {
+      "patch": {
+        "summary": "Change a team's group or disqualify it",
+        "description": "Change which group a team is in for a season, or disqualify it.\n\nDisqualification is how a team leaves a season; there is no delete here (ADR-0033). The flag is\nread by `GET /teams` and joined into match data rather than copied (ADR-0028), so setting it here\nreaches every surface that shows a DQ badge with no second write to keep in step.",
+        "operationId": "patch_saison_team_api_v0_teams__team_id__saisons__saison_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSaisonTeamPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonTeamResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieltage/{spieltag_id}/reactivate": {
+      "post": {
+        "summary": "Bring a retired Spieltag back",
+        "description": "Clear `inactive_since`, restoring the matchday to every read that hides retired ones.",
+        "operationId": "reactivate_spieltag_api_v0_spieltage__spieltag_id__reactivate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieltag_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieltag Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpieltagWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieler/{spieler_id}/reactivate": {
+      "post": {
+        "summary": "Bring a retired Spieler back",
+        "description": "Clear `inactive_since`, putting the player back into every read that hides retired ones.",
+        "operationId": "reactivate_spieler_api_v0_spieler__spieler_id__reactivate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerSingleResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieler/{spieler_id}/saisons": {
+      "post": {
+        "summary": "Add a Spieler to a squad",
+        "description": "Put a player in a team's squad for a season, with their number, position and stufe.\n\nOne row per player per season, enforced by a unique index — a player cannot be in two squads at\nonce, and moving them is a PATCH of `team_id` rather than a second row.\n\nA repeat is a **409, including against a retired row**, because the index keeps holding the key.\nBringing a player back into a season they already have a row for is\n`POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate` — reviving inside create would quietly\noverwrite the number and position the old row still carries.",
+        "operationId": "post_saison_spieler_api_v0_spieler__spieler_id__saisons_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostSaisonSpielerPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
+      "patch": {
+        "summary": "Update a squad entry",
+        "description": "Update a player's squad entry — their team, number, position or stufe for that season.\n\nChanging `team_id` here is how a transfer is recorded, and it is the whole reason the junction\nexists separately from the person.\n\n`position` and `stufe` are free text and have already split in the live data — `Sturm` and\n`Angriff` name the same position, `TW` and `Tor` likewise. Making them a closed set is FB-3's, in\nthe same change that normalises the stray rows; typing them here would reject rows that exist.",
+        "operationId": "patch_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchSaisonSpielerPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a Spieler from a squad",
+        "description": "Take a player out of a season's squad. SOFT: it stamps `inactive_since` and the row stays.\n\nThe row is preserved rather than removed because it is the record that this player was in this\nsquad, wearing this number — which stays true after they leave. Every read hides it by default;\n`include_inactive=true` is how an admin list gets it back.",
+        "operationId": "delete_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
+      "post": {
+        "summary": "Put a Spieler back in a squad they left",
+        "description": "Clear a squad row's `inactive_since`, restoring the entry with the number and position it had.\n\nThis is the endpoint a repeat create is redirected to. `uniq_spieler_id_saison_id` means the\nretired row still holds the key, so a second create cannot succeed — and reviving inside create\nwould silently overwrite the number, position and stufe the old row still carries, which is\nprecisely the information worth keeping.",
+        "operationId": "reactivate_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__reactivate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spieler_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spieler Id"
+            }
+          },
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSaisonSpielerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/saisons/{saison_id}/activate": {
+      "post": {
+        "summary": "Make this the active Saison",
+        "description": "Make this the active season, moving whichever season currently holds `active` to `past`.\n\nThis is the **only** path to `status: \"active\"` — no other endpoint writes the field, so \"exactly\none active season\" holds by construction rather than by convention. `pull_current_saison` and every\nendpoint defaulting an omitted `saison_id` (ADR-0002) depend on it.\n\nBoth writes run in one transaction, so the league is never briefly without an active season and\nnever briefly with two.\n\nIt does **not** check that the outgoing season's matches are all played. An early rollover is a\nlegitimate decision, and refusing one here would put the backend in the way of it; the admin page\nis where that precondition is presented to a person.",
+        "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLActivateSaisonResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/spielorte/{spielort_id}/reactivate": {
+      "post": {
+        "summary": "Bring a deactivated Spielort back",
+        "description": "Clear `inactive_since`, putting the venue back into the picker and every default read.",
+        "operationId": "reactivate_spielort_api_v0_spielorte__spielort_id__reactivate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "spielort_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Spielort Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielortWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
+      "post": {
+        "summary": "Bring a deactivated Schiedsrichter back",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.",
+        "operationId": "reactivate_schiedsrichter_api_v0_schiedsrichter__schiedsrichter_id__reactivate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "schiedsrichter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Schiedsrichter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CheckIsLiveResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          }
+        },
+        "type": "object",
+        "title": "CheckIsLiveResponse"
+      },
+      "CheckIsReadyResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          }
+        },
+        "type": "object",
+        "title": "CheckIsReadyResponse"
+      },
+      "FLActivateSaisonResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSaison"
+          },
+          "deactivated": {
+            "type": "integer",
+            "title": "Deactivated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document",
+          "deactivated"
+        ],
+        "title": "FLActivateSaisonResponse",
+        "description": "The season now active, plus how many were moved off it -- normally exactly one."
+      },
+      "FLAddress": {
+        "properties": {
+          "strasse": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Strasse"
+          },
+          "hausnummer": {
+            "type": "string",
+            "pattern": "^([0-9\\-abcABC]+)?$",
+            "title": "Hausnummer"
+          },
+          "plz": {
+            "type": "string",
+            "pattern": "^[0-9]{5}$",
+            "title": "Plz"
+          },
+          "stadtteil": {
+            "type": "string",
+            "title": "Stadtteil"
+          },
+          "stadt": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Stadt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "strasse",
+          "hausnummer",
+          "plz",
+          "stadtteil",
+          "stadt"
+        ],
+        "title": "FLAddress"
+      },
+      "FLGruppen": {
+        "additionalProperties": {
+          "items": {
+            "$ref": "#/components/schemas/FLTeam"
+          },
+          "type": "array"
+        },
+        "propertyNames": {
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ]
+        },
+        "type": "object",
+        "title": "FLGruppen",
+        "description": "The four groups, always all four.\n\nKeyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the\nresponse shape does not depend on which groups happen to have teams. Never build it from the\nteams present alone: a season with nobody in group D would omit the \"D\" key, the frontend's\nFLGruppenSchema requires all four, and /dashboard/saisontabelle fails to parse the response.\nEvery season so far has had teams in all four groups, so that failure hides until it does not."
+      },
+      "FLKontakt": {
+        "properties": {
+          "telefon": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([+]?[\\s0-9\\-().]{3,20})$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telefon"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "telefon",
+          "email"
+        ],
+        "title": "FLKontakt"
+      },
+      "FLPatchSaisonPayload": {
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "End Date"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/FLSaisonRules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_date",
+          "end_date",
+          "rules"
+        ],
+        "title": "FLPatchSaisonPayload"
+      },
+      "FLPatchSaisonResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSaison"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLPatchSaisonResponse"
+      },
+      "FLPatchSaisonSpielerPayload": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "is_nachgetragen": {
+            "type": "boolean",
+            "title": "Is Nachgetragen",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id"
+        ],
+        "title": "FLPatchSaisonSpielerPayload"
+      },
+      "FLPatchSaisonTeamPayload": {
+        "properties": {
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "is_disqualified": {
+            "type": "boolean",
+            "title": "Is Disqualified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gruppe",
+          "is_disqualified"
+        ],
+        "title": "FLPatchSaisonTeamPayload"
+      },
+      "FLPatchSchiedsrichterPayload": {
+        "properties": {
+          "kontakt": {
+            "$ref": "#/components/schemas/FLKontakt"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "schule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schule"
+          },
+          "default_payment": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Default Payment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kontakt",
+          "name",
+          "schule",
+          "default_payment"
+        ],
+        "title": "FLPatchSchiedsrichterPayload"
+      },
+      "FLPatchSchiedsrichterResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSchiedsrichter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLPatchSchiedsrichterResponse"
+      },
+      "FLPatchSpielDataPayload": {
+        "properties": {
+          "is_canceled": {
+            "type": "boolean",
+            "title": "Is Canceled"
+          },
+          "team1": {
+            "$ref": "#/components/schemas/FLSpielTeamField"
+          },
+          "team2": {
+            "$ref": "#/components/schemas/FLSpielTeamField"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "ort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielOrtField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schiedsrichter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielSchiedsrichterField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_canceled",
+          "team1",
+          "team2",
+          "datum",
+          "uhrzeit",
+          "ort",
+          "schiedsrichter"
+        ],
+        "title": "FLPatchSpielDataPayload"
+      },
+      "FLPatchSpielDataResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "title": "FLPatchSpielDataResponse",
+        "description": "The `{\"acknowledged\": 1}` body patch_spiel_data returns, declared rather than implied."
+      },
+      "FLPatchSpielerPayload": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname"
+        ],
+        "title": "FLPatchSpielerPayload"
+      },
+      "FLPatchSpielortPayload": {
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "default_mietpreis": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Default Mietpreis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "address",
+          "name",
+          "default_mietpreis"
+        ],
+        "title": "FLPatchSpielortPayload"
+      },
+      "FLPatchSpielortResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSpielort"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLPatchSpielortResponse"
+      },
+      "FLPatchSpieltagPayload": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "beginn": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Beginn"
+          },
+          "ende": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Ende"
+          },
+          "anzahl_spiele": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Anzahl Spiele"
+          },
+          "order_val": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Order Val"
+          },
+          "saison_phase": {
+            "type": "string",
+            "enum": [
+              "gruppenphase",
+              "viertelfinale",
+              "halbfinale",
+              "finale"
+            ],
+            "title": "Saison Phase"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "beginn",
+          "ende",
+          "anzahl_spiele",
+          "order_val",
+          "saison_phase"
+        ],
+        "title": "FLPatchSpieltagPayload"
+      },
+      "FLPatchTeamPayload": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "website_url": {
+            "type": "string",
+            "title": "Website Url"
+          },
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "shorthand",
+          "description",
+          "full_name",
+          "website_url",
+          "address"
+        ],
+        "title": "FLPatchTeamPayload"
+      },
+      "FLPatchTeamResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLTeamRecord"
+          },
+          "fanned_out_to_spiele": {
+            "type": "integer",
+            "title": "Fanned Out To Spiele"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document",
+          "fanned_out_to_spiele"
+        ],
+        "title": "FLPatchTeamResponse"
+      },
+      "FLPostSaisonPayload": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Id"
+          },
+          "start_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "End Date"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/FLSaisonRules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "start_date",
+          "end_date",
+          "rules"
+        ],
+        "title": "FLPostSaisonPayload"
+      },
+      "FLPostSaisonResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id"
+        ],
+        "title": "FLPostSaisonResponse"
+      },
+      "FLPostSaisonSpielerPayload": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "is_nachgetragen": {
+            "type": "boolean",
+            "title": "Is Nachgetragen",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id"
+        ],
+        "title": "FLPostSaisonSpielerPayload",
+        "description": "One player's membership of one team's squad for one season. `spieler_id` comes from the path."
+      },
+      "FLPostSaisonTeamPayload": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "gruppe"
+        ],
+        "title": "FLPostSaisonTeamPayload",
+        "description": "One team's membership of one season. `team_id` comes from the path, `saison_id` from here."
+      },
+      "FLPostSchiedsrichterPayload": {
+        "properties": {
+          "kontakt": {
+            "$ref": "#/components/schemas/FLKontakt"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "schule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schule"
+          },
+          "default_payment": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Default Payment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kontakt",
+          "name",
+          "schule",
+          "default_payment"
+        ],
+        "title": "FLPostSchiedsrichterPayload"
+      },
+      "FLPostSchiedsrichterResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id"
+        ],
+        "title": "FLPostSchiedsrichterResponse"
+      },
+      "FLPostSpielerPayload": {
+        "properties": {
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vorname"
+        ],
+        "title": "FLPostSpielerPayload",
+        "description": "The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."
+      },
+      "FLPostSpielortPayload": {
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "default_mietpreis": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Default Mietpreis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "address",
+          "name",
+          "default_mietpreis"
+        ],
+        "title": "FLPostSpielortPayload"
+      },
+      "FLPostSpielortResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id"
+        ],
+        "title": "FLPostSpielortResponse"
+      },
+      "FLPostSpieltagPayload": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "beginn": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Beginn"
+          },
+          "ende": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Ende"
+          },
+          "anzahl_spiele": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Anzahl Spiele"
+          },
+          "order_val": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Order Val"
+          },
+          "saison_phase": {
+            "type": "string",
+            "enum": [
+              "gruppenphase",
+              "viertelfinale",
+              "halbfinale",
+              "finale"
+            ],
+            "title": "Saison Phase"
+          },
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "beginn",
+          "ende",
+          "anzahl_spiele",
+          "order_val",
+          "saison_phase",
+          "saison_id"
+        ],
+        "title": "FLPostSpieltagPayload"
+      },
+      "FLPostTeamPayload": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "website_url": {
+            "type": "string",
+            "title": "Website Url"
+          },
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "shorthand",
+          "description",
+          "full_name",
+          "website_url",
+          "address"
+        ],
+        "title": "FLPostTeamPayload"
+      },
+      "FLPostTeamResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id"
+        ],
+        "title": "FLPostTeamResponse"
+      },
+      "FLSaison": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Id"
+          },
+          "start_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "End Date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "past",
+              "active",
+              "future"
+            ],
+            "title": "Status"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/FLSaisonRules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "start_date",
+          "end_date",
+          "status",
+          "rules"
+        ],
+        "title": "FLSaison"
+      },
+      "FLSaisonRules": {
+        "properties": {
+          "win_points": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Win Points"
+          },
+          "draw_points": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Draw Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "win_points",
+          "draw_points"
+        ],
+        "title": "FLSaisonRules"
+      },
+      "FLSaisonSpielerResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "is_nachgetragen": {
+            "type": "boolean",
+            "title": "Is Nachgetragen"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "saison_id",
+          "team_id",
+          "nummer",
+          "position",
+          "stufe",
+          "is_nachgetragen",
+          "inactive_since"
+        ],
+        "title": "FLSaisonSpielerResponse",
+        "description": "A junction row, which has no read model of its own -- so it is echoed as it was written."
+      },
+      "FLSaisonTeamResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "is_disqualified": {
+            "type": "boolean",
+            "title": "Is Disqualified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "gruppe",
+          "is_disqualified"
+        ],
+        "title": "FLSaisonTeamResponse",
+        "description": "A junction row, which has no read model of its own -- so it is echoed as it was written."
+      },
+      "FLSaisonsListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "format": {
+            "type": "string",
+            "const": "list",
+            "title": "Format",
+            "default": "list"
+          },
+          "saisons": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaison"
+            },
+            "type": "array",
+            "title": "Saisons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saisons"
+        ],
+        "title": "FLSaisonsListResponse"
+      },
+      "FLSaisonsSingleResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "format": {
+            "type": "string",
+            "const": "single",
+            "title": "Format",
+            "default": "single"
+          },
+          "saison": {
+            "$ref": "#/components/schemas/FLSaison"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison"
+        ],
+        "title": "FLSaisonsSingleResponse"
+      },
+      "FLSchiedsrichter": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "schule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schule"
+          },
+          "default_payment": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Default Payment"
+          },
+          "kontakt": {
+            "$ref": "#/components/schemas/FLKontakt"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "schule",
+          "default_payment",
+          "kontakt",
+          "inactive_since"
+        ],
+        "title": "FLSchiedsrichter"
+      },
+      "FLSchiedsrichterListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLSchiedsrichter"
+            },
+            "type": "array",
+            "title": "Schiedsrichter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter"
+        ],
+        "title": "FLSchiedsrichterListResponse"
+      },
+      "FLSchiedsrichterSingleResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "schiedsrichter": {
+            "$ref": "#/components/schemas/FLSchiedsrichter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter"
+        ],
+        "title": "FLSchiedsrichterSingleResponse"
+      },
+      "FLSchiedsrichterWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSchiedsrichter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSchiedsrichterWriteResponse",
+        "description": "Shared by delete and reactivate — both answer with the referee as they now stand."
+      },
+      "FLSpiel": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "team1": {
+            "$ref": "#/components/schemas/FLSpielTeamField"
+          },
+          "team2": {
+            "$ref": "#/components/schemas/FLSpielTeamField"
+          },
+          "datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum"
+          },
+          "uhrzeit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uhrzeit"
+          },
+          "ort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielOrtField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schiedsrichter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielSchiedsrichterField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ergebnis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+:[0-9]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ergebnis"
+          },
+          "spieltag_id": {
+            "type": "string",
+            "title": "Spieltag Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "is_canceled": {
+            "type": "boolean",
+            "title": "Is Canceled"
+          },
+          "saison_phase": {
+            "type": "string",
+            "enum": [
+              "gruppenphase",
+              "viertelfinale",
+              "halbfinale",
+              "finale"
+            ],
+            "title": "Saison Phase"
+          },
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "team1",
+          "team2",
+          "datum",
+          "uhrzeit",
+          "ort",
+          "schiedsrichter",
+          "ergebnis",
+          "spieltag_id",
+          "spiel_nr",
+          "is_canceled",
+          "saison_phase",
+          "saison_id"
+        ],
+        "title": "FLSpiel"
+      },
+      "FLSpielOrtField": {
+        "properties": {
+          "spielort_id": {
+            "type": "string",
+            "title": "Spielort Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "maps_link": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Maps Link"
+          },
+          "mietpreis": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Mietpreis"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielort_id",
+          "name",
+          "maps_link",
+          "mietpreis"
+        ],
+        "title": "FLSpielOrtField"
+      },
+      "FLSpielSchiedsrichterField": {
+        "properties": {
+          "schiedsrichter_id": {
+            "type": "string",
+            "title": "Schiedsrichter Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "payment": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Payment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schiedsrichter_id",
+          "name",
+          "payment"
+        ],
+        "title": "FLSpielSchiedsrichterField"
+      },
+      "FLSpielTeamField": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "tore": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tore"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "name",
+          "tore",
+          "shorthand"
+        ],
+        "title": "FLSpielTeamField"
+      },
+      "FLSpieleListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpiel"
+            },
+            "type": "array",
+            "title": "Spiele"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiele"
+        ],
+        "title": "FLSpieleListResponse"
+      },
+      "FLSpieleSingleResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiel": {
+            "$ref": "#/components/schemas/FLSpiel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel"
+        ],
+        "title": "FLSpieleSingleResponse"
+      },
+      "FLSpieler": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "is_nachgetragen": {
+            "type": "boolean",
+            "title": "Is Nachgetragen",
+            "default": false
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vorname",
+          "nachname",
+          "stufe",
+          "nummer",
+          "position",
+          "team_id",
+          "inactive_since"
+        ],
+        "title": "FLSpieler"
+      },
+      "FLSpielerListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpieler"
+            },
+            "type": "array",
+            "title": "Spieler"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler"
+        ],
+        "title": "FLSpielerListResponse"
+      },
+      "FLSpielerSingleResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          },
+          "vorname": {
+            "type": "string",
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id",
+          "vorname",
+          "nachname",
+          "inactive_since"
+        ],
+        "title": "FLSpielerSingleResponse",
+        "description": "One player, from `GET /spieler/{spieler_id}`.\n\nCarries only the person: `vorname`, `nachname` and whether they are retired. The squad fields on\n`FLSpieler` -- team, number, position, stufe -- are season-scoped, so a player addressed without a\nseason has none of them, and inventing a season here would make the answer depend on a default the\ncaller never stated."
+      },
+      "FLSpielerWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler_id": {
+            "type": "string",
+            "title": "Spieler Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler_id"
+        ],
+        "title": "FLSpielerWriteResponse"
+      },
+      "FLSpielort": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "maps_link": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Maps Link"
+          },
+          "default_mietpreis": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Default Mietpreis"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "address",
+          "name",
+          "maps_link",
+          "default_mietpreis",
+          "inactive_since"
+        ],
+        "title": "FLSpielort"
+      },
+      "FLSpielortWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSpielort"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSpielortWriteResponse",
+        "description": "Shared by delete and reactivate — both answer with the venue as it now stands."
+      },
+      "FLSpielorteListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spielorte": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielort"
+            },
+            "type": "array",
+            "title": "Spielorte"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielorte"
+        ],
+        "title": "FLSpielorteListResponse"
+      },
+      "FLSpielorteSingleResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spielort": {
+            "$ref": "#/components/schemas/FLSpielort"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spielort"
+        ],
+        "title": "FLSpielorteSingleResponse"
+      },
+      "FLSpieltag": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "beginn": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Beginn"
+          },
+          "ende": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Ende"
+          },
+          "anzahl_spiele": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Anzahl Spiele"
+          },
+          "order_val": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Order Val"
+          },
+          "saison_phase": {
+            "type": "string",
+            "enum": [
+              "gruppenphase",
+              "viertelfinale",
+              "halbfinale",
+              "finale"
+            ],
+            "title": "Saison Phase"
+          },
+          "saison_id": {
+            "type": "string",
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Saison Id"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "beginn",
+          "ende",
+          "anzahl_spiele",
+          "order_val",
+          "saison_phase",
+          "saison_id",
+          "inactive_since"
+        ],
+        "title": "FLSpieltag"
+      },
+      "FLSpieltagWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieltag_id": {
+            "type": "string",
+            "title": "Spieltag Id"
+          },
+          "updated_document": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpieltag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieltag_id"
+        ],
+        "title": "FLSpieltagWriteResponse"
+      },
+      "FLSpieltageListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieltage": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpieltag"
+            },
+            "type": "array",
+            "title": "Spieltage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieltage"
+        ],
+        "title": "FLSpieltageListResponse"
+      },
+      "FLSpieltageSingleResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieltag": {
+            "$ref": "#/components/schemas/FLSpieltag"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieltag"
+        ],
+        "title": "FLSpieltageSingleResponse"
+      },
+      "FLTeam": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "statistik": {
+            "$ref": "#/components/schemas/FLTeamStatistik"
+          },
+          "is_placeholder": {
+            "type": "boolean",
+            "title": "Is Placeholder"
+          },
+          "is_disqualified": {
+            "type": "boolean",
+            "title": "Is Disqualified"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "website_url": {
+            "type": "string",
+            "title": "Website Url"
+          },
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "gruppe",
+          "statistik",
+          "is_placeholder",
+          "is_disqualified",
+          "shorthand",
+          "description",
+          "full_name",
+          "website_url",
+          "address",
+          "inactive_since"
+        ],
+        "title": "FLTeam"
+      },
+      "FLTeamRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "is_placeholder": {
+            "type": "boolean",
+            "title": "Is Placeholder"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "website_url": {
+            "type": "string",
+            "title": "Website Url"
+          },
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "is_placeholder",
+          "shorthand",
+          "description",
+          "full_name",
+          "website_url",
+          "address",
+          "inactive_since"
+        ],
+        "title": "FLTeamRecord",
+        "description": "The club document as it is STORED — `FLTeam` minus the three fields no `teams` document carries.\n\nWhat the write endpoints echo back. A write to `teams` changes the club and nothing season-scoped,\nso `gruppe`, `is_disqualified` and `statistik` are not this endpoint's to report — and reading them\nwould mean re-running the team pipeline, whose junction join is strict. A club with no\n`saison_teams` row for the current season drops out of that pipeline entirely, which is the normal\nstate for a club being created, retired or reactivated."
+      },
+      "FLTeamStatistik": {
+        "properties": {
+          "anzahl_gespielte_spiele": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Anzahl Gespielte Spiele",
+            "default": 0
+          },
+          "siege": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Siege",
+            "default": 0
+          },
+          "niederlagen": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Niederlagen",
+            "default": 0
+          },
+          "unentschieden": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Unentschieden",
+            "default": 0
+          },
+          "tore_geschossen": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tore Geschossen",
+            "default": 0
+          },
+          "tore_kassiert": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Tore Kassiert",
+            "default": 0
+          },
+          "punkte": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Punkte",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "FLTeamStatistik"
+      },
+      "FLTeamWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "updated_document": {
+            "$ref": "#/components/schemas/FLTeamRecord"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLTeamWriteResponse",
+        "description": "What the retire and reactivate endpoints echo. `FLTeamRecord`, for the reason stated on it."
+      },
+      "FLTeamsGroupedResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "format": {
+            "type": "string",
+            "const": "grouped",
+            "title": "Format",
+            "default": "grouped"
+          },
+          "gruppen": {
+            "$ref": "#/components/schemas/FLGruppen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gruppen"
+        ],
+        "title": "FLTeamsGroupedResponse"
+      },
+      "FLTeamsListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "format": {
+            "type": "string",
+            "const": "list",
+            "title": "Format",
+            "default": "list"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeam"
+            },
+            "type": "array",
+            "title": "Teams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teams"
+        ],
+        "title": "FLTeamsListResponse"
+      },
+      "FLTeamsSingleResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "format": {
+            "type": "string",
+            "const": "single",
+            "title": "Format",
+            "default": "single"
+          },
+          "team": {
+            "$ref": "#/components/schemas/FLTeam"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team"
+        ],
+        "title": "FLTeamsSingleResponse",
+        "description": "One team, from `GET /teams/{team_id}`.\n\nDeliberately not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can\nreturn, and this is a different endpoint returning exactly one shape."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "SystemInfoResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "api_version": {
+            "type": "integer",
+            "title": "Api Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "api_version"
+        ],
+        "title": "SystemInfoResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
