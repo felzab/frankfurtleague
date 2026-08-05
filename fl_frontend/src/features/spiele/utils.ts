@@ -13,6 +13,9 @@
  *   • `computeErgebnisFor` returns "?" for anything it cannot read with certainty, including a team id
  *     that is neither side and a side with no occupant yet. A two-way branch would score an unknown
  *     team as team2 and render a confident loss for a team that did not play.
+ *   • `computeErgebnisFor` reads `ergebnis` ALONE, so a knockout settled on penalties is a "D" here.
+ *     That is deliberate and it matches the league table, which counts the fixture as a draw — only
+ *     the bracket takes a winner from a shoot-out (ADR-0044).
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -47,11 +50,27 @@ export const computeSpielStatus = ({
  * **This is derivation only. The three `SpielCard` components stay separate** — they are justified
  * variance, not copy-paste (ADR-0007).
  */
-export const formatSpielDisplay = (spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis">) => ({
+export const formatSpielDisplay = (spiel: Pick<FLSpiel, "datum" | "uhrzeit" | "ergebnis" | "elfmeterschiessen">) => ({
   datum: formatSpielDatum(spiel.datum),
   uhrzeit: formatUhrzeit(spiel.uhrzeit),
   ergebnis: spiel.ergebnis ?? PLACEHOLDER.ergebnis,
+  elfmeterschiessen: formatElfmeterschiessen(spiel.elfmeterschiessen),
 });
+
+/**
+ * A shoot-out as the abbreviation German football writes it: `4:3 i. E.`, or `null` where none was
+ * played — which is every match but a handful.
+ *
+ * **Returned beside the score and never folded into it.** The fixture finished level and the league
+ * table counts it as a draw (ADR-0044), so a card that showed `4:3` where `2:2` belongs would state the
+ * opposite of what the Saisontabelle does about the same match. Every caller renders the two together.
+ *
+ * `i. E.` is "im Elfmeterschießen". The two spaces are `\u202F`, a narrow no-break space, written as an
+ * escape rather than pasted in: it is the character German typography sets an abbreviation with, it
+ * keeps the whole token on one line on a narrow card, and it is invisible in an editor.
+ */
+export const formatElfmeterschiessen = (elfmeterschiessen: FLSpiel["elfmeterschiessen"]): string | null =>
+  elfmeterschiessen === null ? null : `${elfmeterschiessen.team1}:${elfmeterschiessen.team2}\u202Fi.\u202FE.`;
 
 /** Win / loss / draw / unknown, from one team's point of view. */
 export type FLSpielErgebnisFor = "W" | "L" | "D" | "?";

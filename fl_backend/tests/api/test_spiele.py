@@ -9,7 +9,13 @@ win/draw/loss from it — an unconstrained value rendered as a loss for BOTH tea
 import pytest
 from pydantic import ValidationError
 
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielQuelleGruppe, FLSpielQuelleSpiel
+from app.api.spiele.schemas import (
+    FLPatchSpielDataPayload,
+    FLSpiel,
+    FLSpielElfmeterschiessen,
+    FLSpielQuelleGruppe,
+    FLSpielQuelleSpiel,
+)
 
 
 def test_accepts_a_valid_spiel(spiel):
@@ -131,6 +137,62 @@ class TestUnresolvedSides:
         assert excinfo.value.errors()[0]["loc"][-1] == field
 
 
+class TestShootout:
+    """
+    `elfmeterschiessen`: how a knockout that finished level was settled (ADR-0044).
+
+    A scoreline of its own, never a third number inside `ergebnis` — both ends parse that string to
+    derive win/draw/loss, and the league table counts this fixture as the draw it was.
+    """
+
+    def test_accepts_a_level_knockout_settled_on_penalties(self, spiel):
+        """The fixture the field exists for."""
+        parsed = FLSpiel.model_validate(spiel(ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}))
+
+        assert parsed.elfmeterschiessen == FLSpielElfmeterschiessen(team1=4, team2=3)
+
+    def test_accepts_a_null_shootout(self, spiel):
+        """Every match that did not end level, which is almost all of them."""
+        assert FLSpiel.model_validate(spiel()).elfmeterschiessen is None
+
+    def test_rejects_a_level_shootout(self, spiel, assert_rejects):
+        """
+        The one value the field could hold and still name nobody.
+
+        Accepting it would put a fixture back exactly where a drawn knockout was before this field
+        existed — no winner, nothing downstream, and now a filled-in record suggesting otherwise.
+        """
+        assert_rejects(FLSpiel, spiel(ergebnis="2:2", elfmeterschiessen={"team1": 3, "team2": 3}), "elfmeterschiessen")
+
+    def test_rejects_a_negative_shootout_count(self, spiel, assert_rejects):
+        assert_rejects(FLSpiel, spiel(ergebnis="2:2", elfmeterschiessen={"team1": -1, "team2": 3}), "team1")
+
+    @pytest.mark.parametrize("field", ["team1", "team2"])
+    def test_requires_both_sides_of_the_shootout(self, spiel, assert_rejects, field):
+        """One count alone names a winner only by assuming what the other one was."""
+        shootout = {"team1": 4, "team2": 3}
+        del shootout[field]
+
+        assert_rejects(FLSpiel, spiel(ergebnis="2:2", elfmeterschiessen=shootout), field)
+
+    def test_requires_the_shootout_field_to_be_present(self, spiel):
+        """
+        Nullable, and REQUIRED — no Pydantic default, exactly as `teamN_quelle` is.
+
+        A default would let a document that has never carried the key read as `None`, which is the state
+        the pre-deploy seeding step exists to remove: `python -m app.core.constraints --check` reports
+        which documents still lack it, and a default would make that report come back clean while the
+        key was still missing.
+        """
+        incomplete = spiel()
+        del incomplete["elfmeterschiessen"]
+
+        with pytest.raises(ValidationError) as excinfo:
+            FLSpiel.model_validate(incomplete)
+
+        assert excinfo.value.errors()[0]["loc"][-1] == "elfmeterschiessen"
+
+
 class TestEmbeddedFields:
     def test_rejects_a_negative_goal_count(self, spiel, spiel_team_field):
         """Goals are `ge=0`; a negative count would flow straight into a team's statistics."""
@@ -217,6 +279,7 @@ class TestPatchPayload:
             "team2": base["team2"],
             "team1_quelle": base["team1_quelle"],
             "team2_quelle": base["team2_quelle"],
+            "elfmeterschiessen": base["elfmeterschiessen"],
             "datum": base["datum"],
             "uhrzeit": base["uhrzeit"],
             "ort": base["ort"],
@@ -238,6 +301,27 @@ class TestPatchPayload:
         """The write path enforces the same time format as the read path, rather than relaxing it."""
         with pytest.raises(ValidationError):
             FLPatchSpielDataPayload.model_validate(self._payload(spiel, uhrzeit="14:30"))
+
+    def test_requires_the_shootout_field(self, spiel):
+        """
+        On the payload for the same `$set` reason as the two sources above, and required for it too.
+
+        An omitted key is written as an overwrite, so a payload model without this would silently
+        retract a recorded shoot-out the first time an admin corrected a kick-off time.
+        """
+        incomplete = self._payload(spiel)
+        del incomplete["elfmeterschiessen"]
+
+        with pytest.raises(ValidationError) as excinfo:
+            FLPatchSpielDataPayload.model_validate(incomplete)
+
+        assert excinfo.value.errors()[0]["loc"][-1] == "elfmeterschiessen"
+
+    def test_accepts_a_shootout_on_the_payload(self, spiel):
+        """The write path is the only way a shoot-out is ever recorded, so it has to carry one."""
+        parsed = FLPatchSpielDataPayload.model_validate(self._payload(spiel, elfmeterschiessen={"team1": 4, "team2": 3}))
+
+        assert parsed.elfmeterschiessen == FLSpielElfmeterschiessen(team1=4, team2=3)
 
     @pytest.mark.parametrize("field", ["team1_quelle", "team2_quelle"])
     def test_requires_the_source_fields(self, spiel, field):

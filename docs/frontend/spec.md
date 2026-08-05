@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `9d96b26`, 2026-08-05
+**Verified against:** `ab20403`, 2026-08-05
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -165,8 +165,13 @@ collapses them without producing a three-mode component, which is harder to read
 single-mode ones. **Do not merge them.** (ADR-0007.)
 
 Their genuinely shared code is already extracted: `formatSpielDisplay` in `spiele/utils.ts` returns the
-three presentation values all of them need. That extraction was itself a bug fix — an unplayed match
+four presentation values all of them need. That extraction was itself a bug fix — an unplayed match
 rendered `"- : -"` in one card and `"-:-"` in the other two, on the same screen.
+
+The fourth is a knockout's shoot-out, which **every card renders on its own line under the score and
+never inside it** ([ADR-0044](../_decisions/0044-a-shoot-out-is-its-own-scoreline.md)): the fixture
+finished level, the Saisontabelle counts it as a draw, and a card showing `4:3` where `2:2` belongs
+would contradict the table about the same match.
 
 ## 7. Environment
 

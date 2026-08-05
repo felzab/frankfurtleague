@@ -19,6 +19,9 @@ all of it back together, which is why the model looks like one document and is n
   • A match counts towards the table exactly when it carries an `ergebnis`. `is_canceled` is
     deliberately NOT consulted: a cancelled match with a recorded result is a FORFEIT, and a forfeit
     counts. Three matches in season 2026 are in that state.
+  • `elfmeterschiessen` is NOT consulted either. A knockout settled on penalties is a draw for every
+    figure here, while the bracket advances a winner from it -- the two disagree about that fixture
+    deliberately (ADR-0044).
   • WHICH matches are in scope is `filters.statistik_scope`, and it defaults to the Gruppenphase. The
     league table is a group standing, so a playoff result must not move it; `"gesamt"` is the same
     pipeline without the phase filter, and is what a team's own page asks for.
@@ -47,6 +50,7 @@ all of it back together, which is why the model looks like one document and is n
             table here is that decision reversed, not an optimisation
   ADR-0029  the league table counts the Gruppenphase, and that is the default scope
   ADR-0043  the tiebreak chain, who may hold a placing, and what makes one final
+  ADR-0044  a shoot-out is its own scoreline, so the table counts the fixture as a draw
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -82,6 +86,15 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
     A match counts exactly when it carries an `ergebnis`. `is_canceled` is deliberately not consulted:
     a cancelled match with a result is a forfeit, and a forfeit counts.
 
+    **`elfmeterschiessen` is not consulted either, and that is the same kind of deliberate omission.** A
+    knockout settled on penalties is a DRAW here -- one point each, one entry in `unentschieden`, and
+    the shoot-out's own counts nowhere in `tore_geschossen` (ADR-0044). The bracket reads that fixture
+    the other way and advances a winner from it
+    (`fl_backend/app/api/spiele/services.py :: _outcome_of`), so the table and
+    the bracket say different things about the same match ON PURPOSE. That is what every competition
+    scoring a shoot-out does, and it is why the two counts are a scoreline of their own rather than
+    goals: adding them to `tore` would move a league table on kicks that were never part of the match.
+
     `scope` decides which matches are in scope at all (ADR-0029): `"gruppenphase"` is the league table
     and narrows to that phase, `"gesamt"` is every phase and is what a team's own page shows.
     """
@@ -103,7 +116,9 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                         # `saison_phase` value meaning "any", and an `$in` over all four would have to
                         # be widened by hand the day a fifth phase is added.
                         **phase_match,
-                        # The counting rule, in one place. Note what is absent: `is_canceled` (ADR-0026).
+                        # The counting rule, in one place. Note what is absent: `is_canceled`
+                        # (ADR-0026) and `elfmeterschiessen` (ADR-0044). A shoot-out decides the
+                        # bracket and never the table -- see the docstring above.
                         "ergebnis": {"$ne": None},
                         # `ergebnis` is derived from these two by the admin write path, so this restates
                         # the line above rather than adding a rule. It is restated because a document
@@ -291,7 +306,9 @@ def _counted_goals(spiel: FLSpiel) -> tuple[CustomObjectId, int, CustomObjectId,
     The counting rule is `build_statistik_lookup_stage`'s, restated in Python because a standing has to
     ask the same question of a match the pipeline has already summed: a match contributes exactly when
     it carries an `ergebnis` and both sides' goals (ADR-0026). `is_canceled` is deliberately not
-    consulted -- a cancelled match with a result is a forfeit, and a forfeit counts.
+    consulted -- a cancelled match with a result is a forfeit, and a forfeit counts. Neither is
+    `elfmeterschiessen`: a shoot-out is a draw everywhere a standing is derived, including the
+    head-to-head mini-table this feeds (ADR-0044).
     """
 
     if spiel.ergebnis is None or spiel.team1 is None or spiel.team2 is None:

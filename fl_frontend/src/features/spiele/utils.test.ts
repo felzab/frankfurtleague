@@ -12,7 +12,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { computeErgebnisFor, computeSpielStatus, formatQuelle, formatSpielDisplay, formatSpielUpdateMessage } from "./utils.ts";
+import {
+  computeErgebnisFor,
+  computeSpielStatus,
+  formatElfmeterschiessen,
+  formatQuelle,
+  formatSpielDisplay,
+  formatSpielUpdateMessage,
+} from "./utils.ts";
 
 import type { FLSpiel } from "./schemas.ts";
 
@@ -134,10 +141,10 @@ describe("computeErgebnisFor", () => {
 });
 
 describe("formatSpielDisplay", () => {
-  const spiel = { datum: "2026-07-28", uhrzeit: "14:00", ergebnis: "3:1" };
+  const spiel = { datum: "2026-07-28", uhrzeit: "14:00", ergebnis: "3:1", elfmeterschiessen: null };
 
-  it("derives all three display values", () => {
-    assert.deepEqual(formatSpielDisplay(spiel), { datum: "28.07.2026", uhrzeit: "14:00", ergebnis: "3:1" });
+  it("derives all four display values", () => {
+    assert.deepEqual(formatSpielDisplay(spiel), { datum: "28.07.2026", uhrzeit: "14:00", ergebnis: "3:1", elfmeterschiessen: null });
   });
 
   // The drift this replaced: SpielCard rendered "- : -" while the two compact cards rendered
@@ -147,11 +154,36 @@ describe("formatSpielDisplay", () => {
   });
 
   it("uses the shared placeholders for a missing date and time", () => {
-    assert.deepEqual(formatSpielDisplay({ datum: null, uhrzeit: null, ergebnis: null }), {
+    assert.deepEqual(formatSpielDisplay({ datum: null, uhrzeit: null, ergebnis: null, elfmeterschiessen: null }), {
       datum: "TBD",
       uhrzeit: "--:--",
       ergebnis: "-:-",
+      elfmeterschiessen: null,
     });
+  });
+
+  // The score stays the draw the Saisontabelle counts, and the shoot-out arrives as a separate value
+  // the cards render on a line of their own (ADR-0044).
+  it("keeps a shoot-out beside the score rather than inside it", () => {
+    const settled = formatSpielDisplay({ ...spiel, ergebnis: "2:2", elfmeterschiessen: { team1: 4, team2: 3 } });
+
+    assert.equal(settled.ergebnis, "2:2");
+    assert.equal(settled.elfmeterschiessen, "4:3\u202Fi.\u202FE.");
+  });
+});
+
+describe("formatElfmeterschiessen", () => {
+  it("returns null for a match that was not settled on penalties, which is almost all of them", () => {
+    assert.equal(formatElfmeterschiessen(null), null);
+  });
+
+  // Narrow no-break spaces, so the abbreviation and its score never break across two lines.
+  it("writes the shoot-out the way German football abbreviates it", () => {
+    assert.equal(formatElfmeterschiessen({ team1: 5, team2: 4 }), "5:4\u202Fi.\u202FE.");
+  });
+
+  it("names the scoreline in fixture order rather than winner first", () => {
+    assert.equal(formatElfmeterschiessen({ team1: 2, team2: 4 }), "2:4\u202Fi.\u202FE.");
   });
 });
 

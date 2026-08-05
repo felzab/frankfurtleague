@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `9d96b26`, 2026-08-05
+**Verified against:** `ab20403`, 2026-08-05
 **Scope:** `fl_backend/`
 
 ---
@@ -14,8 +14,8 @@ every endpoint in the router.
 
 | Method | Path                       | Handler                    | Notes                                                                                   |
 | ------ | -------------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
-| GET    | `/spiele`                  | `spiele/router.py`         | Filters below; omitted `saison_id` means the current season                             |
-| GET    | `/spiele/{spiel_id}`       | `spiele/router.py`         | Unused by the frontend                                                                  |
+| GET    | `/spiele`                  | `spiele/router.py`         | Filters below; omitted `saison_id` means the current season. **No POST** — see I26      |
+| GET    | `/spiele/{spiel_id}`       | `spiele/router.py`         | Unused by the frontend. **No DELETE** — see I26                                         |
 | GET    | `/teams`                   | `teams/router.py`          | Two response shapes, discriminated by `format`; `statistik_scope` picks the table (I1c) |
 | GET    | `/teams/{team_id}`         | `teams/router.py`          | `getTeam(id)` — the two team detail pages. `format: "single"`                           |
 | GET    | `/spieler`                 | `spieler/router.py`        | **No current-season default** — see I4                                                  |
@@ -45,6 +45,7 @@ across seven slices**, each addressed resource-first with the id in the path.
 | ------ | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | GET    | `/spiele/action_required`                              | Matches needing attention. Admin-authorized, and uncached (ADR-0013)      |
 | PATCH  | `/spiele/{spiel_id}`                                   | Writes one match, then resolves that season's bracket. See §3             |
+|        | _no `POST /spiele`, no `DELETE /spiele/{spiel_id}`_    | A season's fixtures are created once — see I26                            |
 | POST   | `/teams`                                               | Creates a club                                                            |
 | PATCH  | `/teams/{team_id}`                                     | Renames a club **and fans it out** into `spiele`, with no exception       |
 | DELETE | `/teams/{team_id}`                                     | Soft delete — stamps `inactive_since`                                     |
@@ -76,7 +77,10 @@ across seven slices**, each addressed resource-first with the id in the path.
 | POST   | `/schiedsrichter/{id}/reactivate`                      | Clears `inactive_since`                                                   |
 
 **There is no `DELETE /saisons/{id}`**, and none on `/teams/{team_id}/saisons/{saison_id}` either
-([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)).
+([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)). **`/spiele` has neither a
+`POST` nor a `DELETE`**, because a season's fixtures are all created at its start and a match is
+thereafter cancelled or moved rather than removed or added
+([ADR-0045](../_decisions/0045-a-seasons-fixtures-are-created-once.md)).
 
 ### `system` router — mixed guards
 
@@ -107,10 +111,11 @@ across seven slices**, each addressed resource-first with the id in the path.
 | Step | Behaviour                                                                                | What breaks if changed                                                           |
 | ---- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | 1    | `ergebnis` derived as `f"{team1.tore}:{team2.tore}"`, `None` if either is `None`         | A client could submit a result disagreeing with the goals rendered beside it     |
+| 1a   | `elfmeterschiessen` kept only where the two goal counts are equal, discarded otherwise   | A shoot-out would stand against a fixture one side won on goals (I25)            |
 | 2    | Payload written wholesale with `$set`, at the helper's default `ReturnDocument.BEFORE`   | A field absent from the payload is **overwritten**, not preserved                |
 | 3    | A `None` return means no document matched — the 404 branch                               | A missing match would be reported as a successful edit                           |
 | 4    | The season's group standing is derived through `build_team_pipeline`, inside the session | A group the edit just completed would still read as unfinished, and seed nothing |
-| 5    | The season's bracket is resolved and every disagreeing fixture written (I23, I24a)       | A winner would never reach the fixture whose `Quelle` names its match            |
+| 5    | The season's bracket is resolved and every disagreeing fixture written (I23, I24a, I25)  | A winner would never reach the fixture whose `Quelle` names its match            |
 
 **The season comes off the document step 2 returns — the pre-image, which is the helper's default
 (I2).** This is the one write path that wants the default rather than `ReturnDocument.AFTER`, and it is
@@ -121,6 +126,11 @@ be scoped to one season, because `spiel_nr` identifies a match _within_ a season
 fact — a bracket resolved against a result the caller never committed would be worse than one that did
 not resolve. Both reads in steps 4 and 5 take the session, or they would see the snapshot from before
 step 2 and resolve the bracket from the match as it was.
+
+**A shoot-out rides with the result and is read only by the bracket.** Step 1a keeps
+`elfmeterschiessen` on a fixture whose goals finished level and discards it on every other, because that
+is the only shape it can describe and no `$jsonSchema` validator could refuse the rest (I25). Step 5 then
+takes a winner from it, and §5's derived table does not (I25a).
 
 **No team document is written.** The league table is computed from the match documents by `GET /teams`
 (§5, I1), so entering a result moves the table on the next read, with no second write to forget. The
@@ -199,27 +209,34 @@ not here — it is a constant of the code (`fl_backend/app/core/config.py :: API
 | I24a | A placing is written into a bracket slot only when NO combination of the group's outstanding results could change who holds it, and a tie is broken below points only for teams whose goals are final                                                                                                     | The walk over outcomes in `_decide_one_gruppe`, capped at ten outstanding fixtures per group                                                                                                                                                                           | Nothing bounds a goal margin, so a team with a match left has an unbounded goal difference. Seeding from the table as it stands makes the public bracket confidently wrong between the write and the result that overturns it — worse than a slot that is empty                                                                                                                            |
 | I24b | A team holds a placing when it is **not disqualified** and has a match that counts or still could; both surfaces apply the same rule                                                                                                                                                                      | `_may_hold_a_platz`, mirrored by `fl_frontend/src/features/teams/utils.ts :: computeQualifyingTeamIds`                                                                                                                                                                 | A disqualified team cannot advance, so the place falls to the team below. A team with no counting match is served a zeroed `statistik` that ranks above every negative goal difference, and the table prints `N/A` rather than a position for it — a row with no position must not be shown holding one                                                                                    |
 | I24c | Only the two states no further result can fix are reported to an admin; a placing that is simply not decided yet is reported to nobody                                                                                                                                                                    | `FLPatchSpielDataResponse.unresolvable_slots`, populated by `resolve_bracket`                                                                                                                                                                                          | Surfacing "not yet" would raise a notice on every group-seeded slot on every save for the length of the group phase, which trains an admin to ignore the list that also carries the two real faults                                                                                                                                                                                        |
+| I25  | A knockout that finished level is decided by `elfmeterschiessen`, a scoreline of its OWN -- never a third number in `ergebnis`, and never a stored winner ([ADR-0044](../_decisions/0044-a-shoot-out-is-its-own-scoreline.md))                                                                            | `FLSpielElfmeterschiessen`, which also refuses a level shoot-out; read by `fl_backend/app/api/spiele/services.py :: _outcome_of` and by nothing else                                                                                                                   | Both ends parse `ergebnis` to derive win/draw/loss, so a third number reads as malformed on every card. A stored winner beside the counts could contradict them, and no validator can express that it must not (ADR-0027) -- the same argument that kept an `is_manual` flag off `quelle`                                                                                                  |
+| I25a | The league table does NOT consult `elfmeterschiessen`: a shoot-out is a draw for every derived figure, so the bracket and the table disagree about that fixture on purpose                                                                                                                                | Its absence from `build_statistik_lookup_stage`'s `$match` and from `fl_backend/app/api/teams/services.py :: _counted_goals`, which the standings and the head-to-head mini-table both use                                                                             | Adding the counts to `tore` would move a league table on kicks that were never part of the match. Counting a shoot-out as a win is what no competition does, and here the Saisontabelle is a group standing that playoff matches never reach at all (I1c)                                                                                                                                  |
+| I25b | `elfmeterschiessen` goes with the occupant, exactly as `ergebnis` does: a fixture whose side changes loses it                                                                                                                                                                                             | The `$set` in `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`, which clears both                                                                                                                                                                        | The kicks were taken by a side no longer in the fixture, so a shoot-out left behind would hand the slot BELOW it a winner derived from a match neither side played                                                                                                                                                                                                                         |
+| I26  | A season's fixtures are created ONCE, so `/spiele` has no POST and no DELETE; a match is cancelled or moved, never removed or added ([ADR-0045](../_decisions/0045-a-seasons-fixtures-are-created-once.md))                                                                                               | Neither verb is declared on `fl_backend/app/api/spiele/admin_router.py`; `is_canceled` and `datum` are the two legitimate changes                                                                                                                                      | Deleting a match leaves every `teamN_quelle` naming its `spiel_nr` pointing at nothing, and the resolution reads an unresolvable reference as a typo and leaves the slot alone (I23) -- so the bracket keeps a team it should not, silently. A create would have to choose a `spiel_nr` the draw owns, and would give `spieltage.anzahl_spiele` a second writer                            |
 
 ## 6. Violation → remedy
 
-| Symptom                                          | Cause                                                                                  | Remedy                                                                                               |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| League table does not change after a result edit | A stale frontend cache, not the backend                                                | The table is recomputed per request (I1); check that the Spiel action still invalidates `teams`      |
-| A cancelled match still counts in the table      | Working as intended — it is a forfeit (I1a)                                            | Nothing. Clear the `ergebnis` if it should not count                                                 |
-| A semi-final lost its result after a QF edit     | Working as intended — its occupant changed (I23)                                       | Nothing. The goals were scored by a team no longer in the fixture; re-enter the new one              |
-| A winner did not reach the next fixture          | Its `Quelle` is `null`, or names a `spiel_nr` the season does not have                 | Set the source on that side in the admin form; the toast names every fixture the save moved (I23)    |
-| A group-seeded slot is still empty               | That placing is not final yet — some result in the group could still change it (I24a)  | Nothing. It fills itself on the first save after the group can no longer go another way              |
-| A group-seeded slot was reported, not filled     | The `platz` exceeds what the group can produce, or the chain cannot separate it (I24c) | Fix the `platz`, or take the slot over by choosing "Manuell" and entering a side                     |
-| A hand-entered team keeps reverting              | The slot is owned by its `Quelle` (I23)                                                | Choose "Manuell" on that side, and the slot is yours — the route for a knockout decided on penalties |
-| A team's page and the Saisontabelle disagree     | Working as intended — two scopes (I1c)                                                 | Nothing. The page counts every phase, the table counts the Gruppenphase                              |
-| Every team's table reads zero                    | A season resolved to one with no matches                                               | Check `saison_id`; an unknown season now 404s rather than returning an empty list                    |
-| Venue rent becomes 0 after an unrelated edit     | A Pydantic default was added to `mietpreis`                                            | Remove it (I6)                                                                                       |
-| A team vanishes from `/teams`                    | No `saison_teams` row for that season                                                  | Create the junction row (I11)                                                                        |
-| `/dashboard/saisontabelle` fails to load         | A group key missing from the grouped response                                          | I10 — should be impossible now                                                                       |
-| A create comes back 409                          | A unique index still holds the key                                                     | The retired row keeps its slot on purpose (I20). Reactivate it, or choose another key                |
-| A retired venue is missing from an admin picker  | The default read filters it out                                                        | Pass `include_inactive=true` — a switch, not a value to match on                                     |
-| 401 with `REQ-AUTH-002`                          | Wrong or missing `base` key                                                            | Check `INTERNAL_API_KEY_BASE` matches on both sides                                                  |
-| 503 with `Retry-After: 30`                       | Database unavailable                                                                   | `DB-CONN-001` — check MongoDB                                                                        |
+| Symptom                                          | Cause                                                                                  | Remedy                                                                                            |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| League table does not change after a result edit | A stale frontend cache, not the backend                                                | The table is recomputed per request (I1); check that the Spiel action still invalidates `teams`   |
+| A cancelled match still counts in the table      | Working as intended — it is a forfeit (I1a)                                            | Nothing. Clear the `ergebnis` if it should not count                                              |
+| A semi-final lost its result after a QF edit     | Working as intended — its occupant changed (I23)                                       | Nothing. The goals were scored by a team no longer in the fixture; re-enter the new one           |
+| A winner did not reach the next fixture          | Its `Quelle` is `null`, or names a `spiel_nr` the season does not have                 | Set the source on that side in the admin form; the toast names every fixture the save moved (I23) |
+| A group-seeded slot is still empty               | That placing is not final yet — some result in the group could still change it (I24a)  | Nothing. It fills itself on the first save after the group can no longer go another way           |
+| A group-seeded slot was reported, not filled     | The `platz` exceeds what the group can produce, or the chain cannot separate it (I24c) | Fix the `platz`, or take the slot over by choosing "Manuell" and entering a side                  |
+| A hand-entered team keeps reverting              | The slot is owned by its `Quelle` (I23)                                                | Choose "Manuell" on that side, and the slot is yours                                              |
+| A level knockout advanced nobody                 | No shoot-out is recorded against it, so it has no winner (I25)                         | Enter the shoot-out on that match; the slot fills on that save                                    |
+| A shoot-out did not change the league table      | Working as intended — it is a draw for every derived figure (I25a)                     | Nothing. Only the bracket takes a winner from a shoot-out                                         |
+| A shoot-out vanished after an unrelated edit     | Its fixture's occupant changed, so the whole result went with it (I25b)                | Re-enter the result and the shoot-out for the side that is in the fixture now                     |
+| A team's page and the Saisontabelle disagree     | Working as intended — two scopes (I1c)                                                 | Nothing. The page counts every phase, the table counts the Gruppenphase                           |
+| Every team's table reads zero                    | A season resolved to one with no matches                                               | Check `saison_id`; an unknown season now 404s rather than returning an empty list                 |
+| Venue rent becomes 0 after an unrelated edit     | A Pydantic default was added to `mietpreis`                                            | Remove it (I6)                                                                                    |
+| A team vanishes from `/teams`                    | No `saison_teams` row for that season                                                  | Create the junction row (I11)                                                                     |
+| `/dashboard/saisontabelle` fails to load         | A group key missing from the grouped response                                          | I10 — should be impossible now                                                                    |
+| A create comes back 409                          | A unique index still holds the key                                                     | The retired row keeps its slot on purpose (I20). Reactivate it, or choose another key             |
+| A retired venue is missing from an admin picker  | The default read filters it out                                                        | Pass `include_inactive=true` — a switch, not a value to match on                                  |
+| 401 with `REQ-AUTH-002`                          | Wrong or missing `base` key                                                            | Check `INTERNAL_API_KEY_BASE` matches on both sides                                               |
+| 503 with `Retry-After: 30`                       | Database unavailable                                                                   | `DB-CONN-001` — check MongoDB                                                                     |
 
 ## 7. Known-open
 

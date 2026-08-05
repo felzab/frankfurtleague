@@ -246,6 +246,8 @@ the ADR.
 | 0037 | Let the comment classifier shrink a CI job; add a flag that suppresses the images refusal           |
 | 0038 | Pin `type=gha`'s cache version; give the two images one cache scope; re-add an `actions/cache` step |
 | 0042 | Store the bracket's German label; add an override flag beside `quelle`; advance one match's feeds   |
+| 0044 | Put the shoot-out inside `ergebnis`; store its winner; let the league table read it                 |
+| 0045 | Add a POST or a DELETE to `/spiele` — a season's fixtures are created once, then cancelled or moved |
 
 ## 8. Documentation
 

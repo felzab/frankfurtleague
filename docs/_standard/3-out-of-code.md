@@ -1,6 +1,6 @@
 # Out-of-code documentation
 
-**Verified against:** `b9ee9d9`, 2026-08-05
+**Verified against:** `786513e`, 2026-08-05
 
 Governs everything under `/docs`. The principles in [`1-principles.md`](1-principles.md) apply here
 too; this chapter adds the shapes.
@@ -50,6 +50,7 @@ docs/
 ├── roadmap/                open items and future ideas
 ├── workflows/              how work ships, plus the commit/PR/issue templates
 ├── glossary.md             the German domain vocabulary
+├── logging.md              the correlation-id contract and the three log streams
 ├── frontend/
 │   ├── overview.md
 │   ├── spec.md
@@ -76,7 +77,7 @@ Two rules, which between them decide where anything new goes:
   **cross-cutting meta** — about the docs and the decisions themselves — so they sort above the three
   surfaces and never read as a fourth one.
 - **A single cross-cutting reference document sits at the root as a file.** `glossary.md` and
-  belongs to no surface and has no siblings, so wrapping it in a directory would add a level of
+  `logging.md` each belong to no surface, and wrapping either in a directory would add a level of
   navigation for one file. `README.md` is the entry point. `workflows/` went the other way once it
   gained a second document on the same theme, which is this rule working as intended.
 
@@ -84,6 +85,9 @@ So the test for something new is: _does it belong to one surface?_ If yes, it go
 directory. If no, it is a root-level file — until there are two or three of them on one theme, at which
 point they become a directory and the underscore question is whether they are about the docs (`_`) or
 about the project (no `_`).
+
+**Two root files are not a theme.** The domain vocabulary and the logging contract answer unrelated
+questions, so they stay two files rather than becoming an `_reference/` directory holding one page each.
 
 Note that `CLAUDE.md` lives at **`.claude/CLAUDE.md`**, not in `docs/`. It is configuration for the
 coding assistant rather than documentation of the project, and it is loaded automatically from there.
@@ -186,7 +190,7 @@ constraint someone can weigh.
 | Symptom                               | Cause                                                         | Remedy                                             |
 | ------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
 | Edit saved, list still shows old data | Granular tag invalidated but the entry carries only base tags | Check I2 — base `updateTag`s must be unconditional |
-| Team table drifts after result edits  | `ReturnDocument.AFTER` on the match write                     | Restore the pre-write read (I13)                   |
+| Team table drifts after result edits  | `ReturnDocument.AFTER` on the match write                     | Restore the pre-write read (backend I2)            |
 
 Template: [`templates/spec-sheet.md`](templates/spec-sheet.md).
 

@@ -99,6 +99,10 @@ async def advance_bracket_winners(
         # `ergebnis` goes with the occupant: an advancement is only ever emitted when a side changed,
         # so whatever was scored here was scored by a team no longer in the fixture. The goals are
         # already stripped from both sides by `resolve_bracket`.
+        #
+        # `elfmeterschiessen` goes with it for exactly the same reason and must never be left behind:
+        # it is the rest of that result, and a shoot-out standing against a fixture with no goals would
+        # hand the slot BELOW it a winner derived from a match neither side played (ADR-0044).
         await patch_one_in_db(
             collection=spiele_collection,
             filter={"_id": advancement.spiel_id},
@@ -107,6 +111,7 @@ async def advance_bracket_winners(
                     "team1": advancement.team1.model_dump(context={"keep_oid": True}) if advancement.team1 is not None else None,
                     "team2": advancement.team2.model_dump(context={"keep_oid": True}) if advancement.team2 is not None else None,
                     "ergebnis": None,
+                    "elfmeterschiessen": None,
                 }
             },
             session=session,

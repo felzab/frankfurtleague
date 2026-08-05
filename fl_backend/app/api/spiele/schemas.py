@@ -31,6 +31,9 @@ thing to check when behaviour looks impossible.
   • `ergebnis` is pattern-constrained rather than free text, and uses `[0-9]` rather than `\\d`: the
     backend's regex engine treats `\\d` as Unicode-aware, and `Number("٢")` in JavaScript is NaN, so the
     two ends would disagree about what a digit is.
+  • A shoot-out is its OWN scoreline in `elfmeterschiessen` and never a third number inside `ergebnis`
+    (ADR-0044). The two counts are not goals: they decide the bracket and are invisible to the league
+    table, which scores the fixture as the draw it was.
   • `saison_id` is exactly 4 characters, matching FLSaison.id.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -117,6 +120,41 @@ class FLSpielQuelleSpiel(BaseModel):
 FLSpielQuelle = Annotated[FLSpielQuelleGruppe | FLSpielQuelleSpiel, Field(discriminator="type")]
 
 
+class FLSpielElfmeterschiessen(BaseModel):
+    """
+    The penalty shoot-out that settled a knockout fixture whose goals finished level (ADR-0044).
+
+    The two counts are the SHOOT-OUT's own scoreline and are never added to `tore`: a shoot-out win is a
+    draw for the league table, and only the bracket reads the winner off this (ADR-0026).
+
+    `team1` and `team2` name the same two sides the fixture does, so the winner is DERIVED here exactly
+    as it is from the goals. There is deliberately no `sieger` field: a second statement of the same
+    fact could contradict the counts, and no `$jsonSchema` validator could express that it must not --
+    the reasoning that kept an `is_manual` flag off `quelle` (ADR-0042) and made `inactive_since` a date
+    (ADR-0032).
+    """
+
+    team1: int = Field(ge=0)
+    team2: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def a_shootout_names_a_winner(self) -> "FLSpielElfmeterschiessen":
+        """
+        Refuse a level shoot-out: it is the one value this field could hold and still name nobody.
+
+        It fails on READ as well as on write, which is the same bargain `ergebnis`'s pattern and
+        `mietpreis`'s `ge=0` already strike: the database validator asserts types, presence and enums
+        only (ADR-0027), so a hand edit in Compass is what this catches, loudly and immediately. The
+        alternative is a fixture that looks settled, advances nobody, and says nothing about why --
+        which is the state FB-8 exists to remove rather than to reproduce behind a filled-in field.
+        """
+
+        if self.team1 == self.team2:
+            raise ValueError("Ein Elfmeterschiessen kann nicht unentschieden enden -- eine Seite hat mehr Treffer als die andere.")
+
+        return self
+
+
 class FLUnresolvableSlot(BaseModel):
     """
     One bracket slot whose `gruppe` reference names a placing the standings will never hand it.
@@ -153,6 +191,11 @@ class FLPatchSpielDataPayload(BaseModel):
     # edit of any other field.
     team1_quelle: FLSpielQuelle | None
     team2_quelle: FLSpielQuelle | None
+
+    # On the payload for the same `$set` reason as the two above. The handler discards it unless the
+    # goals it accompanies are level, so a shoot-out cannot end up stored against a fixture one side
+    # already won (ADR-0044).
+    elfmeterschiessen: FLSpielElfmeterschiessen | None
 
     datum: CustomOptionalDateString
     uhrzeit: CustomOptionalTimeString
@@ -191,6 +234,12 @@ class FLSpiel(BaseModel):
     # frontend, which derives win/draw/loss from it -- a malformed value rendered as a loss for
     # both teams before this was constrained.
     ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
+
+    # How a knockout that finished level was settled, or null -- which is every match that was not, and
+    # therefore almost all of them. Kept OUT of `ergebnis`: both ends parse that string to derive
+    # win/draw/loss, and a third number in it would read as a malformed value on every card (ADR-0044).
+    elfmeterschiessen: FLSpielElfmeterschiessen | None
+
     spieltag_id: CustomObjectId
     spiel_nr: int = Field(gt=0)
 

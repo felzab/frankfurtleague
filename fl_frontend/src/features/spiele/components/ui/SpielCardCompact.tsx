@@ -13,7 +13,12 @@ import { SpielTeamSlot } from "./SpielTeamSlot";
 import type { FLSpiel } from "../../schemas";
 
 export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FLSpiel; onOpenInfoModal?: () => void }) {
-  const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
+  const {
+    datum: spielDatum,
+    uhrzeit: spielUhrzeit,
+    ergebnis: spielErgebnis,
+    elfmeterschiessen: spielElfmeterschiessen,
+  } = formatSpielDisplay(spielData);
 
   return (
     <Card className={`${card()} w-full p-4`}>
@@ -57,9 +62,12 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
 
           {/* `-strong` for the same reason as in the other two cards: this is text, not a fill, and the
               plain accents are too light to carry it on a light surface. */}
+          {/* A second line under the score rather than part of it, for the reason the other two cards
+              give: the fixture is a draw everywhere but the bracket (ADR-0044). */}
           <span
-            className={`fluid-base px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
+            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
             {spielErgebnis}
+            {spielElfmeterschiessen !== null && <span className="fluid-xxs font-semibold whitespace-nowrap">{spielElfmeterschiessen}</span>}
           </span>
 
           <span className="flex min-w-0 justify-start">

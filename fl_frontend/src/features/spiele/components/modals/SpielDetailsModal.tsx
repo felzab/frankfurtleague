@@ -64,7 +64,9 @@ export function SpielDetailsModal({
   onClose: () => void;
   today: string;
 }) {
-  const { datum: spielDatum, uhrzeit: spielUhrzeit } = formatSpielDisplay(spielData ?? { datum: null, uhrzeit: null, ergebnis: null });
+  const { datum: spielDatum, uhrzeit: spielUhrzeit } = formatSpielDisplay(
+    spielData ?? { datum: null, uhrzeit: null, ergebnis: null, elfmeterschiessen: null },
+  );
   // Searches the Spielort's stored maps_link, not an address -- the embedded copy carries no
   // FLAddress, so this query is genuinely different from the other two call sites.
   const mapUrl = spielData?.ort ? buildMapsSearchUrl(spielData.ort.maps_link) : "";
