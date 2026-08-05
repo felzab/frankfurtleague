@@ -2,13 +2,14 @@ import { useState } from "react";
 
 import { Description, FieldError, Label, NumberField, Separator, Switch } from "@heroui/react";
 
+import { formatQuelle } from "@/features/spiele/utils";
 import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
 /**
@@ -35,10 +36,10 @@ export function FormMatchupSection({
   onTeam1Change,
   team2Payload,
   onTeam2Change,
-  team1Herkunft,
-  onTeam1HerkunftChange,
-  team2Herkunft,
-  onTeam2HerkunftChange,
+  team1Quelle,
+  onTeam1QuelleChange,
+  team2Quelle,
+  onTeam2QuelleChange,
   team1InitialData,
   team2InitialData,
 }: {
@@ -47,10 +48,10 @@ export function FormMatchupSection({
   onTeam1Change: (payload: FLSpielTeamField | null) => void;
   team2Payload: FLSpielTeamField | null;
   onTeam2Change: (payload: FLSpielTeamField | null) => void;
-  team1Herkunft: string | null;
-  onTeam1HerkunftChange: (value: string | null) => void;
-  team2Herkunft: string | null;
-  onTeam2HerkunftChange: (value: string | null) => void;
+  team1Quelle: FLSpielQuelle | null;
+  onTeam1QuelleChange: (value: FLSpielQuelle | null) => void;
+  team2Quelle: FLSpielQuelle | null;
+  onTeam2QuelleChange: (value: FLSpielQuelle | null) => void;
   team1InitialData: FLSpielTeamField | null;
   team2InitialData: FLSpielTeamField | null;
 }) {
@@ -83,9 +84,9 @@ export function FormMatchupSection({
   // readout below distinguishes "no result yet" from "nil-nil" on exactly this test.
   // The names fall through team, then provenance, then the shared slot placeholder — the same order
   // every card uses (ADR-0041), so the readout names a side exactly as the bracket does.
-  const team1Name = team1Payload?.name || team1Herkunft || PLACEHOLDER.slot;
+  const team1Name = team1Payload?.name || formatQuelle(team1Quelle) || PLACEHOLDER.slot;
   const team1Tore = team1Payload?.tore ?? NaN;
-  const team2Name = team2Payload?.name || team2Herkunft || PLACEHOLDER.slot;
+  const team2Name = team2Payload?.name || formatQuelle(team2Quelle) || PLACEHOLDER.slot;
   const team2Tore = team2Payload?.tore ?? NaN;
 
   return (
@@ -105,8 +106,8 @@ export function FormMatchupSection({
         teams={teams}
         teamPayload={team1Payload}
         onTeamChange={onTeam1Change}
-        herkunft={team1Herkunft}
-        onHerkunftChange={onTeam1HerkunftChange}
+        quelle={team1Quelle}
+        onQuelleChange={onTeam1QuelleChange}
         disabledTeamId={team2Payload?.team_id}
       />
 
@@ -117,8 +118,8 @@ export function FormMatchupSection({
         teams={teams}
         teamPayload={team2Payload}
         onTeamChange={onTeam2Change}
-        herkunft={team2Herkunft}
-        onHerkunftChange={onTeam2HerkunftChange}
+        quelle={team2Quelle}
+        onQuelleChange={onTeam2QuelleChange}
         disabledTeamId={team1Payload?.team_id}
       />
 

@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `a1dddec`, 2026-08-05
+**Verified against:** `74d83d6`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -52,7 +52,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 8   | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
 | 9   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 10  | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
-| 11  | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE      | M      | Open     | — (slot model: ADR-0041)  |
+| 11  | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE      | M      | Closed   | — (slot model: ADR-0041)  |
 | 12  | FE-4  | Mark the teams currently in a playoff place             | FE (+BE)    | M      | Open     | FB-4, FB-2 (both soft)    |
 | 13  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)        |
 | 14  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 13, 15, 16) |
@@ -429,6 +429,26 @@ beside `herkunft`; nothing about the current model blocks it.
 
 **Path:** independent. Part 1 is cheap — a check plus a consultation — and can be pulled forward at
 any time; it answers half of FE-4, which asks the same question from the table's end.
+
+**Concluded 2026-08-05.** Part 1 was answered by the owner rather than by research: the seeding was
+predefined, it is correct, and the domain rule is that the **first knockout round is always seeded from
+the group phase while every later round is fed by exactly two matches of the round before**. Part 2 is
+built on that rule.
+
+[ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md) carries the decision — a
+bracket slot stores a structural tagged reference, the German label is derived from it and stored
+nowhere, and entering a result resolves the whole of that season's bracket. It also carries the
+three-step production data change, which has not been run.
+
+Three findings that were not decisions went to permanent homes instead: the slot vocabulary is `Quelle`,
+`Platz`, `Ausgang` and `spiel_nr` in `docs/glossary.md`; the resolution rule is invariant I23 in
+`docs/backend/spec.md`, beside I22's independence of the two fields; and the three ways a bracket
+surprises an operator are rows in that spec's violation table.
+
+Two things it could not do, opened as their own entries: a knockout that ends level has nowhere to
+record how it was decided, and seeding the first knockout round from the standings needs facts the data
+does not carry. A path-containment bypass found in `.claude/hooks/guard-branch.sh` while working here
+was fixed in the same commit, and the gap that let it go unnoticed is its own entry.
 
 ### 12 · FE-4 — Mark the teams currently in a playoff place in the Saisontabelle
 

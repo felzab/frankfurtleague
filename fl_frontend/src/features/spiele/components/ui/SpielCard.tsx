@@ -75,7 +75,7 @@ export function SpielCard({
         <span className="flex min-w-0 justify-end">
           <SpielTeamSlot
             team={spielData.team1}
-            herkunft={spielData.team1_herkunft}
+            quelle={spielData.team1_quelle}
             text={spielData.team1?.name || "Team 1"}
             className="fluid-xs lg:fluid-sm max-w-full truncate text-right font-bold"
           />
@@ -92,7 +92,7 @@ export function SpielCard({
         <span className="flex min-w-0 justify-start">
           <SpielTeamSlot
             team={spielData.team2}
-            herkunft={spielData.team2_herkunft}
+            quelle={spielData.team2_quelle}
             text={spielData.team2?.name || "Team 2"}
             className="fluid-xs lg:fluid-sm max-w-full truncate text-left font-bold"
           />

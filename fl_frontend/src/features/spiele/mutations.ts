@@ -12,6 +12,9 @@
  *     overwritten rather than preserved.
  *   • `spiel_id` goes in the PATH and never in the body (ADR-0034). It stays on the payload schema
  *     because the form carries it; this is where it is split off.
+ *   • The response is parsed with its OWN schema, not with `BaseAPIResponseSchema`. The endpoint
+ *     reports the bracket fixtures it advanced, and zod's `strip` mode discards a field no schema
+ *     declares without saying so — the envelope alone would silently drop it (ADR-0042).
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -19,13 +22,13 @@
  */
 
 import { apiClient } from "@/core/api";
-import { BaseAPIResponseSchema } from "@/core/schemas";
 
-import type { BaseAPIResponse } from "@/core/schemas";
-import type { FLPatchSpielDataPayload } from "./schemas";
+import { FLPatchSpielDataResponseSchema } from "./schemas";
 
-export const patchAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielDataPayload): Promise<BaseAPIResponse> => {
-  return apiClient<BaseAPIResponse>(`/spiele/${spiel_id}`, BaseAPIResponseSchema, {
+import type { FLPatchSpielDataPayload, FLPatchSpielDataResponse } from "./schemas";
+
+export const patchAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielDataPayload): Promise<FLPatchSpielDataResponse> => {
+  return apiClient<FLPatchSpielDataResponse>(`/spiele/${spiel_id}`, FLPatchSpielDataResponseSchema, {
     method: "PATCH",
     authType: "admin",
     body: JSON.stringify(fields),

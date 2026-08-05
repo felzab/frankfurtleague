@@ -7,16 +7,19 @@ import { SearchBar } from "@/shared/components/ui/SearchBar";
 import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 
+import { formatQuelle } from "../../utils";
+
 import type { FLSpiel } from "../../schemas";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
-// The two `herkunft` keys are here because they are what a bracket fixture SHOWS while its sides are
-// unresolved — without them, searching for the label on screen ("Sieger 25.") finds nothing.
+// The two `searchable_quelle` keys are here because a `quelle` is a reference and holds no text at all,
+// while the label DERIVED from it is what a bracket fixture shows while its sides are unresolved —
+// without them, searching for what is on screen ("Sieger 25.", "Gruppensieger A") finds nothing.
 const SEARCH_KEYS = [
   "team1.name",
   "team2.name",
-  "team1_herkunft",
-  "team2_herkunft",
+  "searchable_team1_quelle",
+  "searchable_team2_quelle",
   "ort.name",
   "ort.maps_link",
   "searchable_datum",
@@ -44,14 +47,17 @@ export function SpielsucheView({
 }) {
   const { urlValue: spielQuery, inputValue, setInputValue } = useDebouncedUrlQuery();
 
-  // Adds a German-formatted copy of the date purely so it can be searched. Dates are stored and
-  // rendered as `YYYY-MM-DD`, but a user typing a date types "14.03." — searching the stored form
-  // would find nothing for the format they are actually looking at. The original field stays, so both
-  // spellings match.
+  // Adds searchable copies of two things a user types but the documents do not store as text. Dates are
+  // stored and rendered as `YYYY-MM-DD`, but a user typing a date types "14.03." — searching the stored
+  // form would find nothing for the format they are actually looking at. A bracket slot's source is a
+  // reference, so the label the card derives from it exists nowhere on the document either. The
+  // original fields stay, so both spellings match.
   const processedSpiele = useMemo(() => {
     return spiele.map((s) => ({
       ...s,
       searchable_datum: s.datum ? s.datum.split("-").reverse().join(".") : null,
+      searchable_team1_quelle: formatQuelle(s.team1_quelle),
+      searchable_team2_quelle: formatQuelle(s.team2_quelle),
     }));
   }, [spiele]);
 

@@ -32,7 +32,7 @@ _computes_ from what it says.
 
 | Tier                    | Selected by         | Needs Docker | Cost (2026-08-05)                        |
 | ----------------------- | ------------------- | ------------ | ---------------------------------------- |
-| **Default** — 426 tests | everything unmarked | no           | under a second                           |
+| **Default** — 469 tests | everything unmarked | no           | under a second                           |
 | **`db`** — 54 tests     | `@pytest.mark.db`   | yes          | 14.3s warm; cold adds the `mongo:8` pull |
 
 `pyproject.toml` puts `-m "not db"` in `addopts`, so a bare `pytest` runs the fast tier only. A
@@ -83,6 +83,7 @@ tests/
     test_teams_pipeline.py       build_team_pipeline — what the pipeline says
     test_teams_pipeline_execution.py   …and what MongoDB computes from it   [db]
     test_spiele.py               FLSpiel, its embedded fields, the admin patch payload
+    test_bracket.py              reading a Herkunft label, and resolving a season's slots
     test_reference_models.py     spielorte, schiedsrichter, spieler, spieltage, saisons
     test_response_envelope.py    every *Response model carries `acknowledged`
     test_admin_guard.py          every non-GET operation is admin-guarded
@@ -165,7 +166,7 @@ appears again in a `short test summary info` block at the end.
 cd fl_backend && uv run pytest
 ```
 
-That is the fast tier — 426 tests, no Docker. To run the ones that need a real `mongod`:
+That is the fast tier — 469 tests, no Docker. To run the ones that need a real `mongod`:
 
 ```bash
 cd fl_backend && uv run pytest -m db

@@ -3,13 +3,15 @@
 import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import type { FLSpielTeamField } from "../../schemas";
+import { formatQuelle } from "../../utils";
+
+import type { FLSpielQuelle, FLSpielTeamField } from "../../schemas";
 
 /**
  * One side of a fixture, as a match card renders it.
  *
  * A resolved side is its own text behind a `TeamPopoverMenu`. A side whose occupant the group phase
- * has not produced yet renders its provenance label — "Sieger 25." — as plain text and mounts no
+ * has not produced yet renders its derived source label — "Sieger 25.", "Gruppensieger A" — as plain text and mounts no
  * popover at all: there is no team page and no squad to link to (ADR-0041).
  *
  * **The three `SpielCard` variants stay separate** (ADR-0007) and pass their own `text` and layout
@@ -24,19 +26,19 @@ import type { FLSpielTeamField } from "../../schemas";
  */
 export function SpielTeamSlot({
   team,
-  herkunft,
+  quelle,
   text,
   className,
 }: {
   team: FLSpielTeamField | null;
-  herkunft: string | null;
+  quelle: FLSpielQuelle | null;
   /** What a RESOLVED side shows — the full name on the two wide cards, the shorthand on the bracket. */
   text: string;
   /** Layout only: size, alignment, truncation. Interactive and muted styling is this component's. */
   className: string;
 }) {
   if (team === null) {
-    return <span className={`${className} text-foreground-muted italic`}>{herkunft ?? PLACEHOLDER.slot}</span>;
+    return <span className={`${className} text-foreground-muted italic`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>;
   }
 
   return (

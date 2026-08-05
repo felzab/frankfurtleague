@@ -245,6 +245,7 @@ the ADR.
 | 0035 | Re-add a reference-data invalidation endpoint; treat sub-24h reference staleness as a defect        |
 | 0037 | Let the comment classifier shrink a CI job; add a flag that suppresses the images refusal           |
 | 0038 | Pin `type=gha`'s cache version; give the two images one cache scope; re-add an `actions/cache` step |
+| 0042 | Store the bracket's German label; add an override flag beside `quelle`; advance one match's feeds   |
 
 ## 8. Documentation
 

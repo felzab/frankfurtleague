@@ -91,8 +91,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "spiele": {
             "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LE"},
             "team2": {"team_id": SPIELER_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HE"},
-            "team1_herkunft": None,
-            "team2_herkunft": None,
+            "team1_quelle": None,
+            "team2_quelle": None,
             "datum": "2026-03-15",
             "uhrzeit": "18:00:00",
             "ort": {"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},

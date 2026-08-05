@@ -9,7 +9,7 @@ Clubs, and their membership of a season.
     construction. Never move the guard onto an individual endpoint.
   • Renaming a club FANS OUT into every match embedding it, unconditionally. The embedded `name` is a
     display copy of `teams.name` and nothing else (ADR-0028, rule 3): a bracket slot label lives in the
-    match's own `teamN_herkunft`, which no path under `team1.`/`team2.` can reach (ADR-0041).
+    match's own `teamN_quelle`, which no path under `team1.`/`team2.` can reach (ADR-0041).
   • Deletion is SOFT, because `spiele.team1.team_id` and `team2.team_id` point here and a hard delete
     would orphan every historical match. `uniq_shorthand` keeps indexing a retired club, so its two
     letters stay reserved -- which is correct, and which is why creating a club whose shorthand is
@@ -119,7 +119,7 @@ async def patch_team(
     measured, and that is the state this endpoint exists to preserve.
 
     **It runs for every club, with no exception to remember.** The embedded `name` is a display copy of
-    this document and carries nothing else — a bracket slot label is the match's own `teamN_herkunft`,
+    this document and carries nothing else — a bracket slot's source is the match's own `teamN_quelle`,
     which no path under `team1.`/`team2.` reaches (ADR-0028, ADR-0041).
     """
 

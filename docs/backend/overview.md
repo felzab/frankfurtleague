@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `88fbfd4`, 2026-08-05
+**Verified against:** `74d83d6`, 2026-08-05
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB. **Fifteen routers**: `system`, plus a read and a write router for
@@ -22,14 +22,16 @@ fl_backend/
 │   ├── main.py        `create_app()`: middleware, router registration. Builds nothing on import
 │   ├── core/          infrastructure: config · db · security · crud · dependencies
 │   │                  exceptions · exception_handlers · middlewares · logging
-│   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services
+│   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services · crud
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
 
 `api/<entity>/` is the repeating unit. `router.py` declares endpoints and does orchestration;
-`schemas.py` holds the Pydantic models; `services.py` holds pure query-building and computation. Not
-every entity has all four files — `services.py` exists only where there is real logic to hold.
+`schemas.py` holds the Pydantic models; `services.py` holds pure query-building and computation; and
+`crud.py` holds slice-level database access that more than one endpoint needs, or that is too large to
+sit inside a handler. Not every entity has all five files — `services.py` exists only where there is
+real logic to hold, and `crud.py` only in `saisons` and `spiele`.
 
 Seven resources — `saisons`, `schiedsrichter`, `spiele`, `spieler`, `spielorte`, `spieltage`, `teams` —
 each with a `router.py` and an `admin_router.py`, plus `system`. All are mounted under
@@ -90,9 +92,14 @@ Two things about that module are easy to get wrong:
 
 All raw database access goes through six helpers in `core/crud.py`. One of them carries a trap worth
 knowing before you read any write code: **`patch_one_in_db` returns the document as it was _before_ the
-update** — its `return_document` defaults to `ReturnDocument.BEFORE`. The venue and referee patches
-pass `ReturnDocument.AFTER` explicitly, because they fan the new values out into every match embedding
-them; a caller that forgets would fan out the values it just replaced.
+update** — its `return_document` defaults to `ReturnDocument.BEFORE`. The venue, referee and team
+patches pass `ReturnDocument.AFTER` explicitly, because they fan the new values out into every match
+embedding them; a caller that forgets would fan out the values it just replaced.
+
+**`patch_spiel_data` is the one caller that wants the default, and says so.** It reads `saison_id` off
+the returned pre-image to scope the bracket it then resolves
+([ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md)), which is safe there and
+only there: `saison_id` is on no payload, so the `$set` it just performed cannot have changed it.
 
 ## Time
 
@@ -116,7 +123,7 @@ full table, and the rule that every failure response is `{error_code, correlatio
 `fl_backend/tests/` runs in **two tiers** since
 [ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).
 
-The **default tier** is **395 cases** under parametrisation and finishes in under a second. It
+The **default tier** is **459 cases** under parametrisation and finishes in under a second. It
 tests **schema constraints** — that the models reject what they should — plus the rules encoded in
 `build_team_pipeline` and the database constraints read as data, and needs no running server, no
 database and no Docker.

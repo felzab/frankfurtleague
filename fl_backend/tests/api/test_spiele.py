@@ -9,7 +9,7 @@ win/draw/loss from it — an unconstrained value rendered as a loss for BOTH tea
 import pytest
 from pydantic import ValidationError
 
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel
+from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielQuelleGruppe, FLSpielQuelleSpiel
 
 
 def test_accepts_a_valid_spiel(spiel):
@@ -74,39 +74,46 @@ class TestUnresolvedSides:
     """
     A bracket slot whose occupant the group phase has not produced yet (ADR-0041).
 
-    The four cases below are the four combinations of `teamN` and `teamN_herkunft`, and the point of
+    The four cases below are the four combinations of `teamN` and `teamN_quelle`, and the point of
     the parametrised one is that ALL of them validate. Nothing pairs the two fields, so no case here
     is the "wrong" one to be rejected — a reader renders whichever of the two it has.
     """
 
     def test_accepts_a_fixture_whose_opponent_is_not_yet_known(self, spiel):
-        """The shape that replaces the placeholder team: an absent side, and a label saying what fills it."""
-        parsed = FLSpiel.model_validate(spiel(team1=None, team1_herkunft="Sieger 25.", ergebnis=None))
+        """The shape that replaces the placeholder team: an absent side, and a reference to what fills it."""
+        parsed = FLSpiel.model_validate(spiel(team1=None, team1_quelle={"type": "spiel", "spiel_nr": 25, "ausgang": "sieger"}, ergebnis=None))
 
         assert parsed.team1 is None
-        assert parsed.team1_herkunft == "Sieger 25."
+        assert parsed.team1_quelle == FLSpielQuelleSpiel(type="spiel", spiel_nr=25, ausgang="sieger")
 
-    def test_keeps_the_label_once_the_team_arrives(self, spiel):
+    def test_keeps_the_source_once_the_team_arrives(self, spiel):
         """
-        Provenance is a fact about the FIXTURE, not a stand-in for the missing team.
+        A source is a fact about the FIXTURE, not a stand-in for the missing team.
 
-        "Sieger 25." stays true after the winner of match 25 is written into the slot, which is the
-        whole reason it is a sibling of `team1` rather than a key inside it.
+        "the winner of match 25" stays true after that winner is written into the slot, which is the
+        whole reason it is a sibling of `team1` rather than a key inside it — and it is what lets the
+        slot be recomputed when match 25's result is corrected.
         """
-        parsed = FLSpiel.model_validate(spiel(team1_herkunft="Sieger 25."))
+        parsed = FLSpiel.model_validate(spiel(team1_quelle={"type": "spiel", "spiel_nr": 25, "ausgang": "sieger"}))
 
         assert parsed.team1 is not None
-        assert parsed.team1_herkunft == "Sieger 25."
+        assert parsed.team1_quelle == FLSpielQuelleSpiel(type="spiel", spiel_nr=25, ausgang="sieger")
+
+    def test_accepts_a_slot_seeded_from_the_group_phase(self, spiel):
+        """The first knockout round is always fed by the standings, so the model has to say so."""
+        parsed = FLSpiel.model_validate(spiel(team1=None, team1_quelle={"type": "gruppe", "gruppe": "B", "platz": 2}, ergebnis=None))
+
+        assert parsed.team1_quelle == FLSpielQuelleGruppe(type="gruppe", gruppe="B", platz=2)
 
     def test_accepts_a_slot_with_neither_a_team_nor_a_label(self, spiel):
-        """An opponent simply not entered yet. Rendered "Noch offen" rather than refused — there is no cross-field rule."""
-        parsed = FLSpiel.model_validate(spiel(team1=None, team1_herkunft=None, ergebnis=None))
+        """An opponent not entered yet, or a slot an admin has taken manual charge of by clearing its source."""
+        parsed = FLSpiel.model_validate(spiel(team1=None, team1_quelle=None, ergebnis=None))
 
         assert parsed.team1 is None
-        assert parsed.team1_herkunft is None
+        assert parsed.team1_quelle is None
 
-    @pytest.mark.parametrize("field", ["team1_herkunft", "team2_herkunft"])
-    def test_requires_the_provenance_field_to_be_present(self, spiel, field):
+    @pytest.mark.parametrize("field", ["team1_quelle", "team2_quelle"])
+    def test_requires_the_source_field_to_be_present(self, spiel, field):
         """
         Nullable, and REQUIRED — no Pydantic default.
 
@@ -208,8 +215,8 @@ class TestPatchPayload:
             "is_canceled": base["is_canceled"],
             "team1": base["team1"],
             "team2": base["team2"],
-            "team1_herkunft": base["team1_herkunft"],
-            "team2_herkunft": base["team2_herkunft"],
+            "team1_quelle": base["team1_quelle"],
+            "team2_quelle": base["team2_quelle"],
             "datum": base["datum"],
             "uhrzeit": base["uhrzeit"],
             "ort": base["ort"],
@@ -232,13 +239,13 @@ class TestPatchPayload:
         with pytest.raises(ValidationError):
             FLPatchSpielDataPayload.model_validate(self._payload(spiel, uhrzeit="14:30"))
 
-    @pytest.mark.parametrize("field", ["team1_herkunft", "team2_herkunft"])
-    def test_requires_the_provenance_fields(self, spiel, field):
+    @pytest.mark.parametrize("field", ["team1_quelle", "team2_quelle"])
+    def test_requires_the_source_fields(self, spiel, field):
         """
         On the payload, because the handler writes it back wholesale with `$set`.
 
         A field the request omits is OVERWRITTEN rather than preserved, so a payload model without
-        these would erase a bracket's slot labels the first time an admin edited any other field —
+        these would erase a bracket's wiring the first time an admin edited any other field —
         the same failure mode `mietpreis` has, for the same reason.
         """
         incomplete = self._payload(spiel)
@@ -251,7 +258,14 @@ class TestPatchPayload:
 
     def test_accepts_an_unresolved_side(self, spiel):
         """The write path can put a fixture back into the unresolved state, not only read one out of it."""
-        parsed = FLPatchSpielDataPayload.model_validate(self._payload(spiel, team1=None, team1_herkunft="Sieger 25."))
+        quelle = {"type": "spiel", "spiel_nr": 25, "ausgang": "sieger"}
+        parsed = FLPatchSpielDataPayload.model_validate(self._payload(spiel, team1=None, team1_quelle=quelle))
 
         assert parsed.team1 is None
-        assert parsed.team1_herkunft == "Sieger 25."
+        assert parsed.team1_quelle == FLSpielQuelleSpiel(type="spiel", spiel_nr=25, ausgang="sieger")
+
+    def test_rejects_a_source_whose_keys_belong_to_the_other_variant(self, spiel, assert_rejects):
+        """The tag is what makes this an error rather than a silently half-populated source."""
+        mismatched = {"type": "gruppe", "spiel_nr": 25, "ausgang": "sieger"}
+
+        assert_rejects(FLPatchSpielDataPayload, self._payload(spiel, team1=None, team1_quelle=mismatched), "gruppe")

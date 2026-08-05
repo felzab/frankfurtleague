@@ -5,9 +5,10 @@ Every response model extends BaseAPIResponse, and the frontend's BaseAPIResponse
 `acknowledged` on every one of its response schemas. These tests pin the contract from the backend side
 so a future model added without the envelope fails here rather than at a browser.
 
-`test_declares_the_envelope_on_every_untyped_route` covers the three routes whose body is small enough
-to be tempting to hand-build as a bare `JSONResponse`. An undeclared shape is a real shape the frontend
-schema can only guess at, so each one is a declared model and this pins it.
+`test_declares_the_envelope_on_every_untyped_route` covers the routes whose body is small enough to be
+tempting to hand-build as a bare `JSONResponse`. An undeclared shape is a real shape the frontend schema
+can only guess at, so each one is a declared model and this pins it — including the defaults, which are
+what a caller receives when the route has nothing to report.
 """
 
 import inspect
@@ -68,11 +69,13 @@ def test_every_response_model_carries_the_envelope(name, model):
     [
         (CheckIsLiveResponse, {"acknowledged": 1, "status": "ok"}),
         (CheckIsReadyResponse, {"acknowledged": 1, "status": "ok"}),
-        (FLPatchSpielDataResponse, {"acknowledged": 1}),
+        # `advanced_to` defaults empty: a match edit that resolves no bracket slot reports none, which
+        # is the ordinary answer for every group-phase fixture (ADR-0042).
+        (FLPatchSpielDataResponse, {"acknowledged": 1, "advanced_to": []}),
     ],
 )
 def test_declares_the_envelope_on_every_untyped_route(model, expected):
-    """The three routes that return a hand-built JSONResponse: their shape is now declared, not implied."""
+    """A route whose body is small enough to hand-build: its shape is declared, not implied."""
     assert model().model_dump() == expected
 
 

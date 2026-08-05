@@ -16,12 +16,15 @@ thing to check when behaviour looks impossible.
 
   • The three embedded field models are declared BEFORE the payload and FLSpiel that reference them --
     see the note below, this has bitten before.
-  • A fixture side is `None` when its occupant is not yet known, and `teamN_herkunft` says where that
-    occupant will come from -- "Sieger 25." (ADR-0041). The two fields are INDEPENDENT and nothing pairs
-    them: `herkunft` is a point-in-time fact about the FIXTURE and stays true once the team arrives,
-    while the team field is a display copy the rename fan-out maintains (ADR-0028, rules 2 and 3). All
-    four combinations are meaningful, so a reader renders `team.name or herkunft or "Noch offen"` and
+  • A fixture side is `None` when its occupant is not yet known, and `teamN_quelle` says where that
+    occupant comes from (ADR-0041, ADR-0042). The two fields are INDEPENDENT and nothing pairs them:
+    `quelle` is a fact about the FIXTURE and stays true once the team arrives, while the team field is a
+    display copy the rename fan-out maintains (ADR-0028, rules 2 and 3). All four combinations are
+    meaningful, so a reader takes the team, then the label derived from `quelle`, then "Noch offen", and
     never asks which state it is in.
+  • `quelle` is a REFERENCE, not a label. It carries no German and no display text: the two variants are
+    the two ways a bracket slot is fed -- by a group placing, which is every first knockout round, and
+    by an earlier match, which is every round after it. The frontend derives what a card shows.
   • Money fields (`mietpreis`, `payment`) carry NO default. The admin patch writes the payload back
     wholesale with `$set`, so a default lets a request omitting the field silently overwrite a real
     value with 0.
@@ -40,6 +43,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, model_validator
 
+from app.api.teams.schemas import FLGruppenNames
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString, CustomOptionalTimeString, CustomTimeString
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -82,6 +86,37 @@ class FLSpielSchiedsrichterField(BaseModel):
     payment: int = Field(ge=0)
 
 
+class FLSpielQuelleGruppe(BaseModel):
+    """A slot fed by the group phase: the team finishing `platz` in `gruppe`."""
+
+    # `type`, not the German `Art`: the discriminator names the shape of this object rather than
+    # anything in the competition, so it is structural vocabulary and stays English -- as `format` on
+    # the teams response already does. The two VALUES it takes are domain terms and stay German.
+    type: Literal["gruppe"]
+    gruppe: FLGruppenNames
+    platz: int = Field(gt=0)
+
+
+class FLSpielQuelleSpiel(BaseModel):
+    """A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`."""
+
+    type: Literal["spiel"]
+    # Deliberately a spiel_nr and not an ObjectId. A bracket is drawn by match number, the number is
+    # unique within a season (`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`), and an id would
+    # make the draw depend on which documents already exist.
+    spiel_nr: int = Field(gt=0)
+    # `verlierer` exists because a third-place play-off is fed by the two losing semi-finals. Nothing
+    # writes it yet; the bracket cannot express one without it.
+    ausgang: Literal["sieger", "verlierer"]
+
+
+# The two ways a bracket slot is fed, and there is no third. The first knockout round is always seeded
+# from the group phase; every round after it is fed by matches in the round before (ADR-0042). Tagged
+# rather than a bare union: `type` is what lets Pydantic, the Zod mirror and every reader pick a variant
+# without inspecting which keys happen to be present.
+FLSpielQuelle = Annotated[FLSpielQuelleGruppe | FLSpielQuelleSpiel, Field(discriminator="type")]
+
+
 class FLPatchSpielDataPayload(BaseModel):
     # No `spiel_id`: the match being changed is named by the path (RFC 5789 -- the Request-URI
     # identifies the resource, the body describes the change).
@@ -91,10 +126,10 @@ class FLPatchSpielDataPayload(BaseModel):
     team2: FLSpielTeamField | None
 
     # On the payload because it is written wholesale with `$set`: a field the request omits is
-    # OVERWRITTEN, not preserved, so leaving these off would erase a bracket's slot labels on the
-    # first edit of any other field.
-    team1_herkunft: str | None
-    team2_herkunft: str | None
+    # OVERWRITTEN, not preserved, so leaving these off would erase a bracket's wiring on the first
+    # edit of any other field.
+    team1_quelle: FLSpielQuelle | None
+    team2_quelle: FLSpielQuelle | None
 
     datum: CustomOptionalDateString
     uhrzeit: CustomOptionalTimeString
@@ -117,10 +152,11 @@ class FLSpiel(BaseModel):
     team1: FLSpielTeamField | None
     team2: FLSpielTeamField | None
 
-    # Where each side comes from, as a bracket reads it: "Sieger 25.". Never derived and never fanned
-    # out into -- unlike the `name` above, which is a display copy of `teams.name` (ADR-0028, rule 3).
-    team1_herkunft: str | None
-    team2_herkunft: str | None
+    # Where each side comes from, as a REFERENCE the bracket is drawn from -- never derived and never
+    # fanned out into, unlike the `name` above, which is a display copy of `teams.name` (ADR-0028,
+    # rule 3). Null on a group-phase fixture, and null on any slot an admin has taken manual charge of.
+    team1_quelle: FLSpielQuelle | None
+    team2_quelle: FLSpielQuelle | None
 
     datum: CustomDateString | None
     uhrzeit: CustomTimeString | None
@@ -163,4 +199,17 @@ class FLSpieleSingleResponse(BaseAPIResponse):
 
 
 class FLPatchSpielDataResponse(BaseAPIResponse):
-    """The `{"acknowledged": 1}` body patch_spiel_data returns, declared rather than implied."""
+    """
+    What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.
+
+    `advanced_to` carries the `spiel_nr` of every bracket fixture whose sides the result entry
+    resolved — a semi-final that gained its winner, and, when a result was corrected, a later fixture
+    that lost an occupant it should never have had (ADR-0042). It reports what happened rather than
+    what was asked for, so it names a fixture that was emptied as readily as one that was filled.
+
+    Reported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that
+    silently changes documents the caller did not name is one whose failures are invisible. An empty
+    list is the ordinary answer for a group-phase edit.
+    """
+
+    advanced_to: list[int] = Field(default_factory=list)

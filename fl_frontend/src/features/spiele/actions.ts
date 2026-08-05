@@ -18,6 +18,9 @@
  *     does not declare it and Pydantic would drop it silently.
  *   • A failed season-id parse never fails the edit. An admin's work is not rejected over a cache
  *     concern.
+ *   • The base tags also cover the bracket fixtures the backend advanced. `updateTag("spiele")` clears
+ *     every `getSpiele` entry whatever its filter, so the playoffs page is invalidated by the same
+ *     call as the admin's own view and no per-match tag is wanted here (ADR-0001, ADR-0042).
  *   • Every action here starts with `getAdminSession()` and checks its return value — it neither
  *     throws nor redirects.
  *   • The action body runs inside `runAdminAction`, which seeds the correlation-id request scope
@@ -36,6 +39,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData } from "./mutations";
 import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
+import { formatSpielUpdateMessage } from "./utils";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -83,6 +87,9 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       updateTag(`teams:saison_id:${saisonId.data}`);
     }
 
-    return { success: Boolean(patch_operation.acknowledged), message: "Die Spieldaten wurden erfolgreich aktualisiert" };
+    // The bracket fixtures the backend resolved are named in the toast, so a result entry that moved
+    // nothing is distinguishable from one that did -- which is the whole reason the endpoint reports
+    // them (ADR-0042).
+    return { success: Boolean(patch_operation.acknowledged), message: formatSpielUpdateMessage(patch_operation.advanced_to) };
   });
 }

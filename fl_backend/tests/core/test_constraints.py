@@ -27,7 +27,14 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
-from app.api.spiele.schemas import FLSpiel, FLSpielOrtField, FLSpielSchiedsrichterField, FLSpielTeamField
+from app.api.spiele.schemas import (
+    FLSpiel,
+    FLSpielOrtField,
+    FLSpielQuelleGruppe,
+    FLSpielQuelleSpiel,
+    FLSpielSchiedsrichterField,
+    FLSpielTeamField,
+)
 from app.api.spieler.schemas import FLSpieler
 from app.api.spieler.services import SAISON_SPIELER_COLLECTION_NAME
 from app.api.spielorte.schemas import FLSpielort
@@ -82,12 +89,17 @@ OUT_OF_SCOPE_KEYWORDS = {
 # more than one collection, so they carry fields no single document holds -- and naming them here is
 # what keeps this an equality check rather than a subset check that would pass while a real field went
 # missing.
-MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel], frozenset[str]]] = [
+MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[BaseModel], ...], frozenset[str]]] = [
     ("saisons", (), FLSaison, frozenset()),
     ("saisons", ("rules",), FLSaisonRules, frozenset()),
     ("spiele", (), FLSpiel, frozenset()),
     ("spiele", ("team1",), FLSpielTeamField, frozenset()),
     ("spiele", ("team2",), FLSpielTeamField, frozenset()),
+    # A discriminated union, so both variants are named and the validator must declare their union
+    # (ADR-0042). `required` on the validator side is `type` alone -- $jsonSchema cannot make a key
+    # required only when a sibling holds a particular value, and this test compares field SETS.
+    ("spiele", ("team1_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
+    ("spiele", ("team2_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
     ("spiele", ("ort",), FLSpielOrtField, frozenset()),
     ("spiele", ("schiedsrichter",), FLSpielSchiedsrichterField, frozenset()),
     ("spieltage", (), FLSpieltag, frozenset()),
@@ -108,13 +120,21 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel], frozenset[str
 ]
 
 
-def document_keys(model: type[BaseModel]) -> set[str]:
-    """The model's fields named as they are STORED, so `id` reads `_id` exactly as the document does."""
+def document_keys(models: type[BaseModel] | tuple[type[BaseModel], ...]) -> set[str]:
+    """
+    The models' fields named as they are STORED, so `id` reads `_id` exactly as the document does.
+
+    Several models rather than one where a field is a discriminated union: `teamN_quelle` is a `gruppe`
+    variant or a `spiel` variant, and one validator has to name every key either of them can store.
+    Their UNION is therefore what the validator must declare, and adding a field to either variant while
+    forgetting `constraints.py` still fails here naming the field.
+    """
     keys: set[str] = set()
 
-    for field_name, field in model.model_fields.items():
-        alias = field.validation_alias
-        keys.add(alias if isinstance(alias, str) else field_name)
+    for model in models if isinstance(models, tuple) else (models,):
+        for field_name, field in model.model_fields.items():
+            alias = field.validation_alias
+            keys.add(alias if isinstance(alias, str) else field_name)
 
     return keys
 
@@ -156,7 +176,7 @@ def test_only_the_two_junctions_are_unmirrored():
 def test_every_mirrored_model_matches_its_validator(
     collection: str,
     path: tuple[str, ...],
-    model: type[BaseModel],
+    model: type[BaseModel] | tuple[type[BaseModel], ...],
     not_stored: frozenset[str],
 ):
     """
@@ -171,8 +191,9 @@ def test_every_mirrored_model_matches_its_validator(
     declared = set(properties_at(collection, path))
 
     where = ".".join((collection, *path))
+    names = " | ".join(m.__name__ for m in (model if isinstance(model, tuple) else (model,)))
     assert declared == expected, (
-        f"{where} has drifted from {model.__name__}. "
+        f"{where} has drifted from {names}. "
         f"Only in the model: {sorted(expected - declared)}. Only in the validator: {sorted(declared - expected)}. "
         f"Update app/core/constraints.py in the same commit as the model."
     )

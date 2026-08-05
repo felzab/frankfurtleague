@@ -12,8 +12,10 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
     with an unresolved side has no goals to derive from and therefore no result (ADR-0041).
   • The payload is written wholesale with `$set`, so a field absent from it is overwritten rather than
     preserved. That is why the money fields carry no Pydantic default.
-  • `patch_spiel_data` writes ONLY the match document. Team statistics are derived from the matches on
-    read (ADR-0026), so there is no second write to keep in step and no team to look up here.
+  • `patch_spiel_data` writes NO team document. Team statistics are derived from the matches on read
+    (ADR-0026), so there is no second write to keep in step and no team to look up here. It does write
+    other MATCH documents: entering a result resolves the season's bracket, which moves winners into
+    the fixtures whose `quelle` names that match (ADR-0042).
 
  WHY `/action_required` DOES NOT COLLIDE WITH `/{spiel_id}` ────────────────────────────────────────────────
 
@@ -29,9 +31,9 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Body, Depends
 
+from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
@@ -89,12 +91,17 @@ async def patch_spiel_data(
     spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
     db: DBClient,
     spiele_collection: SpieleCollection,
-) -> JSONResponse:
+) -> FLPatchSpielDataResponse:
     """
-    Update one Spiel.
+    Update one Spiel, then resolve the season's playoff bracket.
 
     `ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written
     wholesale, so every field must be present -- an omitted field is overwritten, not preserved.
+
+    **A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is
+    the winner of match 25, so entering that match's result fills the slot, correcting it later moves
+    the right team in, and deleting it empties the slot again (ADR-0042). Every fixture written that way
+    is named in `advanced_to`.
 
     The league table follows on its own: team statistics are computed from the match documents by
     `GET /teams`, so a result entered here is reflected the next time that table is read.
@@ -121,8 +128,8 @@ async def patch_spiel_data(
             if document.get(slot) is not None:
                 document[slot]["tore"] = None
 
-    # One document, and still a transaction: the write stays atomic with whatever this endpoint grows
-    # next, and a session costs nothing here (ADR-0026 removed the second write, not the guarantee).
+    # The transaction is what makes the result and the advancement it causes one fact: a bracket that
+    # resolved against a result the caller never committed would be worse than one that did not resolve.
     async with await db.start_session() as session:
         async with session.start_transaction():
             patched_spiel_raw = await patch_one_in_db(
@@ -132,16 +139,20 @@ async def patch_spiel_data(
                 session=session,
             )
             # `find_one_and_update` returns None only when nothing matched, so this is the 404 branch
-            # rather than an error check -- the document is not read for its contents.
+            # rather than an error check.
             if patched_spiel_raw is None:
                 raise DocumentNotFoundException(
                     filter={"_id": spiel_id},
                     error_code="DB-COMMON-001",
                 )
 
-    return JSONResponse(
-        content={
-            "acknowledged": 1,
-        },
-        status_code=status.HTTP_200_OK,
-    )
+            # The season scopes the bracket below, and it is read off the document `patch_one_in_db`
+            # returns -- the pre-image, which is the helper's default (spec I2). Safe here and only
+            # here: `saison_id` is on no payload, so the `$set` above cannot have changed it.
+            advanced_to = await advance_bracket_winners(
+                spiele_collection=spiele_collection,
+                saison_id=str(patched_spiel_raw["saison_id"]),
+                session=session,
+            )
+
+    return FLPatchSpielDataResponse(advanced_to=advanced_to)

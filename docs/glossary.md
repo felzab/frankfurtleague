@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `a1dddec`, 2026-08-05
+**Verified against:** `74d83d6`, 2026-08-05
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -23,10 +23,13 @@ with a result still counts · `inactive_since` is a date, never a boolean.
 | `Tore`                            | Goals, scored and conceded                   | Attributes and values |
 | `Ergebnis`                        | The score as a string, derived server-side   | Attributes and values |
 | `Gruppe`                          | A group within a season                      | Attributes and values |
+| `spiel_nr`                        | A match's number within its season           | Attributes and values |
 | `saison_phase`                    | Stage of the season                          | Attributes and values |
 | `spiel_status`                    | Match status, derived not stored             | Attributes and values |
 | `is_canceled`                     | Cancelled — and still countable              | Attributes and values |
-| `Herkunft`                        | Where a fixture's side comes from            | Attributes and values |
+| `Quelle`                          | Where a fixture's side comes from            | Attributes and values |
+| `Platz`                           | A placing in a group's standing              | Attributes and values |
+| `Ausgang`                         | Which side of a match a reference names      | Attributes and values |
 | `is_disqualified`                 | Out of one season, not the league            | Attributes and values |
 | `is_nachgetragen`                 | A squad entry added after the fact           | Attributes and values |
 | `inactive_since`                  | Soft deletion, as a date                     | Attributes and values |
@@ -72,7 +75,7 @@ The central entity. Fixtures, results, tables and the bracket are all views of m
 document, which is what the venue and referee patch endpoints do for their own embedded copies.
 
 Either side is **null while its occupant is unknown** — a bracket slot the group phase has not
-filled yet. What a card shows in its place is `team1_herkunft` / `team2_herkunft`; see `Herkunft`.
+filled yet. What a card shows in its place is derived from `team1_quelle` / `team2_quelle`; see `Quelle`.
 
 ### `Spieltag` — matchday, fixture round
 
@@ -211,26 +214,88 @@ Note also `unbekannt`: passing it as a filter returns _everything_, because no b
 A boolean on the match. The client treats cancellation as **overriding** the date when deriving status;
 the server treats `is_canceled` and `datum` as independent filters.
 
-### `Herkunft` — where a side of a fixture comes from
+### `Quelle` — where a side of a fixture comes from
 
-`team1_herkunft` and `team2_herkunft` on a `Spiel`: free text naming the source of that side of the
-bracket — `"Sieger 25."`, the winner of match 25. Null on a group-phase fixture, whose sides come from
-the schedule and from no earlier match.
+`team1_quelle` and `team2_quelle` on a `Spiel`: a **structural reference** naming what feeds that side of
+the bracket, never display text. It is a tagged union with two variants and no third, discriminated on
+`type` ([ADR-0042](_decisions/0042-a-result-entry-resolves-the-whole-bracket.md)):
 
-**In code:** `FLSpiel` (`fl_backend/app/api/spiele/schemas.py`) · `FLSpielSchema`
-(`fl_frontend/src/features/spiele/schemas.ts`) ·
-[ADR-0041](_decisions/0041-a-bracket-slot-carries-its-own-provenance.md).
+| Variant  | Stored                                             | Reads as          |
+| -------- | -------------------------------------------------- | ----------------- |
+| `gruppe` | `{type: "gruppe", gruppe: "A", platz: 1}`          | `Gruppensieger A` |
+| `spiel`  | `{type: "spiel", spiel_nr: 25, ausgang: "sieger"}` | `Sieger 25.`      |
+
+`null` on a group-phase fixture, whose sides come from the schedule and from no earlier match — and on
+any slot an admin has taken manual charge of.
+
+**The German is derived and stored nowhere.** `fl_frontend/src/features/spiele/utils.ts ::
+formatQuelle` is the only place either codebase turns a reference into words, so the bracket's
+vocabulary exists once rather than once per fixture. **`type` is the one English key**, because it names
+the shape of the object rather than anything in the competition; see `format` on the teams response for
+the same line drawn elsewhere.
+
+**It is also the only record of the bracket's edges**, which is why `PATCH /spiele/{spiel_id}` reads it:
+the occupant of a slot fed by a match _is_ the winner of that match, and every result entry recomputes
+that for the whole season. **Only the `spiel` variant resolves today** — seeding the first knockout round
+from the standings needs a total order within a group and a count of how many teams advance, neither of
+which exists (open item FB-10). A `gruppe` variant is stored, displayed, and left alone.
+
+**In code:** `FLSpielQuelle` (`fl_backend/app/api/spiele/schemas.py`) · `FLSpielQuelleSchema`
+(`fl_frontend/src/features/spiele/schemas.ts`) · `fl_backend/app/api/spiele/services.py ::
+resolve_bracket` · [ADR-0041](_decisions/0041-a-bracket-slot-carries-its-own-provenance.md) ·
+[ADR-0042](_decisions/0042-a-result-entry-resolves-the-whole-bracket.md).
 
 **Pitfalls.** It is **not** paired with the team field beside it, and nothing enforces a relationship
-between the two. A side is `null` while its occupant is unknown, and the `Herkunft` is what a card
-renders in its place — but the label describes the _fixture_, so it stays true once the winner is
-written in. All four combinations of the two fields are legitimate; a reader takes
-`team.name` first, then the `Herkunft`, then "Noch offen", and never asks which state it is in.
+between the two. A side is `null` while its occupant is unknown, and the derived label is what a card
+renders in its place — but the reference describes the _fixture_, so it stays true once the winner is
+written in. All four combinations of the two fields are legitimate; a reader takes `team.name` first,
+then `formatQuelle`, then "Noch offen", and never asks which state it is in.
+
+**A reference owns the slot beside it, and clearing it is the only manual override.** While a `Quelle`
+names a match the season has, only the resolution writes that side, so a team entered by hand is
+reverted on the next save of anything in that season. Setting it to `null` hands the slot back — which
+is the route for a knockout that ended level, since `Ergebnis` cannot record a shoot-out (open item
+FB-8). **There is no override flag and there must not be one**: a flag beside the reference could
+contradict it, and no `$jsonSchema` validator can express that it must not.
+
+A reference naming a match that does not exist is left alone instead of emptying the slot: a number
+nobody can resolve is a typo, not an instruction to remove a team.
 
 The reason it is a sibling rather than a key inside the team field: a display copy of `teams.name` is
 maintained by the rename fan-out in `PATCH /teams/{team_id}`
 ([ADR-0028](_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md), rule 3), and a
-provenance label must never be. Sharing one field is what forced that endpoint to carry an exemption.
+provenance reference must never be. Sharing one field is what forced that endpoint to carry an exemption.
+
+### `Platz` — a placing in a group's standing
+
+`platz` inside a `gruppe` `Quelle`: `1` is the group winner, `2` the runner-up. An `int` with `gt=0`,
+and nothing bounds it above — a group with fewer teams than the number is possible and is not currently
+refused anywhere.
+
+**Pitfall.** It names a placing that **nothing in the system can yet determine**. Groups are sorted by
+points, then goal difference, and a further tie falls back to the alphabetical order the pipeline
+delivered. So `platz: 2` records an intent, and the resolution deliberately does not act on it (open
+item FB-10). Not the same as `position`, which is a player's position on the pitch and is free text on
+`FLSpieler`.
+
+### `Ausgang` — which side of a match a reference names
+
+`ausgang` inside a `spiel` `Quelle`: `sieger` or `verlierer`, exactly two values.
+
+**Pitfalls.** `verlierer` exists because a third-place play-off is fed by the two losing semi-finals.
+**Nothing writes it today** and the 2026 bracket has no such fixture; the bracket simply could not
+express one without it. A drawn match has neither a `sieger` nor a `verlierer`, so a reference to one
+resolves to nobody and the slot stays empty (open item FB-8).
+
+### `spiel_nr` — a match's number within its season
+
+An `int` with `gt=0` on `FLSpiel`, and the sort key `sort_by=spiel_nr` orders by.
+
+**Pitfalls.** It is unique **within a season, not globally** — `spiele.uniq_saison_id_spiel_nr` is a
+compound index, and every season starts again at 1. That is why `resolve_bracket` must be given exactly
+one season: a wider list resolves a `Quelle` against a match from the wrong year. It is also why a
+`Quelle` references a match by this number rather than by `_id` — a bracket is drawn by match number
+before the documents exist.
 
 ### `is_disqualified` — out of one season
 
