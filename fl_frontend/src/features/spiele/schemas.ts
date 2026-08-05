@@ -16,6 +16,9 @@
  *
  *   • The patch payload composes from the read model's field schemas rather than redeclaring them, so
  *     the write shape cannot drift from the read shape.
+ *   • A fixture side is `null` when its occupant is not yet known, and `teamN_herkunft` says where that
+ *     occupant will come from — "Sieger 25." (ADR-0041). The two are independent and nothing pairs them,
+ *     so every consumer reads `team?.name ?? herkunft ?? "Noch offen"` and never branches on a state.
  *   • Zod's default `strip` mode discards undeclared fields silently. A field the backend sends but
  *     this schema omits is lost with no error — that is how `saison_id` went missing.
  *   • Draft types exist so an emptied currency field is `null` rather than silently `0`. The strict
@@ -77,8 +80,14 @@ export const FLSpielSchema = z.object({
   id: CustomObjectIdStringSchema,
   spieltag_id: CustomObjectIdStringSchema,
 
-  team1: FLSpielTeamFieldSchema,
-  team2: FLSpielTeamFieldSchema,
+  // `null` while the occupant is unknown — a playoff slot the group phase has not filled yet.
+  team1: FLSpielTeamFieldSchema.nullable(),
+  team2: FLSpielTeamFieldSchema.nullable(),
+
+  // Where each side comes from, as the bracket reads it. Survives the team arriving, so it is a
+  // sibling of the field above rather than a key inside it (ADR-0041).
+  team1_herkunft: z.string().nullable(),
+  team2_herkunft: z.string().nullable(),
 
   datum: CustomDateStringSchema.nullable(),
   uhrzeit: CustomTimeStringSchema.nullable(),
@@ -120,8 +129,13 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   ort: FLSpielOrtFieldSchema.nullable(),
   schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 
-  team1: FLSpielTeamFieldSchema,
-  team2: FLSpielTeamFieldSchema,
+  team1: FLSpielTeamFieldSchema.nullable(),
+  team2: FLSpielTeamFieldSchema.nullable(),
+
+  // On the payload because the handler writes it back wholesale with `$set`: a field the request
+  // omits is overwritten, so leaving these off would erase a bracket's slot labels on the first edit.
+  team1_herkunft: z.string().nullable(),
+  team2_herkunft: z.string().nullable(),
 
   spiel_id: CustomObjectIdStringSchema,
   is_canceled: z.boolean(),

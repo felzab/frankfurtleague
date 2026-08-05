@@ -27,6 +27,11 @@ export const PLACEHOLDER = {
   ergebnis: "-:-",
   /** Names of absent related entities — a venue or referee that was never assigned. */
   entity: "/",
+  /**
+   * A fixture side with no occupant and no provenance label either — an opponent nobody has entered
+   * yet. A bracket slot that knows where its team comes from shows that instead (ADR-0041).
+   */
+  slot: "Noch offen",
 } as const;
 
 const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });

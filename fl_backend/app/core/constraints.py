@@ -135,11 +135,14 @@ _KONTAKT = _object(
 )
 
 _SPIEL_TEAM_FIELD = _object(
+    # Nullable: a playoff slot the group phase has not filled yet has no occupant, and the fixture says
+    # so rather than pointing at a stand-in team (ADR-0041). Where that occupant will come from is
+    # `teamN_herkunft` on the match, which is a sibling of this field and never a key inside it.
+    nullable=True,
     required=("team_id", "name", "tore", "shorthand"),
     properties={
         "team_id": {"bsonType": "objectId"},
-        # NOT a copy of `teams.name`: on the playoff matches it carries a bracket slot label
-        # ("Sieger 25.") that exists nowhere else in the database (ADR-0028, open item BE-9).
+        # A display copy of `teams.name`, which `PATCH /teams/{team_id}` fans out into (ADR-0028, rule 3).
         "name": {"bsonType": "string"},
         "tore": {"bsonType": _INT_OR_NULL},
         "shorthand": {"bsonType": "string"},
@@ -200,7 +203,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             # `gruppe`, `is_disqualified` and `statistik` are absent because a team document does not
             # carry them: the first two are season-scoped and live on `saison_teams`, and the third is
             # derived from `spiele` on every read and stored nowhere (ADR-0026).
-            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "is_placeholder", "address", "inactive_since"),
+            required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -208,7 +211,6 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "description": {"bsonType": "string"},
                 "full_name": {"bsonType": "string"},
                 "website_url": {"bsonType": "string"},
-                "is_placeholder": {"bsonType": "bool"},
                 "address": _ADDRESS,
                 # A retired club, not a club out of one season -- that is `saison_teams`, and it has no
                 # equivalent because a team never leaves a season except by disqualification (ADR-0033).
@@ -289,6 +291,8 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "_id",
                 "team1",
                 "team2",
+                "team1_herkunft",
+                "team2_herkunft",
                 "datum",
                 "uhrzeit",
                 "ort",
@@ -304,6 +308,12 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "team1": _SPIEL_TEAM_FIELD,
                 "team2": _SPIEL_TEAM_FIELD,
+                # Where each side comes from -- "Sieger 25." -- or null for a fixture whose sides were
+                # never drawn from anywhere, which is every group-phase match. Nothing here pairs it
+                # with the team field beside it: all four combinations are legitimate (ADR-0041), and a
+                # cross-field rule is outside what these validators may assert anyway (ADR-0027).
+                "team1_herkunft": {"bsonType": _STRING_OR_NULL},
+                "team2_herkunft": {"bsonType": _STRING_OR_NULL},
                 "datum": {"bsonType": _STRING_OR_NULL},
                 "uhrzeit": {"bsonType": _STRING_OR_NULL},
                 "ort": _SPIEL_ORT_FIELD,

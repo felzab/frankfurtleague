@@ -70,6 +70,60 @@ def test_accepts_a_match_with_no_date_venue_or_referee(spiel):
     assert parsed.ort is None
 
 
+class TestUnresolvedSides:
+    """
+    A bracket slot whose occupant the group phase has not produced yet (ADR-0041).
+
+    The four cases below are the four combinations of `teamN` and `teamN_herkunft`, and the point of
+    the parametrised one is that ALL of them validate. Nothing pairs the two fields, so no case here
+    is the "wrong" one to be rejected — a reader renders whichever of the two it has.
+    """
+
+    def test_accepts_a_fixture_whose_opponent_is_not_yet_known(self, spiel):
+        """The shape that replaces the placeholder team: an absent side, and a label saying what fills it."""
+        parsed = FLSpiel.model_validate(spiel(team1=None, team1_herkunft="Sieger 25.", ergebnis=None))
+
+        assert parsed.team1 is None
+        assert parsed.team1_herkunft == "Sieger 25."
+
+    def test_keeps_the_label_once_the_team_arrives(self, spiel):
+        """
+        Provenance is a fact about the FIXTURE, not a stand-in for the missing team.
+
+        "Sieger 25." stays true after the winner of match 25 is written into the slot, which is the
+        whole reason it is a sibling of `team1` rather than a key inside it.
+        """
+        parsed = FLSpiel.model_validate(spiel(team1_herkunft="Sieger 25."))
+
+        assert parsed.team1 is not None
+        assert parsed.team1_herkunft == "Sieger 25."
+
+    def test_accepts_a_slot_with_neither_a_team_nor_a_label(self, spiel):
+        """An opponent simply not entered yet. Rendered "Noch offen" rather than refused — there is no cross-field rule."""
+        parsed = FLSpiel.model_validate(spiel(team1=None, team1_herkunft=None, ergebnis=None))
+
+        assert parsed.team1 is None
+        assert parsed.team1_herkunft is None
+
+    @pytest.mark.parametrize("field", ["team1_herkunft", "team2_herkunft"])
+    def test_requires_the_provenance_field_to_be_present(self, spiel, field):
+        """
+        Nullable, and REQUIRED — no Pydantic default.
+
+        A default would let a document that has never carried the key read as `None`, which is exactly
+        the state the pre-deploy seeding step exists to remove. Without this, that step could be
+        skipped and nothing would say so until a bracket edit silently wrote the field for the first
+        time on one document out of thirty-one.
+        """
+        incomplete = spiel()
+        del incomplete[field]
+
+        with pytest.raises(ValidationError) as excinfo:
+            FLSpiel.model_validate(incomplete)
+
+        assert excinfo.value.errors()[0]["loc"][-1] == field
+
+
 class TestEmbeddedFields:
     def test_rejects_a_negative_goal_count(self, spiel, spiel_team_field):
         """Goals are `ge=0`; a negative count would flow straight into a team's statistics."""
@@ -77,8 +131,17 @@ class TestEmbeddedFields:
             FLSpiel.model_validate(spiel(team1=spiel_team_field(tore=-1)))
 
     def test_accepts_a_null_goal_count(self, spiel, spiel_team_field):
-        """`None` means unplayed and is distinct from `0` — the derived league table counts a 0 and skips a null."""
-        assert FLSpiel.model_validate(spiel(team1=spiel_team_field(tore=None))).team1.tore is None
+        """
+        `None` means unplayed and is distinct from `0` — the derived league table counts a 0 and skips a null.
+
+        The two assertions are distinct claims, which is why the side is not narrowed with a cast: an
+        occupied side that scored nothing yet is a different state from a side with no occupant, and
+        collapsing them here would let this pass on the wrong one.
+        """
+        parsed = FLSpiel.model_validate(spiel(team1=spiel_team_field(tore=None)))
+
+        assert parsed.team1 is not None
+        assert parsed.team1.tore is None
 
     def test_rejects_a_negative_referee_payment(self, spiel, spiel_schiedsrichter_field):
         """The fee is `ge=0`, matching the venue rent beside it."""
@@ -145,6 +208,8 @@ class TestPatchPayload:
             "is_canceled": base["is_canceled"],
             "team1": base["team1"],
             "team2": base["team2"],
+            "team1_herkunft": base["team1_herkunft"],
+            "team2_herkunft": base["team2_herkunft"],
             "datum": base["datum"],
             "uhrzeit": base["uhrzeit"],
             "ort": base["ort"],
@@ -166,3 +231,27 @@ class TestPatchPayload:
         """The write path enforces the same time format as the read path, rather than relaxing it."""
         with pytest.raises(ValidationError):
             FLPatchSpielDataPayload.model_validate(self._payload(spiel, uhrzeit="14:30"))
+
+    @pytest.mark.parametrize("field", ["team1_herkunft", "team2_herkunft"])
+    def test_requires_the_provenance_fields(self, spiel, field):
+        """
+        On the payload, because the handler writes it back wholesale with `$set`.
+
+        A field the request omits is OVERWRITTEN rather than preserved, so a payload model without
+        these would erase a bracket's slot labels the first time an admin edited any other field —
+        the same failure mode `mietpreis` has, for the same reason.
+        """
+        incomplete = self._payload(spiel)
+        del incomplete[field]
+
+        with pytest.raises(ValidationError) as excinfo:
+            FLPatchSpielDataPayload.model_validate(incomplete)
+
+        assert excinfo.value.errors()[0]["loc"][-1] == field
+
+    def test_accepts_an_unresolved_side(self, spiel):
+        """The write path can put a fixture back into the unresolved state, not only read one out of it."""
+        parsed = FLPatchSpielDataPayload.model_validate(self._payload(spiel, team1=None, team1_herkunft="Sieger 25."))
+
+        assert parsed.team1 is None
+        assert parsed.team1_herkunft == "Sieger 25."

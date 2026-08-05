@@ -104,7 +104,6 @@ export function SaisontabelleView({ gruppenData }: { gruppenData: FLGruppen }) {
                         <TeamPopoverMenu
                           teamName={teamData.name}
                           teamId={teamData.id}
-                          teamShorthand={teamData.shorthand}
                           teamIsDisqualified={teamData.is_disqualified}>
                           {/** Desktop view */}
                           <span className="fluid-xs text-foreground hover:text-brand hidden max-w-full min-w-0 truncate font-medium transition-colors lg:block">

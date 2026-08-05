@@ -4,11 +4,11 @@ import { CircleExclamation } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";
 
-import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { card } from "@/shared/components/ui/card";
 
 import { formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
+import { SpielTeamSlot } from "./SpielTeamSlot";
 
 import type { FLSpiel } from "../../schemas";
 
@@ -47,14 +47,12 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
             name lengths differ; long names truncate, and the popover always carries the full name. */}
         <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
           <span className="flex min-w-0 justify-end">
-            <TeamPopoverMenu
-              teamName={spielData.team1.name}
-              teamId={spielData.team1.team_id}
-              teamShorthand={spielData.team1.shorthand}>
-              <strong className="fluid-sm lg:fluid-base hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
-                {spielData.team1.name || "Team 1"}
-              </strong>
-            </TeamPopoverMenu>
+            <SpielTeamSlot
+              team={spielData.team1}
+              herkunft={spielData.team1_herkunft}
+              text={spielData.team1?.name || "Team 1"}
+              className="fluid-sm lg:fluid-base max-w-full truncate text-right font-bold"
+            />
           </span>
 
           {/* `-strong` for the same reason as in the other two cards: this is text, not a fill, and the
@@ -65,14 +63,12 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
           </span>
 
           <span className="flex min-w-0 justify-start">
-            <TeamPopoverMenu
-              teamName={spielData.team2.name}
-              teamId={spielData.team2.team_id}
-              teamShorthand={spielData.team2.shorthand}>
-              <strong className="fluid-sm lg:fluid-base hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
-                {spielData.team2.name || "Team 2"}
-              </strong>
-            </TeamPopoverMenu>
+            <SpielTeamSlot
+              team={spielData.team2}
+              herkunft={spielData.team2_herkunft}
+              text={spielData.team2?.name || "Team 2"}
+              className="fluid-sm lg:fluid-base max-w-full truncate text-left font-bold"
+            />
           </span>
         </div>
       </Card.Content>

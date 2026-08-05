@@ -12,7 +12,30 @@ import { computeSpielStatus, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
 import { SpielStatusChip } from "../ui/SpielStatusChip";
 
-import type { FLSpiel } from "../../schemas";
+import type { FLSpiel, FLSpielTeamField } from "../../schemas";
+
+/**
+ * One side of the fixture, in this modal's own idiom.
+ *
+ * A resolved side is a plain link straight to the team — not a popover, for the reason recorded at the
+ * call site. A side whose occupant is not yet known shows its provenance label as text, because there
+ * is no team page to send anyone to (ADR-0041).
+ */
+function TeamNameLine({ team, herkunft, onNavigate }: { team: FLSpielTeamField | null; herkunft: string | null; onNavigate: () => void }) {
+  if (team === null) {
+    return <span className="fluid-xl text-foreground-muted max-w-full truncate font-bold italic">{herkunft ?? PLACEHOLDER.slot}</span>;
+  }
+
+  return (
+    <Link
+      prefetch={false}
+      href={`/dashboard/teams/${team.team_id}`}
+      onClick={onNavigate}
+      className="fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
+      {team.name}
+    </Link>
+  );
+}
 
 /**
  * Deliberately NOT on `ModalShell` (owner decision, 2026-07-31): this is the one modal public users
@@ -89,23 +112,19 @@ export function SpielDetailsModal({
                       below the name. Every fix for that is a workaround around a nested overlay
                       nobody needs: this modal is already a focused view of one match, so the name
                       goes straight to the team. The Kader shortcut stays on the cards. */}
-                  <Link
-                    prefetch={false}
-                    href={`/dashboard/teams/${spielData.team1.team_id}`}
-                    onClick={onClose}
-                    className="fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
-                    {spielData.team1.name}
-                  </Link>
+                  <TeamNameLine
+                    team={spielData.team1}
+                    herkunft={spielData.team1_herkunft}
+                    onNavigate={onClose}
+                  />
 
                   <span className="fluid-sm text-foreground-muted my-1 font-bold tracking-widest uppercase">vs</span>
 
-                  <Link
-                    prefetch={false}
-                    href={`/dashboard/teams/${spielData.team2.team_id}`}
-                    onClick={onClose}
-                    className="fluid-xl hover:text-brand max-w-full truncate rounded font-bold transition-colors duration-200">
-                    {spielData.team2.name}
-                  </Link>
+                  <TeamNameLine
+                    team={spielData.team2}
+                    herkunft={spielData.team2_herkunft}
+                    onNavigate={onClose}
+                  />
                 </div>
 
                 <Separator className="bg-border my-4 h-[2px]" />

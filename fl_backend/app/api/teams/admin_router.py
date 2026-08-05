@@ -7,9 +7,9 @@ Clubs, and their membership of a season.
 
   • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
     construction. Never move the guard onto an individual endpoint.
-  • Renaming a club FANS OUT into every match embedding it -- and skips the placeholder. On the playoff
-    matches the embedded `name` is a bracket slot label ("Sieger 25.") that exists nowhere else in the
-    database, so a blind fan-out would overwrite three of them with "TBD" (ADR-0028, open item BE-9).
+  • Renaming a club FANS OUT into every match embedding it, unconditionally. The embedded `name` is a
+    display copy of `teams.name` and nothing else (ADR-0028, rule 3): a bracket slot label lives in the
+    match's own `teamN_herkunft`, which no path under `team1.`/`team2.` can reach (ADR-0041).
   • Deletion is SOFT, because `spiele.team1.team_id` and `team2.team_id` point here and a hard delete
     would orphan every historical match. `uniq_shorthand` keeps indexing a retired club, so its two
     letters stay reserved -- which is correct, and which is why creating a club whose shorthand is
@@ -53,7 +53,7 @@ from app.api.teams.schemas import (
     FLTeamWriteResponse,
 )
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.dependencies import (
     SaisonTeamsCollection,
     SpieleCollection,
@@ -95,7 +95,7 @@ async def post_team(
 
     post_operation = await post_one_to_db(
         collection=teams_collection,
-        document={**team_data.model_dump(mode="json"), "is_placeholder": False, "inactive_since": None},
+        document={**team_data.model_dump(mode="json"), "inactive_since": None},
     )
 
     return FLPostTeamResponse(
@@ -118,13 +118,10 @@ async def patch_team(
     shows the old name indefinitely. There was zero drift across all 31 matches when this was
     measured, and that is the state this endpoint exists to preserve.
 
-    **It does not run for the placeholder team.** On the playoff matches the embedded `name` is a
-    bracket slot label — "Sieger 25." — that exists nowhere else in the database, while the team
-    document it references reads "TBD". Fanning out there would replace three real labels with "TBD"
-    and there would be no way to recover them (ADR-0028, open item BE-9).
+    **It runs for every club, with no exception to remember.** The embedded `name` is a display copy of
+    this document and carries nothing else — a bracket slot label is the match's own `teamN_herkunft`,
+    which no path under `team1.`/`team2.` reaches (ADR-0028, ADR-0041).
     """
-
-    existing = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection={"is_placeholder": 1})
 
     updated_raw = await patch_one_in_db(
         collection=teams_collection,
@@ -135,17 +132,16 @@ async def patch_team(
     if updated_raw is None:
         raise DocumentNotFoundException(filter={"_id": team_id}, error_code="DB-COMMON-001")
 
+    # Both slots, in two passes: a match embeds the team as either `team1` or `team2`, and one
+    # `update_many` cannot write a different path per document.
     fanned_out = 0
-    if not existing.get("is_placeholder", False):
-        # Both slots, in two passes: a match embeds the team as either `team1` or `team2`, and one
-        # `update_many` cannot write a different path per document.
-        for slot in ("team1", "team2"):
-            result = await patch_many_in_db(
-                collection=spiele_collection,
-                filter={f"{slot}.team_id": team_id},
-                update={"$set": {f"{slot}.name": team_data.name, f"{slot}.shorthand": team_data.shorthand}},
-            )
-            fanned_out += result.modified_count
+    for slot in ("team1", "team2"):
+        result = await patch_many_in_db(
+            collection=spiele_collection,
+            filter={f"{slot}.team_id": team_id},
+            update={"$set": {f"{slot}.name": team_data.name, f"{slot}.shorthand": team_data.shorthand}},
+        )
+        fanned_out += result.modified_count
 
     return FLPatchTeamResponse(updated_document=FLTeamRecord.model_validate(updated_raw), fanned_out_to_spiele=fanned_out)
 
@@ -219,8 +215,7 @@ async def post_saison_team(
 
     A team with no row here is **absent from that season entirely** — the join is strict, so it appears
     in no table, no group and no statistics. Entering every participating team is therefore the
-    substantive step in setting a season up, and it includes the "TBD" placeholder, whose missing row
-    is a known way to break a playoff bracket (open item BE-9).
+    substantive step in setting a season up.
 
     One row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a
     plain insert rather than a revive, because no row here is ever retired — a team leaves a season

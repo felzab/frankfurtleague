@@ -2,12 +2,20 @@
 
 import { Card } from "@heroui/react";
 
-import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
 import { card } from "@/shared/components/ui/card";
 
 import { formatSpielDisplay } from "../../utils";
+import { SpielTeamSlot } from "./SpielTeamSlot";
 
 import type { FLSpiel } from "../../schemas";
+
+/**
+ * `relative z-20` lifts a popover trigger clear of the full-bleed button below, so a team name stays
+ * independently clickable. An UNRESOLVED slot has no popover and must not be lifted: a plain label
+ * sitting above that button would swallow the press that opens the match, and the bracket's largest
+ * click target would stop working on exactly the fixtures a reader taps to find out who is playing.
+ */
+const slotLift = (isResolved: boolean) => (isResolved ? "relative z-20 flex min-w-0" : "flex min-w-0");
 
 export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpiel; onPress: () => void }) {
   const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
@@ -28,23 +36,28 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
         />
 
         {/** Game Metadata */}
-        <div className="flex h-full w-fit flex-col items-start">
+        {/* `shrink-0`: the date and time are fixed-width content that must not wrap, so the pill
+            beside them is what absorbs a narrow column. */}
+        <div className="flex h-full w-fit shrink-0 flex-col items-start">
           <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
           <span className="fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
         </div>
 
-        {/** Who vs. Who — equal 1fr tracks keep the score centered whatever the shorthand lengths. */}
-        <div className="bg-background border-border grid w-fit grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
+        {/** Who vs. Who — equal 1fr tracks keep the score centered whatever the two sides read. */}
+        {/* `min-w-0` is what makes the `truncate` below reachable at all. As a flex item this pill
+            defaults to `min-width: auto` and refuses to shrink under `w-fit`, so its `1fr` tracks
+            resolve to the full untruncated content and the pill overflows the bracket column. That
+            was invisible while both sides were two-character shorthands and is not now: an
+            unresolved slot renders its provenance label, which is an order of magnitude longer. */}
+        <div className="bg-background border-border grid w-fit min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
           {/* TeamPopoverMenu renders display:contents, so z-index has to be applied from outside it. */}
-          <span className="relative z-20 flex min-w-0 justify-end">
-            <TeamPopoverMenu
-              teamName={spielData.team1.name}
-              teamId={spielData.team1.team_id}
-              teamShorthand={spielData.team1.shorthand}>
-              <strong className="fluid-base hover:text-brand max-w-full truncate text-right font-bold transition-colors duration-200">
-                {spielData.team1.shorthand}
-              </strong>
-            </TeamPopoverMenu>
+          <span className={`${slotLift(spielData.team1 !== null)} justify-end`}>
+            <SpielTeamSlot
+              team={spielData.team1}
+              herkunft={spielData.team1_herkunft}
+              text={spielData.team1?.shorthand ?? ""}
+              className="fluid-base max-w-full truncate text-right font-bold"
+            />
           </span>
 
           {/* The result in the status chips' tint formula -- the owner's reference chip look. */}
@@ -55,15 +68,13 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
             {spielErgebnis}
           </span>
 
-          <span className="relative z-20 flex min-w-0 justify-start">
-            <TeamPopoverMenu
-              teamName={spielData.team2.name}
-              teamId={spielData.team2.team_id}
-              teamShorthand={spielData.team2.shorthand}>
-              <strong className="fluid-base hover:text-brand max-w-full truncate text-left font-bold transition-colors duration-200">
-                {spielData.team2.shorthand}
-              </strong>
-            </TeamPopoverMenu>
+          <span className={`${slotLift(spielData.team2 !== null)} justify-start`}>
+            <SpielTeamSlot
+              team={spielData.team2}
+              herkunft={spielData.team2_herkunft}
+              text={spielData.team2?.shorthand ?? ""}
+              className="fluid-base max-w-full truncate text-left font-bold"
+            />
           </span>
         </div>
       </Card.Content>

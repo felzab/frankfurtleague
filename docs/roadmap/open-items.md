@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `a9bbc71`, 2026-08-05
+**Verified against:** `a1dddec`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -45,7 +45,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
 | 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
 | 3   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
-| 4   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                         |
+| 4   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Closed   | —                         |
 | 5   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
 | 6   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
 | 7   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
@@ -203,6 +203,17 @@ is the first season created without the TBD row breaking a bracket.
 
 **Path:** shapes FB-4's auto-advance — writing a winner into the next match's slot is exactly the
 operation the placeholder currently fakes, so decide this model before building that workflow.
+
+**Concluded.** [ADR-0041](../_decisions/0041-a-bracket-slot-carries-its-own-provenance.md): a fixture
+side is null while its occupant is unknown, and `team1_herkunft` / `team2_herkunft` are independent
+siblings saying where each side comes from. The placeholder team, `is_placeholder`,
+`include_placeholders` and the `"??"` shorthand are gone, and `patch_team`'s fan-out exemption with
+them. The findings that were not decisions were rehomed: the slot vocabulary to `docs/glossary.md`
+(`Herkunft`), the field's independence to `docs/backend/spec.md` invariant I22, and the season-rollover
+step that asked for a placeholder junction row is deleted from `docs/workflows/README.md`. The
+three-step production data change is the pull request's own runbook, per
+[ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)'s precedent that a one-off is not
+committed.
 
 ### 5 · FB-3 — Admin panel pages for team and spieler data
 

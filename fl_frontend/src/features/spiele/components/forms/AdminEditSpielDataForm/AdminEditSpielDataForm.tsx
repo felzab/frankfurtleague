@@ -46,23 +46,19 @@ export function AdminEditSpielDataForm({
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
+  // Held beside the team rather than inside it: provenance survives the slot being filled, so the two
+  // move independently (ADR-0041).
+  const [team1Herkunft, setTeam1Herkunft] = useState<string | null>(spielData.team1_herkunft);
+  const [team2Herkunft, setTeam2Herkunft] = useState<string | null>(spielData.team2_herkunft);
+
   // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
   const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
     toast.danger("Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 }),
   );
 
   const handleFormSubmit = (formData: FormData) => {
-    // Both teams are required by the payload schema, but the Autocomplete's clear button can empty
-    // them. Reported on the two pickers rather than as a toast, so the message sits at the field it
-    // is about — the same channel the server's own rejections use.
-    if (!team1Payload || !team2Payload) {
-      setFieldErrors({
-        ...(team1Payload ? {} : { "team1.team_id": "Bitte wähle ein Team aus." }),
-        ...(team2Payload ? {} : { "team2.team_id": "Bitte wähle ein Team aus." }),
-      });
-      return;
-    }
-
+    // No "pick a team" guard: an empty picker is a legitimate answer now, and it is how a bracket
+    // slot the group phase has not filled yet is recorded (ADR-0041).
     const payload = {
       spiel_id: spielData.id,
       is_canceled: spielIsCanceled,
@@ -75,6 +71,8 @@ export function AdminEditSpielDataForm({
 
       team1: team1Payload,
       team2: team2Payload,
+      team1_herkunft: team1Herkunft,
+      team2_herkunft: team2Herkunft,
     };
 
     startTransition(async () => {
@@ -161,6 +159,10 @@ export function AdminEditSpielDataForm({
         onTeam1Change={setTeam1Payload}
         team2Payload={team2Payload}
         onTeam2Change={setTeam2Payload}
+        team1Herkunft={team1Herkunft}
+        onTeam1HerkunftChange={setTeam1Herkunft}
+        team2Herkunft={team2Herkunft}
+        onTeam2HerkunftChange={setTeam2Herkunft}
         team1InitialData={spielData.team1}
         team2InitialData={spielData.team2}
       />

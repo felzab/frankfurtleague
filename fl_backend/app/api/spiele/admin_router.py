@@ -8,7 +8,8 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
 
   • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
     construction. Never move the guard onto an individual endpoint.
-  • `ergebnis` is DERIVED from the two `tore` values and is never accepted from the client.
+  • `ergebnis` is DERIVED from the two `tore` values and is never accepted from the client. A fixture
+    with an unresolved side has no goals to derive from and therefore no result (ADR-0041).
   • The payload is written wholesale with `$set`, so a field absent from it is overwritten rather than
     preserved. That is why the money fields carry no Pydantic default.
   • `patch_spiel_data` writes ONLY the match document. Team statistics are derived from the matches on
@@ -102,9 +103,11 @@ async def patch_spiel_data(
     would discard it. The frontend passes it separately, for cache invalidation only.
     """
 
-    updated_ergebnis_field = (
-        f"{spiel_data.team1.tore}:{spiel_data.team2.tore}" if spiel_data.team1.tore is not None and spiel_data.team2.tore is not None else None
-    )
+    # Read through both sides, either of which may be absent: a slot whose occupant is still unknown
+    # has nobody to score, so an unresolved fixture derives no result at all rather than a partial one.
+    team1_tore = spiel_data.team1.tore if spiel_data.team1 is not None else None
+    team2_tore = spiel_data.team2.tore if spiel_data.team2 is not None else None
+    updated_ergebnis_field = f"{team1_tore}:{team2_tore}" if team1_tore is not None and team2_tore is not None else None
 
     # One document, and still a transaction: the write stays atomic with whatever this endpoint grows
     # next, and a session costs nothing here (ADR-0026 removed the second write, not the guarantee).

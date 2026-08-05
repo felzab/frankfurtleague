@@ -1,10 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
 import { Autocomplete, Description, FieldError, Input, Label, ListBox, SearchField, TextField, useFilter } from "@heroui/react";
 
-import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
@@ -13,18 +10,15 @@ import type { FLTeam } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
 
 /**
- * One side of a fixture: a team picker, plus a free-text name field that appears only for "TBD".
+ * One side of a fixture: a team picker that may be left empty, and the provenance field beside it.
  *
- * **The placeholder team gets an editable name, and that is the point of the second field.** An
- * unresolved playoff slot is a real team document shared by every such fixture, so its stored name is
- * useless on a bracket — every slot would read "TBD". The admin types what the slot actually means
- * ("Sieger HF1"), and that string is written to the match's EMBEDDED team name while `team_id` still
- * points at the shared placeholder. Nothing about the placeholder document changes.
+ * **Clearing the picker is a legitimate answer, not an error.** A playoff slot the group phase has not
+ * produced yet has no team, and the fixture says so (ADR-0041). What fills the slot on screen is
+ * `herkunft` — "Sieger 25." — which the admin types here.
  *
- * The local `tbdTeamName` state therefore has to survive re-selection of the same placeholder, which is
- * why it is held here rather than derived from `teamPayload` on each render.
- *
- * This whole mechanism disappears when the nullable-opponent migration lands.
+ * **The provenance field is always available, including for a resolved side.** It records where this
+ * side of the fixture comes from, which stays true once the winner is written in, so it is not a
+ * stand-in that appears and disappears with the team.
  */
 export function FormTeamPicker({
   label,
@@ -32,6 +26,8 @@ export function FormTeamPicker({
   teams,
   teamPayload,
   onTeamChange,
+  herkunft,
+  onHerkunftChange,
   disabledTeamId,
 }: {
   label: string;
@@ -40,12 +36,11 @@ export function FormTeamPicker({
   teams: FLTeam[];
   teamPayload: FLSpielTeamField | null;
   onTeamChange: (payload: FLSpielTeamField | null) => void;
+  herkunft: string | null;
+  onHerkunftChange: (value: string | null) => void;
   disabledTeamId?: string | null;
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
-
-  const teamIsTbd = teamPayload?.shorthand === TBD_TEAM_SHORTHAND;
-  const [tbdTeamName, setTbdTeamName] = useState(teamIsTbd ? teamPayload.name : "");
 
   const handleTeamSelection = (key: Key | null) => {
     if (!key) {
@@ -58,7 +53,7 @@ export function FormTeamPicker({
       onTeamChange({
         team_id: resolvedTeam.id,
         shorthand: resolvedTeam.shorthand,
-        name: resolvedTeam.shorthand === TBD_TEAM_SHORTHAND ? tbdTeamName : resolvedTeam.name,
+        name: resolvedTeam.name,
         // `null`, never NaN: the schema accepts a nullable int, and an unplayed Spiel carries
         // `tore: null`. Defaulting to NaN put a value in the payload that can never validate, so
         // changing a team on an unplayed Spiel failed with the generic error toast. NaN belongs in
@@ -68,21 +63,9 @@ export function FormTeamPicker({
     }
   };
 
-  const handleTbdTeamNameChange = (val: string) => {
-    setTbdTeamName(val);
-
-    if (teamPayload && teamPayload.shorthand === TBD_TEAM_SHORTHAND) {
-      onTeamChange({
-        ...teamPayload,
-        name: val,
-      });
-    }
-  };
-
   return (
     <div className="flex w-full flex-col gap-y-4">
       <Autocomplete
-        isRequired
         name={`${fieldName}.team_id`}
         className="w-full"
         placeholder={`${label} auswählen`}
@@ -130,29 +113,29 @@ export function FormTeamPicker({
             </ListBox>
           </Autocomplete.Filter>
         </Autocomplete.Popover>
-        {!teamIsTbd && <Description className="fluid-xxs text-foreground-muted">{`Suche ${label} aus`}</Description>}
+        <Description className="fluid-xxs text-foreground-muted">
+          {`Suche ${label} aus, oder lass das Feld leer, wenn die Mannschaft noch nicht feststeht.`}
+        </Description>
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
-      {/* Conditionally render TBD Input based on the parent payload's shorthand */}
-      {teamIsTbd && (
-        <TextField
-          isRequired
-          name={`${fieldName}.name`}
-          className="w-full"
-          value={tbdTeamName}
-          onChange={handleTbdTeamNameChange}>
-          <Label className={FIELD_LABEL}>TBD Beschreibung</Label>
-          <Input
-            placeholder="z.B. Sieger 26."
-            className={FIELD_INPUT}
-          />
-          <Description className="fluid-xxs text-foreground-muted">
-            Da das Team noch nicht feststeht (TBD), kann hier eine Beschreibung eingetragen werden.
-          </Description>
-          <FieldError className={FIELD_ERROR} />
-        </TextField>
-      )}
+      {/* Not `isRequired`: a group-phase fixture comes from the schedule and from no earlier match, so
+          an empty provenance field is the normal answer for most of the season. */}
+      <TextField
+        name={`${fieldName}_herkunft`}
+        className="w-full"
+        value={herkunft ?? ""}
+        onChange={(value: string) => onHerkunftChange(value === "" ? null : value)}>
+        <Label className={FIELD_LABEL}>Herkunft</Label>
+        <Input
+          placeholder="z.B. Sieger 26."
+          className={FIELD_INPUT}
+        />
+        <Description className="fluid-xxs text-foreground-muted">
+          Woher diese Seite der Begegnung kommt. Steht die Mannschaft noch nicht fest, zeigt der Spielplan diesen Text an ihrer Stelle.
+        </Description>
+        <FieldError className={FIELD_ERROR} />
+      </TextField>
     </div>
   );
 }

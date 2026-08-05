@@ -1,0 +1,46 @@
+"use client";
+
+import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu";
+import { PLACEHOLDER } from "@/shared/utils/format";
+
+import type { FLSpielTeamField } from "../../schemas";
+
+/**
+ * One side of a fixture, as a match card renders it.
+ *
+ * A resolved side is its own text behind a `TeamPopoverMenu`. A side whose occupant the group phase
+ * has not produced yet renders its provenance label — "Sieger 25." — as plain text and mounts no
+ * popover at all: there is no team page and no squad to link to (ADR-0041).
+ *
+ * **The three `SpielCard` variants stay separate** (ADR-0007) and pass their own `text` and layout
+ * classes. What is shared here is the single branch whose three copies would each be a crash rather
+ * than a cosmetic difference if one of them drifted — reading `.name` off a side that is `null`.
+ *
+ * The interactive classes are added here rather than by the caller, because they belong to the
+ * resolved branch alone: `hover:text-brand` on a label nothing opens is a promise the card cannot keep.
+ */
+export function SpielTeamSlot({
+  team,
+  herkunft,
+  text,
+  className,
+}: {
+  team: FLSpielTeamField | null;
+  herkunft: string | null;
+  /** What a RESOLVED side shows — the full name on the two wide cards, the shorthand on the bracket. */
+  text: string;
+  /** Layout only: size, alignment, truncation. Interactive and muted styling is this component's. */
+  className: string;
+}) {
+  if (team === null) {
+    return <span className={`${className} text-foreground-muted italic`}>{herkunft ?? PLACEHOLDER.slot}</span>;
+  }
+
+  return (
+    <TeamPopoverMenu
+      teamName={team.name}
+      teamId={team.team_id}>
+      <strong className={`${className} hover:text-brand transition-colors duration-200`}>{text}</strong>
+    </TeamPopoverMenu>
+  );
+}

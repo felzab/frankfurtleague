@@ -154,10 +154,6 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     # ==========================================
     base_match: dict[str, Any] = {}
 
-    # Custom boolean logic for placeholders
-    if not filters.include_placeholders:
-        base_match["is_placeholder"] = False
-
     # Clubs that have left the league (ADR-0032). Not the same as a team disqualified FOR a season --
     # that is `is_disqualified` on the junction, filtered inside the lookup below, and a disqualified
     # team stays in the table.
@@ -231,7 +227,6 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
                 "name": 1,
                 "shorthand": 1,
                 "address": 1,
-                "is_placeholder": 1,
                 "description": 1,
                 "full_name": 1,
                 "website_url": 1,

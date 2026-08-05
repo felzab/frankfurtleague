@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `af67d7d`, 2026-08-04
+**Verified against:** `a1dddec`, 2026-08-05
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -26,7 +26,7 @@ with a result still counts · `inactive_since` is a date, never a boolean.
 | `saison_phase`                    | Stage of the season                          | Attributes and values |
 | `spiel_status`                    | Match status, derived not stored             | Attributes and values |
 | `is_canceled`                     | Cancelled — and still countable              | Attributes and values |
-| `is_placeholder`                  | The "TBD" team                               | Attributes and values |
+| `Herkunft`                        | Where a fixture's side comes from            | Attributes and values |
 | `is_disqualified`                 | Out of one season, not the league            | Attributes and values |
 | `is_nachgetragen`                 | A squad entry added after the fact           | Attributes and values |
 | `inactive_since`                  | Soft deletion, as a date                     | Attributes and values |
@@ -71,6 +71,9 @@ The central entity. Fixtures, results, tables and the bracket are all views of m
 `team_id`, `name`, `shorthand` and `tore`. A team rename must therefore fan out into every match
 document, which is what the venue and referee patch endpoints do for their own embedded copies.
 
+Either side is **null while its occupant is unknown** — a bracket slot the group phase has not
+filled yet. What a card shows in its place is `team1_herkunft` / `team2_herkunft`; see `Herkunft`.
+
 ### `Spieltag` — matchday, fixture round
 
 A named block of matches inside a season, with a date range.
@@ -92,7 +95,7 @@ badly here, so prefer the German in code and conversation.
 
 | On the `teams` document                                                                     | On the `saison_teams` junction           | Computed from `spiele` |
 | ------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------- |
-| `name`, `full_name`, `shorthand`, `description`, `website_url`, `address`, `is_placeholder` | `saison_id`, `gruppe`, `is_disqualified` | `statistik`            |
+| `name`, `full_name`, `shorthand`, `description`, `website_url`, `address`, `inactive_since` | `saison_id`, `gruppe`, `is_disqualified` | `statistik`            |
 
 So a team's group, table position and disqualification are **properties of a team-in-a-season**, not of
 the team. `FLTeam` flattens all of it back together, which is why the model looks like one document and
@@ -208,19 +211,26 @@ Note also `unbekannt`: passing it as a filter returns _everything_, because no b
 A boolean on the match. The client treats cancellation as **overriding** the date when deriving status;
 the server treats `is_canceled` and `datum` as independent filters.
 
-### `is_placeholder` — the "TBD" team
+### `Herkunft` — where a side of a fixture comes from
 
-A real team document standing in for an opponent that is not yet known — an unplayed bracket slot.
-Excluded from team queries unless `include_placeholders` is set.
+`team1_herkunft` and `team2_herkunft` on a `Spiel`: free text naming the source of that side of the
+bracket — `"Sieger 25."`, the winner of match 25. Null on a group-phase fixture, whose sides come from
+the schedule and from no earlier match.
 
-**Pitfalls.** It is a lie in the data model, and a known one. A placeholder needs its own
-`saison_teams` row per season, which nothing prompts anyone to create. The intended fix is a nullable
-opponent reference on the match with the placeholder team deleted. Tracked as **BE-9** in
-[`roadmap/open-items.md`](roadmap/open-items.md).
+**In code:** `FLSpiel` (`fl_backend/app/api/spiele/schemas.py`) · `FLSpielSchema`
+(`fl_frontend/src/features/spiele/schemas.ts`) ·
+[ADR-0041](_decisions/0041-a-bracket-slot-carries-its-own-provenance.md).
 
-One trap the fix has to clear: the placeholder's name embedded in a match is **not** a copy of
-`teams.name`. Matches 29–31 embed `"Sieger 25."`, `"Sieger 26."` and so on, where the referenced
-document reads `"TBD"` — the field carries a bracket slot label that exists nowhere else.
+**Pitfalls.** It is **not** paired with the team field beside it, and nothing enforces a relationship
+between the two. A side is `null` while its occupant is unknown, and the `Herkunft` is what a card
+renders in its place — but the label describes the _fixture_, so it stays true once the winner is
+written in. All four combinations of the two fields are legitimate; a reader takes
+`team.name` first, then the `Herkunft`, then "Noch offen", and never asks which state it is in.
+
+The reason it is a sibling rather than a key inside the team field: a display copy of `teams.name` is
+maintained by the rename fan-out in `PATCH /teams/{team_id}`
+([ADR-0028](_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md), rule 3), and a
+provenance label must never be. Sharing one field is what forced that endpoint to carry an exemption.
 
 ### `is_disqualified` — out of one season
 

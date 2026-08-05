@@ -72,7 +72,6 @@ def _team(name: str, shorthand: str) -> dict[str, Any]:
         "_id": TEAM_OIDS[name],
         "name": name,
         "shorthand": shorthand,
-        "is_placeholder": False,
         "description": "",
         "full_name": f"{name}-Schule",
         "website_url": f"https://{name.lower()}.example.de",

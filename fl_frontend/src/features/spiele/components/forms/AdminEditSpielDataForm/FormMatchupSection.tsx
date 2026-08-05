@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import { Description, FieldError, Label, NumberField, Separator, Switch } from "@heroui/react";
 
-import { TBD_TEAM_SHORTHAND } from "@/features/teams/constants";
 import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 
 import { FormTeamPicker } from "./FormTeamPicker";
@@ -24,6 +23,10 @@ import type { FLTeam } from "@/features/teams/schemas";
  * Switching the result toggle OFF restores the goals the form was OPENED with, not `null`. Editing a
  * recorded result and changing your mind should leave the stored score intact — clearing it would
  * silently retract a played match's result, and the match would then drop out of the league table.
+ *
+ * **A result needs both sides.** `PATCH /spiele/{spiel_id}` derives `ergebnis` from the two goal counts
+ * and reads through an absent side as no goals at all, so a fixture with an unresolved slot can never
+ * carry one (ADR-0041). The toggle says so rather than accepting scores the write path would discard.
  */
 export function FormMatchupSection({
   teams,
@@ -31,6 +34,10 @@ export function FormMatchupSection({
   onTeam1Change,
   team2Payload,
   onTeam2Change,
+  team1Herkunft,
+  onTeam1HerkunftChange,
+  team2Herkunft,
+  onTeam2HerkunftChange,
   team1InitialData,
   team2InitialData,
 }: {
@@ -39,16 +46,25 @@ export function FormMatchupSection({
   onTeam1Change: (payload: FLSpielTeamField | null) => void;
   team2Payload: FLSpielTeamField | null;
   onTeam2Change: (payload: FLSpielTeamField | null) => void;
-  team1InitialData: FLSpielTeamField;
-  team2InitialData: FLSpielTeamField;
+  team1Herkunft: string | null;
+  onTeam1HerkunftChange: (value: string | null) => void;
+  team2Herkunft: string | null;
+  onTeam2HerkunftChange: (value: string | null) => void;
+  team1InitialData: FLSpielTeamField | null;
+  team2InitialData: FLSpielTeamField | null;
 }) {
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(false);
+
+  const bothSidesResolved = team1Payload !== null && team2Payload !== null;
+  const ergebnisIsEditable = ergebnisCanBeEdited && bothSidesResolved;
 
   const handleErgebnisCanBeEditedToggle = (isSelected: boolean) => {
     setErgebnisCanBeEdited(isSelected);
     if (!isSelected) {
-      if (team1Payload) onTeam1Change({ ...team1Payload, tore: team1InitialData.tore });
-      if (team2Payload) onTeam2Change({ ...team2Payload, tore: team2InitialData.tore });
+      // `?? null` rather than the initial field: a side that was unresolved when the form opened has
+      // no goals to restore, and reading `.tore` off it would be reading off nothing.
+      if (team1Payload) onTeam1Change({ ...team1Payload, tore: team1InitialData?.tore ?? null });
+      if (team2Payload) onTeam2Change({ ...team2Payload, tore: team2InitialData?.tore ?? null });
     }
   };
   const handleToreTeam1Change = (val: number) => {
@@ -64,9 +80,11 @@ export function FormMatchupSection({
 
   // `?? NaN`, not `?? 0`: NumberField renders an empty box for NaN and a literal "0" for 0, and the
   // readout below distinguishes "no result yet" from "nil-nil" on exactly this test.
-  const team1Name = team1Payload?.name || "Team1";
+  // The names fall back through the provenance label, so the readout names an unresolved side the way
+  // the bracket does rather than as a generic "Team1".
+  const team1Name = team1Payload?.name || team1Herkunft || "Team1";
   const team1Tore = team1Payload?.tore ?? NaN;
-  const team2Name = team2Payload?.name || "Team2";
+  const team2Name = team2Payload?.name || team2Herkunft || "Team2";
   const team2Tore = team2Payload?.tore ?? NaN;
 
   return (
@@ -76,9 +94,8 @@ export function FormMatchupSection({
       <h3 className={FORM_SECTION_HEADING}>Begegnung</h3>
 
       {/* Each picker disables whichever team the other side already holds, so a match cannot be a team
-          against itself — EXCEPT when that team is the "TBD" placeholder, which legitimately occupies
-          both sides of an unresolved playoff fixture. Passing `null` leaves everything selectable.
-          Matched on the shorthand rather than an id because the placeholder is identified by it. */}
+          against itself. Unconditional now: two unresolved sides are two nulls rather than the same
+          placeholder team twice, so there is no case left to exempt (ADR-0041). */}
 
       {/** Team 1 */}
       <FormTeamPicker
@@ -87,7 +104,9 @@ export function FormMatchupSection({
         teams={teams}
         teamPayload={team1Payload}
         onTeamChange={onTeam1Change}
-        disabledTeamId={team2Payload?.shorthand === TBD_TEAM_SHORTHAND ? null : team2Payload?.team_id}
+        herkunft={team1Herkunft}
+        onHerkunftChange={onTeam1HerkunftChange}
+        disabledTeamId={team2Payload?.team_id}
       />
 
       {/** Team 2 */}
@@ -97,7 +116,9 @@ export function FormMatchupSection({
         teams={teams}
         teamPayload={team2Payload}
         onTeamChange={onTeam2Change}
-        disabledTeamId={team1Payload?.shorthand === TBD_TEAM_SHORTHAND ? null : team1Payload?.team_id}
+        herkunft={team2Herkunft}
+        onHerkunftChange={onTeam2HerkunftChange}
+        disabledTeamId={team1Payload?.team_id}
       />
 
       <Separator className="bg-border" />
@@ -107,6 +128,7 @@ export function FormMatchupSection({
       <div className="flex w-full flex-col gap-y-1">
         <Switch
           aria-describedby="ergebnis-eintragen-hint"
+          isDisabled={!bothSidesResolved}
           isSelected={ergebnisCanBeEdited}
           onChange={handleErgebnisCanBeEditedToggle}>
           <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
@@ -120,19 +142,20 @@ export function FormMatchupSection({
         <p
           id="ergebnis-eintragen-hint"
           className="fluid-xxs text-foreground-muted leading-normal font-medium">
-          Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis
-          zurückgesetzt.
+          {bothSidesResolved
+            ? "Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis zurückgesetzt."
+            : "Solange eine Seite der Begegnung noch nicht feststeht, kann kein Ergebnis eingetragen werden."}
         </p>
       </div>
 
       {/** Tore Team 1 */}
       <NumberField
-        isReadOnly={!ergebnisCanBeEdited}
+        isReadOnly={!ergebnisIsEditable}
         minValue={0}
         name="team1.tore"
         value={team1Tore}
         onChange={handleToreTeam1Change}
-        className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
+        className={`${!ergebnisIsEditable ? "opacity-50" : ""}`}>
         <Label className={FIELD_LABEL}>Team 1: Tore</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
@@ -145,12 +168,12 @@ export function FormMatchupSection({
 
       {/** Tore Team 2 */}
       <NumberField
-        isReadOnly={!ergebnisCanBeEdited}
+        isReadOnly={!ergebnisIsEditable}
         minValue={0}
         name="team2.tore"
         value={team2Tore}
         onChange={handleToreTeam2Change}
-        className={`${!ergebnisCanBeEdited ? "opacity-50" : ""}`}>
+        className={`${!ergebnisIsEditable ? "opacity-50" : ""}`}>
         <Label className={FIELD_LABEL}>Team 2: Tore</Label>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <NumberField.DecrementButton />
@@ -171,7 +194,7 @@ export function FormMatchupSection({
         <div className="bg-background border-border grid w-fit max-w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
           <span className="flex min-w-0 justify-end">
             <strong
-              className={`fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground"}`}>
+              className={`fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisIsEditable ? "text-foreground-muted" : "text-foreground"}`}>
               {team1Name}
             </strong>
           </span>
@@ -185,7 +208,7 @@ export function FormMatchupSection({
 
           <span className="flex min-w-0 justify-start">
             <strong
-              className={`fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisCanBeEdited ? "text-foreground-muted" : "text-foreground"}`}>
+              className={`fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisIsEditable ? "text-foreground-muted" : "text-foreground"}`}>
               {team2Name}
             </strong>
           </span>

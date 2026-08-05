@@ -73,9 +73,10 @@ THE CHECKS, in priority order:
 7. **REFERENTIAL INTEGRITY AT THE BOUNDARIES.** For every id accepted by a write endpoint
    (`team_id`, `spielort_id`, `schiedsrichter_id`, …): is existence validated before the id is
    written or embedded? What does a read path do with an orphaned reference — drop the row, 500, or
-   serve it wrong? Include the placeholder-team mechanism (`is_placeholder`, the "TBD" label) and
-   report its reachable failure states — not the modelling question itself, which is an owner
-   decision with a recorded analysis in `docs/roadmap/open-items.md` (BE-9).
+   serve it wrong? Include the unresolved bracket slot
+   ([ADR-0041](../../../_decisions/0041-a-bracket-slot-carries-its-own-provenance.md)): `team1` and
+   `team2` are nullable and their `teamN_herkunft` siblings are not paired with them by any rule, so
+   report what each read path does with all four combinations rather than only the two that read well.
 
 8. **OUT-OF-BAND WRITE SURFACE.** Every collection can still be edited directly in MongoDB, and
    Pydantic validates on the way **out**, so a stored document violating a read model produces a 500

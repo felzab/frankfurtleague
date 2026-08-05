@@ -16,6 +16,12 @@ thing to check when behaviour looks impossible.
 
   • The three embedded field models are declared BEFORE the payload and FLSpiel that reference them --
     see the note below, this has bitten before.
+  • A fixture side is `None` when its occupant is not yet known, and `teamN_herkunft` says where that
+    occupant will come from -- "Sieger 25." (ADR-0041). The two fields are INDEPENDENT and nothing pairs
+    them: `herkunft` is a point-in-time fact about the FIXTURE and stays true once the team arrives,
+    while the team field is a display copy the rename fan-out maintains (ADR-0028, rules 2 and 3). All
+    four combinations are meaningful, so a reader renders `team.name or herkunft or "Noch offen"` and
+    never asks which state it is in.
   • Money fields (`mietpreis`, `payment`) carry NO default. The admin patch writes the payload back
     wholesale with `$set`, so a default lets a request omitting the field silently overwrite a real
     value with 0.
@@ -81,8 +87,14 @@ class FLPatchSpielDataPayload(BaseModel):
     # identifies the resource, the body describes the change).
     is_canceled: bool
 
-    team1: FLSpielTeamField
-    team2: FLSpielTeamField
+    team1: FLSpielTeamField | None
+    team2: FLSpielTeamField | None
+
+    # On the payload because it is written wholesale with `$set`: a field the request omits is
+    # OVERWRITTEN, not preserved, so leaving these off would erase a bracket's slot labels on the
+    # first edit of any other field.
+    team1_herkunft: str | None
+    team2_herkunft: str | None
 
     datum: CustomOptionalDateString
     uhrzeit: CustomOptionalTimeString
@@ -100,8 +112,15 @@ class FLPatchSpielDataPayload(BaseModel):
 class FLSpiel(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through id
 
-    team1: FLSpielTeamField
-    team2: FLSpielTeamField
+    # `None` while the occupant is unknown -- a playoff slot the group phase has not filled yet. The
+    # opponent is MODELLED as absent rather than impersonated by a placeholder team (ADR-0041).
+    team1: FLSpielTeamField | None
+    team2: FLSpielTeamField | None
+
+    # Where each side comes from, as a bracket reads it: "Sieger 25.". Never derived and never fanned
+    # out into -- unlike the `name` above, which is a display copy of `teams.name` (ADR-0028, rule 3).
+    team1_herkunft: str | None
+    team2_herkunft: str | None
 
     datum: CustomDateString | None
     uhrzeit: CustomTimeString | None

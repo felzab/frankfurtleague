@@ -71,7 +71,6 @@ class FLTeam(BaseModel):
     name: str = Field(min_length=1)
     gruppe: FLGruppenNames
     statistik: FLTeamStatistik
-    is_placeholder: bool
     is_disqualified: bool
     shorthand: str = Field(min_length=2, max_length=2)
     description: str  # May be empty -- not every team writes one.
@@ -103,7 +102,6 @@ class FLTeamRecord(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
     name: str = Field(min_length=1)
-    is_placeholder: bool
     shorthand: str = Field(min_length=2, max_length=2)
     description: str
     full_name: str = Field(min_length=1)
@@ -161,8 +159,6 @@ class FLPostTeamPayload(BaseModel):
     full_name: str = Field(min_length=1)
     website_url: CustomExternalUrl
     address: FLAddress
-    # Not on the payload: `is_placeholder`. There is exactly one placeholder team and it is a known
-    # modelling flaw (open item BE-9); an endpoint that could mint a second one would entrench it.
 
 
 class FLPatchTeamPayload(BaseModel):
@@ -196,7 +192,6 @@ class FLTeamsFilterParams(BaseModel):
     gruppe: FLGruppenNames | None = None
     is_disqualified: bool | None = None
     in_gruppen: bool | None = None
-    include_placeholders: bool = False  # Exclude placeholders by default
     include_inactive: bool = False  # Exclude clubs that have left the league by default
 
     # Defaults to the GROUP TABLE, so an omitted parameter is the correct standing rather than the

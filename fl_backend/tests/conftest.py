@@ -153,7 +153,6 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "name": "Carl-Schurz",
             "gruppe": "A",
             "statistik": statistik(),
-            "is_placeholder": False,
             "is_disqualified": False,
             "shorthand": "CS",
             "description": "",
@@ -191,6 +190,10 @@ def spiel(
             "_id": SPIEL_ID,
             "team1": spiel_team_field(),
             "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LE", tore=1),
+            # A group-phase fixture: both sides are drawn by the schedule rather than fed by an
+            # earlier match, so neither carries a provenance label (ADR-0041).
+            "team1_herkunft": None,
+            "team2_herkunft": None,
             "datum": "2026-03-15",
             "uhrzeit": "18:00:00",
             "ort": spiel_ort_field(),

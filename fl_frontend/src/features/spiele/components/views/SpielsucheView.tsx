@@ -10,7 +10,19 @@ import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 import type { FLSpiel } from "../../schemas";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
-const SEARCH_KEYS = ["team1.name", "team2.name", "ort.name", "ort.maps_link", "searchable_datum", "spiel_nr", "schiedsrichter.name"] as const;
+// The two `herkunft` keys are here because they are what a bracket fixture SHOWS while its sides are
+// unresolved — without them, searching for the label on screen ("Sieger 25.") finds nothing.
+const SEARCH_KEYS = [
+  "team1.name",
+  "team2.name",
+  "team1_herkunft",
+  "team2_herkunft",
+  "ort.name",
+  "ort.maps_link",
+  "searchable_datum",
+  "spiel_nr",
+  "schiedsrichter.name",
+] as const;
 
 /**
  * Fuzzy search over a season's matches.

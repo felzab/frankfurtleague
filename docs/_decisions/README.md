@@ -72,13 +72,14 @@ written.
 | [0038](0038-the-image-cache-is-the-actions-cache-service.md)             | The image build cache is the Actions cache service                 | ops                    | Accepted       | 2026-08-05 |
 | [0039](0039-one-correlation-id-per-request-one-document-per-line.md)     | One correlation id per request, one JSON document per line         | frontend, backend, ops | Accepted       | 2026-08-05 |
 | [0040](0040-the-zod-mirror-is-checked-against-the-published-document.md) | The Zod mirror is checked against a committed OpenAPI document     | frontend, backend, ops | Accepted       | 2026-08-05 |
+| [0041](0041-a-bracket-slot-carries-its-own-provenance.md)                | A bracket slot carries its own provenance, beside the team         | frontend, backend      | Accepted       | 2026-08-05 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · ops: 0009 · 0011 ·
-0014 · 0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · 0039 · 0040 · frontend: all except 0017, 0027,
-0030, 0031, 0033, 0036, 0037 and 0038.
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · ops: 0009 ·
+0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · 0039 · 0040 · frontend: all except 0017,
+0027, 0030, 0031, 0033, 0036, 0037 and 0038.
 
 ## Considered, and deliberately not made an ADR
 
@@ -92,6 +93,6 @@ you have to re-derive the argument to refuse?_
   at all. It is history, and it is described in `docs/backend/overview.md`.
 - **BE-2, adding `ge=0` to `tore`.** A bug fix.
 
-**BE-9** (the placeholder team) is the open item that will deserve an ADR once decided. It is not here
-yet, because it has not been decided, and lives in
-[`../roadmap/open-items.md`](../roadmap/open-items.md) until it is.
+Open items that will deserve an ADR once decided live in
+[`../roadmap/open-items.md`](../roadmap/open-items.md) until they are, each with the analysis the
+decision will be taken from.

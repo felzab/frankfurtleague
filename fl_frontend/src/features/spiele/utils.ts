@@ -11,8 +11,8 @@
  *     independent filters, and its `ausstehend` includes today while this excludes it — see the
  *     glossary before assuming either side is wrong.
  *   • `computeErgebnisFor` returns "?" for anything it cannot read with certainty, including a team id
- *     that is neither side. A two-way branch would score an unknown team as team2 and render a
- *     confident loss for a team that did not play.
+ *     that is neither side and a side with no occupant yet. A two-way branch would score an unknown
+ *     team as team2 and render a confident loss for a team that did not play.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -68,12 +68,12 @@ const ERGEBNIS_PATTERN = /^([0-9]+):([0-9]+)$/;
  * Parsing `ergebnis` is `spiele` domain knowledge — the format is declared by `FLSpielSchema` —
  * so it belongs here rather than inline in a `teams` view.
  *
- * Returns "?" for anything it cannot read with certainty, which covers three distinct cases:
- * an unplayed match (`ergebnis` is null), a malformed value, and a `teamId` that is not one of the
- * two competing teams. That last one matters — the obvious `teamId === team1.team_id` two-way
- * branch scores an unknown team from team2's point of view, so a stale embedded id renders a
- * confident **loss** for a team that did not play. That is the same silent-loss defect this
- * function was extracted to remove, one level up.
+ * Returns "?" for anything it cannot read with certainty, which covers four distinct cases:
+ * an unplayed match (`ergebnis` is null), a malformed value, a side with no occupant yet, and a
+ * `teamId` that is not one of the two competing teams. That last one matters — the obvious
+ * `teamId === team1.team_id` two-way branch scores an unknown team from team2's point of view, so a
+ * stale embedded id renders a confident **loss** for a team that did not play. That is the same
+ * silent-loss defect this function was extracted to remove, one level up.
  */
 export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: string }): FLSpielErgebnisFor => {
   // Matched against the pattern FLSpielSchema.ergebnis enforces, rather than split on ":".
@@ -82,8 +82,9 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
   const match = spiel.ergebnis?.match(ERGEBNIS_PATTERN);
   if (!match) return "?";
 
-  // Three-way, not two-way: neither side matching is "unknown", not "team2".
-  const side = teamId === spiel.team1.team_id ? 1 : teamId === spiel.team2.team_id ? 2 : null;
+  // Three-way, not two-way: neither side matching is "unknown", not "team2". An unresolved side
+  // matches nothing, which is the same answer for the same reason.
+  const side = teamId === spiel.team1?.team_id ? 1 : teamId === spiel.team2?.team_id ? 2 : null;
   if (side === null) return "?";
 
   const own = Number(match[side]);
