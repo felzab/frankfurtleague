@@ -23,6 +23,9 @@ fixtures whose answer differs (ADR-0042).
   • The GROUP STANDING is read through `build_team_pipeline`, the same pipeline `GET /teams` uses. A
     second, Python implementation of ADR-0026's counting rule would be a second answer to "how many
     points does this team have", and the bracket and the table would eventually disagree.
+  • The standing is read AT ALL only when some slot's `quelle` names a group placing. Deciding a
+    group's placings is the expensive half of a result entry, and a group no slot reads from buys
+    nothing with it -- a season whose bracket is match-fed end to end never runs the aggregation.
   • Both reads take the caller's SESSION, for the reason above: the standing has to include the result
     this request has just written, or a group that the edit completes still reads as unfinished.
 
@@ -31,13 +34,15 @@ fixtures whose answer differs (ADR-0042).
   docs/backend/spec.md -- section 3, the write path step by step
 """
 
+from typing import Mapping
+
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLSpielListAdapter, FLUnresolvableSlot
+from app.api.spiele.schemas import FLSpielListAdapter, FLSpielQuelleGruppe, FLUnresolvableSlot
 from app.api.spiele.services import resolve_bracket
-from app.api.teams.schemas import FLTeamListAdapter, FLTeamsFilterParams
-from app.api.teams.services import build_decided_standings, build_team_pipeline
+from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.services import DecidedStanding, build_decided_standings, build_team_pipeline
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
 
 
@@ -65,6 +70,10 @@ async def advance_bracket_winners(
     (`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`).
     """
 
+    # The helper's 1024-document cap is a comfortable ceiling here, not a risk to size: a season is
+    # about thirty fixtures, and a season could only outgrow the cap by two orders of magnitude. Named
+    # because the failure would be silent -- a reference to an unread match reads as dangling and the
+    # slot is quietly left alone -- so whoever changes what a season can hold finds the boundary here.
     spiele_raw = await pull_many_from_db(
         collection=spiele_collection,
         db_filter={"saison_id": saison_id},
@@ -72,26 +81,37 @@ async def advance_bracket_winners(
     )
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
-    # The standing comes from the pipeline that serves `GET /teams`, so the bracket seeds from exactly
-    # the table the site shows -- one derivation of ADR-0026's counting rule, not two. `include_inactive`
-    # is left at its default for the same reason: a club the list hides must not hold a placing the
-    # bracket then honours.
-    teams_raw = await aggregate_many_from_db(
-        collection=teams_collection,
-        pipeline=build_team_pipeline(
-            filters=FLTeamsFilterParams(saison_id=saison_id, statistik_scope="gruppenphase"),
-            rules=rules,
-        ),
-        session=session,
-    )
+    # The groups the bracket actually seeds from. Most seasons' saves reference none mid-season and
+    # every group only once the knockout draw is stored, and the standings walk is the expensive half
+    # of a result entry -- so the aggregation and the walk both run only for groups a slot reads.
+    referenced_gruppen: set[FLGruppenNames] = {
+        quelle.gruppe for spiel in spiele for quelle in (spiel.team1_quelle, spiel.team2_quelle) if isinstance(quelle, FLSpielQuelleGruppe)
+    }
 
-    # The group phase alone, matching the scope the statistics above were counted over: a head-to-head
-    # drawn from playoff matches would break a tie on results those points never saw (ADR-0029).
-    standings = build_decided_standings(
-        teams=FLTeamListAdapter.validate_python(teams_raw),
-        spiele=[spiel for spiel in spiele if spiel.saison_phase == "gruppenphase"],
-        rules=rules,
-    )
+    standings: Mapping[FLGruppenNames, DecidedStanding] = {}
+    if referenced_gruppen:
+        # The standing comes from the pipeline that serves `GET /teams`, so the bracket seeds from
+        # exactly the table the site shows -- one derivation of ADR-0026's counting rule, not two.
+        # `include_inactive` is left at its default for the same reason: a club the list hides must
+        # not hold a placing the bracket then honours.
+        teams_raw = await aggregate_many_from_db(
+            collection=teams_collection,
+            pipeline=build_team_pipeline(
+                filters=FLTeamsFilterParams(saison_id=saison_id, statistik_scope="gruppenphase"),
+                rules=rules,
+            ),
+            session=session,
+        )
+
+        # The group phase alone, matching the scope the statistics above were counted over: a
+        # head-to-head drawn from playoff matches would break a tie on results those points never saw
+        # (ADR-0029).
+        standings = build_decided_standings(
+            teams=FLTeamListAdapter.validate_python(teams_raw),
+            spiele=[spiel for spiel in spiele if spiel.saison_phase == "gruppenphase"],
+            rules=rules,
+            gruppen=referenced_gruppen,
+        )
 
     resolution = resolve_bracket(spiele, standings)
 

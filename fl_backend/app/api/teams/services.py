@@ -472,7 +472,8 @@ def _spiele_by_gruppe(
     A fixture belongs to a group when BOTH of its sides are teams of that group. The second half of the
     answer is the exception that matters: a fixture still to be played with a side nobody has entered
     yet will award points inside some group and can be given no outcome, so no placing in a group it
-    touches is final while it stands.
+    touches is final while it stands -- and one with NO entered side touches every group, because
+    nothing bounds which teams it will turn out to involve.
     """
 
     by_gruppe: dict[FLGruppenNames, list[FLSpiel]] = {name: [] for name in get_args(FLGruppenNames)}
@@ -487,7 +488,15 @@ def _spiele_by_gruppe(
             continue
 
         if _counted_goals(spiel) is None and not spiel.is_canceled:
-            unattributable.update(name for name in (left, right) if name is not None)
+            if spiel.team1 is None and spiel.team2 is None:
+                # NO side to attribute at all -- a hand-built fixture, since the season's fixtures are
+                # created with their teams. It will award points inside some group and nothing can say
+                # which, so no group's placing is final while it stands. A fixture whose sides are
+                # known but outside the standings entirely is the opposite case and falls through: its
+                # points reach no team a placing could name.
+                unattributable.update(get_args(FLGruppenNames))
+            else:
+                unattributable.update(name for name in (left, right) if name is not None)
 
     return by_gruppe, unattributable
 
@@ -556,9 +565,18 @@ def _decide_one_gruppe(
     # input to the ranking below. Different results awarding the same points rank identically, so ten
     # outstanding fixtures produce far fewer distinct tables than the 3^10 ways of playing them.
     #
+    # Ranked as the walk goes rather than after collecting every table, so the walk STOPS the moment
+    # no placing survives -- which is the ordinary state of a group with most of its fixtures open,
+    # and what keeps a week-one save from enumerating 3^10 outcomes whose answer is already known to
+    # be "nothing is decided". Measured before the interleave: a five-team group with all ten
+    # fixtures open cost ~850 ms per save inside the write transaction; it now exits within the first
+    # few outcomes. The full product still runs where something IS decided, because certainty is a
+    # claim about every outcome and cannot be had cheaper.
+    #
     # A group with nothing left to play falls through here as a single empty product, which is the same
     # code path reading the table as it stands.
-    vectors: set[tuple[int, ...]] = set()
+    decided: Mapping[int, FLTeam] | None = None
+    seen: set[tuple[int, ...]] = set()
     for outcomes in product((1, 0, 2), repeat=len(open_pairs)):
         punkte = dict(base)
         for (left, right), outcome in zip(open_pairs, outcomes, strict=True):
@@ -574,10 +592,11 @@ def _decide_one_gruppe(
             if winner in punkte:
                 punkte[winner] += rules.win_points
 
-        vectors.add(tuple(punkte[team_id] for team_id in order))
+        vector = tuple(punkte[team_id] for team_id in order)
+        if vector in seen:
+            continue
+        seen.add(vector)
 
-    decided: Mapping[int, FLTeam] | None = None
-    for vector in vectors:
         placings = _placings(eligible, dict(zip(order, vector, strict=True)), settled, spiele, rules)
 
         # A placing survives only while every table so far has put the SAME team there. One outcome
@@ -666,6 +685,7 @@ def build_decided_standings(
     teams: Iterable[FLTeam],
     spiele: Iterable[FLSpiel],
     rules: FLSaisonRules,
+    gruppen: AbstractSet[FLGruppenNames] | None = None,
 ) -> Mapping[FLGruppenNames, DecidedStanding]:
     """
     Which placing in each group is already beyond doubt, and which is still anybody's (ADR-0043).
@@ -673,6 +693,12 @@ def build_decided_standings(
     Pass the season's GROUP-PHASE matches and the teams of that season, in the pipeline's `name` order.
     A placing is reported only when it comes out the same however every outstanding fixture in its group
     goes -- so a slot seeded from one cannot be overturned by a result nobody has entered yet.
+
+    `gruppen` names the groups worth deciding -- the ones a stored `gruppe` reference actually seeds
+    from -- and `None` means all four. The walk over a group's outcomes is the expensive half of a
+    result entry, and a group no bracket slot reads from buys nothing with it; a group absent from the
+    returned mapping reads to `_seed_from_gruppe` as "no standing supplied", which leaves a slot
+    exactly as it stands and is unreachable while every referenced group is in `gruppen`.
     """
 
     spiele = list(spiele)
@@ -696,4 +722,5 @@ def build_decided_standings(
             has_unattributable=name in unattributable,
         )
         for name in get_args(FLGruppenNames)
+        if gruppen is None or name in gruppen
     }

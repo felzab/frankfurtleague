@@ -41,6 +41,7 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
+from motor.motor_asyncio import AsyncIOMotorClientSession
 
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.spiele.crud import advance_bracket_winners
@@ -168,38 +169,47 @@ async def patch_spiel_data(
 
     # The transaction is what makes the result and the advancement it causes one fact: a bracket that
     # resolved against a result the caller never committed would be worse than one that did not resolve.
-    async with await db.start_session() as session:
-        async with session.start_transaction():
-            patched_spiel_raw = await patch_one_in_db(
-                collection=spiele_collection,
+    #
+    # `with_transaction` rather than a bare `start_transaction`, because two saves in one season each
+    # resolve the whole bracket and can write-conflict on the same advanced fixture -- a transient
+    # error the driver labels as retryable, which the bare form would surface as a 500. The callback
+    # is safe to re-run: the `$set` states absolute values and the resolution recomputes from scratch,
+    # so a retry writes the same thing the first attempt would have. The 404 below is not transient
+    # and aborts without retrying.
+    async def write_result_and_resolve_bracket(session: AsyncIOMotorClientSession) -> FLPatchSpielDataResponse:
+        patched_spiel_raw = await patch_one_in_db(
+            collection=spiele_collection,
+            filter={"_id": spiel_id},
+            update={"$set": {**document, "ergebnis": updated_ergebnis_field}},
+            session=session,
+        )
+        # `find_one_and_update` returns None only when nothing matched, so this is the 404 branch
+        # rather than an error check.
+        if patched_spiel_raw is None:
+            raise DocumentNotFoundException(
                 filter={"_id": spiel_id},
-                update={"$set": {**document, "ergebnis": updated_ergebnis_field}},
-                session=session,
-            )
-            # `find_one_and_update` returns None only when nothing matched, so this is the 404 branch
-            # rather than an error check.
-            if patched_spiel_raw is None:
-                raise DocumentNotFoundException(
-                    filter={"_id": spiel_id},
-                    error_code="DB-COMMON-001",
-                )
-
-            # The season scopes the bracket below, and it is read off the document `patch_one_in_db`
-            # returns -- the pre-image, which is the helper's default (spec I2). Safe here and only
-            # here: `saison_id` is on no payload, so the `$set` above cannot have changed it.
-            saison_id = str(patched_spiel_raw["saison_id"])
-
-            # The season's own scoring, which the standing behind a `gruppe` reference is derived with,
-            # exactly as `GET /teams` derives the table (ADR-0026). Not read through the session: this
-            # transaction writes no season document, so there is nothing of its own to see.
-            _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
-
-            advanced_to, unresolvable_slots = await advance_bracket_winners(
-                spiele_collection=spiele_collection,
-                teams_collection=teams_collection,
-                saison_id=saison_id,
-                rules=saison_rules,
-                session=session,
+                error_code="DB-COMMON-001",
             )
 
-    return FLPatchSpielDataResponse(advanced_to=advanced_to, unresolvable_slots=unresolvable_slots)
+        # The season scopes the bracket below, and it is read off the document `patch_one_in_db`
+        # returns -- the pre-image, which is the helper's default (spec I2). Safe here and only
+        # here: `saison_id` is on no payload, so the `$set` above cannot have changed it.
+        saison_id = str(patched_spiel_raw["saison_id"])
+
+        # The season's own scoring, which the standing behind a `gruppe` reference is derived with,
+        # exactly as `GET /teams` derives the table (ADR-0026). Not read through the session: this
+        # transaction writes no season document, so there is nothing of its own to see.
+        _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
+
+        advanced_to, unresolvable_slots = await advance_bracket_winners(
+            spiele_collection=spiele_collection,
+            teams_collection=teams_collection,
+            saison_id=saison_id,
+            rules=saison_rules,
+            session=session,
+        )
+
+        return FLPatchSpielDataResponse(advanced_to=advanced_to, unresolvable_slots=unresolvable_slots)
+
+    async with await db.start_session() as session:
+        return await session.with_transaction(write_result_and_resolve_bracket)

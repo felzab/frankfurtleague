@@ -291,6 +291,46 @@ class TestWhenAPlacingIsFinal:
         assert decided.is_complete
         assert decided.by_platz[1].name == "Team 1"
 
+    def test_a_pending_fixture_with_no_sides_blocks_every_group(self, a_team: TeamFactory, spiel: PayloadFactory, played: MatchFactory):
+        """
+        A pending fixture with no entered side holds every group open.
+
+        It will award points inside SOME group and nothing can say which, so no placing anywhere is
+        final while it stands. Reachable only through hand-built data: a season's fixtures are
+        created with their teams. The group here is otherwise played out, which is exactly the state
+        a naive attribution would declare final.
+        """
+
+        teams = [a_team(1, punkte=9), a_team(2, punkte=6)]
+        unentered = spiel(_id=MATCH_ID.format(9), spiel_nr=9, saison_phase="gruppenphase", team1=None, team2=None, ergebnis=None)
+
+        assert standing(teams, [played(1, 1, 2, 2, 0), unentered]).by_platz == {}
+
+    def test_the_walk_at_the_cap_stays_inside_its_budget(self, a_team: TeamFactory, played: MatchFactory):
+        """
+        The full walk's cost, pinned where it is largest: a decided placing with ten fixtures open.
+
+        Team 1 has played all five of its matches and won them; the other five teams can each reach at
+        most twelve points across their ten remaining games, so first place must survive every one of
+        the 3^10 outcomes — the one shape the early exit cannot shorten, because certainty is a claim
+        about all of them. The budget is deliberately loose (an order of magnitude over the measured
+        wall time on a development machine): the assertion exists to catch the constant regressing to
+        seconds, not to time the suite.
+        """
+
+        import time
+
+        teams = [a_team(1, punkte=15, gespielt=5), *(a_team(seed, punkte=0, gespielt=1) for seed in range(2, 7))]
+        pairs = [(home, away) for index, home in enumerate(range(2, 7)) for away in range(2, 7)[index + 1 :]]
+        open_fixtures = [played(number + 1, home, away) for number, (home, away) in enumerate(pairs)]
+
+        start = time.perf_counter()
+        decided = standing(teams, open_fixtures)
+        elapsed = time.perf_counter() - start
+
+        assert decided.by_platz[1].name == "Team 1"
+        assert elapsed < 10, f"the certainty walk took {elapsed:.1f}s at the cap; the 3^10 constant has regressed"
+
 
 class TestSeedingTheSlot:
     """The standing carried back into the bracket, which is the only place either half pays off."""

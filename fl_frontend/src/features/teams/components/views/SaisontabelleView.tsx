@@ -12,7 +12,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import { computeQualifyingTeamIds } from "../../utils";
+import { computePlatzByTeamId, computeQualifyingTeamIds } from "../../utils";
 import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 
 import type { FLGruppen } from "../../schemas";
@@ -52,6 +52,12 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
              no placing at all, and both must be passed over here exactly as the seeding passes over
              them — or this page marks one team while the bracket advances another (ADR-0043). */
           const qualifying = computeQualifyingTeamIds({ teams: teamsData, qualifiersPerGroup });
+
+          /* Numbered as a `Platz` is, not as a row index: the count walks past a disqualified team,
+             so the ordinal here is the same number the bracket's derived "2. der Gruppe A" names. A
+             row the count passes over shows a dash — it holds its place in the table and no place in
+             the competition. */
+          const platzByTeamId = computePlatzByTeamId(teamsData);
 
           return (
             <div
@@ -103,7 +109,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                         <p className="fluid-sm text-foreground-muted font-medium">Für diese Gruppe sind noch keine Teams eingeteilt.</p>
                       </div>
                     )}>
-                    {teamsData.map((teamData, index) => (
+                    {teamsData.map((teamData) => (
                       <Table.Row
                         key={teamData.id}
                         className={`border-border hover:bg-muted/40 border-b transition-colors last:border-0 ${
@@ -118,7 +124,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                           {/* The colour is never the only carrier. A screen reader gets the same fact the
                             rule and the legend give a sighted reader, in the cell that states the place. */}
                           {qualifying.has(teamData.id) && <span className="sr-only">Playoff-Platz: </span>}
-                          {teamData.statistik.anzahl_gespielte_spiele === 0 ? "N/A" : index + 1}
+                          {teamData.statistik.anzahl_gespielte_spiele === 0 ? "N/A" : (platzByTeamId.get(teamData.id) ?? "—")}
                         </Table.Cell>
 
                         {/** Team name */}

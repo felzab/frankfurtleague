@@ -20,6 +20,17 @@
 import type { FLTeam } from "./schemas";
 
 /**
+ * Whether a row can hold a `Platz` at all, read on the table as it stands.
+ *
+ * The backend's `_may_hold_a_platz` with nothing left to play: a disqualified team keeps its row and
+ * cannot advance out of it, and a team with no counting match holds no placing — its zeroed
+ * `statistik` ranks above every negative goal difference, and the table prints `N/A` for it. Both
+ * derivations below apply this one predicate, so the marker and the ordinal cannot disagree about
+ * who is passed over.
+ */
+const mayHoldAPlatz = (team: FLTeam): boolean => !team.is_disqualified && team.statistik.anzahl_gespielte_spiele > 0;
+
+/**
  * The ids of the teams currently holding a qualifying place in one group.
  *
  * Two teams are passed over, and each for a reason that keeps this page and the bracket saying the same
@@ -46,10 +57,31 @@ export const computeQualifyingTeamIds = ({
 
   for (const team of teams) {
     if (qualifying.size === qualifiersPerGroup) break;
-    if (team.is_disqualified || team.statistik.anzahl_gespielte_spiele === 0) continue;
+    if (!mayHoldAPlatz(team)) continue;
 
     qualifying.add(team.id);
   }
 
   return qualifying;
+};
+
+/**
+ * Each qualifying-eligible team's position in one group, numbered as a `Platz` is.
+ *
+ * `Platz` counts only the teams that can hold a placing (`docs/glossary.md :: Platz`), so the count
+ * walks past a disqualified row and a row with nothing played — a team with no entry here carries no
+ * ordinal at all. A raw row index is the wrong number on exactly those tables: with a disqualified
+ * team above the cut, the bracket's derived "2. der Gruppe A" names a team whose row index reads 3,
+ * and the two surfaces would print different positions for one placing.
+ */
+export const computePlatzByTeamId = (teams: readonly FLTeam[]): ReadonlyMap<string, number> => {
+  const platzByTeamId = new Map<string, number>();
+
+  for (const team of teams) {
+    if (!mayHoldAPlatz(team)) continue;
+
+    platzByTeamId.set(team.id, platzByTeamId.size + 1);
+  }
+
+  return platzByTeamId;
 };
