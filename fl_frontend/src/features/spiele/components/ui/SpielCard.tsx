@@ -24,7 +24,12 @@ export function SpielCard({
   onOpenAdminModal?: () => void;
   today: string;
 }) {
-  const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
+  const {
+    datum: spielDatum,
+    uhrzeit: spielUhrzeit,
+    ergebnis: spielErgebnis,
+    elfmeterschiessen: spielElfmeterschiessen,
+  } = formatSpielDisplay(spielData);
 
   const spielStatus = computeSpielStatus({
     datum: spielData.datum,
@@ -84,9 +89,13 @@ export function SpielCard({
         {/* `-strong`, not the plain accents: this text sits on `bg-muted`, and the rule the tokens exist
             to carry is "plain accent for fills, `-strong` for text on a tint". The plain pair measures
             2.62:1 (success) and 3.83:1 (danger) here in the light theme. All three cards say `-strong`. */}
+        {/* The shoot-out is a SECOND LINE under the score, never folded into it: the fixture finished
+            level and the Saisontabelle counts it as a draw, so `2:2` has to stay the score this card
+            shows (ADR-0044). Inside the same grid cell, so the two 1fr team tracks are unaffected. */}
         <span
-          className={`fluid-base w-fit px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
+          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
           {spielErgebnis}
+          {spielElfmeterschiessen !== null && <span className="fluid-xxs font-semibold whitespace-nowrap">{spielElfmeterschiessen}</span>}
         </span>
 
         <span className="flex min-w-0 justify-start">

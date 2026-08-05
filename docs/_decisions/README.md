@@ -75,11 +75,12 @@ written.
 | [0041](0041-a-bracket-slot-carries-its-own-provenance.md)                         | A bracket slot carries its own provenance, beside the team         | frontend, backend      | Accepted       | 2026-08-05 |
 | [0042](0042-a-result-entry-resolves-the-whole-bracket.md)                         | A bracket slot stores a reference; a result resolves the bracket   | frontend, backend      | Accepted       | 2026-08-05 |
 | [0043](0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md) | One tiebreak chain, and a placing is seeded only once it is final  | frontend, backend      | Accepted       | 2026-08-05 |
+| [0044](0044-a-shoot-out-is-its-own-scoreline.md)                                  | A shoot-out is its own scoreline, read by the bracket alone        | frontend, backend      | Accepted       | 2026-08-05 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · 0043 · ops: 0009 ·
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · 0043 · 0044 · ops: 0009 ·
 0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · 0039 · 0040 · frontend: all except 0017,
 0027, 0030, 0031, 0033, 0036, 0037 and 0038.
 

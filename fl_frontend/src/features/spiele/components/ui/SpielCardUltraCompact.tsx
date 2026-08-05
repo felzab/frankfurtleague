@@ -18,7 +18,12 @@ import type { FLSpiel } from "../../schemas";
 const slotLift = (isResolved: boolean) => (isResolved ? "relative z-20 flex min-w-0" : "flex min-w-0");
 
 export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpiel; onPress: () => void }) {
-  const { datum: spielDatum, uhrzeit: spielUhrzeit, ergebnis: spielErgebnis } = formatSpielDisplay(spielData);
+  const {
+    datum: spielDatum,
+    uhrzeit: spielUhrzeit,
+    ergebnis: spielErgebnis,
+    elfmeterschiessen: spielElfmeterschiessen,
+  } = formatSpielDisplay(spielData);
 
   return (
     <Card className={`${card({ interactive: true })} relative w-full`}>
@@ -58,12 +63,17 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
             />
           </span>
 
-          {/* The result in the status chips' tint formula -- the owner's reference chip look. */}
+          {/* The result in the status chips' tint formula -- the owner's reference chip look.
+              This is the bracket's card, so it is the one that most often carries a shoot-out: the
+              line below it names how a level knockout was settled WITHOUT changing the score, which
+              stays the draw the Saisontabelle counts (ADR-0044). It sits inside the `auto` track, so
+              the two `1fr` team tracks keep their widths. */}
           <span
-            className={`fluid-xs rounded-md px-1.5 py-0.5 text-center font-extrabold ${
+            className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${
               spielData.ergebnis !== null ? "bg-success/15 text-success-strong" : "bg-danger/15 text-danger-strong"
             }`}>
             {spielErgebnis}
+            {spielElfmeterschiessen !== null && <span className="fluid-xxs font-semibold whitespace-nowrap">{spielElfmeterschiessen}</span>}
           </span>
 
           <span className={`${slotLift(spielData.team2 !== null)} justify-start`}>

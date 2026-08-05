@@ -29,6 +29,7 @@ from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import (
     FLSpiel,
+    FLSpielElfmeterschiessen,
     FLSpielOrtField,
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
@@ -100,6 +101,9 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[B
     # required only when a sibling holds a particular value, and this test compares field SETS.
     ("spiele", ("team1_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
     ("spiele", ("team2_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
+    # No variants, so unlike the two `quelle` fields above this one is covered in full: the validator
+    # requires both counts and types both (ADR-0044).
+    ("spiele", ("elfmeterschiessen",), FLSpielElfmeterschiessen, frozenset()),
     ("spiele", ("ort",), FLSpielOrtField, frozenset()),
     ("spiele", ("schiedsrichter",), FLSpielSchiedsrichterField, frozenset()),
     ("spieltage", (), FLSpieltag, frozenset()),

@@ -43,7 +43,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
-| 2   | FB-8  | A level knockout cannot record how it was decided       | FE, BE, DB  | M      | Open     | — (clock: the playoffs)   |
+| 2   | FB-8  | A level knockout cannot record how it was decided       | FE, BE, DB  | M      | Closed   | — (clock: the playoffs)   |
 | 3   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
 | 4   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
 | 5   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
@@ -147,6 +147,16 @@ the tournament.
 **Path:** independent, and its clock is the playoff rounds still to be played. The schema half batches
 with FB-5, FB-7, FE-2 and FE-1 — same models, same mirror pass — but batching decides execution and
 never rank.
+
+**Concluded by [ADR-0044](../_decisions/0044-a-shoot-out-is-its-own-scoreline.md).** All three questions
+were answered there: the decider is `FLSpiel.elfmeterschiessen`, a `{team1, team2}` scoreline of its own
+with the winner derived and never stored; the league table does not consult it, so a shoot-out is a draw
+for every derived figure and the two readers disagree about that fixture on purpose; and
+`resolve_bracket` reads it, so a level knockout advances a side instead of emptying the slot it feeds.
+The vocabulary question the entry raised is settled the same way — `Elfmeterschießen` is a domain word
+and has a glossary entry. The counting boundary the entry asked to be commented is now invariants I25a
+and I25b in `docs/backend/spec.md`, stated at `build_statistik_lookup_stage` and at `_counted_goals`.
+**A third production data change is owed before the next deploy** and is the ADR's own runbook.
 
 ### 3 · FE-9 — The polite address form is not applied consistently
 

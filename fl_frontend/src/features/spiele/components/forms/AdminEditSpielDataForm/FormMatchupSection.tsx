@@ -9,7 +9,7 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
 /**
@@ -29,6 +29,12 @@ import type { FLTeam } from "@/features/teams/schemas";
  * **A result needs both sides.** `PATCH /spiele/{spiel_id}` derives `ergebnis` from the two goal counts
  * and reads through an absent side as no goals at all, so a fixture with an unresolved slot can never
  * carry one (ADR-0041). The toggle says so rather than accepting scores the write path would discard.
+ *
+ * **The shoot-out section appears only on a fixture that finished level**, which is the only shape it
+ * can describe — the write path discards a record stored against any other, so offering the fields
+ * elsewhere would take input the save then threw away (ADR-0044). Its counts are not goals: they decide
+ * which side the bracket advances and leave the league table's draw untouched, which is what the hint
+ * under the switch tells the admin.
  */
 export function FormMatchupSection({
   teams,
@@ -40,6 +46,8 @@ export function FormMatchupSection({
   onTeam1QuelleChange,
   team2Quelle,
   onTeam2QuelleChange,
+  elfmeterschiessen,
+  onElfmeterschiessenChange,
   team1InitialData,
   team2InitialData,
 }: {
@@ -52,6 +60,8 @@ export function FormMatchupSection({
   onTeam1QuelleChange: (value: FLSpielQuelle | null) => void;
   team2Quelle: FLSpielQuelle | null;
   onTeam2QuelleChange: (value: FLSpielQuelle | null) => void;
+  elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
+  onElfmeterschiessenChange: (value: FLSpielElfmeterschiessenDraft | null) => void;
   team1InitialData: FLSpielTeamField | null;
   team2InitialData: FLSpielTeamField | null;
 }) {
@@ -80,6 +90,22 @@ export function FormMatchupSection({
     }
   };
 
+  // A shoot-out settles a fixture that finished LEVEL, so the section below appears on exactly that
+  // shape and on no other. The backend discards a record stored anywhere else (ADR-0044); offering the
+  // fields there would let an admin type something the save then silently threw away.
+  const isLevel = ergebnisIsEditable && team1Payload.tore !== null && team2Payload.tore !== null && team1Payload.tore === team2Payload.tore;
+
+  const handleElfmeterschiessenToggle = (isSelected: boolean) => {
+    // `null` on the way out, and both counts empty on the way in. An admin turning the switch off has
+    // said the fixture was not settled on penalties, which is a retraction rather than a blank form.
+    onElfmeterschiessenChange(isSelected ? { team1: null, team2: null } : null);
+  };
+
+  const handleElfmeterChange = (slot: "team1" | "team2") => (val: number) => {
+    // Reads through a null record, so the first keystroke after the toggle cannot land on nothing.
+    onElfmeterschiessenChange({ team1: null, team2: null, ...elfmeterschiessen, [slot]: isNaN(val) ? null : val });
+  };
+
   // `?? NaN`, not `?? 0`: NumberField renders an empty box for NaN and a literal "0" for 0, and the
   // readout below distinguishes "no result yet" from "nil-nil" on exactly this test.
   // The names fall through team, then provenance, then the shared slot placeholder — the same order
@@ -88,6 +114,19 @@ export function FormMatchupSection({
   const team1Tore = team1Payload?.tore ?? NaN;
   const team2Name = team2Payload?.name || formatQuelle(team2Quelle) || PLACEHOLDER.slot;
   const team2Tore = team2Payload?.tore ?? NaN;
+
+  // Announced in the readout below, because the shoot-out is what decides which side the bracket
+  // advances — and an admin who has just typed two numbers should read the consequence, not infer it.
+  // `null` while either count is empty or the two are equal: a level shoot-out names nobody and the
+  // schema refuses it, so there is nothing to announce.
+  const elfmeterSiegerName =
+    elfmeterschiessen === null || elfmeterschiessen.team1 === null || elfmeterschiessen.team2 === null
+      ? null
+      : elfmeterschiessen.team1 === elfmeterschiessen.team2
+        ? null
+        : elfmeterschiessen.team1 > elfmeterschiessen.team2
+          ? team1Name
+          : team2Name;
 
   return (
     <div
@@ -186,6 +225,67 @@ export function FormMatchupSection({
         <FieldError className={FIELD_ERROR} />
       </NumberField>
 
+      {/** Elfmeterschießen — only on a fixture that finished level */}
+      {isLevel && (
+        <div className="flex w-full flex-col gap-y-4">
+          <Separator className="bg-border" />
+
+          <div className="flex w-full flex-col gap-y-1">
+            <Switch
+              aria-describedby="elfmeterschiessen-hint"
+              isSelected={elfmeterschiessen !== null}
+              onChange={handleElfmeterschiessenToggle}>
+              <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+                Im Elfmeterschießen entschieden
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch.Content>
+            </Switch>
+            {/* Outside the `Switch`, as the two above are: a `Description` child sits inside its
+                `<label>` and makes the whole paragraph a toggle target. */}
+            <p
+              id="elfmeterschiessen-hint"
+              className="fluid-xxs text-foreground-muted leading-normal font-medium">
+              Das Spiel ist unentschieden ausgegangen. Wurde es im Elfmeterschießen entschieden, so trage hier die Treffer ein — der Sieger rückt
+              damit im Turnierbaum weiter. Für die Tabelle bleibt das Spiel ein Unentschieden.
+            </p>
+          </div>
+
+          {elfmeterschiessen !== null && (
+            <>
+              <NumberField
+                minValue={0}
+                name="elfmeterschiessen.team1"
+                value={elfmeterschiessen.team1 ?? NaN}
+                onChange={handleElfmeterChange("team1")}>
+                <Label className={FIELD_LABEL}>{team1Name}: Treffer im Elfmeterschießen</Label>
+                <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
+                  <NumberField.DecrementButton />
+                  <NumberField.Input className="w-[120px]" />
+                  <NumberField.IncrementButton />
+                </NumberField.Group>
+                <FieldError className={FIELD_ERROR} />
+              </NumberField>
+
+              <NumberField
+                minValue={0}
+                name="elfmeterschiessen.team2"
+                value={elfmeterschiessen.team2 ?? NaN}
+                onChange={handleElfmeterChange("team2")}>
+                <Label className={FIELD_LABEL}>{team2Name}: Treffer im Elfmeterschießen</Label>
+                <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
+                  <NumberField.DecrementButton />
+                  <NumberField.Input className="w-[120px]" />
+                  <NumberField.IncrementButton />
+                </NumberField.Group>
+                <FieldError className={FIELD_ERROR} />
+              </NumberField>
+            </>
+          )}
+        </div>
+      )}
+
       {/** Ergebniskontrolle */}
       <div className="flex w-full flex-col items-center gap-y-2 text-center">
         <h4 className={FORM_SECTION_HEADING}>Ergebniskontrolle</h4>
@@ -225,7 +325,7 @@ export function FormMatchupSection({
             <p className="fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
           ) : (
             <p className="fluid-xs text-brand font-extrabold tracking-wide">
-              {team1Tore === team2Tore && "Unentschieden"}
+              {team1Tore === team2Tore && `Unentschieden${elfmeterSiegerName === null ? "" : ` — ${elfmeterSiegerName} gewinnt im Elfmeterschießen`}`}
               {team1Tore > team2Tore && `Sieg für ${team1Name}`}
               {team2Tore > team1Tore && `Sieg für ${team2Name}`}
             </p>

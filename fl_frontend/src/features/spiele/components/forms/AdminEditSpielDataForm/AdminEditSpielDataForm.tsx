@@ -16,6 +16,7 @@ import { FormSpielortSection } from "./FormSpielortSection";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type {
   FLSpiel,
+  FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
   FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
@@ -57,6 +58,10 @@ export function AdminEditSpielDataForm({
   const [team1Quelle, setTeam1Quelle] = useState<FLSpielQuelle | null>(spielData.team1_quelle);
   const [team2Quelle, setTeam2Quelle] = useState<FLSpielQuelle | null>(spielData.team2_quelle);
 
+  // A draft, so an emptied count is `null` rather than `0` — a side genuinely can miss every kick, so
+  // the two must not be the same value (ADR-0044).
+  const [elfmeterschiessen, setElfmeterschiessen] = useState<FLSpielElfmeterschiessenDraft | null>(spielData.elfmeterschiessen);
+
   // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
   const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
     toast.danger("Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 }),
@@ -79,6 +84,7 @@ export function AdminEditSpielDataForm({
       team2: team2Payload,
       team1_quelle: team1Quelle,
       team2_quelle: team2Quelle,
+      elfmeterschiessen,
     };
 
     startTransition(async () => {
@@ -169,6 +175,8 @@ export function AdminEditSpielDataForm({
         onTeam1QuelleChange={setTeam1Quelle}
         team2Quelle={team2Quelle}
         onTeam2QuelleChange={setTeam2Quelle}
+        elfmeterschiessen={elfmeterschiessen}
+        onElfmeterschiessenChange={setElfmeterschiessen}
         team1InitialData={spielData.team1}
         team2InitialData={spielData.team2}
       />

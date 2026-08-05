@@ -20,6 +20,9 @@ query semantics and the whole advancement algorithm testable without a database.
     no override flag, and clearing the `quelle` is how a person takes a slot back (ADR-0042).
   • BOTH variants resolve. A `spiel` reference is the side that came out of an earlier match; a `gruppe`
     reference is the team a group's standing has already put at that placing beyond doubt (ADR-0043).
+  • A fixture whose goals finished level is decided by its `elfmeterschiessen` and by nothing else. The
+    counts are read HERE and nowhere in the league table, which scores the match as a draw -- the two
+    disagree about the same fixture deliberately (ADR-0044).
   • "Nothing to look up" LEAVES A SLOT ALONE; "the reference names nobody" EMPTIES it. The first covers a
     `spiel_nr` the season has no match for, a chain of references that closes on itself, and a `platz`
     its group can never produce -- all data-entry mistakes, and erasing a team over one destroys more
@@ -34,6 +37,7 @@ query semantics and the whole advancement algorithm testable without a database.
   docs/glossary.md -- spiel_status, for the two definitions side by side
   docs/_decisions/0042-a-result-entry-resolves-the-whole-bracket.md -- the model and the algorithm
   docs/_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md
+  docs/_decisions/0044-a-shoot-out-is-its-own-scoreline.md -- why the table still counts it as a draw
 """
 
 from dataclasses import dataclass
@@ -327,10 +331,9 @@ def _outcome_of(
     rather than emptied.
 
     `is_canceled` is deliberately not consulted: a cancelled match carrying a result is a forfeit and
-    counts exactly as any other result does (ADR-0026, invariant I1a). A draw has neither a `sieger` nor
-    a `verlierer`, so both spellings resolve to nobody -- a knockout that ends level has no way to record
-    how it was actually settled, and the fixture stalls until an admin clears the `quelle` and names a
-    side (open item FB-8).
+    counts exactly as any other result does (ADR-0026, invariant I1a). A fixture that finished level is
+    decided by its shoot-out where one was played and by nothing else, so a level match without one
+    still has neither a `sieger` nor a `verlierer` and the slot it feeds stays empty (ADR-0044).
     """
 
     spiel = by_nr[spiel_nr]
@@ -349,9 +352,19 @@ def _outcome_of(
         return None
 
     if team1.tore == team2.tore:
-        return None
+        # The one fixture the goals cannot decide. A shoot-out settles it, and its counts are read only
+        # here -- the league table scores the match as the draw it was, so the bracket and the table say
+        # different things about it on purpose (ADR-0044).
+        if spiel.elfmeterschiessen is None:
+            return None
 
-    winner, loser = (team1, team2) if team1.tore > team2.tore else (team2, team1)
+        # Total, because `FLSpielElfmeterschiessen` refuses a level shoot-out: a record that named
+        # nobody would leave this branch exactly where it was before the field existed.
+        team1_won = spiel.elfmeterschiessen.team1 > spiel.elfmeterschiessen.team2
+    else:
+        team1_won = team1.tore > team2.tore
+
+    winner, loser = (team1, team2) if team1_won else (team2, team1)
 
     return winner if ausgang == "sieger" else loser
 

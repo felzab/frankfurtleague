@@ -199,6 +199,8 @@ def spiel(
             "ort": spiel_ort_field(),
             "schiedsrichter": spiel_schiedsrichter_field(),
             "ergebnis": "2:1",
+            # Null on every fixture that did not finish level, which is almost all of them (ADR-0044).
+            "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_ID,
             "spiel_nr": 1,
             "is_canceled": False,

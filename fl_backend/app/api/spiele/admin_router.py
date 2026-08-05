@@ -10,6 +10,10 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
     construction. Never move the guard onto an individual endpoint.
   • `ergebnis` is DERIVED from the two `tore` values and is never accepted from the client. A fixture
     with an unresolved side has no goals to derive from and therefore no result (ADR-0041).
+  • `elfmeterschiessen` IS accepted from the client -- it is a scoreline of its own and nothing else in
+    the document states it -- but only where the goals it accompanies are level. Anywhere else it is
+    discarded on the way in, because a shoot-out on a fixture one side already won is a contradiction
+    (ADR-0044).
   • The payload is written wholesale with `$set`, so a field absent from it is overwritten rather than
     preserved. That is why the money fields carry no Pydantic default.
   • `patch_spiel_data` writes NO team document. Team statistics are derived from the matches on read
@@ -101,6 +105,11 @@ async def patch_spiel_data(
     `ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written
     wholesale, so every field must be present -- an omitted field is overwritten, not preserved.
 
+    `elfmeterschiessen` records how a knockout that finished level was settled, and is kept only where
+    the two goal counts are equal; on any other fixture it is discarded rather than refused, because the
+    goals are what say whether a shoot-out was possible at all (ADR-0044). It decides the bracket below
+    and is invisible to the league table, which counts the match as the draw it was (ADR-0026).
+
     **A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is
     the winner of match 25, so entering that match's result fills the slot, correcting it later moves
     the right team in, and deleting it empties the slot again (ADR-0042). A slot referring to a group
@@ -135,6 +144,13 @@ async def patch_spiel_data(
         for slot in ("team1", "team2"):
             if document.get(slot) is not None:
                 document[slot]["tore"] = None
+
+    # A shoot-out settles a fixture that finished LEVEL, so a record on anything else states a
+    # contradiction: a match with no result at all, or one a side already won by goals. Discarded here
+    # for the same reason `ergebnis` is derived here -- this is the one place that sees both sides at
+    # once, and no `$jsonSchema` validator may hold a cross-field rule to refuse it later (ADR-0027).
+    if updated_ergebnis_field is None or team1_tore != team2_tore:
+        document["elfmeterschiessen"] = None
 
     # The transaction is what makes the result and the advancement it causes one fact: a bracket that
     # resolved against a result the caller never committed would be worse than one that did not resolve.

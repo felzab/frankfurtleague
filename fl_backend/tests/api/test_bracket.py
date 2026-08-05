@@ -191,8 +191,8 @@ class TestResolveBracket:
         Idempotence, proven by running the resolver twice rather than by asserting on a hand-built state.
 
         The first pass fills 29 and empties 31; applying those writes exactly as `crud.py` does — both
-        sides plus `ergebnis: None` — and re-running must produce nothing. A version that appended
-        rather than recomputed would pass the previous test and fail this one.
+        sides, `ergebnis: None` and `elfmeterschiessen: None` — and re-running must produce nothing. A
+        version that appended rather than recomputed would pass the previous test and fail this one.
         """
 
         spiele = [
@@ -210,6 +210,7 @@ class TestResolveBracket:
             for slot, team in (("team1", advancement.team1), ("team2", advancement.team2)):
                 document[slot] = None if team is None else team.model_dump(mode="json")
             document["ergebnis"] = None
+            document["elfmeterschiessen"] = None
 
         assert resolved(list(by_nr.values())) == {}
 
@@ -225,12 +226,12 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {31: ("Team 1", None)}
 
-    def test_a_drawn_knockout_advances_nobody(self, fixture_at: FixtureFactory, side: SideFactory):
+    def test_a_drawn_knockout_with_no_shootout_advances_nobody(self, fixture_at: FixtureFactory, side: SideFactory):
         """
-        A level knockout has no winner and no way to record how it was actually settled.
+        A level knockout has no winner until something records how it was settled.
 
-        There is no penalties field, so the fixture stalls here rather than guessing a side. The escape
-        hatch is the source: clearing it hands the slot to the admin (ADR-0042, open item FB-8).
+        The goals cannot decide it and nothing else in the fixture claims to, so the slot it feeds stays
+        empty rather than being handed a guess (ADR-0044).
         """
 
         spiele = [
@@ -239,6 +240,94 @@ class TestResolveBracket:
         ]
 
         assert resolved(spiele) == {}
+
+    def test_a_shootout_decides_a_level_knockout(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The fixture FB-8 exists for: level on goals, settled on penalties, and the bracket moves on."""
+
+        spiele = [
+            fixture_at(25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}),
+            fixture_at(29, quelle1=sieger(25)),
+        ]
+
+        assert resolved(spiele) == {29: ("Team 1", None)}
+
+    def test_a_shootout_also_decides_the_loser(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        `verlierer` resolves to the side that lost the shoot-out, which is what a third-place play-off
+        would be fed by.
+
+        Asserted separately from the winner because the two spellings take different branches, and a
+        version reading only the shoot-out's higher count would pass the test above and fail this one.
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}),
+            fixture_at(29, quelle1={"type": "spiel", "spiel_nr": 25, "ausgang": "verlierer"}),
+        ]
+
+        assert resolved(spiele) == {29: ("Team 2", None)}
+
+    def test_a_shootout_carries_through_a_whole_round(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        Two level quarter-finals, both settled on penalties, feeding one semi-final — which fills on
+        BOTH sides rather than stalling on either.
+
+        An end-to-end case rather than one more branch of `_outcome_of`, because a slot a drawn knockout
+        leaves empty empties everything downstream of it in turn, and that is the failure this field
+        exists to remove (ADR-0044).
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}),
+            fixture_at(27, team1=side(5, 0), team2=side(6, 0), ergebnis="0:0", elfmeterschiessen={"team1": 2, "team2": 5}),
+            fixture_at(29, quelle1=sieger(25), quelle2=sieger(27)),
+        ]
+
+        assert resolved(spiele) == {29: ("Team 1", "Team 6")}
+
+    def test_a_shootout_is_ignored_where_the_goals_already_decided_it(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        A shoot-out stored against a fixture one side won on goals states a contradiction, and the goals
+        win it.
+
+        `patch_spiel_data` discards the record on that shape, so this is reachable only by a hand edit —
+        and no `$jsonSchema` validator may hold a cross-field rule to refuse it (ADR-0027). Reading the
+        shoot-out here would advance Team 2 out of a match Team 1 won 3:1.
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1", elfmeterschiessen={"team1": 2, "team2": 4}),
+            fixture_at(29, quelle1=sieger(25)),
+        ]
+
+        assert resolved(spiele) == {29: ("Team 1", None)}
+
+    def test_a_shootout_without_a_result_advances_nobody(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        The same conjunction the league table counts on still governs: no `ergebnis`, no winner.
+
+        A shoot-out recorded against a match that was never played is another hand-edited shape, and
+        advancing from it would put the bracket ahead of a result the table does not count (ADR-0026).
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1), team2=side(2), ergebnis=None, elfmeterschiessen={"team1": 4, "team2": 3}),
+            fixture_at(29, quelle1=sieger(25)),
+        ]
+
+        assert resolved(spiele) == {}
+
+    def test_a_shootout_winner_arrives_with_no_goals(self, fixture_at: FixtureFactory, side: SideFactory):
+        """Neither the goals nor the penalties were scored in the fixture the winner moves into."""
+
+        spiele = [
+            fixture_at(25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}),
+            fixture_at(29, quelle1=sieger(25)),
+        ]
+        advancement = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements[0]
+
+        assert advancement.team1 is not None
+        assert advancement.team1.tore is None
 
     def test_a_cancelled_match_with_a_result_still_advances_its_winner(self, fixture_at: FixtureFactory, side: SideFactory):
         """
@@ -288,8 +377,8 @@ class TestResolveBracket:
         """
         Clearing the source is the manual override, and it is the ONLY one.
 
-        A team an admin entered into a slot carrying no `quelle` survives every later save — which is
-        how a knockout decided on penalties is recorded until FB-8 gives it a field.
+        A team an admin entered into a slot carrying no `quelle` survives every later save, whatever the
+        match feeding it did.
         """
 
         spiele = [

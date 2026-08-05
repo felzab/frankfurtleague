@@ -22,6 +22,7 @@ with a result still counts · `inactive_since` is a date, never a boolean.
 | `Spielort`                        | A venue                                      | Core entities         |
 | `Tore`                            | Goals, scored and conceded                   | Attributes and values |
 | `Ergebnis`                        | The score as a string, derived server-side   | Attributes and values |
+| `Elfmeterschießen`                | The shoot-out that settled a level knockout  | Attributes and values |
 | `Gruppe`                          | A group within a season                      | Attributes and values |
 | `spiel_nr`                        | A match's number within its season           | Attributes and values |
 | `saison_phase`                    | Stage of the season                          | Attributes and values |
@@ -89,6 +90,8 @@ document, which is what the venue and referee patch endpoints do for their own e
 
 Either side is **null while its occupant is unknown** — a bracket slot the group phase has not
 filled yet. What a card shows in its place is derived from `team1_quelle` / `team2_quelle`; see `Quelle`.
+
+A knockout that finished level carries its `Elfmeterschießen` beside the score rather than inside it.
 
 ### `Spieltag` — matchday, fixture round
 
@@ -175,6 +178,41 @@ rather than `\d` deliberately: the backend's regex engine treats `\d` as Unicode
 
 The frontend parses it by matching that pattern rather than splitting on `":"`, because `":"` splits
 into two empty strings and `Number("")` is `0` — a bare colon would read as a 0:0 draw.
+
+**A shoot-out is never in here.** A knockout settled on penalties keeps the level score it finished on,
+and the kicks are a scoreline of their own in `Elfmeterschießen` below — a third number in this string
+would be a malformed value to every reader of it
+([ADR-0044](_decisions/0044-a-shoot-out-is-its-own-scoreline.md)).
+
+### `Elfmeterschießen` — penalty shoot-out
+
+`elfmeterschiessen` on a `Spiel`: `{team1, team2}` — the shoot-out's own scoreline — or `null` on every
+match that did not finish level, which is almost all of them.
+
+**In code:** `FLSpielElfmeterschiessen` (`fl_backend/app/api/spiele/schemas.py`) ·
+`FLSpielElfmeterschiessenSchema` (`fl_frontend/src/features/spiele/schemas.ts`) ·
+[ADR-0044](_decisions/0044-a-shoot-out-is-its-own-scoreline.md).
+
+**Not the same word as `Elfmeter`.** A single spot kick awarded during play is an `Elfmeter`; this is the
+sequence of kicks that decides a tie, and the system records only the second.
+
+**Pitfalls — the two readers disagree about this fixture on purpose.** The **bracket** takes a winner
+from these counts, so a level knockout advances a side instead of stalling. The **league table** does not
+consult them at all: the match is a draw, one point each, and the kicks appear in no goal column
+([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)). `computeErgebnisFor` follows
+the table and marks it `D`, so a team's own page and the Saisontabelle agree with each other.
+
+**The winner is derived, never stored.** There is no `sieger` field to contradict the counts, the same
+reasoning that keeps an override flag off `Quelle`. A **level shoot-out is refused** by both models — it
+would name nobody, which is the state the field exists to remove.
+
+**It is kept only where the goals are level.** `PATCH /spiele/{spiel_id}` discards a record on any other
+fixture rather than refusing it, so a shoot-out stored by hand against a match one side won 3:1 is
+ignored and the goals decide. A fixture whose occupant changes loses this along with its `Ergebnis`: the
+kicks were taken by a side no longer in it.
+
+**Written by the admin form and nowhere else.** The section appears on a fixture that finished level and
+on no other, because that is the only shape the field can describe.
 
 ### `Gruppe` — group
 
@@ -277,10 +315,9 @@ then `formatQuelle`, then "Noch offen", and never asks which state it is in.
 
 **A reference owns the slot beside it, and clearing it is the only manual override.** While a `Quelle`
 names a match the season has, only the resolution writes that side, so a team entered by hand is
-reverted on the next save of anything in that season. Setting it to `null` hands the slot back — which
-is the route for a knockout that ended level, since `Ergebnis` cannot record a shoot-out (open item
-FB-8). **There is no override flag and there must not be one**: a flag beside the reference could
-contradict it, and no `$jsonSchema` validator can express that it must not.
+reverted on the next save of anything in that season. Setting it to `null` hands the slot back.
+**There is no override flag and there must not be one**: a flag beside the reference could contradict
+it, and no `$jsonSchema` validator can express that it must not.
 
 A reference naming a match that does not exist is left alone instead of emptying the slot: a number
 nobody can resolve is a typo, not an instruction to remove a team.
@@ -313,9 +350,9 @@ advance, and the table's marker passes over exactly the same rows.
 
 **Pitfalls.** `verlierer` exists because a third-place play-off is fed by the two losing semi-finals.
 The resolution honours both spellings, and **nothing writes `verlierer` today** — the 2026 bracket has
-no such fixture, and the bracket simply could not express one without it. A drawn match has neither a
-`sieger` nor a `verlierer`, so a reference to either resolves to nobody and the slot stays empty (open
-item FB-8).
+no such fixture, and the bracket simply could not express one without it. A match that finished level
+names a side through its `Elfmeterschießen`, and a level match without one has neither a `sieger` nor a
+`verlierer`, so a reference to either resolves to nobody and the slot stays empty.
 
 ### `spiel_nr` — a match's number within its season
 
@@ -368,6 +405,9 @@ mentions them.
   nothing, including to `anzahl_gespielte_spiele`.
 - **A cancelled match with a result still counts — that is a forfeit.** `is_canceled` is deliberately
   not consulted. Three matches in season 2026 are in this state.
+- **A knockout settled on penalties is a draw here.** `Elfmeterschießen` is not consulted either, so the
+  fixture scores one point each and the kicks reach no goal column. Only the bracket takes a winner from
+  them ([ADR-0044](_decisions/0044-a-shoot-out-is-its-own-scoreline.md)).
 - **Points come from the season's `rules.win_points` / `draw_points`**, never a hardcoded 3/1/0. A
   defeat scores nothing, because `FLSaisonRules` has no `loss_points`.
 

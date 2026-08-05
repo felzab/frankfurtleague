@@ -160,6 +160,23 @@ _SPIEL_QUELLE = _object(
     },
 )
 
+_SPIEL_ELFMETERSCHIESSEN = _object(
+    # Null on every fixture that did not finish level, which is almost all of them (ADR-0044).
+    nullable=True,
+    # Both counts required, and both typed -- unlike `_SPIEL_QUELLE` above, which can only require its
+    # discriminator. There are no variants here, so this validator covers the whole object: a shoot-out
+    # stored as the string "4" is refused by the database rather than surfacing as a failed read.
+    #
+    # What it deliberately does NOT say is that the two must differ. That is a cross-field rule, which
+    # `$jsonSchema` cannot express and ADR-0027 keeps out of these validators; it lives on
+    # `FLSpielElfmeterschiessen` instead, where a level shoot-out fails loudly on the next read.
+    required=("team1", "team2"),
+    properties={
+        "team1": {"bsonType": "int"},
+        "team2": {"bsonType": "int"},
+    },
+)
+
 _SPIEL_TEAM_FIELD = _object(
     # Nullable: a playoff slot the group phase has not filled yet has no occupant, and the fixture says
     # so rather than pointing at a stand-in team (ADR-0041). Where that occupant will come from is
@@ -332,6 +349,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "ort",
                 "schiedsrichter",
                 "ergebnis",
+                "elfmeterschiessen",
                 "spieltag_id",
                 "spiel_nr",
                 "is_canceled",
@@ -356,6 +374,10 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # "Tore:Tore" or null, and the pattern that says so is FLSpiel's. A malformed
                 # `ergebnis` is caught on read; a `42` where a string belongs is not.
                 "ergebnis": {"bsonType": _STRING_OR_NULL},
+                # How a knockout that finished level was settled, and a scoreline of its own rather
+                # than a third number inside `ergebnis` (ADR-0044). Required as a KEY on every match,
+                # like the two `quelle` fields: null is the answer for all of them but a handful.
+                "elfmeterschiessen": _SPIEL_ELFMETERSCHIESSEN,
                 "spieltag_id": {"bsonType": "objectId"},
                 "spiel_nr": {"bsonType": "int"},
                 "is_canceled": {"bsonType": "bool"},

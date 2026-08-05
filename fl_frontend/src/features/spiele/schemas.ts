@@ -25,6 +25,9 @@
  *     this schema omits is lost with no error — that is how `saison_id` went missing.
  *   • Draft types exist so an emptied currency field is `null` rather than silently `0`. The strict
  *     schemas still reject `null`, so a cleared field fails with a German message on the field.
+ *   • A shoot-out is its OWN scoreline in `elfmeterschiessen`, never a third number inside `ergebnis`
+ *     (ADR-0044). Its counts decide the bracket and are invisible to the league table, so
+ *     `computeErgebnisFor` still answers "D" for a fixture settled on penalties.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -80,6 +83,13 @@ export type FLSpielOrtFieldDraft = Omit<FLSpielOrtField, "mietpreis"> & { mietpr
 export type FLSpielSchiedsrichterFieldDraft = Omit<FLSpielSchiedsrichterField, "payment"> & { payment: number | null };
 
 /**
+ * The shoot-out while an admin is typing it. Both counts are `null` until entered, for the same reason
+ * a currency field is: `0` is a real value here — a side can miss every kick — so an empty box must
+ * not read as one.
+ */
+export type FLSpielElfmeterschiessenDraft = { team1: number | null; team2: number | null };
+
+/**
  * Where one side of a bracket fixture comes from. Mirrors `FLSpielQuelle`.
  *
  * A tagged union, discriminated on `type`, because there are exactly two ways a slot is fed: the first
@@ -110,6 +120,33 @@ export type FLSpielQuelleSpiel = z.infer<typeof FLSpielQuelleSpielSchema>;
 export const FLSpielQuelleSchema = z.discriminatedUnion("type", [FLSpielQuelleGruppeSchema, FLSpielQuelleSpielSchema]);
 export type FLSpielQuelle = z.infer<typeof FLSpielQuelleSchema>;
 
+/**
+ * The penalty shoot-out that settled a knockout whose goals finished level. Mirrors
+ * `FLSpielElfmeterschiessen`.
+ *
+ * A scoreline of its own, kept out of `ergebnis` because both ends parse that string to derive
+ * win/draw/loss and a third number would read as a malformed value on every card (ADR-0044). The two
+ * counts are not goals: the bracket reads a winner off them and the league table counts the fixture as
+ * the draw it was.
+ *
+ * The winner is derived, so there is no `sieger` field to contradict the counts — the same reasoning
+ * that kept an override flag off `quelle`.
+ */
+export const FLSpielElfmeterschiessenSchema = z
+  .object({
+    // The message goes on the TYPE check, as `platz`'s and `mietpreis`'s do: an emptied NumberField
+    // arrives as `NaN`, which fails `z.int()` before `.nonnegative()` ever runs.
+    team1: z.int({ error: "Bitte gib die Treffer von Team 1 ein." }).nonnegative({ error: "Die Treffer dürfen nicht negativ sein." }),
+    team2: z.int({ error: "Bitte gib die Treffer von Team 2 ein." }).nonnegative({ error: "Die Treffer dürfen nicht negativ sein." }),
+  })
+  // Mirrors the model validator. A level shoot-out names nobody, which puts the fixture back exactly
+  // where a drawn knockout sits — no winner, and now a filled-in record implying otherwise.
+  .refine((schiessen) => schiessen.team1 !== schiessen.team2, {
+    error: "Ein Elfmeterschießen kann nicht unentschieden enden.",
+    path: ["team2"],
+  });
+export type FLSpielElfmeterschiessen = z.infer<typeof FLSpielElfmeterschiessenSchema>;
+
 export const FLSpielSchema = z.object({
   id: CustomObjectIdStringSchema,
   spieltag_id: CustomObjectIdStringSchema,
@@ -136,6 +173,10 @@ export const FLSpielSchema = z.object({
     .string()
     .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
     .nullable(),
+
+  // How a knockout that finished level was settled, and `null` on every match that did not — which is
+  // almost all of them (ADR-0044).
+  elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
   spiel_nr: z.int().positive(),
   is_canceled: z.boolean(),
@@ -171,6 +212,11 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   // omits is overwritten, so leaving these off would erase a bracket's wiring on the first edit.
   team1_quelle: FLSpielQuelleSchema.nullable(),
   team2_quelle: FLSpielQuelleSchema.nullable(),
+
+  // On the payload for the same `$set` reason as the two above: omitted means overwritten, so leaving
+  // it off would retract a recorded shoot-out on the first edit of a kick-off time. The handler keeps
+  // it only where the goals it accompanies are level (ADR-0044).
+  elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
 
   spiel_id: CustomObjectIdStringSchema,
   is_canceled: z.boolean(),
