@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `3f46507`, 2026-08-05
+**Verified against:** `6331791`, 2026-08-05
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -47,6 +47,7 @@ OPS-6 and OPS-7 are both retired here.
 | 19  | FB-10 | The first knockout round could not be seeded, because nothing could say who finished second  | FE, BE, DB  | L      | — (batched with FE-4)    | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
 | 20  | FE-4  | The Saisontabelle marked nobody as holding a playoff place                                   | FE, BE      | M      | — (batched with FB-10)   | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
 | 21  | FB-8  | A knockout that ended level had nowhere to record how it was decided, so the bracket stalled | FE, BE, DB  | M      | — (clock: the playoffs)  | [`ab20403`](https://github.com/felzab/frankfurtleague/commit/ab20403) |
+| 22  | FB-12 | A knockout slot with no team and no source was maintained by nobody and reported by nobody   | FE, BE      | S      | — (clock: the playoffs)  | [`6331791`](https://github.com/felzab/frankfurtleague/commit/6331791) |
 
 ## What each one produced
 
@@ -133,6 +134,13 @@ no row here — its commit is the whole story.
   standing caution about the seeding walk's cap (**BE-14**).
   **It leaves a production data change owed** — `elfmeterschiessen` is required with no default, so
   every `spiele` document needs the key set before the next deploy, and ADR-0044 carries the runbook.
+- **FB-12** → [ADR-0046](../_decisions/0046-the-write-path-refuses-wiring-the-season-cannot-hold.md),
+  which reaches past the entry's own scope: an unwired knockout slot became the seventh
+  action-required category on both ends, and with it the match write path refuses wiring the season
+  cannot hold, the edit form became source-first with an automatic side read-only, and every source is
+  picked from the season's legal options rather than typed. It opened nothing and unblocked nothing —
+  FB-11's dependency on it was an ordering preference, answered by the ADR's where-is-a-fault-shown
+  ruling.
 - **FB-4** → [ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md), the rule that a
   bracket slot stores a structural reference to what feeds it, the German label is derived from that
   reference and stored nowhere, and a result entry resolves the whole of its season's bracket. Its part
