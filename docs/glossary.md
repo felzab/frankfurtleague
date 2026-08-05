@@ -93,6 +93,13 @@ filled yet. What a card shows in its place is derived from `team1_quelle` / `tea
 
 A knockout that finished level carries its `Elfmeterschießen` beside the score rather than inside it.
 
+**A season's matches are all created at its start, and the set never changes.** A match can be called
+off (`is_canceled`) or moved to another date (`datum`); it is never deleted, and none is ever added
+mid-season. That is why `/spiele` is the one resource with no POST and no DELETE
+([ADR-0045](_decisions/0045-a-seasons-fixtures-are-created-once.md)) — the two absences are the rule,
+not a gap. A cancelled match keeps its row, its `spiel_nr` and its place in the bracket, which is what
+makes cancellation something other than a soft delete.
+
 ### `Spieltag` — matchday, fixture round
 
 A named block of matches inside a season, with a date range.
@@ -270,6 +277,11 @@ Note also `unbekannt`: passing it as a filter returns _everything_, because no b
 
 A boolean on the match. The client treats cancellation as **overriding** the date when deriving status;
 the server treats `is_canceled` and `datum` as independent filters.
+
+**It is not a delete, soft or otherwise.** A cancelled match keeps its row, its `spiel_nr` and its place
+in the bracket, and still counts in the table if a result was awarded — which is why `spiele` carries no
+`inactive_since` and `/spiele` has no DELETE (see `Spiel`, and
+[ADR-0045](_decisions/0045-a-seasons-fixtures-are-created-once.md)).
 
 ### `Quelle` — where a side of a fixture comes from
 

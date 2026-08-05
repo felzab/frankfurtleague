@@ -14,8 +14,8 @@ every endpoint in the router.
 
 | Method | Path                       | Handler                    | Notes                                                                                   |
 | ------ | -------------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
-| GET    | `/spiele`                  | `spiele/router.py`         | Filters below; omitted `saison_id` means the current season                             |
-| GET    | `/spiele/{spiel_id}`       | `spiele/router.py`         | Unused by the frontend                                                                  |
+| GET    | `/spiele`                  | `spiele/router.py`         | Filters below; omitted `saison_id` means the current season. **No POST** — see I26      |
+| GET    | `/spiele/{spiel_id}`       | `spiele/router.py`         | Unused by the frontend. **No DELETE** — see I26                                         |
 | GET    | `/teams`                   | `teams/router.py`          | Two response shapes, discriminated by `format`; `statistik_scope` picks the table (I1c) |
 | GET    | `/teams/{team_id}`         | `teams/router.py`          | `getTeam(id)` — the two team detail pages. `format: "single"`                           |
 | GET    | `/spieler`                 | `spieler/router.py`        | **No current-season default** — see I4                                                  |
@@ -45,6 +45,7 @@ across seven slices**, each addressed resource-first with the id in the path.
 | ------ | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | GET    | `/spiele/action_required`                              | Matches needing attention. Admin-authorized, and uncached (ADR-0013)      |
 | PATCH  | `/spiele/{spiel_id}`                                   | Writes one match, then resolves that season's bracket. See §3             |
+|        | _no `POST /spiele`, no `DELETE /spiele/{spiel_id}`_    | A season's fixtures are created once — see I26                            |
 | POST   | `/teams`                                               | Creates a club                                                            |
 | PATCH  | `/teams/{team_id}`                                     | Renames a club **and fans it out** into `spiele`, with no exception       |
 | DELETE | `/teams/{team_id}`                                     | Soft delete — stamps `inactive_since`                                     |
@@ -76,7 +77,10 @@ across seven slices**, each addressed resource-first with the id in the path.
 | POST   | `/schiedsrichter/{id}/reactivate`                      | Clears `inactive_since`                                                   |
 
 **There is no `DELETE /saisons/{id}`**, and none on `/teams/{team_id}/saisons/{saison_id}` either
-([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)).
+([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)). **`/spiele` has neither a
+`POST` nor a `DELETE`**, because a season's fixtures are all created at its start and a match is
+thereafter cancelled or moved rather than removed or added
+([ADR-0045](../_decisions/0045-a-seasons-fixtures-are-created-once.md)).
 
 ### `system` router — mixed guards
 
@@ -208,6 +212,7 @@ not here — it is a constant of the code (`fl_backend/app/core/config.py :: API
 | I25  | A knockout that finished level is decided by `elfmeterschiessen`, a scoreline of its OWN -- never a third number in `ergebnis`, and never a stored winner ([ADR-0044](../_decisions/0044-a-shoot-out-is-its-own-scoreline.md))                                                                            | `FLSpielElfmeterschiessen`, which also refuses a level shoot-out; read by `fl_backend/app/api/spiele/services.py :: _outcome_of` and by nothing else                                                                                                                   | Both ends parse `ergebnis` to derive win/draw/loss, so a third number reads as malformed on every card. A stored winner beside the counts could contradict them, and no validator can express that it must not (ADR-0027) -- the same argument that kept an `is_manual` flag off `quelle`                                                                                                  |
 | I25a | The league table does NOT consult `elfmeterschiessen`: a shoot-out is a draw for every derived figure, so the bracket and the table disagree about that fixture on purpose                                                                                                                                | Its absence from `build_statistik_lookup_stage`'s `$match` and from `fl_backend/app/api/teams/services.py :: _counted_goals`, which the standings and the head-to-head mini-table both use                                                                             | Adding the counts to `tore` would move a league table on kicks that were never part of the match. Counting a shoot-out as a win is what no competition does, and here the Saisontabelle is a group standing that playoff matches never reach at all (I1c)                                                                                                                                  |
 | I25b | `elfmeterschiessen` goes with the occupant, exactly as `ergebnis` does: a fixture whose side changes loses it                                                                                                                                                                                             | The `$set` in `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`, which clears both                                                                                                                                                                        | The kicks were taken by a side no longer in the fixture, so a shoot-out left behind would hand the slot BELOW it a winner derived from a match neither side played                                                                                                                                                                                                                         |
+| I26  | A season's fixtures are created ONCE, so `/spiele` has no POST and no DELETE; a match is cancelled or moved, never removed or added ([ADR-0045](../_decisions/0045-a-seasons-fixtures-are-created-once.md)) | Neither verb is declared on `fl_backend/app/api/spiele/admin_router.py`; `is_canceled` and `datum` are the two legitimate changes | Deleting a match leaves every `teamN_quelle` naming its `spiel_nr` pointing at nothing, and the resolution reads an unresolvable reference as a typo and leaves the slot alone (I23) -- so the bracket keeps a team it should not, silently. A create would have to choose a `spiel_nr` the draw owns, and would give `spieltage.anzahl_spiele` a second writer |
 
 ## 6. Violation → remedy
 

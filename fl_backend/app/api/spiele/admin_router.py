@@ -8,6 +8,11 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
 
   • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
     construction. Never move the guard onto an individual endpoint.
+  • There is NO POST and NO DELETE here, and neither is to be added (ADR-0045). A season's fixtures are
+    all created at its start; a match is thereafter CANCELLED (`is_canceled`) or MOVED (`datum`), and
+    those two are the whole vocabulary of change. Deleting one would leave every `teamN_quelle` naming
+    its `spiel_nr` pointing at nothing, which the resolution reads as a typo and acts on by leaving the
+    slot alone -- so the bracket would keep a team it should not, and report nothing.
   • `ergebnis` is DERIVED from the two `tore` values and is never accepted from the client. A fixture
     with an unresolved side has no goals to derive from and therefore no result (ADR-0041).
   • `elfmeterschiessen` IS accepted from the client -- it is a scoreline of its own and nothing else in
