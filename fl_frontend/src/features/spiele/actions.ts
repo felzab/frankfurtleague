@@ -89,11 +89,12 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
 
     // The bracket fixtures the backend resolved are named in the toast, so a result entry that moved
     // nothing is distinguishable from one that did -- which is the whole reason the endpoint reports
-    // them (ADR-0042). The group references it could not honour ride along, because those are the two
-    // states waiting will not fix and nothing else surfaces them (ADR-0043).
+    // them (ADR-0042). The faults it walked past ride along, because the save that introduces one is
+    // the moment its cause is known -- and they are re-askable on the action-required list, so a
+    // missed toast no longer loses them (ADR-0047).
     return {
       success: Boolean(patch_operation.acknowledged),
-      message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.unresolvable_slots),
+      message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.bracket_faults),
     };
   });
 }

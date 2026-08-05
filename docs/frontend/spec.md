@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `ab20403`, 2026-08-05
+**Verified against:** `125f1cc`, 2026-08-05
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -46,7 +46,9 @@ Twelve `"use cache"` functions.
 | `checkIsLive`, `checkIsReady`, `getSystemInfo` | system         | `minutes` | `system`                                         |
 
 **Uncached, deliberately:** `getAdminSpieleActionRequired` (admin). Admin-authorized data does not
-belong in a shared cache.
+belong in a shared cache, and its `bracket_faults` are derived per request over the stored bracket
+([ADR-0047](../_decisions/0047-a-bracket-fault-is-derived-on-demand.md)), so a cached copy would be
+wrong the moment a document moved under it.
 
 **`getTeam` is `GET /teams/{team_id}` and is tagged exactly as `getTeams` is** — it reads the same
 documents through the same derivation, so a result edit moves it too

@@ -15,6 +15,7 @@ export default async function AdminOverviewPage() {
     <AdminContextWrapper>
       <AdminSpieleActionRequiredView
         overviewSpiele={adminRes.spiele}
+        bracketFaults={adminRes.bracket_faults}
         today={getGermanTodayStr()}
       />
     </AdminContextWrapper>

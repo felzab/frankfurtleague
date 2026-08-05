@@ -225,6 +225,62 @@ export const FLPatchSpielDataPayloadSchema = z.object({
 export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSchema>;
 
 /**
+ * One bracket slot whose group reference names a placing the standings will never hand it (ADR-0043).
+ *
+ * `gruppe_too_small` is a typo — the group holds fewer teams that can advance than the `platz` asks
+ * for — and the slot keeps whatever it holds. `tie_unresolved` is a real outcome: the group is played
+ * out and the tiebreak chain still cannot separate two teams there, so the slot IS emptied and a person
+ * has to clear the source and enter a side.
+ *
+ * A group still being played is in neither: that placing is simply not decided yet, and "not yet" is
+ * not something to put in front of an admin.
+ */
+export const FLBracketFaultGruppeSchema = z.object({
+  reason: z.enum(["gruppe_too_small", "tie_unresolved"]),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  gruppe: FLGruppenNamesSchema,
+  platz: z.int().positive(),
+});
+export type FLBracketFaultGruppe = z.infer<typeof FLBracketFaultGruppeSchema>;
+
+/**
+ * One bracket slot whose match reference cannot state an outcome — a missing number, or a cycle.
+ *
+ * `quelle_spiel_nr` is the number the slot names, which is the value to correct. A cycle is reported on
+ * every fixture the loop reaches, because none of them is derivable.
+ */
+export const FLBracketFaultQuelleSchema = z.object({
+  reason: z.enum(["spiel_missing", "reference_cycle"]),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  quelle_spiel_nr: z.int().positive(),
+});
+export type FLBracketFaultQuelle = z.infer<typeof FLBracketFaultQuelleSchema>;
+
+/** One fixture whose two references resolve to the same club, so it would be a team against itself. */
+export const FLBracketFaultSpielSchema = z.object({
+  reason: z.literal("same_team"),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+});
+export type FLBracketFaultSpiel = z.infer<typeof FLBracketFaultSpielSchema>;
+
+/**
+ * The five stored bracket faults, tagged on `reason` (ADR-0047).
+ *
+ * `discriminatedUnion` rather than a flat object with optional fields, mirroring `FLSpielQuelleSchema`
+ * and the Pydantic union it is hand-mirrored from: each variant carries exactly the fields its own fault
+ * needs, so a reader never has to know which combinations mean anything.
+ */
+export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
+  FLBracketFaultGruppeSchema,
+  FLBracketFaultQuelleSchema,
+  FLBracketFaultSpielSchema,
+]);
+export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
+
+/**
  * What the admin patch returns: the envelope, plus the bracket fixtures the write moved.
  *
  * `advanced_to` holds the `spiel_nr` of every fixture the result entry resolved — the semi-final that
@@ -239,28 +295,23 @@ export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSche
  * Not `.optional()`: the backend's `default_factory` puts the field outside the published `required`
  * list, but every declared property of a response model is on the wire, so it always arrives.
  */
-/**
- * One bracket slot whose group reference names a placing the standings will never hand it (ADR-0043).
- *
- * `gruppe_too_small` is a typo — the group holds fewer teams that can advance than the `platz` asks
- * for — and the slot keeps whatever it holds. `tie_unresolved` is a real outcome: the group is played
- * out and the tiebreak chain still cannot separate two teams there, so the slot IS emptied and a person
- * has to clear the source and enter a side.
- *
- * A group still being played is in neither: that placing is simply not decided yet, and "not yet" is
- * not something to put in front of an admin.
- */
-export const FLUnresolvableSlotSchema = z.object({
-  spiel_nr: z.int().positive(),
-  gruppe: FLGruppenNamesSchema,
-  platz: z.int().positive(),
-  reason: z.enum(["gruppe_too_small", "tie_unresolved"]),
-});
-export type FLUnresolvableSlot = z.infer<typeof FLUnresolvableSlotSchema>;
-
 export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
   advanced_to: z.array(z.int()),
-  unresolvable_slots: z.array(FLUnresolvableSlotSchema),
+  bracket_faults: z.array(FLBracketFaultSchema),
 });
 
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;
+
+/**
+ * What `GET /spiele/action_required` returns: the matches needing attention, and why the bracket ones do.
+ *
+ * `spiele` carries every match the route's filter selected plus every match a fault below names, so the
+ * client always holds the document behind a fault. A fault joins to its match by `spiel_id`, never by
+ * `spiel_nr`, which repeats across the seasons this route spans.
+ */
+export const FLSpieleActionRequiredResponseSchema = BaseAPIResponseSchema.extend({
+  spiele: z.array(FLSpielSchema),
+  bracket_faults: z.array(FLBracketFaultSchema),
+});
+
+export type FLSpieleActionRequiredResponse = z.infer<typeof FLSpieleActionRequiredResponseSchema>;

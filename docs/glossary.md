@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `3efa0c0`, 2026-08-05
+**Verified against:** `125f1cc`, 2026-08-05
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -315,9 +315,19 @@ the whole season.
 
 **A `gruppe` reference is honoured only once no remaining fixture in that group could change who holds
 the placing** (ADR-0043). Until then the slot is empty, and that is not a state anybody is told about.
-Two states are reported, because no further result fixes either: a `platz` the group will never produce,
-which leaves the slot as it stands, and a placing the tiebreak chain cannot separate in a group that has
-finished, which empties it. Both arrive in `FLPatchSpielDataResponse.unresolvable_slots`.
+
+**Five states are reported, because no further result fixes any of them** — the _bracket faults_ below.
+They arrive in `FLPatchSpielDataResponse.bracket_faults` on the save that computed them, and are
+re-derived over every season by `GET /spiele/action_required`, so a missed toast does not lose one
+([ADR-0047](_decisions/0047-a-bracket-fault-is-derived-on-demand.md)). None of them is stored.
+
+| `reason`           | The reference                                                      | The slot   |
+| ------------------ | ------------------------------------------------------------------ | ---------- |
+| `gruppe_too_small` | a `platz` the group will never produce                             | stands     |
+| `tie_unresolved`   | a placing the chain cannot separate in a group that has finished   | is emptied |
+| `spiel_missing`    | a `spiel_nr` the season has no match for                           | stands     |
+| `reference_cycle`  | a chain of references that closes on itself                        | stands     |
+| `same_team`        | two references resolving to one club, so the fixture is unplayable | both stand |
 
 **In code:** `FLSpielQuelle` (`fl_backend/app/api/spiele/schemas.py`) · `FLSpielQuelleSchema`
 (`fl_frontend/src/features/spiele/schemas.ts`) · `fl_backend/app/api/spiele/services.py ::

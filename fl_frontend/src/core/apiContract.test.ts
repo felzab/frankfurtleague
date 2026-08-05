@@ -156,6 +156,10 @@ const FRONTEND_ONLY: Record<string, string> = {
   // are both paired, so every field of both variants is still compared.
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
+  // And once more, on the two responses that carry a fault list. All three variants are paired, so
+  // every field of every reason is still compared.
+  FLBracketFault: "the discriminated union is published inline on each bracket_faults; all three variants are paired",
+
   // A DELETE carries its id in the path and has no request body, so these describe the server action's
   // own argument rather than anything on the wire.
   FLDeleteSchiedsrichterPayload: "a DELETE takes its id from the path and has no request body",
@@ -357,7 +361,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 44;
+const EXPECTED_PAIRS = 47;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

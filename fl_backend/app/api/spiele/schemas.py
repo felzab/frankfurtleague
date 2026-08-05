@@ -160,7 +160,7 @@ class FLSpielElfmeterschiessen(BaseModel):
         return self
 
 
-class FLUnresolvableSlot(BaseModel):
+class FLBracketFaultGruppe(BaseModel):
     """
     One bracket slot whose `gruppe` reference names a placing the standings will never hand it.
 
@@ -177,10 +177,52 @@ class FLUnresolvableSlot(BaseModel):
     guess, and clearing the `quelle` and entering a side by hand is the route past it.
     """
 
+    reason: Literal["gruppe_too_small", "tie_unresolved"]
+    spiel_id: CustomObjectId
     spiel_nr: int = Field(gt=0)
     gruppe: FLGruppenNames
     platz: int = Field(gt=0)
-    reason: Literal["gruppe_too_small", "tie_unresolved"]
+
+
+class FLBracketFaultQuelle(BaseModel):
+    """
+    One bracket slot whose `spiel` reference names a match that cannot state an outcome.
+
+    `spiel_missing` is a number the season has no match for; `reference_cycle` is a chain of references
+    that closes on itself, and it is reported on every fixture the loop reaches, because each of them is
+    equally underivable. `quelle_spiel_nr` is the number the slot names, which is the value to correct.
+
+    Both leave the slot exactly as it stands (ADR-0042), and neither is reachable through the write path
+    any more (ADR-0046) -- so a stored one is a hand edit, which is the caller this model reports to.
+    """
+
+    reason: Literal["spiel_missing", "reference_cycle"]
+    spiel_id: CustomObjectId
+    spiel_nr: int = Field(gt=0)
+    quelle_spiel_nr: int = Field(gt=0)
+
+
+class FLBracketFaultSpiel(BaseModel):
+    """
+    One fixture whose two references resolve to the SAME club, so it would be a team against itself.
+
+    Unlike the other four, this one survives every write-path rule: the refusal keys a source by its
+    identity, so two DIFFERENT sources that happen to name one club pass it (ADR-0046). A manual side
+    holding a club, against a side fed by a match that club then wins, is the reachable shape.
+
+    The fixture keeps its stored sides and everything downstream keeps deriving from them.
+    """
+
+    reason: Literal["same_team"]
+    spiel_id: CustomObjectId
+    spiel_nr: int = Field(gt=0)
+
+
+# The five stored bracket faults, tagged on `reason` so each variant carries exactly the fields its own
+# fault needs and no reader has to know which of them are meaningful together. Discriminated rather than
+# flattened with optional fields, for the same reason `FLSpielQuelle` is: a flat model can express a
+# cycle carrying a `platz`, which means nothing, and no validator here could refuse it (ADR-0047).
+FLBracketFault = Annotated[FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel, Field(discriminator="reason")]
 
 
 class FLPatchSpielDataPayload(BaseModel):
@@ -275,6 +317,23 @@ class FLSpieleSingleResponse(BaseAPIResponse):
     spiel: FLSpiel
 
 
+class FLSpieleActionRequiredResponse(BaseAPIResponse):
+    """
+    What `get_spiele_action_required` returns: the matches needing attention, and why the bracket ones do.
+
+    `spiele` carries every match the route's filter selected PLUS every match named by a fault below, so
+    the client always holds the document behind a fault and can render it as an ordinary card. A fault is
+    joined to its match by `spiel_id`, never by `spiel_nr`, which repeats across seasons
+    (`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`) and this route spans them.
+
+    `bracket_faults` is DERIVED on every request and stored nowhere (ADR-0047). It is the same list
+    `PATCH /spiele/{spiel_id}` reports in its response, computed over every season instead of one.
+    """
+
+    spiele: list[FLSpiel]
+    bracket_faults: list[FLBracketFault] = Field(default_factory=list)
+
+
 class FLPatchSpielDataResponse(BaseAPIResponse):
     """
     What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.
@@ -288,10 +347,16 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     silently changes documents the caller did not name is one whose failures are invisible. An empty
     list is the ordinary answer for a group-phase edit.
 
-    `unresolvable_slots` carries the bracket slots whose `gruppe` reference cannot be honoured and will
-    not become honourable by waiting (ADR-0043). A group still being played is not in it: a placing that
-    is not decided yet is the ordinary state and needs nobody.
+    `bracket_faults` carries every stored contradiction the resolution walked past in this season: a
+    `gruppe` reference that cannot be honoured and will not become honourable by waiting (ADR-0043), a
+    `spiel` reference naming no match or sitting on a cycle, and a fixture whose two sides resolve to one
+    club. A group still being played is in none of them: a placing that is not decided yet is the
+    ordinary state and needs nobody.
+
+    The same list is derived on `GET /spiele/action_required`, which is where it can be re-asked for
+    (ADR-0047). Reported here as well because the save that introduces a fault is the moment its cause
+    is known.
     """
 
     advanced_to: list[int] = Field(default_factory=list)
-    unresolvable_slots: list[FLUnresolvableSlot] = Field(default_factory=list)
+    bracket_faults: list[FLBracketFault] = Field(default_factory=list)

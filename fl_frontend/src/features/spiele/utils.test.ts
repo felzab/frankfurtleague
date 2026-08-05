@@ -19,6 +19,7 @@ import {
   collectUsedQuelleKeys,
   computeErgebnisFor,
   computeSpielStatus,
+  formatBracketFault,
   formatElfmeterschiessen,
   formatQuelle,
   formatSpielDisplay,
@@ -27,7 +28,7 @@ import {
   quelleKey,
 } from "./utils.ts";
 
-import type { FLSpiel } from "./schemas.ts";
+import type { FLBracketFault, FLSpiel } from "./schemas.ts";
 
 const TODAY = "2026-07-29";
 
@@ -234,26 +235,54 @@ describe("formatSpielUpdateMessage", () => {
     );
   });
 
-  // The two states a further result cannot fix (ADR-0043). A group still being played reaches neither,
-  // which is why there is no third case here and no wording for one.
+  it("reports an advancement and a bracket fault in the same message", () => {
+    const message = formatSpielUpdateMessage([30], [gruppeFault("gruppe_too_small", "A", 5)]);
+
+    assert.match(message, /Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. Spiel 25 verweist/);
+  });
+});
+
+/** A group-reference fault on match 25. The id is read only as a key, so any valid one will do. */
+function gruppeFault(reason: "gruppe_too_small" | "tie_unresolved", gruppe: "A" | "B", platz: number): FLBracketFault {
+  return { reason, spiel_id: "6890a1b2c3d4e5f607180025", spiel_nr: 25, gruppe, platz };
+}
+
+describe("formatBracketFault", () => {
+  // Every reason gets a case: this is the only place either codebase turns a fault into words, and a
+  // reason with no wording would render as nothing at all rather than as a visible gap.
   it("names a platz the group will never produce", () => {
     assert.equal(
-      formatSpielUpdateMessage([], [{ spiel_nr: 25, gruppe: "A", platz: 5, reason: "gruppe_too_small" }]),
-      "Die Spieldaten wurden erfolgreich aktualisiert. Spiel 25 verweist auf Platz 5 der Gruppe A — so weit reicht diese Gruppe nicht",
+      formatBracketFault(gruppeFault("gruppe_too_small", "A", 5)),
+      "Spiel 25 verweist auf Platz 5 der Gruppe A — so weit reicht diese Gruppe nicht",
     );
   });
 
   it("says which fixture an unbreakable tie leaves open", () => {
     assert.equal(
-      formatSpielUpdateMessage([], [{ spiel_nr: 25, gruppe: "B", platz: 2, reason: "tie_unresolved" }]),
-      "Die Spieldaten wurden erfolgreich aktualisiert. Platz 2 der Gruppe B ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel 25 offen",
+      formatBracketFault(gruppeFault("tie_unresolved", "B", 2)),
+      "Platz 2 der Gruppe B ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel 25 offen",
     );
   });
 
-  it("reports an advancement and an unresolvable slot in the same message", () => {
-    const message = formatSpielUpdateMessage([30], [{ spiel_nr: 25, gruppe: "A", platz: 5, reason: "gruppe_too_small" }]);
+  it("names the number to correct when the source is a match the season does not have", () => {
+    assert.equal(
+      formatBracketFault({ reason: "spiel_missing", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29, quelle_spiel_nr: 99 }),
+      "Spiel 29 verweist auf Spiel 99, das es in dieser Saison nicht gibt",
+    );
+  });
 
-    assert.match(message, /Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. Spiel 25 verweist/);
+  it("says a chain closes on itself rather than that a number is missing", () => {
+    assert.equal(
+      formatBracketFault({ reason: "reference_cycle", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29, quelle_spiel_nr: 30 }),
+      "Spiel 29 verweist über Spiel 30 auf eine Verweiskette, die sich schließt — sie kann kein Ergebnis liefern",
+    );
+  });
+
+  it("names the fixture whose two sides lead to one club", () => {
+    assert.equal(
+      formatBracketFault({ reason: "same_team", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29 }),
+      "In Spiel 29 führen beide Seiten zur selben Mannschaft",
+    );
   });
 });
 

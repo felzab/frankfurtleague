@@ -25,7 +25,7 @@
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
-import type { FLSpiel, FLSpielQuelle, FLSpielStatus, FLUnresolvableSlot } from "./schemas";
+import type { FLBracketFault, FLSpiel, FLSpielQuelle, FLSpielStatus } from "./schemas";
 
 export const computeSpielStatus = ({
   datum,
@@ -205,7 +205,7 @@ export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<
  * Saying nothing when the list is empty is the point of reporting at all: an admin who has just entered
  * a quarter-final result and sees no second sentence knows the semi-final did not move.
  */
-export const formatSpielUpdateMessage = (advancedTo: readonly number[], unresolvableSlots: readonly FLUnresolvableSlot[] = []): string => {
+export const formatSpielUpdateMessage = (advancedTo: readonly number[], bracketFaults: readonly FLBracketFault[] = []): string => {
   const sentences = ["Die Spieldaten wurden erfolgreich aktualisiert"];
 
   if (advancedTo.length > 0) {
@@ -220,20 +220,34 @@ export const formatSpielUpdateMessage = (advancedTo: readonly number[], unresolv
     );
   }
 
-  // Each slot is named individually rather than counted. There is at most a handful, and "zwei
+  // Each fault is named individually rather than counted. There is at most a handful, and "zwei
   // Bracket-Verweise sind offen" tells an admin nothing they can act on.
-  sentences.push(...unresolvableSlots.map(formatUnresolvableSlot));
+  sentences.push(...bracketFaults.map(formatBracketFault));
 
   return sentences.join(". ");
 };
 
 /**
- * Why one bracket slot could not be seeded from its group, in a sentence an admin can act on.
+ * Why one stored bracket fault needs a person, in a sentence an admin can act on (ADR-0047).
  *
- * Only the two states no further result can fix reach this (ADR-0043) — a group that is still being
- * played produces neither, because a placing that is not decided yet needs nobody's attention.
+ * Five reasons, and every one of them names the fixture to open and what is wrong inside it. Only states
+ * no further result can fix reach here — a group that is still being played produces none of them,
+ * because a placing that is not decided yet needs nobody's attention (ADR-0043).
+ *
+ * The same sentences serve the save's toast and the action-required list, so a fault reads identically
+ * wherever an admin meets it.
  */
-const formatUnresolvableSlot = ({ spiel_nr, gruppe, platz, reason }: FLUnresolvableSlot): string =>
-  reason === "gruppe_too_small"
-    ? `Spiel ${spiel_nr} verweist auf Platz ${platz} der Gruppe ${gruppe} — so weit reicht diese Gruppe nicht`
-    : `Platz ${platz} der Gruppe ${gruppe} ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel ${spiel_nr} offen`;
+export const formatBracketFault = (fault: FLBracketFault): string => {
+  switch (fault.reason) {
+    case "gruppe_too_small":
+      return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe} — so weit reicht diese Gruppe nicht`;
+    case "tie_unresolved":
+      return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel ${fault.spiel_nr} offen`;
+    case "spiel_missing":
+      return `Spiel ${fault.spiel_nr} verweist auf Spiel ${fault.quelle_spiel_nr}, das es in dieser Saison nicht gibt`;
+    case "reference_cycle":
+      return `Spiel ${fault.spiel_nr} verweist über Spiel ${fault.quelle_spiel_nr} auf eine Verweiskette, die sich schließt — sie kann kein Ergebnis liefern`;
+    case "same_team":
+      return `In Spiel ${fault.spiel_nr} führen beide Seiten zur selben Mannschaft`;
+  }
+};

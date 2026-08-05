@@ -3,9 +3,10 @@ SPIELE · query construction, and the playoff bracket
 
 Three pure halves. `build_spiele_filter` / `build_spiele_sort` translate `FLSpieleFilterParams` into a
 Mongo filter document and a sort specification. `resolve_bracket` computes what every bracket slot in a
-season should hold. `find_wiring_refusal` decides whether a patch's wiring is one the season can hold
-at all (ADR-0046). Pure throughout -- no I/O, no collection access -- which is what makes the query
-semantics, the advancement algorithm and the refusal rules all testable without a database.
+season should hold, and reports every stored fault it walked past (ADR-0047). `find_wiring_refusal`
+decides whether a patch's wiring is one the season can hold at all (ADR-0046). Pure throughout -- no
+I/O, no collection access -- which is what makes the query semantics, the advancement algorithm and the
+refusal rules all testable without a database.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -33,8 +34,12 @@ semantics, the advancement algorithm and the refusal rules all testable without 
     same way: it is not maintained, its stored sides stand, and everything downstream derives from
     that stored state -- never from the contradiction. The containment is transitive by construction,
     because the memo records the fixture as unchanged rather than as changed-then-refused.
-  • A placing that is not decided YET is nobody's problem and is reported to nobody. Only the two states
-    a further result cannot fix reach `unresolvable_slots`.
+  • CONTAINING a fault and REPORTING it are separate, and every one of the five is both. The five are the
+    two `gruppe` states, a `spiel_nr` naming no match, a cycle, and a fixture resolving to one club --
+    they reach `bracket_faults` and change no slot (ADR-0047). Reporting a shape is never licence to act
+    on it.
+  • A placing that is not decided YET is nobody's problem and is reported to nobody. Only states a
+    further result cannot fix reach `bracket_faults`.
   • The containment above and `find_wiring_refusal` are two boundaries, not one rule applied twice: the
     write path REFUSES wiring the season cannot hold, and the resolution CONTAINS the same shapes when
     they are already stored -- data that never passed through the endpoint still resolves without loss
@@ -48,12 +53,17 @@ semantics, the advancement algorithm and the refusal rules all testable without 
   docs/_decisions/0042-a-result-entry-resolves-the-whole-bracket.md -- the model and the algorithm
   docs/_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md
   docs/_decisions/0044-a-shoot-out-is-its-own-scoreline.md -- why the table still counts it as a draw
+  docs/_decisions/0047-a-bracket-fault-is-derived-on-demand.md -- the five faults and where they surface
 """
 
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
 from app.api.spiele.schemas import (
+    FLBracketFault,
+    FLBracketFaultGruppe,
+    FLBracketFaultQuelle,
+    FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
     FLSaisonPhase,
     FLSpiel,
@@ -62,7 +72,6 @@ from app.api.spiele.schemas import (
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
     FLSpielTeamField,
-    FLUnresolvableSlot,
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
@@ -196,22 +205,22 @@ def _fixtures_depending_on_a_cycle(by_nr: Mapping[int, FLSpiel]) -> frozenset[in
 @dataclass(frozen=True)
 class BracketResolution:
     """
-    What one season's bracket should hold, and which of its references cannot be honoured.
+    What one season's bracket should hold, and which of its references contradict the season.
 
-    `advancements` are the fixtures to write. `unresolvable_slots` are the `gruppe` references that need
-    a person rather than another result -- reported alongside the writes rather than instead of them,
+    `advancements` are the fixtures to write. `bracket_faults` are the five stored shapes that need a
+    person rather than another result -- reported alongside the writes rather than instead of them,
     because one broken reference is no reason to leave the rest of the bracket unresolved.
     """
 
     advancements: list[SlotAdvancement]
-    unresolvable_slots: list[FLUnresolvableSlot]
+    bracket_faults: list[FLBracketFault]
 
 
 def _seed_from_gruppe(
-    spiel_nr: int,
+    spiel: FLSpiel,
     quelle: FLSpielQuelleGruppe,
     standings: Mapping[FLGruppenNames, DecidedStanding],
-    unresolvable: list[FLUnresolvableSlot],
+    faults: list[FLBracketFault],
 ) -> tuple[FLSpielTeamField | None, bool]:
     """
     The team a group placing seeds into a slot, and whether this resolution maintains that slot at all.
@@ -223,7 +232,7 @@ def _seed_from_gruppe(
       team, exactly as a match with no winner does, so a slot seeded from an earlier state of the table
       gives that team back the moment a result stops supporting it.
     - **It can never be decided** -- reported, and the slot is left alone or emptied depending on which
-      of the two states it is (see `FLUnresolvableSlot`).
+      of the two states it is (see `FLBracketFaultGruppe`).
 
     An absent standing means none was supplied for this season, so nothing is derived and nothing is
     reported. That is not the same as a group with no teams, which arrives as a standing with none.
@@ -236,7 +245,11 @@ def _seed_from_gruppe(
     # A placing this group can never produce -- fewer teams than the number asks for. A typo, so the
     # slot keeps whatever it holds, on the same reasoning as a `spiel_nr` naming no match (ADR-0042).
     if quelle.platz > standing.eligible:
-        unresolvable.append(FLUnresolvableSlot(spiel_nr=spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz, reason="gruppe_too_small"))
+        faults.append(
+            FLBracketFaultGruppe(
+                reason="gruppe_too_small", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz
+            )
+        )
         return None, False
 
     team = standing.by_platz.get(quelle.platz)
@@ -247,20 +260,22 @@ def _seed_from_gruppe(
     # Played out and still level on every criterion. Reported, and the slot is emptied with it: naming
     # either team would be a guess, and the route past it is to clear the `quelle` and enter a side.
     if standing.is_complete:
-        unresolvable.append(FLUnresolvableSlot(spiel_nr=spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz, reason="tie_unresolved"))
+        faults.append(
+            FLBracketFaultGruppe(reason="tie_unresolved", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz)
+        )
 
     return None, True
 
 
 def _occupant_of(
-    spiel_nr: int,
+    spiel: FLSpiel,
     stored: FLSpielTeamField | None,
     quelle: FLSpielQuelle | None,
     by_nr: Mapping[int, FLSpiel],
     standings: Mapping[FLGruppenNames, DecidedStanding],
     tainted: frozenset[int],
     memo: dict[int, ResolvedSides],
-    unresolvable: list[FLUnresolvableSlot],
+    faults: list[FLBracketFault],
 ) -> tuple[FLSpielTeamField | None, bool]:
     """
     Who one slot should hold, and whether this resolution maintains it at all.
@@ -275,14 +290,22 @@ def _occupant_of(
         return stored, False
 
     if isinstance(quelle, FLSpielQuelleGruppe):
-        return _seed_from_gruppe(spiel_nr, quelle, standings, unresolvable)
+        return _seed_from_gruppe(spiel, quelle, standings, faults)
 
     # A number this season has no match for, or a chain of references that closes on itself. Neither
-    # states an outcome, so neither is an instruction to remove a team.
-    if quelle.spiel_nr not in by_nr or quelle.spiel_nr in tainted:
+    # states an outcome, so neither is an instruction to remove a team -- and both are REPORTED, because
+    # a slot nothing maintains and nothing mentions is one an admin cannot discover (ADR-0047).
+    if quelle.spiel_nr not in by_nr:
+        faults.append(FLBracketFaultQuelle(reason="spiel_missing", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr))
         return stored, False
 
-    return _outcome_of(quelle.spiel_nr, quelle.ausgang, by_nr, standings, tainted, memo, unresolvable), True
+    if quelle.spiel_nr in tainted:
+        faults.append(
+            FLBracketFaultQuelle(reason="reference_cycle", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr)
+        )
+        return stored, False
+
+    return _outcome_of(quelle.spiel_nr, quelle.ausgang, by_nr, standings, tainted, memo, faults), True
 
 
 def _resolve_sides(
@@ -291,7 +314,7 @@ def _resolve_sides(
     standings: Mapping[FLGruppenNames, DecidedStanding],
     tainted: frozenset[int],
     memo: dict[int, ResolvedSides],
-    unresolvable: list[FLUnresolvableSlot],
+    faults: list[FLBracketFault],
 ) -> ResolvedSides:
     """
     The two sides one fixture should hold, and whether either occupant differs from the stored one.
@@ -310,9 +333,11 @@ def _resolve_sides(
     spiel = by_nr[spiel_nr]
     sides: list[FLSpielTeamField | None] = []
     an_occupant_changed = False
+    a_side_is_maintained = False
 
     for stored, quelle in ((spiel.team1, spiel.team1_quelle), (spiel.team2, spiel.team2_quelle)):
-        occupant, is_maintained = _occupant_of(spiel_nr, stored, quelle, by_nr, standings, tainted, memo, unresolvable)
+        occupant, is_maintained = _occupant_of(spiel, stored, quelle, by_nr, standings, tainted, memo, faults)
+        a_side_is_maintained = a_side_is_maintained or is_maintained
 
         if not is_maintained or _is_same_team(occupant, stored):
             sides.append(stored)
@@ -322,6 +347,19 @@ def _resolve_sides(
         sides.append(occupant.model_copy(update={"tore": None}) if occupant is not None else None)
         an_occupant_changed = True
 
+    both_sides_one_club = sides[0] is not None and sides[1] is not None and sides[0].team_id == sides[1].team_id
+
+    # Reported whether or not this pass would move an occupant, unlike the containment below. A fixture
+    # hand-edited to already hold the club its own source resolves to stores the contradiction rather
+    # than producing it, so nothing changes on any pass and the guard below never sees it -- and that
+    # shape is exactly the one the write path cannot refuse, because its rules key a source by identity
+    # and two DIFFERENT sources naming one club pass them all (ADR-0046, ADR-0047).
+    #
+    # Scoped to a fixture at least one of whose sides a source maintains: two hand-set sides holding one
+    # club state no wiring fault, and this list is about wiring.
+    if both_sides_one_club and a_side_is_maintained:
+        faults.append(FLBracketFaultSpiel(reason="same_team", spiel_id=spiel.id, spiel_nr=spiel_nr))
+
     # Two references resolving to one club would make the fixture a team against itself -- typically
     # both slots naming the same match with the same `ausgang`, a data-entry mistake one digit away
     # from a real draw. Nothing downstream refuses the shape (a $jsonSchema validator may carry no
@@ -329,7 +367,7 @@ def _resolve_sides(
     # maintained, with its STORED sides standing. That last part is what contains the mistake: a memo
     # claiming the occupants changed would void this fixture's stored result for the pass, emptying
     # every fixture downstream of it and erasing results over a typo.
-    if an_occupant_changed and sides[0] is not None and sides[1] is not None and sides[0].team_id == sides[1].team_id:
+    if an_occupant_changed and both_sides_one_club:
         memo[spiel_nr] = (spiel.team1, spiel.team2, False)
         return memo[spiel_nr]
 
@@ -344,7 +382,7 @@ def _outcome_of(
     standings: Mapping[FLGruppenNames, DecidedStanding],
     tainted: frozenset[int],
     memo: dict[int, ResolvedSides],
-    unresolvable: list[FLUnresolvableSlot],
+    faults: list[FLBracketFault],
 ) -> FLSpielTeamField | None:
     """
     The side that came out of one match as `ausgang`, or `None` while it has none.
@@ -360,7 +398,7 @@ def _outcome_of(
     """
 
     spiel = by_nr[spiel_nr]
-    team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, by_nr, standings, tainted, memo, unresolvable)
+    team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, by_nr, standings, tainted, memo, faults)
 
     # The stored result was scored by a side that is no longer in this fixture, so it is void for the
     # whole of this pass -- which is what carries a corrected quarter-final through to the final.
@@ -397,6 +435,24 @@ def _outcome_of(
     return winner if ausgang == "sieger" else loser
 
 
+def _fault_order(fault: FLBracketFault) -> tuple[int, str, str, int]:
+    """
+    One fault's place in the report.
+
+    By fixture, then by reason, then by whatever separates two faults of the same reason on one
+    fixture -- which is only ever its two sides.
+
+    Spelled out per variant rather than read off a shared field set, because the variants deliberately
+    do not have one: a cycle carries no `platz` and a group reference carries no `quelle_spiel_nr`.
+    """
+
+    if isinstance(fault, FLBracketFaultGruppe):
+        return (fault.spiel_nr, fault.reason, fault.gruppe, fault.platz)
+    if isinstance(fault, FLBracketFaultQuelle):
+        return (fault.spiel_nr, fault.reason, "", fault.quelle_spiel_nr)
+    return (fault.spiel_nr, fault.reason, "", 0)
+
+
 def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames, DecidedStanding]) -> BracketResolution:
     """
     Every fixture in one season whose bracket slots hold something other than what its wiring says.
@@ -419,12 +475,12 @@ def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames
     by_nr = {spiel.spiel_nr: spiel for spiel in spiele}
     tainted = _fixtures_depending_on_a_cycle(by_nr)
     memo: dict[int, ResolvedSides] = {}
-    unresolvable: list[FLUnresolvableSlot] = []
+    faults: list[FLBracketFault] = []
 
     advancements: list[SlotAdvancement] = []
     for spiel_nr in sorted(by_nr):
         spiel = by_nr[spiel_nr]
-        team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, by_nr, standings, tainted, memo, unresolvable)
+        team1, team2, an_occupant_changed = _resolve_sides(spiel_nr, by_nr, standings, tainted, memo, faults)
         if not an_occupant_changed:
             continue
 
@@ -446,9 +502,9 @@ def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames
 
     # Sorted, so the report reads in bracket order rather than in the order the recursion happened to
     # reach each fixture.
-    unresolvable.sort(key=lambda slot: (slot.spiel_nr, slot.gruppe, slot.platz))
+    faults.sort(key=_fault_order)
 
-    return BracketResolution(advancements=advancements, unresolvable_slots=unresolvable)
+    return BracketResolution(advancements=advancements, bracket_faults=faults)
 
 
 # The rounds in the order they are played. What the refusal below needs is only "strictly earlier",

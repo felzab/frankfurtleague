@@ -13,17 +13,24 @@
  *     fully keyed, so a mistyped category is a compile error rather than a crash on `undefined`.
  */
 
-import type { FLSpiel } from "../spiele/schemas";
+import type { FLBracketFault, FLSpiel } from "../spiele/schemas";
 
 /**
- * The seven things that can make a match need admin attention.
+ * The eight things that can make a match need admin attention.
  *
  * A literal union rather than a loose index signature: the categorisation below builds a fully
  * keyed accumulator, so every read is checked and a mistyped category is a compile error instead of
  * a runtime crash on `undefined.spiele`.
  */
 export type ActionRequiredCategory =
-  "ergebnis_pending" | "besetzung_missing" | "datum_missing" | "uhrzeit_missing" | "ort_missing" | "schiedsrichter_missing" | "is_canceled";
+  | "ergebnis_pending"
+  | "besetzung_missing"
+  | "bracket_fault"
+  | "datum_missing"
+  | "uhrzeit_missing"
+  | "ort_missing"
+  | "schiedsrichter_missing"
+  | "is_canceled";
 
 /**
  * Declaration order is render order — the view maps `typedObjectEntries` straight into the accordion.
@@ -37,6 +44,10 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
     name: "Offene Besetzung",
     desc: "K.-o.-Spiele mit einer Seite ohne Mannschaft und ohne Herkunft — sie wird von niemandem gepflegt",
   },
+  bracket_fault: {
+    name: "Fehlerhafte Verweise",
+    desc: "K.-o.-Spiele, deren Herkunft sich nicht auflösen lässt — die Gründe stehen über den Karten",
+  },
   datum_missing: { name: "Fehlendes Datum", desc: "Spiele ohne eingetragenes Datum" },
   uhrzeit_missing: { name: "Fehlende Uhrzeit", desc: "Spiele ohne eingetragene Uhrzeit" },
   ort_missing: { name: "Fehlender Ort", desc: "Spiele ohne eingetragenen Ort" },
@@ -47,18 +58,25 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
 /**
  * Sorts matches into the categories that need admin attention.
  *
- * Two rules that are load-bearing and easy to "tidy" away:
+ * Three rules that are load-bearing and easy to "tidy" away:
  * - `is_canceled` is **exclusive** — a cancelled match is reported only as cancelled, never also as
  *   missing a date or a referee, because chasing details on a cancelled fixture is noise.
  * - the four `*_missing` categories are **not** exclusive — one match can appear in several.
+ * - `bracket_fault` membership is **read, not derived**. The backend computes it over whole seasons
+ *   (ADR-0047) and this list holds a filtered handful of matches, so nothing here could recompute it.
  *
  * `datum` and `today` are both `YYYY-MM-DD`, so the `<` comparison is lexicographic and correct.
  * It is strict: a match dated today with no result is not yet overdue.
  */
-export function categorizeActionRequired(spiele: FLSpiel[], today: string): Record<ActionRequiredCategory, FLSpiel[]> {
+export function categorizeActionRequired(
+  spiele: FLSpiel[],
+  today: string,
+  bracketFaults: readonly FLBracketFault[] = [],
+): Record<ActionRequiredCategory, FLSpiel[]> {
   const categorized: Record<ActionRequiredCategory, FLSpiel[]> = {
     ergebnis_pending: [],
     besetzung_missing: [],
+    bracket_fault: [],
     datum_missing: [],
     uhrzeit_missing: [],
     ort_missing: [],
@@ -66,7 +84,14 @@ export function categorizeActionRequired(spiele: FLSpiel[], today: string): Reco
     is_canceled: [],
   };
 
+  const faultedSpielIds = new Set(bracketFaults.map((fault) => fault.spiel_id));
+
   for (const spiel of spiele) {
+    // Before the cancellation branch, and deliberately not exclusive with it: a cancelled fixture whose
+    // wiring is broken still feeds whatever the bracket puts below it, so the fault outlives the
+    // cancellation and chasing it is not the noise that keeps the other categories off this match.
+    if (faultedSpielIds.has(spiel.id)) categorized.bracket_fault.push(spiel);
+
     if (spiel.is_canceled) {
       categorized.is_canceled.push(spiel);
       continue;

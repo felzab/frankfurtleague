@@ -277,7 +277,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel, then resolve the season's playoff bracket.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\n`elfmeterschiessen` records how a knockout that finished level was settled, and is kept only on a\nfixture outside the Gruppenphase whose two goal counts are equal; anywhere else it is discarded\nrather than refused, because a group draw is a final result and the goals are what say whether a\nshoot-out was possible at all (ADR-0044). It decides the bracket below and is invisible to the\nleague table, which counts the match as the draw it was (ADR-0026).\n\n**A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is\nthe winner of match 25, so entering that match's result fills the slot, correcting it later moves\nthe right team in, and deleting it empties the slot again (ADR-0042). A slot referring to a group\nplacing is filled the same way, once no remaining fixture in that group can still change who holds\nit (ADR-0043). Every fixture written either way is named in `advanced_to`.\n\n`unresolvable_slots` names the group references that no further result can honour — a `platz` its\ngroup will never produce, and a placing the tiebreak chain cannot separate in a group that has\nfinished. A group still being played is not reported: that placing is simply not decided yet.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n**Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`, ADR-0046) before\nanything is written: a `quelle` on a Gruppenphase fixture, a `spiel` source the season does not\nhave or that is not played before this fixture, one outcome feeding two slots, and a team\nsubmitted against a side a `quelle` maintains. The form does not offer these shapes, so a request\ncarrying one is stale or racing another admin -- reloading is the way past the 409.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
+        "description": "Update one Spiel, then resolve the season's playoff bracket.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\n`elfmeterschiessen` records how a knockout that finished level was settled, and is kept only on a\nfixture outside the Gruppenphase whose two goal counts are equal; anywhere else it is discarded\nrather than refused, because a group draw is a final result and the goals are what say whether a\nshoot-out was possible at all (ADR-0044). It decides the bracket below and is invisible to the\nleague table, which counts the match as the draw it was (ADR-0026).\n\n**A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is\nthe winner of match 25, so entering that match's result fills the slot, correcting it later moves\nthe right team in, and deleting it empties the slot again (ADR-0042). A slot referring to a group\nplacing is filled the same way, once no remaining fixture in that group can still change who holds\nit (ADR-0043). Every fixture written either way is named in `advanced_to`.\n\n`bracket_faults` names every stored contradiction this season's resolution walked past: a `platz`\nits group will never produce, a placing the tiebreak chain cannot separate in a group that has\nfinished, a `quelle` naming a match the season does not have, a chain of references that closes on\nitself, and a fixture whose two sides resolve to one club (ADR-0047). A group still being played is\nnot reported: that placing is simply not decided yet. The same list is re-derivable at\n`GET /spiele/action_required`, so missing it here is not losing it.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n**Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`, ADR-0046) before\nanything is written: a `quelle` on a Gruppenphase fixture, a `spiel` source the season does not\nhave or that is not played before this fixture, one outcome feeding two slots, and a team\nsubmitted against a side a `quelle` maintains. The form does not offer these shapes, so a request\ncarrying one is stale or racing another admin -- reloading is the way past the 409.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -2189,7 +2189,7 @@
     "/api/v0/spiele/action_required": {
       "get": {
         "summary": "Spiele needing attention",
-        "description": "List Spiele that need an admin's attention.\n\nA match qualifies if it is cancelled, is missing a date, time, venue or referee, is in the past\nwith no result recorded, or is a knockout fixture with a side that has neither a team nor a\n`quelle`. That last shape is legal and permanent-by-default: nothing resolves such a slot and\nnothing else reminds the admin that it is theirs (ADR-0046). A Gruppenphase fixture is exempt --\nan unscheduled group match is an unfilled schedule, not an orphaned slot, and every group fixture\nlegitimately carries no `quelle` forever. Not season-filtered: it spans every season.\n\nDeliberately uncached on the frontend — admin-authorized data does not belong in a shared cache\n(ADR-0013).",
+        "description": "List Spiele that need an admin's attention, and the bracket faults among them.\n\nA match qualifies if it is cancelled, is missing a date, time, venue or referee, is in the past\nwith no result recorded, or is a knockout fixture with a side that has neither a team nor a\n`quelle`. That last shape is legal and permanent-by-default: nothing resolves such a slot and\nnothing else reminds the admin that it is theirs (ADR-0046). A Gruppenphase fixture is exempt --\nan unscheduled group match is an unfilled schedule, not an orphaned slot, and every group fixture\nlegitimately carries no `quelle` forever. Not season-filtered: it spans every season.\n\n**`bracket_faults` is derived here rather than filtered** (ADR-0047). A fault is a contradiction\nbetween documents -- a `quelle` naming a match the season does not have, a cycle, a placing no\nstanding will produce, a fixture resolving to one club -- so no Mongo filter can select one, and\nthe resolution is what decides them. Every fixture a fault names is added to `spiele` below, so the\nclient holds the document behind each fault whether or not the filter also selected it.\n\nDeliberately uncached on the frontend — admin-authorized data does not belong in a shared cache\n(ADR-0013), and a derived fault list would be wrong the moment a document changed under it anyway.",
         "operationId": "get_spiele_action_required_api_v0_spiele_action_required_get",
         "responses": {
           "200": {
@@ -2197,7 +2197,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpieleListResponse"
+                  "$ref": "#/components/schemas/FLSpieleActionRequiredResponse"
                 }
               }
             }
@@ -2949,6 +2949,113 @@
         ],
         "title": "FLAddress"
       },
+      "FLBracketFaultGruppe": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "gruppe_too_small",
+              "tie_unresolved"
+            ],
+            "title": "Reason"
+          },
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "platz": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Platz"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "spiel_id",
+          "spiel_nr",
+          "gruppe",
+          "platz"
+        ],
+        "title": "FLBracketFaultGruppe",
+        "description": "One bracket slot whose `gruppe` reference names a placing the standings will never hand it.\n\nBoth reasons need a person, which is what separates them from the ordinary state of a group that is\nsimply still being played -- that one is reported by nobody, because \"not yet\" is not a problem\n(ADR-0043).\n\n`gruppe_too_small` is a data-entry mistake: the group holds fewer teams that can hold a placing than\nthe `platz` asks for, so no result will ever produce it. Like a `spiel_nr` naming no match, the slot\nis left exactly as it stands -- erasing a team over a typo destroys more than it reports (ADR-0042).\n\n`tie_unresolved` is a real outcome: the group is played out and the tiebreak chain still cannot\nseparate two teams at that placing. The slot IS emptied, because naming either team would be a\nguess, and clearing the `quelle` and entering a side by hand is the route past it."
+      },
+      "FLBracketFaultQuelle": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "spiel_missing",
+              "reference_cycle"
+            ],
+            "title": "Reason"
+          },
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "quelle_spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Quelle Spiel Nr"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "spiel_id",
+          "spiel_nr",
+          "quelle_spiel_nr"
+        ],
+        "title": "FLBracketFaultQuelle",
+        "description": "One bracket slot whose `spiel` reference names a match that cannot state an outcome.\n\n`spiel_missing` is a number the season has no match for; `reference_cycle` is a chain of references\nthat closes on itself, and it is reported on every fixture the loop reaches, because each of them is\nequally underivable. `quelle_spiel_nr` is the number the slot names, which is the value to correct.\n\nBoth leave the slot exactly as it stands (ADR-0042), and neither is reachable through the write path\nany more (ADR-0046) -- so a stored one is a hand edit, which is the caller this model reports to."
+      },
+      "FLBracketFaultSpiel": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "const": "same_team",
+            "title": "Reason"
+          },
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "spiel_id",
+          "spiel_nr"
+        ],
+        "title": "FLBracketFaultSpiel",
+        "description": "One fixture whose two references resolve to the SAME club, so it would be a team against itself.\n\nUnlike the other four, this one survives every write-path rule: the refusal keys a source by its\nidentity, so two DIFFERENT sources that happen to name one club pass it (ADR-0046). A manual side\nholding a club, against a side fed by a match that club then wins, is the reachable shape.\n\nThe fixture keeps its stored sides and everything downstream keeps deriving from them."
+      },
       "FLGruppen": {
         "additionalProperties": {
           "items": {
@@ -3343,17 +3450,37 @@
             "type": "array",
             "title": "Advanced To"
           },
-          "unresolvable_slots": {
+          "bracket_faults": {
             "items": {
-              "$ref": "#/components/schemas/FLUnresolvableSlot"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultGruppe"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultQuelle"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultSpiel"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "reason",
+                "mapping": {
+                  "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
+                  "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
+                  "same_team": "#/components/schemas/FLBracketFaultSpiel",
+                  "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
+                  "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
+                }
+              }
             },
             "type": "array",
-            "title": "Unresolvable Slots"
+            "title": "Bracket Faults"
           }
         },
         "type": "object",
         "title": "FLPatchSpielDataResponse",
-        "description": "What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.\n\n`advanced_to` carries the `spiel_nr` of every bracket fixture whose sides the result entry\nresolved — a semi-final that gained its winner, and, when a result was corrected, a later fixture\nthat lost an occupant it should never have had (ADR-0042). It reports what happened rather than\nwhat was asked for, so it names a fixture that was emptied as readily as one that was filled.\n\nReported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that\nsilently changes documents the caller did not name is one whose failures are invisible. An empty\nlist is the ordinary answer for a group-phase edit.\n\n`unresolvable_slots` carries the bracket slots whose `gruppe` reference cannot be honoured and will\nnot become honourable by waiting (ADR-0043). A group still being played is not in it: a placing that\nis not decided yet is the ordinary state and needs nobody."
+        "description": "What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.\n\n`advanced_to` carries the `spiel_nr` of every bracket fixture whose sides the result entry\nresolved — a semi-final that gained its winner, and, when a result was corrected, a later fixture\nthat lost an occupant it should never have had (ADR-0042). It reports what happened rather than\nwhat was asked for, so it names a fixture that was emptied as readily as one that was filled.\n\nReported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that\nsilently changes documents the caller did not name is one whose failures are invisible. An empty\nlist is the ordinary answer for a group-phase edit.\n\n`bracket_faults` carries every stored contradiction the resolution walked past in this season: a\n`gruppe` reference that cannot be honoured and will not become honourable by waiting (ADR-0043), a\n`spiel` reference naming no match or sitting on a cycle, and a fixture whose two sides resolve to one\nclub. A group still being played is in none of them: a placing that is not decided yet is the\nordinary state and needs nobody.\n\nThe same list is derived on `GET /spiele/action_required`, which is where it can be re-asked for\n(ADR-0047). Reported here as well because the save that introduces a fault is the moment its cause\nis known."
       },
       "FLPatchSpielerPayload": {
         "properties": {
@@ -4677,6 +4804,59 @@
         ],
         "title": "FLSpielTeamField"
       },
+      "FLSpieleActionRequiredResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spiele": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpiel"
+            },
+            "type": "array",
+            "title": "Spiele"
+          },
+          "bracket_faults": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultGruppe"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultQuelle"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultSpiel"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "reason",
+                "mapping": {
+                  "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
+                  "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
+                  "same_team": "#/components/schemas/FLBracketFaultSpiel",
+                  "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
+                  "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Bracket Faults"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiele"
+        ],
+        "title": "FLSpieleActionRequiredResponse",
+        "description": "What `get_spiele_action_required` returns: the matches needing attention, and why the bracket ones do.\n\n`spiele` carries every match the route's filter selected PLUS every match named by a fault below, so\nthe client always holds the document behind a fault and can render it as an ordinary card. A fault is\njoined to its match by `spiel_id`, never by `spiel_nr`, which repeats across seasons\n(`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`) and this route spans them.\n\n`bracket_faults` is DERIVED on every request and stored nowhere (ADR-0047). It is the same list\n`PATCH /spiele/{spiel_id}` reports in its response, computed over every season instead of one."
+      },
       "FLSpieleListResponse": {
         "properties": {
           "acknowledged": {
@@ -5481,47 +5661,6 @@
         ],
         "title": "FLTeamsSingleResponse",
         "description": "One team, from `GET /teams/{team_id}`.\n\nDeliberately not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can\nreturn, and this is a different endpoint returning exactly one shape."
-      },
-      "FLUnresolvableSlot": {
-        "properties": {
-          "spiel_nr": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr"
-          },
-          "gruppe": {
-            "type": "string",
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D"
-            ],
-            "title": "Gruppe"
-          },
-          "platz": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Platz"
-          },
-          "reason": {
-            "type": "string",
-            "enum": [
-              "gruppe_too_small",
-              "tie_unresolved"
-            ],
-            "title": "Reason"
-          }
-        },
-        "type": "object",
-        "required": [
-          "spiel_nr",
-          "gruppe",
-          "platz",
-          "reason"
-        ],
-        "title": "FLUnresolvableSlot",
-        "description": "One bracket slot whose `gruppe` reference names a placing the standings will never hand it.\n\nBoth reasons need a person, which is what separates them from the ordinary state of a group that is\nsimply still being played -- that one is reported by nobody, because \"not yet\" is not a problem\n(ADR-0043).\n\n`gruppe_too_small` is a data-entry mistake: the group holds fewer teams that can hold a placing than\nthe `platz` asks for, so no result will ever produce it. Like a `spiel_nr` naming no match, the slot\nis left exactly as it stands -- erasing a team over a typo destroys more than it reports (ADR-0042).\n\n`tie_unresolved` is a real outcome: the group is played out and the tiebreak chain still cannot\nseparate two teams at that placing. The slot IS emptied, because naming either team would be a\nguess, and clearing the `quelle` and entering a side by hand is the route past it."
       },
       "HTTPValidationError": {
         "properties": {
