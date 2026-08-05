@@ -56,7 +56,9 @@ def test_the_committed_document_is_the_one_the_service_publishes():
     committed = read_document()
     built = build_document()
 
-    assert committed == built, f"{DOCUMENT_PATH.name} has drifted from the models.\n{summarize_drift(committed, built)}\nRefresh it with:  {REGENERATE}"
+    drift = f"{DOCUMENT_PATH.name} has drifted from the models.\n{summarize_drift(committed, built)}\nRefresh it with:  {REGENERATE}"
+
+    assert committed == built, drift
 
 
 @pytest.mark.parametrize("section", ["paths", "components"])
