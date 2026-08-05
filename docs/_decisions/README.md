@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Forty-five decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Forty-nine decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -79,11 +79,13 @@ written.
 | [0045](0045-a-seasons-fixtures-are-created-once.md)                               | A season's fixtures are created once — `/spiele` has no POST, no DELETE | backend                | Accepted       | 2026-08-05 |
 | [0046](0046-the-write-path-refuses-wiring-the-season-cannot-hold.md)              | The write path refuses wiring the season cannot hold                    | frontend, backend      | Accepted       | 2026-08-05 |
 | [0047](0047-a-bracket-fault-is-derived-on-demand.md)                              | A bracket fault is derived on demand, and all five are reported         | frontend, backend      | Accepted       | 2026-08-05 |
+| [0048](0048-a-voided-result-is-named-not-implied.md)                              | A resolution that voids a stored result names it, and warns first       | frontend, backend      | Accepted       | 2026-08-06 |
+| [0049](0049-eligibility-is-checked-where-a-team-is-fielded.md)                    | Eligibility is refused where a team is newly fielded, warned elsewhere  | frontend, backend      | Accepted       | 2026-08-06 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · 0043 · 0044 · 0045 · 0046 · 0047 · ops: 0009 ·
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · 0043 · 0044 · 0045 · 0046 · 0047 · 0048 · 0049 · ops: 0009 ·
 0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · 0039 · 0040 · frontend: all except 0017,
 0027, 0030, 0031, 0033, 0036, 0037, 0038 and 0045.
 

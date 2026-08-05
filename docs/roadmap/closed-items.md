@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `125f1cc`, 2026-08-05
+**Verified against:** `0fae7b4`, 2026-08-06
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -49,6 +49,7 @@ OPS-6 and OPS-7 are both retired here.
 | 21  | FB-8  | A knockout that ended level had nowhere to record how it was decided, so the bracket stalled | FE, BE, DB  | M      | — (clock: the playoffs)  | [`ab20403`](https://github.com/felzab/frankfurtleague/commit/ab20403) |
 | 22  | FB-12 | A knockout slot with no team and no source was maintained by nobody and reported by nobody   | FE, BE      | S      | — (clock: the playoffs)  | [`6331791`](https://github.com/felzab/frankfurtleague/commit/6331791) |
 | 23  | FB-13 | Two bracket faults lived in one toast and three more were contained without a word           | FE, BE      | M      | — (surface: ADR-0046)    | [`125f1cc`](https://github.com/felzab/frankfurtleague/commit/125f1cc) |
+| 24  | FB-14 | The seeding, advancement, edit and feedback surfaces measured against established practice   | FE, BE, DB  | L      | — (owned FB-9's verdict) | [`0fae7b4`](https://github.com/felzab/frankfurtleague/commit/0fae7b4) |
 
 ## What each one produced
 
@@ -133,8 +134,20 @@ no row here — its commit is the whole story.
   **It opened four entries**, from the review that followed it rather than from the work itself — three
   places where the bracket knows something and tells nobody (**FB-11**, **FB-12**, **FB-13**) and one
   standing caution about the seeding walk's cap (**BE-14**).
-  **It leaves a production data change owed** — `elfmeterschiessen` is required with no default, so
-  every `spiele` document needs the key set before the next deploy, and ADR-0044 carries the runbook.
+  **It required a production backfill**, since `elfmeterschiessen` is required with no default and
+  every `spiele` document needed the key set before the next deploy; ADR-0044 carries the runbook, and
+  `python -m app.core.constraints --check` reported it clean on 2026-08-06.
+- **FB-14** → two decisions and one new entry.
+  [ADR-0048](../_decisions/0048-a-voided-result-is-named-not-implied.md) makes a resolution that voids
+  a stored result say so — before the write as a warning and after it as a distinct outcome — because
+  clearing a semi-final scoreline was reported only as a change of `Paarung`.
+  [ADR-0049](../_decisions/0049-eligibility-is-checked-where-a-team-is-fielded.md) is **FB-9's
+  verdict**: implement as recorded, layered, and the audit found why the rule has to exist here at all
+  — bracket platforms drop a disqualified entrant from the entry list, while ADR-0033 keeps the team
+  in the season behind a flag. It opened **BE-15** (no admin write is recorded anywhere), rewrote
+  **FE-10**, **FE-11**, **FE-12** and **FB-11** into instructions, and moved **FB-9** from a standing
+  caution to a specified entry the owner has deferred. It unblocked nothing that was blocked: the four
+  rewritten entries had soft dependencies on it, which is why they were workable throughout.
 - **FB-12** → [ADR-0046](../_decisions/0046-the-write-path-refuses-wiring-the-season-cannot-hold.md),
   which reaches past the entry's own scope: an unwired knockout slot became the seventh
   action-required category on both ends, and with it the match write path refuses wiring the season
