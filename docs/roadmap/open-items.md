@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `bb7a23b`, 2026-08-05
+**Verified against:** `c6d2511`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -45,7 +45,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
 | 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
 | 3   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Open     | —                         |
-| 4   | LOG-1 | Logging and error handling, surveyed then standardised  | FE, BE, Ops | L      | Open     | — (parallel-safe)         |
+| 4   | LOG-1 | Logging surveyed; standardising it is what remains      | FE, BE, Ops | L      | Open     | — (parallel-safe)         |
 | 5   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
 | 6   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                         |
 | 7   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
@@ -166,30 +166,172 @@ a doubled edit that nothing checks. Landing it first turns that batch from a ris
 
 ### 4 · LOG-1 — Logging and error handling, surveyed then standardised
 
-**Owner's item, 2026-08-02. A consultation programme in two stages, ending in a recorded
-standard.**
+**Owner's item, 2026-08-02. A consultation programme in two stages, ending in a recorded standard.
+Stage 1 is done; stage 2 is the remaining work.**
 
-**Stage 1 — survey and feedback.** Examine the current state of logging in **all three parts** of
-the repo — frontend, backend, dev ops — covering **production logging and dev logging** alike. Go
-over all three implementations and give the owner feedback on each.
+**Stage 1 — survey and feedback — was carried out on 2026-08-05** across all three parts of the
+repo, production and development formats alike, against the local stack (`./scripts/local.sh`) and
+against a backend container run with `LOG_FORMAT=json`. Its findings are below and are measured
+unless a line says otherwise, so stage 2 begins from them rather than re-deriving them.
 
-**Stage 2 — standardise.** Help the owner fully customise the logging conventions: bulletproof,
-**best-practice conform**, and consistent across the three surfaces. This explicitly includes
-**error handling on both the backend and the frontend, and the connection between the two** — how a
-failure crossing the boundary is represented and handled on each side. Examine the custom error
-classes and the machinery around them (`APIMalformedDataError` and its siblings in `core/api.ts`,
-the structured logger, `instrumentation.ts` / `onRequestError`, FastAPI's error responses).
+**Stage 2 — standardise — has not started.** Help the owner fully customise the logging conventions:
+bulletproof, **best-practice conform**, and consistent across the three surfaces. This explicitly
+includes **error handling on both the backend and the frontend, and the connection between the two** —
+how a failure crossing the boundary is represented and handled on each side. **Output:** a recorded
+convention (ADR or `docs/_standard/` entry — decide with the owner), and the code brought to it. The
+decisions it opens with are listed at the end of this entry.
 
-**Standing reminder the owner asked to be given:** consider adding a `trace_id` to **every**
-request, not just failing ones. Evidence this is worth deciding deliberately: the API client sets
-`X-Correlation-ID` on every outgoing request (`core/api.ts`), yet a Server Component crash on
-2026-08-02 logged `<NO_TRACE_ID>` — the id exists on one path and does not reach others.
+#### What each surface does today
 
-**Output:** a recorded convention (ADR or `docs/_standard/` entry — decide with the owner), and the
-code brought to it.
+| Surface      | Application logger                                             | Format selector                                                  | Per-request record in production    |
+| ------------ | -------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------- |
+| **Backend**  | `fl_backend/app/core/logging.py :: fl_logger`, nine call sites | `log_format`, `Literal["console", "json"]`, defaulting `console` | uvicorn's access line, unstructured |
+| **Frontend** | `fl_frontend/src/core/logging.ts :: logger`, three call sites  | `LOG_FORMAT`, `z.string()`, required                             | none — nothing writes one           |
+| **Ops**      | none of its own                                                | —                                                                | nginx's access line, unstructured   |
+
+Eight of the backend's nine call sites are in `fl_backend/app/core/exception_handlers.py`; the other two are the
+boot lines in `fl_backend/app/core/db.py`. Two of the frontend's three are in
+`fl_frontend/src/core/auth.ts` and the third is
+`fl_frontend/src/core/instrumentation.ts :: onRequestError`. **Both loggers therefore fire on failure
+and at boot, and never on a successful request.** Ops keeps 10 MB × 3 per service through Docker's
+`json-file` driver and has no aggregation, no index and no search: reading a production log is `ssh`
+plus `docker compose logs`.
+
+The one mechanism spanning the two services works. `apiClient` (`fl_frontend/src/core/api.ts`) sets
+`X-Correlation-ID` on every outgoing request;
+`fl_backend/app/core/middlewares.py :: CorrelationIdMiddleware`
+binds it to a ContextVar, echoes it back as a response header, and every exception handler returns it
+as the response body's only field. Measured end to end: a request carrying `PROBE-AAA` produced the
+response header `x-correlation-id: PROBE-AAA`, the body `{"trace_id":"PROBE-AAA"}`, and the backend log
+line `<PROBE-AAA>`.
+
+#### Findings
+
+1. **Neither service emits one format, and each module header claims it does.** Both
+   `fl_backend/app/core/logging.py` and `fl_frontend/src/core/logging.ts` state the same invariant —
+   one JSON document per line in production.
+   Both are false, because each service has a second writer the module does not configure. With
+   `LOG_FORMAT=json`, an eight-line backend sample held two JSON documents and six plain-text uvicorn
+   lines, the access lines among them. On the frontend, Next prints every server error itself as a
+   multi-line `⨯ Error [...]` object dump before `onRequestError` ever runs. **The stream is
+   unparseable as JSON on both sides**, which is the property the invariant exists to protect.
+
+2. **The frontend's trace id is fetch-scoped; the backend's is request-scoped.** `apiClient` mints
+   `req_<8 hex>` per **fetch call**, and one page render issues several — so "the trace id for this
+   page view" does not exist. Measured with the backend stopped: one burst produced eight distinct
+   `req_` ids. Anything thrown outside `apiClient` — a render crash, a resolver, a null dereference —
+   carries no id at all, which is what `onRequestError`'s `<NO_TRACE_ID>` reports. The backend, by
+   contrast, has a real request scope. **The two are not the same unit, and no amount of propagation
+   makes them one.**
+
+3. **Only one of several concurrent failures reaches the structured logger.** One capture held eight
+   raw Next dumps carrying eight distinct fetch ids against four structured lines. The structured line
+   names the id of the error that reached the boundary; the others exist only in the unstructured dump,
+   and nothing in the structured line says there were others.
+
+4. **The digest identifies the error message, not the incident.** All eight failures above shared
+   `digest: '897181684'`, because Next derives the digest from the message and every `APINetworkError`
+   carries the same string. **This is load-bearing for FE-6 and for the bug-report form in
+   `docs/workflows/message-templates.md`**, both of which treat the digest as the pointer to a specific
+   log entry. It points at a class.
+
+5. **Seven of the eight documented error codes are logged as `API_ERROR`.**
+   `fl_backend/app/core/exception_handlers.py :: base_api_exception_handler` reads the code off the exception
+   through `getattr` with a fallback, but `fl_backend/app/core/exceptions.py :: BaseAPIException` stores it inside
+   `self.error_detail` and never as an attribute, so the fallback always wins. Measured: a line reading
+   `API Exception (401): [API_ERROR] {'error_code': 'REQ-AUTH-001', ...}`. Only `DB-COMMON-002` is
+   greppable, because `duplicate_key_exception_handler` writes it as a literal. That contradicts the
+   invariant in `fl_backend/app/core/exceptions.py` — "the codes are what make logs greppable" — and the table in
+   `docs/backend/spec.md` §4 that promises them. **One line fixes it; it is the cheapest item here.**
+
+6. **A server action's throw is not handled anywhere on its way to the user.** `apiClient` throws on
+   any non-2xx, the actions call their mutations without a `try`/`catch`, and
+   `fl_frontend/src/shared/components/ui/EntityForm.tsx :: EntityForm` awaits it inside
+   `startTransition` with
+   no rejection path. So a backend 409 — the ordinary outcome of a create hitting a unique index,
+   which `DocumentConflictException` and ADR-0032 both treat as expected — escalates past the toast
+   the form built for it. **Reasoned from the code, not reproduced**: doing so needs an admin session,
+   which needs the owner's mailbox.
+
+7. **The two structured formats cannot be read by one parser.** They share three field names and
+   agree on the meaning of one:
+
+   |           | Backend                                           | Frontend                                       |
+   | --------- | ------------------------------------------------- | ---------------------------------------------- |
+   | level     | `WARNING`                                         | `WARN`                                         |
+   | timestamp | `2026-08-05 00:58:00,318` — local, comma, no zone | `2026-08-05T00:58:00.318Z` — ISO 8601, UTC     |
+   | trace     | `trace_id`                                        | `traceId`                                      |
+   | origin    | `module`, `line`                                  | absent                                         |
+   | error     | `exception`, a formatted traceback string         | `error`, an object of `message`/`stack`/`name` |
+
+8. **`LOG_FORMAT` is `z.string()` on the frontend and the only branch tests `=== "json"`.** Any other
+   value — a capitalised `JSON`, a typo, a truncation of the kind OPS-2 describes — yields ANSI escape
+   codes in a production `json-file` log, and nothing refuses it. The backend has the opposite defect:
+   its `Literal` refuses a wrong value, and its **default is `console`**, so a production `.env` that
+   omits the variable logs in the development format. `docs/frontend/spec.md` §7 records the constraint
+   as "string", which is accurate about the schema and silent about the consequence.
+
+9. **Nothing tests any of this.** No test on either side asserts a log line, a level, a trace id or a
+   format. `scripts/verify.sh` checks that `instrumentation.js` is present in the frontend image —
+   because losing it silently disables all server error logging — so the one guarded property is the
+   file's existence, not its behaviour.
+
+10. **The convention is undocumented, and one pointer to it is dangling.** `fl_backend/app/core/config.py` cites
+    "`docs/ops/spec.md` -- the environment section"; that page has eight sections and no environment
+    section, and `log_level_app`, `log_level_db` and `log_format` appear in no document at all.
+    `docs/backend/spec.md` describes the error codes and the trace-id-only response body without
+    describing the trace id. **No page anywhere describes the correlation-id design**, which is the only
+    cross-service mechanism there is.
+
+11. **nginx has no logging configuration**, in either `nginx/prod.conf` or `nginx/local.conf` — no
+    `log_format`, no `access_log`, no `error_log`. The image's default `main` format applies, measured
+    as `172.18.0.1 - - [05/Aug/2026:00:56:25 +0000] "GET / HTTP/1.1" 200 151328 "-" "curl/8.17.0" "-"`.
+    It carries no correlation id, no `$request_time` and no `$upstream_response_time`, so the edge has
+    no latency record and cannot be joined to either application log. Reasoned rather than measured:
+    behind Cloudflare (`docs/ops/overview.md`) `$remote_addr` is a Cloudflare address, and the visitor's
+    reaches the log only through the format's trailing `$http_x_forwarded_for`.
+
+12. **A total backend outage is an HTTP 200.** With the backend stopped, `/dashboard/saisontabelle`
+    returned 200 and served the error page, digest and all. nginx logs a 200, and so would any uptime
+    monitor watching the status code.
+
+13. **Development logging is defined for one surface of three.** `scripts/README.md` names **dev** as
+    `pnpm dev` in `fl_frontend/`, and no document says how to run the backend outside Docker, so its
+    development format is reachable only through the local stack — which runs the production entry
+    point. `fl_frontend/next.config.ts`'s whole `logging` block is development-only: Next reads both
+    `fetches.fullUrl` and `incomingRequests` in `server/dev/log-requests.js` alone, which is also why
+    the production frontend logs nothing per request. And on both sides the format is chosen by an
+    environment variable rather than by the build, so the comments labelling the two branches
+    "Production" and "Development" describe an intent the selector does not enforce.
+
+14. **The frontend logger is server-only** by way of `fl_frontend/src/core/config.ts`'s
+    `import "server-only"`. A client
+    component cannot reach it, so a browser-side crash is recorded nowhere — which is the gap
+    `fl_frontend/src/app/error.tsx` names at the line and the whole justification FE-6 rests on.
+
+#### The standing reminder, answered
+
+The owner asked that this be raised: consider a `trace_id` on **every** request, not just failing ones.
+**Measured, the case is stronger than the reminder assumed.** One page view of `/` issued three backend
+calls and produced: one nginx line with no id, nothing at all from the frontend, and three uvicorn
+access lines with no id. **Not one line of a successful request is correlated on any surface, and the
+`X-Correlation-ID` that `apiClient` sets appears in none of them** — it reaches the log only when a
+handler fires, which happens only on failure. The id is not missing from some paths; it is absent from
+every successful one.
+
+#### What stage 2 opens with
+
+- **ADR or `docs/_standard/` entry?** The owner's call, and it decides the shape of everything after
+  it. The next free ADR number is 0039.
+- **What unit the identifier is**, before anything propagates it: per-request or per-fetch on the
+  frontend, and whether one is minted for every request or only where something fails. Finding 2 is why
+  this cannot be deferred — FE-6 waits on the answer.
+- **Whether a mixed stream is accepted or closed.** Making uvicorn and Next emit the shared format is
+  possible on both sides and is the larger half of the work; accepting two writers and structuring only
+  what the application controls is the cheaper answer and forfeits the access lines.
 
 **Path:** independent — nothing blocks it and it blocks nothing, so it can run alongside anything
-else in this file. FE-6 waits on the identifier it settles.
+else in this file. FE-6 waits on the identifier it settles, and findings 4 and 14 are input to it.
 
 ### 5 · FB-2 — Disqualification becomes a record, not a boolean
 
@@ -700,13 +842,22 @@ Three things to settle when it is worked:
 when everything is already logged?
 
 **Worth having, narrowly, for one thing the logs cannot cover.** `onRequestError` records server
-errors and `StatusPanel` shows the digest that makes one greppable — but the digest is written
-server-side, and `fl_frontend/src/app/error.tsx` says so at the line: server errors are redacted to a
-message plus a digest, "client errors are the user's own code". A client-side render crash therefore
-reaches the same boundary with nothing to quote and nothing recorded. What the user was doing is in no
-log either, and it is usually the difference between a report that reproduces and one that does not.
+errors and `StatusPanel` shows the digest — but the digest is written server-side, and
+`fl_frontend/src/app/error.tsx` says so at the line: server errors are redacted to a message plus a
+digest, "client errors are the user's own code". A client-side render crash therefore reaches the same
+boundary with nothing to quote and nothing recorded. What the user was doing is in no log either, and
+it is usually the difference between a report that reproduces and one that does not.
 **Confirm the client-side case against the local stack before building anything** — it is the whole
 justification, and it has not been reproduced.
+
+**Two things LOG-1's survey measured on 2026-08-05 change what this affordance can promise.** First,
+**a digest names an error class, not an incident**: eight distinct failures across two routes shared
+one digest, because Next derives it from the message and every `APINetworkError` carries the same
+string. A report quoting only a digest therefore locates every occurrence of that message rather than
+the reader's own. Second, **a client-side crash is recorded nowhere at all** —
+`fl_frontend/src/core/logging.ts` reaches `fl_frontend/src/core/config.ts` and its
+`import "server-only"`, so no client component can log — which
+confirms the justification above from the code while leaving the reproduction still owed.
 
 **Keep it to a `mailto:`.** The Kontakt page already publishes the address, so a link carrying the
 digest, the route and the time in its subject costs one component and adds no write path. A form
