@@ -33,6 +33,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
 
+from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
@@ -42,7 +43,7 @@ from app.api.spiele.schemas import (
 )
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db
-from app.core.dependencies import DBClient, SpieleCollection, get_german_date_str
+from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, TeamsCollection, get_german_date_str
 from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
@@ -91,6 +92,8 @@ async def patch_spiel_data(
     spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
     db: DBClient,
     spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
 ) -> FLPatchSpielDataResponse:
     """
     Update one Spiel, then resolve the season's playoff bracket.
@@ -100,8 +103,13 @@ async def patch_spiel_data(
 
     **A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is
     the winner of match 25, so entering that match's result fills the slot, correcting it later moves
-    the right team in, and deleting it empties the slot again (ADR-0042). Every fixture written that way
-    is named in `advanced_to`.
+    the right team in, and deleting it empties the slot again (ADR-0042). A slot referring to a group
+    placing is filled the same way, once no remaining fixture in that group can still change who holds
+    it (ADR-0043). Every fixture written either way is named in `advanced_to`.
+
+    `unresolvable_slots` names the group references that no further result can honour — a `platz` its
+    group will never produce, and a placing the tiebreak chain cannot separate in a group that has
+    finished. A group still being played is not reported: that placing is simply not decided yet.
 
     The league table follows on its own: team statistics are computed from the match documents by
     `GET /teams`, so a result entered here is reflected the next time that table is read.
@@ -149,10 +157,19 @@ async def patch_spiel_data(
             # The season scopes the bracket below, and it is read off the document `patch_one_in_db`
             # returns -- the pre-image, which is the helper's default (spec I2). Safe here and only
             # here: `saison_id` is on no payload, so the `$set` above cannot have changed it.
-            advanced_to = await advance_bracket_winners(
+            saison_id = str(patched_spiel_raw["saison_id"])
+
+            # The season's own scoring, which the standing behind a `gruppe` reference is derived with,
+            # exactly as `GET /teams` derives the table (ADR-0026). Not read through the session: this
+            # transaction writes no season document, so there is nothing of its own to see.
+            _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
+
+            advanced_to, unresolvable_slots = await advance_bracket_winners(
                 spiele_collection=spiele_collection,
-                saison_id=str(patched_spiel_raw["saison_id"]),
+                teams_collection=teams_collection,
+                saison_id=saison_id,
+                rules=saison_rules,
                 session=session,
             )
 
-    return FLPatchSpielDataResponse(advanced_to=advanced_to)
+    return FLPatchSpielDataResponse(advanced_to=advanced_to, unresolvable_slots=unresolvable_slots)

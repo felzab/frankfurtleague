@@ -31,5 +31,12 @@ export default async function SaisontabellePage(props: NextPageProps) {
     throw new Error("Expected grouped teams response, got a flat list.");
   }
 
-  return <SaisontabelleView gruppenData={teamsRes.gruppen} />;
+  // The qualifier count rides on the grouped response rather than being fetched from the season here,
+  // so the cutoff and the table it marks are always the same season's (ADR-0043).
+  return (
+    <SaisontabelleView
+      gruppenData={teamsRes.gruppen}
+      qualifiersPerGroup={teamsRes.qualifiers_per_group}
+    />
+  );
 }

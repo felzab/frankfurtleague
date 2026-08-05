@@ -20,6 +20,11 @@ fixtures whose answer differs (ADR-0042).
   • `teamN_quelle` is never written. It describes where a side of the fixture comes from, which stays
     true once the winner arrives (ADR-0041), and clearing it is the admin's only way to take a slot into
     manual charge -- a write here would silently take it back (ADR-0042).
+  • The GROUP STANDING is read through `build_team_pipeline`, the same pipeline `GET /teams` uses. A
+    second, Python implementation of ADR-0026's counting rule would be a second answer to "how many
+    points does this team have", and the bracket and the table would eventually disagree.
+  • Both reads take the caller's SESSION, for the reason above: the standing has to include the result
+    this request has just written, or a group that the edit completes still reads as unfinished.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -28,22 +33,28 @@ fixtures whose answer differs (ADR-0042).
 
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
-from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.spiele.schemas import FLSpielListAdapter, FLUnresolvableSlot
 from app.api.spiele.services import resolve_bracket
-from app.core.crud import patch_one_in_db, pull_many_from_db
+from app.api.teams.schemas import FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.services import build_decided_standings, build_team_pipeline
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
 
 
 async def advance_bracket_winners(
     spiele_collection: AsyncIOMotorCollection,
+    teams_collection: AsyncIOMotorCollection,
     saison_id: str,
+    rules: FLSaisonRules,
     session: AsyncIOMotorClientSession,
-) -> list[int]:
+) -> tuple[list[int], list[FLUnresolvableSlot]]:
     """
     Resolve one season's bracket and write back every fixture whose slots disagree with it.
 
-    Returns the `spiel_nr` of each fixture actually written, in ascending order — the empty list when
-    the bracket already agrees with its labels, which is the ordinary outcome of an edit that changes
-    nothing a label points at.
+    Returns the `spiel_nr` of each fixture actually written, in ascending order, and the `gruppe`
+    references that cannot be honoured at all. Both are empty for the ordinary edit: a bracket that
+    already agrees with its wiring is written to nowhere, and a group still being played reports
+    nothing, because a placing that is not decided yet needs no one's attention (ADR-0043).
 
     **The whole season is resolved, not only the fixtures fed by the match that changed.** That costs
     one read of about thirty documents on an admin-only path, and it buys a result that does not depend
@@ -59,9 +70,32 @@ async def advance_bracket_winners(
         db_filter={"saison_id": saison_id},
         session=session,
     )
-    advancements = resolve_bracket(FLSpielListAdapter.validate_python(spiele_raw))
+    spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
-    for advancement in advancements:
+    # The standing comes from the pipeline that serves `GET /teams`, so the bracket seeds from exactly
+    # the table the site shows -- one derivation of ADR-0026's counting rule, not two. `include_inactive`
+    # is left at its default for the same reason: a club the list hides must not hold a placing the
+    # bracket then honours.
+    teams_raw = await aggregate_many_from_db(
+        collection=teams_collection,
+        pipeline=build_team_pipeline(
+            filters=FLTeamsFilterParams(saison_id=saison_id, statistik_scope="gruppenphase"),
+            rules=rules,
+        ),
+        session=session,
+    )
+
+    # The group phase alone, matching the scope the statistics above were counted over: a head-to-head
+    # drawn from playoff matches would break a tie on results those points never saw (ADR-0029).
+    standings = build_decided_standings(
+        teams=FLTeamListAdapter.validate_python(teams_raw),
+        spiele=[spiel for spiel in spiele if spiel.saison_phase == "gruppenphase"],
+        rules=rules,
+    )
+
+    resolution = resolve_bracket(spiele, standings)
+
+    for advancement in resolution.advancements:
         # `ergebnis` goes with the occupant: an advancement is only ever emitted when a side changed,
         # so whatever was scored here was scored by a team no longer in the fixture. The goals are
         # already stripped from both sides by `resolve_bracket`.
@@ -78,4 +112,4 @@ async def advance_bracket_winners(
             session=session,
         )
 
-    return [advancement.spiel_nr for advancement in advancements]
+    return [advancement.spiel_nr for advancement in resolution.advancements], resolution.unresolvable_slots

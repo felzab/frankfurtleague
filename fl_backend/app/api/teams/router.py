@@ -17,18 +17,25 @@ module so the two authorization levels never share a file.
   • The grouped response always contains all four group keys, even when a group is empty. It once built
     the map from the teams present, so a season with nobody in group D omitted "D" and the frontend
     parse failed, taking down /dashboard/saisontabelle.
+  • ONLY the grouped shape reads the season's matches. It is a standing, so it is ordered by the
+    tiebreak chain, whose last criterion is a head-to-head table (ADR-0043); the flat list is sorted by
+    name, is not a standing, and pays for none of it.
+  • That read is filtered to the SAME matches `statistik_scope` counted. A head-to-head drawn from a
+    wider set than the points it is separating would break a tie on results the points never saw.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  app/api/teams/services.py -- the pipeline, including how `statistik` is derived
+  app/api/teams/services.py -- the pipeline, how `statistik` is derived, and the standing's own half
   docs/backend/spec.md -- invariants I10, I11
 """
+
+from typing import Any
 
 from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.schemas import (
-    FLGruppen,
     FLTeam,
     FLTeamListAdapter,
     FLTeamsFilterParams,
@@ -38,10 +45,10 @@ from app.api.teams.schemas import (
     FLTeamsResponse,
     FLTeamsSingleResponse,
 )
-from app.api.teams.services import build_team_pipeline
+from app.api.teams.services import build_gruppen, build_team_pipeline
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db
-from app.core.dependencies import SaisonsCollection, TeamsCollection
+from app.core.crud import aggregate_many_from_db, pull_many_from_db
+from app.core.dependencies import SaisonsCollection, SpieleCollection, TeamsCollection
 from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_base
@@ -57,6 +64,7 @@ router = APIRouter(
 async def get_teams(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
     filters: FLTeamsFilterParams = Depends(),
 ) -> FLTeamsResponse:
     """
@@ -92,10 +100,30 @@ async def get_teams(
     )
 
     teams = FLTeamListAdapter.validate_python(teams_raw)
-    if filters.in_gruppen:
-        return FLTeamsGroupedResponse(gruppen=FLGruppen.from_teams(teams=teams))
+    if not filters.in_gruppen:
+        return FLTeamsListResponse(teams=teams)
 
-    return FLTeamsListResponse(teams=teams)
+    # The grouped shape is a STANDING, so it is ordered by the competition's tiebreak chain rather than
+    # by name -- and the chain's last criterion is the head-to-head table among teams nothing above it
+    # separated, which needs the matches themselves (ADR-0043). The flat list above is sorted by name
+    # and is not a standing, so it pays for none of this.
+    #
+    # Filtered to the SAME matches the statistics counted, or the head-to-head would be drawn from a
+    # different set of results than the points it is breaking a tie in (ADR-0029).
+    spiele_filter: dict[str, Any] = {"saison_id": filters.saison_id}
+    if filters.statistik_scope == "gruppenphase":
+        spiele_filter["saison_phase"] = "gruppenphase"
+
+    spiele_raw = await pull_many_from_db(collection=spiele_collection, db_filter=spiele_filter)
+    spiele = FLSpielListAdapter.validate_python(spiele_raw)
+
+    return FLTeamsGroupedResponse(
+        gruppen=build_gruppen(teams=teams, spiele=spiele, rules=saison_rules),
+        # The season's own number, carried beside the table it applies to: a caller marking the teams in
+        # a playoff place needs to know where each list's qualifying prefix ends, and reading it from a
+        # separate request would let a page draw the cutoff from a different season than the table.
+        qualifiers_per_group=saison_rules.qualifiers_per_group,
+    )
 
 
 @router.get(by_id("team_id"), response_model=FLTeamsSingleResponse, summary="One team")

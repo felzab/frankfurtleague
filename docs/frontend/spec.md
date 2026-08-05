@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `a1dddec`, 2026-08-05
+**Verified against:** `9d96b26`, 2026-08-05
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -14,7 +14,7 @@ Twelve slices. The column shows which optional modules each actually has.
 | `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `utils.ts` + tests  |
 | `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `utils.ts` + tests                  |
 | `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                      |
-| `teams`          |   ✅    |     —     |    —    |   ✅    | `resolvers.ts`                                 |
+| `teams`          |   ✅    |     —     |    —    |   ✅    | `resolvers.ts`, `utils.ts` + tests             |
 | `saisons`        |   ✅    |     —     |    —    |   ✅    | `resolvers.ts`                                 |
 | `spieler`        |   ✅    |     —     |    —    |   ✅    | Read-only                                      |
 | `spieltage`      |   ✅    |     —     |    —    |   ✅    | Read-only                                      |
@@ -59,6 +59,13 @@ documents through the same derivation, so a result edit moves it too
 for `gruppenphase` and a team's own page asks for `gesamt`, and those are separate entries. No
 granular tag for it — the coarse `teams` tag clears both, which is right in both directions, since a
 Gruppenphase result moves both tables and a playoff result moves only one.
+
+**The grouped shape arrives already ranked, and nothing here re-sorts it.** The order is the
+competition's tiebreak chain, whose last criterion is a head-to-head table the client never receives
+([ADR-0043](../_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)) —
+and the same ordering seeds the playoff bracket, so a second sort would let the table and the bracket
+disagree about who finished second. That response also carries `qualifiers_per_group`, which is what
+`fl_frontend/src/features/teams/utils.ts :: computeQualifyingTeamIds` turns into the marked rows of the Saisontabelle.
 
 ## 3. Server actions
 

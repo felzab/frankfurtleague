@@ -278,7 +278,7 @@ def saison() -> PayloadFactory:
             "start_date": "2026-01-01",
             "end_date": "2026-06-30",
             "status": "active",
-            "rules": {"win_points": 3, "draw_points": 1},
+            "rules": {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2},
         }
     )
 

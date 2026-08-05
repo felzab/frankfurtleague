@@ -38,16 +38,19 @@ def resolved(documents: list[dict[str, Any]]) -> dict[int, tuple[str | None, str
 
     Names rather than ids, because a failed assertion then reads as the bracket does. Goals are
     asserted separately in the cases that turn on them.
+
+    No standings are supplied, so every case in this module is about the MATCH-fed half of the bracket.
+    Seeding from a group placing is `test_standings.py`'s.
     """
 
-    advancements = resolve_bracket(FLSpielListAdapter.validate_python(documents))
+    resolution = resolve_bracket(FLSpielListAdapter.validate_python(documents), {})
 
     return {
         advancement.spiel_nr: (
             advancement.team1.name if advancement.team1 is not None else None,
             advancement.team2.name if advancement.team2 is not None else None,
         )
-        for advancement in advancements
+        for advancement in resolution.advancements
     }
 
 
@@ -120,7 +123,7 @@ class TestResolveBracket:
             fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
             fixture_at(29, quelle1=sieger(25)),
         ]
-        advancement = resolve_bracket(FLSpielListAdapter.validate_python(spiele))[0]
+        advancement = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements[0]
 
         assert advancement.team1 is not None
         assert advancement.team1.tore is None
@@ -157,7 +160,7 @@ class TestResolveBracket:
             fixture_at(27, team1=side(5, 4), team2=side(6, 0), ergebnis="4:0"),
             fixture_at(29, team1=side(1, 2), team2=side(5, 0), quelle1=sieger(25), quelle2=sieger(27), ergebnis="2:0"),
         ]
-        advancement = resolve_bracket(FLSpielListAdapter.validate_python(spiele))[0]
+        advancement = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements[0]
 
         assert advancement.team1 is not None and advancement.team1.tore is None
         assert advancement.team2 is not None and advancement.team2.tore is None
@@ -199,7 +202,7 @@ class TestResolveBracket:
         ]
         by_nr = {document["spiel_nr"]: document for document in spiele}
 
-        first = resolve_bracket(FLSpielListAdapter.validate_python(spiele))
+        first = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements
         assert [advancement.spiel_nr for advancement in first] == [29, 31]
 
         for advancement in first:
@@ -268,12 +271,13 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {}
 
-    def test_a_group_seeded_slot_is_left_alone(self, fixture_at: FixtureFactory, side: SideFactory):
+    def test_a_group_seeded_slot_is_left_alone_with_no_standings(self, fixture_at: FixtureFactory, side: SideFactory):
         """
-        The first knockout round is fed by the standings, and nothing resolves that yet (open item FB-10).
+        A `gruppe` reference with no standing behind it resolves to nothing, and nothing is no instruction.
 
-        It is stored and displayed, and the resolution passes over it — so an admin fills it by hand
-        today and the eventual automatic seeding writes exactly what that hand writes.
+        This is the state a caller passing `{}` is in — it asked for the match-fed half of the bracket
+        alone. Distinct from a group that HAS a standing and simply has not decided that placing yet,
+        which does empty the slot; that case is in `test_standings.py`.
         """
 
         spiele = [fixture_at(25, team1=side(1), quelle1={"type": "gruppe", "gruppe": "A", "platz": 1})]

@@ -23,6 +23,10 @@ export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
 export const FLSaisonRulesSchema = z.object({
   win_points: z.int().positive(),
   draw_points: z.int().nonnegative(),
+  // How many of each group's teams reach the first knockout round (ADR-0043). Required, with no
+  // default on either side: a season that has never carried it must fail loudly rather than seed a
+  // bracket from a number nobody chose.
+  qualifiers_per_group: z.int().positive(),
 });
 
 export const FLSaisonSchema = z.object({

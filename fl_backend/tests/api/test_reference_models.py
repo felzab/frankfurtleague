@@ -153,7 +153,22 @@ class TestSaison:
     # A draw being worth nothing is a legal rule set, unlike a win being worth nothing.
     def test_accepts_zero_draw_points(self, saison):
         """The asymmetry with wins: a draw worth nothing is a legal rule set."""
-        assert FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 0})).rules.draw_points == 0
+        rules = {"win_points": 3, "draw_points": 0, "qualifiers_per_group": 2}
+
+        assert FLSaison.model_validate(saison(rules=rules)).rules.draw_points == 0
+
+    def test_rejects_a_season_advancing_nobody(self, saison):
+        """A group nobody comes out of is not a group phase, so the count is `gt=0` (ADR-0043)."""
+        with pytest.raises(ValidationError):
+            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_group": 0}))
+
+    # No Pydantic default, deliberately: a season that has never carried the key would otherwise read as
+    # though it had, and the number seeding the bracket would be a constant chosen in the model file --
+    # which is what ADR-0026 refused for 3/1/0. A missing one fails loudly on the next read instead.
+    def test_rejects_rules_with_no_qualifier_count(self, saison):
+        """Required, so a season predating the field is refused rather than silently given a number."""
+        with pytest.raises(ValidationError):
+            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1}))
 
     @pytest.mark.parametrize("field", ["start_date", "end_date"])
     def test_rejects_a_date_that_does_not_exist(self, saison, field):

@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `74d83d6`, 2026-08-05
+**Verified against:** `9d96b26`, 2026-08-05
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -57,11 +57,24 @@ fail to parse on read.
 
 `status` is `past` · `active` · `future` — English, unlike almost everything else in the model.
 
-`rules` carries `win_points` and `draw_points` per season, so scoring is season-configurable — and it
-is live: `GET /teams` scores its derived league table with these two numbers
-([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)). A defeat scores nothing, and
-there is deliberately no `loss_points` to say otherwise. Editing either value changes every table for
-that season on the next read.
+`rules` carries `win_points`, `draw_points` and `qualifiers_per_group` per season, so both the scoring
+and the size of the knockout round are season-configurable — and all three are live. `GET /teams` scores
+its derived league table with the two point values
+([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)); a defeat scores nothing, and
+there is deliberately no `loss_points` to say otherwise. Editing either changes every table for that
+season on the next read.
+
+`qualifiers_per_group` is how many of each group's teams reach the first knockout round
+([ADR-0043](_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)). It
+is required with no default on either side, so a season without it fails to read rather than seeding a
+bracket from a number nobody chose. It reaches the frontend on the grouped teams response, beside the
+table whose qualifying prefix it measures.
+
+**All three field names are English**, unlike almost everything else in the model: they configure the
+competition rather than naming anything in it.
+
+**Nothing edits `rules`.** No page calls `PATCH /saisons/{saison_id}`, so these values are set by hand
+until FB-6 builds the season admin form.
 
 ### `Spiel` — match, game
 
@@ -171,8 +184,14 @@ into two empty strings and `Number("")` is `0` — a bare colon would read as a 
 
 **Pitfalls.** The grouped response is seeded with **all four keys** even when a group has no teams. It
 did not always do that, and a season with nobody in group D omitted the `"D"` key, which the frontend
-schema requires — taking down `/dashboard/saisontabelle`. Within each group, teams are sorted by points
-then goal difference.
+schema requires — taking down `/dashboard/saisontabelle`.
+
+Within each group, teams arrive in **standing order**: points, goal difference, goals scored, then the
+head-to-head table among whoever is still level
+([ADR-0043](_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)).
+The same ordering seeds the playoff bracket, so **never re-sort a group anywhere** — a second sort is a
+second answer to who finished second. A set the whole chain cannot separate stays tied and renders in
+the pipeline's `name` order.
 
 ### `saison_phase` — stage of the season
 
@@ -235,10 +254,15 @@ the shape of the object rather than anything in the competition; see `format` on
 the same line drawn elsewhere.
 
 **It is also the only record of the bracket's edges**, which is why `PATCH /spiele/{spiel_id}` reads it:
-the occupant of a slot fed by a match _is_ the winner of that match, and every result entry recomputes
-that for the whole season. **Only the `spiel` variant resolves today** — seeding the first knockout round
-from the standings needs a total order within a group and a count of how many teams advance, neither of
-which exists (open item FB-10). A `gruppe` variant is stored, displayed, and left alone.
+the occupant of a slot fed by a match _is_ the winner of that match, and the occupant of a slot fed by a
+group placing _is_ the team that has finished there beyond doubt. Every result entry recomputes both for
+the whole season.
+
+**A `gruppe` reference is honoured only once no remaining fixture in that group could change who holds
+the placing** (ADR-0043). Until then the slot is empty, and that is not a state anybody is told about.
+Two states are reported, because no further result fixes either: a `platz` the group will never produce,
+which leaves the slot as it stands, and a placing the tiebreak chain cannot separate in a group that has
+finished, which empties it. Both arrive in `FLPatchSpielDataResponse.unresolvable_slots`.
 
 **In code:** `FLSpielQuelle` (`fl_backend/app/api/spiele/schemas.py`) · `FLSpielQuelleSchema`
 (`fl_frontend/src/features/spiele/schemas.ts`) · `fl_backend/app/api/spiele/services.py ::
@@ -269,13 +293,18 @@ provenance reference must never be. Sharing one field is what forced that endpoi
 ### `Platz` — a placing in a group's standing
 
 `platz` inside a `gruppe` `Quelle`: `1` is the group winner, `2` the runner-up. An `int` with `gt=0`,
-and nothing bounds it above — a group with fewer teams than the number is possible and is not currently
-refused anywhere.
+and nothing bounds it above — a group with fewer teams than the number is possible, and it is reported
+rather than refused (see `Quelle`).
 
-**Pitfall.** It names a placing that **nothing in the system can yet determine**. Groups are sorted by
-points, then goal difference, and a further tie falls back to the alphabetical order the pipeline
-delivered. So `platz: 2` records an intent, and the resolution deliberately does not act on it (open
-item FB-10). Not the same as `position`, which is a player's position on the pitch and is free text on
+**It counts only the teams that can hold a placing**, which is not every row of the table
+([ADR-0043](_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)). A
+**disqualified** team keeps its row and cannot advance out of it, so the place falls to the team below.
+A team with **no match that counts or still could** holds no placing at all — it is served a zeroed
+`Statistik`, which ranks above every team with a negative goal difference, and the Saisontabelle prints
+`N/A` instead of a position for that row. So `platz: 2` names the second team that could actually
+advance, and the table's marker passes over exactly the same rows.
+
+**Pitfall.** Not the same as `position`, which is a player's position on the pitch and is free text on
 `FLSpieler`.
 
 ### `Ausgang` — which side of a match a reference names
@@ -283,9 +312,10 @@ item FB-10). Not the same as `position`, which is a player's position on the pit
 `ausgang` inside a `spiel` `Quelle`: `sieger` or `verlierer`, exactly two values.
 
 **Pitfalls.** `verlierer` exists because a third-place play-off is fed by the two losing semi-finals.
-**Nothing writes it today** and the 2026 bracket has no such fixture; the bracket simply could not
-express one without it. A drawn match has neither a `sieger` nor a `verlierer`, so a reference to one
-resolves to nobody and the slot stays empty (open item FB-8).
+The resolution honours both spellings, and **nothing writes `verlierer` today** — the 2026 bracket has
+no such fixture, and the bracket simply could not express one without it. A drawn match has neither a
+`sieger` nor a `verlierer`, so a reference to either resolves to nobody and the slot stays empty (open
+item FB-8).
 
 ### `spiel_nr` — a match's number within its season
 

@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `f023414`, 2026-08-05
+**Verified against:** `aebf43d`, 2026-08-05
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -24,26 +24,28 @@ OPS-6 and OPS-7 are both retired here.
 
 ## The log
 
-| #   | ID    | Item                                                                                      | Surfaces    | Effort | Depended on              | Closed in                                                             |
-| --- | ----- | ----------------------------------------------------------------------------------------- | ----------- | ------ | ------------------------ | --------------------------------------------------------------------- |
-| 1   | F5    | A backend module that was empty and imported by nothing                                   | BE          | S      | —                        | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
-| 2   | F6    | A comment deferring a granular cache tag to a route that already existed                  | FE          | S      | —                        | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
-| 3   | OPS-1 | Container images published to Docker Hub, and where they should live                      | Ops         | M      | —                        | [`b2e80f2`](https://github.com/felzab/frankfurtleague/commit/b2e80f2) |
-| 4   | DB-1  | Review the database structure against the models, and decide what is stored               | DB, BE      | L      | —                        | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
-| 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`                      | BE, DB      | M      | DB-1                     | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
-| 6   | FB-1  | The Saisontabelle counted playoff results as league results                               | FE, BE      | M      | —                        | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
-| 7   | BE-11 | Nothing executed the derived league table's pipeline against a database                   | BE          | S      | —                        | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
-| 8   | DB-3  | Seventeen `saison_teams` rows still carried the `statistik` the derivation orphaned       | DB          | S      | —                        | [`1acfc49`](https://github.com/felzab/frankfurtleague/commit/1acfc49) |
-| 9   | DB-2  | Nine collections with no validator and no index beyond `_id_`, hand-edited daily          | DB, BE, Ops | M      | —                        | [`5c017f8`](https://github.com/felzab/frankfurtleague/commit/5c017f8) |
-| 10  | BE-4  | Six reference collections could only be read; edits went straight into MongoDB            | BE, FE, Ops | L      | —                        | [`3d7f701`](https://github.com/felzab/frankfurtleague/commit/3d7f701) |
-| 11  | OPS-4 | Script terminal output varied by script, with no recorded standard                        | Ops         | M      | — (batched with OPS-5)   | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
-| 12  | OPS-5 | Every pull request ran the full gate and both CodeQL analyses, whatever it touched        | Ops         | M      | — (batched with OPS-4)   | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
-| 13  | OPS-6 | Whether a pull request body should index its commits, when their bodies say it            | Ops         | S      | —                        | [`e31d187`](https://github.com/felzab/frankfurtleague/commit/e31d187) |
-| 14  | OPS-7 | Nothing checked the gate scope a run was given against the diff it was given              | Ops         | S      | —                        | [`501e450`](https://github.com/felzab/frankfurtleague/commit/501e450) |
-| 15  | LOG-1 | Logging was surveyed, then standardised: one correlation id, one stream per service       | FE, BE, Ops | L      | —                        | [`87ce77c`](https://github.com/felzab/frankfurtleague/commit/87ce77c) |
-| 16  | F2    | The Pydantic models and their Zod mirror were hand-maintained with nothing comparing them | FE, BE      | M      | —                        | [`a9bbc71`](https://github.com/felzab/frankfurtleague/commit/a9bbc71) |
-| 17  | BE-9  | An unresolved playoff opponent was a real team document named "TBD"                       | BE, FE      | L      | —                        | [`ca63cd9`](https://github.com/felzab/frankfurtleague/commit/ca63cd9) |
-| 18  | FB-4  | The playoff bracket had no seeding check and advanced no winner when a result was entered | FE, BE      | M      | — (slot model: ADR-0041) | [`f023414`](https://github.com/felzab/frankfurtleague/commit/f023414) |
+| #   | ID    | Item                                                                                        | Surfaces    | Effort | Depended on              | Closed in                                                             |
+| --- | ----- | ------------------------------------------------------------------------------------------- | ----------- | ------ | ------------------------ | --------------------------------------------------------------------- |
+| 1   | F5    | A backend module that was empty and imported by nothing                                     | BE          | S      | —                        | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
+| 2   | F6    | A comment deferring a granular cache tag to a route that already existed                    | FE          | S      | —                        | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
+| 3   | OPS-1 | Container images published to Docker Hub, and where they should live                        | Ops         | M      | —                        | [`b2e80f2`](https://github.com/felzab/frankfurtleague/commit/b2e80f2) |
+| 4   | DB-1  | Review the database structure against the models, and decide what is stored                 | DB, BE      | L      | —                        | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
+| 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`                        | BE, DB      | M      | DB-1                     | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
+| 6   | FB-1  | The Saisontabelle counted playoff results as league results                                 | FE, BE      | M      | —                        | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
+| 7   | BE-11 | Nothing executed the derived league table's pipeline against a database                     | BE          | S      | —                        | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
+| 8   | DB-3  | Seventeen `saison_teams` rows still carried the `statistik` the derivation orphaned         | DB          | S      | —                        | [`1acfc49`](https://github.com/felzab/frankfurtleague/commit/1acfc49) |
+| 9   | DB-2  | Nine collections with no validator and no index beyond `_id_`, hand-edited daily            | DB, BE, Ops | M      | —                        | [`5c017f8`](https://github.com/felzab/frankfurtleague/commit/5c017f8) |
+| 10  | BE-4  | Six reference collections could only be read; edits went straight into MongoDB              | BE, FE, Ops | L      | —                        | [`3d7f701`](https://github.com/felzab/frankfurtleague/commit/3d7f701) |
+| 11  | OPS-4 | Script terminal output varied by script, with no recorded standard                          | Ops         | M      | — (batched with OPS-5)   | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
+| 12  | OPS-5 | Every pull request ran the full gate and both CodeQL analyses, whatever it touched          | Ops         | M      | — (batched with OPS-4)   | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
+| 13  | OPS-6 | Whether a pull request body should index its commits, when their bodies say it              | Ops         | S      | —                        | [`e31d187`](https://github.com/felzab/frankfurtleague/commit/e31d187) |
+| 14  | OPS-7 | Nothing checked the gate scope a run was given against the diff it was given                | Ops         | S      | —                        | [`501e450`](https://github.com/felzab/frankfurtleague/commit/501e450) |
+| 15  | LOG-1 | Logging was surveyed, then standardised: one correlation id, one stream per service         | FE, BE, Ops | L      | —                        | [`87ce77c`](https://github.com/felzab/frankfurtleague/commit/87ce77c) |
+| 16  | F2    | The Pydantic models and their Zod mirror were hand-maintained with nothing comparing them   | FE, BE      | M      | —                        | [`a9bbc71`](https://github.com/felzab/frankfurtleague/commit/a9bbc71) |
+| 17  | BE-9  | An unresolved playoff opponent was a real team document named "TBD"                         | BE, FE      | L      | —                        | [`ca63cd9`](https://github.com/felzab/frankfurtleague/commit/ca63cd9) |
+| 18  | FB-4  | The playoff bracket had no seeding check and advanced no winner when a result was entered   | FE, BE      | M      | — (slot model: ADR-0041) | [`f023414`](https://github.com/felzab/frankfurtleague/commit/f023414) |
+| 19  | FB-10 | The first knockout round could not be seeded, because nothing could say who finished second | FE, BE, DB  | L      | — (batched with FE-4)    | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
+| 20  | FE-4  | The Saisontabelle marked nobody as holding a playoff place                                  | FE, BE      | M      | — (batched with FB-10)   | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
 
 ## What each one produced
 
@@ -106,6 +108,16 @@ no row here — its commit is the whole story.
   unblocked FB-4's part 2. Two findings that were not decisions left it for permanent homes instead:
   the slot vocabulary is `Quelle` in `docs/glossary.md`, and the two fields' independence is
   invariant I22 in `docs/backend/spec.md`.
+- **FB-10** and **FE-4** →
+  [ADR-0043](../_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md),
+  one tiebreak chain that both orders the displayed table and seeds the bracket, a
+  `rules.qualifiers_per_group` saying how many advance, one rule for who may hold a placing at all, and
+  a placing written into a slot only when no combination of a group's remaining results could change
+  it. Worked as one item because they ask the same question from opposite ends, and separately the
+  season rule would have shipped with nothing reading it. They opened nothing. Two findings that were
+  not decisions left them for permanent homes instead: that nothing edits `FLSaison.rules` is recorded
+  in `docs/glossary.md` §`Saison` and in FB-6's entry, and the chain and its certainty rule are
+  invariants I24–I24c in `docs/backend/spec.md`.
 - **FB-4** → [ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md), the rule that a
   bracket slot stores a structural reference to what feeds it, the German label is derived from that
   reference and stored nowhere, and a result entry resolves the whole of its season's bracket. Its part

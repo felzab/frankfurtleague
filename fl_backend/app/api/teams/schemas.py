@@ -12,6 +12,9 @@ their echoes, plus the statistics model and the four-group container.
   • There is ONE team shape. Never add a reduced projection beside it (ADR-0034).
   • `FLGruppen` always emits all four group keys, even empty ones. A map built from the teams present
     omits "D" for a season with nobody in it, and the frontend schema requires all four.
+  • `FLGruppen` is built by `fl_backend/app/api/teams/services.py :: build_gruppen` and by nothing
+    else. Its lists are in standing order, and the chain's last criterion reads the season's matches
+    (ADR-0043) -- which is why the construction cannot live on a model that holds only teams.
   • Statistics fields are all `ge=0` and default to 0. The default is load-bearing: a team whose season
     holds no counting match is served a zeroed object, not an absent one.
   • `statistik_scope` decides WHICH matches those seven numbers count, and it defaults to
@@ -29,13 +32,14 @@ their echoes, plus the statistics model and the four-group container.
   ADR-0029  the table counts the Gruppenphase, and that is the default scope
   ADR-0032  `inactive_since` is the day the club left the league
   ADR-0034  one team shape, no reduced projection
+  ADR-0043  one tiebreak chain orders the table and seeds the bracket
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  app/api/teams/services.py -- the join that flattens the three sources
+  fl_backend/app/api/teams/services.py -- the join that flattens the three sources, and the standing
 """
 
-from typing import Annotated, Literal, Mapping, Union, get_args
+from typing import Annotated, Literal, Mapping, Union
 
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
@@ -112,44 +116,20 @@ class FLTeamRecord(BaseModel):
 
 class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
     """
-    The four groups, always all four.
+    The four groups, always all four, each already in standing order.
 
-    Keyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the
-    response shape does not depend on which groups happen to have teams. Never build it from the
-    teams present alone: a season with nobody in group D would omit the "D" key, the frontend's
-    FLGruppenSchema requires all four, and /dashboard/saisontabelle fails to parse the response.
-    Every season so far has had teams in all four groups, so that failure hides until it does not.
+    Keyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the response
+    shape does not depend on which groups happen to have teams. Never build it from the teams present
+    alone: a season with nobody in group D would omit the "D" key, the frontend's FLGruppenSchema
+    requires all four, and /dashboard/saisontabelle fails to parse the response. Every season so far has
+    had teams in all four groups, so that failure hides until it does not.
+
+    **Built by `fl_backend/app/api/teams/services.py :: build_gruppen` and by nothing else.** The
+    order inside each list is the competition's tiebreak chain, whose last criterion is the head-to-head table (ADR-0043)
+    -- and that reads the season's matches, which a model holding only teams cannot see. Constructing
+    this from a list of teams here would produce a table ordered on two of the four criteria, which is
+    the ordering the bracket must not disagree with.
     """
-
-    @classmethod
-    def from_teams(cls, teams: list[FLTeam]):
-        # Keyed by FLGruppenNames, not str: Mapping's key type is invariant, so a dict[str, ...]
-        # is not assignable to the RootModel's Mapping[FLGruppenNames, ...].
-        grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
-
-        for team in teams:
-            # FLTeam.gruppe is FLGruppenNames, so validation already rejects a blank or unknown
-            # group -- earlier and louder than here. This still guards the one way round that: an
-            # FLTeam built with model_construct, which skips validation entirely.
-            #
-            # Tested against `grouped` rather than for falsiness: `not team.gruppe` catches "" and
-            # None but lets "X" through to a bare KeyError -- an unhandled 500 instead of the
-            # deliberate error this guard exists to raise.
-            if team.gruppe not in grouped:
-                raise ValueError(f"Team {team.id} has gruppe {team.gruppe!r}, which is not one of A/B/C/D")
-            # No .upper(): the Literal has already pinned the value to exactly A/B/C/D.
-            grouped[team.gruppe].append(team)
-
-        # Sort each list inside the dict
-        for group_name in grouped:
-            grouped[group_name].sort(
-                key=lambda team: (
-                    team.statistik.punkte,
-                    (team.statistik.tore_geschossen - team.statistik.tore_kassiert),
-                ),
-                reverse=True,
-            )
-        return cls(grouped)
 
 
 class FLPostTeamPayload(BaseModel):
@@ -223,8 +203,22 @@ class FLTeamsListResponse(BaseAPIResponse):
 
 
 class FLTeamsGroupedResponse(BaseAPIResponse):
+    """
+    The four groups in standing order, and how many of each advance.
+
+    `qualifiers_per_group` is the season's own `rules.qualifiers_per_group`, carried here because it is
+    what turns an ordered list into a statement about qualification: the teams in a playoff place are a
+    prefix of each list above, and a caller cannot mark them without knowing where it ends. It rides on
+    this response rather than being fetched separately so that a page rendering the table cannot show a
+    cutoff drawn from a different season than the table itself (ADR-0043).
+
+    On the GROUPED shape only. A flat list is sorted by name and is not a standing, so a cutoff into it
+    would mean nothing.
+    """
+
     format: Literal["grouped"] = "grouped"
     gruppen: FLGruppen
+    qualifiers_per_group: int = Field(gt=0)
 
 
 class FLTeamsSingleResponse(BaseAPIResponse):

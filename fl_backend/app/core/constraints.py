@@ -218,8 +218,16 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # /admin/activate_saison` is the only path to the value and enforces it in one
                 # transaction (ADR-0033); nothing else may write `status` at all.
                 "rules": _object(
-                    required=("win_points", "draw_points"),
-                    properties={"win_points": {"bsonType": "int"}, "draw_points": {"bsonType": "int"}},
+                    required=("win_points", "draw_points", "qualifiers_per_group"),
+                    properties={
+                        "win_points": {"bsonType": "int"},
+                        "draw_points": {"bsonType": "int"},
+                        # How many teams per group reach the knockout round (ADR-0043). Required
+                        # here as well as in `FLSaisonRules`, because a season missing it seeds no
+                        # bracket and marks no qualifying place -- and `--check` is what reports
+                        # which documents still lack it before the value can be relied on.
+                        "qualifiers_per_group": {"bsonType": "int"},
+                    },
                 ),
             },
         )

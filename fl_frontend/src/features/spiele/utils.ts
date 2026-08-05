@@ -21,7 +21,7 @@
 
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
-import type { FLSpiel, FLSpielQuelle, FLSpielStatus } from "./schemas";
+import type { FLSpiel, FLSpielQuelle, FLSpielStatus, FLUnresolvableSlot } from "./schemas";
 
 export const computeSpielStatus = ({
   datum,
@@ -128,15 +128,35 @@ export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
  * Saying nothing when the list is empty is the point of reporting at all: an admin who has just entered
  * a quarter-final result and sees no second sentence knows the semi-final did not move.
  */
-export const formatSpielUpdateMessage = (advancedTo: readonly number[]): string => {
-  const base = "Die Spieldaten wurden erfolgreich aktualisiert";
-  if (advancedTo.length === 0) return base;
+export const formatSpielUpdateMessage = (advancedTo: readonly number[], unresolvableSlots: readonly FLUnresolvableSlot[] = []): string => {
+  const sentences = ["Die Spieldaten wurden erfolgreich aktualisiert"];
 
-  // Intl rather than a hand-rolled join: German puts "und" before the last item with no serial comma,
-  // and the runtime already knows that.
-  const spiele = new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(advancedTo.map(String));
+  if (advancedTo.length > 0) {
+    // Intl rather than a hand-rolled join: German puts "und" before the last item with no serial comma,
+    // and the runtime already knows that.
+    const spiele = new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(advancedTo.map(String));
 
-  return advancedTo.length === 1
-    ? `${base}. Die Paarung in Spiel ${spiele} wurde ebenfalls aktualisiert`
-    : `${base}. Die Paarungen in den Spielen ${spiele} wurden ebenfalls aktualisiert`;
+    sentences.push(
+      advancedTo.length === 1
+        ? `Die Paarung in Spiel ${spiele} wurde ebenfalls aktualisiert`
+        : `Die Paarungen in den Spielen ${spiele} wurden ebenfalls aktualisiert`,
+    );
+  }
+
+  // Each slot is named individually rather than counted. There is at most a handful, and "zwei
+  // Bracket-Verweise sind offen" tells an admin nothing they can act on.
+  sentences.push(...unresolvableSlots.map(formatUnresolvableSlot));
+
+  return sentences.join(". ");
 };
+
+/**
+ * Why one bracket slot could not be seeded from its group, in a sentence an admin can act on.
+ *
+ * Only the two states no further result can fix reach this (ADR-0043) — a group that is still being
+ * played produces neither, because a placing that is not decided yet needs nobody's attention.
+ */
+const formatUnresolvableSlot = ({ spiel_nr, gruppe, platz, reason }: FLUnresolvableSlot): string =>
+  reason === "gruppe_too_small"
+    ? `Spiel ${spiel_nr} verweist auf Platz ${platz} der Gruppe ${gruppe} — so weit reicht diese Gruppe nicht`
+    : `Platz ${platz} der Gruppe ${gruppe} ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel ${spiel_nr} offen`;

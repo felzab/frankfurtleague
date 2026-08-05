@@ -117,6 +117,29 @@ class FLSpielQuelleSpiel(BaseModel):
 FLSpielQuelle = Annotated[FLSpielQuelleGruppe | FLSpielQuelleSpiel, Field(discriminator="type")]
 
 
+class FLUnresolvableSlot(BaseModel):
+    """
+    One bracket slot whose `gruppe` reference names a placing the standings will never hand it.
+
+    Both reasons need a person, which is what separates them from the ordinary state of a group that is
+    simply still being played -- that one is reported by nobody, because "not yet" is not a problem
+    (ADR-0043).
+
+    `gruppe_too_small` is a data-entry mistake: the group holds fewer teams that can hold a placing than
+    the `platz` asks for, so no result will ever produce it. Like a `spiel_nr` naming no match, the slot
+    is left exactly as it stands -- erasing a team over a typo destroys more than it reports (ADR-0042).
+
+    `tie_unresolved` is a real outcome: the group is played out and the tiebreak chain still cannot
+    separate two teams at that placing. The slot IS emptied, because naming either team would be a
+    guess, and clearing the `quelle` and entering a side by hand is the route past it.
+    """
+
+    spiel_nr: int = Field(gt=0)
+    gruppe: FLGruppenNames
+    platz: int = Field(gt=0)
+    reason: Literal["gruppe_too_small", "tie_unresolved"]
+
+
 class FLPatchSpielDataPayload(BaseModel):
     # No `spiel_id`: the match being changed is named by the path (RFC 5789 -- the Request-URI
     # identifies the resource, the body describes the change).
@@ -210,6 +233,11 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     Reported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that
     silently changes documents the caller did not name is one whose failures are invisible. An empty
     list is the ordinary answer for a group-phase edit.
+
+    `unresolvable_slots` carries the bracket slots whose `gruppe` reference cannot be honoured and will
+    not become honourable by waiting (ADR-0043). A group still being played is not in it: a placing that
+    is not decided yet is the ordinary state and needs nobody.
     """
 
     advanced_to: list[int] = Field(default_factory=list)
+    unresolvable_slots: list[FLUnresolvableSlot] = Field(default_factory=list)
