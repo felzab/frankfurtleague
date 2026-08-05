@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `6331791`, 2026-08-05
+**Verified against:** `125f1cc`, 2026-08-05
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -48,6 +48,7 @@ OPS-6 and OPS-7 are both retired here.
 | 20  | FE-4  | The Saisontabelle marked nobody as holding a playoff place                                   | FE, BE      | M      | — (batched with FB-10)   | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
 | 21  | FB-8  | A knockout that ended level had nowhere to record how it was decided, so the bracket stalled | FE, BE, DB  | M      | — (clock: the playoffs)  | [`ab20403`](https://github.com/felzab/frankfurtleague/commit/ab20403) |
 | 22  | FB-12 | A knockout slot with no team and no source was maintained by nobody and reported by nobody   | FE, BE      | S      | — (clock: the playoffs)  | [`6331791`](https://github.com/felzab/frankfurtleague/commit/6331791) |
+| 23  | FB-13 | Two bracket faults lived in one toast and three more were contained without a word           | FE, BE      | M      | — (surface: ADR-0046)    | [`125f1cc`](https://github.com/felzab/frankfurtleague/commit/125f1cc) |
 
 ## What each one produced
 
@@ -141,6 +142,14 @@ no row here — its commit is the whole story.
   picked from the season's legal options rather than typed. It opened nothing and unblocked nothing —
   FB-11's dependency on it was an ordering preference, answered by the ADR's where-is-a-fault-shown
   ruling.
+- **FB-13** → [ADR-0047](../_decisions/0047-a-bracket-fault-is-derived-on-demand.md): a bracket fault
+  is derived on read and stored nowhere, all five are reported through one tagged model, and they
+  surface as an eighth action-required category. It widened past the entry's own scope on the way —
+  the entry had two unreported faults and there were three, and the third (`same_team`, two different
+  sources resolving to one club) is the only one of the five the write path cannot refuse, because
+  ADR-0046's rules key a source by its identity. It opened nothing, and it narrowed FB-11 rather than
+  unblocking it: the cheaper half of that item's value is delivered, and reviewing a whole draw is
+  what remains.
 - **FB-4** → [ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md), the rule that a
   bracket slot stores a structural reference to what feeds it, the German label is derived from that
   reference and stored nowhere, and a result entry resolves the whole of its season's bracket. Its part
