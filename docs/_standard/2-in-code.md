@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `5ad4a85`, 2026-08-04
+**Verified against:** `6331791`, 2026-08-05
 
 Applies to `fl_frontend/src` and `fl_backend/app`. The principles in
 [`1-principles.md`](1-principles.md) apply here too; this chapter adds what is specific to source
@@ -257,7 +257,7 @@ async def get_spiele(...) -> FLSpieleListResponse:
 No `Args:` / `Returns:` blocks. Prose, and only the part the signature cannot carry.
 
 ```python
-def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules) -> Mapping[str, Any]:
+def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
     """
     The `$lookup` deriving one team's seven statistics from the season's matches (ADR-0026).
 
