@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `19f18ba`, 2026-08-05
+**Verified against:** `5a3e508`, 2026-08-05
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
@@ -46,7 +46,7 @@ characters, which is where GitHub truncates a title in a list view and where `gi
 wraps an 80-column terminal.
 
 **72 is a target here and not a limit**, and the gate treats it that way: it reports a subject past
-72 and fails one past 100. Measured over the last eighty non-merge commits, thirty-eight run past
+72 and fails one past 100. Measured over the last eighty non-merge commits, thirty-seven run past
 72, because the two-clause subject below is idiomatic and worth its length. Past 100 a subject is
 unreadable everywhere rather than truncated in one view, which is a different problem.
 
