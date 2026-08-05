@@ -24,7 +24,7 @@ export async function AdminContextWrapper({ children, saison_id }: { children: R
   const [schiedsrichterRes, spielorteRes, teamsRes] = await Promise.all([
     getSchiedsrichter(),
     getSpielorte(),
-    getTeams({ include_placeholders: true, saison_id: saison_id }),
+    getTeams({ saison_id: saison_id }),
   ]);
   if (teamsRes.format !== "list") {
     throw new Error("Expected a list, got something else");

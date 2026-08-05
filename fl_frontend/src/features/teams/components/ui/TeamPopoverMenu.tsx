@@ -9,19 +9,22 @@ import { Badge, Popover, Separator } from "@heroui/react";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 
-import { TBD_TEAM_SHORTHAND } from "../../constants";
-
+/**
+ * The shortcuts hanging off a team's name.
+ *
+ * **Every team this mounts for is a real team.** A fixture side with no occupant yet renders its
+ * provenance label as plain text and never reaches here, because there is no team page and no squad
+ * to link to (ADR-0041) — which is why neither link is conditional.
+ */
 export function TeamPopoverMenu({
   teamName,
   teamId,
-  teamShorthand,
   teamIsDisqualified,
   placement = "right",
   children,
 }: {
   teamName: string;
   teamId: string;
-  teamShorthand: string;
   teamIsDisqualified?: boolean;
   /**
    * Defaults to `"right"`, which suits the cards: their triggers are truncated inside narrow grid
@@ -33,7 +36,6 @@ export function TeamPopoverMenu({
   placement?: "right" | "top";
   children: React.ReactNode;
 }) {
-  const isTbdTeam = teamShorthand === TBD_TEAM_SHORTHAND;
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
   return (
@@ -90,58 +92,32 @@ export function TeamPopoverMenu({
             {/* Links */}
             <div className="fluid-sm flex size-full flex-col gap-y-1">
               {/* TEAM-DETAILS */}
-              {isTbdTeam ? (
-                <span
-                  aria-disabled="true"
-                  className="text-foreground-muted flex w-full cursor-not-allowed flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold opacity-50">
-                  <CircleInfo
-                    className="text-brand shrink-0"
-                    width={18}
-                    height={18}
-                  />
-                  <span>Team-Details</span>
-                </span>
-              ) : (
-                <Link
-                  prefetch={false}
-                  href={`/dashboard/teams/${teamId}`}
-                  onClick={() => setIsOpen(false)}
-                  className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
-                  <CircleInfo
-                    className="text-brand shrink-0"
-                    width={18}
-                    height={18}
-                  />
-                  <span>Team-Details</span>
-                </Link>
-              )}
+              <Link
+                prefetch={false}
+                href={`/dashboard/teams/${teamId}`}
+                onClick={() => setIsOpen(false)}
+                className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                <CircleInfo
+                  className="text-brand shrink-0"
+                  width={18}
+                  height={18}
+                />
+                <span>Team-Details</span>
+              </Link>
 
               {/* KADER */}
-              {isTbdTeam ? (
-                <span
-                  aria-disabled="true"
-                  className="text-foreground-muted flex w-full cursor-not-allowed flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold opacity-50">
-                  <Persons
-                    className="text-brand shrink-0"
-                    width={18}
-                    height={18}
-                  />
-                  <span>Kader</span>
-                </span>
-              ) : (
-                <Link
-                  prefetch={false}
-                  href={`/dashboard/spieler/${teamId}`}
-                  onClick={() => setIsOpen(false)}
-                  className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
-                  <Persons
-                    className="text-brand shrink-0"
-                    width={18}
-                    height={18}
-                  />
-                  <span>Kader</span>
-                </Link>
-              )}
+              <Link
+                prefetch={false}
+                href={`/dashboard/spieler/${teamId}`}
+                onClick={() => setIsOpen(false)}
+                className="hover:bg-muted text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2.5 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                <Persons
+                  className="text-brand shrink-0"
+                  width={18}
+                  height={18}
+                />
+                <span>Kader</span>
+              </Link>
             </div>
           </Popover.Dialog>
         </Popover.Content>

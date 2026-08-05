@@ -22,6 +22,8 @@ function makeSpiel(overrides: Partial<FLSpiel> = {}): FLSpiel {
     spieltag_id: "6890a1b2c3d4e5f607182931",
     team1: { team_id: "6890a1b2c3d4e5f607182932", name: "Team A", tore: 2, shorthand: "TA" },
     team2: { team_id: "6890a1b2c3d4e5f607182933", name: "Team B", tore: 1, shorthand: "TB" },
+    team1_herkunft: null,
+    team2_herkunft: null,
     datum: "2026-07-20",
     uhrzeit: "18:00:00",
     ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x", mietpreis: 50 },

@@ -120,13 +120,12 @@ async def get_team(
 
     saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
-    # Placeholders and retired clubs are addressable by id even though both are hidden from the list.
-    # A caller holding an id was given it by something, and answering 404 for a document that plainly
-    # exists is the less useful of the two lies.
+    # A retired club is addressable by id even though it is hidden from the list. A caller holding an
+    # id was given it by something, and answering 404 for a document that plainly exists is the less
+    # useful of the two lies.
     pipeline_filters = FLTeamsFilterParams(
         saison_id=saison_id,
         statistik_scope=filters.statistik_scope,
-        include_placeholders=True,
         include_inactive=True,
     )
 

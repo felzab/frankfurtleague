@@ -73,7 +73,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "description": "",
             "full_name": "Lessing-Gymnasium",
             "website_url": "https://lessing-gymnasium.example.de",
-            "is_placeholder": False,
             "address": dict(ADDRESS),
             "inactive_since": None,
         },
@@ -92,6 +91,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "spiele": {
             "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LE"},
             "team2": {"team_id": SPIELER_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HE"},
+            "team1_herkunft": None,
+            "team2_herkunft": None,
             "datum": "2026-03-15",
             "uhrzeit": "18:00:00",
             "ort": {"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},

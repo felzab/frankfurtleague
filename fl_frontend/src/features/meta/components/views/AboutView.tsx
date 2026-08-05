@@ -137,7 +137,6 @@ async function ParticipatingTeamsDisplay() {
           key={teamData.id}
           teamName={teamData.name}
           teamId={teamData.id}
-          teamShorthand={teamData.shorthand}
           teamIsDisqualified={teamData.is_disqualified}>
           <span
             className={`fluid-xxs sm:fluid-xs text-field-fg hover:scale-hover inline-flex items-center rounded-xl border px-3.5 py-1.5 font-bold tracking-wide uppercase shadow-sm transition-[transform,background-color,border-color] duration-200 active:scale-95 ${

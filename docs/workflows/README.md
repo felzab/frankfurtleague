@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `7f695ac`, 2026-08-05
+**Verified against:** `a1dddec`, 2026-08-05
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -584,13 +584,15 @@ A new season needs, at minimum:
    season's results entirely: the join is strict. No `statistik`, because the league table is derived
    from the season's matches ([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)),
    so a new season starts at zero without anything being written.
-4. **A junction row for the "TBD" placeholder team**, which is easy to miss and is one of the reasons
-   the placeholder is a known modelling flaw (open item BE-9).
-5. A **`saison_spieler` row per player** — `POST /api/v0/spieler/{spieler_id}/saisons`. A player who
+4. A **`saison_spieler` row per player** — `POST /api/v0/spieler/{spieler_id}/saisons`. A player who
    already has a row for that season comes back **409**: creating never revives a retired row, and
    `POST .../saisons/{saison_id}/reactivate` is what brings them back
    ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
-6. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.
+5. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.
+
+A playoff fixture whose participants the group phase has not produced yet needs **no team row at all**:
+both sides are null, and `team1_herkunft` / `team2_herkunft` carry what the bracket shows in their
+place ([ADR-0041](../_decisions/0041-a-bracket-slot-carries-its-own-provenance.md)).
 
 Then recreate the frontend container so the rollover is visible immediately, or accept the daily
 cache expiry — the command and the reasoning are under "After editing seasons, players or matchdays

@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `a9bbc71`, 2026-08-05
+**Verified against:** `a1dddec`, 2026-08-05
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -42,6 +42,7 @@ OPS-6 and OPS-7 are both retired here.
 | 14  | OPS-7 | Nothing checked the gate scope a run was given against the diff it was given              | Ops         | S      | —                      | [`501e450`](https://github.com/felzab/frankfurtleague/commit/501e450) |
 | 15  | LOG-1 | Logging was surveyed, then standardised: one correlation id, one stream per service       | FE, BE, Ops | L      | —                      | [`87ce77c`](https://github.com/felzab/frankfurtleague/commit/87ce77c) |
 | 16  | F2    | The Pydantic models and their Zod mirror were hand-maintained with nothing comparing them | FE, BE      | M      | —                      | [`a9bbc71`](https://github.com/felzab/frankfurtleague/commit/a9bbc71) |
+| 17  | BE-9  | An unresolved playoff opponent was a real team document named "TBD"                       | BE, FE      | L      | —                      | [`ca63cd9`](https://github.com/felzab/frankfurtleague/commit/ca63cd9) |
 
 ## What each one produced
 
@@ -99,3 +100,8 @@ no row here — its commit is the whole story.
   run were fixed in the same commit rather than filed, and one finding that was not a decision left it
   for a permanent home instead: backend audit pass B2's prompt now names what the check deliberately
   omits — ranges, patterns, lengths, formats — as that pass's subject.
+- **BE-9** → [ADR-0041](../_decisions/0041-a-bracket-slot-carries-its-own-provenance.md), a nullable
+  fixture side with its provenance label in an independent sibling field. It opened nothing and
+  unblocked FB-4's part 2. Two findings that were not decisions left it for permanent homes instead:
+  the slot vocabulary is `Herkunft` in `docs/glossary.md`, and the two fields' independence is
+  invariant I22 in `docs/backend/spec.md`.

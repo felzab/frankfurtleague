@@ -25,7 +25,6 @@ export type FLTeamsFilterParams = {
   gruppe?: string;
   is_disqualified?: boolean;
   in_gruppen?: boolean;
-  include_placeholders?: boolean;
   // Retired clubs are excluded unless an admin picker asks for them (ADR-0032).
   include_inactive?: boolean;
   statistik_scope?: FLTeamStatistikScope;

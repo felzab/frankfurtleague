@@ -111,6 +111,24 @@ describe("computeErgebnisFor", () => {
   it("returns '?' for non-ASCII digits", () => {
     assert.equal(computeErgebnisFor({ spiel: makeSpiel("٢:١"), teamId: TEAM_1 }), "?");
   });
+
+  // A fixture whose occupant the group phase has not produced yet (ADR-0041). The optional chaining
+  // that reaches `team1?.team_id` compiles either way, so only this pins the ANSWER: a team asking
+  // about a match with an unresolved side must get "unknown", never a scored result — and a result
+  // beside a null side is exactly the shape a hand-edited document takes.
+  it("returns '?' when the side being asked about has no occupant", () => {
+    const halfDrawn = { ...makeSpiel("3:1"), team1: null } as unknown as FLSpiel;
+
+    assert.equal(computeErgebnisFor({ spiel: halfDrawn, teamId: TEAM_1 }), "?");
+    assert.equal(computeErgebnisFor({ spiel: halfDrawn, teamId: TEAM_2 }), "L");
+  });
+
+  it("returns '?' for every team when neither side has an occupant", () => {
+    const undrawn = { ...makeSpiel("3:1"), team1: null, team2: null } as unknown as FLSpiel;
+
+    assert.equal(computeErgebnisFor({ spiel: undrawn, teamId: TEAM_1 }), "?");
+    assert.equal(computeErgebnisFor({ spiel: undrawn, teamId: TEAM_2 }), "?");
+  });
 });
 
 describe("formatSpielDisplay", () => {

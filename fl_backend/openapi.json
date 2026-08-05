@@ -411,16 +411,6 @@
             }
           },
           {
-            "name": "include_placeholders",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Include Placeholders"
-            }
-          },
-          {
             "name": "include_inactive",
             "in": "query",
             "required": false,
@@ -639,7 +629,7 @@
       },
       "patch": {
         "summary": "Update a team and fan the rename out",
-        "description": "Update a club, then rewrite the name and shorthand embedded in every match it plays in.\n\nThe fan-out is not optional: matches carry a copy of both fields, so without it every match card\nshows the old name indefinitely. There was zero drift across all 31 matches when this was\nmeasured, and that is the state this endpoint exists to preserve.\n\n**It does not run for the placeholder team.** On the playoff matches the embedded `name` is a\nbracket slot label — \"Sieger 25.\" — that exists nowhere else in the database, while the team\ndocument it references reads \"TBD\". Fanning out there would replace three real labels with \"TBD\"\nand there would be no way to recover them (ADR-0028, open item BE-9).",
+        "description": "Update a club, then rewrite the name and shorthand embedded in every match it plays in.\n\nThe fan-out is not optional: matches carry a copy of both fields, so without it every match card\nshows the old name indefinitely. There was zero drift across all 31 matches when this was\nmeasured, and that is the state this endpoint exists to preserve.\n\n**It runs for every club, with no exception to remember.** The embedded `name` is a display copy of\nthis document and carries nothing else — a bracket slot label is the match's own `teamN_herkunft`,\nwhich no path under `team1.`/`team2.` reaches (ADR-0028, ADR-0041).",
         "operationId": "patch_team_api_v0_teams__team_id__patch",
         "security": [
           {
@@ -2268,7 +2258,7 @@
     "/api/v0/teams/{team_id}/saisons": {
       "post": {
         "summary": "Enter a team into a season",
-        "description": "Enter a team into a season, in a group.\n\nA team with no row here is **absent from that season entirely** — the join is strict, so it appears\nin no table, no group and no statistics. Entering every participating team is therefore the\nsubstantive step in setting a season up, and it includes the \"TBD\" placeholder, whose missing row\nis a known way to break a playoff bracket (open item BE-9).\n\nOne row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a\nplain insert rather than a revive, because no row here is ever retired — a team leaves a season\nonly by disqualification (ADR-0033).",
+        "description": "Enter a team into a season, in a group.\n\nA team with no row here is **absent from that season entirely** — the join is strict, so it appears\nin no table, no group and no statistics. Entering every participating team is therefore the\nsubstantive step in setting a season up.\n\nOne row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a\nplain insert rather than a revive, because no row here is ever retired — a team leaves a season\nonly by disqualification (ADR-0033).",
         "operationId": "post_saison_team_api_v0_teams__team_id__saisons_post",
         "security": [
           {
@@ -3196,10 +3186,46 @@
             "title": "Is Canceled"
           },
           "team1": {
-            "$ref": "#/components/schemas/FLSpielTeamField"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamField"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "team2": {
-            "$ref": "#/components/schemas/FLSpielTeamField"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team1_herkunft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Herkunft"
+          },
+          "team2_herkunft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Herkunft"
           },
           "datum": {
             "anyOf": [
@@ -3251,6 +3277,8 @@
           "is_canceled",
           "team1",
           "team2",
+          "team1_herkunft",
+          "team2_herkunft",
           "datum",
           "uhrzeit",
           "ort",
@@ -4226,10 +4254,46 @@
             "title": "Id"
           },
           "team1": {
-            "$ref": "#/components/schemas/FLSpielTeamField"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamField"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "team2": {
-            "$ref": "#/components/schemas/FLSpielTeamField"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielTeamField"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team1_herkunft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team1 Herkunft"
+          },
+          "team2_herkunft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team2 Herkunft"
           },
           "datum": {
             "anyOf": [
@@ -4322,6 +4386,8 @@
           "id",
           "team1",
           "team2",
+          "team1_herkunft",
+          "team2_herkunft",
           "datum",
           "uhrzeit",
           "ort",
@@ -4957,10 +5023,6 @@
           "statistik": {
             "$ref": "#/components/schemas/FLTeamStatistik"
           },
-          "is_placeholder": {
-            "type": "boolean",
-            "title": "Is Placeholder"
-          },
           "is_disqualified": {
             "type": "boolean",
             "title": "Is Disqualified"
@@ -5006,7 +5068,6 @@
           "name",
           "gruppe",
           "statistik",
-          "is_placeholder",
           "is_disqualified",
           "shorthand",
           "description",
@@ -5027,10 +5088,6 @@
             "type": "string",
             "minLength": 1,
             "title": "Name"
-          },
-          "is_placeholder": {
-            "type": "boolean",
-            "title": "Is Placeholder"
           },
           "shorthand": {
             "type": "string",
@@ -5071,7 +5128,6 @@
         "required": [
           "id",
           "name",
-          "is_placeholder",
           "shorthand",
           "description",
           "full_name",

@@ -54,7 +54,6 @@ export const FLTeamSchema = z.object({
 
   statistik: FLTeamStatistikSchema,
 
-  is_placeholder: z.boolean(),
   is_disqualified: z.boolean(),
   shorthand: z.string().length(2),
   description: z.string(),
