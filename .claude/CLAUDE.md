@@ -127,6 +127,14 @@ as a decision for the owner — never ship it silently, never bury the doubt in 
 - A testing-only API (`dependency_overrides`, monkeypatching, env mutation) in production code.
 - Fixing where a failure **surfaced** rather than where it **originates**.
 
+**Found means fixed — never reported.** (Owner rule, 2026-08-06.) Within the task's scope, a defect
+or sub-best-practice pattern you find is fixed in the same session, not written up as "found X but
+did not fix it because…". If you are genuinely unsure whether to fix it — scope, a ratified decision
+(§7), a product call — ask the owner **at the moment you hit it**, mid-task; never save the question
+for the wrap-up, where the only remaining options are shipping the doubt or starting over. A finding
+genuinely outside the task still follows the roadmap rule (`docs/roadmap/README.md`): file it at
+once, and say so in the moment rather than at the end.
+
 **Verify the thing you changed, not the thing that is easy to verify.** A build never runs `CMD`; a
 passing import never proves a request; a green suite on a configured machine never proves a clean
 checkout. Name what was actually exercised and what was not.
