@@ -11,6 +11,10 @@ Motor directly, which is what keeps session and transaction handling in one plac
     because they fan the new values out into the matches embedding them.
   • The two read helpers cap results at 1024 documents. `aggregate_many_from_db` caps the cursor only;
     a pipeline should carry its own `$limit`.
+  • A read that runs INSIDE a transaction must be given that transaction's session, or MongoDB serves
+    it the last committed snapshot -- so it cannot see the write the same handler just made. That is
+    why `pull_many_from_db` takes one: `advance_bracket_winners` resolves the bracket from a season it
+    reads back after `patch_spiel_data` has written the result that triggers the advancement.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -45,9 +49,10 @@ async def pull_many_from_db(
     limit: int = 1024,
     sort_by: Sequence[tuple[str, int]] | None = None,
     projection: Mapping[str, Any] | list[str] | None = None,
+    session: AsyncIOMotorClientSession | None = None,
 ) -> list[Mapping[str, Any]]:
 
-    cursor = collection.find(filter=db_filter, projection=projection or {})
+    cursor = collection.find(filter=db_filter, projection=projection or {}, session=session)
 
     if sort_by is not None:
         cursor = cursor.sort(sort_by)

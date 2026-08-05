@@ -98,6 +98,11 @@ _INACTIVE_SINCE = {"bsonType": _STRING_OR_NULL}
 _SAISON_PHASEN = ["gruppenphase", "viertelfinale", "halbfinale", "finale"]
 _SAISON_STATUS = ["past", "active", "future"]
 _GRUPPEN = ["A", "B", "C", "D"]
+# The two ways a bracket slot is fed, and the two outcomes a match-fed one can name. Spelled out here
+# rather than imported from `FLSpielQuelle`: this module imports nothing from `app.api` on purpose
+# (ADR-0031), so the drift check in the test suite is what keeps the two copies in step.
+_QUELLE_TYPES = ["gruppe", "spiel"]
+_QUELLE_AUSGAENGE = ["sieger", "verlierer"]
 
 
 def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
@@ -134,10 +139,31 @@ _KONTAKT = _object(
     properties={"telefon": {"bsonType": _STRING_OR_NULL}, "email": {"bsonType": _STRING_OR_NULL}},
 )
 
+_SPIEL_QUELLE = _object(
+    # Null on every group-phase fixture, and on any slot an admin has taken manual charge of by clearing
+    # it -- which is the only manual-override mechanism there is (ADR-0042).
+    nullable=True,
+    # `type` alone, because the other four keys belong to one variant each and `$jsonSchema` cannot make
+    # a field required only when a sibling holds a particular value. That conditional rule is Pydantic's
+    # discriminated union, and this validator deliberately stops at the boundary ADR-0027 draws: BSON
+    # types, presence and enums. What it still catches is the failure that would be silent -- a `platz`
+    # stored as the string "2", or a `type` nobody in the code has heard of.
+    required=("type",),
+    properties={
+        "type": {"bsonType": "string", "enum": _QUELLE_TYPES},
+        # The `gruppe` variant: the team finishing `platz` in `gruppe` once the group phase is complete.
+        "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
+        "platz": {"bsonType": "int"},
+        # The `spiel` variant: the side that came out of match `spiel_nr` as `ausgang`.
+        "spiel_nr": {"bsonType": "int"},
+        "ausgang": {"bsonType": "string", "enum": _QUELLE_AUSGAENGE},
+    },
+)
+
 _SPIEL_TEAM_FIELD = _object(
     # Nullable: a playoff slot the group phase has not filled yet has no occupant, and the fixture says
     # so rather than pointing at a stand-in team (ADR-0041). Where that occupant will come from is
-    # `teamN_herkunft` on the match, which is a sibling of this field and never a key inside it.
+    # `teamN_quelle` on the match, which is a sibling of this field and never a key inside it.
     nullable=True,
     required=("team_id", "name", "tore", "shorthand"),
     properties={
@@ -291,8 +317,8 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "_id",
                 "team1",
                 "team2",
-                "team1_herkunft",
-                "team2_herkunft",
+                "team1_quelle",
+                "team2_quelle",
                 "datum",
                 "uhrzeit",
                 "ort",
@@ -308,12 +334,13 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "team1": _SPIEL_TEAM_FIELD,
                 "team2": _SPIEL_TEAM_FIELD,
-                # Where each side comes from -- "Sieger 25." -- or null for a fixture whose sides were
-                # never drawn from anywhere, which is every group-phase match. Nothing here pairs it
-                # with the team field beside it: all four combinations are legitimate (ADR-0041), and a
-                # cross-field rule is outside what these validators may assert anyway (ADR-0027).
-                "team1_herkunft": {"bsonType": _STRING_OR_NULL},
-                "team2_herkunft": {"bsonType": _STRING_OR_NULL},
+                # Where each side comes from, or null for a fixture whose sides were never drawn from
+                # anywhere -- every group-phase match, and every slot an admin has taken manual charge
+                # of. Nothing here pairs it with the team field beside it: all four combinations are
+                # legitimate (ADR-0041), and a cross-field rule is outside what these validators may
+                # assert anyway (ADR-0027).
+                "team1_quelle": _SPIEL_QUELLE,
+                "team2_quelle": _SPIEL_QUELLE,
                 "datum": {"bsonType": _STRING_OR_NULL},
                 "uhrzeit": {"bsonType": _STRING_OR_NULL},
                 "ort": _SPIEL_ORT_FIELD,

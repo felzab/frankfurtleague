@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Forty decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Forty-two decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -73,11 +73,12 @@ written.
 | [0039](0039-one-correlation-id-per-request-one-document-per-line.md)     | One correlation id per request, one JSON document per line         | frontend, backend, ops | Accepted       | 2026-08-05 |
 | [0040](0040-the-zod-mirror-is-checked-against-the-published-document.md) | The Zod mirror is checked against a committed OpenAPI document     | frontend, backend, ops | Accepted       | 2026-08-05 |
 | [0041](0041-a-bracket-slot-carries-its-own-provenance.md)                | A bracket slot carries its own provenance, beside the team         | frontend, backend      | Accepted       | 2026-08-05 |
+| [0042](0042-a-result-entry-resolves-the-whole-bracket.md)                | A bracket slot stores a reference; a result resolves the bracket   | frontend, backend      | Accepted       | 2026-08-05 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · ops: 0009 ·
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · ops: 0009 ·
 0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · 0039 · 0040 · frontend: all except 0017,
 0027, 0030, 0031, 0033, 0036, 0037 and 0038.
 

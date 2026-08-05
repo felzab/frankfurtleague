@@ -14,7 +14,13 @@ import { FormSchiedsrichterSection } from "./FormSchiedsrichterSection";
 import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
-import type { FLSpiel, FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft, FLSpielTeamField } from "@/features/spiele/schemas";
+import type {
+  FLSpiel,
+  FLSpielOrtFieldDraft,
+  FLSpielQuelle,
+  FLSpielSchiedsrichterFieldDraft,
+  FLSpielTeamField,
+} from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
@@ -48,8 +54,8 @@ export function AdminEditSpielDataForm({
 
   // Held beside the team rather than inside it: provenance survives the slot being filled, so the two
   // move independently (ADR-0041).
-  const [team1Herkunft, setTeam1Herkunft] = useState<string | null>(spielData.team1_herkunft);
-  const [team2Herkunft, setTeam2Herkunft] = useState<string | null>(spielData.team2_herkunft);
+  const [team1Quelle, setTeam1Quelle] = useState<FLSpielQuelle | null>(spielData.team1_quelle);
+  const [team2Quelle, setTeam2Quelle] = useState<FLSpielQuelle | null>(spielData.team2_quelle);
 
   // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
   const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
@@ -71,8 +77,8 @@ export function AdminEditSpielDataForm({
 
       team1: team1Payload,
       team2: team2Payload,
-      team1_herkunft: team1Herkunft,
-      team2_herkunft: team2Herkunft,
+      team1_quelle: team1Quelle,
+      team2_quelle: team2Quelle,
     };
 
     startTransition(async () => {
@@ -159,10 +165,10 @@ export function AdminEditSpielDataForm({
         onTeam1Change={setTeam1Payload}
         team2Payload={team2Payload}
         onTeam2Change={setTeam2Payload}
-        team1Herkunft={team1Herkunft}
-        onTeam1HerkunftChange={setTeam1Herkunft}
-        team2Herkunft={team2Herkunft}
-        onTeam2HerkunftChange={setTeam2Herkunft}
+        team1Quelle={team1Quelle}
+        onTeam1QuelleChange={setTeam1Quelle}
+        team2Quelle={team2Quelle}
+        onTeam2QuelleChange={setTeam2Quelle}
         team1InitialData={spielData.team1}
         team2InitialData={spielData.team2}
       />

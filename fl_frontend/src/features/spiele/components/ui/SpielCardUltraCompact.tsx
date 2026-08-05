@@ -45,14 +45,14 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
         {/* `min-w-0` is what makes the `truncate` below reachable at all. As a flex item this pill
             defaults to `min-width: auto`, so under `w-fit` its `1fr` tracks resolve to the full
             untruncated content and the pill overflows the bracket column's `max-w-[380px]`. The
-            content that reaches that width is an unresolved slot's provenance label, which is an
+            content that reaches that width is an unresolved slot's source label, which is an
             order of magnitude longer than a two-character shorthand. */}
         <div className="bg-background border-border grid w-fit min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
           {/* TeamPopoverMenu renders display:contents, so z-index has to be applied from outside it. */}
           <span className={`${slotLift(spielData.team1 !== null)} justify-end`}>
             <SpielTeamSlot
               team={spielData.team1}
-              herkunft={spielData.team1_herkunft}
+              quelle={spielData.team1_quelle}
               text={spielData.team1?.shorthand ?? ""}
               className="fluid-base max-w-full truncate text-right font-bold"
             />
@@ -69,7 +69,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
           <span className={`${slotLift(spielData.team2 !== null)} justify-start`}>
             <SpielTeamSlot
               team={spielData.team2}
-              herkunft={spielData.team2_herkunft}
+              quelle={spielData.team2_quelle}
               text={spielData.team2?.shorthand ?? ""}
               className="fluid-base max-w-full truncate text-left font-bold"
             />

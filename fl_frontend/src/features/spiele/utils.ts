@@ -21,7 +21,7 @@
 
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
-import type { FLSpiel, FLSpielStatus } from "./schemas";
+import type { FLSpiel, FLSpielQuelle, FLSpielStatus } from "./schemas";
 
 export const computeSpielStatus = ({
   datum,
@@ -91,4 +91,52 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
   const other = Number(match[side === 1 ? 2 : 1]);
 
   return own === other ? "D" : own > other ? "W" : "L";
+};
+
+/**
+ * What a card shows in place of a side whose occupant is not known yet.
+ *
+ * The label is DERIVED, never stored: `quelle` is a reference and carries no German (ADR-0042), so this
+ * is the single place the bracket's vocabulary exists. `null` in means the slot has no source at all —
+ * a group-phase fixture, or one an admin has taken manual charge of — and the caller falls through to
+ * `PLACEHOLDER.slot`.
+ *
+ * "Gruppensieger A" rather than "1. der Gruppe A" for first place, because that is what the competition
+ * calls it; every other placing reads as an ordinal.
+ */
+export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
+  if (quelle === null) return null;
+
+  if (quelle.type === "gruppe") {
+    return quelle.platz === 1 ? `Gruppensieger ${quelle.gruppe}` : `${quelle.platz}. der Gruppe ${quelle.gruppe}`;
+  }
+
+  return `${quelle.ausgang === "sieger" ? "Sieger" : "Verlierer"} ${quelle.spiel_nr}.`;
+};
+
+/**
+ * The success message for an admin match edit, naming any bracket fixtures the write also moved.
+ *
+ * `PATCH /spiele/{spiel_id}` resolves the season's bracket, so entering a result can fill a later
+ * fixture's slot — and correcting one can empty a slot that should never have been filled (ADR-0042).
+ * The wording is therefore **"aktualisiert" rather than "eingetragen"**: `advanced_to` reports what
+ * changed, and an emptied fixture is in it exactly as a filled one is.
+ *
+ * **`Paarung`, not `Aufstellung`.** What changed is which teams meet; an Aufstellung is the starting
+ * line-up, which this site also stores, so the wrong word would name the wrong thing.
+ *
+ * Saying nothing when the list is empty is the point of reporting at all: an admin who has just entered
+ * a quarter-final result and sees no second sentence knows the semi-final did not move.
+ */
+export const formatSpielUpdateMessage = (advancedTo: readonly number[]): string => {
+  const base = "Die Spieldaten wurden erfolgreich aktualisiert";
+  if (advancedTo.length === 0) return base;
+
+  // Intl rather than a hand-rolled join: German puts "und" before the last item with no serial comma,
+  // and the runtime already knows that.
+  const spiele = new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(advancedTo.map(String));
+
+  return advancedTo.length === 1
+    ? `${base}. Die Paarung in Spiel ${spiele} wurde ebenfalls aktualisiert`
+    : `${base}. Die Paarungen in den Spielen ${spiele} wurden ebenfalls aktualisiert`;
 };

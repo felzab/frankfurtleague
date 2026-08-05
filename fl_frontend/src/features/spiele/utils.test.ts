@@ -1,16 +1,18 @@
 /**
  * SPIELE · derivation tests
  *
- * Covers the three values every match card derives. `formatSpielDisplay` is tested for placeholder
- * agreement specifically: the drift it replaced had one card rendering "- : -" while two others
- * rendered "-:-" on the same screen, which no type can catch.
+ * Covers the three values every match card derives, the bracket's German labels, and the admin toast's
+ * wording. `formatSpielDisplay` is tested for placeholder agreement specifically: the drift it replaced
+ * had one card rendering "- : -" while two others rendered "-:-" on the same screen, which no type can
+ * catch. `formatQuelle` is tested because it is the ONLY place either codebase turns a stored bracket
+ * reference into German (ADR-0042) — nothing else would notice the wording changing.
  */
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { computeErgebnisFor, computeSpielStatus, formatSpielDisplay } from "./utils.ts";
+import { computeErgebnisFor, computeSpielStatus, formatQuelle, formatSpielDisplay, formatSpielUpdateMessage } from "./utils.ts";
 
 import type { FLSpiel } from "./schemas.ts";
 
@@ -150,5 +152,47 @@ describe("formatSpielDisplay", () => {
       uhrzeit: "--:--",
       ergebnis: "-:-",
     });
+  });
+});
+
+describe("formatQuelle", () => {
+  it("returns null for a slot with no source, so the caller falls through to its own placeholder", () => {
+    assert.equal(formatQuelle(null), null);
+  });
+
+  it("names a match-fed slot by the match number, with the trailing period the bracket prints", () => {
+    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 25, ausgang: "sieger" }), "Sieger 25.");
+  });
+
+  it("distinguishes the losing side, which is how a third-place play-off is fed", () => {
+    assert.equal(formatQuelle({ type: "spiel", spiel_nr: 29, ausgang: "verlierer" }), "Verlierer 29.");
+  });
+
+  it("calls first place in a group what the competition calls it, rather than an ordinal", () => {
+    assert.equal(formatQuelle({ type: "gruppe", gruppe: "A", platz: 1 }), "Gruppensieger A");
+  });
+
+  it("reads every other placing as an ordinal", () => {
+    assert.equal(formatQuelle({ type: "gruppe", gruppe: "C", platz: 2 }), "2. der Gruppe C");
+  });
+});
+
+describe("formatSpielUpdateMessage", () => {
+  it("says only that the match was saved when the bracket did not move", () => {
+    assert.equal(formatSpielUpdateMessage([]), "Die Spieldaten wurden erfolgreich aktualisiert");
+  });
+
+  it("names one advanced fixture in the singular", () => {
+    assert.equal(
+      formatSpielUpdateMessage([29]),
+      "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarung in Spiel 29 wurde ebenfalls aktualisiert",
+    );
+  });
+
+  it("joins several with und, as German does and a hand-rolled join would not", () => {
+    assert.equal(
+      formatSpielUpdateMessage([29, 30, 31]),
+      "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarungen in den Spielen 29, 30 und 31 wurden ebenfalls aktualisiert",
+    );
   });
 });

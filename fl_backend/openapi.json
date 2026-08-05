@@ -277,7 +277,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
+        "description": "Update one Spiel, then resolve the season's playoff bracket.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\n**A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is\nthe winner of match 25, so entering that match's result fills the slot, correcting it later moves\nthe right team in, and deleting it empties the slot again (ADR-0042). Every fixture written that way\nis named in `advanced_to`.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -629,7 +629,7 @@
       },
       "patch": {
         "summary": "Update a team and fan the rename out",
-        "description": "Update a club, then rewrite the name and shorthand embedded in every match it plays in.\n\nThe fan-out is not optional: matches carry a copy of both fields, so without it every match card\nshows the old name indefinitely. There was zero drift across all 31 matches when this was\nmeasured, and that is the state this endpoint exists to preserve.\n\n**It runs for every club, with no exception to remember.** The embedded `name` is a display copy of\nthis document and carries nothing else — a bracket slot label is the match's own `teamN_herkunft`,\nwhich no path under `team1.`/`team2.` reaches (ADR-0028, ADR-0041).",
+        "description": "Update a club, then rewrite the name and shorthand embedded in every match it plays in.\n\nThe fan-out is not optional: matches carry a copy of both fields, so without it every match card\nshows the old name indefinitely. There was zero drift across all 31 matches when this was\nmeasured, and that is the state this endpoint exists to preserve.\n\n**It runs for every club, with no exception to remember.** The embedded `name` is a display copy of\nthis document and carries nothing else — a bracket slot's source is the match's own `teamN_quelle`,\nwhich no path under `team1.`/`team2.` reaches (ADR-0028, ADR-0041).",
         "operationId": "patch_team_api_v0_teams__team_id__patch",
         "security": [
           {
@@ -3205,27 +3205,55 @@
               }
             ]
           },
-          "team1_herkunft": {
+          "team1_quelle": {
             "anyOf": [
               {
-                "type": "string"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
+                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                }
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Team1 Herkunft"
+            "title": "Team1 Quelle"
           },
-          "team2_herkunft": {
+          "team2_quelle": {
             "anyOf": [
               {
-                "type": "string"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
+                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                }
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Team2 Herkunft"
+            "title": "Team2 Quelle"
           },
           "datum": {
             "anyOf": [
@@ -3277,8 +3305,8 @@
           "is_canceled",
           "team1",
           "team2",
-          "team1_herkunft",
-          "team2_herkunft",
+          "team1_quelle",
+          "team2_quelle",
           "datum",
           "uhrzeit",
           "ort",
@@ -3296,11 +3324,18 @@
             ],
             "title": "Acknowledged",
             "default": 1
+          },
+          "advanced_to": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Advanced To"
           }
         },
         "type": "object",
         "title": "FLPatchSpielDataResponse",
-        "description": "The `{\"acknowledged\": 1}` body patch_spiel_data returns, declared rather than implied."
+        "description": "What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.\n\n`advanced_to` carries the `spiel_nr` of every bracket fixture whose sides the result entry\nresolved — a semi-final that gained its winner, and, when a result was corrected, a later fixture\nthat lost an occupant it should never have had (ADR-0042). It reports what happened rather than\nwhat was asked for, so it names a fixture that was emptied as readily as one that was filled.\n\nReported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that\nsilently changes documents the caller did not name is one whose failures are invisible. An empty\nlist is the ordinary answer for a group-phase edit."
       },
       "FLPatchSpielerPayload": {
         "properties": {
@@ -4273,27 +4308,55 @@
               }
             ]
           },
-          "team1_herkunft": {
+          "team1_quelle": {
             "anyOf": [
               {
-                "type": "string"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
+                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                }
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Team1 Herkunft"
+            "title": "Team1 Quelle"
           },
-          "team2_herkunft": {
+          "team2_quelle": {
             "anyOf": [
               {
-                "type": "string"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
+                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
+                  }
+                }
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Team2 Herkunft"
+            "title": "Team2 Quelle"
           },
           "datum": {
             "anyOf": [
@@ -4386,8 +4449,8 @@
           "id",
           "team1",
           "team2",
-          "team1_herkunft",
-          "team2_herkunft",
+          "team1_quelle",
+          "team2_quelle",
           "datum",
           "uhrzeit",
           "ort",
@@ -4431,6 +4494,68 @@
           "mietpreis"
         ],
         "title": "FLSpielOrtField"
+      },
+      "FLSpielQuelleGruppe": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "gruppe",
+            "title": "Type"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "platz": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Platz"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "gruppe",
+          "platz"
+        ],
+        "title": "FLSpielQuelleGruppe",
+        "description": "A slot fed by the group phase: the team finishing `platz` in `gruppe`."
+      },
+      "FLSpielQuelleSpiel": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "spiel",
+            "title": "Type"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "ausgang": {
+            "type": "string",
+            "enum": [
+              "sieger",
+              "verlierer"
+            ],
+            "title": "Ausgang"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "spiel_nr",
+          "ausgang"
+        ],
+        "title": "FLSpielQuelleSpiel",
+        "description": "A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`."
       },
       "FLSpielSchiedsrichterField": {
         "properties": {

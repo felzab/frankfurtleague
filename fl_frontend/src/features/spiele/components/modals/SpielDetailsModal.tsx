@@ -8,11 +8,11 @@ import { Modal, Separator } from "@heroui/react";
 
 import { buildMapsSearchUrl, PLACEHOLDER } from "@/shared/utils/format";
 
-import { computeSpielStatus, formatSpielDisplay } from "../../utils";
+import { computeSpielStatus, formatQuelle, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
 import { SpielStatusChip } from "../ui/SpielStatusChip";
 
-import type { FLSpiel, FLSpielTeamField } from "../../schemas";
+import type { FLSpiel, FLSpielQuelle, FLSpielTeamField } from "../../schemas";
 
 /**
  * One side of the fixture, in this modal's own idiom.
@@ -21,9 +21,11 @@ import type { FLSpiel, FLSpielTeamField } from "../../schemas";
  * call site. A side whose occupant is not yet known shows its provenance label as text, because there
  * is no team page to send anyone to (ADR-0041).
  */
-function TeamNameLine({ team, herkunft, onNavigate }: { team: FLSpielTeamField | null; herkunft: string | null; onNavigate: () => void }) {
+function TeamNameLine({ team, quelle, onNavigate }: { team: FLSpielTeamField | null; quelle: FLSpielQuelle | null; onNavigate: () => void }) {
   if (team === null) {
-    return <span className="fluid-xl text-foreground-muted max-w-full truncate font-bold italic">{herkunft ?? PLACEHOLDER.slot}</span>;
+    return (
+      <span className="fluid-xl text-foreground-muted max-w-full truncate font-bold italic">{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+    );
   }
 
   return (
@@ -114,7 +116,7 @@ export function SpielDetailsModal({
                       goes straight to the team. The Kader shortcut stays on the cards. */}
                   <TeamNameLine
                     team={spielData.team1}
-                    herkunft={spielData.team1_herkunft}
+                    quelle={spielData.team1_quelle}
                     onNavigate={onClose}
                   />
 
@@ -122,7 +124,7 @@ export function SpielDetailsModal({
 
                   <TeamNameLine
                     team={spielData.team2}
-                    herkunft={spielData.team2_herkunft}
+                    quelle={spielData.team2_quelle}
                     onNavigate={onClose}
                   />
                 </div>

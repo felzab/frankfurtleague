@@ -84,10 +84,6 @@ const BACKEND_ONLY: Record<string, string> = {
   // The stored shape a write echoes back, deliberately distinct from the read shape `FLTeam`.
   FLTeamRecord: "the stored club document; only ever nested inside a write response",
 
-  // The `{acknowledged: 1}` body, declared rather than implied. The frontend action reads no field
-  // from it beyond the envelope.
-  FLPatchSpielDataResponse: "an envelope with no fields of its own",
-
   // ADR-0034 gives every resource a GET /{id} for uniform addressability, and only /teams/{id} is
   // called. Six single reads therefore have no mirror, which the backend spec records as known-open.
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
@@ -154,6 +150,11 @@ const FRONTEND_ONLY: Record<string, string> = {
   // Published inline at GET /teams as oneOf + discriminator rather than as a named component. Both
   // members are paired, so the union's contents are checked even though the union itself is not.
   FLTeamsResponse: "the discriminated union is published inline at GET /teams; both members are paired",
+
+  // The same shape of exemption, one level down: a discriminated union is published inline on each
+  // `teamN_quelle` property rather than as a component. `FLSpielQuelleGruppe` and `FLSpielQuelleSpiel`
+  // are both paired, so every field of both variants is still compared.
+  FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
   // A DELETE carries its id in the path and has no request body, so these describe the server action's
   // own argument rather than anything on the wire.
@@ -356,7 +357,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 39;
+const EXPECTED_PAIRS = 42;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {
