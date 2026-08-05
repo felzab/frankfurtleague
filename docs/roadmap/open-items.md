@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `3f46507`, 2026-08-05
+**Verified against:** `3efa0c0`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -43,7 +43,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                      | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | --------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | F7    | Hardcoded season badge on the landing page                | FE          | S      | Open     | — (clock: the rollover)   |
-| 2   | FB-12 | A bracket slot with no team and no source is never filled | FE, BE      | S      | Open     | — (clock: the playoffs)   |
+| 2   | FB-12 | A bracket slot with no team and no source is never filled | FE, BE      | S      | Closed   | — (clock: the playoffs)   |
 | 3   | FE-9  | Polite address form applied inconsistently                | FE          | S      | Open     | —                         |
 | 4   | FB-2  | Disqualification becomes a record, not a boolean          | FE, BE, DB  | M      | Open     | — (model decided)         |
 | 5   | FB-3  | Admin pages for team and spieler data                     | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
@@ -184,6 +184,16 @@ hand without anyone knowing why.
 
 **Path:** independent, and its clock is the playoff rounds still to be played. Batch with FB-13, which
 puts a different bracket fault in front of the same admin and asks the same question about where it goes.
+
+**Concluded 2026-08-05, by
+[ADR-0046](../_decisions/0046-the-write-path-refuses-wiring-the-season-cannot-hold.md).** All three
+questions are decided there: the check is scoped to `saison_phase != "gruppenphase"`; it runs in both
+halves — a seventh `$or` arm in `get_spiele_action_required` and a seventh category, "Offene
+Besetzung", in `categorizeActionRequired`; and it lives in the action-required list because that list
+exists and is where an admin already looks, while a bracket panel stays FB-11's question. The
+accidental route is closed with it: the form is source-first, an automatic side is read-only, and the
+write path refuses wiring the season cannot hold (`REQ-WIRING-001`). Nothing was rehomed elsewhere —
+the ADR carries the whole conclusion.
 
 ### 3 · FE-9 — The polite address form is not applied consistently
 
@@ -492,9 +502,10 @@ re-reports them, which makes the information recoverable by accident rather than
 
 **Two faults are not reported at all**, and they are the same class. A `Quelle` naming a `spiel_nr` the
 season has no match for is left alone rather than emptied, deliberately (ADR-0042), and `advanced_to`
-stays silent about it. A cyclic chain of references is handled the same way. The admin form takes a match
-number as typed because the edit dialog holds one match and not its season, so a typo is invisible until
-the result it should have advanced is entered.
+stays silent about it. A cyclic chain of references is handled the same way. Neither can be created
+through the API any more — the write path refuses a dangling source and every edge that could close a
+cycle ([ADR-0046](../_decisions/0046-the-write-path-refuses-wiring-the-season-cannot-hold.md)) — so
+both are now the hand-edited document's faults: real, stored, and told to nobody.
 
 **Three things it has to decide:**
 
@@ -505,11 +516,12 @@ the result it should have advanced is entered.
 - **Whether the reported set widens to four.** A dangling `spiel_nr` and a cycle are faults a person has
   to fix, exactly as the two `gruppe` states are. Reporting all four in one place is the natural shape,
   and it changes what `unresolvable_slots` means.
-- **Where it is shown.** The action-required accordion, or a panel on the bracket page — the same
-  question FB-12 asks.
+- **Where it is shown.** ADR-0046 answered this for the sibling fault: an unwired knockout slot is a
+  seventh action-required category, on the argument that the list exists and is where an admin already
+  looks. A durable home for these faults inherits that answer unless something distinguishes them.
 
-**Path:** independent. Batch with FB-12: same surface, same decision about where a bracket fault belongs,
-and the two together are one afternoon rather than two.
+**Path:** independent. The action-required surface now carries a bracket-fault category on both ends
+(ADR-0046), which is the natural place a widened fault set would join.
 
 ### 13 · OPS-9 — Nothing lints or tests the repository's own hooks
 
@@ -672,33 +684,32 @@ would mean reworking it twice. FE-8 fixes the compact card this view is the only
 edited inside one match's dialog by `FormTeamPicker`, so **checking that a draw is correct means opening
 every fixture of the season one at a time** and reading two controls in each. Season 2026 has 31.
 
-**The public bracket does not show it either.** `PlayoffsView` draws the rounds as columns joined by CSS
-lines, and those lines describe the geometry rather than the topology — match 29 is fed by 25 and 27, not
-by 25 and 26, and a line drawn between adjacent cards cannot say so. So neither surface answers the one
-question the wiring exists to answer: what feeds this fixture.
+**The public bracket shows the topology and still not the provenance.** `PlayoffsView`'s rounds are
+ordered by the wiring itself (`fl_frontend/src/features/spieltage/utils.ts :: orderRoundsByWiring`),
+so the connecting lines follow the draw — but a slot's source is written out only while it is
+unresolved, as the derived label in place of a team. A played-out bracket shows teams and lines and
+no wiring, so a draw still cannot be reviewed as a draw on any surface.
 
-**What that costs, concretely.** A `spiel_nr` typed into the wrong field is non-destructive and silent by
-design, and stays silent until the result it should have advanced is entered. A slot an admin took into
-manual charge looks identical to one nobody has wired yet. And a season's draw cannot be reviewed before
-it is played, which is the only moment reviewing it is worth anything.
+**What that costs, concretely.** The write path refuses wiring the season cannot hold and the edit
+dialog offers only legal sources
+([ADR-0046](../_decisions/0046-the-write-path-refuses-wiring-the-season-cannot-hold.md)), so what
+remains reachable is the _plausible_ mistake: a legal feeder picked on the wrong side, or a draw
+whose shape is legal and wrong. Both are silent until the result they misroute is entered, and a
+season's draw cannot be reviewed before it is played, which is the only moment reviewing it is worth
+anything. A slot in manual charge and one nobody wired are distinguishable in the action-required
+list now, and still identical on the public page.
 
 **What it would be.** A read view first: one row per playoff fixture naming both sides' sources in the
 same German the cards use, which is derivation the frontend already has in `formatQuelle`. An editor over
 it is the larger half, and it shares nothing with the `AdminCrudView` / `AdminCrudShell` pair FB-3 and
 FB-6 build on — a bracket is not a list of rows, so this is not a fifth declaration over that shell.
+The two pieces the item once listed as accepted trade-offs — a match picked from a list rather than a
+number typed, and a refusal to save a cycle — exist now, in the edit dialog and at the endpoint
+(ADR-0046), so the page's remaining value is the season-wide review, not the controls.
 
-**Two things it should carry that exist today only as accepted trade-offs:**
-
-- **A match picked from the season rather than a number typed in.** This page holds the whole season,
-  which is exactly what the edit dialog does not, so it can offer the list ADR-0042 recorded as out of
-  reach.
-- **A refusal to save a draw containing a cycle.** `fl_backend/app/api/spiele/services.py ::
-_fixtures_depending_on_a_cycle` already detects one and handles it without destroying anything; nothing
-  tells anybody it is there.
-
-**Path:** independent. It subsumes some of FB-12's and FB-13's value and costs an order of magnitude
-more, so decide those two first — a fault list is an afternoon and a wiring page is not, and neither of
-them should wait for this.
+**Path:** independent. It subsumes some of FB-13's value and costs an order of magnitude more, so
+decide FB-13 first — a fault list is an afternoon and a wiring page is not, and it should not wait
+for this.
 
 ### 20 · FE-5 — Filters for the Spielsuche, and Spielhistorie as one of them
 
@@ -897,14 +908,17 @@ in any one group would silently stop that group from seeding the bracket at any 
 the symptom would be an empty knockout slot with nothing said about it, because a placing that is merely
 undecided is deliberately reported to nobody (invariant I24c).
 
-**Raising the constant is not the fix.** The walk is `3^n` before deduplication, so eleven fixtures is
-three times the work of ten and fifteen is 243 times, and it runs once per group inside
-`PATCH /spiele/{spiel_id}`'s transaction. The answer at any group size is to prune while walking — carry
-only the distinct points tables forward rather than generating all `3^n` and deduplicating afterwards.
+**Raising the constant is not the fix.** The enumeration is `3^n`, so eleven fixtures is three times
+the work of ten and fifteen is 243 times, and it runs once per referenced group inside
+`PATCH /spiele/{spiel_id}`'s transaction. The walk already deduplicates by the points table each
+outcome set produces and stops the moment no placing survives every table
+(`fl_backend/app/api/teams/services.py :: _decide_one_gruppe`), so the ranking work is bounded by the
+distinct tables — but the `3^n` enumeration itself is not pruned, which is what the cap still guards.
 
-**Not measured:** how long the walk takes at the cap. Four-team groups make it `3^6` = 729 iterations per
-group, which is unmeasurable; at the cap it is `3^10` = 59,049 per group, inside a transaction with a
-60-second ceiling. Nobody has timed it, and nobody needs to until a group grows.
+**Not measured:** how long the walk takes at the cap. Four-team groups make it `3^6` = 729 raw
+iterations per group, which is unmeasurable; at the cap it is `3^10` = 59,049 per group — cheap per
+iteration once deduplicated, but inside a transaction with a 60-second ceiling. Nobody has timed it,
+and nobody needs to until a group grows.
 
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
