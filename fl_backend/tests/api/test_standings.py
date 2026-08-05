@@ -352,7 +352,7 @@ class TestSeedingTheSlot:
         assert resolution.advancements[0].team1.name == "Team 1"
         # Arriving in a fixture it has not played, exactly as a match-fed winner does.
         assert resolution.advancements[0].team1.tore is None
-        assert resolution.unresolvable_slots == []
+        assert resolution.bracket_faults == []
 
     def test_an_undecided_placing_empties_the_slot_and_reports_nothing(self, a_team: TeamFactory, played: MatchFactory, spiel: PayloadFactory):
         """
@@ -369,7 +369,7 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
         assert resolution.advancements[0].team1 is None
-        assert resolution.unresolvable_slots == []
+        assert resolution.bracket_faults == []
 
     def test_a_platz_the_group_will_never_produce_is_reported_and_the_slot_left_alone(self, a_team: TeamFactory, spiel: PayloadFactory):
         """
@@ -385,7 +385,7 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 5}, spiel, stored=stored)
 
         assert resolution.advancements == []
-        assert [(slot.spiel_nr, slot.platz, slot.reason) for slot in resolution.unresolvable_slots] == [(25, 5, "gruppe_too_small")]
+        assert [(slot.spiel_nr, slot.platz, slot.reason) for slot in resolution.bracket_faults] == [(25, 5, "gruppe_too_small")]
 
     def test_a_tie_the_chain_cannot_break_is_reported_once_the_group_is_played_out(
         self, a_team: TeamFactory, played: MatchFactory, spiel: PayloadFactory
@@ -404,7 +404,7 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
         assert resolution.advancements[0].team1 is None
-        assert [(slot.platz, slot.reason) for slot in resolution.unresolvable_slots] == [(1, "tie_unresolved")]
+        assert [(slot.platz, slot.reason) for slot in resolution.bracket_faults] == [(1, "tie_unresolved")]
 
     def test_a_second_pass_over_a_seeded_bracket_writes_nothing(self, a_team: TeamFactory, spiel: PayloadFactory):
         """Idempotence across the group-seeded half too: the team is already there, so nothing moves."""

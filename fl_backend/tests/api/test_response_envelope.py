@@ -73,7 +73,7 @@ def test_every_response_model_carries_the_envelope(name, model):
         # the ordinary answer for every group-phase fixture (ADR-0042) -- and a group still being played
         # reports nothing either, because a placing that is not decided yet is nobody's problem
         # (ADR-0043).
-        (FLPatchSpielDataResponse, {"acknowledged": 1, "advanced_to": [], "unresolvable_slots": []}),
+        (FLPatchSpielDataResponse, {"acknowledged": 1, "advanced_to": [], "bracket_faults": []}),
     ],
 )
 def test_declares_the_envelope_on_every_untyped_route(model, expected):

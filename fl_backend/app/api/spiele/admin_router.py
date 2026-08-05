@@ -28,6 +28,9 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
   • Wiring the season cannot hold is a 409 (`REQ-WIRING-001`), decided by `find_wiring_refusal` inside
     the transaction and before the write (ADR-0046). The resolution's own containment of the same
     shapes stays: it is for data that never passed through this endpoint.
+  • `/action_required` DERIVES its bracket faults and stores none (ADR-0047). It is the only read here
+    that does work beyond a filter, and it is uncached for the same reason the rest of the route is.
+    Reporting a fault never resolves it: the containment in `resolve_bracket` is what owns that.
 
  WHY `/action_required` DOES NOT COLLIDE WITH `/{spiel_id}` ────────────────────────────────────────────────
 
@@ -47,11 +50,12 @@ from fastapi import APIRouter, Body, Depends
 from motor.motor_asyncio import AsyncIOMotorClientSession
 
 from app.api.saisons.crud import pull_saison_id_and_rules
-from app.api.spiele.crud import advance_bracket_winners
+from app.api.spiele.crud import advance_bracket_winners, find_bracket_faults
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
-    FLSpieleListResponse,
+    FLSpiel,
+    FLSpieleActionRequiredResponse,
     FLSpielListAdapter,
 )
 from app.api.spiele.services import find_wiring_refusal
@@ -61,7 +65,7 @@ from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection,
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
-from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spiele",
@@ -69,10 +73,15 @@ router = APIRouter(
 )
 
 
-@router.get("/action_required", response_model=FLSpieleListResponse, summary="Spiele needing attention")
-async def get_spiele_action_required(spiele_collection: SpieleCollection, today: str = Depends(get_german_date_str)) -> FLSpieleListResponse:
+@router.get("/action_required", response_model=FLSpieleActionRequiredResponse, summary="Spiele needing attention")
+async def get_spiele_action_required(
+    spiele_collection: SpieleCollection,
+    teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLSpieleActionRequiredResponse:
     """
-    List Spiele that need an admin's attention.
+    List Spiele that need an admin's attention, and the bracket faults among them.
 
     A match qualifies if it is cancelled, is missing a date, time, venue or referee, is in the past
     with no result recorded, or is a knockout fixture with a side that has neither a team nor a
@@ -81,8 +90,14 @@ async def get_spiele_action_required(spiele_collection: SpieleCollection, today:
     an unscheduled group match is an unfilled schedule, not an orphaned slot, and every group fixture
     legitimately carries no `quelle` forever. Not season-filtered: it spans every season.
 
+    **`bracket_faults` is derived here rather than filtered** (ADR-0047). A fault is a contradiction
+    between documents -- a `quelle` naming a match the season does not have, a cycle, a placing no
+    standing will produce, a fixture resolving to one club -- so no Mongo filter can select one, and
+    the resolution is what decides them. Every fixture a fault names is added to `spiele` below, so the
+    client holds the document behind each fault whether or not the filter also selected it.
+
     Deliberately uncached on the frontend — admin-authorized data does not belong in a shared cache
-    (ADR-0013).
+    (ADR-0013), and a derived fault list would be wrong the moment a document changed under it anyway.
     """
 
     # Fetch all games with either a missing attribute or games which have a date in the past but don't have a final score
@@ -108,7 +123,20 @@ async def get_spiele_action_required(spiele_collection: SpieleCollection, today:
     )
     spiele = FLSpielListAdapter.validate_python(spiele_raw)
 
-    return FLSpieleListResponse(spiele=spiele)
+    bracket_faults, faulted_spiele = await find_bracket_faults(
+        spiele_collection=spiele_collection,
+        teams_collection=teams_collection,
+        saisons_collection=saisons_collection,
+    )
+
+    # Keyed by id and not by `spiel_nr`, which repeats across the seasons this route spans. A faulted
+    # fixture the filter above already selected keeps that copy; both come from the same collection in
+    # the same request, so the two are the same document.
+    by_id: dict[CustomObjectId, FLSpiel] = {spiel.id: spiel for spiel in spiele}
+    for spiel in faulted_spiele:
+        by_id.setdefault(spiel.id, spiel)
+
+    return FLSpieleActionRequiredResponse(spiele=list(by_id.values()), bracket_faults=bracket_faults)
 
 
 @router.patch(by_id("spiel_id"), response_model=FLPatchSpielDataResponse, summary="Update a Spiel")
@@ -138,9 +166,12 @@ async def patch_spiel_data(
     placing is filled the same way, once no remaining fixture in that group can still change who holds
     it (ADR-0043). Every fixture written either way is named in `advanced_to`.
 
-    `unresolvable_slots` names the group references that no further result can honour — a `platz` its
-    group will never produce, and a placing the tiebreak chain cannot separate in a group that has
-    finished. A group still being played is not reported: that placing is simply not decided yet.
+    `bracket_faults` names every stored contradiction this season's resolution walked past: a `platz`
+    its group will never produce, a placing the tiebreak chain cannot separate in a group that has
+    finished, a `quelle` naming a match the season does not have, a chain of references that closes on
+    itself, and a fixture whose two sides resolve to one club (ADR-0047). A group still being played is
+    not reported: that placing is simply not decided yet. The same list is re-derivable at
+    `GET /spiele/action_required`, so missing it here is not losing it.
 
     The league table follows on its own: team statistics are computed from the match documents by
     `GET /teams`, so a result entered here is reflected the next time that table is read.
@@ -237,7 +268,7 @@ async def patch_spiel_data(
         # transaction writes no season document, so there is nothing of its own to see.
         _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
 
-        advanced_to, unresolvable_slots = await advance_bracket_winners(
+        advanced_to, bracket_faults = await advance_bracket_winners(
             spiele_collection=spiele_collection,
             teams_collection=teams_collection,
             saison_id=saison_id,
@@ -245,7 +276,7 @@ async def patch_spiel_data(
             session=session,
         )
 
-        return FLPatchSpielDataResponse(advanced_to=advanced_to, unresolvable_slots=unresolvable_slots)
+        return FLPatchSpielDataResponse(advanced_to=advanced_to, bracket_faults=bracket_faults)
 
     async with await db.start_session() as session:
         return await session.with_transaction(write_result_and_resolve_bracket)

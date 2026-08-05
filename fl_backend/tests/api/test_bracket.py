@@ -54,6 +54,17 @@ def resolved(documents: list[dict[str, Any]]) -> dict[int, tuple[str | None, str
     }
 
 
+def faults(documents: list[dict[str, Any]]) -> list[tuple[int, str]]:
+    """
+    Run the resolver and describe each reported fault as `(spiel_nr, reason)`, in report order.
+
+    The variant-specific fields are asserted only where a case turns on them, because the pair above is
+    what an admin acts on: which fixture, and what is wrong with it.
+    """
+
+    return [(fault.spiel_nr, fault.reason) for fault in resolve_bracket(FLSpielListAdapter.validate_python(documents), {}).bracket_faults]
+
+
 @pytest.fixture
 def side(spiel_team_field: PayloadFactory) -> SideFactory:
     """One fixture side for team `seed`. Seeds stay single-digit: `shorthand` is exactly two characters."""
@@ -588,3 +599,121 @@ class TestResolveBracket:
         ]
 
         assert resolved(spiele) == {}
+
+
+class TestReportingAFault:
+    """
+    The three shapes the resolution used to contain in silence, now reported as well (ADR-0047).
+
+    Containment and reporting are separate properties, so every case here pairs its fault assertion with
+    `resolved(...) == {}`: a fault that started moving a slot would be a regression the fault list itself
+    cannot see.
+    """
+
+    def test_a_source_naming_no_match_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The number to correct rides along, because it is the only thing an admin can act on."""
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(29, team1=side(1), quelle1=sieger(99)),
+        ]
+
+        assert faults(spiele) == [(29, "spiel_missing")]
+        assert resolved(spiele) == {}
+
+        reported = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).bracket_faults[0]
+        assert reported.quelle_spiel_nr == 99
+
+    def test_every_fixture_a_cycle_reaches_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        Both fixtures of the loop and the one hanging off it, because all three are equally underivable.
+
+        A report naming only the loop would leave the admin correcting two fixtures and wondering why the
+        third stayed empty.
+        """
+
+        spiele = [
+            fixture_at(29, quelle1=sieger(30)),
+            fixture_at(30, quelle1=sieger(29)),
+            fixture_at(31, team1=side(1), quelle1=sieger(29)),
+        ]
+
+        assert faults(spiele) == [(29, "reference_cycle"), (30, "reference_cycle"), (31, "reference_cycle")]
+        assert resolved(spiele) == {}
+
+    def test_a_fixture_naming_itself_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The shortest cycle there is, and it reports as one."""
+
+        assert faults([fixture_at(29, team1=side(1), quelle1=sieger(29))]) == [(29, "reference_cycle")]
+
+    def test_two_sources_resolving_to_one_club_are_reported(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The duplicated reference: one digit away from a real draw, and refused rather than written."""
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(29, quelle1=sieger(25), quelle2=sieger(25)),
+        ]
+
+        assert faults(spiele) == [(29, "same_team")]
+        assert resolved(spiele) == {}
+
+    def test_a_manual_side_colliding_with_a_maintained_one_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        The one fault of the five the write path cannot refuse, so the report is all there is.
+
+        `find_wiring_refusal` keys a source by its identity and refuses a hand-set team only on a side a
+        source maintains (ADR-0046) — so a manual side holding the club that then wins the match feeding
+        the other side passes every rule, legally, and produces a fixture nobody can play.
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(29, team1=side(1), quelle1=None, quelle2=sieger(25)),
+        ]
+
+        assert faults(spiele) == [(29, "same_team")]
+        assert resolved(spiele) == {}
+
+    def test_a_collision_already_stored_is_reported_on_a_pass_that_moves_nothing(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        The containment guard fires only where an occupant would move; the report must not.
+
+        A fixture hand-edited in Compass to hold, on both sides, the club its own source resolves to is
+        already at rest — every pass agrees with what is stored, so nothing changes and the guard never
+        sees it. Reporting on the same condition would make this fixture invisible forever.
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(29, team1=side(1), team2=side(1), quelle2=sieger(25)),
+        ]
+
+        assert faults(spiele) == [(29, "same_team")]
+        assert resolved(spiele) == {}
+
+    def test_two_hand_set_sides_holding_one_club_are_not_a_wiring_fault(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        No source, no wiring, nothing for this list to say — whatever else is wrong with the fixture.
+
+        The boundary matters: widening it would put every fixture with a duplicated hand-set side into a
+        list an admin reads as being about the bracket's references.
+        """
+
+        assert faults([fixture_at(29, team1=side(1), team2=side(1))]) == []
+
+    def test_a_season_at_rest_reports_nothing(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        The property that keeps the list worth reading: a correct bracket produces an empty one.
+
+        Quarter-finals played, semi-final holding their winners and its own result, final holding the
+        semi's winner — every slot agreeing with its wiring, and not one of the five shapes present.
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(27, team1=side(3, 2), team2=side(4, 0), ergebnis="2:0"),
+            fixture_at(29, team1=side(1, 1), team2=side(3, 0), quelle1=sieger(25), quelle2=sieger(27), ergebnis="1:0", saison_phase="halbfinale"),
+            fixture_at(31, team1=side(1), quelle1=sieger(29), saison_phase="finale"),
+        ]
+
+        assert faults(spiele) == []
