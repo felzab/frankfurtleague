@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `19f18ba`, 2026-08-05
+**Verified against:** `87ce77c`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -40,35 +40,34 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 ## The path at a glance
 
-| #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
-| --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
-| 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
-| 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
-| 3   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Open     | —                         |
-| 4   | LOG-1 | Logging surveyed; standardising it is what remains      | FE, BE, Ops | L      | Closed   | — (parallel-safe)         |
-| 5   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
-| 6   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                         |
-| 7   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
-| 8   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
-| 9   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
-| 10  | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Open     | —                         |
-| 11  | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
-| 12  | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
-| 13  | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
-| 14  | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE      | M      | Blocked  | BE-9 (part 2 only)        |
-| 15  | FE-4  | Mark the teams currently in a playoff place             | FE (+BE)    | M      | Open     | FB-4, FB-2 (both soft)    |
-| 16  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)        |
-| 17  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 16, 18, 19) |
-| 18  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 16, 17, 19) |
-| 19  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 16, 17, 18) |
-| 20  | FE-3  | TeamDetailsView rework                                  | FE          | M      | Blocked  | FB-2                      |
-| 21  | FE-5  | Filters for the Spielsuche                              | FE          | M      | Open     | — (F1 informs it)         |
-| 22  | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | LOG-1 (soft)              |
-| 23  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
-| 24  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
-| 25  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
-| 26  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
-| 27  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
+| #   | ID    | Item                                                    | Surfaces   | Effort | Status   | Depends on                |
+| --- | ----- | ------------------------------------------------------- | ---------- | ------ | -------- | ------------------------- |
+| 1   | F7    | Hardcoded season badge on the landing page              | FE         | S      | Open     | — (clock: the rollover)   |
+| 2   | FE-9  | Polite address form applied inconsistently              | FE         | S      | Open     | —                         |
+| 3   | F2    | The Zod mirror is unverified                            | FE, BE     | M      | Open     | —                         |
+| 4   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB | M      | Open     | — (model decided)         |
+| 5   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE     | L      | Open     | —                         |
+| 6   | FB-3  | Admin pages for team and spieler data                   | FE, BE     | L      | Open     | — (API built, ADR-0034)   |
+| 7   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE     | L      | Decided  | — (ADR-0033 settles it)   |
+| 8   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE         | S      | Open     | — (overlaps FE-3)         |
+| 9   | BE-10 | Nothing caches the season document, read every request  | BE         | S      | Open     | —                         |
+| 10  | FE-7  | The delete confirmation loses its backdrop blur         | FE         | S      | Open     | —                         |
+| 11  | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE         | S      | Open     | —                         |
+| 12  | F1    | Two definitions of `ausstehend`                         | FE, BE     | S      | Open     | — (latest with FE-1)      |
+| 13  | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE     | M      | Blocked  | BE-9 (part 2 only)        |
+| 14  | FE-4  | Mark the teams currently in a playoff place             | FE (+BE)   | M      | Open     | FB-4, FB-2 (both soft)    |
+| 15  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE     | S      | Blocked  | FB-2 (field shape)        |
+| 16  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE     | M      | Open     | — (batch with 15, 17, 18) |
+| 17  | FE-2  | Optional per-game notes                                 | FE (+BE)   | S      | Open     | — (batch with 15, 16, 18) |
+| 18  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)   | XL     | Open     | — (batch with 15, 16, 17) |
+| 19  | FE-3  | TeamDetailsView rework                                  | FE         | M      | Blocked  | FB-2                      |
+| 20  | FE-5  | Filters for the Spielsuche                              | FE         | M      | Open     | — (F1 informs it)         |
+| 21  | FE-6  | A way to report an error from the error page            | FE         | S      | Open     | —                         |
+| 22  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB     | M      | Open     | — (ADR-0032's follow-on)  |
+| 23  | BE-7  | `typing` imports instead of `collections.abc`           | BE         | —      | Standing | audit pass B4             |
+| 24  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE         | —      | Standing | audit pass B2             |
+| 25  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops        | —      | Standing | trigger recorded          |
+| 26  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops        | —      | Standing | trigger recorded          |
 
 ---
 
@@ -78,7 +77,7 @@ The two cheapest come first on purpose: each is an afternoon, and each makes wha
 it correct by default rather than needing a second pass. F7 leads on its clock — left alone it
 puts the wrong year on the landing page at a rollover nobody will be watching. F2 follows them
 because four entries in tier 3 are schema changes and it is what makes a schema change safe. Then
-LOG-1, the two model decisions three later entries consume, and last the two admin surfaces, which
+the two model decisions three later entries consume, and last the two admin surfaces, which
 turn an API nothing calls into something an operator can use and end the reference caches' staleness
 window as a side effect.
 
@@ -164,207 +163,7 @@ would be the guess this file exists to avoid.
 **Path:** this is why FB-5, FB-7, FE-2 and FE-1 are batched — until it lands, every schema change is
 a doubled edit that nothing checks. Landing it first turns that batch from a risk into ordinary work.
 
-### 4 · LOG-1 — Logging and error handling, surveyed then standardised
-
-**Owner's item, 2026-08-02. A consultation programme in two stages, ending in a recorded standard.
-Stage 1 is done; stage 2 is the remaining work.**
-
-**Stage 1 — survey and feedback — was carried out on 2026-08-05** across all three parts of the
-repo, production and development formats alike, against the local stack (`./scripts/local.sh`) and
-against a backend container run with `LOG_FORMAT=json`. Its findings are below and are measured
-unless a line says otherwise, so stage 2 begins from them rather than re-deriving them.
-
-**Stage 2 — standardise — has not started.** Help the owner fully customise the logging conventions:
-bulletproof, **best-practice conform**, and consistent across the three surfaces. This explicitly
-includes **error handling on both the backend and the frontend, and the connection between the two** —
-how a failure crossing the boundary is represented and handled on each side. **Output:** a recorded
-convention (ADR or `docs/_standard/` entry — decide with the owner), and the code brought to it. The
-decisions it opens with are listed at the end of this entry.
-
-#### What each surface does today
-
-| Surface      | Application logger                                             | Format selector                                                  | Per-request record in production    |
-| ------------ | -------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------- |
-| **Backend**  | `fl_backend/app/core/logging.py :: fl_logger`, nine call sites | `log_format`, `Literal["console", "json"]`, defaulting `console` | uvicorn's access line, unstructured |
-| **Frontend** | `fl_frontend/src/core/logging.ts :: logger`, three call sites  | `LOG_FORMAT`, `z.string()`, required                             | none — nothing writes one           |
-| **Ops**      | none of its own                                                | —                                                                | nginx's access line, unstructured   |
-
-Eight of the backend's nine call sites are in `fl_backend/app/core/exception_handlers.py`; the other two are the
-boot lines in `fl_backend/app/core/db.py`. Two of the frontend's three are in
-`fl_frontend/src/core/auth.ts` and the third is
-`fl_frontend/src/core/instrumentation.ts :: onRequestError`. **Both loggers therefore fire on failure
-and at boot, and never on a successful request.** Ops keeps 10 MB × 3 per service through Docker's
-`json-file` driver and has no aggregation, no index and no search: reading a production log is `ssh`
-plus `docker compose logs`.
-
-The one mechanism spanning the two services works. `apiClient` (`fl_frontend/src/core/api.ts`) sets
-`X-Correlation-ID` on every outgoing request;
-`fl_backend/app/core/middlewares.py :: CorrelationIdMiddleware`
-binds it to a ContextVar, echoes it back as a response header, and every exception handler returns it
-as the response body's only field. Measured end to end: a request carrying `PROBE-AAA` produced the
-response header `x-correlation-id: PROBE-AAA`, the body `{"trace_id":"PROBE-AAA"}`, and the backend log
-line `<PROBE-AAA>`.
-
-#### Findings
-
-1. **Neither service emits one format, and each module header claims it does.** Both
-   `fl_backend/app/core/logging.py` and `fl_frontend/src/core/logging.ts` state the same invariant —
-   one JSON document per line in production.
-   Both are false, because each service has a second writer the module does not configure. With
-   `LOG_FORMAT=json`, an eight-line backend sample held two JSON documents and six plain-text uvicorn
-   lines, the access lines among them. On the frontend, Next prints every server error itself as a
-   multi-line `⨯ Error [...]` object dump before `onRequestError` ever runs. **The stream is
-   unparseable as JSON on both sides**, which is the property the invariant exists to protect.
-
-2. **The frontend's trace id is fetch-scoped; the backend's is request-scoped.** `apiClient` mints
-   `req_<8 hex>` per **fetch call**, and one page render issues several — so "the trace id for this
-   page view" does not exist. Measured with the backend stopped: one burst produced eight distinct
-   `req_` ids. Anything thrown outside `apiClient` — a render crash, a resolver, a null dereference —
-   carries no id at all, which is what `onRequestError`'s `<NO_TRACE_ID>` reports. The backend, by
-   contrast, has a real request scope. **The two are not the same unit, and no amount of propagation
-   makes them one.**
-
-3. **Only one of several concurrent failures reaches the structured logger.** One capture held eight
-   raw Next dumps carrying eight distinct fetch ids against four structured lines. The structured line
-   names the id of the error that reached the boundary; the others exist only in the unstructured dump,
-   and nothing in the structured line says there were others.
-
-4. **The digest identifies the error message, not the incident.** All eight failures above shared
-   `digest: '897181684'`, because Next derives the digest from the message and every `APINetworkError`
-   carries the same string. **This is load-bearing for FE-6 and for the bug-report form in
-   `docs/workflows/message-templates.md`**, both of which treat the digest as the pointer to a specific
-   log entry. It points at a class.
-
-5. **Seven of the eight documented error codes are logged as `API_ERROR`.**
-   `fl_backend/app/core/exception_handlers.py :: base_api_exception_handler` reads the code off the exception
-   through `getattr` with a fallback, but `fl_backend/app/core/exceptions.py :: BaseAPIException` stores it inside
-   `self.error_detail` and never as an attribute, so the fallback always wins. Measured: a line reading
-   `API Exception (401): [API_ERROR] {'error_code': 'REQ-AUTH-001', ...}`. Only `DB-COMMON-002` is
-   greppable, because `duplicate_key_exception_handler` writes it as a literal. That contradicts the
-   invariant in `fl_backend/app/core/exceptions.py` — "the codes are what make logs greppable" — and the table in
-   `docs/backend/spec.md` §4 that promises them. **One line fixes it; it is the cheapest item here.**
-
-6. **A server action's throw is not handled anywhere on its way to the user.** `apiClient` throws on
-   any non-2xx, the actions call their mutations without a `try`/`catch`, and
-   `fl_frontend/src/shared/components/ui/EntityForm.tsx :: EntityForm` awaits it inside
-   `startTransition` with
-   no rejection path. So a backend 409 — the ordinary outcome of a create hitting a unique index,
-   which `DocumentConflictException` and ADR-0032 both treat as expected — escalates past the toast
-   the form built for it. **Reasoned from the code, not reproduced**: doing so needs an admin session,
-   which needs the owner's mailbox.
-
-7. **The two structured formats cannot be read by one parser.** They share three field names and
-   agree on the meaning of one:
-
-   |           | Backend                                           | Frontend                                       |
-   | --------- | ------------------------------------------------- | ---------------------------------------------- |
-   | level     | `WARNING`                                         | `WARN`                                         |
-   | timestamp | `2026-08-05 00:58:00,318` — local, comma, no zone | `2026-08-05T00:58:00.318Z` — ISO 8601, UTC     |
-   | trace     | `trace_id`                                        | `traceId`                                      |
-   | origin    | `module`, `line`                                  | absent                                         |
-   | error     | `exception`, a formatted traceback string         | `error`, an object of `message`/`stack`/`name` |
-
-8. **`LOG_FORMAT` is `z.string()` on the frontend and the only branch tests `=== "json"`.** Any other
-   value — a capitalised `JSON`, a typo, a truncation of the kind OPS-2 describes — yields ANSI escape
-   codes in a production `json-file` log, and nothing refuses it. The backend has the opposite defect:
-   its `Literal` refuses a wrong value, and its **default is `console`**, so a production `.env` that
-   omits the variable logs in the development format. `docs/frontend/spec.md` §7 records the constraint
-   as "string", which is accurate about the schema and silent about the consequence.
-
-9. **Nothing tests any of this.** No test on either side asserts a log line, a level, a trace id or a
-   format. `scripts/verify.sh` checks that `instrumentation.js` is present in the frontend image —
-   because losing it silently disables all server error logging — so the one guarded property is the
-   file's existence, not its behaviour.
-
-10. **The convention is undocumented, and one pointer to it is dangling.** `fl_backend/app/core/config.py` cites
-    "`docs/ops/spec.md` -- the environment section"; that page has eight sections and no environment
-    section, and `log_level_app`, `log_level_db` and `log_format` appear in no document at all.
-    `docs/backend/spec.md` describes the error codes and the trace-id-only response body without
-    describing the trace id. **No page anywhere describes the correlation-id design**, which is the only
-    cross-service mechanism there is.
-
-11. **nginx has no logging configuration**, in either `nginx/prod.conf` or `nginx/local.conf` — no
-    `log_format`, no `access_log`, no `error_log`. The image's default `main` format applies, measured
-    as `172.18.0.1 - - [05/Aug/2026:00:56:25 +0000] "GET / HTTP/1.1" 200 151328 "-" "curl/8.17.0" "-"`.
-    It carries no correlation id, no `$request_time` and no `$upstream_response_time`, so the edge has
-    no latency record and cannot be joined to either application log. Reasoned rather than measured:
-    behind Cloudflare (`docs/ops/overview.md`) `$remote_addr` is a Cloudflare address, and the visitor's
-    reaches the log only through the format's trailing `$http_x_forwarded_for`.
-
-12. **A total backend outage is an HTTP 200.** With the backend stopped, `/dashboard/saisontabelle`
-    returned 200 and served the error page, digest and all. nginx logs a 200, and so would any uptime
-    monitor watching the status code.
-
-13. **Development logging is defined for one surface of three.** `scripts/README.md` names **dev** as
-    `pnpm dev` in `fl_frontend/`, and no document says how to run the backend outside Docker, so its
-    development format is reachable only through the local stack — which runs the production entry
-    point. `fl_frontend/next.config.ts`'s whole `logging` block is development-only: Next reads both
-    `fetches.fullUrl` and `incomingRequests` in `server/dev/log-requests.js` alone, which is also why
-    the production frontend logs nothing per request. And on both sides the format is chosen by an
-    environment variable rather than by the build, so the comments labelling the two branches
-    "Production" and "Development" describe an intent the selector does not enforce.
-
-14. **The frontend logger is server-only** by way of `fl_frontend/src/core/config.ts`'s
-    `import "server-only"`. A client
-    component cannot reach it, so a browser-side crash is recorded nowhere — which is the gap
-    `fl_frontend/src/app/error.tsx` names at the line and the whole justification FE-6 rests on.
-
-#### The standing reminder, answered
-
-The owner asked that this be raised: consider a `trace_id` on **every** request, not just failing ones.
-**Measured, the case is stronger than the reminder assumed.** One page view of `/` issued three backend
-calls and produced: one nginx line with no id, nothing at all from the frontend, and three uvicorn
-access lines with no id. **Not one line of a successful request is correlated on any surface, and the
-`X-Correlation-ID` that `apiClient` sets appears in none of them** — it reaches the log only when a
-handler fires, which happens only on failure. The id is not missing from some paths; it is absent from
-every successful one.
-
-#### What stage 2 is, given the owner's directions of 2026-08-05
-
-**Scope, and it is all four of these.** Every finding above is addressed — none is deferred or
-accepted as it stands. A correlation id reaches **every** request, uniformly across the three
-surfaces, rather than only the requests that fail. **The error-code system is reworked to current
-best practice**, which is wider than finding 5's one-line defect: the scheme itself, the codes it
-carries, and a sweep for the responses and log lines that should carry one and do not. Stage 2 is
-finished only after an **independent review of the whole change**, read as though it were another
-author's, against correctness, intended behaviour and the standards in `CLAUDE.md`.
-
-**Two of the three questions this entry opened with are answered by that scope**, and stage 2 should
-not re-ask them. The identifier is **request-scoped and minted for every request**, which settles the
-unit finding 2 raised and gives FE-6 its answer. The mixed stream of finding 1 is **closed, not
-accepted**, which makes uvicorn's and Next's own writers part of the work rather than a boundary
-around it.
-
-**What still needs the owner, and it is the first thing to put to him:**
-
-- **ADR or `docs/_standard/` entry?** It decides the shape of everything written afterwards — an ADR
-  argues one decision and is never revised, a standard entry states rules in force and is maintained.
-  The next free ADR number is 0039. A rework of this size may well warrant both, one recording the
-  decision and one carrying the convention, and that too is his call.
-
-**Path:** independent — nothing blocks it and it blocks nothing, so it can run alongside anything
-else in this file. FE-6 no longer waits on the unit, which is settled above; findings 4 and 14 remain
-input to it.
-
-#### Concluded, 2026-08-05
-
-Stage 2 shipped. The decision is
-[ADR-0039](../_decisions/0039-one-correlation-id-per-request-one-document-per-line.md); the
-maintained convention — correlation-id design, stream field set, the full error-code table — is
-[`docs/logging.md`](../logging.md), and the code is at it. The findings that were not decisions were
-rehomed as follows: the format and code tables live in `docs/logging.md` (findings 5, 7, 8, 10, 11);
-the second writers were brought under the convention (finding 1: uvicorn via the Dockerfile CMD and
-`app/core/uvicorn_logging.json`, Next via `src/core/consoleShim.ts`); the request scope and the
-action boundary are `src/core/requestScope.ts` and `src/shared/utils/serverAction.ts` (findings 2,
-3, 6); the tests are `fl_backend/tests/core/test_logging.py`,
-`fl_backend/tests/api/test_error_responses.py` and the three frontend `*.test.ts` files beside
-`logFormat.ts`, `correlation.ts` and `actionError.ts` (finding 9); the digest's class-not-incident
-nature is documented in `docs/logging.md` and the bug-report form (finding 4); browser crashes reach
-the log through `src/app/api/client-error/route.ts` (finding 14); the monitoring signal for a
-backend outage is recorded in `docs/ops/spec.md` (finding 12); development logging for all three
-surfaces is `docs/logging.md` and `scripts/README.md` (finding 13).
-
-### 5 · FB-2 — Disqualification becomes a record, not a boolean
+### 4 · FB-2 — Disqualification becomes a record, not a boolean
 
 **Owner's item, 2026-08-02.** Find a way to handle disqualifications properly. Currently teams can
 only **be** disqualified — a bare `is_disqualified` flag on the `saison_teams` junction row — but
@@ -390,7 +189,7 @@ Known consumers once the record exists:
 **Path:** the structural half is settled; the field set is not. Feeds FB-5, FE-3, FE-4 and FB-3 —
 decide the fields here before those consume them.
 
-### 6 · BE-9 — the "TBD" placeholder team
+### 5 · BE-9 — the "TBD" placeholder team
 
 **State: open. The more interesting of the two backend items, and the one with a clear right
 answer.**
@@ -436,7 +235,7 @@ is the first season created without the TBD row breaking a bracket.
 **Path:** shapes FB-4's auto-advance — writing a winner into the next match's slot is exactly the
 operation the placeholder currently fakes, so decide this model before building that workflow.
 
-### 7 · FB-3 — Admin panel pages for team and spieler data
+### 6 · FB-3 — Admin panel pages for team and spieler data
 
 **Owner's item, 2026-08-02, with emphasis: make new admin panel pages for editing team and spieler
 data.**
@@ -484,7 +283,7 @@ Three things that API decided, which the pages inherit rather than choose:
 **Path:** unblocked. The natural UI home for FB-2's reason/date entry — build
 these with that form section in mind.
 
-### 8 · FB-6 — Admin pages for saisons and spieltage, and the rollover control
+### 7 · FB-6 — Admin pages for saisons and spieltage, and the rollover control
 
 **Opened 2026-08-03, when BE-4 closed.** BE-4 built every endpoint a season rollover needs and no page
 calls one, so the rollover is still done by hand against an API that already exists — which is strictly
@@ -528,7 +327,7 @@ None of these blocks anything, and under the rubric that is not a reason to rank
 package. Two are visible defects, two are cheap questions with a live cost, and one is a query paid on
 every public request. Ordered by what each returns for the afternoon it takes.
 
-### 9 · FE-8 — `SpielCardCompact` does not survive a narrow screen
+### 8 · FE-8 — `SpielCardCompact` does not survive a narrow screen
 
 **Owner's item, 2026-08-04:** the card does not resize properly on mobile, and the button that opens
 the details modal is the worst of it.
@@ -550,7 +349,7 @@ changing classes.
 **Path:** independent. FE-3 reworks the view this card renders in, so doing them in either order is
 fine, but doing them together avoids reading the same layout twice.
 
-### 10 · BE-10 — Nothing caches the season document, and every request reads it
+### 9 · BE-10 — Nothing caches the season document, and every request reads it
 
 **Owner's item, 2026-08-02. Widened the same day, when the league table started being scored with the
 season's `rules`.**
@@ -588,7 +387,7 @@ do — so it wants the TTL as its backstop until FB-6 exists.
 
 **Path:** independent. Nothing blocks it.
 
-### 11 · FE-7 — The two-step delete confirmation loses its backdrop blur
+### 10 · FE-7 — The two-step delete confirmation loses its backdrop blur
 
 **Owner's item, 2026-08-04.** Reproduction: open a delete confirmation, press the first `Löschen`.
 The dialog advances to its second step and the blurred backdrop behind it goes flat.
@@ -614,7 +413,7 @@ Verify against the local stack, never `next dev`.
 
 **Path:** independent.
 
-### 12 · BE-13 — A malformed id is a 404 in a path and a 422 in a query
+### 11 · BE-13 — A malformed id is a 404 in a path and a 422 in a query
 
 **Owner's item, 2026-08-04**, asking for one predictable rule.
 
@@ -645,7 +444,7 @@ about a malformed id, which is why the behaviour reads as accidental.
 
 **Path:** independent. May well end as a documentation change and no code at all.
 
-### 13 · F1 — Two definitions of `ausstehend`
+### 12 · F1 — Two definitions of `ausstehend`
 
 `build_spiele_filter` (`fl_backend/app/api/spiele/services.py :: build_spiele_filter`) filters
 `spiel_status="ausstehend"` as `datum >= today`, **including today**. `computeSpielStatus`
@@ -668,12 +467,12 @@ answer.
 
 ## Tier 3 — the work those decisions carry
 
-Dependency order. Ranks 17–20 all touch `FLSpiel` or `FLTeamStatistik`, their Pydantic/Zod mirrors and
+Dependency order. Ranks 16–19 all touch `FLSpiel` or `FLTeamStatistik`, their Pydantic/Zod mirrors and
 `AdminEditSpielDataForm`. **Batch them**: until F2 lands, every separate schema change is a doubled
 edit that nothing checks, so one coordinated pass beats four. BE-12 closes the tier because it becomes
 real only once FB-3 or FB-6 makes retiring a row possible at all.
 
-### 14 · FB-4 — Playoff bracket: verify the seeding, then auto-advance winners
+### 13 · FB-4 — Playoff bracket: verify the seeding, then auto-advance winners
 
 **Owner's item, 2026-08-02, in two parts.**
 
@@ -704,7 +503,7 @@ cancelled after advancement, and what fills the slot before a winner exists — 
 fills). Part 1 is cheap — a check plus a consultation — and can be pulled forward at any time; it
 answers half of FE-4, which asks the same question from the table's end.
 
-### 15 · FE-4 — Mark the teams currently in a playoff place in the Saisontabelle
+### 14 · FE-4 — Mark the teams currently in a playoff place in the Saisontabelle
 
 **Owner's item, 2026-08-04:** give the teams that would proceed to the playoffs a visual distinction
 in the Saisontabelle — normally the top two of each group.
@@ -734,7 +533,7 @@ afternoon is deciding what "would proceed" means.
 meet whom, this one decides who qualifies, and the two must agree. Soft dependency on FB-2 for the
 disqualified case.
 
-### 16 · FB-5 — `is_disqualified` inside `FLSpiel`'s team fields
+### 15 · FB-5 — `is_disqualified` inside `FLSpiel`'s team fields
 
 **Owner's item, 2026-08-02.** In order to display the DQ badge in **every** `TeamPopoverMenu`, the
 `FLSpiel` object needs `is_disqualified` in its `team1` and `team2` dictionaries respectively, so
@@ -763,7 +562,7 @@ Whatever shape FB-2 gives the record, this reads it rather than copying it, so t
 **Path:** field shape depends on FB-2; the storage question is settled. Batch with FB-7, FE-2 and
 FE-1 (same schema surfaces, one mirror pass — see F2).
 
-### 17 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
+### 16 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 
 **Owner's item, 2026-08-04:** a team showing fewer games than its group's fixtures should say why.
 The sketch is `Spiele: 2 +1` in two colours, with a tooltip on hover for a pointer and on tap for
@@ -797,7 +596,7 @@ branching on the device at all.
 **Path:** batch with FB-5, FE-2 and FE-1 — one schema and mirror pass (see F2). Its display half
 depends on nothing.
 
-### 18 · FE-2 — Optional per-game notes
+### 17 · FE-2 — Optional per-game notes
 
 **Owner's item, 2026-08-02.** Add a place for **small notes on every game** — optional, containing
 information about the game such as exciting moments. **Editable in the admin form**
@@ -808,7 +607,7 @@ note appears — `SpielDetailsModal` is the obvious candidate) that is deliberat
 
 **Path:** batch with FB-5, FB-7 and FE-1 — same form, same schemas, one mirror pass.
 
-### 19 · FE-1 — Date ranges instead of specific dates for games (heavy)
+### 18 · FE-1 — Date ranges instead of specific dates for games (heavy)
 
 **Owner's item, 2026-08-02.** At some point, implement **date ranges** instead of specific dates
 for games. A heavy change, in the owner's scoping: it would change `AdminEditSpielDataForm`, the
@@ -822,7 +621,7 @@ intent at the latest here.
 
 **Path:** batch with FB-5, FB-7 and FE-2 (one schema/mirror/form pass). Resolves or restates F1.
 
-### 20 · FE-3 — TeamDetailsView rework
+### 19 · FE-3 — TeamDetailsView rework
 
 **Owner's item, 2026-08-02.** Rework `TeamDetailsView` to look nicer — **especially the saison
 progress line at the bottom**, which should also include important notes and milestones like "went
@@ -841,7 +640,7 @@ Contents the rework must carry:
 **Path:** waits only on FB-2 now. Doing the visual rework before the disqualification record exists
 would mean reworking it twice. FE-8 fixes the compact card this view is the only consumer of.
 
-### 21 · FE-5 — Filters for the Spielsuche, and Spielhistorie as one of them
+### 20 · FE-5 — Filters for the Spielsuche, and Spielhistorie as one of them
 
 **Owner's item, 2026-08-04:** add filters to the Spielsuche, after which Spielhistorie could simply
 link into it with a "past" filter instead of existing as its own page.
@@ -867,41 +666,33 @@ Three things to settle when it is worked:
 
 **Path:** independent. Inherits whatever F1 decides.
 
-### 22 · FE-6 — A way to report an error from the error page
+### 21 · FE-6 — A way to report an error from the error page
 
 **Owner's item, 2026-08-04, with the evaluation he asked for**: is a report affordance worth having
 when everything is already logged?
 
-**Worth having, narrowly, for one thing the logs cannot cover.** `onRequestError` records server
-errors and `StatusPanel` shows the digest — but the digest is written server-side, and
-`fl_frontend/src/app/error.tsx` says so at the line: server errors are redacted to a message plus a
-digest, "client errors are the user's own code". A client-side render crash therefore reaches the same
-boundary with nothing to quote and nothing recorded. What the user was doing is in no log either, and
-it is usually the difference between a report that reproduces and one that does not.
-**Confirm the client-side case against the local stack before building anything** — it is the whole
-justification, and it has not been reproduced.
+**Worth having, narrowly, for what a log line cannot carry.** Crashes are recorded on both sides
+now — `onRequestError` logs server errors and the error boundary posts client crashes to
+`fl_frontend/src/app/api/client-error/route.ts` (`docs/logging.md`) — but **what the user was doing
+is in no log**, and it is usually the difference between a report that reproduces and one that does
+not. The affordance's remaining job is the human half: intent, steps, expectation.
 
-**Two things LOG-1's survey measured on 2026-08-05 change what this affordance can promise.** First,
-**a digest names an error class, not an incident**: eight distinct failures across two routes shared
-one digest, because Next derives it from the message and every `APINetworkError` carries the same
-string. A report quoting only a digest therefore locates every occurrence of that message rather than
-the reader's own. Second, **a client-side crash is recorded nowhere at all** —
-`fl_frontend/src/core/logging.ts` reaches `fl_frontend/src/core/config.ts` and its
-`import "server-only"`, so no client component can log — which
-confirms the justification above from the code while leaving the reproduction still owed.
+**A digest names an error class, not an incident** (measured 2026-08-05, recorded in
+`docs/logging.md`): Next derives it from the message, so every `APINetworkError` shares one digest.
+A report quoting only a digest locates every occurrence of that message rather than the reader's
+own — so the affordance should carry the digest, the route AND the time, which together pin the
+exact log entry and its correlation ids.
 
 **Keep it to a `mailto:`.** The Kontakt page already publishes the address, so a link carrying the
 digest, the route and the time in its subject costs one component and adds no write path. A form
-posting to an endpoint would be a public, unauthenticated write on a site whose backend is otherwise
-reached only by server-side fetches — a new abuse surface for the same information.
+posting to an endpoint would be a second public, unauthenticated write for the same information —
+the crash itself already travels through the rate-limited ingest route, and a human report does not
+need a machine path.
 
-**Do not build it before LOG-1.** The identifier is settled — every request carries a request-scoped
-correlation id, on the owner's direction of 2026-08-05 — but LOG-1 is what puts it there, and an
-affordance built first would quote the digest for want of anything better.
+**Path:** independent. Every request carries an edge-minted correlation id and the joining recipe
+is `docs/logging.md` (ADR-0039), so the affordance quotes real coordinates. Nothing waits on this.
 
-**Path:** waits on LOG-1's implementation, no longer on its decision. Nothing waits on this.
-
-### 23 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 22 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Opened 2026-08-03, when BE-4 closed. It is the reason that field is a date rather than a boolean**
 ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
@@ -941,7 +732,7 @@ which needs FB-3 or FB-6 to exist. Doing it before then is designing against zer
 No scheduled action. Each of these has a recorded trigger rather than a plan, and an owner elsewhere:
 two are seeded into backend audit passes, two into ops.
 
-### 24 · BE-7 — `typing` imports instead of `collections.abc`
+### 23 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -949,7 +740,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 25 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 24 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -958,7 +749,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 26 · OPS-2 — nothing validates the contents of a restored `.env`
+### 25 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -996,7 +787,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 27 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 26 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 

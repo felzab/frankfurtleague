@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `bb7a23b`, 2026-08-05
+**Verified against:** `87ce77c`, 2026-08-05
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -40,6 +40,7 @@ OPS-6 and OPS-7 are both retired here.
 | 12  | OPS-5 | Every pull request ran the full gate and both CodeQL analyses, whatever it touched  | Ops         | M      | — (batched with OPS-4) | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
 | 13  | OPS-6 | Whether a pull request body should index its commits, when their bodies say it      | Ops         | S      | —                      | [`e31d187`](https://github.com/felzab/frankfurtleague/commit/e31d187) |
 | 14  | OPS-7 | Nothing checked the gate scope a run was given against the diff it was given        | Ops         | S      | —                      | [`501e450`](https://github.com/felzab/frankfurtleague/commit/501e450) |
+| 15  | LOG-1 | Logging was surveyed, then standardised: one correlation id, one stream per service | FE, BE, Ops | L      | —                      | [`87ce77c`](https://github.com/felzab/frankfurtleague/commit/87ce77c) |
 
 ## What each one produced
 
@@ -86,3 +87,8 @@ no row here — its commit is the whole story.
   which is why no second CI check was built and is recorded in the ADR's alternatives; and the
   comment-only carve-out reaches only as far as a parser does, so CLAUDE.md's gate section now says
   that a Dockerfile comment still asks for the full form.
+- **LOG-1** → [ADR-0039](../_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
+  (one correlation id per request, one JSON document per line) and **`docs/logging.md`**, the
+  maintained convention: the correlation-id design, the shared stream field set, and the full
+  error-code table both services follow. It opened nothing and unblocked FE-6, whose affordance can
+  now quote real coordinates instead of a class-level digest.
