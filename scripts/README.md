@@ -177,6 +177,13 @@ undefined helpers, drifted `--help` text, workflow files that only fail on their
 also drives `check_scope.py`'s comment-only classifier over fixtures in both directions, because
 that is the one gate decision whose wrong answer is silent.
 
+**That classifier's TypeScript half needs the frontend's `typescript`, and the scope does not
+require it.** `--scripts` stays runnable on a clone that has never run `pnpm install`: when
+`typescript` does not resolve, the classifier is required to answer "code", and the self-check
+asserts that degradation instead of the real answer. CI's `scripts` job installs the frontend
+dependencies for exactly this reason — otherwise the half that needs a parser rather than a regex
+would be exercised on no machine but the author's.
+
 ## Conventions
 
 All scripts source `_lib.sh`: strict mode (`set -euo pipefail`, hardened `IFS`), an error trap

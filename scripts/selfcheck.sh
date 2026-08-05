@@ -238,7 +238,17 @@ else
       note_fail "${name}.${ext}: the classifier said '${got}', expected '${want}'"
     fi
   }
-  expect_verdict comment    ts         comment-only
+  # The TypeScript half is the only one needing a toolchain — node, and the frontend's own
+  # typescript. A dev machine has both and CI's scripts job installs them, but neither is a
+  # prerequisite of this scope: `--scripts` must stay runnable on a clone that has never run
+  # pnpm install. So when typescript does not resolve the classifier is REQUIRED to answer "code",
+  # and that degradation is asserted in its own right rather than left to read as a pass.
+  if node scripts/ts_normalize.mjs "$fixtures/comment.old.ts" "$fixtures/comment.old.ts" >/dev/null 2>&1; then
+    expect_verdict comment  ts         comment-only
+  else
+    info "typescript does not resolve here — asserting the safe degradation, not the real answer"
+    expect_verdict comment  ts         code
+  fi
   expect_verdict code       ts         code
   expect_verdict comment    py         comment-only
   expect_verdict code       py         code
