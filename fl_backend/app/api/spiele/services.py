@@ -20,9 +20,10 @@ query semantics and the whole advancement algorithm testable without a database.
     no override flag, and clearing the `quelle` is how a person takes a slot back (ADR-0042).
   • BOTH variants resolve. A `spiel` reference is the side that came out of an earlier match; a `gruppe`
     reference is the team a group's standing has already put at that placing beyond doubt (ADR-0043).
-  • A fixture whose goals finished level is decided by its `elfmeterschiessen` and by nothing else. The
-    counts are read HERE and nowhere in the league table, which scores the match as a draw -- the two
-    disagree about the same fixture deliberately (ADR-0044).
+  • A KNOCKOUT fixture whose goals finished level is decided by its `elfmeterschiessen` and by nothing
+    else. The counts are read HERE and nowhere in the league table, which scores the match as a draw --
+    the two disagree about the same fixture deliberately (ADR-0044). A `gruppenphase` fixture is never
+    decided that way: a group draw is a final result.
   • "Nothing to look up" LEAVES A SLOT ALONE; "the reference names nobody" EMPTIES it. The first covers a
     `spiel_nr` the season has no match for, a chain of references that closes on itself, and a `platz`
     its group can never produce -- all data-entry mistakes, and erasing a team over one destroys more
@@ -355,7 +356,12 @@ def _outcome_of(
         # The one fixture the goals cannot decide. A shoot-out settles it, and its counts are read only
         # here -- the league table scores the match as the draw it was, so the bracket and the table say
         # different things about it on purpose (ADR-0044).
-        if spiel.elfmeterschiessen is None:
+        #
+        # A GRUPPENPHASE fixture is never settled that way: a group draw is a final result, worth a
+        # point to each side and nothing more. The write path discards a shoot-out stored on one, so
+        # this covers the hand-edited document instead -- the same reachable failure the `ergebnis`
+        # conjunction below covers, and it is guarded here for the same reason.
+        if spiel.saison_phase == "gruppenphase" or spiel.elfmeterschiessen is None:
             return None
 
         # Total, because `FLSpielElfmeterschiessen` refuses a level shoot-out: a record that named

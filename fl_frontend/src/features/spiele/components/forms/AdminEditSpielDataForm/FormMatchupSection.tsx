@@ -9,6 +9,7 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
+import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
@@ -30,11 +31,12 @@ import type { FLTeam } from "@/features/teams/schemas";
  * and reads through an absent side as no goals at all, so a fixture with an unresolved slot can never
  * carry one (ADR-0041). The toggle says so rather than accepting scores the write path would discard.
  *
- * **The shoot-out section appears only on a fixture that finished level**, which is the only shape it
- * can describe — the write path discards a record stored against any other, so offering the fields
- * elsewhere would take input the save then threw away (ADR-0044). Its counts are not goals: they decide
- * which side the bracket advances and leave the league table's draw untouched, which is what the hint
- * under the switch tells the admin.
+ * **The shoot-out section appears only on a KNOCKOUT fixture that finished level**, which is the only
+ * shape it can describe — the write path discards a record stored against any other, so offering the
+ * fields elsewhere would take input the save then threw away (ADR-0044). A group-phase draw is a final
+ * result worth a point to each side, so the section never appears there however the goals end up. Its
+ * counts are not goals: they decide which side the bracket advances and leave the league table's draw
+ * untouched, which is what the hint under the switch tells the admin.
  */
 export function FormMatchupSection({
   teams,
@@ -48,6 +50,7 @@ export function FormMatchupSection({
   onTeam2QuelleChange,
   elfmeterschiessen,
   onElfmeterschiessenChange,
+  saisonPhase,
   team1InitialData,
   team2InitialData,
 }: {
@@ -62,6 +65,7 @@ export function FormMatchupSection({
   onTeam2QuelleChange: (value: FLSpielQuelle | null) => void;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
   onElfmeterschiessenChange: (value: FLSpielElfmeterschiessenDraft | null) => void;
+  saisonPhase: FLSaisonPhase;
   team1InitialData: FLSpielTeamField | null;
   team2InitialData: FLSpielTeamField | null;
 }) {
@@ -90,10 +94,17 @@ export function FormMatchupSection({
     }
   };
 
-  // A shoot-out settles a fixture that finished LEVEL, so the section below appears on exactly that
-  // shape and on no other. The backend discards a record stored anywhere else (ADR-0044); offering the
-  // fields there would let an admin type something the save then silently threw away.
-  const isLevel = ergebnisIsEditable && team1Payload.tore !== null && team2Payload.tore !== null && team1Payload.tore === team2Payload.tore;
+  // A shoot-out settles a KNOCKOUT fixture that finished LEVEL, so the section below appears on exactly
+  // that shape and on no other. A group-phase draw is a final result — a point each and nothing to
+  // break — so the section never appears there however the goals end up. The backend discards a record
+  // stored anywhere else (ADR-0044); offering the fields would let an admin type something the save
+  // then silently threw away.
+  const isLevelKnockout =
+    saisonPhase !== "gruppenphase" &&
+    ergebnisIsEditable &&
+    team1Payload.tore !== null &&
+    team2Payload.tore !== null &&
+    team1Payload.tore === team2Payload.tore;
 
   const handleElfmeterschiessenToggle = (isSelected: boolean) => {
     // `null` on the way out, and both counts empty on the way in. An admin turning the switch off has
@@ -226,7 +237,7 @@ export function FormMatchupSection({
       </NumberField>
 
       {/** Elfmeterschießen — only on a fixture that finished level */}
-      {isLevel && (
+      {isLevelKnockout && (
         <div className="flex w-full flex-col gap-y-4">
           <Separator className="bg-border" />
 
