@@ -14,7 +14,7 @@ from typing import Any, Callable
 
 import pytest
 
-from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.spiele.schemas import FLBracketFaultQuelle, FLSpielListAdapter
 from app.api.spiele.services import resolve_bracket
 
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
@@ -621,7 +621,10 @@ class TestReportingAFault:
         assert faults(spiele) == [(29, "spiel_missing")]
         assert resolved(spiele) == {}
 
+        # The isinstance is the assertion, not a type-checker concession: a `spiel_missing` arriving as
+        # any other variant would be carrying the wrong fields for its own reason.
         reported = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).bracket_faults[0]
+        assert isinstance(reported, FLBracketFaultQuelle)
         assert reported.quelle_spiel_nr == 99
 
     def test_every_fixture_a_cycle_reaches_is_reported(self, fixture_at: FixtureFactory, side: SideFactory):
@@ -712,7 +715,9 @@ class TestReportingAFault:
         spiele = [
             fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
             fixture_at(27, team1=side(3, 2), team2=side(4, 0), ergebnis="2:0"),
-            fixture_at(29, team1=side(1, 1), team2=side(3, 0), quelle1=sieger(25), quelle2=sieger(27), ergebnis="1:0", saison_phase="halbfinale"),
+            fixture_at(
+                29, team1=side(1, 1), team2=side(3, 0), quelle1=sieger(25), quelle2=sieger(27), ergebnis="1:0", saison_phase="halbfinale"
+            ),
             fixture_at(31, team1=side(1), quelle1=sieger(29), saison_phase="finale"),
         ]
 

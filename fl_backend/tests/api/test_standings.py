@@ -19,8 +19,8 @@ from typing import Any, Callable
 import pytest
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLSpielListAdapter
-from app.api.spiele.services import resolve_bracket
+from app.api.spiele.schemas import FLBracketFaultGruppe, FLSpielListAdapter
+from app.api.spiele.services import BracketResolution, resolve_bracket
 from app.api.teams.schemas import FLTeam
 from app.api.teams.services import build_decided_standings, build_gruppen
 
@@ -332,6 +332,23 @@ class TestWhenAPlacingIsFinal:
         assert elapsed < 10, f"the certainty walk took {elapsed:.1f}s at the cap; the 3^10 constant has regressed"
 
 
+def gruppe_faults(resolution: BracketResolution) -> list[tuple[int, str, int, str]]:
+    """
+    Every reported fault as `(spiel_nr, gruppe, platz, reason)`, in report order.
+
+    The isinstance is the assertion rather than a concession to the type checker: only a group
+    reference carries a `gruppe` and a `platz`, so a fault of any other variant reaching this module
+    would be one reported against the wrong shape (ADR-0047).
+    """
+
+    faults = []
+    for fault in resolution.bracket_faults:
+        assert isinstance(fault, FLBracketFaultGruppe), f"{fault.reason} is not a group reference"
+        faults.append((fault.spiel_nr, fault.gruppe, fault.platz, fault.reason))
+
+    return faults
+
+
 class TestSeedingTheSlot:
     """The standing carried back into the bracket, which is the only place either half pays off."""
 
@@ -385,7 +402,7 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 5}, spiel, stored=stored)
 
         assert resolution.advancements == []
-        assert [(slot.spiel_nr, slot.platz, slot.reason) for slot in resolution.bracket_faults] == [(25, 5, "gruppe_too_small")]
+        assert gruppe_faults(resolution) == [(25, "A", 5, "gruppe_too_small")]
 
     def test_a_tie_the_chain_cannot_break_is_reported_once_the_group_is_played_out(
         self, a_team: TeamFactory, played: MatchFactory, spiel: PayloadFactory
@@ -404,7 +421,7 @@ class TestSeedingTheSlot:
         resolution = self.seeded(decided, {"type": "gruppe", "gruppe": "A", "platz": 1}, spiel, stored=stored)
 
         assert resolution.advancements[0].team1 is None
-        assert [(slot.platz, slot.reason) for slot in resolution.bracket_faults] == [(1, "tie_unresolved")]
+        assert gruppe_faults(resolution) == [(25, "A", 1, "tie_unresolved")]
 
     def test_a_second_pass_over_a_seeded_bracket_writes_nothing(self, a_team: TeamFactory, spiel: PayloadFactory):
         """Idempotence across the group-seeded half too: the team is already there, so nothing moves."""

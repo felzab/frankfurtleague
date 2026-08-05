@@ -261,9 +261,7 @@ def _seed_from_gruppe(
     # either team would be a guess, and the route past it is to clear the `quelle` and enter a side.
     if standing.is_complete:
         faults.append(
-            FLBracketFaultGruppe(
-                reason="tie_unresolved", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz
-            )
+            FLBracketFaultGruppe(reason="tie_unresolved", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, gruppe=quelle.gruppe, platz=quelle.platz)
         )
 
     return None, True
@@ -298,9 +296,7 @@ def _occupant_of(
     # states an outcome, so neither is an instruction to remove a team -- and both are REPORTED, because
     # a slot nothing maintains and nothing mentions is one an admin cannot discover (ADR-0047).
     if quelle.spiel_nr not in by_nr:
-        faults.append(
-            FLBracketFaultQuelle(reason="spiel_missing", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr)
-        )
+        faults.append(FLBracketFaultQuelle(reason="spiel_missing", spiel_id=spiel.id, spiel_nr=spiel.spiel_nr, quelle_spiel_nr=quelle.spiel_nr))
         return stored, False
 
     if quelle.spiel_nr in tainted:
@@ -441,8 +437,10 @@ def _outcome_of(
 
 def _fault_order(fault: FLBracketFault) -> tuple[int, str, str, int]:
     """
-    One fault's place in the report: by fixture, then by reason, then by whatever separates two faults
-    of the same reason on one fixture -- which is only ever its two sides.
+    One fault's place in the report.
+
+    By fixture, then by reason, then by whatever separates two faults of the same reason on one
+    fixture -- which is only ever its two sides.
 
     Spelled out per variant rather than read off a shared field set, because the variants deliberately
     do not have one: a cycle carries no `platz` and a group reference carries no `quelle_spiel_nr`.

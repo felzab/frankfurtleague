@@ -66,7 +66,7 @@ every other one: calling a match off does not unwire it, and the bracket below s
 wiring.
 
 **Reporting a fault never resolves it.** Containment and reporting are separate properties of the
-same walk, and every case in `tests/api/test_bracket.py :: TestReportingAFault` asserts both.
+same walk, and every case in `fl_backend/tests/api/test_bracket.py :: TestReportingAFault` asserts both.
 
 ## Consequences
 

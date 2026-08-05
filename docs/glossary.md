@@ -321,13 +321,13 @@ They arrive in `FLPatchSpielDataResponse.bracket_faults` on the save that comput
 re-derived over every season by `GET /spiele/action_required`, so a missed toast does not lose one
 ([ADR-0047](_decisions/0047-a-bracket-fault-is-derived-on-demand.md)). None of them is stored.
 
-| `reason`           | The reference                                                    | The slot        |
-| ------------------ | ---------------------------------------------------------------- | --------------- |
-| `gruppe_too_small` | a `platz` the group will never produce                           | stands          |
-| `tie_unresolved`   | a placing the chain cannot separate in a group that has finished | is emptied      |
-| `spiel_missing`    | a `spiel_nr` the season has no match for                         | stands          |
-| `reference_cycle`  | a chain of references that closes on itself                      | stands          |
-| `same_team`        | two references resolving to one club, so the fixture is unplayable | both stand     |
+| `reason`           | The reference                                                      | The slot   |
+| ------------------ | ------------------------------------------------------------------ | ---------- |
+| `gruppe_too_small` | a `platz` the group will never produce                             | stands     |
+| `tie_unresolved`   | a placing the chain cannot separate in a group that has finished   | is emptied |
+| `spiel_missing`    | a `spiel_nr` the season has no match for                           | stands     |
+| `reference_cycle`  | a chain of references that closes on itself                        | stands     |
+| `same_team`        | two references resolving to one club, so the fixture is unplayable | both stand |
 
 **In code:** `FLSpielQuelle` (`fl_backend/app/api/spiele/schemas.py`) · `FLSpielQuelleSchema`
 (`fl_frontend/src/features/spiele/schemas.ts`) · `fl_backend/app/api/spiele/services.py ::
