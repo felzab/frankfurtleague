@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `9ffbbfc`, 2026-08-05
+**Verified against:** `bb7a23b`, 2026-08-05
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -20,7 +20,7 @@ names the same item.
 
 **IDs are never reused.** F4 is closed; nothing else may be called F4. New items take the next free
 number in their prefix, **counting retired ids too** — so the next ops item is **OPS-8**, because
-OPS-6 is retired here and OPS-7 is still open.
+OPS-6 and OPS-7 are both retired here.
 
 ## The log
 
@@ -39,6 +39,7 @@ OPS-6 is retired here and OPS-7 is still open.
 | 11  | OPS-4 | Script terminal output varied by script, with no recorded standard                  | Ops         | M      | — (batched with OPS-5) | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
 | 12  | OPS-5 | Every pull request ran the full gate and both CodeQL analyses, whatever it touched  | Ops         | M      | — (batched with OPS-4) | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
 | 13  | OPS-6 | Whether a pull request body should index its commits, when their bodies say it      | Ops         | S      | —                      | [`e31d187`](https://github.com/felzab/frankfurtleague/commit/e31d187) |
+| 14  | OPS-7 | Nothing checked the gate scope a run was given against the diff it was given        | Ops         | S      | —                      | [`501e450`](https://github.com/felzab/frankfurtleague/commit/501e450) |
 
 ## What each one produced
 
@@ -78,3 +79,10 @@ no row here — its commit is the whole story.
   permanent home instead: the forty-five merged bodies were read on GitHub and do follow the
   template, so the Titles-and-bodies section of `docs/workflows/README.md` now states a dated
   reading rather than a caveat.
+- **OPS-7** → [ADR-0037](../_decisions/0037-the-gate-refuses-an-undersized-scope.md), the rule that the
+  gate refuses a run skipping the image build while the branch changes a file asking for it by more
+  than comments, and reports every other unproven surface. It opened nothing. Two findings that were
+  not decisions left it for permanent homes instead: CI's path mapping already enforced that floor,
+  which is why no second CI check was built and is recorded in the ADR's alternatives; and the
+  comment-only carve-out reaches only as far as a parser does, so CLAUDE.md's gate section now says
+  that a Dockerfile comment still asks for the full form.
