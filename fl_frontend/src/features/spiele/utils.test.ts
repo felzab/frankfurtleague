@@ -195,4 +195,26 @@ describe("formatSpielUpdateMessage", () => {
       "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarungen in den Spielen 29, 30 und 31 wurden ebenfalls aktualisiert",
     );
   });
+
+  // The two states a further result cannot fix (ADR-0043). A group still being played reaches neither,
+  // which is why there is no third case here and no wording for one.
+  it("names a platz the group will never produce", () => {
+    assert.equal(
+      formatSpielUpdateMessage([], [{ spiel_nr: 25, gruppe: "A", platz: 5, reason: "gruppe_too_small" }]),
+      "Die Spieldaten wurden erfolgreich aktualisiert. Spiel 25 verweist auf Platz 5 der Gruppe A — so weit reicht diese Gruppe nicht",
+    );
+  });
+
+  it("says which fixture an unbreakable tie leaves open", () => {
+    assert.equal(
+      formatSpielUpdateMessage([], [{ spiel_nr: 25, gruppe: "B", platz: 2, reason: "tie_unresolved" }]),
+      "Die Spieldaten wurden erfolgreich aktualisiert. Platz 2 der Gruppe B ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel 25 offen",
+    );
+  });
+
+  it("reports an advancement and an unresolvable slot in the same message", () => {
+    const message = formatSpielUpdateMessage([30], [{ spiel_nr: 25, gruppe: "A", platz: 5, reason: "gruppe_too_small" }]);
+
+    assert.match(message, /Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. Spiel 25 verweist/);
+  });
 });

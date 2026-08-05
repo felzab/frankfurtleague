@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `74d83d6`, 2026-08-05
+**Verified against:** `9d96b26`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -48,14 +48,14 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 4   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
 | 5   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
 | 6   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
-| 7   | FB-10 | Seed the first knockout round from the group standings  | FE, BE, DB  | L      | Open     | FE-4 (soft, either way)   |
+| 7   | FB-10 | Seed the first knockout round from the group standings  | FE, BE, DB  | L      | Closed   | FE-4 (soft, either way)   |
 | 8   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
 | 9   | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Open     | —                         |
 | 10  | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
 | 11  | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 12  | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
 | 13  | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
-| 14  | FE-4  | Mark the teams currently in a playoff place             | FE (+BE)    | M      | Open     | FB-2, FB-10 (both soft)   |
+| 14  | FE-4  | Mark the teams currently in a playoff place             | FE (+BE)    | M      | Closed   | FB-2, FB-10 (both soft)   |
 | 15  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)        |
 | 16  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 15, 17, 18) |
 | 17  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 15, 16, 18) |
@@ -308,6 +308,16 @@ are legitimate states of a real competition and neither has a defensible automat
 it — so whichever is worked first defines `rules`' qualifier count and the tiebreak chain, and the
 other consumes them. Neither blocks the other. FB-2 answers the disqualification case for both.
 
+**Concluded 2026-08-05, together with FE-4.** All four unknowns are settled in
+[ADR-0043](../_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md):
+the qualifier count lives in `FLSaison.rules`, the chain is points then goal difference then goals
+scored then the head-to-head table, a disqualified team and a team with no counting match hold no
+placing, and a placing is seeded only when no combination of the group's remaining results could change
+it. The two cases that had to surface are `FLPatchSpielDataResponse.unresolvable_slots`. Two findings
+were rehomed rather than decided: that nothing edits `FLSaison.rules` until FB-6 exists is recorded in
+`docs/glossary.md` §`Saison` and in FB-6's own entry, and that a drawn knockout still stalls the bracket
+stays FB-8's.
+
 ---
 
 ## Tier 2 — an afternoon each, and the value is already understood
@@ -525,6 +535,14 @@ rather than derived from a convention (the owner's ruling, 2026-08-05), so nothi
 with anything about who meets whom. FB-10 asks this same question from the bracket's end — it seeds the
 first knockout round from the answer — so whichever is worked first defines `rules`' qualifier count and
 the tiebreak chain, and the other consumes them. Soft dependency on FB-2 for the disqualified case.
+
+**Concluded 2026-08-05, folded into FB-10** because the two share every decision and splitting them
+would have shipped `rules.qualifiers_per_group` with nothing reading it.
+[ADR-0043](../_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)
+settles all four of the questions above: the count is a season rule, the ranking gained its third and
+fourth criteria, a row with no counting match is passed over exactly as the `N/A` in its own placement
+column implies, and a disqualified team keeps its row while the place falls to the team below. The
+marker is `computeQualifyingTeamIds`, and it applies the rule the bracket's seeding applies.
 
 ### 15 · FB-5 — `is_disqualified` inside `FLSpiel`'s team fields
 

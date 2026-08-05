@@ -277,7 +277,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel, then resolve the season's playoff bracket.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\n**A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is\nthe winner of match 25, so entering that match's result fills the slot, correcting it later moves\nthe right team in, and deleting it empties the slot again (ADR-0042). Every fixture written that way\nis named in `advanced_to`.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
+        "description": "Update one Spiel, then resolve the season's playoff bracket.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\n**A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is\nthe winner of match 25, so entering that match's result fills the slot, correcting it later moves\nthe right team in, and deleting it empties the slot again (ADR-0042). A slot referring to a group\nplacing is filled the same way, once no remaining fixture in that group can still change who holds\nit (ADR-0043). Every fixture written either way is named in `advanced_to`.\n\n`unresolvable_slots` names the group references that no further result can honour — a `platz` its\ngroup will never produce, and a placing the tiebreak chain cannot separate in a group that has\nfinished. A group still being played is not reported: that placing is simply not decided yet.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -2966,7 +2966,7 @@
         },
         "type": "object",
         "title": "FLGruppen",
-        "description": "The four groups, always all four.\n\nKeyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the\nresponse shape does not depend on which groups happen to have teams. Never build it from the\nteams present alone: a season with nobody in group D would omit the \"D\" key, the frontend's\nFLGruppenSchema requires all four, and /dashboard/saisontabelle fails to parse the response.\nEvery season so far has had teams in all four groups, so that failure hides until it does not."
+        "description": "The four groups, always all four, each already in standing order.\n\nKeyed by FLGruppenNames rather than a free-form str, and seeded with every group, so the response\nshape does not depend on which groups happen to have teams. Never build it from the teams present\nalone: a season with nobody in group D would omit the \"D\" key, the frontend's FLGruppenSchema\nrequires all four, and /dashboard/saisontabelle fails to parse the response. Every season so far has\nhad teams in all four groups, so that failure hides until it does not.\n\n**Built by `fl_backend/app/api/teams/services.py :: build_gruppen` and by nothing else.** The\norder inside each list is the competition's tiebreak chain, whose last criterion is the head-to-head table (ADR-0043)\n-- and that reads the season's matches, which a model holding only teams cannot see. Constructing\nthis from a list of teams here would produce a table ordered on two of the four criteria, which is\nthe ordering the bracket must not disagree with."
       },
       "FLKontakt": {
         "properties": {
@@ -3331,11 +3331,18 @@
             },
             "type": "array",
             "title": "Advanced To"
+          },
+          "unresolvable_slots": {
+            "items": {
+              "$ref": "#/components/schemas/FLUnresolvableSlot"
+            },
+            "type": "array",
+            "title": "Unresolvable Slots"
           }
         },
         "type": "object",
         "title": "FLPatchSpielDataResponse",
-        "description": "What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.\n\n`advanced_to` carries the `spiel_nr` of every bracket fixture whose sides the result entry\nresolved — a semi-final that gained its winner, and, when a result was corrected, a later fixture\nthat lost an occupant it should never have had (ADR-0042). It reports what happened rather than\nwhat was asked for, so it names a fixture that was emptied as readily as one that was filled.\n\nReported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that\nsilently changes documents the caller did not name is one whose failures are invisible. An empty\nlist is the ordinary answer for a group-phase edit."
+        "description": "What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.\n\n`advanced_to` carries the `spiel_nr` of every bracket fixture whose sides the result entry\nresolved — a semi-final that gained its winner, and, when a result was corrected, a later fixture\nthat lost an occupant it should never have had (ADR-0042). It reports what happened rather than\nwhat was asked for, so it names a fixture that was emptied as readily as one that was filled.\n\nReported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that\nsilently changes documents the caller did not name is one whose failures are invisible. An empty\nlist is the ordinary answer for a group-phase edit.\n\n`unresolvable_slots` carries the bracket slots whose `gruppe` reference cannot be honoured and will\nnot become honourable by waiting (ADR-0043). A group still being played is not in it: a placing that\nis not decided yet is the ordinary state and needs nobody."
       },
       "FLPatchSpielerPayload": {
         "properties": {
@@ -3963,12 +3970,18 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "Draw Points"
+          },
+          "qualifiers_per_group": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Qualifiers Per Group"
           }
         },
         "type": "object",
         "required": [
           "win_points",
-          "draw_points"
+          "draw_points",
+          "qualifiers_per_group"
         ],
         "title": "FLSaisonRules"
       },
@@ -5352,13 +5365,20 @@
           },
           "gruppen": {
             "$ref": "#/components/schemas/FLGruppen"
+          },
+          "qualifiers_per_group": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Qualifiers Per Group"
           }
         },
         "type": "object",
         "required": [
-          "gruppen"
+          "gruppen",
+          "qualifiers_per_group"
         ],
-        "title": "FLTeamsGroupedResponse"
+        "title": "FLTeamsGroupedResponse",
+        "description": "The four groups in standing order, and how many of each advance.\n\n`qualifiers_per_group` is the season's own `rules.qualifiers_per_group`, carried here because it is\nwhat turns an ordered list into a statement about qualification: the teams in a playoff place are a\nprefix of each list above, and a caller cannot mark them without knowing where it ends. It rides on\nthis response rather than being fetched separately so that a page rendering the table cannot show a\ncutoff drawn from a different season than the table itself (ADR-0043).\n\nOn the GROUPED shape only. A flat list is sorted by name and is not a standing, so a cutoff into it\nwould mean nothing."
       },
       "FLTeamsListResponse": {
         "properties": {
@@ -5418,6 +5438,47 @@
         ],
         "title": "FLTeamsSingleResponse",
         "description": "One team, from `GET /teams/{team_id}`.\n\nDeliberately not part of `FLTeamsResponse`: that union discriminates the shapes ONE endpoint can\nreturn, and this is a different endpoint returning exactly one shape."
+      },
+      "FLUnresolvableSlot": {
+        "properties": {
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "platz": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Platz"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "gruppe_too_small",
+              "tie_unresolved"
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_nr",
+          "gruppe",
+          "platz",
+          "reason"
+        ],
+        "title": "FLUnresolvableSlot",
+        "description": "One bracket slot whose `gruppe` reference names a placing the standings will never hand it.\n\nBoth reasons need a person, which is what separates them from the ordinary state of a group that is\nsimply still being played -- that one is reported by nobody, because \"not yet\" is not a problem\n(ADR-0043).\n\n`gruppe_too_small` is a data-entry mistake: the group holds fewer teams that can hold a placing than\nthe `platz` asks for, so no result will ever produce it. Like a `spiel_nr` naming no match, the slot\nis left exactly as it stands -- erasing a team over a typo destroys more than it reports (ADR-0042).\n\n`tie_unresolved` is a real outcome: the group is played out and the tiebreak chain still cannot\nseparate two teams at that placing. The slot IS emptied, because naming either team would be a\nguess, and clearing the `quelle` and entering a side by hand is the route past it."
       },
       "HTTPValidationError": {
         "properties": {

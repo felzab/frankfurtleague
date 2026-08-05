@@ -193,8 +193,28 @@ export type FLPatchSpielDataPayload = z.infer<typeof FLPatchSpielDataPayloadSche
  * Not `.optional()`: the backend's `default_factory` puts the field outside the published `required`
  * list, but every declared property of a response model is on the wire, so it always arrives.
  */
+/**
+ * One bracket slot whose group reference names a placing the standings will never hand it (ADR-0043).
+ *
+ * `gruppe_too_small` is a typo — the group holds fewer teams that can advance than the `platz` asks
+ * for — and the slot keeps whatever it holds. `tie_unresolved` is a real outcome: the group is played
+ * out and the tiebreak chain still cannot separate two teams there, so the slot IS emptied and a person
+ * has to clear the source and enter a side.
+ *
+ * A group still being played is in neither: that placing is simply not decided yet, and "not yet" is
+ * not something to put in front of an admin.
+ */
+export const FLUnresolvableSlotSchema = z.object({
+  spiel_nr: z.int().positive(),
+  gruppe: FLGruppenNamesSchema,
+  platz: z.int().positive(),
+  reason: z.enum(["gruppe_too_small", "tie_unresolved"]),
+});
+export type FLUnresolvableSlot = z.infer<typeof FLUnresolvableSlotSchema>;
+
 export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
   advanced_to: z.array(z.int()),
+  unresolvable_slots: z.array(FLUnresolvableSlotSchema),
 });
 
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;

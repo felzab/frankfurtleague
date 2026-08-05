@@ -27,6 +27,15 @@ FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 class FLSaisonRules(BaseModel):
     win_points: int = Field(gt=0)
     draw_points: int = Field(ge=0)
+    # How many of each group's teams reach the first knockout round. English, like the two above: it
+    # configures the competition rather than naming anything in it (ADR-0043).
+    #
+    # REQUIRED, with no default, and that is the load-bearing part. A default would let a season
+    # document that has never carried the key read as though it had, and the number would then be a
+    # constant chosen in this file -- which is what ADR-0026 refused for 3/1/0. It is read on every
+    # `GET /teams`, so a season missing it fails loudly on the next read rather than seeding a bracket
+    # from a guess. See the runbook in ADR-0043.
+    qualifiers_per_group: int = Field(gt=0)
 
 
 class FLSaison(BaseModel):

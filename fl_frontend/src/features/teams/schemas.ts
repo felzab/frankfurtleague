@@ -67,7 +67,13 @@ export const FLTeamSchema = z.object({
 });
 export type FLTeam = z.infer<typeof FLTeamSchema>;
 
-/** All four keys are required: the backend seeds every group, and an omitted one fails this parse. */
+/**
+ * All four keys are required: the backend seeds every group, and an omitted one fails this parse.
+ *
+ * Each list arrives in STANDING order — points, goal difference, goals scored, then the head-to-head
+ * table among whoever is still level (ADR-0043). Never re-sort one here: the same ordering seeds the
+ * playoff bracket, and a second sort in the client is a second answer to who finished second.
+ */
 export const FLGruppenSchema = z.object({
   A: z.array(FLTeamSchema),
   B: z.array(FLTeamSchema),
@@ -85,6 +91,10 @@ export type FLTeamsListResponse = z.infer<typeof FLTeamsListResponseSchema>;
 export const FLTeamsGroupedResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("grouped"),
   gruppen: FLGruppenSchema,
+  // The season's own `rules.qualifiers_per_group`, carried beside the table it applies to: the teams in
+  // a playoff place are a prefix of each list above, and a page cannot mark them without knowing where
+  // that prefix ends. On the grouped shape only — a flat list is sorted by name and is not a standing.
+  qualifiers_per_group: z.int().positive(),
 });
 export type FLTeamsGroupedResponse = z.infer<typeof FLTeamsGroupedResponseSchema>;
 
