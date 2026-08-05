@@ -177,6 +177,7 @@ export function AdminEditSpielDataForm({
         onTeam2QuelleChange={setTeam2Quelle}
         elfmeterschiessen={elfmeterschiessen}
         onElfmeterschiessenChange={setElfmeterschiessen}
+        saisonPhase={spielData.saison_phase}
         team1InitialData={spielData.team1}
         team2InitialData={spielData.team2}
       />

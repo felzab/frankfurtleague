@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `ab20403`, 2026-08-05
+**Verified against:** `3f46507`, 2026-08-05
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -196,6 +196,11 @@ would be a malformed value to every reader of it
 `elfmeterschiessen` on a `Spiel`: `{team1, team2}` — the shoot-out's own scoreline — or `null` on every
 match that did not finish level, which is almost all of them.
 
+**Only a knockout fixture carries one.** A `gruppenphase` draw is a final result worth a point to each
+side, so there is no tie to break: `PATCH /spiele/{spiel_id}` discards a shoot-out arriving on a group
+match, the admin form never offers the fields there, and `resolve_bracket` refuses to read one off a
+group fixture even where a hand edit has stored it.
+
 **In code:** `FLSpielElfmeterschiessen` (`fl_backend/app/api/spiele/schemas.py`) ·
 `FLSpielElfmeterschiessenSchema` (`fl_frontend/src/features/spiele/schemas.ts`) ·
 [ADR-0044](_decisions/0044-a-shoot-out-is-its-own-scoreline.md).
@@ -213,9 +218,9 @@ the table and marks it `D`, so a team's own page and the Saisontabelle agree wit
 reasoning that keeps an override flag off `Quelle`. A **level shoot-out is refused** by both models — it
 would name nobody, which is the state the field exists to remove.
 
-**It is kept only where the goals are level.** `PATCH /spiele/{spiel_id}` discards a record on any other
-fixture rather than refusing it, so a shoot-out stored by hand against a match one side won 3:1 is
-ignored and the goals decide. A fixture whose occupant changes loses this along with its `Ergebnis`: the
+**It is kept only where the goals are level and the phase is a knockout.** `PATCH /spiele/{spiel_id}`
+discards a record on any other fixture rather than refusing it, so a shoot-out stored by hand against a
+match one side won 3:1 is ignored and the goals decide. A fixture whose occupant changes loses this along with its `Ergebnis`: the
 kicks were taken by a side no longer in it.
 
 **Written by the admin form and nowhere else.** The section appears on a fixture that finished level and

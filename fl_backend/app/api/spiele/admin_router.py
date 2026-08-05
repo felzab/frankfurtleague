@@ -16,9 +16,9 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
   • `ergebnis` is DERIVED from the two `tore` values and is never accepted from the client. A fixture
     with an unresolved side has no goals to derive from and therefore no result (ADR-0041).
   • `elfmeterschiessen` IS accepted from the client -- it is a scoreline of its own and nothing else in
-    the document states it -- but only where the goals it accompanies are level. Anywhere else it is
-    discarded on the way in, because a shoot-out on a fixture one side already won is a contradiction
-    (ADR-0044).
+    the document states it -- but only on a KNOCKOUT fixture whose goals are level. Anywhere else it is
+    discarded on the way in: a group-phase match has no tie to break, and a shoot-out on a fixture one
+    side already won is a contradiction (ADR-0044).
   • The payload is written wholesale with `$set`, so a field absent from it is overwritten rather than
     preserved. That is why the money fields carry no Pydantic default.
   • `patch_spiel_data` writes NO team document. Team statistics are derived from the matches on read
@@ -51,7 +51,7 @@ from app.api.spiele.schemas import (
     FLSpielListAdapter,
 )
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_many_from_db
+from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, TeamsCollection, get_german_date_str
 from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
@@ -110,10 +110,11 @@ async def patch_spiel_data(
     `ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written
     wholesale, so every field must be present -- an omitted field is overwritten, not preserved.
 
-    `elfmeterschiessen` records how a knockout that finished level was settled, and is kept only where
-    the two goal counts are equal; on any other fixture it is discarded rather than refused, because the
-    goals are what say whether a shoot-out was possible at all (ADR-0044). It decides the bracket below
-    and is invisible to the league table, which counts the match as the draw it was (ADR-0026).
+    `elfmeterschiessen` records how a knockout that finished level was settled, and is kept only on a
+    fixture outside the Gruppenphase whose two goal counts are equal; anywhere else it is discarded
+    rather than refused, because a group draw is a final result and the goals are what say whether a
+    shoot-out was possible at all (ADR-0044). It decides the bracket below and is invisible to the
+    league table, which counts the match as the draw it was (ADR-0026).
 
     **A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is
     the winner of match 25, so entering that match's result fills the slot, correcting it later moves
@@ -150,11 +151,19 @@ async def patch_spiel_data(
             if document.get(slot) is not None:
                 document[slot]["tore"] = None
 
-    # A shoot-out settles a fixture that finished LEVEL, so a record on anything else states a
-    # contradiction: a match with no result at all, or one a side already won by goals. Discarded here
-    # for the same reason `ergebnis` is derived here -- this is the one place that sees both sides at
-    # once, and no `$jsonSchema` validator may hold a cross-field rule to refuse it later (ADR-0027).
-    if updated_ergebnis_field is None or team1_tore != team2_tore:
+    # The phase is read BEFORE the write and off the stored document, because it is on no payload and
+    # nothing anywhere writes it -- so it cannot change under this request and one projected round trip
+    # settles it. The 404 it can raise is the same one the write raises below; that one stays, as the
+    # guard against a match deleted between the two.
+    stored = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection={"saison_phase": 1})
+
+    # A shoot-out settles a KNOCKOUT fixture that finished LEVEL, and a record failing either half
+    # states a contradiction: a group-phase match, which has no tie to break, or a match with no result
+    # at all, or one a side already won by goals. Discarded rather than refused, and here rather than
+    # anywhere later, for the same reason `ergebnis` is derived here -- this is the one place that sees
+    # the whole payload, and no `$jsonSchema` validator may hold a cross-field rule (ADR-0027).
+    is_knockout = stored.get("saison_phase") != "gruppenphase"
+    if not is_knockout or updated_ergebnis_field is None or team1_tore != team2_tore:
         document["elfmeterschiessen"] = None
 
     # The transaction is what makes the result and the advancement it causes one fact: a bracket that

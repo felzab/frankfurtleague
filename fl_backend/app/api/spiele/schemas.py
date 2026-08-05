@@ -124,6 +124,11 @@ class FLSpielElfmeterschiessen(BaseModel):
     """
     The penalty shoot-out that settled a knockout fixture whose goals finished level (ADR-0044).
 
+    **A `gruppenphase` fixture never carries one**, and that is not expressible here: `saison_phase` is a
+    sibling field, so pairing the two would be a cross-field rule failing on READ for a hand-edited
+    document and taking the bracket page down with it (ADR-0041, invariant I22). `patch_spiel_data`
+    discards a shoot-out arriving on a group fixture, and `_outcome_of` refuses to read one.
+
     The two counts are the SHOOT-OUT's own scoreline and are never added to `tore`: a shoot-out win is a
     draw for the league table, and only the bracket reads the winner off this (ADR-0026).
 

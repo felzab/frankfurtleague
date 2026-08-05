@@ -76,12 +76,15 @@ def fixture_at(spiel: PayloadFactory) -> FixtureFactory:
         quelle1: dict[str, Any] | None = None,
         quelle2: dict[str, Any] | None = None,
         ergebnis: str | None = None,
+        # Declared rather than left to `**overrides`, which would collide with the default below. Every
+        # case here is a knockout fixture except the one asserting that a group draw settles nothing.
+        saison_phase: str = "viertelfinale",
         **overrides: Any,
     ) -> dict[str, Any]:
         return spiel(
             _id=MATCH_ID.format(nr),
             spiel_nr=nr,
-            saison_phase="viertelfinale",
+            saison_phase=saison_phase,
             team1=team1,
             team2=team2,
             team1_quelle=quelle1,
@@ -298,6 +301,25 @@ class TestResolveBracket:
         ]
 
         assert resolved(spiele) == {29: ("Team 1", None)}
+
+    def test_a_shootout_on_a_group_fixture_advances_nobody(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        A group draw is a final result, so no shoot-out settles it however the document is spelled.
+
+        `patch_spiel_data` discards a record arriving on a group fixture, so this is reachable only by a
+        hand edit — the same class of shape the `ergebnis` conjunction below guards against, and guarded
+        here for the same reason. Without it, a `spiel` reference pointed at a group match would advance
+        a team out of a draw that the league table scores as one point each.
+        """
+
+        spiele = [
+            fixture_at(
+                25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}, saison_phase="gruppenphase"
+            ),
+            fixture_at(29, quelle1=sieger(25)),
+        ]
+
+        assert resolved(spiele) == {}
 
     def test_a_shootout_without_a_result_advances_nobody(self, fixture_at: FixtureFactory, side: SideFactory):
         """
