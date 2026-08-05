@@ -1,6 +1,6 @@
 # `scripts/`
 
-**Verified against:** `19f18ba`, 2026-08-05
+**Verified against:** `3366e71`, 2026-08-05
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says
@@ -128,6 +128,13 @@ confined to comments**, which cannot reach the image at all and are a documentat
 they sit. That carve-out is no longer a thing to remember: `check_scope.py` decides it from the diff
 and refuses the run when the answer is no. The dependency audit warns
 rather than fails — an advisory published upstream overnight should not block an unrelated merge.
+
+**One path selects two scopes on purpose.** `fl_backend/openapi.json` maps to **backend and
+frontend** both ([ADR-0040](../docs/_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md)),
+because the frontend scope holds the test comparing the Zod mirror against that document. Everything
+else under `fl_backend/` selects the backend scope alone, so without this arm a Pydantic model change
+would never run the check that exists to catch it. The document is committed for precisely this
+reason: regenerating it is what carries a model change into the frontend job.
 
 CI (`.github/workflows/verify.yml`) runs these scopes as parallel jobs, mapped from the paths a
 pull request touches — including the images scope for exactly the packaging paths above; a push to

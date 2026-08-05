@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `78f1e70`, 2026-08-05
+**Verified against:** `3366e71`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -44,7 +44,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
 | 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
-| 3   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Open     | —                         |
+| 3   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Closed   | —                         |
 | 4   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
 | 5   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                         |
 | 6   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
@@ -163,6 +163,28 @@ would be the guess this file exists to avoid.
 
 **Path:** this is why FB-5, FB-7, FE-2 and FE-1 are batched — until it lands, every schema change is
 a doubled edit that nothing checks. Landing it first turns that batch from a risk into ordinary work.
+
+**Concluded, 2026-08-05.**
+[ADR-0040](../_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md) takes the
+decision: **checked, not generated**, on the wire contract only — presence, required, nullable,
+primitive type and enum members — against a committed `fl_backend/openapi.json`.
+
+Where each finding that was not a decision was rehomed:
+
+- **The generator evaluation.** Measured against this repository's own schemas rather than named from
+  recall, and recorded in ADR-0040's context and alternatives: Zod 4's `z.toJSONSchema()` converts all
+  52 exported schemas with no failures, so no dependency was needed; and 18 of those 52 have no backend
+  counterpart, which is what makes a generated file a generated core plus a hand-written layer.
+- **The cross-language boundary.** ADR-0040's consequences. The committed document is what makes
+  `scripts/ci_scopes.sh` select the frontend scope for a backend model change; that arm is now in the
+  script and the reasoning is in [`scripts/README.md`](../../scripts/README.md).
+- **The three drifts the check found on its first run** were fixed in the same commit:
+  `FLSpieler.inactive_since` and `FLSpieltag.inactive_since` were absent from both Zod mirrors while
+  the backend sent them, so strip mode discarded them silently; `FLTeam.gruppe` was
+  `z.string().length(1)` against a backend `Literal["A", "B", "C", "D"]`.
+- **The invariants** are `docs/frontend/spec.md` I17 and `docs/backend/spec.md` I21.
+- **What the check deliberately does not cover** — ranges, patterns, lengths, formats, and the shapes
+  in its two exception lists — is now backend audit pass B2's subject, stated in its prompt.
 
 ### 4 · FB-2 — Disqualification becomes a record, not a boolean
 

@@ -82,6 +82,12 @@ else
       fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/next.config.ts|fl_frontend/pnpm-workspace.yaml)
         frontend=true; images=true ;;
       fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; images=true ;;
+      # The published API surface, which the frontend's contract test reads (ADR-0040). It must select
+      # the FRONTEND scope as well as the backend's, and that is the whole reason the document is
+      # committed: a change confined to fl_backend/ selects the backend scope alone, so a Pydantic model
+      # edit would otherwise never run the check that compares it against the Zod mirror. Regenerating
+      # the document is what carries the model change into the frontend job.
+      fl_backend/openapi.json) backend=true; frontend=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       fl_backend/*) backend=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also

@@ -5,8 +5,12 @@
  * while a field is mid-edit.
  *
  * These are HAND-MIRRORED by `fl_backend/app/api/spiele/schemas.py` in Pydantic. There is no generation
- * step, so a constraint changed there must be changed here in the same commit. This is the main drift
- * risk in the codebase and the first thing to check when behaviour looks impossible.
+ * step, so a constraint changed there must be changed here in the same commit.
+ *
+ * `src/core/apiContract.test.ts` compares the two (ADR-0040) on presence, requiredness, nullability,
+ * primitive type and enum members. It does NOT compare patterns, lengths or ranges — the German
+ * messages and the regexes below are this file's alone, and are the first thing to check when
+ * behaviour looks impossible.
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *

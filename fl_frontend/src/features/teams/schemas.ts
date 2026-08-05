@@ -2,7 +2,8 @@
  * TEAMS · models
  *
  * Mirrors `fl_backend/app/api/teams/schemas.py`. No generation step — a constraint changed there must
- * be changed here in the same commit.
+ * be changed here in the same commit, and `src/core/apiContract.test.ts` checks the wire contract
+ * half of that (ADR-0040).
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -18,6 +19,7 @@
  *
  *   ADR-0032  `inactive_since` is the day the club left the league
  *   ADR-0034  one team shape; `GET /teams/{id}` is its own response
+ *   ADR-0040  the wire contract is checked against the published OpenAPI document
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -28,6 +30,10 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
+
+/** Mirrors `FLGruppenNames`. A closed set, so a group outside it is a malformed response, not a name. */
+export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"]);
+export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
 
 export const FLTeamStatistikSchema = z.object({
   anzahl_gespielte_spiele: z.int().nonnegative(),
@@ -44,7 +50,7 @@ export const FLTeamSchema = z.object({
   id: CustomObjectIdStringSchema,
 
   name: z.string().nonempty(),
-  gruppe: z.string().length(1),
+  gruppe: FLGruppenNamesSchema,
 
   statistik: FLTeamStatistikSchema,
 
@@ -62,6 +68,7 @@ export const FLTeamSchema = z.object({
 });
 export type FLTeam = z.infer<typeof FLTeamSchema>;
 
+/** All four keys are required: the backend seeds every group, and an omitted one fails this parse. */
 export const FLGruppenSchema = z.object({
   A: z.array(FLTeamSchema),
   B: z.array(FLTeamSchema),

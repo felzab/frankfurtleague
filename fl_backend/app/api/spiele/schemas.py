@@ -4,8 +4,13 @@ SPIELE · models
 The Spiel read model, the admin patch payload, and the three embedded field models they share.
 
 These are HAND-MIRRORED by `fl_frontend/src/features/spiele/schemas.ts` in Zod. There is no generation
-step, so a constraint changed here must be changed there in the same commit. This is the main drift risk
-in the codebase and the first thing to check when behaviour looks impossible.
+step, so a constraint changed here must be changed there in the same commit.
+
+A gate check compares the two (ADR-0040): edit a model here, regenerate the published document with
+`python -m tests.openapi_document --write`, and `fl_frontend/src/core/apiContract.test.ts` fails naming
+any field whose presence, requiredness, nullability, primitive type or enum members moved. It does NOT
+compare patterns, lengths or ranges — those are still yours to keep in step by hand, and are the first
+thing to check when behaviour looks impossible.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
