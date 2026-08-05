@@ -47,12 +47,17 @@ export function formatLogLine(format: "console" | "json", level: LogLevel, messa
   }
 
   // The console format -- chosen by LOG_FORMAT, not by the build, so nothing here may assume it
-  // only ever runs in development.
+  // only ever runs in development. The line shape mirrors the backend's console formatter
+  // (`fl_backend/app/core/logging.py :: LevelAwareFormatter`) -- padded level, local timestamp,
+  // `<id>`, dash, message -- so the two dev streams read as one convention.
   const color = level === "ERROR" ? "\x1b[31m" : level === "WARNING" ? "\x1b[33m" : "\x1b[34m";
   const reset = "\x1b[0m";
 
-  const idStr = meta?.correlation_id ? `<${meta.correlation_id}> ` : "";
+  // sv-SE is the one widely-shipped locale whose short format is ISO-shaped (YYYY-MM-DD HH:MM:SS),
+  // matching the backend's console timestamps without hand-rolling a formatter.
+  const timestamp = new Date().toLocaleString("sv-SE");
+  const idStr = `<${meta?.correlation_id ?? NO_REQUEST_SENTINEL}>`;
   const metaStr = meta && Object.keys(meta).length > 0 ? `\n  Meta: ${JSON.stringify({ ...meta, error: serializeError(meta.error) })}` : "";
 
-  return `${color}[${level}]${reset} ${idStr}${message}${metaStr}`;
+  return `${color}${level.padEnd(8)}${reset} ${timestamp} | ${idStr} - ${message}${metaStr}`;
 }

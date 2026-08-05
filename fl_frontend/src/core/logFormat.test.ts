@@ -57,11 +57,11 @@ describe("formatLogLine json", () => {
 });
 
 describe("formatLogLine console", () => {
-  it("stays on one human-readable line for a plain message", () => {
+  it("mirrors the backend's console shape: level, timestamp, id, dash, message", () => {
     const line = formatLogLine("console", "INFO", "hello");
 
-    assert.ok(line.includes("[INFO]"));
-    assert.ok(line.includes("hello"));
+    assert.ok(line.includes("INFO"));
+    assert.match(line, /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \| <SYSTEM> - hello/);
   });
 
   it("shows the correlation id when one exists", () => {

@@ -222,6 +222,7 @@ colour decided centrally. **The standard is recorded at the definitions in `scri
 | Deploy reports healthy but the site is unreachable        | Check nginx: `docker compose logs nginx`.                                                                                      |
 | Container unhealthy, health log empty, `FailingStreak: 0` | The app died before the first probe — usually a malformed `.env` value restored by hand. Read `docker compose logs <service>`. |
 | A directory appeared named `something;C`                  | See the Windows note below.                                                                                                    |
+| `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`  | Windows-only, when the output is piped or redirected: the CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`.      |
 
 ### Windows
 
