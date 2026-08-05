@@ -79,7 +79,7 @@ exists for it would be available every day of the season it must not be used in.
 proposed, from the endpoint table. Rejected because symmetry is a property of the table, not of the
 domain: a match is the one entity here whose whole set is fixed at creation, and an API shaped for
 consistency would offer two operations that have no meaning in the competition and one of which breaks
-the bracket. Uniform *addressability* is the principle
+the bracket. Uniform _addressability_ is the principle
 [ADR-0034](0034-the-write-path-is-resource-first-in-a-second-router.md) settled — every resource
 reachable the same way — and it says nothing about which verbs a resource supports.
 
