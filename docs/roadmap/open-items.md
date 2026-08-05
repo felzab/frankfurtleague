@@ -52,7 +52,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 8   | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
 | 9   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 10  | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
-| 11  | FB-13 | A bracket fault is reported once, in a toast            | FE, BE      | S      | Open     | —                         |
+| 11  | FB-13 | A bracket fault is reported once, in a toast            | FE, BE      | S      | Closed   | —                         |
 | 12  | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
 | 13  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)        |
 | 14  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 13, 15, 16) |
@@ -104,12 +104,14 @@ changes have both run: measured 2026-08-05, zero offenders on `spiele` and on `s
   would edit `FLSaison.rules`, which nothing does today. Operability rather than a blocker: the
   qualifier count is set by hand until it exists.
 
-**What is left is an operator's view of the machine, and two entries carry it.** Each is a place where
-the system knows something and says it once and forgets, or says it to nobody — the algorithm is right
-and non-destructive in both cases, so neither is a defect.
+**What is left is an operator's view of the machine, and one entry carries it.** It is the last place
+where the system knows something and says it to nobody — the algorithm is right and non-destructive, so
+it is not a defect.
 
-- **[FB-13](#11--fb-13--a-bracket-fault-is-reported-once-in-a-toast-and-then-forgotten)** — the faults
-  that do get reported exist only in one toast.
+- **[FB-13](#11--fb-13--a-bracket-fault-is-reported-once-in-a-toast-and-then-forgotten) is concluded**,
+  and [ADR-0047](../_decisions/0047-a-bracket-fault-is-derived-on-demand.md) is what it produced. All
+  five stored bracket faults are derived on every admin read of the action-required list, and none is
+  stored.
 - **[FB-11](#18--fb-11--nothing-shows-a-seasons-bracket-wiring-and-it-is-editable-only-one-match-at-a-time)**
   — no surface shows a season's wiring, so a draw cannot be reviewed before it is played.
 
@@ -467,6 +469,13 @@ both are now the hand-edited document's faults: real, stored, and told to nobody
 
 **Path:** independent. The action-required surface now carries a bracket-fault category on both ends
 (ADR-0046), which is the natural place a widened fault set would join.
+
+**Concluded** by [ADR-0047](../_decisions/0047-a-bracket-fault-is-derived-on-demand.md), which answers
+all three questions: derived on read and stored nowhere, widened to five reasons, and shown as an eighth
+action-required category. The two findings that were not decisions are rehomed — the third unreported
+fault (`same_team`, the only one still reachable through the write path) is invariant I28 in
+`docs/backend/spec.md` and a variant of `FLBracketFault`; the five reasons and what each does to its slot
+are the table in `docs/glossary.md` under _Quelle_.
 
 ### 12 · OPS-9 — Nothing lints or tests the repository's own hooks
 
