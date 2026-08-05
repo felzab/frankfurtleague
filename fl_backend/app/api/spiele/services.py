@@ -28,6 +28,10 @@ query semantics and the whole advancement algorithm testable without a database.
     `spiel_nr` the season has no match for, a chain of references that closes on itself, and a `platz`
     its group can never produce -- all data-entry mistakes, and erasing a team over one destroys more
     than it reports. The second is a real answer and is how a corrected result reaches the final.
+  • A fixture whose two references resolve to ONE club is the same class of mistake, contained the
+    same way: it is not maintained, its stored sides stand, and everything downstream derives from
+    that stored state -- never from the contradiction. The containment is transitive by construction,
+    because the memo records the fixture as unchanged rather than as changed-then-refused.
   • A placing that is not decided YET is nobody's problem and is reported to nobody. Only the two states
     a further result cannot fix reach `unresolvable_slots`.
   • `resolve_bracket` returns typed model values and never a Mongo update document. Serialising an
@@ -311,6 +315,17 @@ def _resolve_sides(
         sides.append(occupant.model_copy(update={"tore": None}) if occupant is not None else None)
         an_occupant_changed = True
 
+    # Two references resolving to one club would make the fixture a team against itself -- typically
+    # both slots naming the same match with the same `ausgang`, a data-entry mistake one digit away
+    # from a real draw. Nothing downstream refuses the shape (a $jsonSchema validator may carry no
+    # cross-field rule, ADR-0027), so it is refused here -- and the memo records the fixture as NOT
+    # maintained, with its STORED sides standing. That last part is what contains the mistake: a memo
+    # claiming the occupants changed would void this fixture's stored result for the pass, emptying
+    # every fixture downstream of it and erasing results over a typo.
+    if an_occupant_changed and sides[0] is not None and sides[1] is not None and sides[0].team_id == sides[1].team_id:
+        memo[spiel_nr] = (spiel.team1, spiel.team2, False)
+        return memo[spiel_nr]
+
     memo[spiel_nr] = (sides[0], sides[1], an_occupant_changed)
     return memo[spiel_nr]
 
@@ -406,12 +421,9 @@ def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames
         if not an_occupant_changed:
             continue
 
-        # A fixture cannot be a team against itself, and two references naming the same match with the
-        # same `ausgang` would produce exactly that. Nothing downstream refuses it -- a $jsonSchema
-        # validator may carry no cross-field rule (ADR-0027) -- so it is refused here, by writing
-        # nothing: the fixture keeps what it holds and reports as unmoved.
-        if team1 is not None and team2 is not None and team1.team_id == team2.team_id:
-            continue
+        # No same-team guard here: a fixture whose references resolve to one club never reports its
+        # occupants as changed -- `_resolve_sides` memoises it as unmaintained, stored sides standing,
+        # so it is skipped by the line above and its subtree keeps deriving from its stored state.
 
         # Both sides are written without goals, not only the one that moved. The other side's goals were
         # scored against the occupant being replaced, and `patch_spiel_data` refuses that shape on its

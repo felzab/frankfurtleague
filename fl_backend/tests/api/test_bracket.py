@@ -480,6 +480,91 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {}
 
+    def test_a_fixture_downstream_of_a_refused_collision_keeps_its_result(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        The same-team refusal must not leak past the fixture it refuses.
+
+        The semi-final's duplicated reference is one digit away from a real draw, and the final below
+        it already holds the semi's winner and a recorded result. A refusal that marked the semi's
+        occupants as changed would void its stored result for the pass and EMPTY the final — erasing a
+        recorded result over a typo. The memo instead records the semi as unmaintained, so the final
+        keeps deriving from the semi's stored state and nothing anywhere is written.
+        """
+
+        # The typo on match 29: quelle2 should be sieger(27); both slots now name match 25.
+        typo = {"quelle1": sieger(25), "quelle2": sieger(25)}
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(27, team1=side(3, 2), team2=side(4, 0), ergebnis="2:0"),
+            fixture_at(29, team1=side(1, 1), team2=side(3, 0), ergebnis="1:0", saison_phase="halbfinale", **typo),
+            fixture_at(31, team1=side(1, 2), team2=side(5, 0), quelle1=sieger(29), ergebnis="2:0", saison_phase="finale"),
+        ]
+
+        assert resolved(spiele) == {}
+
+    def test_a_refused_collisions_stored_state_still_feeds_downstream(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        Downstream of a refused fixture derives from what that fixture STORES, not from nothing.
+
+        The refused semi-final holds a real, played result an admin accepted; a slot fed by it is a
+        slot fed by a match that exists and has a winner, so it is maintained — from the stored state.
+        """
+
+        collision = {"quelle1": sieger(25), "quelle2": sieger(25)}
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(29, team1=side(1, 1), team2=side(3, 0), ergebnis="1:0", saison_phase="halbfinale", **collision),
+            # Holds the wrong club: the stored semi says Team 1 won it.
+            fixture_at(31, team1=side(9), quelle1=sieger(29), saison_phase="finale"),
+        ]
+
+        assert resolved(spiele) == {31: ("Team 1", None)}
+
+    @pytest.mark.parametrize("mistake", ["dangling", "cycle", "self_reference", "duplicate_reference", "gruppe_without_standings"])
+    def test_no_mistake_shape_moves_a_season_at_rest(self, fixture_at: FixtureFactory, side: SideFactory, mistake: str):
+        """
+        A season whose slots all agree with their wiring stays untouched whatever mistake is added.
+
+        This is the containment property behind every "left alone" rule, stated once. Each shape is
+        injected into the same resolved bracket — quarter-finals played, semi played, final holding
+        the semi's winner — and the resolution must write NOTHING, downstream fixtures included. A
+        shape that leaves its own fixture alone but moves the subtree below it fails here, which is
+        exactly the defect class the per-fixture tests cannot see.
+        """
+
+        def semi(quelle2: dict[str, Any]) -> dict[str, Any]:
+            sides = {"team1": side(1, 1), "team2": side(3, 0)}
+            return fixture_at(29, quelle1=sieger(25), quelle2=quelle2, ergebnis="1:0", saison_phase="halbfinale", **sides)
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(27, team1=side(3, 2), team2=side(4, 0), ergebnis="2:0"),
+            semi(sieger(27)),
+            fixture_at(31, team1=side(1), quelle1=sieger(29), saison_phase="finale"),
+        ]
+
+        gruppen_quelle = {"type": "gruppe", "gruppe": "A", "platz": 1}
+        match mistake:
+            case "dangling":
+                spiele[2] = semi(sieger(99))
+            case "cycle":
+                spiele += [
+                    fixture_at(40, team1=side(5), quelle1=sieger(41), saison_phase="halbfinale"),
+                    fixture_at(41, team1=side(6), quelle1=sieger(40), saison_phase="halbfinale"),
+                    fixture_at(42, team1=side(5), quelle1=sieger(40), saison_phase="finale"),
+                ]
+            case "self_reference":
+                spiele += [
+                    fixture_at(40, team1=side(5, 2), team2=side(6, 0), quelle1=sieger(40), ergebnis="2:0", saison_phase="halbfinale"),
+                    fixture_at(42, team1=side(5), quelle1=sieger(40), saison_phase="finale"),
+                ]
+            case "duplicate_reference":
+                spiele[2] = semi(sieger(25))
+            case "gruppe_without_standings":
+                spiele[0] = fixture_at(25, team1=side(1, 3), team2=side(2, 1), quelle1=gruppen_quelle, ergebnis="3:1")
+
+        assert resolved(spiele) == {}
+
     def test_a_group_phase_fixture_is_never_touched(self, spiel: PayloadFactory):
         """Both sources null is most of the season, and the resolver has nothing to say about any of it."""
 
