@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `3f46507`, 2026-08-05
+**Verified against:** `3efa0c0`, 2026-08-05
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -324,20 +324,25 @@ finished, which empties it. Both arrive in `FLPatchSpielDataResponse.unresolvabl
 resolve_bracket` · [ADR-0041](_decisions/0041-a-bracket-slot-carries-its-own-provenance.md) ·
 [ADR-0042](_decisions/0042-a-result-entry-resolves-the-whole-bracket.md).
 
-**Pitfalls.** It is **not** paired with the team field beside it, and nothing enforces a relationship
-between the two. A side is `null` while its occupant is unknown, and the derived label is what a card
-renders in its place — but the reference describes the _fixture_, so it stays true once the winner is
-written in. All four combinations of the two fields are legitimate; a reader takes `team.name` first,
-then `formatQuelle`, then "Noch offen", and never asks which state it is in.
+**Pitfalls.** It is **not** paired with the team field beside it: no model and no validator relates
+the two, a side is `null` while its occupant is unknown, and the derived label is what a card renders
+in its place — the reference describes the _fixture_, so it stays true once the winner is written in.
+All four combinations of the two fields are legitimate stored states; a reader takes `team.name`
+first, then `formatQuelle`, then "Noch offen", and never asks which state it is in. The one place a
+relationship IS enforced is the match write path, which refuses a payload that changes the team by
+hand while a `Quelle` stands
+([ADR-0046](_decisions/0046-the-write-path-refuses-wiring-the-season-cannot-hold.md)).
 
 **A reference owns the slot beside it, and clearing it is the only manual override.** While a `Quelle`
-names a match the season has, only the resolution writes that side, so a team entered by hand is
-reverted on the next save of anything in that season. Setting it to `null` hands the slot back.
+names a match the season has, only the resolution writes that side. A hand-set team submitted against
+one is a 409 at the write path; written any other way — Compass, a stale client — it is reverted on
+the next save of anything in that season. Setting the `Quelle` to `null` hands the slot back.
 **There is no override flag and there must not be one**: a flag beside the reference could contradict
 it, and no `$jsonSchema` validator can express that it must not.
 
-A reference naming a match that does not exist is left alone instead of emptying the slot: a number
-nobody can resolve is a typo, not an instruction to remove a team.
+A stored reference naming a match that does not exist is left alone instead of emptying the slot: a
+number nobody can resolve is a typo, not an instruction to remove a team. The write path refuses to
+store a new one (ADR-0046), so the state is reachable only by a hand edit.
 
 The reason it is a sibling rather than a key inside the team field: a display copy of `teams.name` is
 maintained by the rename fan-out in `PATCH /teams/{team_id}`

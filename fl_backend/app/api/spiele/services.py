@@ -1,10 +1,11 @@
 """
 SPIELE · query construction, and the playoff bracket
 
-Two pure halves. `build_spiele_filter` / `build_spiele_sort` translate `FLSpieleFilterParams` into a
+Three pure halves. `build_spiele_filter` / `build_spiele_sort` translate `FLSpieleFilterParams` into a
 Mongo filter document and a sort specification. `resolve_bracket` computes what every bracket slot in a
-season should hold. Pure throughout -- no I/O, no collection access -- which is what makes both the
-query semantics and the whole advancement algorithm testable without a database.
+season should hold. `find_wiring_refusal` decides whether a patch's wiring is one the season can hold
+at all (ADR-0046). Pure throughout -- no I/O, no collection access -- which is what makes the query
+semantics, the advancement algorithm and the refusal rules all testable without a database.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,10 @@ query semantics and the whole advancement algorithm testable without a database.
     because the memo records the fixture as unchanged rather than as changed-then-refused.
   • A placing that is not decided YET is nobody's problem and is reported to nobody. Only the two states
     a further result cannot fix reach `unresolvable_slots`.
+  • The containment above and `find_wiring_refusal` are two boundaries, not one rule applied twice: the
+    write path REFUSES wiring the season cannot hold, and the resolution CONTAINS the same shapes when
+    they are already stored -- data that never passed through the endpoint still resolves without loss
+    (ADR-0046).
   • `resolve_bracket` returns typed model values and never a Mongo update document. Serialising an
     embedded team is a storage concern and belongs in `crud.py`, which knows about `keep_oid`.
 
@@ -46,9 +51,11 @@ query semantics and the whole advancement algorithm testable without a database.
 """
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from app.api.spiele.schemas import (
+    FLPatchSpielDataPayload,
+    FLSaisonPhase,
     FLSpiel,
     FLSpieleFilterParams,
     FLSpielQuelle,
@@ -442,3 +449,98 @@ def resolve_bracket(spiele: Iterable[FLSpiel], standings: Mapping[FLGruppenNames
     unresolvable.sort(key=lambda slot: (slot.spiel_nr, slot.gruppe, slot.platz))
 
     return BracketResolution(advancements=advancements, unresolvable_slots=unresolvable)
+
+
+# The rounds in the order they are played. What the refusal below needs is only "strictly earlier",
+# so a new phase slots in by rank without touching the rules that read this.
+PHASE_RANK: Mapping[FLSaisonPhase, int] = {"gruppenphase": 0, "viertelfinale": 1, "halbfinale": 2, "finale": 3}
+
+
+def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:
+    """One source as a hashable identity, so 'the same outcome feeding two slots' is a set lookup."""
+
+    if isinstance(quelle, FLSpielQuelleSpiel):
+        return ("spiel", quelle.spiel_nr, quelle.ausgang)
+    return ("gruppe", quelle.gruppe, quelle.platz)
+
+
+def find_wiring_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> str | None:
+    """
+    Why this patch's bracket wiring must be refused, or `None` when it is legal (ADR-0046).
+
+    Four rules, each a contradiction no season can hold — not a preference, and not a guess about how
+    a draw should look:
+
+    - **A Gruppenphase fixture carries no wiring.** Its sides are drawn by the schedule; a source on
+      one names a mechanism that does not exist in that phase.
+    - **A `spiel` source names a played-earlier knockout match of the same season.** A number the
+      season does not have resolves to nothing forever; a source in the same or a later round —
+      the fixture itself included — asks a match to be decided by one that follows it, which is also
+      what makes a cycle inexpressible through this endpoint. A group match never feeds a slot: the
+      first knockout round is seeded from the standings, every later round by matches (ADR-0042).
+    - **One outcome fills one slot.** A `(spiel_nr, ausgang)` or `(gruppe, platz)` already feeding
+      another slot of the season would put the same side into two fixtures of the bracket.
+    - **A side with a source is the resolution's, not the caller's.** A team submitted against it
+      that differs from the stored occupant would be silently reverted by the resolution inside this
+      same request (ADR-0042) — a write that reports success and does not stick. Refusing it turns
+      the stale-form race into an explicit 409 instead.
+
+    The season list is read inside the caller's transaction and INCLUDES the fixture being patched,
+    in its stored state. A `spiel_id` naming no fixture in it returns `None`: the write's own 404 is
+    the answer there, not a wiring message.
+
+    This refusal exists at the WRITE PATH only. `resolve_bracket` keeps its non-destructive
+    containment for the same shapes, because a season hand-edited in Compass never passed through
+    here and erasing teams over a typo destroys more than it reports (ADR-0042).
+    """
+
+    stored = next((spiel for spiel in season if spiel.id == spiel_id), None)
+    if stored is None:
+        return None
+
+    by_nr = {spiel.spiel_nr: spiel for spiel in season}
+    used = {
+        _quelle_key(quelle)
+        for spiel in season
+        if spiel.id != spiel_id
+        for quelle in (spiel.team1_quelle, spiel.team2_quelle)
+        if quelle is not None
+    }
+
+    sides = (("team1", payload.team1, payload.team1_quelle), ("team2", payload.team2, payload.team2_quelle))
+
+    for label, _, quelle in sides:
+        if quelle is None:
+            continue
+
+        if stored.saison_phase == "gruppenphase":
+            return f"{label}_quelle: a Gruppenphase fixture carries no wiring; its sides are drawn by the schedule"
+
+        if isinstance(quelle, FLSpielQuelleSpiel):
+            source = by_nr.get(quelle.spiel_nr)
+            if source is None:
+                return f"{label}_quelle names Spiel {quelle.spiel_nr}, and this season has no such match"
+            if source.saison_phase == "gruppenphase":
+                return f"{label}_quelle names Spiel {quelle.spiel_nr}, a Gruppenphase match; a bracket slot is never fed by one"
+            if PHASE_RANK[source.saison_phase] >= PHASE_RANK[stored.saison_phase]:
+                return (
+                    f"{label}_quelle names Spiel {quelle.spiel_nr} ({source.saison_phase}), "
+                    f"which is not played before this fixture ({stored.saison_phase})"
+                )
+
+        key = _quelle_key(quelle)
+        if key in used:
+            return f"{label}_quelle: this source already feeds another slot of the season"
+        used.add(key)
+
+    for label, team, quelle in sides:
+        if quelle is None:
+            continue
+
+        stored_team = stored.team1 if label == "team1" else stored.team2
+        stored_id = stored_team.team_id if stored_team is not None else None
+        submitted_id = team.team_id if team is not None else None
+        if stored_id != submitted_id:
+            return f"{label} is maintained by its quelle and cannot be set by hand; clear the quelle to take the slot over"
+
+    return None

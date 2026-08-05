@@ -25,6 +25,9 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
     (ADR-0026), so there is no second write to keep in step and no team to look up here. It does write
     other MATCH documents: entering a result resolves the season's bracket, which moves winners into
     the fixtures whose `quelle` names that match (ADR-0042).
+  • Wiring the season cannot hold is a 409 (`REQ-WIRING-001`), decided by `find_wiring_refusal` inside
+    the transaction and before the write (ADR-0046). The resolution's own containment of the same
+    shapes stays: it is for data that never passed through this endpoint.
 
  WHY `/action_required` DOES NOT COLLIDE WITH `/{spiel_id}` ────────────────────────────────────────────────
 
@@ -51,10 +54,11 @@ from app.api.spiele.schemas import (
     FLSpieleListResponse,
     FLSpielListAdapter,
 )
+from app.api.spiele.services import find_wiring_refusal
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, TeamsCollection, get_german_date_str
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -70,8 +74,12 @@ async def get_spiele_action_required(spiele_collection: SpieleCollection, today:
     """
     List Spiele that need an admin's attention.
 
-    A match qualifies if it is cancelled, is missing a date, time, venue or referee, or is in the past
-    with no result recorded. Not season-filtered: it spans every season.
+    A match qualifies if it is cancelled, is missing a date, time, venue or referee, is in the past
+    with no result recorded, or is a knockout fixture with a side that has neither a team nor a
+    `quelle`. That last shape is legal and permanent-by-default: nothing resolves such a slot and
+    nothing else reminds the admin that it is theirs (ADR-0046). A Gruppenphase fixture is exempt --
+    an unscheduled group match is an unfilled schedule, not an orphaned slot, and every group fixture
+    legitimately carries no `quelle` forever. Not season-filtered: it spans every season.
 
     Deliberately uncached on the frontend — admin-authorized data does not belong in a shared cache
     (ADR-0013).
@@ -88,6 +96,13 @@ async def get_spiele_action_required(spiele_collection: SpieleCollection, today:
                 {"ort": None},
                 {"schiedsrichter": None},
                 {"datum": {"$lt": today}, "ergebnis": None},
+                {
+                    "saison_phase": {"$ne": "gruppenphase"},
+                    "$or": [
+                        {"team1": None, "team1_quelle": None},
+                        {"team2": None, "team2_quelle": None},
+                    ],
+                },
             ]
         },
     )
@@ -130,6 +145,12 @@ async def patch_spiel_data(
     The league table follows on its own: team statistics are computed from the match documents by
     `GET /teams`, so a result entered here is reflected the next time that table is read.
 
+    **Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`, ADR-0046) before
+    anything is written: a `quelle` on a Gruppenphase fixture, a `spiel` source the season does not
+    have or that is not played before this fixture, one outcome feeding two slots, and a team
+    submitted against a side a `quelle` maintains. The form does not offer these shapes, so a request
+    carrying one is stale or racing another admin -- reloading is the way past the 409.
+
     `saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic
     would discard it. The frontend passes it separately, for cache invalidation only.
     """
@@ -152,11 +173,11 @@ async def patch_spiel_data(
             if document.get(slot) is not None:
                 document[slot]["tore"] = None
 
-    # The phase is read BEFORE the write and off the stored document, because it is on no payload and
-    # nothing anywhere writes it -- so it cannot change under this request and one projected round trip
-    # settles it. The 404 it can raise is the same one the write raises below; that one stays, as the
-    # guard against a match deleted between the two.
-    stored = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection={"saison_phase": 1})
+    # The phase and season are read BEFORE the write and off the stored document, because both are on
+    # no payload and nothing anywhere writes them -- so they cannot change under this request and one
+    # projected round trip settles both. The 404 it can raise is the same one the write raises below;
+    # that one stays, as the guard against a match deleted between the two.
+    stored = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection={"saison_phase": 1, "saison_id": 1})
 
     # A shoot-out settles a KNOCKOUT fixture that finished LEVEL, and a record failing either half
     # states a contradiction: a group-phase match, which has no tie to break, or a match with no result
@@ -177,6 +198,21 @@ async def patch_spiel_data(
     # so a retry writes the same thing the first attempt would have. The 404 below is not transient
     # and aborts without retrying.
     async def write_result_and_resolve_bracket(session: AsyncIOMotorClientSession) -> FLPatchSpielDataResponse:
+        # Refused BEFORE anything is written, inside the transaction, against the season as this
+        # request sees it -- so a retry after a write conflict revalidates against fresh reads, and a
+        # refusal leaves the season exactly as it was. The rules are `find_wiring_refusal`'s
+        # (ADR-0046): wiring on a group fixture, a source the season cannot honour, one outcome
+        # feeding two slots, and a hand-set team on a maintained side. The English detail is for the
+        # log; the form prevents these shapes, so a request carrying one is stale or raced.
+        season_raw = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": stored.get("saison_id")},
+            session=session,
+        )
+        refusal = find_wiring_refusal(spiel_id, spiel_data, FLSpielListAdapter.validate_python(season_raw))
+        if refusal is not None:
+            raise DocumentConflictException(error_code="REQ-WIRING-001", message=refusal)
+
         patched_spiel_raw = await patch_one_in_db(
             collection=spiele_collection,
             filter={"_id": spiel_id},
