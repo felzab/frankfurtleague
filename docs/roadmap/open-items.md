@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `87ce77c`, 2026-08-05
+**Verified against:** `91d997d`, 2026-08-05
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -40,34 +40,35 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 ## The path at a glance
 
-| #   | ID    | Item                                                    | Surfaces   | Effort | Status   | Depends on                |
-| --- | ----- | ------------------------------------------------------- | ---------- | ------ | -------- | ------------------------- |
-| 1   | F7    | Hardcoded season badge on the landing page              | FE         | S      | Open     | — (clock: the rollover)   |
-| 2   | FE-9  | Polite address form applied inconsistently              | FE         | S      | Open     | —                         |
-| 3   | F2    | The Zod mirror is unverified                            | FE, BE     | M      | Open     | —                         |
-| 4   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB | M      | Open     | — (model decided)         |
-| 5   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE     | L      | Open     | —                         |
-| 6   | FB-3  | Admin pages for team and spieler data                   | FE, BE     | L      | Open     | — (API built, ADR-0034)   |
-| 7   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE     | L      | Decided  | — (ADR-0033 settles it)   |
-| 8   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE         | S      | Open     | — (overlaps FE-3)         |
-| 9   | BE-10 | Nothing caches the season document, read every request  | BE         | S      | Open     | —                         |
-| 10  | FE-7  | The delete confirmation loses its backdrop blur         | FE         | S      | Open     | —                         |
-| 11  | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE         | S      | Open     | —                         |
-| 12  | F1    | Two definitions of `ausstehend`                         | FE, BE     | S      | Open     | — (latest with FE-1)      |
-| 13  | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE     | M      | Blocked  | BE-9 (part 2 only)        |
-| 14  | FE-4  | Mark the teams currently in a playoff place             | FE (+BE)   | M      | Open     | FB-4, FB-2 (both soft)    |
-| 15  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE     | S      | Blocked  | FB-2 (field shape)        |
-| 16  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE     | M      | Open     | — (batch with 15, 17, 18) |
-| 17  | FE-2  | Optional per-game notes                                 | FE (+BE)   | S      | Open     | — (batch with 15, 16, 18) |
-| 18  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)   | XL     | Open     | — (batch with 15, 16, 17) |
-| 19  | FE-3  | TeamDetailsView rework                                  | FE         | M      | Blocked  | FB-2                      |
-| 20  | FE-5  | Filters for the Spielsuche                              | FE         | M      | Open     | — (F1 informs it)         |
-| 21  | FE-6  | A way to report an error from the error page            | FE         | S      | Open     | —                         |
-| 22  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB     | M      | Open     | — (ADR-0032's follow-on)  |
-| 23  | BE-7  | `typing` imports instead of `collections.abc`           | BE         | —      | Standing | audit pass B4             |
-| 24  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE         | —      | Standing | audit pass B2             |
-| 25  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops        | —      | Standing | trigger recorded          |
-| 26  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops        | —      | Standing | trigger recorded          |
+| #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
+| --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
+| 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
+| 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
+| 3   | F2    | The Zod mirror is unverified                            | FE, BE      | M      | Open     | —                         |
+| 4   | FB-2  | Disqualification becomes a record, not a boolean        | FE, BE, DB  | M      | Open     | — (model decided)         |
+| 5   | BE-9  | Replace the "TBD" placeholder team                      | BE, FE      | L      | Open     | —                         |
+| 6   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (API built, ADR-0034)   |
+| 7   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
+| 8   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
+| 9   | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Open     | —                         |
+| 10  | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
+| 11  | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
+| 12  | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
+| 13  | FB-4  | Playoff bracket: verify seeding, then auto-advance      | FE, BE      | M      | Blocked  | BE-9 (part 2 only)        |
+| 14  | FE-4  | Mark the teams currently in a playoff place             | FE (+BE)    | M      | Open     | FB-4, FB-2 (both soft)    |
+| 15  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)        |
+| 16  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 15, 17, 18) |
+| 17  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 15, 16, 18) |
+| 18  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 15, 16, 17) |
+| 19  | FE-3  | TeamDetailsView rework                                  | FE          | M      | Blocked  | FB-2                      |
+| 20  | FE-5  | Filters for the Spielsuche                              | FE          | M      | Open     | — (F1 informs it)         |
+| 21  | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | —                         |
+| 22  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
+| 23  | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
+| 24  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
+| 25  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
+| 26  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
+| 27  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
 
 ---
 
@@ -469,8 +470,9 @@ answer.
 
 Dependency order. Ranks 16–19 all touch `FLSpiel` or `FLTeamStatistik`, their Pydantic/Zod mirrors and
 `AdminEditSpielDataForm`. **Batch them**: until F2 lands, every separate schema change is a doubled
-edit that nothing checks, so one coordinated pass beats four. BE-12 closes the tier because it becomes
-real only once FB-3 or FB-6 makes retiring a row possible at all.
+edit that nothing checks, so one coordinated pass beats four. The last two are prospective rather
+than dependent: BE-12 becomes real only once FB-3 or FB-6 makes retiring a row possible at all, and
+LOG-2 improves the fidelity of a logging convention that already works.
 
 ### 13 · FB-4 — Playoff bracket: verify the seeding, then auto-advance winners
 
@@ -725,6 +727,73 @@ prospective item, opened so the field's purpose is recorded rather than rediscov
 **Path:** independent, and genuinely not urgent — it becomes real the first time something is retired,
 which needs FB-3 or FB-6 to exist. Doing it before then is designing against zero rows.
 
+### 23 · LOG-2 — Full trace context: `traceparent`, spans, and somewhere to send them
+
+**Owner's item, 2026-08-05, opened out of LOG-1: implement the industry-standard shape of what
+LOG-1 built a subset of.**
+
+[ADR-0039](../_decisions/0039-one-correlation-id-per-request-one-document-per-line.md) settled **one
+id per request, propagated by an ordinary header, written into three JSON streams**. The recognised
+standard for the same job is **W3C Trace Context** — a `traceparent` header carrying a trace id, a
+span id and flags — usually implemented through **OpenTelemetry**, which records not just an id but
+a _span per operation_ with parent links, timings and attributes. Next.js ships first-class support
+for it (`instrumentation.ts` is the documented hook), and FastAPI/Starlette and pymongo all have
+maintained instrumentation packages.
+
+**What the standard buys over what exists.** Three things, in descending order of how much they are
+worth here:
+
+- **A page render's backend calls join to the page render.** LOG-1 could not achieve this by hand:
+  a Next page render seeds no request scope, so an uncached read inside one mints its own id
+  (`docs/logging.md`, the cache-fill boundary). OpenTelemetry propagates context through the
+  framework's own internals rather than through application code, which is exactly the reach a
+  hand-rolled scope does not have. One query is affected today,
+  `fl_frontend/src/features/admin/queries.ts :: getAdminSpieleActionRequired`.
+- **Timings become a tree rather than three separate numbers.** Today nginx reports
+  `upstream_duration_s` and the backend reports `duration_ms`, and relating them is manual. A span
+  tree shows where a slow request actually spent its time, including inside Mongo.
+- **A vocabulary other tools already speak**, so a future collector, dashboard or alerting rule
+  needs no bespoke parser.
+
+**The question this entry exists to answer, and it is not "which library".** It is
+**where the telemetry goes**. This repository has _no aggregation of any kind_ — reading production
+logs is `ssh` plus `docker compose logs`, and those logs are destroyed on every deploy because
+`deploy.sh` recreates the containers (`docs/logging.md`). **OpenTelemetry with no collector behind
+it is strictly worse than what exists**: a dependency on all three surfaces, a heavier runtime, and
+the same lost-on-deploy stream at the end of it. So the ordering is:
+
+1. **Decide the destination first.** A self-hosted collector on the same box (Jaeger, Grafana
+   Tempo/Loki, SigNoz), a hosted backend, or nothing. Each carries a resource cost on a server whose
+   three services are already capped at 2.8 CPU and about 2.8 GB, and a hosted one puts request
+   metadata for a public site into a third party.
+2. **Only then instrument.** The libraries are the cheap half.
+
+**Two cheaper things that would each be a real improvement on their own**, and either is a
+legitimate answer to "not yet" on the whole programme:
+
+- **Seed the request scope for page renders.** Roughly ten lines: read `headers()` in the one
+  uncached page-render path and wrap the call in
+  `fl_frontend/src/core/requestScope.ts :: runWithRequestScope`, exactly as
+  `fl_frontend/src/shared/utils/serverAction.ts :: runAdminAction` already does. It closes the one
+  _avoidable_ propagation gap without any dependency. **It is deliberately not done**, because if
+  OpenTelemetry lands it is replaced rather than extended — that trade is this entry's to decide.
+- **Ship the logs off the host before they are lost.** A rotating copy, or a log driver other than
+  `json-file`. This is the gap that actually costs something today, and it is independent of tracing.
+
+**What it would supersede.** ADR-0039's decision that the identifier is a single id on a custom
+header. Reversing that means a new ADR carrying `Supersedes: ADR-0039`, and ADR-0039 gaining its two
+`Superseded by` lines and nothing else ([`_standard/4-adr-guide.md`](../_standard/4-adr-guide.md)).
+The parts of ADR-0039 that would survive untouched are the stream contract, the error-code system
+and the edge's refusal of a client-supplied id — a `traceparent` from an untrusted client carries
+exactly the same log-injection risk and must be validated or replaced the same way.
+
+**Not measured:** the runtime cost of the instrumentation packages on this application, and whether
+a collector fits on the current host beside three capped services. Both are input to step 1 and
+neither should be guessed.
+
+**Path:** independent. ADR-0039 is the floor it builds on, not a blocker — logging works today, and
+this is fidelity rather than function. Nothing waits on it.
+
 ---
 
 ## Tier 4 — standing cautions and watch items
@@ -732,7 +801,7 @@ which needs FB-3 or FB-6 to exist. Doing it before then is designing against zer
 No scheduled action. Each of these has a recorded trigger rather than a plan, and an owner elsewhere:
 two are seeded into backend audit passes, two into ops.
 
-### 23 · BE-7 — `typing` imports instead of `collections.abc`
+### 24 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -740,7 +809,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 24 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 25 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -749,7 +818,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 25 · OPS-2 — nothing validates the contents of a restored `.env`
+### 26 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -787,7 +856,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 26 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 27 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 
