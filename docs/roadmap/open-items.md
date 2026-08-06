@@ -51,7 +51,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 7   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                            |
 | 8   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)         |
 | 9   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                            |
-| 10  | FE-11 | Toasts an admin can act on                              | FE          | S      | Decided  | — (partly built by ADR-0051) |
+| 10  | FE-11 | Toasts an admin can act on                              | FE          | S      | Closed   | — (partly built by ADR-0051) |
 | 11  | FE-12 | Action-required, redesigned                             | FE          | M      | Open     | — (its links have a target)  |
 | 12  | FB-11 | Nothing shows a season's bracket wiring, at all         | FE, BE      | L      | Open     | — (FE-12 first, soft)        |
 | 13  | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (ADR-0050's patterns)      |
@@ -441,6 +441,31 @@ becomes real the moment a second person can write, and LOG-2 improves the fideli
 convention that already works.
 
 ### 10 · FE-11 — Toasts an admin can act on
+
+**Closed by [ADR-0053](../_decisions/0053-a-toast-is-built-in-tsx-not-patched-in-css.md).** The owner
+widened the item the same day from the four defects below to a full redesign of the toast's form,
+size, colour, copy and button structure, and the redesign is what settled the mechanism: the toast's
+markup is now this app's, supplied through `Toast.Provider`'s `children` render function
+(`fl_frontend/src/core/providers/AppToaster.tsx`), because a stylesheet can recolour what HeroUI
+renders but cannot move it. What each recorded defect became:
+
+- **The dismiss affordance** is fixed and is the entry's WCAG 2.2.1 claim discharged: 32×32 CSS px,
+  permanently visible and hittable on the frontmost toast, verified with `elementFromPoint` returning
+  the button itself. Stacked toasts stay inert.
+- **Durations** are derived from the message rather than chosen —
+  `fl_frontend/src/shared/utils/appToast.ts :: readingDuration`. A producer states a timeout only where
+  length is not what governs. The same module fixes a defect the sweep surfaced: the undo's pending
+  toast omitted `timeout`, and HeroUI applies its four-second default to any toast that does, so the
+  spinner retired while the requests were still in flight.
+- **The copy pass** is done, and the count in this entry was wrong: **20 call sites across 7 files**,
+  not 21 across 8. The eighth file was `InlineCreateAutocomplete`, which no longer exists.
+- **The stacked-toast clamp is the one defect deliberately left alone**, with the measurement as the
+  reason: forcing `--front-height` to the value a live browser sets does reproduce the truncation, and
+  the visible band of the toast behind is 6.4 px. Nothing it cuts was ever on screen.
+- **The raw-error dispatch toast stays**, and the ADR records why: the carve-out is the absence of a
+  server-side record, not the fact that it is a toast.
+
+The original analysis follows, unchanged.
 
 **Owner's item, 2026-08-06: toasts are "sometimes uninformative and often spit out un-understandable
 information".** All four recorded defects were re-verified on 2026-08-06 and

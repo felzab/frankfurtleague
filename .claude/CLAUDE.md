@@ -257,6 +257,7 @@ the ADR.
 | 0044 | Put the shoot-out inside `ergebnis`; store its winner; let the league table read it                 |
 | 0045 | Add a POST or a DELETE to `/spiele` — a season's fixtures are created once, then cancelled or moved |
 | 0047 | Store a bracket fault; report a placing that is merely undecided; let reporting one resolve it      |
+| 0053 | Style a toast from CSS beyond the two rules named there; call HeroUI's `toast` at a call site       |
 
 ## 8. Documentation
 

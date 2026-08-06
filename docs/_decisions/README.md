@@ -84,6 +84,7 @@ written.
 | [0050](0050-a-form-that-outgrows-a-dialog-becomes-a-page.md)                      | A form that outgrows a dialog becomes a page, and judges a field on blur | frontend               | Accepted       | 2026-08-06 |
 | [0051](0051-a-voided-result-is-named-before-it-is-lost.md)                        | A voided result is named by a dry run, and undone rather than confirmed  | backend, frontend      | Accepted       | 2026-08-06 |
 | [0052](0052-a-team-is-fielded-once-per-spieltag.md)                               | A team is fielded once per Spieltag; a clash moves or is refused         | backend, frontend      | Accepted       | 2026-08-06 |
+| [0053](0053-a-toast-is-built-in-tsx-not-patched-in-css.md)                        | A toast is built in TSX, and its duration is derived from what it says   | frontend               | Accepted       | 2026-08-06 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.

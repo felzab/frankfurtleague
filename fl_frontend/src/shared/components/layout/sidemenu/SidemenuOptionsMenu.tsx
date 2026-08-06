@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 
 import { ArrowRightFromSquare, Ellipsis, TriangleExclamation } from "@gravity-ui/icons";
 
-import { Dropdown, Label, Separator, toast } from "@heroui/react";
+import { Dropdown, Label, Separator } from "@heroui/react";
 
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
+import { appToast } from "@/shared/utils/appToast";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
@@ -71,16 +72,16 @@ export function SidemenuOptionsMenu({
         const result = await onSignOut?.();
 
         if (result && !result.success) {
-          toast.danger(result.error ?? "Abmelden fehlgeschlagen. Bitte versuche es erneut.");
+          appToast.danger("Abmelden fehlgeschlagen", { description: result.error ?? "Bitte versuche es erneut." });
           return;
         }
 
-        toast.success(result?.message ?? "Erfolgreich abgemeldet.");
+        appToast.success(result?.message ?? "Erfolgreich abgemeldet");
         // `refresh()` drops the cached server render of the admin shell just left behind.
         router.push("/");
         router.refresh();
       } catch {
-        toast.danger("Abmelden fehlgeschlagen. Bitte versuche es erneut.");
+        appToast.danger("Abmelden fehlgeschlagen", { description: "Bitte versuche es erneut." });
       }
     });
   };

@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
 
-import { Form, toast } from "@heroui/react";
+import { Form } from "@heroui/react";
 
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
+import { appToast } from "@/shared/utils/appToast";
 
 import { patchAdminSpielDataAction, undoAdminSpielEditAction } from "../../../actions";
 import { applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
@@ -170,7 +171,9 @@ export function AdminEditSpielDataForm({
     setFieldErrors,
     formRef,
   } = useServerFieldErrors(() =>
-    toast.danger("Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 }),
+    appToast.danger("Speichern fehlgeschlagen", {
+      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Bitte lade die Seite neu.",
+    }),
   );
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the message the
@@ -483,8 +486,8 @@ export function AdminEditSpielDataForm({
 
         // Only for failures no single field owns.
         if (!hasFieldErrors(fieldErrorsFromServer)) {
-          toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
-            timeout: 6000,
+          appToast.danger("Speichern fehlgeschlagen", {
+            description: res.error || res.message || "Die Spieldaten konnten nicht aktualisiert werden.",
           });
         }
         return;
@@ -542,23 +545,25 @@ export function AdminEditSpielDataForm({
    *   happened" from ever being the honest description of a press.
    */
   const offerUndo = (payloads: FLPatchSpielDataPayload[], message?: string, destroyedSomething = false) => {
-    const raise = destroyedSomething ? toast.warning : toast.success;
+    const raise = destroyedSomething ? appToast.warning : appToast.success;
 
     raise("Änderung gespeichert", {
       description: message || "Die Spieldaten wurden erfolgreich aktualisiert.",
+      // Stated rather than derived: this duration is a decision window, not a reading time. It is the
+      // one case where the length of the sentence is not what governs how long the toast stands.
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {
         children: "Rückgängig",
-        // The toast is the warning; the control on it is the safe way out, so it takes the same
-        // primary treatment every other affirmative action on the site has.
-        variant: "primary",
         onPress: () => {
-          toast.clear();
+          appToast.clear();
 
-          // No timeout, so it stands until the replay answers — a batch is one request per fixture and
-          // the press has to look like it did something immediately. Closed by its own key rather than
-          // with `toast.clear()`, which would also take down any toast this page did not raise.
-          const pendingKey = toast("Änderung wird zurückgenommen...", { isLoading: true });
+          // Stands until the replay answers — a batch is one request per fixture and the press has to
+          // look like it did something immediately. `appToast.pending` is what makes that true: it
+          // passes `timeout: 0`, and HeroUI applies its own four-second default to any toast that
+          // does not, so simply omitting the option used to retire this spinner while the requests
+          // were still in flight. Closed by its own key rather than with `clear()`, which would also
+          // take down any toast this page did not raise.
+          const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
 
           // The TWO-ARGUMENT form, and that is the fix rather than a style choice. A trailing
           // `.catch` also catches anything the SUCCESS handler throws, so a restore that had already
@@ -566,15 +571,15 @@ export function AdminEditSpielDataForm({
           // downstream of it. A rejection handler passed here runs only for the action call.
           void undoAdminSpielEditAction(payloads, spielData.saison_id).then(
             (result) => {
-              toast.close(pendingKey);
+              appToast.close(pendingKey);
               if (!result.success) {
-                toast.danger(result.error || "Die Rücknahme ist fehlgeschlagen.", { timeout: 8000 });
+                appToast.danger("Rücknahme fehlgeschlagen", { description: result.error || "Die Änderung steht weiterhin." });
                 return;
               }
 
               // Reported BEFORE the refresh, because at this point the restore is committed and
               // nothing below can change that.
-              toast.success(result.message || "Die Änderung wurde zurückgenommen.", { timeout: 6000 });
+              appToast.success("Änderung zurückgenommen", { description: result.message });
 
               // Best-effort, and deliberately not allowed to fail the undo. This closure's component
               // is unmounted, so the router's revalidation of the action never reaches the view and
@@ -587,16 +592,28 @@ export function AdminEditSpielDataForm({
               }
             },
             (dispatchError) => {
-              toast.close(pendingKey);
+              appToast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
 
-              // The detail is SHOWN, not only logged. This failure never reaches a server log — it is
-              // the call itself failing in the browser — so the generic-German rule that governs
-              // `actionError.ts` would leave the only copy of the diagnosis in a devtools console
-              // nobody has open. This surface is admin-only and the reader is the one person who can
-              // act on it.
-              toast.danger("Die Rücknahme konnte nicht gesendet werden. Bitte prüfe das Spiel.", {
+              // **The raw error stays in the description, and this is the one place in the app that
+              // does it** (ADR-0053, which reviewed and kept it).
+              //
+              // `actionError.ts` maps every failure to generic German because the specific diagnosis
+              // belongs to the server log — that is its docblock's own reasoning, and it holds
+              // wherever a server log exists. Here one does not: the dispatch itself failed in the
+              // browser, so nothing was ever written server-side and the only other copy is a devtools
+              // console nobody has open. Generic German would delete the diagnosis rather than
+              // relocate it.
+              //
+              // The two conditions that make it safe are both properties of this call site rather
+              // than of toasts in general: the surface is admin-only, and the string is a client-side
+              // transport error, which carries no record data. A failure that reached the server is
+              // NOT this case and must stay generic.
+              appToast.danger("Rücknahme konnte nicht gesendet werden", {
                 description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
+                // Stated rather than derived, and for a reason no formula covers: this string is the
+                // only copy of the diagnosis, so the window has to be long enough to transcribe it,
+                // not merely to read it.
                 timeout: 15000,
               });
             },

@@ -4,9 +4,10 @@ import { useState, useTransition } from "react";
 
 import { Check } from "@gravity-ui/icons";
 
-import { Button, Form, toast } from "@heroui/react";
+import { Button, Form } from "@heroui/react";
 
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { appToast } from "@/shared/utils/appToast";
 
 import { formButton } from "./formButtons";
 
@@ -43,7 +44,13 @@ export function EntityForm<TDraft>({
   const [draft, setDraft] = useState<TDraft>(initialDraft);
   // Fires when the server rejected a path no field renders — without it the submit would fail in
   // complete silence, because the toast below is suppressed whenever `fieldErrors` is non-empty.
-  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() => toast.danger("Ein unerwarteter Fehler ist aufgetreten."));
+  // The description names the situation rather than the error: there is no field to look at, so
+  // "check the highlighted field" would send the reader hunting for one that does not exist.
+  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
+    appToast.danger("Speichern fehlgeschlagen", {
+      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Bitte lade die Seite neu.",
+    }),
+  );
 
   const handleSubmit = () => {
     startTransition(async () => {
@@ -55,14 +62,16 @@ export function EntityForm<TDraft>({
         // A field-level rejection already says which field and why, at the field. The toast is for
         // the failures that belong to no field — a network error, a 500, a denied session.
         if (!hasFieldErrors(res.fieldErrors)) {
-          toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+          appToast.danger("Speichern fehlgeschlagen", {
+            description: res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.",
+          });
         }
         return;
       }
 
       setFieldErrors({});
       setDraft(initialDraft);
-      toast.success(res.message || successMessage);
+      appToast.success(res.message || successMessage);
       onClose();
     });
   };

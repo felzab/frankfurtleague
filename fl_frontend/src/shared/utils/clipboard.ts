@@ -17,5 +17,11 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** The one failure message for a copy that could not run — the cause is the origin, not the data. */
-export const CLIPBOARD_ERROR_MESSAGE = "Kopieren nicht möglich. Die Zwischenablage ist in diesem Kontext nicht verfügbar.";
+/**
+ * The one failure for a copy that could not run — the cause is the origin, not the data.
+ *
+ * Two constants rather than one sentence, because a toast's title is the outcome and its description
+ * is the detail: the reader who only takes in the first line still learns that nothing was copied.
+ */
+export const CLIPBOARD_ERROR_TITLE = "Kopieren nicht möglich";
+export const CLIPBOARD_ERROR_DETAIL = "Die Zwischenablage ist in diesem Kontext nicht verfügbar.";

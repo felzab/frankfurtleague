@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `fca0c45`, 2026-08-06
+**Verified against:** `616612d`, 2026-08-06
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -150,6 +150,20 @@ check, not one**: `src/app/globals.css` loads everywhere, `src/app/admin/admin.c
 5. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
    padding and a background that are not the browser defaults. For an `admin.css` entry that means
    signing in and opening the admin page, because no public route will show the mistake.
+
+### Restyling one you already have
+
+**Reach for the component's own composition API before a stylesheet.** Several HeroUI components take a
+render function or per-slot `className`, and anything expressed that way is type-checked, linted and
+covered by `better-tailwindcss/no-unknown-classes`. A `.<component>__<slot>` rule in `globals.css` is
+none of those: those class names are vendored implementation detail, and a release that renames one
+takes the styling with it and reports nothing.
+
+The toast is the worked example — `Toast.Provider`'s `children` gives this app the whole composition,
+and CSS keeps only the two things markup cannot reach
+([ADR-0053](../_decisions/0053-a-toast-is-built-in-tsx-not-patched-in-css.md)). Where a stylesheet is
+genuinely the only route, **name the HeroUI version the rule was written against at the rule**, so the
+next upgrade knows what to re-read.
 
 ## Metadata and indexing
 

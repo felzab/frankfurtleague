@@ -771,20 +771,80 @@
     @apply border-b-0!;
   }
 
+  /* THE TOAST — and this block is deliberately small, because most of a toast is not styled here.
+   *
+   * `AppToaster` supplies `Toast.Provider`'s `children` render function, so the tile, the text
+   * hierarchy, the action button and the close button are ordinary TSX carrying ordinary utility
+   * classes (ADR-0053). What is left below is the part that has no element in that file to hang a
+   * class on: HeroUI writes the shell's own `class`, and the close button's visibility has to stay
+   * keyed on an attribute only the library sets.
+   *
+   * **Written against HeroUI 3.2.3.** Every selector below is vendored implementation detail —
+   * `.toast`, its `--<variant>` modifiers, `.toast__close-button` and `[data-frontmost]` come from
+   * `@heroui/styles/dist/components/toast.css`, not from any public API. A release that renames one
+   * takes this styling with it and reports nothing, so **re-read that file on every HeroUI upgrade**;
+   * the render function in `AppToaster` is type-checked and will fail loudly instead, which is why as
+   * little as possible lives here.
+   *
+   * Utilities beat components in this app's layer order, so anything `AppToaster` sets on an element
+   * already outranks both HeroUI's rules and these. */
   .toast {
-    @apply bg-surface border-border border whitespace-normal;
+    @apply bg-surface/95 border-border rounded-2xl border p-3.5 shadow-2xl backdrop-blur-xl;
+    /* `overflow-hidden` is what clips the timer bar to the rounded bottom corners. */
+    @apply items-start gap-3 overflow-hidden whitespace-normal;
+  }
+
+  /* Severity on the shell is a tinted border and nothing louder: the glyph tile and the timer bar
+     already carry the accent, and a third full-strength signal on a floating surface reads as an
+     alert box rather than a notification. `/30` matches `Callout`'s `/40` border at the lower
+     contrast a shadowed, blurred surface needs. */
+  .toast--accent {
+    @apply border-info/30;
+  }
+
+  .toast--success {
+    @apply border-success/30;
+  }
+
+  .toast--warning {
+    @apply border-warning/30;
   }
 
   .toast--danger {
-    @apply border-danger border-1 border-solid;
+    @apply border-danger/30;
   }
 
-  .toast__description {
-    @apply fluid-xs text-foreground-muted opacity-90;
+  /* THE DISMISS CONTROL, and this rule is the WCAG 2.2.1 fix rather than a preference.
+   *
+   * HeroUI 3.2.3 gives `.toast__close-button` `opacity-0` **and** `pointer-events-none`, restoring
+   * both only under `.toast[data-frontmost="true"]:hover`. On a touch screen there is no hover, so
+   * the control is not merely invisible — it is unhittable, and a timed message carrying information
+   * can only be waited out. The undo offer is the worst case of it: fifteen seconds whose entire
+   * point is a decision the reader cannot dismiss.
+   *
+   * Scoped to the frontmost toast on purpose. The stacked ones behind it are inert by design
+   * (`.toast:not([data-frontmost="true"])` also drops their pointer events), and that rule is more
+   * specific than this one, so a queued toast keeps its hidden close button and only the toast the
+   * reader is actually looking at gains a permanent one. */
+  .toast[data-frontmost="true"] .toast__close-button {
+    @apply pointer-events-auto opacity-100;
   }
 
-  .toast__action {
-    @apply fluid-xs;
+  /* The remaining time, drawn rather than guessed at.
+   *
+   * `animation-duration` is set inline from the toast's own `timeout`, so the bar drains in step with
+   * the timer that will actually close it. `react-aria`'s `useToastRegion` pauses every visible
+   * toast's timer while the region is hovered or focused, so the bar has to pause with it — without
+   * these three selectors it would keep draining against a clock that had stopped, which is a worse
+   * failure than showing nothing. */
+  .toast__timer {
+    animation: toast-timer linear forwards;
+  }
+
+  .toast-region:hover .toast__timer,
+  .toast-region:focus-within .toast__timer,
+  .toast:hover .toast__timer {
+    animation-play-state: paused;
   }
 
   .accordion__item:after {
@@ -905,5 +965,18 @@
   from {
     opacity: 0;
     transform: translateY(var(--card-enter-shift, 0.5rem));
+  }
+}
+
+/* The toast timer bar draining. `transform` rather than `width` so it runs on the compositor and
+   cannot reflow the toast's contents mid-message. Deliberately NOT stopped under reduced motion: it
+   is a timer readout rather than decoration, and the policy there is "remove movement, keep meaning"
+   — a 3px bar shortening in place is neither a slide nor a loop. */
+@keyframes toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
   }
 }

@@ -4,7 +4,9 @@ import { useEffect, useState, useTransition } from "react";
 
 import { TrashBin, TriangleExclamation } from "@gravity-ui/icons";
 
-import { Button, toast } from "@heroui/react";
+import { Button } from "@heroui/react";
+
+import { appToast } from "@/shared/utils/appToast";
 
 import { formButton } from "./formButtons";
 import { ModalShell } from "./ModalShell";
@@ -64,11 +66,13 @@ export function ConfirmDeleteModal({
       const res = await onConfirm();
 
       if (!res.success) {
-        toast.danger(res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.");
+        appToast.danger("Löschen fehlgeschlagen", {
+          description: res.error || res.message || "Ein unerwarteter Fehler ist aufgetreten.",
+        });
         return;
       }
 
-      toast.success(res.message || successMessage);
+      appToast.success(res.message || successMessage);
       onClose();
     });
   };
