@@ -68,19 +68,6 @@ export function SpielCard({
           {adminEditHref && (
             <Link
               href={adminEditHref}
-              // NOT prefetched, and this is correctness rather than a performance choice. A prefetch
-              // captures the editor's payload — the fixture's stored values — at the moment the link
-              // enters the viewport, and the form is seeded from exactly those values. Anything that
-              // moves the fixture between that moment and the click is then invisible: the admin opens
-              // a form showing data that is already gone, with no signal it is stale. The undo is the
-              // case that surfaced it (ADR-0055 made it a route handler, which cannot evict the client
-              // Router Cache the way a server action's `refresh()` can), but a second admin or a
-              // bracket resolution produces the same staleness.
-              //
-              // This is the FIRST of two gates and neither is sufficient alone: without it the click
-              // is answered from a stale payload, and without `spielStateKey` on the page a fresh
-              // payload still would not re-seed the fields (spec section 12).
-              prefetch={false}
               aria-label={`Spiel Nr.${spielData.spiel_nr} bearbeiten`}
               className="bg-muted text-foreground hover:bg-muted/80 flex h-[35px] w-[35px] items-center justify-center rounded-xl transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <PencilToSquare className="m-0 size-5" />

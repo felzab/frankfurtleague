@@ -480,20 +480,27 @@ export function AdminEditSpielDataForm({
   });
 
   /**
-   * Puts every field back to what is stored, then leaves.
+   * Puts every field back to what is stored.
    *
-   * **Navigating away is not enough, and assuming it was is what made the worst bug on this page.** The
-   * App Router keeps a page's React tree alive for back and forward navigation, so an admin who
+   * **Leaving the page is not enough, and assuming it was is what made the worst bug on this page.**
+   * The App Router keeps a page's React tree alive for back and forward navigation, so an admin who
    * confirmed "Verwerfen" and then returned to the same fixture found the discarded draft still sitting
-   * in the fields — the dialog had promised the work was gone and it was not. Resetting explicitly means
-   * the promise holds whether the tree is rebuilt or restored.
+   * in the fields — the dialog had promised the work was gone and it was not. Resetting explicitly
+   * means the promise holds whether the tree is rebuilt or restored.
+   *
+   * **Both exits run it, and the save is the one that used to be missed.** A preserved tree is matched
+   * by its `key`, and the editor's key is the fixture's stored state (`spielStateKey`) — so a save
+   * followed by an undo lands on the key the tree was FIRST mounted with, because the undo restores the
+   * very values the page opened on. React reuses that tree, and whatever is still in these atoms is
+   * what the admin sees: the values they typed, on a fixture that no longer holds them. Resetting here
+   * is what makes the reused tree agree with the key that selected it.
    *
    * Every atom is listed rather than looped, and the list is the same one the `useState` calls above
-   * declare: a field added there and forgotten here would silently survive a discard, which is exactly
+   * declare: a field added there and forgotten here would silently survive both exits, which is exactly
    * the failure being fixed. `deriveSpielDraftStatus` is what would catch it — after this runs, nothing
    * may remain in `status.changed`.
    */
-  const discardAndLeave = () => {
+  const resetDraftToStored = () => {
     setSpielIsCanceled(spielData.is_canceled);
     setOrtPayload(spielData.ort);
     setSchiedsrichterPayload(spielData.schiedsrichter);
@@ -508,6 +515,10 @@ export function AdminEditSpielDataForm({
 
     setFieldErrors({});
     clearVerdicts();
+  };
+
+  const discardAndLeave = () => {
+    resetDraftToStored();
     setIsConfirmingDiscard(false);
     setHasLeftViaDiscard(true);
     leavePage();
@@ -551,6 +562,10 @@ export function AdminEditSpielDataForm({
       const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
       offerUndo(buildUndoPayloads(spielData, saisonSpiele, affected), res.message, affected.length > 0);
 
+      // AFTER the undo payloads are built, which read `spielData` rather than these atoms, so the
+      // order costs the offer nothing. See `resetDraftToStored`: leaving with the typed values still
+      // in state is what let a save-then-undo reopen on values the fixture no longer holds.
+      resetDraftToStored();
       leavePage();
     });
   };

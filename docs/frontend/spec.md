@@ -348,14 +348,21 @@ moves when something the form displays has changed underneath it, and not when a
 holds (`ergebnis`, `spiel_nr`) does. Four cases in `utils.test.ts` pin it, including that one.
 **Narrowing this key back to `spiel.id` reintroduces a bug the type checker cannot see.**
 
-**The key is one of two gates, and neither is sufficient alone.** The other is `prefetch={false}` on
-the edit link (`fl_frontend/src/features/spiele/components/ui/SpielCard.tsx`): a prefetch captures the
-editor's payload when the link enters the viewport, so without it the click is answered from a
-snapshot taken before whatever changed the fixture. The key is what makes a fresh payload actually
-re-seed the fields once it arrives. An editing surface is opened for its current values, which is why
-neither the snapshot nor the preserved state is acceptable here — and why a route handler cannot cover
-it, having no way to evict the client Router Cache the way a server action's `refresh()` does
-([ADR-0055](../_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)).
+**The key is one of two gates, and neither is sufficient alone.** The other is that **both exits reset
+the draft** — `resetDraftToStored` in `AdminEditSpielDataForm`, run by the discard AND by the save.
+
+They cover different halves, and each half is invisible without the other. The key is what makes a
+reopened editor re-seed from data that changed while it was away. The reset is what makes a _reused_
+tree honest: a preserved tree is matched by its key, and a save followed by an undo lands on the key
+the tree was first mounted with, because the undo restores the values the page opened on. React then
+reuses that tree, and whatever is left in its atoms is what the admin sees — the values they typed, on
+a fixture that no longer holds them. Neither the payload nor the key is wrong in that case; the state
+is.
+
+Measured, because both fixes read as sufficient on their own: with the typed value left in state, a
+reopened editor shows it while the server-rendered value and the passed prop are both correct. It is
+the same failure the discard path was given `resetDraftToStored` for, and the save path went without
+it.
 
 ### The navigation guard has an accepted gap
 
