@@ -1,25 +1,24 @@
-import { FieldError, Label, NumberField } from "@heroui/react";
+import { FieldError, NumberField } from "@heroui/react";
 
-import { postSpielortAction } from "@/features/spielorte/actions";
-import { SpielortFormFields } from "@/features/spielorte/components/forms/SpielortFormFields";
-import { FIELD_ERROR, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
-import { formatAddressFull } from "@/shared/utils/format";
+import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
+import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FormModal } from "@/shared/components/ui/FormModal";
 
-import { InlineCreateAutocomplete } from "./InlineCreateAutocomplete";
+import { FieldLabel } from "./FieldLabel";
+import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
 import type { FLSpielort } from "@/features/spielorte/schemas";
-import type { FLAddress } from "@/shared/schemas";
 
-type SpielortDraft = { name: string; address: FLAddress; default_mietpreis: number };
-
-const EMPTY_DRAFT: SpielortDraft = {
-  name: "",
-  address: { strasse: "", hausnummer: "", plz: "", stadt: "Frankfurt am Main", stadtteil: "" },
-  default_mietpreis: 0,
-};
-
+/**
+ * Which venue, and what it costs.
+ *
+ * The price is subordinate to the choice rather than its peer — it is a property *of* the venue — so the
+ * two sit in a 2fr/1fr grid instead of a 50/50 one. It is prefilled from the venue's own
+ * `default_mietpreis` and then editable, because what a fixture actually cost is a property of the
+ * fixture (ADR-0028).
+ */
 export function FormSpielortSection({
   spielorte,
   ortPayload,
@@ -32,7 +31,7 @@ export function FormSpielortSection({
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   // The picker hands over the resolved record. Looking it up here against `spielorte` would miss a
-  // Spielort just created inline, which lives only in the picker's own list until the next server
+  // Spielort just created in the modal, which lives only in the picker's own list until the next server
   // render — the lookup silently failed and the "und zugewiesen" toast was a lie.
   const handleOrtChange = (resolvedOrt: FLSpielort | null) => {
     onOrtChange(
@@ -55,53 +54,32 @@ export function FormSpielortSection({
   };
 
   return (
-    <InlineCreateAutocomplete<FLSpielort, SpielortDraft>
-      label="Spielort"
-      placeholder="z.B. Sportpark Nord"
-      // The field's dotted path in the patch payload, not a UI-local name. `FieldErrors`' entire
-      // contract is that the two are equal — react-aria looks a server message up as
-      // `serverErrors[name]` — so while this read "spielOrtUI" a rejection on `ort.spielort_id` had
-      // no field to land on and failed in silence.
-      name="ort.spielort_id"
-      items={spielorte}
-      selectedId={ortPayload?.spielort_id ?? null}
-      onSelect={handleOrtChange}
-      createHeading="Neuen Spielort anlegen"
-      emptyStateText="Dieser Spielort existiert noch nicht."
-      emptyDraft={EMPTY_DRAFT}
-      renderDraftFields={(draft, setDraft, errors) => (
-        <SpielortFormFields
-          draft={draft}
-          onChange={setDraft}
-          errors={errors}
-        />
-      )}
-      onCreate={(draft) =>
-        postSpielortAction({
-          name: draft.name,
-          default_mietpreis: draft.default_mietpreis,
-          address: draft.address,
-        })
-      }
-      buildCreatedItem={(draft, createdId) => ({
-        id: createdId,
-        name: draft.name,
-        address: draft.address,
-        // Reproduces what the backend stores verbatim: `post_spielort` writes
-        // `f"{name}, {address.to_string}, Deutschland"` (spielorte/admin_router.py), and
-        // `formatAddressFull` composes the same parts in the same order. `maps_link` is a plain
-        // search string here, not a URL — `formatMapsLink` is what wraps one for an href.
-        maps_link: `${draft.name}, ${formatAddressFull(draft.address)}`,
-        default_mietpreis: draft.default_mietpreis,
-        // A venue that has just been created is current, and `null` is what current means (ADR-0032).
-        inactive_since: null,
-      })}
-      createdToast="Spielort erfolgreich angelegt und zugewiesen">
+    <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <PickOrCreateAutocomplete<FLSpielort>
+        label="Spielort"
+        fieldPath="ort.spielort_id"
+        placeholder="z.B. Sportpark Nord"
+        items={spielorte}
+        selectedId={ortPayload?.spielort_id ?? null}
+        onSelect={handleOrtChange}
+        createLabel="Neuen Spielort anlegen"
+        emptyStateText="Dieser Spielort existiert noch nicht."
+        renderCreateModal={({ isOpen, onClose, onCreated }) => (
+          <FormModal
+            isOpen={isOpen}
+            onClose={onClose}
+            heading="Spielort anlegen">
+            <AdminCreateSpielortForm
+              onClose={onClose}
+              onCreated={onCreated}
+            />
+          </FormModal>
+        )}
+      />
+
       {/** Mietpreis */}
       <NumberField
         minValue={0}
-        // Named after its path in the patch payload, so a server-side zod error lands on this field
-        // through `Form`'s `validationErrors` without a translation table.
         name="ort.mietpreis"
         value={ortPayload?.mietpreis ?? NaN}
         onChange={handleMietpreisChange}
@@ -116,7 +94,7 @@ export function FormSpielortSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <Label className={FIELD_LABEL}>Mietpreis</Label>
+        <FieldLabel path="ort.mietpreis">Mietpreis</FieldLabel>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
           <NumberField.Input className="fluid-sm w-full py-0" />
@@ -124,6 +102,6 @@ export function FormSpielortSection({
         </NumberField.Group>
         <FieldError className={FIELD_ERROR} />
       </NumberField>
-    </InlineCreateAutocomplete>
+    </div>
   );
 }

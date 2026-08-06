@@ -1,25 +1,17 @@
-import { FieldError, Label, NumberField } from "@heroui/react";
+import { FieldError, NumberField } from "@heroui/react";
 
-import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { SchiedsrichterFormFields } from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
-import { FIELD_ERROR, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
+import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FormModal } from "@/shared/components/ui/FormModal";
 
-import { InlineCreateAutocomplete } from "./InlineCreateAutocomplete";
+import { FieldLabel } from "./FieldLabel";
+import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
-import type { FLKontakt } from "@/shared/schemas";
 
-type SchiedsrichterDraft = { name: string; schule: string; kontakt: FLKontakt; default_payment: number };
-
-const EMPTY_DRAFT: SchiedsrichterDraft = {
-  name: "",
-  schule: "",
-  kontakt: { telefon: "", email: "" },
-  default_payment: 0,
-};
-
+/** Who referees, and what they are paid. Same 2fr/1fr split as the venue, for the same reason. */
 export function FormSchiedsrichterSection({
   schiedsrichter,
   schiedsrichterPayload,
@@ -59,46 +51,32 @@ export function FormSchiedsrichterSection({
   };
 
   return (
-    <InlineCreateAutocomplete<FLSchiedsrichter, SchiedsrichterDraft>
-      label="Schiedsrichter"
-      placeholder="z.B. Pierluigi Collina"
-      // The dotted payload path — see the note on the Spielort picker, which had the same defect.
-      name="schiedsrichter.schiedsrichter_id"
-      items={schiedsrichter}
-      selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}
-      onSelect={handleSchiedsrichterChange}
-      createHeading="Neuen Schiedsrichter anlegen"
-      emptyStateText="Dieser Schiedsrichter existiert noch nicht."
-      emptyDraft={EMPTY_DRAFT}
-      renderDraftFields={(draft, setDraft, errors) => (
-        <SchiedsrichterFormFields
-          draft={draft}
-          onChange={setDraft}
-          errors={errors}
-        />
-      )}
-      onCreate={(draft) =>
-        postSchiedsrichterAction({
-          name: draft.name,
-          schule: draft.schule,
-          kontakt: draft.kontakt,
-          default_payment: draft.default_payment,
-        })
-      }
-      buildCreatedItem={(draft, createdId) => ({
-        id: createdId,
-        name: draft.name,
-        schule: draft.schule,
-        kontakt: draft.kontakt,
-        default_payment: draft.default_payment,
-        // A referee that has just been created is current, and `null` is what current means (ADR-0032).
-        inactive_since: null,
-      })}
-      createdToast="Schiedsrichter erfolgreich angelegt und zugewiesen">
+    <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <PickOrCreateAutocomplete<FLSchiedsrichter>
+        label="Schiedsrichter"
+        fieldPath="schiedsrichter.schiedsrichter_id"
+        placeholder="z.B. Pierluigi Collina"
+        items={schiedsrichter}
+        selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}
+        onSelect={handleSchiedsrichterChange}
+        createLabel="Neuen Schiedsrichter anlegen"
+        emptyStateText="Dieser Schiedsrichter existiert noch nicht."
+        renderCreateModal={({ isOpen, onClose, onCreated }) => (
+          <FormModal
+            isOpen={isOpen}
+            onClose={onClose}
+            heading="Schiedsrichter anlegen">
+            <AdminCreateSchiedsrichterForm
+              onClose={onClose}
+              onCreated={onCreated}
+            />
+          </FormModal>
+        )}
+      />
+
       {/** Schiedsrichter Entschädigung */}
       <NumberField
         minValue={0}
-        // Named after its path in the patch payload — see the note on `FormSpielortSection`.
         name="schiedsrichter.payment"
         value={schiedsrichterPayload?.payment ?? NaN}
         onChange={handlePaymentChange}
@@ -111,7 +89,7 @@ export function FormSchiedsrichterSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <Label className={FIELD_LABEL}>Entschädigung</Label>
+        <FieldLabel path="schiedsrichter.payment">Entschädigung</FieldLabel>
         <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
           <NumberField.DecrementButton />
           <NumberField.Input className="fluid-sm w-full py-0" />
@@ -119,6 +97,6 @@ export function FormSchiedsrichterSection({
         </NumberField.Group>
         <FieldError className={FIELD_ERROR} />
       </NumberField>
-    </InlineCreateAutocomplete>
+    </div>
   );
 }

@@ -1,9 +1,9 @@
 /**
- * SPIELE · Enter-key guards for the nested match form
+ * SPIELE · the Enter-key guard for the nested match form
  *
  * `AdminEditSpielDataForm` nests controls inside a `<Form action>`, where Enter would otherwise
- * trigger the browser's implicit submit. These two handlers are the single definition of that guard;
- * one definition serves all six sites that need it.
+ * trigger the browser's implicit submit. This is the single definition of that guard, and it serves
+ * every site in the form that needs it.
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -24,9 +24,8 @@ import type { KeyboardEvent } from "react";
  *   deliberately not exempt: there Enter would fall through to the browser's implicit form
  *   submission, which is exactly what this guard exists to stop.)
  *
- * Without this exemption, Enter on "Abbrechen" inside the inline-create form submitted the draft
- * instead of cancelling, and Enter could not open the Autocomplete triggers at all — a keyboard
- * trap the original per-site copies shared.
+ * Without this exemption, Enter could not open the Autocomplete triggers at all — a keyboard trap the
+ * original per-site copies shared.
  */
 const handlesEnterItself = (e: KeyboardEvent) =>
   e.target instanceof Element && e.target.closest('button, textarea, [role="combobox"][aria-expanded="true"]') !== null;
@@ -43,16 +42,4 @@ export const suppressEnterSubmit = (e: KeyboardEvent) => {
   if (e.key !== "Enter" || handlesEnterItself(e)) return;
   e.preventDefault();
   e.stopPropagation();
-};
-
-/**
- * The inline-create variant: swallows Enter exactly as above, then submits the **inline draft**.
- * The suppression happens first and unconditionally for non-exempt targets, so Enter can never
- * reach the parent form.
- */
-export const submitInlineOnEnter = (e: KeyboardEvent, submit: () => void) => {
-  if (e.key !== "Enter" || handlesEnterItself(e)) return;
-  e.preventDefault();
-  e.stopPropagation();
-  submit();
 };

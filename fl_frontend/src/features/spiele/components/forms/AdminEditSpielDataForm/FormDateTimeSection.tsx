@@ -1,8 +1,9 @@
-import { Calendar, DateField, DatePicker, FieldError, Label, TimeField } from "@heroui/react";
+import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
 
-import { FIELD_ERROR, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
+import { FieldLabel } from "./FieldLabel";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { CalendarDate, Time } from "@internationalized/date";
@@ -47,7 +48,7 @@ export function FormDateTimeSection({
         onBlur={() => onValidateFields(["datum"])}
         name="datum"
         className="w-full">
-        <Label className={FIELD_LABEL}>Spieldatum</Label>
+        <FieldLabel path="datum">Spieldatum</FieldLabel>
         <DateField.Group
           fullWidth
           className="border-border bg-surface text-foreground rounded-lg border">
@@ -100,7 +101,7 @@ export function FormDateTimeSection({
         value={uhrzeit}
         onChange={onUhrzeitChange}
         onBlur={() => onValidateFields(["uhrzeit"])}>
-        <Label className={FIELD_LABEL}>Anpfiff</Label>
+        <FieldLabel path="uhrzeit">Anpfiff</FieldLabel>
         <TimeField.Group className="border-border bg-surface text-foreground rounded-lg border">
           <TimeField.Input className="fluid-sm">
             {(segment) => (

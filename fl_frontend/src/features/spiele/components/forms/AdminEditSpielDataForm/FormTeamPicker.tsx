@@ -3,11 +3,13 @@
 import { Autocomplete, Description, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
 
 import { formatQuelle, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
+import { Callout } from "@/shared/components/ui/Callout";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { PHASE_LABELS } from "../../ui/SaisonPhaseChip";
+import { FieldLabel } from "./FieldLabel";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
@@ -202,6 +204,23 @@ export function FormTeamPicker({
 
   const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
 
+  /**
+   * The Manuell warning is GRADED, and the grading is arithmetic rather than taste.
+   *
+   * ADR-0042's migration left matches 25–28 — all four quarter-finals — with `null` on both sides, so
+   * eight of the fourteen knockout sides that render this control are "Manuell" today without anybody
+   * having chosen it. A single severe callout keyed on the state would therefore be red on the majority
+   * of sides, permanently, from first paint: the "dismissed unread by the second week" failure ADR-0048
+   * names when it refuses a confirmation dialog.
+   *
+   * So the standing fact gets a standing note — those eight sides really are maintained by nobody, and
+   * that has been invisible until now — and the ACT of taking a maintained side over gets the loud,
+   * announced one. Owner's decision, 2026-08-06.
+   */
+  const storedQuelle = fieldName === "team1" ? spielData.team1_quelle : spielData.team2_quelle;
+  const isManual = isKnockout && quelle === null;
+  const hasJustBeenTakenOver = isManual && storedQuelle !== null;
+
   const handleTeamSelection = (key: Key | null) => {
     // Three routes reach the same state, and they are one branch: the list entry, the trigger's clear
     // button (which reports `null`), and an Autocomplete that never had a selection.
@@ -282,7 +301,7 @@ export function FormTeamPicker({
       value={teamPayload?.team_id ?? null}
       onChange={handleTeamSelection}
       disabledKeys={disabledTeamId ? [disabledTeamId] : []}>
-      <Label className={FIELD_LABEL}>{isKnockout ? `${label}: Mannschaft` : label}</Label>
+      <FieldLabel path={`${fieldName}.team_id`}>{isKnockout ? `${label}: Mannschaft` : label}</FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
         <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
         {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. */}
@@ -356,7 +375,7 @@ export function FormTeamPicker({
         selectionMode="single"
         value={choice}
         onChange={handleChoiceSelection}>
-        <Label className={FIELD_LABEL}>{label}: Herkunft</Label>
+        <FieldLabel path={`${fieldName}_quelle`}>{label}: Herkunft</FieldLabel>
         <Autocomplete.Trigger className={FIELD_TRIGGER}>
           {/* Rendered from `choice`, NOT from the collection — the same call `SaisonSelector` makes,
               for a neighbouring reason. `Autocomplete.Value` is react-aria's `SelectValue`, which
@@ -518,6 +537,30 @@ export function FormTeamPicker({
           <Description className="fluid-xxs text-foreground-muted">Nur frühere Runden, noch nicht anderweitig vergeben.</Description>
           <FieldError className={FIELD_ERROR} />
         </Autocomplete>
+      )}
+
+      {/* The loud half: the admin has just taken a maintained side over, so the consequence is reported
+          as an event. It states what stops happening and deliberately does NOT claim other fixtures are
+          affected — clearing a source changes this slot's own maintenance and nothing else (ADR-0042). */}
+      {hasJustBeenTakenOver && (
+        <Callout
+          severity="danger"
+          isAnnounced
+          title={`${label} wird nicht mehr vom System gepflegt`}>
+          Diese Seite füllt normalerweise das System — aus dem Sieger eines Spiels oder einem Gruppenplatz. Manuell gesetzt bleibt sie stehen,
+          wie Du sie einträgst: kein späteres Ergebnis korrigiert sie mehr.
+        </Callout>
+      )}
+
+      {/* The quiet half: a side that was already manual before this edit. It is the truth about eight of
+          the fourteen knockout sides in season 2026 and it has been invisible, but nobody did it just
+          now, so it is a note rather than an alarm. */}
+      {isManual && !hasJustBeenTakenOver && (
+        <Callout
+          severity="info"
+          title="Diese Seite pflegt das System nicht">
+          Sie hat keine Herkunft, bleibt also so stehen, wie sie hier eingetragen ist.
+        </Callout>
       )}
 
       {choice === "manuell" ? (
