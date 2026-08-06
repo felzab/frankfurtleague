@@ -26,12 +26,16 @@ export function FormCancelSection({
   spielIsCanceled,
   onSpielIsCanceledChange,
   dependentSpiele,
+  hasDecidedErgebnis,
 }: {
   spielData: FLSpiel;
   spielIsCanceled: boolean;
   onSpielIsCanceledChange: (value: boolean) => void;
   /** Fixtures whose occupants this one's result decides — the form's own derivation, reused here. */
   dependentSpiele: readonly FLSpiel[];
+  /** The draft carries a decided (non-draw) score — the form computes it once for this callout
+   * and the rail's mirror alike. */
+  hasDecidedErgebnis: boolean;
 }) {
   const styles = formPanel({ tone: "danger" });
 
@@ -105,6 +109,17 @@ export function FormCancelSection({
             title="Dieses KO-Spiel speist andere Spiele">
             Ohne seinen Ausgang {dependentSpiele.length === 1 ? `bleibt Spiel ${dependentNummern}` : `bleiben die Spiele ${dependentNummern}`}{" "}
             und die Runden darunter unbesetzt.
+          </Callout>
+        )}
+
+        {/* Legal — a Wertung is entered exactly like this — but also the shape a mistaken
+            cancellation takes, so a warning rather than silence or a refusal. Standing, not
+            announced: it describes the combination, not the flip the admin just made. */}
+        {spielIsCanceled && hasDecidedErgebnis && (
+          <Callout
+            severity="warning"
+            title="Abgesagt, aber mit entschiedenem Ergebnis">
+            Das kann beabsichtigt sein, etwa bei einer Wertung. Das Ergebnis zählt weiter für die Tabelle.
           </Callout>
         )}
       </div>

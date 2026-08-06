@@ -10,7 +10,6 @@ import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { COUNT_BADGE, LABEL_BADGE } from "./badges";
 import { DraftChangeList, operationOf } from "./DraftChangeList";
 import { useDraftStatus } from "./DraftStatusContext";
-import { FormVoidWarning } from "./FormVoidWarning";
 import { RailSection } from "./RailSection";
 import { SpielDraftPreview } from "./SpielDraftPreview";
 
@@ -56,15 +55,47 @@ export function DraftRail({
 }) {
   const status = useDraftStatus();
 
-  // Per severity, because the card's badges count per colour (owner, sixth review): the void
-  // warning is a warning, the cancelled note is informational, and the mirrored form banners bring
-  // their own grade.
+  // ONE list, then one sort: the card's own two banners join the form's mirrored ones, and the
+  // whole set renders ranked by severity — danger first, informational last (owner, eighth review).
+  const banners: RailBanner[] = [...extraBanners];
+
+  // The note a fixture carries when saving it can clear a result somebody entered elsewhere
+  // (ADR-0048): the resolution cascades, so it names the direct dependents and then says "and the
+  // fixtures below them" — naming only the direct ones would read as the complete list, and it is
+  // not. German puts "und" before the last item with no serial comma; the runtime knows that.
+  if (dependentSpiele.length > 0) {
+    const spielNummern = new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(
+      dependentSpiele.map((spiel) => String(spiel.spiel_nr)),
+    );
+    banners.push({
+      severity: "warning",
+      title:
+        dependentSpiele.length === 1
+          ? `Spiel ${spielNummern} ist von diesem Spiel abhängig`
+          : `Die Spiele ${spielNummern} sind von diesem Spiel abhängig`,
+      body: "Speichern kann dort und in den Spielen darunter ein eingetragenes Ergebnis löschen.",
+    });
+  }
+
+  // A standing fact, so informational — and one sentence: what a reschedule needs becomes visible
+  // by itself the moment the Absage switch goes off (owner, fourth review).
+  if (previewSpiel.is_canceled) {
+    banners.push({
+      severity: "info",
+      title: "Dieses Spiel ist abgesagt",
+      body: "Es erscheint überall als abgesagt und wird nicht mehr angemahnt.",
+    });
+  }
+
+  const SEVERITY_RANK: Record<RailBanner["severity"], number> = { danger: 0, warning: 1, info: 2 };
+  const sortedBanners = [...banners].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+
   const bannerBySeverity = {
-    danger: extraBanners.filter((banner) => banner.severity === "danger").length,
-    warning: (dependentSpiele.length > 0 ? 1 : 0) + extraBanners.filter((banner) => banner.severity === "warning").length,
-    info: (previewSpiel.is_canceled ? 1 : 0) + extraBanners.filter((banner) => banner.severity === "info").length,
+    danger: banners.filter((banner) => banner.severity === "danger").length,
+    warning: banners.filter((banner) => banner.severity === "warning").length,
+    info: banners.filter((banner) => banner.severity === "info").length,
   };
-  const bannerCount = bannerBySeverity.danger + bannerBySeverity.warning + bannerBySeverity.info;
+  const bannerCount = banners.length;
 
   // Controlled, because the count moves it: shut when the last banner clears, open when one arrives.
   // Only the TRANSITION drives it — in between, the state is the admin's own toggle. Desktop starts
@@ -111,29 +142,14 @@ export function DraftRail({
         {bannerCount === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">Keine Hinweise.</p>
         ) : (
-          <>
-            <FormVoidWarning dependentSpiele={dependentSpiele} />
-
-            {/* A standing fact, so not announced — and one sentence: what a reschedule needs becomes
-                visible by itself the moment the Absage switch goes off, so saying it here was the
-                page explaining what it already shows (owner, fourth review). */}
-            {previewSpiel.is_canceled && (
-              <Callout
-                severity="info"
-                title="Dieses Spiel ist abgesagt">
-                Es erscheint überall als abgesagt und wird nicht mehr angemahnt.
-              </Callout>
-            )}
-
-            {extraBanners.map((banner) => (
-              <Callout
-                key={banner.title}
-                severity={banner.severity}
-                title={banner.title}>
-                {banner.body}
-              </Callout>
-            ))}
-          </>
+          sortedBanners.map((banner) => (
+            <Callout
+              key={banner.title}
+              severity={banner.severity}
+              title={banner.title}>
+              {banner.body}
+            </Callout>
+          ))
         )}
       </RailSection>
 

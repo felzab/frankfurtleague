@@ -438,9 +438,13 @@ export function FormTeamPicker({
                 textValue={item.key === recommendedChoice ? `${item.label} (empfohlen)` : item.label}
                 className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                 {/* Success-tinted, not brand: brand text on a brand tint was the least readable chip
-                    on the page (owner, fifth review), and a recommendation is a positive signal. */}
-                {item.label}
-                {item.key === recommendedChoice && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Empfohlen</span>}
+                    on the page (owner, fifth review), and a recommendation is a positive signal.
+                    `ml-auto`, like every list chip — two lists parking the same chip in two places
+                    read as two designs (owner, eighth review). */}
+                <span className="min-w-0 truncate">{item.label}</span>
+                {item.key === recommendedChoice && (
+                  <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>
+                )}
               </ListBox.Item>
             ))}
           </ListBox>

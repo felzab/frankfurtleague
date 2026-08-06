@@ -66,52 +66,49 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
     );
 
   return (
-    // No bottom padding, unlike the sibling pages: this page ends in a bar that is sticky to the
-    // scroll container's bottom edge, and `pb-12` put 48px of page below it — so at the end of the
-    // scroll the bar rose off the edge by exactly that much (owner, fourth review). The bar's own
-    // padding is the page's bottom spacing.
-    <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center px-4 pt-6 sm:px-8`}>
-      {/* `max-w-page`, the cap every dashboard page uses — this page sat at `max-w-toolbar` (1200px)
-          and was the odd one out, 200px narrower than the pages beside it. */}
-      <div className="max-w-page flex w-full flex-col">
-        {/* The app's back control, copied from `TeamSpielerView` and `TeamDetailsView` rather than
-            re-invented: those two are also detail pages reached from several places, and they answer it
-            with history rather than a named destination for exactly that reason. This page previously
-            hardcoded "Zu den offenen Aufgaben", which is wrong from the Spielsuche, wrong from a
-            bookmark, and wrong from anywhere FE-12 later links in from. */}
-        <Button
-          onPress={() => requestLeaveRef.current()}
-          className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
-          <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
-          <span>Zurück</span>
-        </Button>
+    // Fills `main` exactly, and owns no padding: the form inside is the page's shell — an inner
+    // container scrolls the header and panels, and the action bar stays pinned below it, outside
+    // the scroll content, where nothing can move it (owner, eighth review). The page paddings and
+    // the `max-w-page` cap live in the form's scroll container.
+    <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
+      <AdminEditSpielDataForm
+        spielData={spielData}
+        teams={teams}
+        spielorte={spielorte}
+        schiedsrichter={schiedsrichter}
+        saisonSpiele={saisonSpiele}
+        today={today}
+        categorize={categorize}
+        registerRequestLeave={(requestLeave) => {
+          requestLeaveRef.current = requestLeave;
+        }}
+        pageHeader={
+          <>
+            {/* The app's back control, copied from `TeamSpielerView` and `TeamDetailsView` rather
+                than re-invented: those two are also detail pages reached from several places, and
+                they answer it with history rather than a named destination for exactly that reason. */}
+            <Button
+              onPress={() => requestLeaveRef.current()}
+              className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+              <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
+              <span>Zurück</span>
+            </Button>
 
-        <header className="mb-6 flex w-full flex-col gap-y-1">
-          <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
-            {/* `fluid-2xl`, one step above the `fluid-xl` the other pages use, and deliberately so:
-                on those pages the title tops a single card or grid, while here it has to outrank four
-                `fluid-base` panel titles and a rail of them — at `fluid-xl` it differed from a panel
-                title in nothing but a few pixels of size, which is one axis short of a hierarchy. */}
-            <h1 className="fluid-2xl text-foreground font-extrabold tracking-tight">Spiel {spielData.spiel_nr}</h1>
-            <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
-          </div>
-          {/* One sentence. The second ("the preview shows…") explained a card that explains itself. */}
-          <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
-        </header>
-
-        <AdminEditSpielDataForm
-          spielData={spielData}
-          teams={teams}
-          spielorte={spielorte}
-          schiedsrichter={schiedsrichter}
-          saisonSpiele={saisonSpiele}
-          today={today}
-          categorize={categorize}
-          registerRequestLeave={(requestLeave) => {
-            requestLeaveRef.current = requestLeave;
-          }}
-        />
-      </div>
+            <header className="mb-6 flex w-full flex-col gap-y-1">
+              <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
+                {/* `fluid-2xl`, one step above the `fluid-xl` the other pages use, and deliberately
+                    so: on those pages the title tops a single card or grid, while here it has to
+                    outrank four `fluid-base` panel titles and a rail of them — at `fluid-xl` it
+                    differed from a panel title in nothing but a few pixels of size. */}
+                <h1 className="fluid-2xl text-foreground font-extrabold tracking-tight">Spiel {spielData.spiel_nr}</h1>
+                <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
+              </div>
+              {/* One sentence. The second ("the preview shows…") explained a card that explains itself. */}
+              <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
+            </header>
+          </>
+        }
+      />
     </div>
   );
 }

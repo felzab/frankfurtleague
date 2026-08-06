@@ -66,8 +66,8 @@ export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldSta
               return (
                 <li
                   key={field.path}
-                  className="fluid-xs flex w-full flex-row items-baseline gap-x-2">
-                  {field.label !== group && <span className="text-foreground-muted min-w-0 shrink-0 font-medium">{field.label}</span>}
+                  className="fluid-xs flex w-full flex-row items-center gap-x-2">
+                  {field.label !== group && <span className="text-foreground-muted min-w-0 shrink-0 font-medium">{field.label}:</span>}
                   {operation === "removed" ? (
                     <s className="text-foreground-muted min-w-0 truncate">{field.storedText}</s>
                   ) : (
@@ -77,7 +77,9 @@ export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldSta
                       its heading, the previous value under it — for a removal as well as for an
                       alteration, since "what did I just delete" is the question the row's
                       strikethrough answers only while it fits. */}
-                  <span className="ml-auto flex shrink-0">
+                  {/* `self-stretch items-end`: the icon's bottom pixel lands on the text box's
+                      bottom, by geometry rather than font metrics — see `InfoHint`. */}
+                  <span className="ml-auto flex shrink-0 items-end self-stretch">
                     <InfoHint
                       label={`${word}: ${field.label}`}
                       trigger={<Icon className={`size-3.5 ${cls}`} />}>

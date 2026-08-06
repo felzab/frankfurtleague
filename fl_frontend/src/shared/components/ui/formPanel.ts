@@ -40,10 +40,10 @@ export const formPanel = tv({
     root: "bg-surface border-border flex w-full flex-col rounded-2xl border shadow-sm",
     header: "border-border flex flex-col gap-y-0.5 rounded-t-2xl border-b p-4 sm:p-5",
     /** The title row: the heading plus its `InfoHint`, which carries the panel's explanation — a
-     * standing hint sentence under every title is the text weight ADR-0050 rules out.
-     * `items-baseline`, not `items-center`: the hint icon's bottom edge is its baseline, so this is
-     * what puts that bottom pixel on the title's text line at every size. */
-    headingRow: "flex w-full flex-row items-baseline gap-x-2",
+     * standing hint sentence under every title is the text weight ADR-0050 rules out. The hint
+     * aligns itself to the title's bottom by stretching to the row (see `InfoHint`), so the row
+     * needs no baseline arithmetic. */
+    headingRow: "flex w-full flex-row items-center gap-x-2",
     heading: "fluid-base text-foreground font-extrabold tracking-tight",
     body: "flex w-full flex-col gap-y-5 p-4 sm:p-5",
   },
