@@ -7,7 +7,7 @@
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
- *   • Every action body runs inside `runAdminAction`, which seeds the correlation-id request scope
+ *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
  *     and converts a thrown API error into the returned result -- a 409 must reach the form's toast,
  *     not the error page (docs/logging.md).
  *   • Every action begins with `getAdminSession()` and CHECKS the result.
@@ -23,7 +23,7 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
-import { runAdminAction } from "@/shared/utils/serverAction";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter } from "./mutations";
@@ -35,7 +35,7 @@ import type { FLDeleteSchiedsrichterPayload, FLPatchSchiedsrichterPayload, FLPos
 export async function postSchiedsrichterAction(
   rawPayload: FLPostSchiedsrichterPayload,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
-  return runAdminAction("postSchiedsrichterAction", async () => {
+  return runAdminMutation("postSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }
@@ -68,7 +68,7 @@ export async function postSchiedsrichterAction(
 export async function patchSchiedsrichterAction(
   rawPayload: FLPatchSchiedsrichterPayload,
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
-  return runAdminAction("patchSchiedsrichterAction", async () => {
+  return runAdminMutation("patchSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }
@@ -103,7 +103,7 @@ export async function patchSchiedsrichterAction(
 export async function deleteSchiedsrichterAction(
   rawPayload: FLDeleteSchiedsrichterPayload,
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {
-  return runAdminAction("deleteSchiedsrichterAction", async () => {
+  return runAdminMutation("deleteSchiedsrichterAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }

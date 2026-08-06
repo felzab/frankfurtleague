@@ -13,7 +13,7 @@ import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFi
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
-import { patchAdminSpielDataAction, undoAdminSpielEditAction } from "../../../actions";
+import { patchAdminSpielDataAction } from "../../../actions";
 import { applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele } from "../../../utils";
@@ -58,6 +58,38 @@ const UNDO_TIMEOUT_MS = 15000;
 /** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
 const joinGerman = (spielNummern: readonly number[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(spielNummern.map(String));
+
+/**
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0055).
+ *
+ * By the time the offer is pressed this component is unmounted and the browser is on another route,
+ * and a server action dispatched from there makes Next re-render the editor segment it still holds in
+ * the router tree — which raises Next's E592 invariant mid-stream and truncates the response to two
+ * bytes, so no result could be read and the write never happened. A route handler renders no page
+ * tree, so the invariant has nothing to fire on. **Revert this to the server action once E592 is
+ * fixed upstream**; the ADR names that as the condition.
+ *
+ * Nothing about the undo's design changes — same payloads, same order, same reported outcome. Only
+ * the transport does, so the caller's two branches below are unchanged.
+ */
+async function postSpielUndo(
+  payloads: FLPatchSpielDataPayload[],
+  saisonId: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const response = await fetch("/api/admin/spiele/undo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx here
+    // is a genuine transport or infrastructure failure and belongs in the rejection branch.
+    body: JSON.stringify({ payloads, saison_id: saisonId }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${String(response.status)}`);
+  }
+
+  return response.json() as Promise<{ success: boolean; message?: string; error?: string }>;
+}
 
 /**
  * The match editor's form: four panels, a sticky summary rail, and one derivation behind both.
@@ -549,7 +581,7 @@ export function AdminEditSpielDataForm({
    *   a closure whose tree is gone, the write lands and the screen does not move — which is
    *   indistinguishable from a button that does nothing. `router.refresh()` is the missing half, and
    *   the router instance is a stable singleton, so calling it from here is legal after unmount.
-   * - **A rejected promise has nowhere to surface.** `runAdminAction` converts an API failure into a
+   * - **A rejected promise has nowhere to surface.** `runAdminMutation` converts an API failure into a
    *   returned result, but a rejection before that — the action dispatch itself failing — would skip
    *   `.then` entirely and leave the press with no feedback at all. `.catch` is what stops "nothing
    *   happened" from ever being the honest description of a press.
@@ -578,8 +610,8 @@ export function AdminEditSpielDataForm({
           // The TWO-ARGUMENT form, and that is the fix rather than a style choice. A trailing
           // `.catch` also catches anything the SUCCESS handler throws, so a restore that had already
           // committed reported itself as "could not be sent" — the transport blamed for a failure
-          // downstream of it. A rejection handler passed here runs only for the action call.
-          void undoAdminSpielEditAction(payloads, spielData.saison_id).then(
+          // downstream of it. A rejection handler passed here runs only for the request.
+          void postSpielUndo(payloads, spielData.saison_id).then(
             (result) => {
               appToast.close(pendingKey);
               if (!result.success) {

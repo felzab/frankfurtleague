@@ -7,7 +7,7 @@
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
- *   • Every action body runs inside `runAdminAction`, which seeds the correlation-id request scope
+ *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
  *     and converts a thrown API error into the returned result -- a 409 must reach the form's toast,
  *     not the error page (docs/logging.md).
  *   • Every action begins with `getAdminSession()` and CHECKS the result. It neither throws nor
@@ -24,7 +24,7 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
-import { runAdminAction } from "@/shared/utils/serverAction";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort } from "./mutations";
@@ -36,7 +36,7 @@ import type { FLDeleteSpielortPayload, FLPatchSpielortPayload, FLPostSpielortPay
 export async function postSpielortAction(
   rawPayload: FLPostSpielortPayload,
 ): Promise<{ success: boolean; created_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
-  return runAdminAction("postSpielortAction", async () => {
+  return runAdminMutation("postSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }
@@ -65,7 +65,7 @@ export async function postSpielortAction(
 export async function patchSpielortAction(
   rawPayload: FLPatchSpielortPayload,
 ): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
-  return runAdminAction("patchSpielortAction", async () => {
+  return runAdminMutation("patchSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }
@@ -100,7 +100,7 @@ export async function patchSpielortAction(
 export async function deleteSpielortAction(
   rawPayload: FLDeleteSpielortPayload,
 ): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {
-  return runAdminAction("deleteSpielortAction", async () => {
+  return runAdminMutation("deleteSpielortAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }

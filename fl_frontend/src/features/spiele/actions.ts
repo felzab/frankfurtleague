@@ -23,7 +23,7 @@
  *     call as the admin's own view and no per-match tag is wanted here (ADR-0001, ADR-0042).
  *   • Every action here starts with `getAdminSession()` and checks its return value — it neither
  *     throws nor redirects.
- *   • The action body runs inside `runAdminAction`, which seeds the correlation-id request scope
+ *   • The action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
  *     and converts a thrown API error into the returned result -- a 409 must reach the form's toast,
  *     not the error page (docs/logging.md).
  *
@@ -33,11 +33,8 @@
  */
 import { updateTag } from "next/cache";
 
-import z from "zod";
-
 import { getAdminSession } from "@/core/auth";
-import { logger } from "@/core/logging";
-import { runAdminAction } from "@/shared/utils/serverAction";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
@@ -53,7 +50,7 @@ import type { FormState } from "@/shared/types/types";
  * `patchSpielortAction` and the rest of the admin write path.
  */
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<NonNullable<FormState>> {
-  return runAdminAction("patchAdminSpielDataAction", async () => {
+  return runAdminMutation("patchAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }
@@ -123,7 +120,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
  * the question could not be answered.
  */
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<NonNullable<FormState>> {
-  return runAdminAction("previewAdminSpielDataAction", async () => {
+  return runAdminMutation("previewAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }
@@ -142,73 +139,5 @@ export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<
       voidedFixtures: preview.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: preview.released_sides.map((released) => released.spiel_nr),
     };
-  });
-}
-
-/**
- * Puts a batch of fixtures back the way they were, in the order given (ADR-0051).
- *
- * **What the undo toast calls.** The edited fixture's pre-edit payload comes first, so the resolution
- * it triggers restores the occupants downstream; each fixture whose result that save destroyed follows,
- * so its scoreline goes back after the bracket has stopped moving under it. The reverse order would
- * have the resolution clear what the previous request had just restored.
- *
- * **The client holds every payload**, because nothing on the server does: no admin write is recorded
- * anywhere (roadmap BE-15), so a fixture's previous state exists only in the page that was looking at
- * it. That is what bounds this undo to one page session rather than making it a history feature.
- *
- * Stops at the first failure and says how far it got. A partial restore is a worse state than either
- * end of it, so the message names the fixtures that did not make it back rather than reporting a
- * success that is not one.
- */
-export async function undoAdminSpielEditAction(rawPayloads: unknown, rawSaisonId: unknown): Promise<NonNullable<FormState>> {
-  return runAdminAction("undoAdminSpielEditAction", async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: "Access Denied: Admin privileges missing" };
-    }
-
-    const validated = z.array(FLPatchSpielDataPayloadSchema).nonempty().safeParse(rawPayloads);
-    if (!validated.success) {
-      return { success: false, error: "Die Rücknahme konnte nicht ausgeführt werden." };
-    }
-
-    let restored = 0;
-    for (const payload of validated.data) {
-      const operation = await patchAdminSpielData(payload);
-      if (!operation.acknowledged) {
-        // The tags below are deliberately NOT invalidated on this path: some fixtures were written and
-        // some were not, so the caches are stale either way and the admin is being sent to look at the
-        // fixtures by hand. Reporting the count is the point — a partial restore is a worse state than
-        // either end of it.
-        return {
-          success: false,
-          error: `Die Rücknahme wurde nach ${restored} von ${validated.data.length} Spielen abgebrochen. Bitte prüfe die betroffenen Spiele.`,
-        };
-      }
-      restored += 1;
-    }
-
-    // Identical to the save's invalidation, and for the identical reason: an undo is a write.
-    //
-    // Guarded, which the save does not need to be. Every fixture above is already committed by the
-    // time this runs, so an invalidation that throws must not turn a restore that HAPPENED into a
-    // reported failure — the admin would go looking for work that was already done. It is the same
-    // rule this module already applies to a failed season-id parse, one line down: an admin's work is
-    // never rejected over a cache concern. The cost of swallowing it is a stale read, and the caller
-    // refreshes the router itself.
-    try {
-      updateTag("spiele");
-      updateTag("teams");
-
-      const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
-      if (saisonId.success) {
-        updateTag(`spiele:saison_id:${saisonId.data}`);
-        updateTag(`teams:saison_id:${saisonId.data}`);
-      }
-    } catch (invalidationError) {
-      logger.warn("Undo committed but cache invalidation failed", { error_code: "FE-ACT-002", error: String(invalidationError) });
-    }
-
-    return { success: true, message: "Die Änderung wurde zurückgenommen." };
   });
 }

@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `f3e9a78`, 2026-08-06
+**Verified against:** `2893522`, 2026-08-06
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
@@ -165,15 +165,17 @@ Frontend codes (`fl_frontend/src/core/errors.ts`, plus the call sites named):
 | `FE-API-002`    | The API answered with an unparseable or schema-violating body (`APIMalformedDataError`)                |
 | `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes)            |
 | `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`     |
-| `FE-ACT-001`    | A server action threw something that is not a typed API error (`shared/utils/serverAction.ts`)         |
+| `FE-ACT-001`    | An admin mutation threw something that is not a typed API error (`shared/utils/adminMutation.ts`)      |
 | `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write (ADR-0051)   |
 | `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                     |
 | `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                      |
 | `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`src/app/api/client-error/route.ts`)           |
 
-**A server action never lets a typed API error escape.** `runAdminAction` logs the failure with its
-codes and returns the `FormState` the form toasts — a 409 is an ordinary outcome of a create
+**An admin mutation never lets a typed API error escape.** `runAdminMutation` logs the failure with
+its codes and returns the `FormState` the caller toasts — a 409 is an ordinary outcome of a create
 (ADR-0032), and before this boundary existed it escalated past the toast into the whole error page.
+It wraps both entry points: the eight server actions and the undo route handler
+([ADR-0055](_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)).
 
 ## Finding an incident
 

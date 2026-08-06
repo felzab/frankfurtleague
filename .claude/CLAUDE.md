@@ -258,6 +258,7 @@ the ADR.
 | 0045 | Add a POST or a DELETE to `/spiele` — a season's fixtures are created once, then cancelled or moved |
 | 0047 | Store a bracket fault; report a placing that is merely undecided; let reporting one resolve it      |
 | 0053 | Style a toast from CSS beyond the two rules named there; call HeroUI's `toast` at a call site       |
+| 0055 | Move a second admin mutation to a route handler; revert the undo to an action before E592 is fixed  |
 
 ## 8. Documentation
 
