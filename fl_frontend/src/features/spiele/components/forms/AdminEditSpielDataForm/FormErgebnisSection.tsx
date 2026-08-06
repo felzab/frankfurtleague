@@ -147,8 +147,8 @@ export function FormErgebnisSection({
                 <strong>Ausschalten</strong> setzt das Ergebnis auf den gespeicherten Stand zurück.
               </li>
               <li>
-                Endet ein K.-o.-Spiel <strong>unentschieden</strong>, entscheidet ein Elfmeterschießen: der Sieger rückt im Turnierbaum weiter,
-                für die Tabelle bleibt es ein Unentschieden.
+                Endet ein KO-Spiel <strong>unentschieden</strong>, entscheidet ein Elfmeterschießen: der Sieger rückt im Turnierbaum weiter, für
+                die Tabelle bleibt es ein Unentschieden.
               </li>
             </ul>
           </InfoHint>
@@ -249,7 +249,7 @@ export function FormErgebnisSection({
                     value={value ?? NaN}
                     onChange={handleElfmeterChange(slot)}
                     onBlur={() => onValidateFields(ELFMETER_PATHS)}>
-                    <FieldLabel path={`elfmeterschiessen.${slot}`}>{name} — Treffer</FieldLabel>
+                    <FieldLabel path={`elfmeterschiessen.${slot}`}>{name}: Treffer</FieldLabel>
                     <NumberField.Group className={FIELD_GROUP}>
                       <NumberField.DecrementButton />
                       <NumberField.Input className={FIELD_COUNT_INPUT} />
@@ -274,7 +274,7 @@ export function FormErgebnisSection({
           ) : (
             <p className="fluid-sm text-brand font-extrabold tracking-wide">
               {team1Tore === team2Tore &&
-                `Unentschieden${elfmeterSiegerName === null ? "" : ` — ${elfmeterSiegerName} gewinnt im Elfmeterschießen`}`}
+                `Unentschieden${elfmeterSiegerName === null ? "" : `, ${elfmeterSiegerName} gewinnt im Elfmeterschießen`}`}
               {team1Tore > team2Tore && `Sieg für ${team1Name}`}
               {team2Tore > team1Tore && `Sieg für ${team2Name}`}
             </p>

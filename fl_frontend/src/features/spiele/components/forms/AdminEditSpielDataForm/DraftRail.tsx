@@ -8,7 +8,7 @@ import { Callout } from "@/shared/components/ui/Callout";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
 import { COUNT_BADGE, LABEL_BADGE } from "./badges";
-import { DraftChangeList } from "./DraftChangeList";
+import { DraftChangeList, operationOf } from "./DraftChangeList";
 import { useDraftStatus } from "./DraftStatusContext";
 import { FormVoidWarning } from "./FormVoidWarning";
 import { RailSection } from "./RailSection";
@@ -56,7 +56,15 @@ export function DraftRail({
 }) {
   const status = useDraftStatus();
 
-  const bannerCount = (dependentSpiele.length > 0 ? 1 : 0) + (previewSpiel.is_canceled ? 1 : 0) + extraBanners.length;
+  // Per severity, because the card's badges count per colour (owner, sixth review): the void
+  // warning is a warning, the cancelled note is informational, and the mirrored form banners bring
+  // their own grade.
+  const bannerBySeverity = {
+    danger: extraBanners.filter((banner) => banner.severity === "danger").length,
+    warning: (dependentSpiele.length > 0 ? 1 : 0) + extraBanners.filter((banner) => banner.severity === "warning").length,
+    info: (previewSpiel.is_canceled ? 1 : 0) + extraBanners.filter((banner) => banner.severity === "info").length,
+  };
+  const bannerCount = bannerBySeverity.danger + bannerBySeverity.warning + bannerBySeverity.info;
 
   // Controlled, because the count moves it: shut when the last banner clears, open when one arrives.
   // Only the TRANSITION drives it — in between, the state is the admin's own toggle.
@@ -73,6 +81,12 @@ export function DraftRail({
   const expectedRequired = status.expected.filter((field) => field.expectedSeverity === "required");
   const expectedRecommended = status.expected.filter((field) => field.expectedSeverity === "recommended");
 
+  // The change list's own split (sixth review): a removal is the critical kind of edit — it is the
+  // one most easily made by accident and least visible in a form — so it counts red; everything
+  // else counts yellow. `operationOf` is the same classifier the rows' icons use.
+  const changedCritical = status.changed.filter((field) => operationOf(field) === "removed").length;
+  const changedNormal = status.changed.length - changedCritical;
+
   return (
     <div className="flex w-full flex-col gap-y-4">
       <RailSection
@@ -80,13 +94,16 @@ export function DraftRail({
         isOpen={hinweiseOpen}
         onToggle={setHinweiseOpen}
         badge={
-          <span className={`${COUNT_BADGE} ${bannerCount > 0 ? "bg-warning/15 text-warning-strong" : "bg-success/15 text-success-strong"}`}>
-            {bannerCount}
+          <span className="pointer-events-none flex flex-row items-center gap-x-1">
+            {bannerBySeverity.info > 0 && <span className={`${COUNT_BADGE} bg-info/15 text-info-strong`}>{bannerBySeverity.info}</span>}
+            {bannerBySeverity.warning > 0 && (
+              <span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{bannerBySeverity.warning}</span>
+            )}
+            {bannerBySeverity.danger > 0 && <span className={`${COUNT_BADGE} bg-danger/15 text-danger-strong`}>{bannerBySeverity.danger}</span>}
+            {bannerCount === 0 && <span className={`${COUNT_BADGE} bg-success/15 text-success-strong`}>0</span>}
           </span>
         }
-        info={
-          <InfoHint label="Was die Hinweise bedeuten">Alle Warnungen zu diesem Spiel, gesammelt — auch die, die im Formular stehen.</InfoHint>
-        }>
+        info={<InfoHint label="Was die Hinweise bedeuten">Alle Warnungen zu diesem Spiel an einem Ort, auch die aus dem Formular.</InfoHint>}>
         {bannerCount === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">Keine Hinweise.</p>
         ) : (
@@ -121,7 +138,7 @@ export function DraftRail({
       <RailSection
         title="Vorschau"
         defaultOpenOnMobile={false}
-        info={<InfoHint label="Was die Vorschau zeigt">So erscheint das Spiel nach dem Speichern — mit allem, was Du gerade änderst.</InfoHint>}
+        info={<InfoHint label="Was die Vorschau zeigt">So erscheint das Spiel nach dem Speichern, mit allen aktuellen Änderungen.</InfoHint>}
         badge={status.isDirty ? <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>Nicht gespeichert</span> : undefined}>
         <SpielDraftPreview
           previewSpiel={previewSpiel}
@@ -136,13 +153,13 @@ export function DraftRail({
         title="Offene Angaben"
         info={
           <InfoHint label="Was offene Angaben sind">
-            <p>Was für dieses Spiel noch fehlt — ein Klick springt zum Feld.</p>
+            <p>Was für dieses Spiel noch fehlt. Ein Klick springt zum passenden Feld.</p>
             <ul>
               <li>
-                <strong>Rot</strong> — nötig, damit das Spiel stattfinden kann.
+                <strong>Rot:</strong> nötig, damit das Spiel stattfinden kann.
               </li>
               <li>
-                <strong>Gelb</strong> — empfohlen, aber nicht zwingend.
+                <strong>Gelb:</strong> empfohlen, aber nicht zwingend.
               </li>
             </ul>
           </InfoHint>
@@ -166,7 +183,7 @@ export function DraftRail({
         }>
         {status.expected.length === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">
-            {previewSpiel.is_canceled ? "Abgesagt — es wird nichts angemahnt." : "Alles ausgefüllt."}
+            {previewSpiel.is_canceled ? "Abgesagt. Es wird nichts angemahnt." : "Alles ausgefüllt."}
           </p>
         ) : (
           <ul className="flex w-full flex-col gap-y-1">
@@ -176,8 +193,19 @@ export function DraftRail({
                 sticky header needs. */}
             {[...expectedRequired, ...expectedRecommended].map((field) => (
               <li key={field.path}>
+                {/* The default fragment jump teleports; scrolling there keeps the admin oriented
+                    (owner, sixth review). `scrollIntoView` honours the wrapper's `scroll-mt-28`, and
+                    reduced-motion readers get the instant jump their setting asks for. The href
+                    stays, so the control remains a real link for every non-click activation. */}
                 <a
                   href={`#feld-${field.path}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    document.getElementById(`feld-${field.path}`)?.scrollIntoView({
+                      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+                      block: "start",
+                    });
+                  }}
                   className="fluid-xs text-foreground hover:text-brand flex flex-row items-center gap-x-1.5 font-bold transition-colors">
                   <ArrowRight
                     className={`size-3.5 shrink-0 ${field.expectedSeverity === "required" ? "text-danger-strong" : "text-warning-strong"}`}
@@ -196,7 +224,12 @@ export function DraftRail({
         defaultOpenOnMobile={false}
         info={<InfoHint label="Was die Änderungsliste zeigt">Alle noch nicht gespeicherten Änderungen, nach Abschnitt.</InfoHint>}
         badge={
-          status.changed.length > 0 ? <span className={`${COUNT_BADGE} bg-brand/15 text-brand-solid`}>{status.changed.length}</span> : undefined
+          status.changed.length > 0 ? (
+            <span className="pointer-events-none flex flex-row items-center gap-x-1">
+              {changedNormal > 0 && <span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{changedNormal}</span>}
+              {changedCritical > 0 && <span className={`${COUNT_BADGE} bg-danger/15 text-danger-strong`}>{changedCritical}</span>}
+            </span>
+          ) : undefined
         }>
         <DraftChangeList changed={status.changed} />
       </RailSection>

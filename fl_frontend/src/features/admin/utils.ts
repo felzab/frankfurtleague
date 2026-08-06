@@ -31,11 +31,11 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
   },
   besetzung_missing: {
     name: "Offene Besetzung",
-    desc: "K.-o.-Spiele mit einer Seite ohne Mannschaft und ohne Herkunft — sie wird von niemandem gepflegt",
+    desc: "KO-Spiele mit einer Seite ohne Mannschaft und ohne Herkunft. Diese Seite wird von niemandem gepflegt",
   },
   bracket_fault: {
     name: "Fehlerhafte Verweise",
-    desc: "K.-o.-Spiele, deren Herkunft sich nicht auflösen lässt — die Gründe stehen über den Karten",
+    desc: "KO-Spiele, deren Herkunft sich nicht auflösen lässt. Die Gründe stehen über den Karten",
   },
   datum_missing: { name: "Fehlendes Datum", desc: "Spiele ohne eingetragenes Datum" },
   uhrzeit_missing: { name: "Fehlende Uhrzeit", desc: "Spiele ohne eingetragene Uhrzeit" },

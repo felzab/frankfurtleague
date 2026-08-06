@@ -1,27 +1,41 @@
 "use client";
 
+import { Pencil, Plus, Xmark } from "@gravity-ui/icons";
+
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 
 import type { FLSpielFieldGroup, FLSpielFieldStatus } from "@/features/spiele/draftStatus";
 
 /**
+ * What kind of edit a changed field carries. Read off the two formatted values, so every surface
+ * that classifies an edit — the row icons, the two count badges — answers from one function.
+ */
+export type DraftOperation = "added" | "removed" | "altered";
+
+export const operationOf = (field: FLSpielFieldStatus): DraftOperation =>
+  field.storedText === null ? "added" : field.draftText === null ? "removed" : "altered";
+
+const OPERATION_PRESENTATION: Record<DraftOperation, { icon: typeof Plus; cls: string; word: string }> = {
+  added: { icon: Plus, cls: "text-success-strong", word: "Neu eingetragen" },
+  removed: { icon: Xmark, cls: "text-danger-strong", word: "Entfernt" },
+  altered: { icon: Pencil, cls: "text-warning-strong", word: "Geändert" },
+};
+
+/**
  * Every unsaved edit, one line each, sectioned by the panel the field renders in.
  *
- * **This is the other half of the answer to "is that the old date or the new one?"** Each edited field
- * carries its own struck-through `vorher:` line, which answers it while you are in that field; this
- * answers it for the whole fixture before you commit, which is the moment the question actually matters.
+ * **A row is an operation icon, the field's label and the value as it will be saved** (owner, sixth
+ * review). The earlier rows spelled the transition out — label, struck old value, new value — and
+ * read as chaos once several accumulated; the icon now carries the WHAT (added, removed, altered)
+ * and the row carries only the result. The icon is a hover hint through the same mechanism as every
+ * info icon on the page: it names the operation and, for an alteration, the previous value. A
+ * removal shows the old value struck through, because a removal has no result to print.
  *
- * **One indicator, one line** (owner, fourth review). The first version spent two lines and three
- * signals per change — label, then `alt → neu` with a strikethrough AND an arrow AND a dash for
- * empty. The strikethrough alone already says "this is what it was", so the row is now
- * `Label  ~alt~  neu`, wrapping only when the values genuinely do not fit. An emptied value reads
- * "entfernt" in the danger grade, because "you emptied something that was filled" is the edit most
- * easily made by accident and the least visible in a form.
- *
- * **The sections come from the descriptor table, not from a mapping kept here.** Each field's `group`
- * is a column of its row in `draftStatus.ts`, so a future field lands in the right section by filling
- * its row. Each group sits in its own recessed box, which is what separates the sections at a glance
- * where a heading alone did not.
+ * **The sections come from the descriptor table, not from a mapping kept here.** Each field's
+ * `group` is a column of its row in `draftStatus.ts`, so a future field lands in the right section
+ * by filling its row. A row whose label IS its group name drops the label, so "Absage" is not said
+ * twice one line apart.
  */
 export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldStatus[] }) {
   if (changed.length === 0) {
@@ -44,19 +58,31 @@ export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldSta
           className="bg-muted/50 flex w-full flex-col gap-y-1.5 rounded-lg p-2.5">
           <h3 className={FORM_SECTION_HEADING}>{group}</h3>
           <ul className="flex w-full flex-col gap-y-1">
-            {fields.map((field) => (
-              <li
-                key={field.path}
-                className="fluid-xs flex w-full flex-row flex-wrap items-baseline gap-x-2">
-                {/* A row whose label IS its group name drops the label — "Absage / Absage Abgesagt"
-                    said the word twice one line apart (owner, fifth review). */}
-                {field.label !== group && <span className="text-foreground-muted min-w-0 font-medium">{field.label}</span>}
-                {field.storedText !== null && <s className="text-foreground-muted min-w-0 truncate">{field.storedText}</s>}
-                <span className={`min-w-0 font-bold ${field.draftText === null ? "text-danger-strong" : "text-foreground"}`}>
-                  {field.draftText ?? "entfernt"}
-                </span>
-              </li>
-            ))}
+            {fields.map((field) => {
+              const operation = operationOf(field);
+              const { icon: Icon, cls, word } = OPERATION_PRESENTATION[operation];
+
+              return (
+                <li
+                  key={field.path}
+                  className="fluid-xs flex w-full flex-row items-baseline gap-x-2">
+                  <InfoHint
+                    label={`${word}: ${field.label}`}
+                    trigger={<Icon className={`size-3.5 self-center ${cls}`} />}>
+                    <p>
+                      <strong>{word}.</strong>
+                      {operation === "altered" && <> Vorher: {field.storedText}</>}
+                    </p>
+                  </InfoHint>
+                  {field.label !== group && <span className="text-foreground-muted min-w-0 shrink-0 font-medium">{field.label}</span>}
+                  {operation === "removed" ? (
+                    <s className="text-foreground-muted min-w-0 truncate">{field.storedText}</s>
+                  ) : (
+                    <span className="text-foreground min-w-0 truncate font-bold">{field.draftText}</span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ))}

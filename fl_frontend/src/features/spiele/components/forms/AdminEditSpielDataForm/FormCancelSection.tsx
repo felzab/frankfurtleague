@@ -102,7 +102,7 @@ export function FormCancelSection({
         {breaksBracket && (
           <Callout
             severity="danger"
-            title="Dieses K.-o.-Spiel speist andere Spiele">
+            title="Dieses KO-Spiel speist andere Spiele">
             Ohne seinen Ausgang {dependentSpiele.length === 1 ? `bleibt Spiel ${dependentNummern}` : `bleiben die Spiele ${dependentNummern}`}{" "}
             und die Runden darunter unbesetzt.
           </Callout>

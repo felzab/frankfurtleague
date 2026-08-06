@@ -45,7 +45,20 @@ const withinRect = (rect: DOMRect, x: number, y: number): boolean =>
  * larger than the layout box and read as uneven space around the glyph (owner, fifth review). In an
  * `items-center` row the 20px box centres against the neighbouring text to the pixel.
  */
-export function InfoHint({ label, children }: { label: string; children: ReactNode }) {
+export function InfoHint({
+  label,
+  children,
+  trigger,
+}: {
+  label: string;
+  children: ReactNode;
+  /**
+   * Replaces the default info icon as the press-and-hover target — the change list's operation
+   * icons use this, so one hover mechanism serves every hint on the page instead of each surface
+   * growing its own (and its own oscillation bug).
+   */
+  trigger?: ReactNode;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   const triggerRef = useRef<HTMLElement | null>(null);
@@ -93,9 +106,13 @@ export function InfoHint({ label, children }: { label: string; children: ReactNo
       }}>
       <Popover.Trigger
         aria-label={label}
-        className="text-foreground-muted hover:text-brand inline-flex size-5 shrink-0 cursor-pointer items-center justify-center transition-colors"
+        className={
+          trigger
+            ? "inline-flex shrink-0 cursor-pointer items-center justify-center"
+            : "text-foreground-muted hover:text-brand inline-flex size-5 shrink-0 cursor-pointer items-center justify-center transition-colors"
+        }
         onMouseEnter={openFromHover}>
-        <CircleInfo className="size-5" />
+        {trigger ?? <CircleInfo className="size-5" />}
       </Popover.Trigger>
 
       <Popover.Content

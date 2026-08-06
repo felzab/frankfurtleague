@@ -253,8 +253,8 @@ export function AdminEditSpielDataForm({
     if (side.team !== null && !knockoutTeamIds.has(side.team.team_id)) {
       banners.push({
         severity: "warning",
-        title: `${side.team.name} ist nicht für die K.-o.-Runde qualifiziert`,
-        body: "Die Mannschaft steht in keinem anderen K.-o.-Spiel. Prüfe die Auswahl.",
+        title: `${side.team.name} ist nicht für diese Runde qualifiziert`,
+        body: "Laut Turnierbaum hat sich diese Mannschaft nicht für diese Runde qualifiziert. Prüfe die Auswahl.",
       });
     }
     return banners;
@@ -263,7 +263,7 @@ export function AdminEditSpielDataForm({
   if (isKnockout && spielIsCanceled && !spielData.is_canceled && dependentSpiele.length > 0) {
     extraBanners.push({
       severity: "danger",
-      title: "Dieses K.-o.-Spiel speist andere Spiele",
+      title: "Dieses KO-Spiel speist andere Spiele",
       body: "Ohne seinen Ausgang bleiben die davon abhängigen Spiele unbesetzt.",
     });
   }

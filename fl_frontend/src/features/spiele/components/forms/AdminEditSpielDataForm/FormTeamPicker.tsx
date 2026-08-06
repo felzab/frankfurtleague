@@ -370,18 +370,18 @@ export function FormTeamPicker({
               // because correcting a hand-run season may legitimately need it. The chip rides in
               // `textValue` too, so searching still finds the team and a screen reader hears why.
               const chip = item.is_disqualified
-                ? { text: "disqualifiziert", cls: "bg-danger/15 text-danger-strong" }
+                ? { text: "Disqualifiziert", cls: "bg-danger/15 text-danger-strong" }
                 : occupiedBy !== undefined
                   ? { text: `Schon in Spiel ${occupiedBy}`, cls: "bg-danger/15 text-danger-strong" }
                   : isKnockout && !knockoutTeamIds.has(item.id)
-                    ? { text: "nicht qualifiziert", cls: "bg-warning/15 text-warning-strong" }
+                    ? { text: "Nicht für diese Runde qualifiziert", cls: "bg-warning/15 text-warning-strong" }
                     : null;
 
               return (
                 <ListBox.Item
                   key={item.id}
                   id={item.id}
-                  textValue={chip === null ? item.name : `${item.name} — ${chip.text}`}
+                  textValue={chip === null ? item.name : `${item.name} (${chip.text})`}
                   className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
                   <span className="min-w-0 truncate">{item.name}</span>
                   {chip !== null && <span className={`${LABEL_BADGE} ml-auto shrink-0 ${chip.cls}`}>{chip.text}</span>}
@@ -435,12 +435,12 @@ export function FormTeamPicker({
                 id={item.key}
                 // The marker rides in `textValue` as well as in the visible row, so the trigger and a
                 // screen reader both read the recommendation rather than only sighted users of the list.
-                textValue={item.key === recommendedChoice ? `${item.label} — empfohlen` : item.label}
+                textValue={item.key === recommendedChoice ? `${item.label} (empfohlen)` : item.label}
                 className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                 {/* Success-tinted, not brand: brand text on a brand tint was the least readable chip
                     on the page (owner, fifth review), and a recommendation is a positive signal. */}
                 {item.label}
-                {item.key === recommendedChoice && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>empfohlen</span>}
+                {item.key === recommendedChoice && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Empfohlen</span>}
               </ListBox.Item>
             ))}
           </ListBox>
@@ -551,7 +551,15 @@ export function FormTeamPicker({
           }}>
           <Label className={FIELD_LABEL}>{quelle.ausgang === "sieger" ? "Sieger von" : "Verlierer von"}</Label>
           <Autocomplete.Trigger className={FIELD_TRIGGER}>
-            <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+            {/* Rendered from the draft, not from the collection: the default render prints the
+                selected item's children, chip included — and the recommendation chip belongs in the
+                LIST only (owner, sixth review). */}
+            <Autocomplete.Value className="fluid-sm min-w-0 truncate">
+              {() => {
+                const selected = feederSpiele.find((spiel) => spiel.spiel_nr === quelle.spiel_nr);
+                return selected ? describeFeeder(selected) : "";
+              }}
+            </Autocomplete.Value>
             <Autocomplete.Indicator />
           </Autocomplete.Trigger>
           <Autocomplete.Popover className={overlayPanel()}>
@@ -569,7 +577,7 @@ export function FormTeamPicker({
                     className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                     <span className="min-w-0 truncate">{describeFeeder(spiel)}</span>
                     {isDirectlyPrecedingRound(spiel, spielData) && (
-                      <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>empfohlen</span>
+                      <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>
                     )}
                   </ListBox.Item>
                 ))}
@@ -591,7 +599,7 @@ export function FormTeamPicker({
           severity="danger"
           isAnnounced={hasJustBeenTakenOver}
           title={`${label} pflegt das System nicht`}>
-          Ohne Herkunft bleibt diese Seite stehen, wie Du sie einträgst — kein Ergebnis korrigiert sie mehr.
+          Ohne Herkunft bleibt diese Seite so stehen, wie Du sie einträgst. Kein späteres Ergebnis ändert sie.
         </Callout>
       )}
 
@@ -602,8 +610,9 @@ export function FormTeamPicker({
       {isManual && teamPayload !== null && !knockoutTeamIds.has(teamPayload.team_id) && (
         <Callout
           severity="warning"
-          title={`${teamPayload.name} ist nicht für die K.-o.-Runde qualifiziert`}>
-          Die Mannschaft steht in keinem anderen K.-o.-Spiel. Prüfe die Auswahl.
+          title={`${teamPayload.name} ist nicht für diese Runde qualifiziert`}>
+          Laut Turnierbaum hat sich diese Mannschaft nicht für diese Runde qualifiziert. Prüfe vor dem Speichern, ob die Auswahl beabsichtigt
+          ist.
         </Callout>
       )}
 
