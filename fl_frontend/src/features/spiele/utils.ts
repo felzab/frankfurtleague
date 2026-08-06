@@ -205,6 +205,38 @@ export const collectSpieltagTeamOccupancy = (
 };
 
 /**
+ * Every team a knockout fixture of the season fields, excluding the fixture being edited.
+ *
+ * The client's honest proxy for "qualified for the knockout stage": a team standing in no bracket
+ * fixture at all has, as far as the stored season says, not advanced — and hand-picking it into a
+ * knockout slot deserves a warning. It is a proxy, not a derivation: re-deriving who SHOULD have
+ * advanced from the standings is exactly what ADR-0043 keeps out of the client, so this reads only
+ * what the bracket already holds. A warning, never a refusal — an admin correcting a hand-run
+ * season is allowed to know better.
+ */
+export const collectKnockoutTeamIds = (saisonSpiele: readonly FLSpiel[], editedSpielId: string): Set<string> => {
+  const teamIds = new Set<string>();
+
+  for (const spiel of saisonSpiele) {
+    if (spiel.id === editedSpielId || spiel.saison_phase === "gruppenphase") continue;
+    for (const side of [spiel.team1, spiel.team2]) {
+      if (side !== null) teamIds.add(side.team_id);
+    }
+  }
+
+  return teamIds;
+};
+
+/**
+ * Whether `feeder` plays in the round directly before `target`'s — the round a slot is ordinarily
+ * fed from (ADR-0042), and therefore the recommendation the feeder picker marks. The picker's list
+ * legitimately spans every earlier round; for a final that is quarter- AND semi-finals, and the
+ * chip is what says which of them the bracket ordinarily means.
+ */
+export const isDirectlyPrecedingRound = (feeder: Pick<FLSpiel, "saison_phase">, target: Pick<FLSpiel, "saison_phase">): boolean =>
+  PHASE_RANK[feeder.saison_phase] === PHASE_RANK[target.saison_phase] - 1;
+
+/**
  * The matches a slot of `target` may legally be fed by: knockout matches of the same season in a
  * strictly earlier round, in bracket order (ADR-0046).
  *

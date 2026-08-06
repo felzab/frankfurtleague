@@ -48,7 +48,9 @@ export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldSta
               <li
                 key={field.path}
                 className="fluid-xs flex w-full flex-row flex-wrap items-baseline gap-x-2">
-                <span className="text-foreground-muted min-w-0 font-medium">{field.label}</span>
+                {/* A row whose label IS its group name drops the label — "Absage / Absage Abgesagt"
+                    said the word twice one line apart (owner, fifth review). */}
+                {field.label !== group && <span className="text-foreground-muted min-w-0 font-medium">{field.label}</span>}
                 {field.storedText !== null && <s className="text-foreground-muted min-w-0 truncate">{field.storedText}</s>}
                 <span className={`min-w-0 font-bold ${field.draftText === null ? "text-danger-strong" : "text-foreground"}`}>
                   {field.draftText ?? "entfernt"}

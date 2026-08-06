@@ -15,7 +15,7 @@ import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarnin
 import { patchAdminSpielDataAction } from "../../../actions";
 import { applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
-import { listDependentSpiele } from "../../../utils";
+import { collectKnockoutTeamIds, listDependentSpiele } from "../../../utils";
 import { DraftRail } from "./DraftRail";
 import { DraftStatusProvider } from "./DraftStatusContext";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
@@ -39,6 +39,7 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 import type { CalendarDate, Time } from "@internationalized/date";
+import type { RailBanner } from "./DraftRail";
 
 /**
  * The match editor's form: four panels, a sticky summary rail, and one derivation behind both.
@@ -181,6 +182,15 @@ export function AdminEditSpielDataForm({
   const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories: categorize(previewSpiel), fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
+  // `hasSaved` exists to keep the guard quiet during the save's own navigation, where the draft
+  // still differs from the `spielData` this render was given. Its job ends the moment the
+  // revalidated fixture arrives and the two agree — left latched, every LATER edit on a restored
+  // tree read as not-dirty and both guards were bypassed, which is the "sometimes the discard
+  // dialog does not appear" the owner caught: it never appeared again after a save. A render-phase
+  // adjustment rather than an effect: React restarts this component's render before committing, so
+  // no frame ever shows the stale latch.
+  if (hasSaved && !status.isDirty) setHasSaved(false);
+
   useUnsavedChangesWarning(isDirty);
 
   // Ctrl+S / Cmd+S submits the form — the shortcut every editor an admin also uses has taught their
@@ -215,6 +225,48 @@ export function AdminEditSpielDataForm({
 
     return listDependentSpiele(saisonSpiele, spielData, gruppen);
   }, [saisonSpiele, spielData, teams]);
+
+  // Every team the bracket already fields — the client's proxy for "qualified for the knockout
+  // stage" (see `collectKnockoutTeamIds`). Read by the pickers for their warning chip, by the inline
+  // callout under a manual side, and by the rail banner below, so the three surfaces cannot disagree.
+  const knockoutTeamIds = useMemo(() => collectKnockoutTeamIds(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
+
+  /**
+   * The rail's mirror of every warning that appears inline somewhere in the form (owner, fifth
+   * review): a warning an admin scrolled past still has one place that lists it. Built from the same
+   * state the inline callouts read, so the two can never tell different stories.
+   */
+  const isKnockout = spielData.saison_phase !== "gruppenphase";
+  const extraBanners = [
+    { label: "Team 1", quelle: team1Quelle, team: team1Payload },
+    { label: "Team 2", quelle: team2Quelle, team: team2Payload },
+  ].flatMap((side): RailBanner[] => {
+    if (!isKnockout || side.quelle !== null) return [];
+
+    const banners: RailBanner[] = [
+      {
+        severity: "danger",
+        title: `${side.label} pflegt das System nicht`,
+        body: "Ohne Herkunft bleibt die Seite stehen, wie Du sie einträgst.",
+      },
+    ];
+    if (side.team !== null && !knockoutTeamIds.has(side.team.team_id)) {
+      banners.push({
+        severity: "warning",
+        title: `${side.team.name} ist nicht für die K.-o.-Runde qualifiziert`,
+        body: "Die Mannschaft steht in keinem anderen K.-o.-Spiel. Prüfe die Auswahl.",
+      });
+    }
+    return banners;
+  });
+
+  if (isKnockout && spielIsCanceled && !spielData.is_canceled && dependentSpiele.length > 0) {
+    extraBanners.push({
+      severity: "danger",
+      title: "Dieses K.-o.-Spiel speist andere Spiele",
+      body: "Ohne seinen Ausgang bleiben die davon abhängigen Spiele unbesetzt.",
+    });
+  }
 
   /**
    * Judges the named paths against the draft as it now stands. **For a control the user TYPES into,
@@ -345,6 +397,7 @@ export function AdminEditSpielDataForm({
               previewSpiel={previewSpiel}
               today={today}
               dependentSpiele={dependentSpiele}
+              extraBanners={extraBanners}
             />
           </div>
 
@@ -367,6 +420,7 @@ export function AdminEditSpielDataForm({
               spielData={spielData}
               saisonSpiele={saisonSpiele}
               teams={teams}
+              knockoutTeamIds={knockoutTeamIds}
               team1Payload={team1Payload}
               onTeam1Change={setTeam1Payload}
               team2Payload={team2Payload}

@@ -17,6 +17,14 @@ import { SpielDraftPreview } from "./SpielDraftPreview";
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 /**
+ * One warning the form also shows inline, mirrored into the rail's warnings card — the owner's rule
+ * (fifth review): a warning that appears anywhere on the page has a place in "Hinweise" too, so
+ * scrolling past it never means missing it. The FORM builds these from the same state its inline
+ * callouts read; this card only renders them.
+ */
+export type RailBanner = { severity: "info" | "warning" | "danger"; title: string; body: string };
+
+/**
  * Everything the editor says about the fixture as a whole, rather than about one field.
  *
  * **One column, and it is sticky from `xl` up.** That is also how the page's ragged bottom is fixed: a
@@ -36,16 +44,19 @@ export function DraftRail({
   previewSpiel,
   today,
   dependentSpiele,
+  extraBanners,
 }: {
   /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
   previewSpiel: FLSpiel;
   today: string;
   /** Fixtures whose occupants this one's result decides (ADR-0048). */
   dependentSpiele: readonly FLSpiel[];
+  /** The form's inline warnings, mirrored — see `RailBanner`. */
+  extraBanners: readonly RailBanner[];
 }) {
   const status = useDraftStatus();
 
-  const bannerCount = (dependentSpiele.length > 0 ? 1 : 0) + (previewSpiel.is_canceled ? 1 : 0);
+  const bannerCount = (dependentSpiele.length > 0 ? 1 : 0) + (previewSpiel.is_canceled ? 1 : 0) + extraBanners.length;
 
   // Controlled, because the count moves it: shut when the last banner clears, open when one arrives.
   // Only the TRANSITION drives it — in between, the state is the admin's own toggle.
@@ -69,12 +80,13 @@ export function DraftRail({
         isOpen={hinweiseOpen}
         onToggle={setHinweiseOpen}
         badge={
-          <span
-            className={`${COUNT_BADGE} ${bannerCount > 0 ? "bg-warning/15 text-warning-strong" : "bg-success-solid text-success-solid-foreground"}`}>
+          <span className={`${COUNT_BADGE} ${bannerCount > 0 ? "bg-warning/15 text-warning-strong" : "bg-success/15 text-success-strong"}`}>
             {bannerCount}
           </span>
         }
-        info={<InfoHint label="Was die Hinweise bedeuten">Warnungen zu diesem Spiel — was ein Speichern hier auslösen kann.</InfoHint>}>
+        info={
+          <InfoHint label="Was die Hinweise bedeuten">Alle Warnungen zu diesem Spiel, gesammelt — auch die, die im Formular stehen.</InfoHint>
+        }>
         {bannerCount === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">Keine Hinweise.</p>
         ) : (
@@ -91,6 +103,15 @@ export function DraftRail({
                 Es erscheint überall als abgesagt und wird nicht mehr angemahnt.
               </Callout>
             )}
+
+            {extraBanners.map((banner) => (
+              <Callout
+                key={banner.title}
+                severity={banner.severity}
+                title={banner.title}>
+                {banner.body}
+              </Callout>
+            ))}
           </>
         )}
       </RailSection>
@@ -131,12 +152,12 @@ export function DraftRail({
             {expectedRecommended.length > 0 && (
               <span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{expectedRecommended.length}</span>
             )}
+            {/* Tinted like every other badge — `/15` fill, `-strong` text (owner, fifth review):
+                the two solid-filled counts were the odd ones out and the least like their markers. */}
             {(expectedRequired.length > 0 || expectedRecommended.length === 0) && (
               <span
                 className={`${COUNT_BADGE} ${
-                  expectedRequired.length > 0
-                    ? "bg-danger-solid text-danger-solid-foreground"
-                    : "bg-success-solid text-success-solid-foreground"
+                  expectedRequired.length > 0 ? "bg-danger/15 text-danger-strong" : "bg-success/15 text-success-strong"
                 }`}>
                 {expectedRequired.length}
               </span>

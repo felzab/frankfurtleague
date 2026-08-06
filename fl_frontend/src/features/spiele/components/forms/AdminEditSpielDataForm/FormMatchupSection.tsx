@@ -32,6 +32,7 @@ export function FormMatchupSection({
   spielData,
   saisonSpiele,
   teams,
+  knockoutTeamIds,
   team1Payload,
   onTeam1Change,
   team2Payload,
@@ -47,6 +48,8 @@ export function FormMatchupSection({
   spielData: FLSpiel;
   saisonSpiele: FLSpiel[];
   teams: FLTeam[];
+  /** Teams the bracket already fields — the qualification proxy, computed by the form. */
+  knockoutTeamIds: ReadonlySet<string>;
   team1Payload: FLSpielTeamField | null;
   onTeam1Change: (payload: FLSpielTeamField | null) => void;
   team2Payload: FLSpielTeamField | null;
@@ -132,6 +135,7 @@ export function FormMatchupSection({
           saisonSpiele={saisonSpiele}
           usedQuelleKeys={usedQuelleKeys}
           spieltagOccupancy={spieltagOccupancy}
+          knockoutTeamIds={knockoutTeamIds}
           otherDraftQuelle={team2Quelle}
           onValidateSelection={onValidateSelection}
         />
@@ -151,6 +155,7 @@ export function FormMatchupSection({
           saisonSpiele={saisonSpiele}
           usedQuelleKeys={usedQuelleKeys}
           spieltagOccupancy={spieltagOccupancy}
+          knockoutTeamIds={knockoutTeamIds}
           otherDraftQuelle={team1Quelle}
           onValidateSelection={onValidateSelection}
         />

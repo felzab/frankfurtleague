@@ -53,11 +53,18 @@ export function SpielDraftPreview({
 
   return (
     <div className={`flex w-full flex-col gap-y-3 rounded-xl border p-3 ${isDirty ? "border-brand/50 bg-brand/5" : "border-border"}`}>
+      {/* The date and time read as one group on the left, the two chips as one group on the right —
+          all four in a single wrapping row left the chips floating mid-line wherever the text ended
+          (owner, fifth review). */}
       <div className="flex w-full flex-row flex-wrap items-center gap-2">
-        <span className="fluid-xs text-foreground font-bold">{datum}</span>
-        <span className="fluid-xs text-foreground-muted font-medium">{uhrzeit}</span>
-        <SpielStatusChip spielStatus={spielStatus} />
-        <SaisonPhaseChip saisonPhase={previewSpiel.saison_phase} />
+        <span className="flex min-w-0 flex-row items-baseline gap-x-2">
+          <span className="fluid-xs text-foreground font-bold">{datum}</span>
+          <span className="fluid-xs text-foreground-muted font-medium">{uhrzeit}</span>
+        </span>
+        <span className="ml-auto flex shrink-0 flex-row items-center gap-x-1.5">
+          <SpielStatusChip spielStatus={spielStatus} />
+          <SaisonPhaseChip saisonPhase={previewSpiel.saison_phase} />
+        </span>
       </div>
 
       {/* The equal-track grid every scoreline in the app uses: both 1fr columns resolve to the wider

@@ -380,9 +380,10 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     label: "Absage",
     expectedWhen: null,
     read: (source) => source.is_canceled,
-    // `null` for a fixture that is going ahead: the change list then reads an absage as "— → Abgesagt"
-    // and a withdrawn one as "Abgesagt → —", which is what happened in both directions.
-    format: (value: boolean) => (value ? "Abgesagt" : null),
+    // Both states have a word. `null` for the going-ahead state made a withdrawn absage read as an
+    // emptied value — "entfernt", in the danger grade — when what happened is the fixture going
+    // back on (owner, fifth review).
+    format: (value: boolean) => (value ? "Abgesagt" : "Angesetzt"),
   }),
 ];
 

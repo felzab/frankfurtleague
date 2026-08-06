@@ -46,46 +46,43 @@ export function ConfirmDiscardModal({
       size="confirm"
       role="alertdialog"
       icon={
-        <div className="bg-warning/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
-          <TriangleExclamation
-            className="text-warning-strong"
-            width={20}
-            height={20}
-          />
+        // `/15` and `-strong`, the same pairing every warning callout uses — the dialog's icon tile
+        // spoke a slightly different dialect (`/10`) than the rest of the page's warnings.
+        <div className="bg-warning/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
+          <TriangleExclamation className="text-warning-strong size-5" />
         </div>
       }>
-      <div className="flex w-full min-w-0 flex-col gap-4 px-3 pt-2">
+      {/* One padding rhythm for body and actions — the previous `px-3` body against `px-2` actions
+          left the dialog's left edge visibly ragged. */}
+      <div className="flex w-full min-w-0 flex-col px-1 pt-1">
         <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
-          {changeCount === 1 ? "Eine Änderung ist" : `${changeCount} Änderungen sind`} noch nicht gespeichert und{" "}
-          <strong className="text-foreground">{changeCount === 1 ? "geht" : "gehen"} verloren</strong>, wenn Du die Seite jetzt verlässt.
+          <strong className="text-foreground">{changeCount === 1 ? "Eine Änderung" : `${changeCount} Änderungen`}</strong>{" "}
+          {changeCount === 1 ? "ist" : "sind"} noch nicht gespeichert und {changeCount === 1 ? "geht" : "gehen"}{" "}
+          <strong className="text-foreground">verloren</strong>, wenn Du die Seite jetzt verlässt.
         </p>
-      </div>
 
-      {/* Stacked on a phone, side by side from `sm` up. Two `formButton`s at `px-6` carrying labels this
-          long cannot fit a `max-w-md` dialog in one row — that is what was overflowing. `w-full` on the
-          buttons while stacked, so neither ends up a different width from the other. */}
-      <div className="mt-8 flex w-full min-w-0 flex-col-reverse gap-3 px-2 sm:flex-row sm:items-center sm:justify-end">
-        {/* "Weiter bearbeiten" rather than "Abbrechen": on a dialog whose subject IS cancelling
-            something, "Abbrechen" is genuinely ambiguous about which thing it cancels. */}
-        <Button
-          type="button"
-          variant="secondary"
-          className={`${formButton({ intent: "cancel", fullWidth: true })} sm:w-auto`}
-          onPress={onClose}>
-          Weiter bearbeiten
-        </Button>
-        <Button
-          type="button"
-          variant="primary"
-          className={`${formButton({ intent: "destructive", fullWidth: true })} sm:w-auto`}
-          onPress={onDiscard}>
-          <ArrowUturnCwLeft
-            className="m-0 shrink-0"
-            width={18}
-            height={18}
-          />
-          Verwerfen
-        </Button>
+        {/* Stacked on a phone, side by side from `sm` up. Two `formButton`s at `px-6` carrying labels
+            this long cannot fit a `max-w-md` dialog in one row. `w-full` on the buttons while stacked,
+            so neither ends up a different width from the other. */}
+        <div className="mt-6 flex w-full min-w-0 flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+          {/* "Weiter bearbeiten" rather than "Abbrechen": on a dialog whose subject IS cancelling
+              something, "Abbrechen" is genuinely ambiguous about which thing it cancels. */}
+          <Button
+            type="button"
+            variant="secondary"
+            className={`${formButton({ intent: "cancel", fullWidth: true })} sm:w-auto`}
+            onPress={onClose}>
+            Weiter bearbeiten
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            className={`${formButton({ intent: "destructive", fullWidth: true })} sm:w-auto`}
+            onPress={onDiscard}>
+            <ArrowUturnCwLeft className="m-0 size-4.5 shrink-0" />
+            Verwerfen
+          </Button>
+        </div>
       </div>
     </ModalShell>
   );

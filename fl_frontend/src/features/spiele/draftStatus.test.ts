@@ -125,12 +125,14 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
     assert.equal(derive(stored, draftOf(stored, { team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 } })).isDirty, true);
   });
 
-  it("reads a cancellation in both directions", () => {
+  it("reads a cancellation in both directions, each state with its own word", () => {
     const going = makeStored();
     const called = makeStored({ is_canceled: true });
 
     assert.equal(derive(going, draftOf(going, { is_canceled: true })).byPath.get("is_canceled")?.draftText, "Abgesagt");
-    assert.equal(derive(called, draftOf(called, { is_canceled: false })).byPath.get("is_canceled")?.draftText, null);
+    // "Angesetzt", never `null`: a null draft value renders as an emptied field in the danger
+    // grade, and putting a fixture back on is not an emptying.
+    assert.equal(derive(called, draftOf(called, { is_canceled: false })).byPath.get("is_canceled")?.draftText, "Angesetzt");
     assert.equal(derive(called, draftOf(called, { is_canceled: false })).byPath.get("is_canceled")?.storedText, "Abgesagt");
   });
 

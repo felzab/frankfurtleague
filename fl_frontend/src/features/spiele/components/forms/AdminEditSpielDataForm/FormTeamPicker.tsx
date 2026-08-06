@@ -2,7 +2,7 @@
 
 import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
 
-import { formatQuelle, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
+import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
 import { Callout } from "@/shared/components/ui/Callout";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -133,6 +133,7 @@ export function FormTeamPicker({
   saisonSpiele,
   usedQuelleKeys,
   spieltagOccupancy,
+  knockoutTeamIds,
   otherDraftQuelle,
   onValidateSelection,
 }: {
@@ -158,6 +159,8 @@ export function FormTeamPicker({
   usedQuelleKeys: ReadonlySet<string>;
   /** Which fixture of the same Spieltag already fields each team, from `collectSpieltagTeamOccupancy`. */
   spieltagOccupancy: ReadonlyMap<string, number>;
+  /** Teams the bracket already fields — the qualification proxy, from `collectKnockoutTeamIds`. */
+  knockoutTeamIds: ReadonlySet<string>;
   /** The other side's draft source, so the two sides of this fixture cannot pick the same outcome. */
   otherDraftQuelle: FLSpielQuelle | null;
   /**
@@ -361,23 +364,27 @@ export function FormTeamPicker({
 
             {teams.map((item) => {
               const occupiedBy = spieltagOccupancy.get(item.id);
-              // The reason rides in `textValue` as well as in the visible row, so searching still
-              // finds the team and a screen reader hears why it cannot be chosen.
-              const reason = item.is_disqualified ? "disqualifiziert" : occupiedBy !== undefined ? `in Spiel ${occupiedBy}` : null;
+              // One chip per row, most severe first: the two BLOCKING reasons (disqualified,
+              // already playing this matchday), then the advisory one — a team the bracket fields
+              // nowhere else stays pickable on a knockout fixture, warned rather than locked,
+              // because correcting a hand-run season may legitimately need it. The chip rides in
+              // `textValue` too, so searching still finds the team and a screen reader hears why.
+              const chip = item.is_disqualified
+                ? { text: "disqualifiziert", cls: "bg-danger/15 text-danger-strong" }
+                : occupiedBy !== undefined
+                  ? { text: `Schon in Spiel ${occupiedBy}`, cls: "bg-danger/15 text-danger-strong" }
+                  : isKnockout && !knockoutTeamIds.has(item.id)
+                    ? { text: "nicht qualifiziert", cls: "bg-warning/15 text-warning-strong" }
+                    : null;
 
               return (
                 <ListBox.Item
                   key={item.id}
                   id={item.id}
-                  textValue={reason === null ? item.name : `${item.name} — ${reason}`}
+                  textValue={chip === null ? item.name : `${item.name} — ${chip.text}`}
                   className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
-                  {item.name}
-                  {reason !== null && (
-                    <span
-                      className={`${LABEL_BADGE} ${item.is_disqualified ? "bg-danger/15 text-danger-strong" : "bg-muted text-foreground-muted"}`}>
-                      {reason}
-                    </span>
-                  )}
+                  <span className="min-w-0 truncate">{item.name}</span>
+                  {chip !== null && <span className={`${LABEL_BADGE} ml-auto shrink-0 ${chip.cls}`}>{chip.text}</span>}
                 </ListBox.Item>
               );
             })}
@@ -430,8 +437,10 @@ export function FormTeamPicker({
                 // screen reader both read the recommendation rather than only sighted users of the list.
                 textValue={item.key === recommendedChoice ? `${item.label} — empfohlen` : item.label}
                 className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                {/* Success-tinted, not brand: brand text on a brand tint was the least readable chip
+                    on the page (owner, fifth review), and a recommendation is a positive signal. */}
                 {item.label}
-                {item.key === recommendedChoice && <span className={`${LABEL_BADGE} bg-brand/15 text-brand-solid`}>empfohlen</span>}
+                {item.key === recommendedChoice && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>empfohlen</span>}
               </ListBox.Item>
             ))}
           </ListBox>
@@ -547,15 +556,21 @@ export function FormTeamPicker({
           </Autocomplete.Trigger>
           <Autocomplete.Popover className={overlayPanel()}>
             <ListBox className="p-1">
+              {/* The round directly before this fixture's own carries the "empfohlen" chip: the list
+                  legitimately spans every earlier round — for a final, quarter- AND semi-finals —
+                  and the chip says which of them the bracket ordinarily feeds from (ADR-0042). */}
               {feederSpiele
                 .filter((spiel) => spiel.spiel_nr === quelle.spiel_nr || !blockedKeys.has(`spiel:${spiel.spiel_nr}:${quelle.ausgang}`))
                 .map((spiel) => (
                   <ListBox.Item
                     key={spiel.id}
                     id={String(spiel.spiel_nr)}
-                    textValue={describeFeeder(spiel)}
-                    className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
-                    {describeFeeder(spiel)}
+                    textValue={isDirectlyPrecedingRound(spiel, spielData) ? `${describeFeeder(spiel)} — empfohlen` : describeFeeder(spiel)}
+                    className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                    <span className="min-w-0 truncate">{describeFeeder(spiel)}</span>
+                    {isDirectlyPrecedingRound(spiel, spielData) && (
+                      <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>empfohlen</span>
+                    )}
                   </ListBox.Item>
                 ))}
             </ListBox>
@@ -577,6 +592,18 @@ export function FormTeamPicker({
           isAnnounced={hasJustBeenTakenOver}
           title={`${label} pflegt das System nicht`}>
           Ohne Herkunft bleibt diese Seite stehen, wie Du sie einträgst — kein Ergebnis korrigiert sie mehr.
+        </Callout>
+      )}
+
+      {/* The qualification warning, beside the Manuell one it accompanies: the hand-picked team
+          stands in no other bracket fixture, which is the client's honest signal that it may not
+          have advanced at all (`collectKnockoutTeamIds` — ADR-0043 keeps re-deriving standings out
+          of the client). A warning, never a refusal, and mirrored in the rail's Hinweise. */}
+      {isManual && teamPayload !== null && !knockoutTeamIds.has(teamPayload.team_id) && (
+        <Callout
+          severity="warning"
+          title={`${teamPayload.name} ist nicht für die K.-o.-Runde qualifiziert`}>
+          Die Mannschaft steht in keinem anderen K.-o.-Spiel. Prüfe die Auswahl.
         </Callout>
       )}
 
