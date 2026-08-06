@@ -59,8 +59,8 @@ export function FormAnsetzungSection({
       {/* No standing hint sentence: what it said lives in the InfoHint, on every panel alike — the
           title carries the surface and the explanation appears when asked for (ADR-0050). */}
       <div className={styles.header()}>
-        <div className={styles.headingRow()}>
-          <h2 className={styles.heading()}>Ansetzung</h2>
+        <h2 className={styles.heading()}>
+          Ansetzung
           <InfoHint label="Hinweis zur Ansetzung">
             <p>Wann, wo und mit wem das Spiel stattfindet.</p>
             <ul>
@@ -72,7 +72,7 @@ export function FormAnsetzungSection({
               </li>
             </ul>
           </InfoHint>
-        </div>
+        </h2>
       </div>
 
       <div className={styles.body()}>

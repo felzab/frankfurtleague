@@ -54,8 +54,8 @@ export function FormCancelSection({
   return (
     <section className={styles.root()}>
       <div className={styles.header()}>
-        <div className={styles.headingRow()}>
-          <h2 className={styles.heading()}>Absage</h2>
+        <h2 className={styles.heading()}>
+          Absage
           <InfoHint label="Hinweis zur Absage">
             <p>Ein abgesagtes Spiel findet nicht statt.</p>
             <ul>
@@ -67,7 +67,7 @@ export function FormCancelSection({
               </li>
             </ul>
           </InfoHint>
-        </div>
+        </h2>
       </div>
 
       <div className={styles.body()}>

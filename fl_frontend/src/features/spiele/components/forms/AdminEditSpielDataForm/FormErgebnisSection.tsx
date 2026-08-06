@@ -138,8 +138,8 @@ export function FormErgebnisSection({
       className={styles.root()}
       onKeyDownCapture={suppressEnterSubmit}>
       <div className={styles.header()}>
-        <div className={styles.headingRow()}>
-          <h2 className={styles.heading()}>Ergebnis</h2>
+        <h2 className={styles.heading()}>
+          Ergebnis
           <InfoHint label="Hinweis zum Ergebnis">
             <p>Die Tore beider Seiten.</p>
             <ul>
@@ -152,7 +152,7 @@ export function FormErgebnisSection({
               </li>
             </ul>
           </InfoHint>
-        </div>
+        </h2>
       </div>
 
       <div className={styles.body()}>

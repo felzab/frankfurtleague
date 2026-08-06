@@ -85,8 +85,8 @@ export function FormMatchupSection({
           `Description` per control, which is the "too much text" the owner reported. The fields keep
           only what is needed while filling them in. */}
       <div className={styles.header()}>
-        <div className={styles.headingRow()}>
-          <h2 className={styles.heading()}>Begegnung</h2>
+        <h2 className={styles.heading()}>
+          Begegnung
           <InfoHint label="Hinweis zur Begegnung">
             {isKnockout ? (
               <>
@@ -118,7 +118,7 @@ export function FormMatchupSection({
               </>
             )}
           </InfoHint>
-        </div>
+        </h2>
       </div>
 
       <div className={styles.body()}>

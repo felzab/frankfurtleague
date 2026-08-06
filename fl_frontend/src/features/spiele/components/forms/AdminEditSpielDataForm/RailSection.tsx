@@ -82,16 +82,15 @@ export function RailSection({
           className="hover:bg-muted/40 absolute inset-0 cursor-pointer rounded-2xl transition-colors"
         />
 
-        <h2
-          id={headingId}
-          className="fluid-base text-foreground pointer-events-none relative font-extrabold tracking-tight">
-          {title}
+        {/* The hint lives INSIDE the heading, as an inline glyph on the text's own baseline — the
+            only alignment that reads right beside text (see `InfoHint`). The h2 passes clicks
+            through to the overlay button; the hint alone takes its own. */}
+        <h2 className="fluid-base text-foreground pointer-events-none relative font-extrabold tracking-tight">
+          {/* The id sits on the title text alone, so the fold button's accessible name stays
+              "Hinweise" and never swallows the hint trigger's own label. */}
+          <span id={headingId}>{title}</span>
+          {info && <span className="pointer-events-auto relative z-10">{info}</span>}
         </h2>
-        {/* `flex`, not an inline span: an inline wrapper joins the text baseline and floats the icon
-            a few pixels above the title's optical centre — the misalignment the owner reported. */}
-        {/* `self-stretch` hands the trigger the title's row height, and the trigger pins its icon
-            to the bottom of that box — the font-proof version of "icon bottom on the text's line". */}
-        {info && <span className="relative z-10 flex items-end self-stretch">{info}</span>}
         {badge && <span className="pointer-events-none relative ml-auto">{badge}</span>}
         <ChevronDown
           className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 transition-transform duration-200 ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}

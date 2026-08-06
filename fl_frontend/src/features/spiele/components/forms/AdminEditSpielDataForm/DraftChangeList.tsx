@@ -77,9 +77,7 @@ export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldSta
                       its heading, the previous value under it — for a removal as well as for an
                       alteration, since "what did I just delete" is the question the row's
                       strikethrough answers only while it fits. */}
-                  {/* `self-stretch items-end`: the icon's bottom pixel lands on the text box's
-                      bottom, by geometry rather than font metrics — see `InfoHint`. */}
-                  <span className="ml-auto flex shrink-0 items-end self-stretch">
+                  <span className="ml-auto flex shrink-0 items-center">
                     <InfoHint
                       label={`${word}: ${field.label}`}
                       trigger={<Icon className={`size-3.5 ${cls}`} />}>
