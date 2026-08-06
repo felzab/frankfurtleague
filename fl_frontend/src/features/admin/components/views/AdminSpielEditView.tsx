@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-import { ChevronLeft } from "@gravity-ui/icons";
+import { ArrowUturnCwLeft } from "@gravity-ui/icons";
+
+import { Button } from "@heroui/react";
 
 import { AdminEditSpielDataForm } from "@/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
@@ -28,6 +30,7 @@ import type { FLSpiel } from "@/features/spiele/schemas";
  * being edited was identifiable only from the values inside the fields.
  */
 export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; today: string }) {
+  const router = useRouter();
   const { teams, spielorte, schiedsrichter, saisonSpiele } = useAdmin();
 
   const { datum, uhrzeit, ergebnis, elfmeterschiessen } = formatSpielDisplay(spielData);
@@ -41,19 +44,25 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-y-5 px-4 py-5 sm:px-6 sm:py-6">
       <header className="flex w-full flex-col gap-y-4">
-        {/* An ordinary link, always valid, and not the same control as the form's "Abbrechen". That
-            button goes back to wherever the admin came from; this one names a destination, so the page
-            is not a dead end when it was opened from a bookmark or a pasted URL. */}
-        <Link
-          href="/admin/action_required"
-          className="text-foreground-muted hover:text-foreground fluid-xs flex w-fit flex-row items-center gap-x-1 font-bold transition-colors">
-          <ChevronLeft className="size-4" />
-          Zu den offenen Aufgaben
-        </Link>
+        {/* The app's back control, copied from `TeamSpielerView` and `TeamDetailsView` rather than
+            re-invented: those two are also detail pages reached from several places, and they answer
+            it with history rather than a named destination for exactly that reason. The earlier
+            version here hardcoded "Zu den offenen Aufgaben", which is wrong from the Spielsuche, wrong
+            from a bookmark, and wrong from anywhere FE-12 later links in from. */}
+        <Button
+          onPress={() => router.back()}
+          className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+          <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
+          <span>Zurück</span>
+        </Button>
 
         <div className="flex w-full flex-col gap-y-3">
           <div className="flex w-full flex-row flex-wrap items-center gap-2">
-            <h1 className="fluid-lg text-foreground mr-1 font-extrabold">Spiel {spielData.spiel_nr}</h1>
+            {/* `fluid-xl … tracking-tight` is the page title everywhere else in the app — the CRUD
+                shell, the team selection view, both team detail views. This page had `fluid-lg`,
+                which made its title smaller than every other page's and started the hierarchy a step
+                too low. */}
+            <h1 className="fluid-xl text-foreground mr-1 font-extrabold tracking-tight">Spiel {spielData.spiel_nr}</h1>
             <SpielStatusChip spielStatus={spielStatus} />
             <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
           </div>

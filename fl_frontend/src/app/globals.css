@@ -508,14 +508,25 @@
 [data-slot="search-field-group"],
 [data-slot="date-input-group"],
 [data-slot="autocomplete-trigger"],
+[data-slot="select-trigger"],
 [data-slot="combo-box-input-group"] {
   /* `:not([data-invalid="true"])` matters: HeroUI marks a rejected field with a danger outline and
      upgrades it to a danger ring while focused. Without the guard this rule stripped both and
      painted the border brand — and it did so at the exact moment `useServerFieldErrors` moves focus
      into the rejected field, so a field the server had just refused looked normally focused. */
-  &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
-      [data-invalid="true"]
-    ) {
+  /* `[aria-expanded="true"]` is in the list because a picker's focus goes somewhere the selector
+     cannot see: react-aria moves it into the popover's own search input, so a trigger keyed on focus
+     alone drops its brand border at the exact moment the control is most obviously active. An open
+     picker is an active field whatever holds the caret. */
+  &:is(
+      :focus,
+      :focus-visible,
+      :focus-within,
+      [data-focused="true"],
+      [data-focus-visible="true"],
+      [data-focus-within="true"],
+      [aria-expanded="true"]
+    ):not([data-invalid="true"]) {
     --tw-ring-shadow: 0 0 #0000;
     border-color: var(--accent-brand);
     outline: none;
@@ -574,7 +585,28 @@
    Known gap, recorded rather than hidden: a keyboard user arrowing through an open list has no
    indicator inside the popover (WCAG 2.4.7). The focus ring on the trigger still shows which control
    is open. Revisit if a reliable per-element signal appears — do NOT reintroduce a rule keyed off
-   `data-focus-visible`, which is what this block exists to prevent. */
+   `data-focus-visible`, which is what this block exists to prevent.
+
+   Removing the repository's own highlight was only half the job, and the other half went unnoticed
+   until the owner reported a white ring on the first search result. HeroUI's `list-box-item.css`
+   applies `status-focused` on `[data-focus-visible]`, which resolves to
+   `ring-2 ring-focus ring-offset-0 ring-offset-background` with `--ring-offset-width: 2px` — and this
+   app maps `--focus` to `--fg-base`, so the composite is a 2px `--bg-base` halo inside a 2px
+   near-black (light) or pure-white (dark) ring. It fires on the same global modality flag described
+   above, so it appeared and vanished at random on exactly the element that must not draw the eye.
+
+   Suppressed UNCONDITIONALLY, with no state selector at all. That is the distinction the prohibition
+   above is drawing: this rule keys off nothing, so it cannot flicker — it removes a highlight rather
+   than reintroducing one. Both ring custom properties have to be zeroed, not just the first: Tailwind
+   composes `box-shadow` from `--tw-ring-shadow` AND `--tw-ring-offset-shadow`, so killing one leaves
+   the 2px offset band behind, which is the white line itself. What remains to convey the option under
+   the pointer is each call site's own `hover:bg-muted`, which is all the owner wants there. */
+[data-slot="list-box-item"],
+[data-slot="menu-item"] {
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  outline: none;
+}
 
 /* Reduced motion, SOFTENED (owner decision 2026-07-31).
    The policy is "remove movement, keep fades", NOT "remove motion". Zeroing every animation- and

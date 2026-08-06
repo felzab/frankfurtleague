@@ -62,7 +62,8 @@ export function FormSchiedsrichterSection({
     <InlineCreateAutocomplete<FLSchiedsrichter, SchiedsrichterDraft>
       label="Schiedsrichter"
       placeholder="z.B. Pierluigi Collina"
-      name="schiedsrichterUI"
+      // The dotted payload path — see the note on the Spielort picker, which had the same defect.
+      name="schiedsrichter.schiedsrichter_id"
       items={schiedsrichter}
       selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}
       onSelect={handleSchiedsrichterChange}

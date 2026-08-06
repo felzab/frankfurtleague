@@ -10,7 +10,13 @@ import { FormTeamPicker } from "./FormTeamPicker";
 import { FormVoidWarning } from "./FormVoidWarning";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type {
+  FLPatchSpielDataPayload,
+  FLSpiel,
+  FLSpielElfmeterschiessenDraft,
+  FLSpielQuelle,
+  FLSpielTeamField,
+} from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 
 /** The goal fields' paths in the patch payload, refreshed together because the outcome is a pair. */
@@ -64,6 +70,7 @@ export function FormMatchupSection({
   elfmeterschiessen,
   onElfmeterschiessenChange,
   onValidateFields,
+  onValidateSelection,
 }: {
   /** The fixture as it was opened — its phase gates the source controls, its stored sides anchor
    * both the result-toggle restore and the automatic sides' payload (ADR-0046). */
@@ -80,7 +87,10 @@ export function FormMatchupSection({
   onTeam2QuelleChange: (value: FLSpielQuelle | null) => void;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
   onElfmeterschiessenChange: (value: FLSpielElfmeterschiessenDraft | null) => void;
+  /** Blur-time judgement, for the goal and shoot-out fields — values that are typed. */
   onValidateFields: (paths: readonly string[]) => void;
+  /** Change-time judgement, for the pickers below. Carries the value the caller has just set. */
+  onValidateSelection: (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) => void;
 }) {
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(false);
 
@@ -201,7 +211,7 @@ export function FormMatchupSection({
           saisonSpiele={saisonSpiele}
           usedQuelleKeys={usedQuelleKeys}
           otherDraftQuelle={team2Quelle}
-          onValidateFields={onValidateFields}
+          onValidateSelection={onValidateSelection}
         />
 
         <Separator className="bg-border" />
@@ -220,7 +230,7 @@ export function FormMatchupSection({
           saisonSpiele={saisonSpiele}
           usedQuelleKeys={usedQuelleKeys}
           otherDraftQuelle={team1Quelle}
-          onValidateFields={onValidateFields}
+          onValidateSelection={onValidateSelection}
         />
       </div>
 

@@ -22,6 +22,7 @@ import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type {
+  FLPatchSpielDataPayload,
   FLSpiel,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
@@ -125,16 +126,31 @@ export function AdminEditSpielDataForm({
   });
 
   /**
-   * Judges the named paths against the current draft. Fired when a typed field is left and when a
-   * picker's selection changes — see `useDraftValidation` for why those two triggers differ.
+   * Judges the named paths against the draft as it now stands. **For a control the user TYPES into,
+   * fired when the field is left** — by then the value has committed to state and the current draft
+   * is the draft.
    *
-   * It writes only to the client-side verdicts, never to the server's map, and that separation is
-   * load-bearing: `useServerFieldErrors` calls `reportValidity()` whenever its map changes, which moves
-   * focus to the first rejected field. That is correct after a submit and wrong on a blur — clearing a
-   * corrected field there would have thrown focus onto the next unfixed one while somebody was tabbing
-   * past it. `mergedWith` retracts the stale server message at render instead.
+   * Both of these write only to the client-side verdicts, never to the server's map, and that
+   * separation is load-bearing: `useServerFieldErrors` calls `reportValidity()` whenever its map
+   * changes, which moves focus to the first rejected field. That is correct after a submit and wrong
+   * on a blur — clearing a corrected field there would have thrown focus onto the next unfixed one
+   * while somebody was tabbing past it. `mergedWith` retracts the stale server message at render.
    */
   const validateFields = (paths: readonly string[]) => validatePaths(buildPayload(), paths);
+
+  /**
+   * The same judgement for a control the user PICKS from, where the value arrives with the event.
+   *
+   * `selected` is not a convenience. A picker's handler calls `onXChange(next)` and then asks for
+   * validation in the same tick, and React has not re-rendered — so `buildPayload()` alone returns
+   * the draft holding the value the selection just REPLACED. That is why picking a feeder match
+   * reported "Bitte wähle ein Spiel aus." and only cleared when you picked a second time: the first
+   * pick was judged against the `NaN` that switching the source type had left behind.
+   *
+   * Passing the new value explicitly is what makes the verdict describe what the user just did.
+   */
+  const validateSelection = (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) =>
+    validatePaths({ ...buildPayload(), ...selected }, paths);
 
   const handleFormSubmit = () => {
     startTransition(async () => {
@@ -186,6 +202,7 @@ export function AdminEditSpielDataForm({
             elfmeterschiessen={elfmeterschiessen}
             onElfmeterschiessenChange={setElfmeterschiessen}
             onValidateFields={validateFields}
+            onValidateSelection={validateSelection}
           />
         </div>
 

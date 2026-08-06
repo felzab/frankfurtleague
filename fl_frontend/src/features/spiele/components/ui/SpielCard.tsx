@@ -62,13 +62,14 @@ export function SpielCard({
 
         {/* Buttons */}
         <div className="flex w-full items-center justify-end gap-x-2">
+          {/* The two controls sit in one row and must read as one pair, so the radius is spelled on
+              BOTH rather than left to HeroUI on the button and guessed on the link. `rounded-xl` is
+              the app's icon-target radius — the same one `RowActions` uses for its 40×40 targets. */}
           {adminEditHref && (
-            // The classes match the icon button beside it exactly, minus the ones HeroUI's Button
-            // supplied itself — a link and a button sitting in one row must not read as two controls.
             <Link
               href={adminEditHref}
               aria-label={`Spiel Nr.${spielData.spiel_nr} bearbeiten`}
-              className="bg-muted text-foreground hover:bg-muted/80 flex h-[35px] w-[35px] items-center justify-center rounded-lg transition-colors duration-200 md:h-[38px] md:w-[38px]">
+              className="bg-muted text-foreground hover:bg-muted/80 flex h-[35px] w-[35px] items-center justify-center rounded-xl transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <PencilToSquare className="m-0 size-5" />
             </Link>
           )}
@@ -78,7 +79,7 @@ export function SpielCard({
             onPress={onOpenInfoModal}
             size="md"
             variant="tertiary"
-            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
+            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
             <CircleExclamation className="m-0 size-5" />
           </Button>
         </div>

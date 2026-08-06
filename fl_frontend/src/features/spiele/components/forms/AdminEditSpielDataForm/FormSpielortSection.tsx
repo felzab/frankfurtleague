@@ -58,7 +58,11 @@ export function FormSpielortSection({
     <InlineCreateAutocomplete<FLSpielort, SpielortDraft>
       label="Spielort"
       placeholder="z.B. Sportpark Nord"
-      name="spielOrtUI"
+      // The field's dotted path in the patch payload, not a UI-local name. `FieldErrors`' entire
+      // contract is that the two are equal — react-aria looks a server message up as
+      // `serverErrors[name]` — so while this read "spielOrtUI" a rejection on `ort.spielort_id` had
+      // no field to land on and failed in silence.
+      name="ort.spielort_id"
       items={spielorte}
       selectedId={ortPayload?.spielort_id ?? null}
       onSelect={handleOrtChange}

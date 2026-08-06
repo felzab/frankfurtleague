@@ -3,13 +3,13 @@
 import { Autocomplete, Description, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
 
 import { formatQuelle, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { PHASE_LABELS } from "../../ui/SaisonPhaseChip";
 
-import type { FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react";
 
@@ -130,11 +130,17 @@ export function FormTeamPicker({
   saisonSpiele,
   usedQuelleKeys,
   otherDraftQuelle,
-  onValidateFields,
+  onValidateSelection,
 }: {
   label: string;
-  /** The team's path in the patch payload ("team1"/"team2"), so server errors reach these fields. */
-  fieldName: string;
+  /**
+   * The side's path in the patch payload, so server errors reach these fields.
+   *
+   * A literal union rather than `string`: it is already used as a discriminator against the stored
+   * side below, and it is what makes the computed override keys handed to `onValidateSelection`
+   * type-check as real payload paths rather than as arbitrary strings.
+   */
+  fieldName: "team1" | "team2";
   teams: FLTeam[];
   teamPayload: FLSpielTeamField | null;
   onTeamChange: (payload: FLSpielTeamField | null) => void;
@@ -149,15 +155,22 @@ export function FormTeamPicker({
   /** The other side's draft source, so the two sides of this fixture cannot pick the same outcome. */
   otherDraftQuelle: FLSpielQuelle | null;
   /**
-   * Judges the named payload paths against the current draft.
+   * Judges the named payload paths against the draft WITH the value just selected laid over it.
    *
-   * Fired on CHANGE here, not on blur, and that is the rule rather than an exception: every control in
-   * this component is a picker, so a selection is complete the moment it is made and there is no
-   * half-entered value to be wrong about (`useDraftValidation`). It is deliberately NOT fired when the
-   * source *type* changes — the new variant starts with its number unpicked, and judging it there would
-   * demand a placing from somebody who has just this instant asked to choose one.
+   * This component receives only the change-time variant, and that is the rule rather than an
+   * exception: every control in it is a picker, so a selection is complete the moment it is made and
+   * there is no half-entered value to be wrong about (`useDraftValidation`).
+   *
+   * **The second argument is required, and it is the whole fix.** A handler sets the new value and
+   * asks for validation in the same tick, before React re-renders — so a judgement made from state
+   * alone reads the value the selection just replaced. That is why the first pick of a feeder match
+   * reported "Bitte wähle ein Spiel aus." and only cleared on the second pick.
+   *
+   * Deliberately NOT fired when the source *type* changes: the new variant starts with its number
+   * unpicked, and judging it there would demand a placing from somebody who has just this instant
+   * asked to choose one.
    */
-  onValidateFields: (paths: readonly string[]) => void;
+  onValidateSelection: (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) => void;
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
 
@@ -190,30 +203,33 @@ export function FormTeamPicker({
   const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
 
   const handleTeamSelection = (key: Key | null) => {
-    // Retracts whatever the server said about the previous occupant. Nothing here can fail the schema —
-    // the id comes from the list — so this only ever clears.
-    onValidateFields([`${fieldName}.team_id`]);
-
     // Three routes reach the same state, and they are one branch: the list entry, the trigger's clear
     // button (which reports `null`), and an Autocomplete that never had a selection.
-    if (!key || key === OPEN_SLOT_KEY) {
-      onTeamChange(null);
-      return;
-    }
+    const resolvedTeam = !key || key === OPEN_SLOT_KEY ? null : teams.find((team: FLTeam) => team.id === key);
 
-    const resolvedTeam = teams.find((t: FLTeam) => t.id === key);
-    if (resolvedTeam) {
-      onTeamChange({
-        team_id: resolvedTeam.id,
-        shorthand: resolvedTeam.shorthand,
-        name: resolvedTeam.name,
-        // `null`, never NaN: the schema accepts a nullable int, and an unplayed Spiel carries
-        // `tore: null`. Defaulting to NaN put a value in the payload that can never validate, so
-        // changing a team on an unplayed Spiel failed with the generic error toast. NaN belongs in
-        // the NumberField's `value` (an empty field), not in what gets submitted.
-        tore: teamPayload?.tore ?? null,
-      });
-    }
+    // A key that resolves to nothing is not a selection — leave the side exactly as it stands rather
+    // than emptying it, which is what an unguarded lookup would do on a stale collection.
+    if (resolvedTeam === undefined) return;
+
+    const nextTeam: FLSpielTeamField | null =
+      resolvedTeam === null
+        ? null
+        : {
+            team_id: resolvedTeam.id,
+            shorthand: resolvedTeam.shorthand,
+            name: resolvedTeam.name,
+            // `null`, never NaN: the schema accepts a nullable int, and an unplayed Spiel carries
+            // `tore: null`. Defaulting to NaN put a value in the payload that can never validate, so
+            // changing a team on an unplayed Spiel failed with the generic error toast. NaN belongs in
+            // the NumberField's `value` (an empty field), not in what gets submitted.
+            tore: teamPayload?.tore ?? null,
+          };
+
+    onTeamChange(nextTeam);
+    // After the change and carrying it, so the verdict describes the team just picked rather than the
+    // one it replaced. Nothing here can fail the schema — the id comes from the list — so in practice
+    // this only ever retracts what the server said about the previous occupant.
+    onValidateSelection([`${fieldName}.team_id`], { [fieldName]: nextTeam });
   };
 
   /**
@@ -267,8 +283,8 @@ export function FormTeamPicker({
       onChange={handleTeamSelection}
       disabledKeys={disabledTeamId ? [disabledTeamId] : []}>
       <Label className={FIELD_LABEL}>{isKnockout ? `${label}: Mannschaft` : label}</Label>
-      <Autocomplete.Trigger className={FIELD_INPUT}>
-        <Autocomplete.Value className="fluid-sm" />
+      <Autocomplete.Trigger className={FIELD_TRIGGER}>
+        <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
         {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. */}
         <Autocomplete.ClearButton
           type="button"
@@ -341,8 +357,16 @@ export function FormTeamPicker({
         value={choice}
         onChange={handleChoiceSelection}>
         <Label className={FIELD_LABEL}>{label}: Herkunft</Label>
-        <Autocomplete.Trigger className={FIELD_INPUT}>
-          <Autocomplete.Value className="fluid-sm" />
+        <Autocomplete.Trigger className={FIELD_TRIGGER}>
+          {/* Rendered from `choice`, NOT from the collection — the same call `SaisonSelector` makes,
+              for a neighbouring reason. `Autocomplete.Value` is react-aria's `SelectValue`, which
+              renders the selected item's `children` verbatim and drops the item's own className: the
+              "empfohlen" chip therefore reappeared in the trigger as bare inline text with no layout,
+              and the recommendation is information about a choice you have not made yet, so it has no
+              business in the readout of the choice you did make. */}
+          <Autocomplete.Value className="fluid-sm min-w-0 truncate">
+            {() => QUELLE_CHOICES.find((item) => item.key === choice)?.label ?? ""}
+          </Autocomplete.Value>
           <Autocomplete.Indicator />
         </Autocomplete.Trigger>
 
@@ -390,8 +414,8 @@ export function FormTeamPicker({
               })
             }>
             <Label className={FIELD_LABEL}>Gruppe</Label>
-            <Autocomplete.Trigger className={FIELD_INPUT}>
-              <Autocomplete.Value className="fluid-sm" />
+            <Autocomplete.Trigger className={FIELD_TRIGGER}>
+              <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
             <Autocomplete.Popover className={overlayPanel()}>
@@ -421,12 +445,13 @@ export function FormTeamPicker({
             value={Number.isInteger(quelle.platz) ? String(quelle.platz) : null}
             onChange={(key: Key | null) => {
               if (!key) return;
-              onQuelleChange({ ...quelle, platz: Number(key) });
-              onValidateFields([`${fieldName}_quelle.platz`]);
+              const nextQuelle = { ...quelle, platz: Number(key) };
+              onQuelleChange(nextQuelle);
+              onValidateSelection([`${fieldName}_quelle.platz`], { [`${fieldName}_quelle`]: nextQuelle });
             }}>
             <Label className={FIELD_LABEL}>Platz</Label>
-            <Autocomplete.Trigger className={FIELD_INPUT}>
-              <Autocomplete.Value className="fluid-sm" />
+            <Autocomplete.Trigger className={FIELD_TRIGGER}>
+              <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
             <Autocomplete.Popover className={overlayPanel()}>
@@ -464,12 +489,13 @@ export function FormTeamPicker({
           value={Number.isInteger(quelle.spiel_nr) ? String(quelle.spiel_nr) : null}
           onChange={(key: Key | null) => {
             if (!key) return;
-            onQuelleChange({ ...quelle, spiel_nr: Number(key) });
-            onValidateFields([`${fieldName}_quelle.spiel_nr`]);
+            const nextQuelle = { ...quelle, spiel_nr: Number(key) };
+            onQuelleChange(nextQuelle);
+            onValidateSelection([`${fieldName}_quelle.spiel_nr`], { [`${fieldName}_quelle`]: nextQuelle });
           }}>
           <Label className={FIELD_LABEL}>{quelle.ausgang === "sieger" ? "Sieger von" : "Verlierer von"}</Label>
-          <Autocomplete.Trigger className={FIELD_INPUT}>
-            <Autocomplete.Value className="fluid-sm" />
+          <Autocomplete.Trigger className={FIELD_TRIGGER}>
+            <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
             <Autocomplete.Indicator />
           </Autocomplete.Trigger>
           <Autocomplete.Popover className={overlayPanel()}>

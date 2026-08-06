@@ -24,6 +24,20 @@ export const FIELD_LABEL = "fluid-xs text-foreground font-bold";
 export const FIELD_INPUT = "border-border bg-surface text-foreground fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
 
 /**
+ * A picker's trigger — `FIELD_INPUT` plus room for the chevron.
+ *
+ * `pe-9` is a bug fix, not a preference. HeroUI reserves that space itself with `pe-7` inside
+ * `.autocomplete__trigger:has(.autocomplete__indicator)`, but that rule is in `@layer components`
+ * while `FIELD_INPUT`'s `px-3` is in `utilities` — and layer order beats specificity, so the
+ * reservation lost and the value's content box ran under an indicator that is positioned
+ * `absolute … end-2`. Anything trailing in the value, a chip most visibly, sat underneath it.
+ *
+ * Use this on `Autocomplete.Trigger` and `Select.Trigger`; use `FIELD_INPUT` for a field with nothing
+ * floating over its trailing edge.
+ */
+export const FIELD_TRIGGER = `${FIELD_INPUT} pe-9`;
+
+/**
  * The one tab appearance. Both tab strips in the app — the sign-in role picker and the spielplan's
  * Spieltag bar — are the same control doing the same job, and writing the classes at each site is
  * how they ended up with different hover states.

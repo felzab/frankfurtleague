@@ -46,7 +46,15 @@ export default async function AdminSpielEditPage(props: NextPageProps<{ spiel_id
     // matches of the season being edited (ADR-0046), and `/admin/spielsuche?saison_id=` can reach a past
     // season's fixtures.
     <AdminContextWrapper saison_id={spielRes.spiel.saison_id}>
+      {/* Keyed by fixture id, and it is not decoration. `/admin/spiele/A → /admin/spiele/B` is the
+          same route pattern, so React reconciles the same component types at the same tree positions
+          and no `useState` initialiser re-runs — every draft atom on the page carried A's values into
+          B's editor, which is unpredictable in the worst way: the fields look like B's stored data.
+          A changed `key` unmounts and remounts the whole client subtree. Keyed at the VIEW rather
+          than at the form so it covers the view's own state too, and so a future field costs nothing
+          here. */}
       <AdminSpielEditView
+        key={spielRes.spiel.id}
         spielData={spielRes.spiel}
         today={getGermanTodayStr()}
       />
