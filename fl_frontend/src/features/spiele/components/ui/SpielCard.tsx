@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
@@ -16,12 +18,20 @@ import type { FLSpiel } from "../../schemas";
 export function SpielCard({
   spielData,
   onOpenInfoModal,
-  onOpenAdminModal,
+  adminEditHref,
   today,
 }: {
   spielData: FLSpiel;
   onOpenInfoModal: () => void;
-  onOpenAdminModal?: () => void;
+  /**
+   * Where this fixture is edited, on the admin routes; absent on every public one.
+   *
+   * A LINK, not a button, because the editor is a page now (ADR-0050). Three things follow that a
+   * button could not give: Next prefetches the route on approach, so the first tap pays for no chunk —
+   * which is what the modal's hand-rolled idle preload existed to fake — and middle-click and
+   * open-in-new-tab work, so an admin can line up several fixtures at once.
+   */
+  adminEditHref?: string;
   today: string;
 }) {
   const {
@@ -52,16 +62,15 @@ export function SpielCard({
 
         {/* Buttons */}
         <div className="flex w-full items-center justify-end gap-x-2">
-          {onOpenAdminModal && (
-            <Button
-              isIconOnly
-              aria-label={`Spielinfo bearbeiten Spiel Nr.${spielData.spiel_nr}`}
-              onPress={onOpenAdminModal}
-              size="md"
-              variant="tertiary"
-              className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
+          {adminEditHref && (
+            // The classes match the icon button beside it exactly, minus the ones HeroUI's Button
+            // supplied itself — a link and a button sitting in one row must not read as two controls.
+            <Link
+              href={adminEditHref}
+              aria-label={`Spiel Nr.${spielData.spiel_nr} bearbeiten`}
+              className="bg-muted text-foreground hover:bg-muted/80 flex h-[35px] w-[35px] items-center justify-center rounded-lg transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <PencilToSquare className="m-0 size-5" />
-            </Button>
+            </Link>
           )}
           <Button
             isIconOnly

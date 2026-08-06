@@ -1,4 +1,4 @@
-import { Description, FieldError, Label, NumberField } from "@heroui/react";
+import { FieldError, Label, NumberField } from "@heroui/react";
 
 import { postSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SchiedsrichterFormFields } from "@/features/schiedsrichter/components/forms/SchiedsrichterFormFields";
@@ -24,10 +24,12 @@ export function FormSchiedsrichterSection({
   schiedsrichter,
   schiedsrichterPayload,
   onSchiedsrichterChange,
+  onValidateFields,
 }: {
   schiedsrichter: FLSchiedsrichter[];
   schiedsrichterPayload: FLSpielSchiedsrichterFieldDraft | null;
   onSchiedsrichterChange: (payload: FLSpielSchiedsrichterFieldDraft | null) => void;
+  onValidateFields: (paths: readonly string[]) => void;
 }) {
   // The picker hands over the resolved record — see the note on `FormSpielortSection`.
   const handleSchiedsrichterChange = (resolved: FLSchiedsrichter | null) => {
@@ -64,7 +66,6 @@ export function FormSchiedsrichterSection({
       items={schiedsrichter}
       selectedId={schiedsrichterPayload?.schiedsrichter_id ?? null}
       onSelect={handleSchiedsrichterChange}
-      description="Der Schiedsrichter des Spiels"
       createHeading="Neuen Schiedsrichter anlegen"
       emptyStateText="Dieser Schiedsrichter existiert noch nicht."
       emptyDraft={EMPTY_DRAFT}
@@ -100,6 +101,8 @@ export function FormSchiedsrichterSection({
         name="schiedsrichter.payment"
         value={schiedsrichterPayload?.payment ?? NaN}
         onChange={handlePaymentChange}
+        // On blur — see the note on the Mietpreis field, which is the same box with the same NaN window.
+        onBlur={() => onValidateFields(["schiedsrichter.payment"])}
         onKeyDown={suppressEnterSubmit}
         step={5}
         formatOptions={{
@@ -113,7 +116,6 @@ export function FormSchiedsrichterSection({
           <NumberField.Input className="fluid-sm w-full py-0" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description className="fluid-xxs text-foreground-muted">Die Entschädigung für den Schiedsrichter</Description>
         <FieldError className={FIELD_ERROR} />
       </NumberField>
     </InlineCreateAutocomplete>

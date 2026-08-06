@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `775292e`, 2026-08-06
+**Verified against:** `fca0c45`, 2026-08-06
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -51,7 +51,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 7   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                          |
 | 8   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)       |
 | 9   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                          |
-| 10  | FE-10 | The match editor becomes a dedicated page               | FE          | L      | Decided  | — (ADR-0048 lands on it)   |
+| 10  | FE-10 | The match editor becomes a dedicated page               | FE          | L      | Closed   | — (ADR-0048 lands on it)   |
 | 11  | FE-11 | Toasts an admin can act on                              | FE          | M      | Decided  | — (ADR-0048 gives it form) |
 | 12  | FE-12 | Action-required, redesigned                             | FE          | M      | Open     | — (FE-10 first, soft)      |
 | 13  | FB-11 | Nothing shows a season's bracket wiring, at all         | FE, BE      | L      | Open     | — (FE-12 first, soft)      |
@@ -491,6 +491,15 @@ disagree; the modal's callers (`AdminSpielCardsList`, both admin views) become l
 **Path:** the direction is set and the evidence is in the entry, so nothing blocks this. The
 FB-5/FB-7/FE-2/FE-1 batch lands on this page, not the modal — build the surface first, the batch
 second, nothing twice. FE-12's deep links target this route. FB-3 and FB-6 adopt its patterns.
+
+**Concluded 2026-08-06.** The page is at `/admin/spiele/[spiel_id]` and the modal is gone.
+[ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md) ratifies the four decisions
+it took: page over dialog; a field judged when it is left rather than between keystrokes; sections in
+panels on a page and flat in a dialog; a label or hint earning its place only by saying something the
+others do not. ADR-0048's static destructive-edit warning is built here — its **backend half** is not, and
+belongs to the FB-5/FB-7/FE-2/FE-1 batch, which regenerates the Zod mirror and `fl_backend/openapi.json`
+with it. ADR-0049's frontend half stays deferred and this page is where it lands. Nothing was rehomed:
+every finding in this entry was implemented or is named here as another item's.
 
 ### 11 · FE-11 — Toasts an admin can act on
 

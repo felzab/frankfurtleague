@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `125f1cc`, 2026-08-05
+**Verified against:** `fca0c45`, 2026-08-06
 **Scope:** `fl_backend/`
 
 ---
@@ -15,7 +15,7 @@ every endpoint in the router.
 | Method | Path                       | Handler                    | Notes                                                                                   |
 | ------ | -------------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
 | GET    | `/spiele`                  | `spiele/router.py`         | Filters below; omitted `saison_id` means the current season. **No POST** — see I26      |
-| GET    | `/spiele/{spiel_id}`       | `spiele/router.py`         | Unused by the frontend. **No DELETE** — see I26                                         |
+| GET    | `/spiele/{spiel_id}`       | `spiele/router.py`         | Read by the match editor page. **No DELETE** — see I26                                  |
 | GET    | `/teams`                   | `teams/router.py`          | Two response shapes, discriminated by `format`; `statistik_scope` picks the table (I1c) |
 | GET    | `/teams/{team_id}`         | `teams/router.py`          | `getTeam(id)` — the two team detail pages. `format: "single"`                           |
 | GET    | `/spieler`                 | `spieler/router.py`        | **No current-season default** — see I4                                                  |
@@ -30,9 +30,13 @@ every endpoint in the router.
 | GET    | `/schiedsrichter`          | `schiedsrichter/router.py` | Only ever called with no arguments by the frontend                                      |
 | GET    | `/schiedsrichter/{id}`     | `schiedsrichter/router.py` | Unused by the frontend                                                                  |
 
-**Six of the seven single reads have no caller**, and that is deliberate: every resource is addressable
+**Five of the seven single reads have no caller**, and that is deliberate: every resource is addressable
 the same way whether or not something currently uses it
-([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)).
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). `/teams/{team_id}`
+serves the two team detail pages, and `/spiele/{spiel_id}` serves the match editor, which is addressed by
+match id alone and reads the season off the match
+([ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md)) — the case the uniform
+`GET /{id}` was kept for.
 
 ### Write routers — guard `verify_access_admin`
 
@@ -257,6 +261,6 @@ not here — it is a constant of the code (`fl_backend/app/core/config.py :: API
 | —     | Routers and CRUD have no direct tests                  | The suite covers the models, the filter builders, the response envelope, the team pipeline against a real `mongod` ([ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md)), and every router's guard (`fl_backend/tests/api/test_admin_guard.py`). Handler bodies and the CRUD helpers are still reached only indirectly; the backend audit passes in [`docs/_auditing/`](../_auditing/) inherit the database fixture and own that gap |
 | —     | The database user needs `collMod`                      | `collMod` is a `dbAdmin` action; `readWrite` and `readWriteAnyDatabase` carry `createIndex` but not it. So a user can build all four indexes and attach no validators, and the app then refuses to start (I15). `python -m app.core.constraints --check` reports the answer                                                                                                                                                                                 |
 | —     | OpenAPI carries no service-level prose                 | Every endpoint now has a `summary` and a docstring, but the app declares no `title` or `description`. The Swagger UI is also not publicly routed — nginx sends `/api` here but FastAPI's `/docs` sits at the app root, which nginx sends to Next                                                                                                                                                                                                            |
-| —     | Six single reads have no caller                        | `GET /{id}` exists on all seven resources and only `/teams/{team_id}` is called. Accepted knowingly: uniform addressability is the point (ADR-0034)                                                                                                                                                                                                                                                                                                         |
+| —     | Five single reads have no caller                       | `GET /{id}` exists on all seven resources and only `/teams/{team_id}` and `/spiele/{spiel_id}` are called. Accepted knowingly: uniform addressability is the point (ADR-0034), and the match editor is the case that came to need it (ADR-0050)                                                                                                                                                                                                             |
 | BE-12 | Nothing purges a retired row                           | `inactive_since` is a date so a scheduled purge can select on it, and that purge is not built. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                                                                                                                                                                                                                                                          |
 | BE-13 | A malformed id is a 404 in a path and a 422 in a query | `by_id()` constrains an id path to 24 hex characters, so a malformed one matches no route; the same value in a query parameter reaches a `CustomObjectId` field and Pydantic rejects it. Uniform within each spelling, and stated nowhere across the two. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                                                                                               |

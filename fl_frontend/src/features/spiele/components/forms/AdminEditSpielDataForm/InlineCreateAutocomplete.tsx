@@ -67,7 +67,12 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
    * resolving against the caller's own list would silently miss it — and did.
    */
   onSelect: (item: TItem | null) => void;
-  description: string;
+  /**
+   * Optional, and usually omitted. A hint under a picker whose label already names the thing it picks
+   * ("Spielort", "Schiedsrichter") repeats the label in a longer sentence, which is noise on the surface
+   * that can least afford it (ADR-0050). Pass one only where it says something the label cannot.
+   */
+  description?: string;
   createHeading: string;
   emptyStateText: string;
   emptyDraft: TDraft;
@@ -270,7 +275,7 @@ export function InlineCreateAutocomplete<TItem extends { id: string; name: strin
                 </div>
               )}
             </Autocomplete.Popover>
-            <Description className="fluid-xxs text-foreground-muted">{description}</Description>
+            {description && <Description className="fluid-xxs text-foreground-muted">{description}</Description>}
           </Autocomplete>
 
           {children}

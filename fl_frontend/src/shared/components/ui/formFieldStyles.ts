@@ -60,13 +60,26 @@ export const TAB_INDICATOR = "bg-brand-solid rounded-lg shadow-sm";
 export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
 
 /**
- * Section label inside a form. Groups of fields are named with a heading and separated by
- * whitespace/rules rather than wrapped in bordered panels — nesting bordered boxes inside an
- * already-bordered modal reads as a layered cake and, per WAI form guidance, deep grouping hurts
- * comprehension more than it helps.
+ * Section label inside a form.
  *
  * Only for groups whose members are heterogeneous ("Termin" = date + time). A group whose first
  * field label already names it (Spielort, Schiedsrichter) gets no heading — that would render the
  * same word twice and read it twice to a screen reader.
  */
 export const FORM_SECTION_HEADING = "fluid-xs text-foreground font-bold tracking-wider uppercase";
+
+/**
+ * The panel one section of a form sits in, on a form that owns a whole page.
+ *
+ * **Depth is what decides whether this is right, and it is a property of the container rather than of
+ * the section.** Inside a dialog a bordered section is the second border around the same fields, which
+ * per WAI form guidance costs more comprehension than the grouping buys — so a form in a dialog keeps
+ * its sections flat, named by `FORM_SECTION_HEADING` and separated by rules. A form on a page has no
+ * outer border to nest inside, so one panel per section is the FIRST level of grouping and does the job
+ * a rule cannot: it gives each group its own edges on a narrow screen, where a rule between two stacks
+ * of fields is indistinguishable from a rule inside one (ADR-0050).
+ *
+ * `p-4 sm:p-5` rather than a single padding: the phone needs the width more than it needs the inset, and
+ * this is the surface the owner declared imperative.
+ */
+export const FORM_SECTION_PANEL = "bg-surface border-border flex w-full flex-col gap-y-5 rounded-2xl border p-4 shadow-sm sm:p-5";

@@ -8,7 +8,9 @@
  * tested because it is the ONLY place either codebase turns a stored bracket reference into German
  * (ADR-0042) — nothing else would notice the wording changing. The wiring derivations are tested
  * because what they exclude is what the form cannot offer (ADR-0046) — a wrong filter here silently
- * reopens an illegal pick.
+ * reopens an illegal pick. `listDependentSpiele` is tested for the opposite reason: what it INCLUDES is
+ * what the edit page warns about before destroying a result (ADR-0048), and a missed case is a warning
+ * that never appears.
  */
 
 import assert from "node:assert/strict";
@@ -16,6 +18,7 @@ import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
+  adminSpielEditHref,
   collectUsedQuelleKeys,
   computeErgebnisFor,
   computeSpielStatus,
@@ -24,6 +27,7 @@ import {
   formatQuelle,
   formatSpielDisplay,
   formatSpielUpdateMessage,
+  listDependentSpiele,
   listFeederSpiele,
   quelleKey,
 } from "./utils.ts";
@@ -367,5 +371,61 @@ describe("listFeederSpiele", () => {
       feeders.map((spiel) => spiel.id),
       ["id-25"],
     );
+  });
+});
+
+describe("listDependentSpiele", () => {
+  const season = [
+    makeBracketSpiel("id-1", 1, "gruppenphase"),
+    makeBracketSpiel("id-25", 25, "viertelfinale", { type: "gruppe", gruppe: "A", platz: 1 }, { type: "gruppe", gruppe: "B", platz: 2 }),
+    makeBracketSpiel("id-26", 26, "viertelfinale", { type: "gruppe", gruppe: "C", platz: 1 }, null),
+    makeBracketSpiel("id-29", 29, "halbfinale", { type: "spiel", spiel_nr: 25, ausgang: "sieger" }, null),
+    makeBracketSpiel("id-30", 30, "halbfinale", { type: "spiel", spiel_nr: 25, ausgang: "verlierer" }, null),
+    makeBracketSpiel("id-90", 90, "halbfinale", { type: "spiel", spiel_nr: 25, ausgang: "sieger" }, null, "2025"),
+  ];
+
+  // Either outcome of the named fixture moves the slot, so `ausgang` is not part of the match.
+  it("names every fixture fed by this one, whichever outcome it takes, in bracket order", () => {
+    const dependent = listDependentSpiele(season, { id: "id-25", saison_id: "2026", saison_phase: "viertelfinale", spiel_nr: 25 }, []);
+    assert.deepEqual(
+      dependent.map((spiel) => spiel.spiel_nr),
+      [29, 30],
+    );
+  });
+
+  it("never names a fixture of another season", () => {
+    const dependent = listDependentSpiele(season, { id: "id-25", saison_id: "2026", saison_phase: "viertelfinale", spiel_nr: 25 }, []);
+    assert.ok(dependent.every((spiel) => spiel.saison_id === "2026"));
+  });
+
+  // A group result changes the standings, which decide every placing seeded from that group
+  // (ADR-0043) — the route an admin correcting a group score actually takes.
+  it("names the slots seeded from a group the fixture is played in", () => {
+    const dependent = listDependentSpiele(season, { id: "id-1", saison_id: "2026", saison_phase: "gruppenphase", spiel_nr: 1 }, ["A"]);
+    assert.deepEqual(
+      dependent.map((spiel) => spiel.spiel_nr),
+      [25],
+    );
+  });
+
+  it("names nothing for a group nobody seeds from", () => {
+    assert.deepEqual(listDependentSpiele(season, { id: "id-1", saison_id: "2026", saison_phase: "gruppenphase", spiel_nr: 1 }, ["D"]), []);
+  });
+
+  // The group route belongs to the group phase alone: a knockout fixture's own result decides nothing
+  // about any group's standings, so a `gruppe`-fed slot is not downstream of it.
+  it("ignores the group route on a knockout fixture", () => {
+    assert.deepEqual(listDependentSpiele(season, { id: "id-31", saison_id: "2026", saison_phase: "finale", spiel_nr: 31 }, ["A", "B"]), []);
+  });
+
+  it("never names the fixture itself", () => {
+    const dependent = listDependentSpiele(season, { id: "id-29", saison_id: "2026", saison_phase: "halbfinale", spiel_nr: 29 }, []);
+    assert.deepEqual(dependent, []);
+  });
+});
+
+describe("adminSpielEditHref", () => {
+  it("addresses one fixture by its id", () => {
+    assert.equal(adminSpielEditHref("6890a1b2c3d4e5f607182932"), "/admin/spiele/6890a1b2c3d4e5f607182932");
   });
 });

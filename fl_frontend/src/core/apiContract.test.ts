@@ -84,10 +84,10 @@ const BACKEND_ONLY: Record<string, string> = {
   // The stored shape a write echoes back, deliberately distinct from the read shape `FLTeam`.
   FLTeamRecord: "the stored club document; only ever nested inside a write response",
 
-  // ADR-0034 gives every resource a GET /{id} for uniform addressability, and only /teams/{id} is
-  // called. Six single reads therefore have no mirror, which the backend spec records as known-open.
+  // ADR-0034 gives every resource a GET /{id} for uniform addressability, and only /teams/{id} and
+  // /spiele/{id} are called. Five single reads therefore have no mirror, which the backend spec records
+  // as known-open.
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
-  FLSpieleSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
   FLSpielerSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
   FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
@@ -361,7 +361,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 47;
+const EXPECTED_PAIRS = 48;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

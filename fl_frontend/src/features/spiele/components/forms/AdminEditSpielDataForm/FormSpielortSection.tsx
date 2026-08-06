@@ -1,4 +1,4 @@
-import { Description, FieldError, Label, NumberField } from "@heroui/react";
+import { FieldError, Label, NumberField } from "@heroui/react";
 
 import { postSpielortAction } from "@/features/spielorte/actions";
 import { SpielortFormFields } from "@/features/spielorte/components/forms/SpielortFormFields";
@@ -24,10 +24,12 @@ export function FormSpielortSection({
   spielorte,
   ortPayload,
   onOrtChange,
+  onValidateFields,
 }: {
   spielorte: FLSpielort[];
   ortPayload: FLSpielOrtFieldDraft | null;
   onOrtChange: (payload: FLSpielOrtFieldDraft | null) => void;
+  onValidateFields: (paths: readonly string[]) => void;
 }) {
   // The picker hands over the resolved record. Looking it up here against `spielorte` would miss a
   // Spielort just created inline, which lives only in the picker's own list until the next server
@@ -60,7 +62,6 @@ export function FormSpielortSection({
       items={spielorte}
       selectedId={ortPayload?.spielort_id ?? null}
       onSelect={handleOrtChange}
-      description="Der Ort, an dem das Spiel ausgetragen wird"
       createHeading="Neuen Spielort anlegen"
       emptyStateText="Dieser Spielort existiert noch nicht."
       emptyDraft={EMPTY_DRAFT}
@@ -100,6 +101,10 @@ export function FormSpielortSection({
         name="ort.mietpreis"
         value={ortPayload?.mietpreis ?? NaN}
         onChange={handleMietpreisChange}
+        // On blur, not on change: a cleared box is `NaN` for as long as it takes to type the first
+        // digit of the replacement, and complaining in that window is the eager-validation failure
+        // (`useDraftValidation`).
+        onBlur={() => onValidateFields(["ort.mietpreis"])}
         onKeyDown={suppressEnterSubmit}
         step={5}
         formatOptions={{
@@ -113,7 +118,6 @@ export function FormSpielortSection({
           <NumberField.Input className="fluid-sm w-full py-0" />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description className="fluid-xxs text-foreground-muted">Der Mietpreis für den Spielort</Description>
         <FieldError className={FIELD_ERROR} />
       </NumberField>
     </InlineCreateAutocomplete>

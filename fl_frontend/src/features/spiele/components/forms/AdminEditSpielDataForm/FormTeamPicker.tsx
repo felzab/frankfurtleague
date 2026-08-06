@@ -38,10 +38,23 @@ const QUELLE_CHOICES = [
   { key: "sieger", label: "Sieger eines Spiels" },
   { key: "verlierer", label: "Verlierer eines Spiels" },
   { key: "gruppe", label: "Platz in einer Gruppe" },
-  { key: "manuell", label: "Manuell — ich wähle die Mannschaft selbst" },
+  { key: "manuell", label: "Manuell gesetzt" },
 ] as const;
 
 type QuelleChoice = (typeof QUELLE_CHOICES)[number]["key"];
+
+/**
+ * The answer this round ordinarily takes, marked in the list so the system says what it knows.
+ *
+ * It is read off the wiring rather than off a phase name: the first knockout round is seeded from the
+ * group standings and every round after it is fed by the round before (ADR-0042), so "are there legal
+ * feeder matches at all" is exactly the question that distinguishes the two — and it stays right if the
+ * competition ever gains a round.
+ *
+ * A recommendation, never a default. The form pre-selects nothing: filling a slot the admin has not
+ * looked at is how a wrong draw gets saved without anybody choosing it.
+ */
+const recommendedChoiceFor = (hasFeeders: boolean): QuelleChoice => (hasFeeders ? "sieger" : "gruppe");
 
 /** The default group, because `gruppe` is a required enum with no empty member to start from. */
 const DEFAULT_GRUPPE: FLGruppenNames = "A";
@@ -117,6 +130,7 @@ export function FormTeamPicker({
   saisonSpiele,
   usedQuelleKeys,
   otherDraftQuelle,
+  onValidateFields,
 }: {
   label: string;
   /** The team's path in the patch payload ("team1"/"team2"), so server errors reach these fields. */
@@ -134,6 +148,16 @@ export function FormTeamPicker({
   usedQuelleKeys: ReadonlySet<string>;
   /** The other side's draft source, so the two sides of this fixture cannot pick the same outcome. */
   otherDraftQuelle: FLSpielQuelle | null;
+  /**
+   * Judges the named payload paths against the current draft.
+   *
+   * Fired on CHANGE here, not on blur, and that is the rule rather than an exception: every control in
+   * this component is a picker, so a selection is complete the moment it is made and there is no
+   * half-entered value to be wrong about (`useDraftValidation`). It is deliberately NOT fired when the
+   * source *type* changes — the new variant starts with its number unpicked, and judging it there would
+   * demand a placing from somebody who has just this instant asked to choose one.
+   */
+  onValidateFields: (paths: readonly string[]) => void;
 }) {
   const { contains } = useFilter({ sensitivity: "base" });
 
@@ -163,7 +187,13 @@ export function FormTeamPicker({
     (item) => item.key === "manuell" || item.key === "gruppe" || feederSpiele.length > 0 || item.key === choice,
   );
 
+  const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
+
   const handleTeamSelection = (key: Key | null) => {
+    // Retracts whatever the server said about the previous occupant. Nothing here can fail the schema —
+    // the id comes from the list — so this only ever clears.
+    onValidateFields([`${fieldName}.team_id`]);
+
     // Three routes reach the same state, and they are one branch: the list entry, the trigger's clear
     // button (which reports `null`), and an Autocomplete that never had a selection.
     if (!key || key === OPEN_SLOT_KEY) {
@@ -224,7 +254,7 @@ export function FormTeamPicker({
 
   // What the automatic readout shows in place of the picker: the occupant the resolution has
   // written, or the honest empty state while the source has not produced one yet.
-  const occupantLabel = teamPayload?.name ?? `${PLACEHOLDER.slot} — wird automatisch besetzt, sobald die Herkunft entschieden ist`;
+  const occupantLabel = teamPayload?.name ?? PLACEHOLDER.slot;
 
   const teamPicker = (
     <Autocomplete
@@ -271,9 +301,9 @@ export function FormTeamPicker({
                 typing "offen" finds this entry rather than hiding it. */}
             <ListBox.Item
               id={OPEN_SLOT_KEY}
-              textValue={`${PLACEHOLDER.slot} — steht noch nicht fest`}
+              textValue={PLACEHOLDER.slot}
               className="fluid-xs hover:bg-muted border-border text-foreground-muted mb-1 cursor-pointer rounded-lg border-b px-3 py-2 pb-2 font-semibold italic">
-              {PLACEHOLDER.slot} — steht noch nicht fest
+              {PLACEHOLDER.slot}
             </ListBox.Item>
 
             {teams.map((item) => (
@@ -288,9 +318,8 @@ export function FormTeamPicker({
           </ListBox>
         </Autocomplete.Filter>
       </Autocomplete.Popover>
-      <Description className="fluid-xxs text-foreground-muted">
-        {`Wähle ${label} aus, oder „${PLACEHOLDER.slot}“, solange die Mannschaft noch nicht feststeht.`}
-      </Description>
+      {/* No `Description`: the trigger's placeholder and the list's first entry both read
+          „Noch offen“, so a sentence explaining that it is an option would be the third telling. */}
       <FieldError className={FIELD_ERROR} />
     </Autocomplete>
   );
@@ -311,7 +340,7 @@ export function FormTeamPicker({
         selectionMode="single"
         value={choice}
         onChange={handleChoiceSelection}>
-        <Label className={FIELD_LABEL}>{label}: Wie wird diese Seite besetzt?</Label>
+        <Label className={FIELD_LABEL}>{label}: Herkunft</Label>
         <Autocomplete.Trigger className={FIELD_INPUT}>
           <Autocomplete.Value className="fluid-sm" />
           <Autocomplete.Indicator />
@@ -323,23 +352,28 @@ export function FormTeamPicker({
               <ListBox.Item
                 key={item.key}
                 id={item.key}
-                textValue={item.label}
-                className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                // The marker rides in `textValue` as well as in the visible row, so the trigger and a
+                // screen reader both read the recommendation rather than only sighted users of the list.
+                textValue={item.key === recommendedChoice ? `${item.label} — empfohlen` : item.label}
+                className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                 {item.label}
+                {item.key === recommendedChoice && (
+                  <span className="fluid-xxs bg-brand/15 text-brand-solid rounded-md px-1.5 py-0.5 font-bold">empfohlen</span>
+                )}
               </ListBox.Item>
             ))}
           </ListBox>
         </Autocomplete.Popover>
-        <Description className="fluid-xxs text-foreground-muted">
-          Aus einem Spiel oder einem Gruppenplatz besetzt das System die Seite selbst. „Manuell“ gibt Dir die Seite zurück.
-        </Description>
+        {/* One sentence, and it is the one thing the four labels do not say: who fills the slot. The
+            recommendation is a chip in the list rather than a clause here (ADR-0050). */}
+        <Description className="fluid-xxs text-foreground-muted">Bei „Manuell“ wählst Du die Mannschaft selbst.</Description>
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
       {/* The variant's own fields. Rendered only for the variant that has them, so the form never
           shows a box that belongs to a shape the source is not in. */}
       {quelle?.type === "gruppe" && (
-        <div className="flex w-full flex-col gap-y-4 sm:flex-row sm:gap-x-4">
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
           <Autocomplete
             name={`${fieldName}_quelle.gruppe`}
             className="w-full"
@@ -385,7 +419,11 @@ export function FormTeamPicker({
             selectionMode="single"
             placeholder="Platz wählen"
             value={Number.isInteger(quelle.platz) ? String(quelle.platz) : null}
-            onChange={(key: Key | null) => key && onQuelleChange({ ...quelle, platz: Number(key) })}>
+            onChange={(key: Key | null) => {
+              if (!key) return;
+              onQuelleChange({ ...quelle, platz: Number(key) });
+              onValidateFields([`${fieldName}_quelle.platz`]);
+            }}>
             <Label className={FIELD_LABEL}>Platz</Label>
             <Autocomplete.Trigger className={FIELD_INPUT}>
               <Autocomplete.Value className="fluid-sm" />
@@ -424,7 +462,11 @@ export function FormTeamPicker({
           selectionMode="single"
           placeholder="Spiel wählen"
           value={Number.isInteger(quelle.spiel_nr) ? String(quelle.spiel_nr) : null}
-          onChange={(key: Key | null) => key && onQuelleChange({ ...quelle, spiel_nr: Number(key) })}>
+          onChange={(key: Key | null) => {
+            if (!key) return;
+            onQuelleChange({ ...quelle, spiel_nr: Number(key) });
+            onValidateFields([`${fieldName}_quelle.spiel_nr`]);
+          }}>
           <Label className={FIELD_LABEL}>{quelle.ausgang === "sieger" ? "Sieger von" : "Verlierer von"}</Label>
           <Autocomplete.Trigger className={FIELD_INPUT}>
             <Autocomplete.Value className="fluid-sm" />
@@ -445,9 +487,9 @@ export function FormTeamPicker({
                 ))}
             </ListBox>
           </Autocomplete.Popover>
-          <Description className="fluid-xxs text-foreground-muted">
-            Nur Spiele früherer Runden, deren {quelle.ausgang === "sieger" ? "Sieger" : "Verlierer"} noch keine andere Seite besetzt.
-          </Description>
+          {/* Kept, because it is the one description on this form that explains an absence: the list is
+              short and the reason a particular match is missing from it is not visible. */}
+          <Description className="fluid-xxs text-foreground-muted">Nur frühere Runden, noch nicht anderweitig vergeben.</Description>
           <FieldError className={FIELD_ERROR} />
         </Autocomplete>
       )}
@@ -463,9 +505,7 @@ export function FormTeamPicker({
           <div className={`${FIELD_INPUT} text-foreground-muted cursor-default`}>
             <span className="fluid-sm">{occupantLabel}</span>
           </div>
-          <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
-            Diese Seite pflegt das System anhand der Herkunft. Wähle „Manuell“, um sie selbst zu setzen.
-          </p>
+          <p className="fluid-xxs text-foreground-muted leading-normal font-medium">Vom System besetzt.</p>
         </div>
       )}
 

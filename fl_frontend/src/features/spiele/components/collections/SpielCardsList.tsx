@@ -2,12 +2,19 @@
 
 import { useState } from "react";
 
+import { adminSpielEditHref } from "../../utils";
 import { SpielDetailsModal } from "../modals/SpielDetailsModal";
 import { SpielCard } from "../ui/SpielCard";
 
 import type { FLSpiel } from "../../schemas";
 
-export function SpielCardsList({ spiele, today, onAdminEdit }: { spiele: FLSpiel[]; today: string; onAdminEdit?: (spiel: FLSpiel) => void }) {
+/**
+ * `isAdmin` gives every card an edit link. A boolean rather than the callback this took before: since the
+ * editor became a page (ADR-0050) the only thing the admin variant needs is a URL, and a URL is derived
+ * from the fixture rather than handed down — so the admin list that used to own the modal's state has
+ * nothing left to own.
+ */
+export function SpielCardsList({ spiele, today, isAdmin = false }: { spiele: FLSpiel[]; today: string; isAdmin?: boolean }) {
   const [selectedSpiel, setSelectedSpiel] = useState<FLSpiel | null>(null);
 
   return (
@@ -18,7 +25,7 @@ export function SpielCardsList({ spiele, today, onAdminEdit }: { spiele: FLSpiel
           spielData={spielData}
           today={today}
           onOpenInfoModal={() => setSelectedSpiel(spielData)}
-          onOpenAdminModal={onAdminEdit ? () => onAdminEdit(spielData) : undefined}
+          adminEditHref={isAdmin ? adminSpielEditHref(spielData.id) : undefined}
         />
       ))}
 
@@ -29,7 +36,7 @@ export function SpielCardsList({ spiele, today, onAdminEdit }: { spiele: FLSpiel
           plus its react-aria overlay machinery on first paint at every one of them, to show nothing.
           The cost is the close animation: unmounting on `null` skips HeroUI's exit transition, so the
           modal disappears rather than fading. Accepted by the owner, 2026-07-31, who valued the mount
-          saving over the transition. `AdminEditSpielDataModal` behaves the same way. */}
+          saving over the transition. */}
       {selectedSpiel && (
         <SpielDetailsModal
           spielData={selectedSpiel}

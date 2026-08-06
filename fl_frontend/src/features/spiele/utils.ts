@@ -25,6 +25,7 @@
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { FLBracketFault, FLSpiel, FLSpielQuelle, FLSpielStatus } from "./schemas";
 
 export const computeSpielStatus = ({
@@ -190,6 +191,57 @@ export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<
         PHASE_RANK[spiel.saison_phase] < PHASE_RANK[target.saison_phase],
     )
     .sort((a, b) => a.spiel_nr - b.spiel_nr);
+
+/**
+ * Where one fixture is edited (ADR-0050).
+ *
+ * One spelling of the route, because three surfaces need it — the match cards, the action-required list,
+ * and any later triage view that deep-links into a single fixture. A path built at each site is how two
+ * of them end up disagreeing after the segment is renamed.
+ */
+export const adminSpielEditHref = (spielId: string): string => `/admin/spiele/${spielId}`;
+
+/**
+ * The fixtures whose occupants this one's result decides — the wiring the edit surface warns about
+ * before a save (ADR-0048).
+ *
+ * The inverse direction to `listFeederSpiele`, and over stored wiring rather than legal candidates: a
+ * fixture is dependent when it actually names this one as a source, or when it seeds a placing from a
+ * group this fixture is played in.
+ *
+ * **Both routes matter, and the group one is the route an admin meets first.** A knockout slot fed by
+ * `{type: "spiel"}` is voided when the match it names changes hands; a slot fed by `{type: "gruppe"}` is
+ * voided when the standings that decide the placing change, which is what a corrected group result does
+ * (ADR-0043). `ausgang` is not compared, because either outcome of this fixture moves the slot.
+ *
+ * `gruppen` is the groups this fixture is played in, which a match document does not carry — `FLSpiel`
+ * embeds its sides and a group lives on the `saison_teams` junction the team list already joins
+ * (ADR-0028). Empty for a knockout fixture, where the group route cannot apply.
+ *
+ * **This states the wiring; it does not predict the loss.** Whether a save actually voids a stored
+ * result depends on running the resolution against the payload, which ADR-0048 rejects as a preview —
+ * so a dependent fixture listed here is one whose result *can* be cleared, and the caller says so in
+ * those words.
+ */
+export const listDependentSpiele = (
+  saisonSpiele: readonly FLSpiel[],
+  spiel: Pick<FLSpiel, "id" | "saison_id" | "saison_phase" | "spiel_nr">,
+  gruppen: readonly FLGruppenNames[],
+): FLSpiel[] => {
+  const seedsFromThisGruppe = (quelle: FLSpielQuelle): boolean =>
+    quelle.type === "gruppe" && spiel.saison_phase === "gruppenphase" && gruppen.includes(quelle.gruppe);
+
+  return saisonSpiele
+    .filter(
+      (candidate) =>
+        candidate.saison_id === spiel.saison_id &&
+        candidate.id !== spiel.id &&
+        [candidate.team1_quelle, candidate.team2_quelle].some(
+          (quelle) => quelle !== null && ((quelle.type === "spiel" && quelle.spiel_nr === spiel.spiel_nr) || seedsFromThisGruppe(quelle)),
+        ),
+    )
+    .sort((a, b) => a.spiel_nr - b.spiel_nr);
+};
 
 /**
  * The success message for an admin match edit, naming any bracket fixtures the write also moved.
