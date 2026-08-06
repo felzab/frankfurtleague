@@ -1,10 +1,13 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 import { ArrowRight } from "@gravity-ui/icons";
 
 import { Callout } from "@/shared/components/ui/Callout";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
+import { COUNT_BADGE, LABEL_BADGE } from "./badges";
 import { DraftChangeList } from "./DraftChangeList";
 import { useDraftStatus } from "./DraftStatusContext";
 import { FormVoidWarning } from "./FormVoidWarning";
@@ -12,9 +15,6 @@ import { RailSection } from "./RailSection";
 import { SpielDraftPreview } from "./SpielDraftPreview";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
-
-/** The count badge the action-required accordion uses, so the two surfaces agree on sight. */
-const COUNT_BADGE = "fluid-xxs inline-flex items-center justify-center rounded-lg px-2.5 py-0.5 font-extrabold shadow-sm";
 
 /**
  * Everything the editor says about the fixture as a whole, rather than about one field.
@@ -24,9 +24,10 @@ const COUNT_BADGE = "fluid-xxs inline-flex items-center justify-center rounded-l
  * second track holds exactly one sticky card, which never reaches the bottom to be uneven against.
  * Below `xl` it drops into flow directly under the page header, where a standing warning belongs.
  *
- * **The warnings are a foldable card like their three siblings**, with the count on the header so a
- * collapsed card still says how much it is hiding — the owner asked for the banners to fold "same as"
- * the rail's cards, and loose callouts above four foldable cards were the one shape that did not.
+ * **The warnings card never disappears** (owner, fourth review): a card that vanishes when its count
+ * hits zero makes the layout jump and leaves nowhere to confirm "no warnings". It folds itself shut
+ * instead when the last banner clears, opens itself when one arrives, and reads "Keine Hinweise."
+ * when opened empty — the same shape "Offene Angaben" already has.
  *
  * The order is by how much it costs to miss: what a save destroys, then what the fixture is, then what
  * is still outstanding, then what you have changed.
@@ -44,42 +45,55 @@ export function DraftRail({
 }) {
   const status = useDraftStatus();
 
-  // What a reschedule would still need, read off the fixture-as-it-will-be. Presentation over the
-  // preview, not a second categorisation: `categorizeActionRequired` deliberately reports a cancelled
-  // fixture as cancelled and nothing else, and this line answers the OTHER question — "what would it
-  // take to put this fixture back on" — which only matters while it is off.
-  const rescheduleNeeds = [previewSpiel.datum === null && "Datum", previewSpiel.uhrzeit === null && "Uhrzeit"].filter(
-    (need): need is string => typeof need === "string",
-  );
-  const rescheduleRecommended = [previewSpiel.ort === null && "Spielort", previewSpiel.schiedsrichter === null && "Schiedsrichter"].filter(
-    (need): need is string => typeof need === "string",
-  );
-
   const bannerCount = (dependentSpiele.length > 0 ? 1 : 0) + (previewSpiel.is_canceled ? 1 : 0);
+
+  // Controlled, because the count moves it: shut when the last banner clears, open when one arrives.
+  // Only the TRANSITION drives it — in between, the state is the admin's own toggle.
+  const [hinweiseOpen, setHinweiseOpen] = useState(bannerCount > 0);
+  const previousCount = useRef(bannerCount);
+  useEffect(() => {
+    if (previousCount.current > 0 && bannerCount === 0) setHinweiseOpen(false);
+    if (previousCount.current === 0 && bannerCount > 0) setHinweiseOpen(true);
+    previousCount.current = bannerCount;
+  }, [bannerCount]);
+
+  // The owner's split (fourth review): red counts only what the fixture cannot happen without; the
+  // recommended rest gets its own yellow badge, matching the yellow markers beside those fields.
+  const expectedRequired = status.expected.filter((field) => field.expectedSeverity === "required");
+  const expectedRecommended = status.expected.filter((field) => field.expectedSeverity === "recommended");
 
   return (
     <div className="flex w-full flex-col gap-y-4">
-      {bannerCount > 0 && (
-        <RailSection
-          title="Hinweise"
-          badge={<span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{bannerCount}</span>}
-          info={<InfoHint label="Was die Hinweise bedeuten">Warnungen zu diesem Spiel — was ein Speichern hier auslösen kann.</InfoHint>}>
-          <FormVoidWarning dependentSpiele={dependentSpiele} />
+      <RailSection
+        title="Hinweise"
+        isOpen={hinweiseOpen}
+        onToggle={setHinweiseOpen}
+        badge={
+          <span
+            className={`${COUNT_BADGE} ${bannerCount > 0 ? "bg-warning/15 text-warning-strong" : "bg-success-solid text-success-solid-foreground"}`}>
+            {bannerCount}
+          </span>
+        }
+        info={<InfoHint label="Was die Hinweise bedeuten">Warnungen zu diesem Spiel — was ein Speichern hier auslösen kann.</InfoHint>}>
+        {bannerCount === 0 ? (
+          <p className="fluid-xs text-foreground-muted font-medium">Keine Hinweise.</p>
+        ) : (
+          <>
+            <FormVoidWarning dependentSpiele={dependentSpiele} />
 
-          {/* A standing fact about the fixture, so it is not announced. It says the non-obvious half —
-              a cancelled fixture stops being chased for its details — and then the way back: what a
-              reschedule still needs, so "abgesagt" is a state with an exit rather than a dead end. */}
-          {previewSpiel.is_canceled && (
-            <Callout
-              severity="info"
-              title="Dieses Spiel ist abgesagt">
-              Es steht in den offenen Aufgaben unter „Abgesagt“ und wird zu keinen fehlenden Angaben mehr geführt.
-              {rescheduleNeeds.length > 0 && ` Zum Wiederansetzen fehlen noch: ${rescheduleNeeds.join(" und ")}.`}
-              {rescheduleRecommended.length > 0 && ` Empfohlen: ${rescheduleRecommended.join(" und ")}.`}
-            </Callout>
-          )}
-        </RailSection>
-      )}
+            {/* A standing fact, so not announced — and one sentence: what a reschedule needs becomes
+                visible by itself the moment the Absage switch goes off, so saying it here was the
+                page explaining what it already shows (owner, fourth review). */}
+            {previewSpiel.is_canceled && (
+              <Callout
+                severity="info"
+                title="Dieses Spiel ist abgesagt">
+                Es erscheint überall als abgesagt und wird nicht mehr angemahnt.
+              </Callout>
+            )}
+          </>
+        )}
+      </RailSection>
 
       {/* Closed on a phone: the preview answers "what will this look like when I am done", which is a
           question asked at the end, and expanded it puts the first field a scroll below the fold. */}
@@ -87,13 +101,7 @@ export function DraftRail({
         title="Vorschau"
         defaultOpenOnMobile={false}
         info={<InfoHint label="Was die Vorschau zeigt">So erscheint das Spiel nach dem Speichern — mit allem, was Du gerade änderst.</InfoHint>}
-        badge={
-          status.isDirty ? (
-            <span className="fluid-xxs bg-warning/15 text-warning-strong rounded-md px-1.5 py-0.5 font-extrabold tracking-wide uppercase">
-              Nicht gespeichert
-            </span>
-          ) : undefined
-        }>
+        badge={status.isDirty ? <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong`}>Nicht gespeichert</span> : undefined}>
         <SpielDraftPreview
           previewSpiel={previewSpiel}
           today={today}
@@ -105,13 +113,34 @@ export function DraftRail({
           is a number with no way to act on it. */}
       <RailSection
         title="Offene Angaben"
-        info={<InfoHint label="Was offene Angaben sind">Was für dieses Spiel noch fehlt. Ein Klick springt zum passenden Feld.</InfoHint>}
+        info={
+          <InfoHint label="Was offene Angaben sind">
+            <p>Was für dieses Spiel noch fehlt — ein Klick springt zum Feld.</p>
+            <ul>
+              <li>
+                <strong>Rot</strong> — nötig, damit das Spiel stattfinden kann.
+              </li>
+              <li>
+                <strong>Gelb</strong> — empfohlen, aber nicht zwingend.
+              </li>
+            </ul>
+          </InfoHint>
+        }
         badge={
-          <span
-            className={`${COUNT_BADGE} ${
-              status.expected.length > 0 ? "bg-danger-solid text-danger-solid-foreground" : "bg-success-solid text-success-solid-foreground"
-            }`}>
-            {status.expected.length}
+          <span className="pointer-events-none flex flex-row items-center gap-x-1">
+            {expectedRecommended.length > 0 && (
+              <span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{expectedRecommended.length}</span>
+            )}
+            {(expectedRequired.length > 0 || expectedRecommended.length === 0) && (
+              <span
+                className={`${COUNT_BADGE} ${
+                  expectedRequired.length > 0
+                    ? "bg-danger-solid text-danger-solid-foreground"
+                    : "bg-success-solid text-success-solid-foreground"
+                }`}>
+                {expectedRequired.length}
+              </span>
+            )}
           </span>
         }>
         {status.expected.length === 0 ? (
@@ -120,15 +149,18 @@ export function DraftRail({
           </p>
         ) : (
           <ul className="flex w-full flex-col gap-y-1">
-            {status.expected.map((field) => (
+            {/* Required first — the list's order is its urgency. A fragment link rather than a
+                button: it costs no JavaScript, it is focusable and announced as a link, and
+                `FieldLabel` puts the matching id on the field's wrapper with the scroll margin the
+                sticky header needs. */}
+            {[...expectedRequired, ...expectedRecommended].map((field) => (
               <li key={field.path}>
-                {/* A fragment link rather than a button: it costs no JavaScript, it is focusable and
-                    announced as a link, and `FieldLabel` puts the matching id on the field's wrapper
-                    with the scroll margin the sticky header needs. */}
                 <a
                   href={`#feld-${field.path}`}
                   className="fluid-xs text-foreground hover:text-brand flex flex-row items-center gap-x-1.5 font-bold transition-colors">
-                  <ArrowRight className="size-3.5 shrink-0" />
+                  <ArrowRight
+                    className={`size-3.5 shrink-0 ${field.expectedSeverity === "required" ? "text-danger-strong" : "text-warning-strong"}`}
+                  />
                   {field.label}
                 </a>
               </li>
@@ -141,7 +173,7 @@ export function DraftRail({
       <RailSection
         title="Deine Änderungen"
         defaultOpenOnMobile={false}
-        info={<InfoHint label="Was die Änderungsliste zeigt">Alle noch nicht gespeicherten Änderungen, alt → neu, nach Abschnitt.</InfoHint>}
+        info={<InfoHint label="Was die Änderungsliste zeigt">Alle noch nicht gespeicherten Änderungen, nach Abschnitt.</InfoHint>}
         badge={
           status.changed.length > 0 ? <span className={`${COUNT_BADGE} bg-brand/15 text-brand-solid`}>{status.changed.length}</span> : undefined
         }>

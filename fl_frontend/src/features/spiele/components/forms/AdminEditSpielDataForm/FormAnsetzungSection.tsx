@@ -62,8 +62,15 @@ export function FormAnsetzungSection({
         <div className={styles.headingRow()}>
           <h2 className={styles.heading()}>Ansetzung</h2>
           <InfoHint label="Hinweis zur Ansetzung">
-            Wann, wo und mit wem das Spiel stattfindet — die Angaben, die vor dem Anpfiff feststehen müssen. Mietpreis und Entschädigung sind
-            mit den Standardwerten vorbelegt und gelten nur für dieses Spiel.
+            <p>Wann, wo und mit wem das Spiel stattfindet.</p>
+            <ul>
+              <li>
+                <strong>Datum</strong> und <strong>Anpfiff</strong> lassen sich über das ×-Symbol wieder auf „offen“ setzen.
+              </li>
+              <li>
+                <strong>Mietpreis</strong> und <strong>Entschädigung</strong> sind vorbelegt und gelten nur für dieses Spiel.
+              </li>
+            </ul>
           </InfoHint>
         </div>
       </div>

@@ -30,8 +30,9 @@ const MARKER = "inline-flex size-5 shrink-0 items-center justify-center rounded-
  *
  * Three things it adds, each answering a question the owner asked:
  *
- * - **"Fehlt"** — a field that is empty while an action-required category waits on it. Its icon
- *   differs from the edited marker's in shape, not only in colour, so the two are distinct for every
+ * - **"Fehlt" / "Empfohlen"** — a field that is empty while an action-required category waits on
+ *   it, coloured by its severity (danger for required, warning for recommended). Its icon differs
+ *   from the edited marker's in shape, not only in colour, so the two are distinct for every
  *   sighted reader; the word itself is `sr-only`. It disappears the moment the field is filled
  *   rather than waiting for a save.
  * - **"Geändert"** — the draft differs from what is stored.
@@ -54,12 +55,17 @@ export function FieldLabel({ path, children }: { path: string; children: ReactNo
       <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
         <Label className={FIELD_LABEL}>{children}</Label>
 
+        {/* The disc's colour is the field's severity — danger where the fixture cannot happen
+            without the value, warning where it is merely recommended — so the marker beside a field
+            and the badge counting it in "Offene Angaben" speak the same colour language. */}
         {status?.isExpected && (
           <span
-            title="Fehlt"
-            className={`${MARKER} bg-warning/15 text-warning-strong`}>
+            title={status.expectedSeverity === "required" ? "Fehlt" : "Empfohlen"}
+            className={`${MARKER} ${
+              status.expectedSeverity === "required" ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"
+            }`}>
             <CircleDashed className="size-3" />
-            <span className="sr-only">Fehlt</span>
+            <span className="sr-only">{status.expectedSeverity === "required" ? "Fehlt" : "Empfohlen"}</span>
           </span>
         )}
 

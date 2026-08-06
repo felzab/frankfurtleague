@@ -9,6 +9,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { PHASE_LABELS } from "../../ui/SaisonPhaseChip";
+import { LABEL_BADGE } from "./badges";
 import { FieldLabel } from "./FieldLabel";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -131,6 +132,7 @@ export function FormTeamPicker({
   spielData,
   saisonSpiele,
   usedQuelleKeys,
+  spieltagOccupancy,
   otherDraftQuelle,
   onValidateSelection,
 }: {
@@ -154,6 +156,8 @@ export function FormTeamPicker({
   saisonSpiele: FLSpiel[];
   /** Sources already feeding another fixture's slot, from `collectUsedQuelleKeys`. */
   usedQuelleKeys: ReadonlySet<string>;
+  /** Which fixture of the same Spieltag already fields each team, from `collectSpieltagTeamOccupancy`. */
+  spieltagOccupancy: ReadonlyMap<string, number>;
   /** The other side's draft source, so the two sides of this fixture cannot pick the same outcome. */
   otherDraftQuelle: FLSpielQuelle | null;
   /**
@@ -281,19 +285,26 @@ export function FormTeamPicker({
     onQuelleChange({ type: "spiel", spiel_nr: keptIsFree ? kept : NaN, ausgang: selected });
   };
 
-  const derivedLabel = isComplete(quelle) ? formatQuelle(quelle) : null;
+  // `formatQuelle` itself answers `null` for a source whose number is still unpicked, so no
+  // completeness gate is needed here — the same guard protects every other consumer.
+  const derivedLabel = formatQuelle(quelle);
 
   // What the automatic readout shows in place of the picker: the occupant the resolution has
   // written, or the honest empty state while the source has not produced one yet.
   const occupantLabel = teamPayload?.name ?? PLACEHOLDER.slot;
 
-  // A disqualified team stays in the list — searchable, announced, visibly labelled — and cannot be
+  // An unpickable team stays in the list — searchable, announced, visibly labelled — and cannot be
   // picked. Hiding it would make "why can I not find X" a support question; disabling it makes the
-  // reason readable where the answer is refused. Eligibility is still the write path's question
-  // (ADR-0049): a disabled key is UI, not a security control, and the stale form and the second tab
-  // go around it.
-  const disqualifiedIds = teams.filter((team) => team.is_disqualified).map((team) => team.id);
-  const disabledTeamKeys = disabledTeamId ? [disabledTeamId, ...disqualifiedIds] : disqualifiedIds;
+  // reason readable where the answer is refused. Two reasons exist: the team is disqualified, or it
+  // already plays another fixture of this Spieltag (a team plays once per matchday — picking it here
+  // would silently field it twice, which is what the owner caught). The team this fixture already
+  // holds is exempt from the occupancy rule by construction: `collectSpieltagTeamOccupancy` skips
+  // the edited fixture. Eligibility is still the write path's question (ADR-0049): a disabled key is
+  // UI, not a security control, and the stale form and the second tab go around it.
+  const disabledTeamKeys = [
+    ...(disabledTeamId ? [disabledTeamId] : []),
+    ...teams.filter((team) => team.is_disqualified || spieltagOccupancy.has(team.id)).map((team) => team.id),
+  ];
 
   const teamPicker = (
     <Autocomplete
@@ -348,20 +359,28 @@ export function FormTeamPicker({
               {PLACEHOLDER.slot}
             </ListBox.Item>
 
-            {teams.map((item) => (
-              <ListBox.Item
-                key={item.id}
-                id={item.id}
-                // The state rides in `textValue` as well as in the visible row, so searching "disq"
-                // finds the team and a screen reader hears why it cannot be chosen.
-                textValue={item.is_disqualified ? `${item.name} — disqualifiziert` : item.name}
-                className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
-                {item.name}
-                {item.is_disqualified && (
-                  <span className="fluid-xxs bg-danger/15 text-danger-strong rounded-md px-1.5 py-0.5 font-bold">disqualifiziert</span>
-                )}
-              </ListBox.Item>
-            ))}
+            {teams.map((item) => {
+              const occupiedBy = spieltagOccupancy.get(item.id);
+              // The reason rides in `textValue` as well as in the visible row, so searching still
+              // finds the team and a screen reader hears why it cannot be chosen.
+              const reason = item.is_disqualified ? "disqualifiziert" : occupiedBy !== undefined ? `in Spiel ${occupiedBy}` : null;
+
+              return (
+                <ListBox.Item
+                  key={item.id}
+                  id={item.id}
+                  textValue={reason === null ? item.name : `${item.name} — ${reason}`}
+                  className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
+                  {item.name}
+                  {reason !== null && (
+                    <span
+                      className={`${LABEL_BADGE} ${item.is_disqualified ? "bg-danger/15 text-danger-strong" : "bg-muted text-foreground-muted"}`}>
+                      {reason}
+                    </span>
+                  )}
+                </ListBox.Item>
+              );
+            })}
           </ListBox>
         </Autocomplete.Filter>
       </Autocomplete.Popover>
@@ -412,9 +431,7 @@ export function FormTeamPicker({
                 textValue={item.key === recommendedChoice ? `${item.label} — empfohlen` : item.label}
                 className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                 {item.label}
-                {item.key === recommendedChoice && (
-                  <span className="fluid-xxs bg-brand/15 text-brand-solid rounded-md px-1.5 py-0.5 font-bold">empfohlen</span>
-                )}
+                {item.key === recommendedChoice && <span className={`${LABEL_BADGE} bg-brand/15 text-brand-solid`}>empfohlen</span>}
               </ListBox.Item>
             ))}
           </ListBox>

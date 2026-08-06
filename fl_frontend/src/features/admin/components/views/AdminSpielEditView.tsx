@@ -66,7 +66,11 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
     );
 
   return (
-    <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center px-4 pt-6 pb-12 sm:px-8`}>
+    // No bottom padding, unlike the sibling pages: this page ends in a bar that is sticky to the
+    // scroll container's bottom edge, and `pb-12` put 48px of page below it — so at the end of the
+    // scroll the bar rose off the edge by exactly that much (owner, fourth review). The bar's own
+    // padding is the page's bottom spacing.
+    <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center px-4 pt-6 sm:px-8`}>
       {/* `max-w-page`, the cap every dashboard page uses — this page sat at `max-w-toolbar` (1200px)
           and was the odd one out, 200px narrower than the pages beside it. */}
       <div className="max-w-page flex w-full flex-col">

@@ -111,6 +111,17 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
  */
 export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Absage";
 
+/**
+ * How urgently an expected field is waited on. The split is the owner's (fourth review): a fixture
+ * cannot HAPPEN without a date, a time, an occupied slot or — once played — a result, while a venue
+ * and a referee are organisational and merely recommended. Marker colours and the open-items badges
+ * both read this, so the yellow marker beside a field and the badge counting it can never disagree.
+ */
+export type FLExpectedSeverity = "required" | "recommended";
+
+const severityFor = (category: ActionRequiredCategory): FLExpectedSeverity =>
+  category === "ort_missing" || category === "schiedsrichter_missing" ? "recommended" : "required";
+
 /** What the page knows about one editable field right now. */
 export type FLSpielFieldStatus = {
   /** Dotted payload path; also the input's `name`, the `FieldErrors` key and the anchor id. */
@@ -123,6 +134,8 @@ export type FLSpielFieldStatus = {
   isChanged: boolean;
   /** Empty, and an action-required category says somebody is waiting on it. */
   isExpected: boolean;
+  /** How urgently, when `isExpected`; `null` otherwise. */
+  expectedSeverity: FLExpectedSeverity | null;
   /** The schema's message for this field, or `null`. */
   error: string | null;
   /** How the stored value reads, or `null` when it was empty. */
@@ -407,12 +420,15 @@ export function deriveSpielDraftStatus({
     const error =
       (descriptor.errorPaths ?? [descriptor.path]).map((path) => fieldErrors[path]).find((message) => message !== undefined) ?? null;
 
+    const isExpected = descriptor.expectedWhen !== null && expectedCategories.has(descriptor.expectedWhen) && isEmptyNow;
+
     return {
       path: descriptor.path,
       label: descriptor.label,
       group: descriptor.group,
       isChanged: descriptor.hasChanged(stored, draft),
-      isExpected: descriptor.expectedWhen !== null && expectedCategories.has(descriptor.expectedWhen) && isEmptyNow,
+      isExpected,
+      expectedSeverity: isExpected && descriptor.expectedWhen !== null ? severityFor(descriptor.expectedWhen) : null,
       error,
       storedText: descriptor.format(stored),
       draftText,

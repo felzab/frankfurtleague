@@ -5,7 +5,7 @@ import { Separator } from "@heroui/react";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
-import { collectUsedQuelleKeys } from "../../../utils";
+import { collectSpieltagTeamOccupancy, collectUsedQuelleKeys } from "../../../utils";
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
@@ -64,6 +64,14 @@ export function FormMatchupSection({
   // every keystroke anywhere in the form.
   const usedQuelleKeys = useMemo(() => collectUsedQuelleKeys(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
 
+  // Which fixture of the same Spieltag already fields each team. A team plays once per matchday, so a
+  // pick that would field it twice is refused in the list, with the occupying fixture named — before
+  // this, the pick went through and nothing said the team stays in the other fixture too.
+  const spieltagOccupancy = useMemo(
+    () => collectSpieltagTeamOccupancy(saisonSpiele, { id: spielData.id, spieltag_id: spielData.spieltag_id }),
+    [saisonSpiele, spielData.id, spielData.spieltag_id],
+  );
+
   const isKnockout = spielData.saison_phase !== "gruppenphase";
 
   return (
@@ -77,9 +85,35 @@ export function FormMatchupSection({
         <div className={styles.headingRow()}>
           <h2 className={styles.heading()}>Begegnung</h2>
           <InfoHint label="Hinweis zur Begegnung">
-            {isKnockout
-              ? "Jede Seite hat eine Herkunft. „Sieger/Verlierer eines Spiels“ folgt dem Ausgang einer früheren Runde, „Platz in einer Gruppe“ der Abschlusstabelle — beides pflegt das System automatisch. „Manuell gesetzt“ bleibt stehen, wie Du es einträgst. Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt."
-              : "Welche beiden Mannschaften aufeinandertreffen. Disqualifizierte Teams bleiben sichtbar, sind aber gesperrt."}
+            {isKnockout ? (
+              <>
+                <p>Jede Seite hat eine Herkunft:</p>
+                <ul>
+                  <li>
+                    <strong>Sieger / Verlierer eines Spiels</strong> — folgt automatisch dem Ausgang der früheren Runde.
+                  </li>
+                  <li>
+                    <strong>Platz in einer Gruppe</strong> — folgt automatisch der Abschlusstabelle.
+                  </li>
+                  <li>
+                    <strong>Manuell gesetzt</strong> — bleibt stehen, wie Du es einträgst.
+                  </li>
+                </ul>
+                <p>Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt.</p>
+              </>
+            ) : (
+              <>
+                <p>Welche beiden Mannschaften aufeinandertreffen.</p>
+                <ul>
+                  <li>
+                    <strong>Disqualifizierte</strong> Teams bleiben sichtbar, sind aber gesperrt.
+                  </li>
+                  <li>
+                    Ein Team spielt <strong>einmal pro Spieltag</strong> — steht es schon in einem anderen Spiel, ist es hier gesperrt.
+                  </li>
+                </ul>
+              </>
+            )}
           </InfoHint>
         </div>
       </div>
@@ -97,6 +131,7 @@ export function FormMatchupSection({
           spielData={spielData}
           saisonSpiele={saisonSpiele}
           usedQuelleKeys={usedQuelleKeys}
+          spieltagOccupancy={spieltagOccupancy}
           otherDraftQuelle={team2Quelle}
           onValidateSelection={onValidateSelection}
         />
@@ -115,6 +150,7 @@ export function FormMatchupSection({
           spielData={spielData}
           saisonSpiele={saisonSpiele}
           usedQuelleKeys={usedQuelleKeys}
+          spieltagOccupancy={spieltagOccupancy}
           otherDraftQuelle={team1Quelle}
           onValidateSelection={onValidateSelection}
         />

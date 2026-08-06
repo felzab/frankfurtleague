@@ -16,31 +16,32 @@ import type { ReactNode } from "react";
  * three expanded cards put the whole form a scroll away from the top of the page. Each one folds, and
  * the two that are review surfaces start folded on a phone — see `defaultOpenOnMobile`.
  *
+ * **The fold control is an overlay button, and the layout is why.** The header row holds the title,
+ * its `InfoHint`, the badge and the chevron; the InfoHint must sit NEXT TO the title (owner, fourth
+ * review) and must stay its own interactive element — nesting it in a `<button>` is two controls in
+ * one. So the button is an absolutely-positioned cover labelled by the heading, everything decorative
+ * is `pointer-events-none` so clicks fall through to it, and the InfoHint alone stacks above it.
+ *
  * **The default differs by viewport, and it is resolved once on mount rather than by a media query.**
  * A CSS-driven default cannot be overridden by a press: the moment the admin opens a card the state has
  * to be theirs, and a rule keyed on width would fight them on the next resize. `matchMedia` is read in
- * the initialiser so the first paint is already right, and after that the only thing that moves it is
- * the button. The reader is inside `useState`'s lazy initialiser, so it never runs during SSR.
- *
- * The whole header is the control, and it carries `aria-expanded` and `aria-controls` so the state is
- * announced rather than left to the chevron.
+ * the initialiser so the first paint is already right. A caller that needs to drive the state — the
+ * warnings card folds itself when its last banner clears — passes `isOpen`/`onToggle` instead, and the
+ * internal state stands down entirely.
  */
 export function RailSection({
   title,
   badge,
   info,
   defaultOpenOnMobile = true,
+  isOpen: controlledOpen,
+  onToggle,
   children,
 }: {
   title: string;
   /** Rendered between the title and the chevron — a count, usually. Visible while collapsed. */
   badge?: ReactNode;
-  /**
-   * An `InfoHint` for the card, rendered BESIDE the fold button rather than inside it: the whole
-   * header is a `<button>`, and a popover trigger nested in a button is two interactive elements in
-   * one — the trap `TeamPopoverMenu` documents. Sitting after the chevron keeps the fold button's
-   * full-width press target intact.
-   */
+  /** An `InfoHint`, rendered directly beside the title. */
   info?: ReactNode;
   /**
    * Whether this card starts open on a narrow screen. Desktop always starts open.
@@ -49,31 +50,50 @@ export function RailSection({
    * are both answers to "what will I have done", which is a question asked at the end.
    */
   defaultOpenOnMobile?: boolean;
+  /** Controlled mode, both or neither: the caller owns the state and this component only renders it. */
+  isOpen?: boolean;
+  onToggle?: (isOpen: boolean) => void;
   children: ReactNode;
 }) {
   const contentId = useId();
+  const headingId = useId();
 
-  const [isOpen, setIsOpen] = useState(() => {
+  const [internalOpen, setInternalOpen] = useState(() => {
     // `xl`, matching the breakpoint at which the rail becomes its own column. No `window` on the
     // server, and this initialiser does not run there.
     if (defaultOpenOnMobile || typeof window === "undefined") return true;
     return window.matchMedia("(min-width: 80rem)").matches;
   });
 
+  const isOpen = controlledOpen ?? internalOpen;
+  const toggle = () => (onToggle ? onToggle(!isOpen) : setInternalOpen((open) => !open));
+
   return (
     <section className={`${card()} flex w-full flex-col`}>
-      <div className="flex w-full flex-row items-center">
+      <div className="relative flex w-full flex-row items-center gap-x-2 px-4 py-3">
+        {/* The whole-row press target. Empty on purpose: its accessible name is the heading beside
+            it, and its visible content is the row it covers. */}
         <button
           type="button"
           aria-expanded={isOpen}
           aria-controls={contentId}
-          onClick={() => setIsOpen((open) => !open)}
-          className="hover:bg-muted/40 flex min-w-0 flex-1 flex-row items-center gap-x-2 rounded-2xl px-4 py-3 text-left transition-colors">
-          <h2 className="fluid-base text-foreground mr-auto font-extrabold tracking-tight">{title}</h2>
-          {badge}
-          <ChevronDown className={`text-foreground-muted size-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-        </button>
-        {info && <div className="pe-3">{info}</div>}
+          aria-labelledby={headingId}
+          onClick={toggle}
+          className="hover:bg-muted/40 absolute inset-0 cursor-pointer rounded-2xl transition-colors"
+        />
+
+        <h2
+          id={headingId}
+          className="fluid-base text-foreground pointer-events-none relative font-extrabold tracking-tight">
+          {title}
+        </h2>
+        {/* `flex`, not an inline span: an inline wrapper joins the text baseline and floats the icon
+            a few pixels above the title's optical centre — the misalignment the owner reported. */}
+        {info && <span className="relative z-10 flex items-center">{info}</span>}
+        {badge && <span className="pointer-events-none relative ml-auto">{badge}</span>}
+        <ChevronDown
+          className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 transition-transform duration-200 ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
+        />
       </div>
 
       {isOpen && (

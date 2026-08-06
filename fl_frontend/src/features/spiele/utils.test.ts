@@ -19,6 +19,7 @@ import { describe, it } from "node:test";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   adminSpielEditHref,
+  collectSpieltagTeamOccupancy,
   collectUsedQuelleKeys,
   computeErgebnisFor,
   computeSpielStatus,
@@ -218,6 +219,16 @@ describe("formatQuelle", () => {
   it("reads every other placing as an ordinal", () => {
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "C", platz: 2 }), "2. der Gruppe C");
   });
+
+  // The defect this fixed: a source mid-edit drafts `NaN` where its number is unpicked, and every
+  // consumer — the Ergebnis labels, the preview, the change list — printed "Sieger NaN.".
+  it("returns null while a match-fed slot's number is still unpicked", () => {
+    assert.equal(formatQuelle({ type: "spiel", spiel_nr: NaN, ausgang: "sieger" }), null);
+  });
+
+  it("returns null while a group-fed slot's placing is still unpicked", () => {
+    assert.equal(formatQuelle({ type: "gruppe", gruppe: "B", platz: NaN }), null);
+  });
 });
 
 describe("formatSpielUpdateMessage", () => {
@@ -333,6 +344,43 @@ describe("collectUsedQuelleKeys", () => {
 
   it("collects everything when the edited fixture is not in the list", () => {
     assert.equal(collectUsedQuelleKeys(season, "id-99").size, 3);
+  });
+});
+
+describe("collectSpieltagTeamOccupancy", () => {
+  // Only the fields the derivation reads — a side is its team id, a fixture its matchday.
+  const spiel = (id: string, spieltagId: string, nr: number, team1: string | null, team2: string | null): FLSpiel =>
+    ({
+      id,
+      spieltag_id: spieltagId,
+      spiel_nr: nr,
+      team1: team1 === null ? null : { team_id: team1 },
+      team2: team2 === null ? null : { team_id: team2 },
+    }) as FLSpiel;
+
+  const season = [
+    spiel("id-29", "tag-9", 29, "team-a", null),
+    spiel("id-30", "tag-9", 30, "team-b", "team-c"),
+    spiel("id-25", "tag-8", 25, "team-d", null),
+  ];
+
+  it("maps each team of the same Spieltag to the fixture that fields it, skipping the edited one", () => {
+    const occupancy = collectSpieltagTeamOccupancy(season, { id: "id-29", spieltag_id: "tag-9" });
+
+    assert.deepEqual(
+      [...occupancy.entries()],
+      [
+        ["team-b", 30],
+        ["team-c", 30],
+      ],
+    );
+  });
+
+  it("ignores fixtures of other Spieltage entirely — a team may well play next round", () => {
+    const occupancy = collectSpieltagTeamOccupancy(season, { id: "id-30", spieltag_id: "tag-9" });
+
+    assert.equal(occupancy.has("team-d"), false);
+    assert.equal(occupancy.get("team-a"), 29);
   });
 });
 

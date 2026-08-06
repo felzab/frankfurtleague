@@ -53,8 +53,15 @@ export function FormCancelSection({
         <div className={styles.headingRow()}>
           <h2 className={styles.heading()}>Absage</h2>
           <InfoHint label="Hinweis zur Absage">
-            Ein abgesagtes Spiel erscheint überall als abgesagt und wird nicht mehr zu fehlenden Angaben angemahnt. Ein eingetragenes Ergebnis
-            bleibt stehen und zählt für die Tabelle.
+            <p>Ein abgesagtes Spiel findet nicht statt.</p>
+            <ul>
+              <li>
+                Es erscheint überall als <strong>abgesagt</strong> und wird nicht mehr angemahnt.
+              </li>
+              <li>
+                Ein eingetragenes <strong>Ergebnis bleibt stehen</strong> und zählt weiter für die Tabelle.
+              </li>
+            </ul>
           </InfoHint>
         </div>
       </div>
@@ -84,8 +91,8 @@ export function FormCancelSection({
             severity="danger"
             isAnnounced
             title="Abgesagt heißt: das Spiel findet nicht statt">
-            Es erscheint überall als abgesagt und verschwindet aus den offenen Aufgaben — Datum, Ort und Schiedsrichter werden dort nicht mehr
-            angemahnt. Ein eingetragenes Ergebnis bleibt stehen und zählt weiter für die Tabelle.
+            Es erscheint überall als abgesagt und wird nicht mehr angemahnt. Ein eingetragenes Ergebnis bleibt stehen und zählt weiter für die
+            Tabelle.
           </Callout>
         )}
 

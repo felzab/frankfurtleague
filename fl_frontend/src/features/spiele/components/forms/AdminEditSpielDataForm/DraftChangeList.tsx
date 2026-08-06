@@ -5,23 +5,23 @@ import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import type { FLSpielFieldGroup, FLSpielFieldStatus } from "@/features/spiele/draftStatus";
 
 /**
- * Every unsaved edit as `alt → neu`, sectioned by the panel each field renders in.
+ * Every unsaved edit, one line each, sectioned by the panel the field renders in.
  *
  * **This is the other half of the answer to "is that the old date or the new one?"** Each edited field
  * carries its own struck-through `vorher:` line, which answers it while you are in that field; this
  * answers it for the whole fixture before you commit, which is the moment the question actually matters.
  *
+ * **One indicator, one line** (owner, fourth review). The first version spent two lines and three
+ * signals per change — label, then `alt → neu` with a strikethrough AND an arrow AND a dash for
+ * empty. The strikethrough alone already says "this is what it was", so the row is now
+ * `Label  ~alt~  neu`, wrapping only when the values genuinely do not fit. An emptied value reads
+ * "entfernt" in the danger grade, because "you emptied something that was filled" is the edit most
+ * easily made by accident and the least visible in a form.
+ *
  * **The sections come from the descriptor table, not from a mapping kept here.** Each field's `group`
  * is a column of its row in `draftStatus.ts`, so a future field lands in the right section by filling
- * its row — this component knows how to render a group and nothing about which fields belong to one.
- * A group with no changed field renders nothing rather than an empty heading.
- *
- * A removal renders as `—` in the danger grade rather than as an empty cell, because "you emptied
- * something that was filled" is the edit most easily made by accident and the one least visible in a
- * form: the field simply looks untouched.
- *
- * Struck-through old value, bold new value, muted arrow: three levels of emphasis in one row, so the
- * direction reads without the arrow having to be found first.
+ * its row. Each group sits in its own recessed box, which is what separates the sections at a glance
+ * where a heading alone did not.
  */
 export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldStatus[] }) {
   if (changed.length === 0) {
@@ -37,28 +37,25 @@ export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldSta
   }
 
   return (
-    <div className="flex w-full flex-col gap-y-3">
+    <div className="flex w-full flex-col gap-y-2">
       {[...grouped.entries()].map(([group, fields]) => (
         <section
           key={group}
-          className="flex w-full flex-col gap-y-1.5">
+          className="bg-muted/50 flex w-full flex-col gap-y-1.5 rounded-lg p-2.5">
           <h3 className={FORM_SECTION_HEADING}>{group}</h3>
-          <dl className="flex w-full flex-col gap-y-2">
+          <ul className="flex w-full flex-col gap-y-1">
             {fields.map((field) => (
-              <div
+              <li
                 key={field.path}
-                className="flex w-full flex-col gap-y-0.5">
-                <dt className="fluid-xxs text-foreground-muted font-bold">{field.label}</dt>
-                <dd className="fluid-xs flex flex-row flex-wrap items-baseline gap-x-1.5">
-                  <span className="text-foreground-muted line-through">{field.storedText ?? "—"}</span>
-                  <span className="text-foreground-muted">→</span>
-                  <span className={`font-bold ${field.draftText === null ? "text-danger-strong" : "text-foreground"}`}>
-                    {field.draftText ?? "—"}
-                  </span>
-                </dd>
-              </div>
+                className="fluid-xs flex w-full flex-row flex-wrap items-baseline gap-x-2">
+                <span className="text-foreground-muted min-w-0 font-medium">{field.label}</span>
+                {field.storedText !== null && <s className="text-foreground-muted min-w-0 truncate">{field.storedText}</s>}
+                <span className={`min-w-0 font-bold ${field.draftText === null ? "text-danger-strong" : "text-foreground"}`}>
+                  {field.draftText ?? "entfernt"}
+                </span>
+              </li>
             ))}
-          </dl>
+          </ul>
         </section>
       ))}
     </div>

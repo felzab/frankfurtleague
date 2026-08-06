@@ -141,8 +141,16 @@ export function FormErgebnisSection({
         <div className={styles.headingRow()}>
           <h2 className={styles.heading()}>Ergebnis</h2>
           <InfoHint label="Hinweis zum Ergebnis">
-            Die Tore beider Seiten. Ausschalten setzt auf den gespeicherten Stand zurück. Endet ein K.-o.-Spiel unentschieden, entscheidet ein
-            Elfmeterschießen: sein Sieger rückt im Turnierbaum weiter, für die Tabelle bleibt es ein Unentschieden.
+            <p>Die Tore beider Seiten.</p>
+            <ul>
+              <li>
+                <strong>Ausschalten</strong> setzt das Ergebnis auf den gespeicherten Stand zurück.
+              </li>
+              <li>
+                Endet ein K.-o.-Spiel <strong>unentschieden</strong>, entscheidet ein Elfmeterschießen: der Sieger rückt im Turnierbaum weiter,
+                für die Tabelle bleibt es ein Unentschieden.
+              </li>
+            </ul>
           </InfoHint>
         </div>
       </div>

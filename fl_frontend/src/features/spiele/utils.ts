@@ -128,6 +128,12 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
 export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
   if (quelle === null) return null;
 
+  // A source mid-edit holds `NaN` where its number is still unpicked, which is a `number` and
+  // type-checks — so without this guard every consumer printed "Sieger NaN." while somebody was
+  // choosing a feeder match. `null` here means "nothing renderable yet", which callers already
+  // handle: they fall through to the shared placeholder.
+  if (!Number.isInteger(quelle.type === "gruppe" ? quelle.platz : quelle.spiel_nr)) return null;
+
   if (quelle.type === "gruppe") {
     return quelle.platz === 1 ? `Gruppensieger ${quelle.gruppe}` : `${quelle.platz}. der Gruppe ${quelle.gruppe}`;
   }
@@ -170,6 +176,32 @@ export const collectUsedQuelleKeys = (saisonSpiele: readonly FLSpiel[], editedSp
   }
 
   return used;
+};
+
+/**
+ * Which fixture of the same Spieltag already fields each team, excluding the fixture being edited.
+ *
+ * A team appears at most once per Spieltag — it cannot play two matches on one matchday — and this
+ * map is what lets the picker say so where the answer is refused, instead of accepting a pick that
+ * silently leaves the team in both fixtures. Stored sides only, like `collectUsedQuelleKeys`: other
+ * fixtures' drafts are not visible here, and the edited fixture's own sides are the caller's to
+ * check against its draft. The write-path refusal is the backend's half (ADR-0049's successor); this
+ * is the UI half that makes the rule readable.
+ */
+export const collectSpieltagTeamOccupancy = (
+  saisonSpiele: readonly FLSpiel[],
+  edited: Pick<FLSpiel, "id" | "spieltag_id">,
+): Map<string, number> => {
+  const occupancy = new Map<string, number>();
+
+  for (const spiel of saisonSpiele) {
+    if (spiel.id === edited.id || spiel.spieltag_id !== edited.spieltag_id) continue;
+    for (const side of [spiel.team1, spiel.team2]) {
+      if (side !== null) occupancy.set(side.team_id, spiel.spiel_nr);
+    }
+  }
+
+  return occupancy;
 };
 
 /**
