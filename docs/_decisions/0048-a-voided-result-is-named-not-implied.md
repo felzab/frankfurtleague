@@ -1,10 +1,10 @@
 # ADR-0048 — A resolution that voids a stored result names it, and the edit surface says so first
 
-**Status:** Accepted
+**Status:** Superseded
 **Date:** 2026-08-06
 **Surface:** backend, frontend
 **Supersedes:** —
-**Superseded by:** —
+**Superseded by:** [ADR-0051](0051-a-voided-result-is-named-before-it-is-lost.md)
 **Source:** Open item FB-14, the evaluation of this system against established tournament platforms.
 
 ## Context

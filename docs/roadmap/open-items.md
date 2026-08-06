@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `efed00a`, 2026-08-06
+**Verified against:** `f3e9a78`, 2026-08-06
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -51,7 +51,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 7   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                           |
 | 8   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)        |
 | 9   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                           |
-| 10  | FE-11 | Toasts an admin can act on                              | FE          | M      | Decided  | — (ADR-0048 gives it form)  |
+| 10  | FE-11 | Toasts an admin can act on                              | FE          | S      | Decided  | — (partly built by ADR-0051) |
 | 11  | FE-12 | Action-required, redesigned                             | FE          | M      | Open     | — (its links have a target) |
 | 12  | FB-11 | Nothing shows a season's bracket wiring, at all         | FE, BE      | L      | Open     | — (FE-12 first, soft)       |
 | 13  | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (ADR-0050's patterns)     |
@@ -64,7 +64,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 20  | FE-5  | Filters for the Spielsuche                              | FE          | M      | Open     | — (F1 informs it)           |
 | 21  | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | —                           |
 | 22  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)    |
-| 23  | BE-15 | No admin write is recorded anywhere                     | BE, DB      | M      | Open     | — (ADR-0048's follow-on)    |
+| 23  | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)    |
 | 24  | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor)   |
 | 25  | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0049 settles it)     |
 | 26  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4               |
@@ -477,10 +477,21 @@ action where one exists — "Ansehen" linking into `/admin/spiele/[spiel_id]`), 
 every input, and the copy pass over every producer (`EntityForm`, `ConfirmDeleteModal`,
 `InlineCreateAutocomplete`, the two admin tables, `SidemenuOptionsMenu`, the match form).
 
-**The first structured toast is already specified.**
-[ADR-0048](../_decisions/0048-a-voided-result-is-named-not-implied.md) requires the match save to
-report a cleared result separately from a moved pairing — one outcome in the title, the detail in the
-description, "Ansehen" as the action. Build that shape here rather than inventing a second one.
+**The first structured toast is built, and this entry is partly consumed by it.**
+[ADR-0051](../_decisions/0051-a-voided-result-is-named-before-it-is-lost.md) ships the match save's
+undo toast in exactly the shape this entry specifies — outcome in the title, detail in the
+description, an action beside it — so the pattern is no longer a proposal to design but a precedent to
+follow. Two consequences for the remaining work:
+
+- **Do not invent a second structure.** The undo toast is the reference; the sweep below brings the
+  other producers to it.
+- **The action-with-a-timeout case is now real, and it sharpens the WCAG argument above rather than
+  answering it.** Fifteen seconds is a timed message whose action is the entire point, so the
+  unhittable close button on touch is worse there than anywhere else on the site. That control is
+  still the first fix.
+
+What is left of this entry is everything else: the dismiss affordance, the durations, the stacked-toast
+clipping, and the copy pass.
 
 **Every override belongs in `src/app/globals.css`, and toasts are the case where that is enough.**
 HeroUI's `toast.css` is imported there and nowhere else, and that stylesheet loads on every route, so
@@ -489,8 +500,8 @@ a toast raised on `/admin` is already styled by it —
 copy. The repository's existing `.toast`, `.toast--danger`, `.toast__description` and `.toast__action`
 rules are already in `globals.css`; the new overrides join them.
 
-**Path:** `/admin/spiele/[spiel_id]` is the target its action links point at, and ADR-0048 gives the
-structure its first case.
+**Path:** `/admin/spiele/[spiel_id]` is the target its action links point at, and ADR-0051 has already
+built the structure's first case.
 Every producer it touches is cheaper after FE-9's address-form pass, and its copy follows that
 convention.
 
@@ -879,7 +890,7 @@ prospective item, opened so the field's purpose is recorded rather than rediscov
 **Path:** independent, and genuinely not urgent — it becomes real the first time something is retired,
 which needs FB-3 or FB-6 to exist. Doing it before then is designing against zero rows.
 
-### 23 · BE-15 — No admin write is recorded anywhere
+### 23 · BE-15 — An admin action log, and a smarter undo over it
 
 **Opened 2026-08-06, out of the evaluation of this system against established practice.** It is the
 one place where that evaluation found this system materially behind the reference model on the data
@@ -919,9 +930,26 @@ paid only when something goes wrong and somebody asks what happened.
 - **Whether a restore is offered at all.** Recording that a result was destroyed is much cheaper than
   being able to put it back, and the two are separable — the first is worth having on its own.
 
+**What the owner has since asked this to become (2026-08-06).** An **admin action-log page** listing
+every edit and every add, with a **smarter undo built over it**. That settles two of the four questions
+above and reshapes a third:
+
+- **What is recorded:** every write, not only the destructive ones. A page listing edits is a page, and
+  a page that lists half of them is a page nobody trusts.
+- **Where it goes:** a collection, because the page reads it. The log-stream option is out — deploy
+  recreates the containers and the history would end at the last deploy.
+- **Whether a restore is offered:** yes, and that is the "smarter undo". The bound to beat is the one
+  [ADR-0051](../_decisions/0051-a-voided-result-is-named-before-it-is-lost.md) already ships: fifteen
+  seconds, held in the browser, gone on reload. An undo over a stored log survives both, and it can
+  restore a write nobody was watching at the time — which is the case the client-held one cannot reach.
+
+Still open: **how long it is kept and whether it holds personal data**, unchanged from above.
+
 **Path:** independent, and not scheduled. FB-2 gives disqualification a reason and a date and is the
-nearest thing to a first instalment; LOG-2 owns the destination question if the answer is a log rather
-than a collection. Neither blocks this and this blocks neither.
+nearest thing to a first instalment; LOG-2 owns the destination question only if the answer ever
+becomes a log rather than a collection, which the owner's direction above makes unlikely. Neither
+blocks this and this blocks neither. ADR-0051 raises the value of doing it: the client-held undo makes
+the gap visible on the one surface an admin uses most.
 
 ### 24 · LOG-2 — Full trace context: `traceparent`, spans, and somewhere to send them
 

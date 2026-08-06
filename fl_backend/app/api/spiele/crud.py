@@ -1,16 +1,21 @@
 """
-SPIELE · bracket advancement, and the derived fault list
+SPIELE · bracket advancement, the preview of it, and the derived fault list
 
 The one database-facing half of auto-advance. `resolve_bracket` in `services.py` decides what every
 slot in a season should hold; this module reads the season, hands it over, and writes back the
 fixtures whose answer differs (ADR-0042). `find_bracket_faults` runs the same resolution over every
-season and keeps only what it reported, writing nothing (ADR-0047).
+season and keeps only what it reported, writing nothing (ADR-0047). `preview_bracket_after_patch` runs
+it over ONE season rebuilt in memory, which is what `dry_run=true` answers with (ADR-0051).
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • Both callers go through `_resolve_one_saison`. The fault list an admin re-asks for and the one a
-    save reports have to be the same list, and two implementations of the standings read would be two
-    answers to who finished second.
+  • All THREE callers go through `_resolve_one_saison`. The fault list an admin re-asks for, the one a
+    save reports and the one a preview promises have to be the same list, and two implementations of
+    the standings read would be two answers to who finished second.
+  • The preview writes NOTHING and takes no session, exactly as `find_bracket_faults` does. It answers
+    a question; a transaction would take a write lock for one.
+  • A release is applied BEFORE the resolution, on both paths. A slot the release opened can be
+    refilled by the resolution that follows it, so the two orders name different fixtures (ADR-0052).
   • `find_bracket_faults` writes NOTHING and takes no session. It is a read on an admin route, outside
     any transaction, and reporting a contradiction is never licence to resolve it (ADR-0047).
   • The read takes the caller's SESSION. `advance_bracket_winners` runs after `patch_spiel_data` has
@@ -45,11 +50,20 @@ from typing import Mapping, Sequence
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLBracketFault, FLSpiel, FLSpielListAdapter, FLSpielQuelleGruppe
-from app.api.spiele.services import BracketResolution, resolve_bracket
+from app.api.spiele.schemas import (
+    FLBracketFault,
+    FLSpiel,
+    FLSpielAdvancement,
+    FLSpielListAdapter,
+    FLSpielQuelleGruppe,
+    FLSpielReleasedSide,
+    FLSpielTeamField,
+)
+from app.api.spiele.services import BracketResolution, SlotAdvancement, SpieltagRelease, resolve_bracket
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import DecidedStanding, build_decided_standings, build_team_pipeline
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
+from app.shared.schemas.custom import CustomObjectId
 
 
 async def _resolve_one_saison(
@@ -160,20 +174,94 @@ async def find_bracket_faults(
     return faults, faulted_spiele
 
 
+async def pull_saison_membership(
+    saison_teams_collection: AsyncIOMotorCollection,
+    saison_id: str,
+    session: AsyncIOMotorClientSession | None = None,
+) -> dict[CustomObjectId, bool]:
+    """
+    Which teams hold a row for this season, and which of them are disqualified (ADR-0052).
+
+    Read directly rather than through `build_team_pipeline`: that pipeline serves the league table, so
+    it skips seasons a team has no matches in and filters `inactive_since` -- both of which would drop
+    a row this refusal has to see. What is needed here is the junction itself, which is the document
+    `is_disqualified` actually lives on.
+
+    A team absent from the returned map holds no row at all, which is a distinct refusal from being
+    disqualified: the first is a dangling reference and the second is a decision somebody recorded.
+
+    Takes the caller's SESSION on the write path, for the reason every read on it does: a
+    disqualification written by the same transaction has to be visible to the rule that reads it.
+    """
+
+    rows = await pull_many_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id},
+        projection={"team_id": 1, "is_disqualified": 1},
+        session=session,
+    )
+
+    return {row["team_id"]: bool(row.get("is_disqualified", False)) for row in rows}
+
+
+async def preview_bracket_after_patch(
+    teams_collection: AsyncIOMotorCollection,
+    saison_id: str,
+    rules: FLSaisonRules,
+    season: Sequence[FLSpiel],
+    patched: FLSpiel,
+    releases: Sequence[SpieltagRelease],
+) -> tuple[list[FLSpielAdvancement], list[FLSpielReleasedSide], list[FLBracketFault]]:
+    """
+    What saving this payload would move and destroy -- computed without writing anything (ADR-0051).
+
+    The season is rebuilt IN MEMORY with the patched fixture and every released side substituted in,
+    and then handed to the same `_resolve_one_saison` the save uses. Not a second implementation of
+    the resolution and not an approximation of one: it is the resolution, run against a season that
+    exists only for the length of this call.
+
+    **No session and no transaction.** Nothing here writes, so there is nothing of its own to see, and
+    a preview that opened a transaction would take a write lock for a question.
+
+    The releases are substituted BEFORE resolving, in the order the save applies them, because a
+    released slot can be refilled by the resolution that follows it -- and a preview that resolved
+    against the unreleased season would name a different set of fixtures than the save moves.
+    """
+
+    substituted = {patched.id: patched}
+    for release in releases:
+        current = substituted.get(release.spiel_id) or next(spiel for spiel in season if spiel.id == release.spiel_id)
+        substituted[release.spiel_id] = apply_release_to_spiel(current, release)
+
+    resolution = await _resolve_one_saison(
+        teams_collection=teams_collection,
+        saison_id=saison_id,
+        rules=rules,
+        spiele=[substituted.get(spiel.id, spiel) for spiel in season],
+    )
+
+    return (
+        [report_advancement(advancement) for advancement in resolution.advancements],
+        [report_release(release) for release in releases],
+        resolution.bracket_faults,
+    )
+
+
 async def advance_bracket_winners(
     spiele_collection: AsyncIOMotorCollection,
     teams_collection: AsyncIOMotorCollection,
     saison_id: str,
     rules: FLSaisonRules,
     session: AsyncIOMotorClientSession,
-) -> tuple[list[int], list[FLBracketFault]]:
+) -> tuple[list[FLSpielAdvancement], list[FLBracketFault]]:
     """
     Resolve one season's bracket and write back every fixture whose slots disagree with it.
 
-    Returns the `spiel_nr` of each fixture actually written, in ascending order, and every stored fault
-    the resolution walked past (ADR-0047). Both are empty for the ordinary edit: a bracket that already
-    agrees with its wiring is written to nowhere, and a group still being played reports nothing,
-    because a placing that is not decided yet needs no one's attention (ADR-0043).
+    Returns one entry per fixture actually written, in ascending `spiel_nr` order, naming **what each
+    write destroyed** as well as which fixture moved (ADR-0051) -- plus every stored fault the
+    resolution walked past (ADR-0047). Both lists are empty for the ordinary edit: a bracket that
+    already agrees with its wiring is written to nowhere, and a group still being played reports
+    nothing, because a placing that is not decided yet needs no one's attention (ADR-0043).
 
     **The whole season is resolved, not only the fixtures fed by the match that changed.** That costs
     one read of about thirty documents on an admin-only path, and it buys a result that does not depend
@@ -225,4 +313,95 @@ async def advance_bracket_winners(
             session=session,
         )
 
-    return [advancement.spiel_nr for advancement in resolution.advancements], resolution.bracket_faults
+    return [report_advancement(advancement) for advancement in resolution.advancements], resolution.bracket_faults
+
+
+def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
+    """
+    One advancement as the response reports it: the fixture, and the result the write destroyed.
+
+    The one mapping from the internal write instruction to the wire shape, so the save and the
+    `dry_run=true` preview report an identical advancement (ADR-0051). The sides themselves are not
+    reported -- the caller re-reads the season anyway, and naming them here would be a second, partial
+    copy of the fixture.
+    """
+
+    return FLSpielAdvancement(
+        spiel_nr=advancement.spiel_nr,
+        voided_ergebnis=advancement.voided_ergebnis,
+        voided_elfmeterschiessen=advancement.voided_elfmeterschiessen,
+    )
+
+
+def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
+    """One released side as the response reports it, for the same reason `report_advancement` exists."""
+
+    return FLSpielReleasedSide(
+        spiel_nr=release.spiel_nr,
+        side=release.side,
+        team_name=release.team_name,
+        voided_ergebnis=release.voided_ergebnis,
+        voided_elfmeterschiessen=release.voided_elfmeterschiessen,
+    )
+
+
+def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
+    """
+    One fixture with the released side emptied -- the shape the write below stores and the preview shows.
+
+    Pure, and shared by both for the same reason `apply_payload_to_spiel` is: a preview that models the
+    release differently from the write would name the wrong fixtures (ADR-0051).
+
+    **The side left behind loses its goals too**, exactly as an advancement strips both sides: they
+    were scored against the team being removed, and goals standing against a fixture with no result is
+    the shape `build_statistik_lookup_stage` has to restate a filter to survive.
+    """
+
+    other = "team2" if release.side == "team1" else "team1"
+    other_side: FLSpielTeamField | None = getattr(spiel, other)
+
+    return spiel.model_copy(
+        update={
+            release.side: None,
+            other: other_side.model_copy(update={"tore": None}) if other_side is not None else None,
+            "ergebnis": None,
+            "elfmeterschiessen": None,
+        }
+    )
+
+
+async def release_spieltag_sides(
+    spiele_collection: AsyncIOMotorCollection,
+    releases: Sequence[SpieltagRelease],
+    session: AsyncIOMotorClientSession,
+) -> list[FLSpielReleasedSide]:
+    """
+    Empty each side another fixture gives up so a team can be fielded on this Spieltag (ADR-0052).
+
+    Runs INSIDE the caller's transaction and BEFORE `advance_bracket_winners`, so the resolution that
+    follows sees the released state and can refill a slot the release opened.
+
+    Every side reaching here is one with no `quelle` -- `judge_spieltag_occupancy` refuses the other
+    case rather than planning it -- so this never writes over a slot the resolution owns, and
+    `teamN_quelle` is not in the `$set` for the same reason it is absent above.
+    """
+
+    for release in releases:
+        await patch_one_in_db(
+            collection=spiele_collection,
+            filter={"_id": release.spiel_id},
+            update={
+                "$set": {
+                    release.side: None,
+                    # Named rather than derived from the stored document: this transaction has already
+                    # read the season, and re-reading a fixture to strip one number would be a second
+                    # answer to what it holds. `other_side_tore` says whether there is a side to strip.
+                    **({f"{'team2' if release.side == 'team1' else 'team1'}.tore": None} if release.other_side_tore else {}),
+                    "ergebnis": None,
+                    "elfmeterschiessen": None,
+                }
+            },
+            session=session,
+        )
+
+    return [report_release(release) for release in releases]

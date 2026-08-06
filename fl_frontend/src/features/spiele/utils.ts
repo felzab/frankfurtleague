@@ -26,7 +26,15 @@ import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/for
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLGruppenNames } from "@/features/teams/schemas";
-import type { FLBracketFault, FLSpiel, FLSpielQuelle, FLSpielStatus } from "./schemas";
+import type {
+  FLBracketFault,
+  FLPatchSpielDataPayload,
+  FLSpiel,
+  FLSpielAdvancement,
+  FLSpielQuelle,
+  FLSpielReleasedSide,
+  FLSpielStatus,
+} from "./schemas";
 
 export const computeSpielStatus = ({
   datum,
@@ -257,6 +265,64 @@ export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<
     .sort((a, b) => a.spiel_nr - b.spiel_nr);
 
 /**
+ * One stored fixture as the payload that would restore it.
+ *
+ * **What the undo toast is built from** (ADR-0051). A save that resolves the bracket can delete a
+ * result somebody entered in a fixture the request never named, and nothing on the server keeps the
+ * old value — no admin write is recorded anywhere (roadmap BE-15). The page that was looking at the
+ * season is therefore the only place those values still exist, and this turns each of them back into
+ * a request.
+ *
+ * Every field of the payload is listed rather than spread, and that is the point: the write path
+ * `$set`s the payload wholesale, so a field omitted here would be **overwritten with nothing** by the
+ * very request meant to restore it. `spiel_nr`, `spieltag_id`, `saison_id` and `saison_phase` are on
+ * no payload and therefore not restorable — nothing writes them either, so there is nothing to undo.
+ *
+ * `ergebnis` is absent for the same reason it is absent from the payload model: the backend derives it
+ * from the two goal counts and refuses to accept one (spec I3), so restoring the goals restores it.
+ */
+export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
+  spiel_id: spiel.id,
+  is_canceled: spiel.is_canceled,
+  team1: spiel.team1,
+  team2: spiel.team2,
+  team1_quelle: spiel.team1_quelle,
+  team2_quelle: spiel.team2_quelle,
+  elfmeterschiessen: spiel.elfmeterschiessen,
+  datum: spiel.datum,
+  uhrzeit: spiel.uhrzeit,
+  ort: spiel.ort,
+  schiedsrichter: spiel.schiedsrichter,
+});
+
+/**
+ * The requests that put a season back the way it was before one save (ADR-0051).
+ *
+ * **Order is the whole correctness argument.** The edited fixture goes first, because restoring it is
+ * what makes the resolution put the occupants back downstream; each fixture whose result that save
+ * destroyed follows, so its scoreline is written after the bracket has stopped moving under it. The
+ * reverse order would have the resolution clear what the previous request had just restored, and the
+ * undo would report success while restoring nothing.
+ *
+ * `affectedSpielNummern` are the fixtures the save reported — those whose result it voided and those a
+ * team was released from. A fixture the season list does not hold is skipped rather than guessed at:
+ * this is bounded to what the page loaded, which is exactly what makes it a page-session undo rather
+ * than a history feature.
+ */
+export const buildUndoPayloads = (
+  edited: FLSpiel,
+  saisonSpiele: readonly FLSpiel[],
+  affectedSpielNummern: readonly number[],
+): FLPatchSpielDataPayload[] => {
+  const affected = new Set(affectedSpielNummern);
+
+  return [
+    toPatchPayload(edited),
+    ...saisonSpiele.filter((spiel) => spiel.id !== edited.id && affected.has(spiel.spiel_nr)).map(toPatchPayload),
+  ];
+};
+
+/**
  * Where one fixture is edited (ADR-0050).
  *
  * One spelling of the route, because three surfaces need it — the match cards, the action-required list,
@@ -308,31 +374,60 @@ export const listDependentSpiele = (
 };
 
 /**
- * The success message for an admin match edit, naming any bracket fixtures the write also moved.
+ * The success message for an admin match edit, naming every fixture the write also moved and what
+ * that cost.
  *
  * `PATCH /spiele/{spiel_id}` resolves the season's bracket, so entering a result can fill a later
  * fixture's slot — and correcting one can empty a slot that should never have been filled (ADR-0042).
  * The wording is therefore **"aktualisiert" rather than "eingetragen"**: `advanced_to` reports what
  * changed, and an emptied fixture is in it exactly as a filled one is.
  *
+ * **A destroyed result gets its own sentence** (ADR-0051). A moved `Paarung` and a deleted scoreline
+ * are two different facts, and a reader told specifically that a pairing changed reasonably concludes
+ * the rest of the fixture did not.
+ *
  * **`Paarung`, not `Aufstellung`.** What changed is which teams meet; an Aufstellung is the starting
  * line-up, which this site also stores, so the wrong word would name the wrong thing.
  *
- * Saying nothing when the list is empty is the point of reporting at all: an admin who has just entered
- * a quarter-final result and sees no second sentence knows the semi-final did not move.
+ * Saying nothing when the lists are empty is the point of reporting at all: an admin who has just
+ * entered a quarter-final result and sees no second sentence knows the semi-final did not move.
  */
-export const formatSpielUpdateMessage = (advancedTo: readonly number[], bracketFaults: readonly FLBracketFault[] = []): string => {
+export const formatSpielUpdateMessage = (
+  advancedTo: readonly FLSpielAdvancement[],
+  bracketFaults: readonly FLBracketFault[] = [],
+  releasedSides: readonly FLSpielReleasedSide[] = [],
+): string => {
   const sentences = ["Die Spieldaten wurden erfolgreich aktualisiert"];
 
   if (advancedTo.length > 0) {
-    // Intl rather than a hand-rolled join: German puts "und" before the last item with no serial comma,
-    // and the runtime already knows that.
-    const spiele = new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(advancedTo.map(String));
-
     sentences.push(
       advancedTo.length === 1
-        ? `Die Paarung in Spiel ${spiele} wurde ebenfalls aktualisiert`
-        : `Die Paarungen in den Spielen ${spiele} wurden ebenfalls aktualisiert`,
+        ? `Die Paarung in Spiel ${joinSpiele(advancedTo)} wurde ebenfalls aktualisiert`
+        : `Die Paarungen in den Spielen ${joinSpiele(advancedTo)} wurden ebenfalls aktualisiert`,
+    );
+  }
+
+  // A sentence of its own, and this is the whole point of the shape change (ADR-0051). A cleared
+  // result is a different fact about a different thing than a slot changing occupant, and the previous
+  // message said only that a `Paarung` had been updated — so an admin who had just deleted a
+  // semi-final scoreline read that a pairing moved and nothing about the score.
+  const voided = advancedTo.filter((advancement) => advancement.voided_ergebnis !== null);
+  if (voided.length > 0) {
+    sentences.push(
+      voided.length === 1
+        ? `Das eingetragene Ergebnis in Spiel ${joinSpiele(voided)} wurde dabei gelöscht`
+        : `Die eingetragenen Ergebnisse in den Spielen ${joinSpiele(voided)} wurden dabei gelöscht`,
+    );
+  }
+
+  // The other write this endpoint can make: a team fielded here leaves the fixture it played on the
+  // same Spieltag (ADR-0052). Named per fixture rather than counted, because the admin has to know
+  // which side of which match is now empty.
+  for (const released of releasedSides) {
+    sentences.push(
+      released.voided_ergebnis === null
+        ? `${released.team_name} wurde aus Spiel ${released.spiel_nr} entfernt, da beide am selben Spieltag stattfinden`
+        : `${released.team_name} wurde aus Spiel ${released.spiel_nr} entfernt, dessen Ergebnis ${released.voided_ergebnis} damit gelöscht wurde`,
     );
   }
 
@@ -342,6 +437,15 @@ export const formatSpielUpdateMessage = (advancedTo: readonly number[], bracketF
 
   return sentences.join(". ");
 };
+
+/**
+ * A list of fixtures as German writes it: "29, 30 und 31".
+ *
+ * `Intl.ListFormat` rather than a hand-rolled join, because German puts "und" before the last item
+ * with no serial comma and the runtime already knows that.
+ */
+const joinSpiele = (advancements: readonly { spiel_nr: number }[]): string =>
+  new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(advancements.map((entry) => String(entry.spiel_nr)));
 
 /**
  * Why one stored bracket fault needs a person, in a sentence an admin can act on (ADR-0047).

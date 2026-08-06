@@ -19,8 +19,15 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
     the document states it -- but only on a KNOCKOUT fixture whose goals are level. Anywhere else it is
     discarded on the way in: a group-phase match has no tie to break, and a shoot-out on a fixture one
     side already won is a contradiction (ADR-0044).
+  • BOTH of those live in `apply_payload_to_spiel`, and this handler states neither for itself. The
+    `dry_run=true` preview applies the same function, so a normalisation restated here would be the
+    one place the preview and the save could drift (ADR-0051).
   • The payload is written wholesale with `$set`, so a field absent from it is overwritten rather than
-    preserved. That is why the money fields carry no Pydantic default.
+    preserved. That is why the money fields carry no Pydantic default. The keys come from the PAYLOAD's
+    field set, not from the normalised fixture's, so `spiel_nr`, `spieltag_id`, `saison_id` and
+    `saison_phase` are never in an update that has no business naming them.
+  • `dry_run=true` opens NO transaction and writes nothing, and it runs every refusal first. A preview
+    that could succeed where the save is refused is worse than no preview at all.
   • `patch_spiel_data` writes NO team document. Team statistics are derived from the matches on read
     (ADR-0026), so there is no second write to keep in step and no team to look up here. It does write
     other MATCH documents: entering a result resolves the season's bracket, which moves winners into
@@ -28,6 +35,11 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
   • Wiring the season cannot hold is a 409 (`REQ-WIRING-001`), decided by `find_wiring_refusal` inside
     the transaction and before the write (ADR-0046). The resolution's own containment of the same
     shapes stays: it is for data that never passed through this endpoint.
+  • An OCCUPANT the season cannot hold is a 409 with its own code, decided by `find_eligibility_refusal`
+    and `judge_spieltag_occupancy` beside it (ADR-0052). Distinct codes because the advice differs:
+    reloading fixes a raced bracket and fixes nothing about a disqualified team.
+  • Every refusal runs in `judge`, which BOTH paths call. That is the whole mechanism keeping the
+    preview honest -- a rule added to one path and not the other is not expressible here.
   • `/action_required` DERIVES its bracket faults and stores none (ADR-0047). It is the only read here
     that does work beyond a filter, and it is uncached for the same reason the rest of the route is.
     Reporting a fault never resolves it: the containment in `resolve_bracket` is what owns that.
@@ -46,11 +58,17 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorClientSession
 
 from app.api.saisons.crud import pull_saison_id_and_rules
-from app.api.spiele.crud import advance_bracket_winners, find_bracket_faults
+from app.api.spiele.crud import (
+    advance_bracket_winners,
+    find_bracket_faults,
+    preview_bracket_after_patch,
+    pull_saison_membership,
+    release_spieltag_sides,
+)
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
@@ -58,10 +76,23 @@ from app.api.spiele.schemas import (
     FLSpieleActionRequiredResponse,
     FLSpielListAdapter,
 )
-from app.api.spiele.services import find_wiring_refusal
+from app.api.spiele.services import (
+    SpieltagRelease,
+    apply_payload_to_spiel,
+    find_eligibility_refusal,
+    find_wiring_refusal,
+    judge_spieltag_occupancy,
+)
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, TeamsCollection, get_german_date_str
+from app.core.dependencies import (
+    DBClient,
+    SaisonsCollection,
+    SaisonTeamsCollection,
+    SpieleCollection,
+    TeamsCollection,
+    get_german_date_str,
+)
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
@@ -147,6 +178,8 @@ async def patch_spiel_data(
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> FLPatchSpielDataResponse:
     """
     Update one Spiel, then resolve the season's playoff bracket.
@@ -176,48 +209,106 @@ async def patch_spiel_data(
     The league table follows on its own: team statistics are computed from the match documents by
     `GET /teams`, so a result entered here is reflected the next time that table is read.
 
+    **`dry_run=true` answers the same question and writes nothing** (ADR-0051). It applies the payload
+    in memory through `apply_payload_to_spiel`, resolves the bracket against the season that produces,
+    and returns the same response -- so the edit surface can name exactly which fixtures a save would
+    take a stored result from, before the admin commits to it. Every refusal below runs first, so a
+    preview either reports the save's own 409 or the save's own outcome; it can never promise a write
+    that would then be refused.
+
     **Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`, ADR-0046) before
     anything is written: a `quelle` on a Gruppenphase fixture, a `spiel` source the season does not
     have or that is not played before this fixture, one outcome feeding two slots, and a team
     submitted against a side a `quelle` maintains. The form does not offer these shapes, so a request
     carrying one is stale or racing another admin -- reloading is the way past the 409.
 
+    **An occupant the season cannot hold is refused with a 409 of its own** (ADR-0052), because the
+    advice differs and "reload the page" is wrong for it. `REQ-ELIGIBILITY-001` is a disqualified team
+    being newly fielded, `REQ-ELIGIBILITY-002` a team with no `saison_teams` row for the season, and
+    `REQ-SPIELTAG-001` a team that would then stand in two fixtures of one Spieltag on a side the
+    resolution maintains. Resubmitting a stored occupant unchanged always passes, or the fixture whose
+    occupant was disqualified after being placed would be the one fixture nobody could correct.
+
+    **A Spieltag clash against a MANUAL side moves it rather than refusing.** Fielding a team here is
+    a statement about where it plays, so the other fixture gives the team up -- and loses its own
+    result with it, for the reason an advancement does. Every side emptied that way is named in
+    `released_sides`.
+
     `saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic
     would discard it. The frontend passes it separately, for cache invalidation only.
     """
 
-    # Read through both sides, either of which may be absent: a slot whose occupant is still unknown
-    # has nobody to score, so an unresolved fixture derives no result at all rather than a partial one.
-    both_sides_known = spiel_data.team1 is not None and spiel_data.team2 is not None
-    team1_tore = spiel_data.team1.tore if spiel_data.team1 is not None else None
-    team2_tore = spiel_data.team2.tore if spiel_data.team2 is not None else None
-    updated_ergebnis_field = f"{team1_tore}:{team2_tore}" if both_sides_known and team1_tore is not None and team2_tore is not None else None
+    # Read BEFORE anything else and in FULL, because the payload's normalisation needs the fixture it
+    # is applied to: `saison_phase` decides whether a shoot-out survives, and the preview resolves the
+    # bracket against the fixture this produces. Nothing on the payload writes `saison_id`,
+    # `saison_phase`, `spiel_nr` or `spieltag_id`, so they cannot change under this request. The 404
+    # the write raises below stays, as the guard against a match deleted between the two.
+    stored_raw = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id})
+    stored = FLSpiel.model_validate(stored_raw)
+    saison_id = stored.saison_id
 
-    document = spiel_data.model_dump(context={"keep_oid": True})
+    # Every rule the write path applies to the payload, in one place, so the preview below and the
+    # save cannot normalise it differently (ADR-0051).
+    patched = apply_payload_to_spiel(stored, spiel_data)
 
-    # Clearing one side drops the result, so the goals the OTHER side still carries would be stored
-    # against a fixture that has none -- the hand-edited shape `build_statistik_lookup_stage` restates
-    # its `team1.tore` filter to survive. Written here rather than left to the form: the payload is
-    # $set wholesale, so this is the only place that sees both sides at once.
-    if not both_sides_known:
-        for slot in ("team1", "team2"):
-            if document.get(slot) is not None:
-                document[slot]["tore"] = None
+    # The season's own scoring, which the standing behind a `gruppe` reference is derived with, exactly
+    # as `GET /teams` derives the table (ADR-0026). Read outside any transaction on both paths: no
+    # season document is written here, so there is nothing of a transaction's own to see.
+    _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
 
-    # The phase and season are read BEFORE the write and off the stored document, because both are on
-    # no payload and nothing anywhere writes them -- so they cannot change under this request and one
-    # projected round trip settles both. The 404 it can raise is the same one the write raises below;
-    # that one stays, as the guard against a match deleted between the two.
-    stored = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection={"saison_phase": 1, "saison_id": 1})
+    async def judge(session: AsyncIOMotorClientSession | None) -> tuple[list[FLSpiel], list[SpieltagRelease]]:
+        """
+        The season as this request sees it, and the sides another fixture must give up -- refusing first.
 
-    # A shoot-out settles a KNOCKOUT fixture that finished LEVEL, and a record failing either half
-    # states a contradiction: a group-phase match, which has no tie to break, or a match with no result
-    # at all, or one a side already won by goals. Discarded rather than refused, and here rather than
-    # anywhere later, for the same reason `ergebnis` is derived here -- this is the one place that sees
-    # the whole payload, and no `$jsonSchema` validator may hold a cross-field rule (ADR-0027).
-    is_knockout = stored.get("saison_phase") != "gruppenphase"
-    if not is_knockout or updated_ergebnis_field is None or team1_tore != team2_tore:
-        document["elfmeterschiessen"] = None
+        Shared by the preview and the save so a preview can never succeed where the save is refused,
+        which is the disagreement the whole extraction exists to prevent. Every refusal is raised here,
+        before either path writes or resolves anything.
+        """
+
+        season_raw = await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+        season = FLSpielListAdapter.validate_python(season_raw)
+
+        # The rules are `find_wiring_refusal`'s (ADR-0046): wiring on a group fixture, a source the
+        # season cannot honour, one outcome feeding two slots, and a hand-set team on a maintained
+        # side. The English detail is for the log; the form prevents these shapes, so a request
+        # carrying one is stale or raced.
+        wiring_refusal = find_wiring_refusal(spiel_id, spiel_data, season)
+        if wiring_refusal is not None:
+            raise DocumentConflictException(error_code="REQ-WIRING-001", message=wiring_refusal)
+
+        # The occupants, which the wiring rules deliberately say nothing about (ADR-0052). The junction
+        # is read through the session on the write path, so a disqualification committed by this same
+        # transaction is visible to the rule that reads it.
+        membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=saison_id, session=session)
+        eligibility_refusal = find_eligibility_refusal(spiel_id, spiel_data, season, membership)
+        if eligibility_refusal is not None:
+            raise DocumentConflictException(error_code=eligibility_refusal.error_code, message=eligibility_refusal.message)
+
+        verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
+        if verdict.refusal is not None:
+            raise DocumentConflictException(error_code=verdict.refusal.error_code, message=verdict.refusal.message)
+
+        return season, verdict.releases
+
+    if dry_run:
+        # No transaction and no write. The refusals above have already run, so a preview answers either
+        # the same 409 the save would or the exact list of fixtures the save would rewrite (ADR-0051).
+        season, releases = await judge(session=None)
+        advanced_to, released_sides, bracket_faults = await preview_bracket_after_patch(
+            teams_collection=teams_collection,
+            saison_id=saison_id,
+            rules=saison_rules,
+            season=season,
+            patched=patched,
+            releases=releases,
+        )
+        return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
+
+    # Written wholesale, and built from the NORMALISED fixture rather than from the payload -- the two
+    # differ exactly where a rule above applies, and taking the keys from the payload's own field set
+    # is what keeps `spiel_nr`, `spieltag_id`, `saison_id` and `saison_phase` out of a `$set` that has
+    # no business naming them.
+    document = patched.model_dump(context={"keep_oid": True}, include={*FLPatchSpielDataPayload.model_fields, "ergebnis"})
 
     # The transaction is what makes the result and the advancement it causes one fact: a bracket that
     # resolved against a result the caller never committed would be worse than one that did not resolve.
@@ -231,23 +322,13 @@ async def patch_spiel_data(
     async def write_result_and_resolve_bracket(session: AsyncIOMotorClientSession) -> FLPatchSpielDataResponse:
         # Refused BEFORE anything is written, inside the transaction, against the season as this
         # request sees it -- so a retry after a write conflict revalidates against fresh reads, and a
-        # refusal leaves the season exactly as it was. The rules are `find_wiring_refusal`'s
-        # (ADR-0046): wiring on a group fixture, a source the season cannot honour, one outcome
-        # feeding two slots, and a hand-set team on a maintained side. The English detail is for the
-        # log; the form prevents these shapes, so a request carrying one is stale or raced.
-        season_raw = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": stored.get("saison_id")},
-            session=session,
-        )
-        refusal = find_wiring_refusal(spiel_id, spiel_data, FLSpielListAdapter.validate_python(season_raw))
-        if refusal is not None:
-            raise DocumentConflictException(error_code="REQ-WIRING-001", message=refusal)
+        # refusal leaves the season exactly as it was.
+        _, releases = await judge(session=session)
 
         patched_spiel_raw = await patch_one_in_db(
             collection=spiele_collection,
             filter={"_id": spiel_id},
-            update={"$set": {**document, "ergebnis": updated_ergebnis_field}},
+            update={"$set": document},
             session=session,
         )
         # `find_one_and_update` returns None only when nothing matched, so this is the 404 branch
@@ -258,15 +339,9 @@ async def patch_spiel_data(
                 error_code="DB-COMMON-001",
             )
 
-        # The season scopes the bracket below, and it is read off the document `patch_one_in_db`
-        # returns -- the pre-image, which is the helper's default (spec I2). Safe here and only
-        # here: `saison_id` is on no payload, so the `$set` above cannot have changed it.
-        saison_id = str(patched_spiel_raw["saison_id"])
-
-        # The season's own scoring, which the standing behind a `gruppe` reference is derived with,
-        # exactly as `GET /teams` derives the table (ADR-0026). Not read through the session: this
-        # transaction writes no season document, so there is nothing of its own to see.
-        _, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=saison_id)
+        # Before the resolution, not after: a slot this release opens can be refilled by the very
+        # resolution that follows it, and the reverse order would leave the season one pass behind.
+        released_sides = await release_spieltag_sides(spiele_collection=spiele_collection, releases=releases, session=session)
 
         advanced_to, bracket_faults = await advance_bracket_winners(
             spiele_collection=spiele_collection,
@@ -276,7 +351,7 @@ async def patch_spiel_data(
             session=session,
         )
 
-        return FLPatchSpielDataResponse(advanced_to=advanced_to, bracket_faults=bracket_faults)
+        return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
 
     async with await db.start_session() as session:
         return await session.with_transaction(write_result_and_resolve_bracket)

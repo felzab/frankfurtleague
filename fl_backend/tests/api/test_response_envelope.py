@@ -69,11 +69,11 @@ def test_every_response_model_carries_the_envelope(name, model):
     [
         (CheckIsLiveResponse, {"acknowledged": 1, "status": "ok"}),
         (CheckIsReadyResponse, {"acknowledged": 1, "status": "ok"}),
-        # Both lists default empty: a match edit that resolves no bracket slot reports none, which is
-        # the ordinary answer for every group-phase fixture (ADR-0042) -- and a group still being played
+        # All three lists default empty: a match edit that resolves no bracket slot reports none, which
+        # is the ordinary answer for every group-phase fixture (ADR-0042); a group still being played
         # reports nothing either, because a placing that is not decided yet is nobody's problem
-        # (ADR-0043).
-        (FLPatchSpielDataResponse, {"acknowledged": 1, "advanced_to": [], "bracket_faults": []}),
+        # (ADR-0043); and an edit that displaces no team from its Spieltag releases nothing (ADR-0052).
+        (FLPatchSpielDataResponse, {"acknowledged": 1, "advanced_to": [], "released_sides": [], "bracket_faults": []}),
     ],
 )
 def test_declares_the_envelope_on_every_untyped_route(model, expected):

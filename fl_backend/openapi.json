@@ -277,7 +277,7 @@
       },
       "patch": {
         "summary": "Update a Spiel",
-        "description": "Update one Spiel, then resolve the season's playoff bracket.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\n`elfmeterschiessen` records how a knockout that finished level was settled, and is kept only on a\nfixture outside the Gruppenphase whose two goal counts are equal; anywhere else it is discarded\nrather than refused, because a group draw is a final result and the goals are what say whether a\nshoot-out was possible at all (ADR-0044). It decides the bracket below and is invisible to the\nleague table, which counts the match as the draw it was (ADR-0026).\n\n**A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is\nthe winner of match 25, so entering that match's result fills the slot, correcting it later moves\nthe right team in, and deleting it empties the slot again (ADR-0042). A slot referring to a group\nplacing is filled the same way, once no remaining fixture in that group can still change who holds\nit (ADR-0043). Every fixture written either way is named in `advanced_to`.\n\n`bracket_faults` names every stored contradiction this season's resolution walked past: a `platz`\nits group will never produce, a placing the tiebreak chain cannot separate in a group that has\nfinished, a `quelle` naming a match the season does not have, a chain of references that closes on\nitself, and a fixture whose two sides resolve to one club (ADR-0047). A group still being played is\nnot reported: that placing is simply not decided yet. The same list is re-derivable at\n`GET /spiele/action_required`, so missing it here is not losing it.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n**Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`, ADR-0046) before\nanything is written: a `quelle` on a Gruppenphase fixture, a `spiel` source the season does not\nhave or that is not played before this fixture, one outcome feeding two slots, and a team\nsubmitted against a side a `quelle` maintains. The form does not offer these shapes, so a request\ncarrying one is stale or racing another admin -- reloading is the way past the 409.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
+        "description": "Update one Spiel, then resolve the season's playoff bracket.\n\n`ergebnis` is derived from the two `tore` values and must not be submitted. The payload is written\nwholesale, so every field must be present -- an omitted field is overwritten, not preserved.\n\n`elfmeterschiessen` records how a knockout that finished level was settled, and is kept only on a\nfixture outside the Gruppenphase whose two goal counts are equal; anywhere else it is discarded\nrather than refused, because a group draw is a final result and the goals are what say whether a\nshoot-out was possible at all (ADR-0044). It decides the bracket below and is invisible to the\nleague table, which counts the match as the draw it was (ADR-0026).\n\n**A result can move fixtures other than this one.** The occupant of a slot referring to match 25 is\nthe winner of match 25, so entering that match's result fills the slot, correcting it later moves\nthe right team in, and deleting it empties the slot again (ADR-0042). A slot referring to a group\nplacing is filled the same way, once no remaining fixture in that group can still change who holds\nit (ADR-0043). Every fixture written either way is named in `advanced_to`.\n\n`bracket_faults` names every stored contradiction this season's resolution walked past: a `platz`\nits group will never produce, a placing the tiebreak chain cannot separate in a group that has\nfinished, a `quelle` naming a match the season does not have, a chain of references that closes on\nitself, and a fixture whose two sides resolve to one club (ADR-0047). A group still being played is\nnot reported: that placing is simply not decided yet. The same list is re-derivable at\n`GET /spiele/action_required`, so missing it here is not losing it.\n\nThe league table follows on its own: team statistics are computed from the match documents by\n`GET /teams`, so a result entered here is reflected the next time that table is read.\n\n**`dry_run=true` answers the same question and writes nothing** (ADR-0051). It applies the payload\nin memory through `apply_payload_to_spiel`, resolves the bracket against the season that produces,\nand returns the same response -- so the edit surface can name exactly which fixtures a save would\ntake a stored result from, before the admin commits to it. Every refusal below runs first, so a\npreview either reports the save's own 409 or the save's own outcome; it can never promise a write\nthat would then be refused.\n\n**Wiring the season cannot hold is refused with a 409** (`REQ-WIRING-001`, ADR-0046) before\nanything is written: a `quelle` on a Gruppenphase fixture, a `spiel` source the season does not\nhave or that is not played before this fixture, one outcome feeding two slots, and a team\nsubmitted against a side a `quelle` maintains. The form does not offer these shapes, so a request\ncarrying one is stale or racing another admin -- reloading is the way past the 409.\n\n**An occupant the season cannot hold is refused with a 409 of its own** (ADR-0052), because the\nadvice differs and \"reload the page\" is wrong for it. `REQ-ELIGIBILITY-001` is a disqualified team\nbeing newly fielded, `REQ-ELIGIBILITY-002` a team with no `saison_teams` row for the season, and\n`REQ-SPIELTAG-001` a team that would then stand in two fixtures of one Spieltag on a side the\nresolution maintains. Resubmitting a stored occupant unchanged always passes, or the fixture whose\noccupant was disqualified after being placed would be the one fixture nobody could correct.\n\n**A Spieltag clash against a MANUAL side moves it rather than refusing.** Fielding a team here is\na statement about where it plays, so the other fixture gives the team up -- and loses its own\nresult with it, for the reason an advancement does. Every side emptied that way is named in\n`released_sides`.\n\n`saison_id` is deliberately not part of the payload: it is not declared on the model and Pydantic\nwould discard it. The frontend passes it separately, for cache invalidation only.",
         "operationId": "patch_spiel_data_api_v0_spiele__spiel_id__patch",
         "security": [
           {
@@ -293,6 +293,18 @@
               "type": "string",
               "title": "Spiel Id"
             }
+          },
+          {
+            "name": "dry_run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Report what this payload would move and destroy, and write nothing",
+              "default": false,
+              "title": "Dry Run"
+            },
+            "description": "Report what this payload would move and destroy, and write nothing"
           }
         ],
         "requestBody": {
@@ -3445,10 +3457,17 @@
           },
           "advanced_to": {
             "items": {
-              "type": "integer"
+              "$ref": "#/components/schemas/FLSpielAdvancement"
             },
             "type": "array",
             "title": "Advanced To"
+          },
+          "released_sides": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielReleasedSide"
+            },
+            "type": "array",
+            "title": "Released Sides"
           },
           "bracket_faults": {
             "items": {
@@ -3480,7 +3499,7 @@
         },
         "type": "object",
         "title": "FLPatchSpielDataResponse",
-        "description": "What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.\n\n`advanced_to` carries the `spiel_nr` of every bracket fixture whose sides the result entry\nresolved — a semi-final that gained its winner, and, when a result was corrected, a later fixture\nthat lost an occupant it should never have had (ADR-0042). It reports what happened rather than\nwhat was asked for, so it names a fixture that was emptied as readily as one that was filled.\n\nReported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that\nsilently changes documents the caller did not name is one whose failures are invisible. An empty\nlist is the ordinary answer for a group-phase edit.\n\n`bracket_faults` carries every stored contradiction the resolution walked past in this season: a\n`gruppe` reference that cannot be honoured and will not become honourable by waiting (ADR-0043), a\n`spiel` reference naming no match or sitting on a cycle, and a fixture whose two sides resolve to one\nclub. A group still being played is in none of them: a placing that is not decided yet is the\nordinary state and needs nobody.\n\nThe same list is derived on `GET /spiele/action_required`, which is where it can be re-asked for\n(ADR-0047). Reported here as well because the save that introduces a fault is the moment its cause\nis known."
+        "description": "What `patch_spiel_data` returns: the envelope, plus every fixture it moved and what that cost.\n\n`advanced_to` carries one entry per bracket fixture whose sides the result entry resolved — a\nsemi-final that gained its winner, and, when a result was corrected, a later fixture that lost an\noccupant it should never have had (ADR-0042). It reports what happened rather than what was asked\nfor, so it names a fixture that was emptied as readily as one that was filled, and each entry\ncarries the result the rewrite destroyed rather than leaving the reader to infer it (ADR-0051).\n\n`released_sides` carries the other kind of write this endpoint can make: a side of another fixture\non the same Spieltag, emptied because the team it held is now fielded here (ADR-0052).\n\nReported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that\nsilently changes documents the caller did not name is one whose failures are invisible. Both lists\nare empty for the ordinary group-phase edit.\n\n**`dry_run=true` returns this same shape and writes nothing.** One model, because a preview that\ncould disagree with the save it previews is worse than no preview (ADR-0051).\n\n`bracket_faults` carries every stored contradiction the resolution walked past in this season: a\n`gruppe` reference that cannot be honoured and will not become honourable by waiting (ADR-0043), a\n`spiel` reference naming no match or sitting on a cycle, and a fixture whose two sides resolve to one\nclub. A group still being played is in none of them: a placing that is not decided yet is the\nordinary state and needs nobody.\n\nThe same list is derived on `GET /spiele/action_required`, which is where it can be re-asked for\n(ADR-0047). Reported here as well because the save that introduces a fault is the moment its cause\nis known."
       },
       "FLPatchSpielerPayload": {
         "properties": {
@@ -4626,6 +4645,45 @@
         ],
         "title": "FLSpiel"
       },
+      "FLSpielAdvancement": {
+        "properties": {
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "voided_ergebnis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+:[0-9]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided Ergebnis"
+          },
+          "voided_elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_nr",
+          "voided_ergebnis",
+          "voided_elfmeterschiessen"
+        ],
+        "title": "FLSpielAdvancement",
+        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\n**The two are separate facts and the second is the one an admin needs.** A slot filling from empty\nis the ordinary, harmless case; a slot whose occupant changed while the fixture already held a\nscoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044), and until this model\nexisted the response said only that a `Paarung` had been updated (ADR-0051).\n\nBoth voided fields are `None` on the harmless case, so \"was anything destroyed here\" is a null\ncheck rather than a comparison against the fixture's earlier state — which the caller does not\nhave."
+      },
       "FLSpielElfmeterschiessen": {
         "properties": {
           "team1": {
@@ -4739,6 +4797,60 @@
         ],
         "title": "FLSpielQuelleSpiel",
         "description": "A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`."
+      },
+      "FLSpielReleasedSide": {
+        "properties": {
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Side"
+          },
+          "team_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team Name"
+          },
+          "voided_ergebnis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+:[0-9]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided Ergebnis"
+          },
+          "voided_elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_nr",
+          "side",
+          "team_name",
+          "voided_ergebnis",
+          "voided_elfmeterschiessen"
+        ],
+        "title": "FLSpielReleasedSide",
+        "description": "One side another fixture gave up so a team could be fielded on the same Spieltag (ADR-0052).\n\nA team plays at most one match per matchday, so fielding it here takes it out of there. Only a\nside the admin owns is moved this way: a side carrying a `quelle` is the resolution's, emptying it\nwould be undone on the next pass, and that case is refused instead.\n\n`team_name` rather than an id, because the message quoting this has no `spiele` list to join\nagainst. It cannot go stale — the rename fan-out maintains the copy it is read from (ADR-0028,\nrule 3) and this is derived per request."
       },
       "FLSpielSchiedsrichterField": {
         "properties": {

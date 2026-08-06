@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `fca0c45`, 2026-08-06
+**Verified against:** `f3e9a78`, 2026-08-06
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -81,7 +81,7 @@ disagree about who finished second. That response also carries `qualifiers_per_g
 
 ## 3. Server actions
 
-Seven admin actions plus one auth action. Every admin action begins with `getAdminSession()` and
+Nine admin actions plus one auth action. Every admin action begins with `getAdminSession()` and
 returns an access-denied `FormState` rather than throwing. **Every admin action body runs inside
 `fl_frontend/src/shared/utils/serverAction.ts :: runAdminAction`**, which seeds the correlation-id
 request scope and converts a thrown API error into the `FormState` the form toasts — without it a
@@ -91,6 +91,8 @@ the admin page with the error page ([`docs/logging.md`](../logging.md)).
 | Action                       | Slice          | Invalidates                                                          |
 | ---------------------------- | -------------- | -------------------------------------------------------------------- |
 | `patchAdminSpielDataAction`  | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
+| `previewAdminSpielDataAction`| spiele         | **nothing** — it writes nothing (`dry_run=true`)                     |
+| `undoAdminSpielEditAction`   | spiele         | the same four as the patch it takes back                             |
 | `postSpielortAction`         | spielorte      | `spielorte`                                                          |
 | `patchSpielortAction`        | spielorte      | `spielorte`, `spiele`                                                |
 | `deleteSpielortAction`       | spielorte      | `spielorte`                                                          |
@@ -260,7 +262,7 @@ is covered without an edit, and `core` gains no static import of `features` (I9)
 | I4  | A failed season-id parse never fails the edit                                                                        | `fl_frontend/src/features/spiele/actions.ts :: FLSpielSchema.shape.saison_id.safeParse`                                                 | An admin's work rejected over a cache optimisation                                                                                                                   |
 | I5  | Write payloads compose from the read model's field schemas                                                           | `fl_frontend/src/features/spiele/schemas.ts :: FLPatchSpielDataPayloadSchema`                                                           | Read and write shapes drift apart                                                                                                                                    |
 | I6  | `await connection()` precedes every page data fetch                                                                  | each page or its async child                                                                                                            | `docker compose build` fails — the builder stage has no reachable backend                                                                                            |
-| I7  | Every admin server action starts with `getAdminSession()`                                                            | all seven actions                                                                                                                       | Unauthenticated mutation                                                                                                                                             |
+| I7  | Every admin server action starts with `getAdminSession()`                                                            | all nine actions, the read-only preview included                                                                                        | Unauthenticated mutation — and, for the preview, an unauthenticated read of a season's bracket                                                                        |
 | I8  | `getAdminSession()`'s return value must be checked                                                                   | naming only                                                                                                                             | It neither throws nor redirects; calling it bare guards nothing                                                                                                      |
 | I9  | `core` imports neither `shared` nor `features`; `shared` does not import `features`                                  | ESLint `no-restricted-imports`                                                                                                          | Infrastructure gains a dependency on the app                                                                                                                         |
 | I10 | No barrel files                                                                                                      | review                                                                                                                                  | Tree-shaking across the RSC boundary is defeated                                                                                                                     |
@@ -273,6 +275,8 @@ is covered without an edit, and `core` gains no static import of `features` (I9)
 | I17 | Every Zod schema agrees with the component that publishes it on presence, required, nullable, type and enum members  | `fl_frontend/src/core/apiContract.test.ts` ([ADR-0040](../_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md)) | Zod's strip mode discards a field the backend sends with no error at all, and a nullable the mirror does not declare throws `APIMalformedDataError` on a public page |
 | I18 | Client-side field validation runs the schema the server action parses, never a second copy of the rules              | `fl_frontend/src/shared/hooks/useDraftValidation.ts` ([ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md))   | The browser accepts a value the server rejects, or rejects one it accepts, and no test can see the two disagree                                                      |
 | I19 | Client verdicts never write into `useServerFieldErrors`'s map                                                        | `fl_frontend/src/shared/hooks/useDraftValidation.ts :: mergedWith`                                                                      | That hook calls `reportValidity()` on every change of its map, so clearing a corrected field on blur throws focus onto the next unfixed one mid-form                 |
+| I20 | `deriveSpielDraftStatus` is the match editor's single contract: every marker, badge, list, count and guard reads it, and **no surface reads a draft field directly** | `fl_frontend/src/features/spiele/draftStatus.ts :: FIELD_DESCRIPTORS`, whose test requires a row per field of the draft shape ([ADR-0051](../_decisions/0051-a-voided-result-is-named-before-it-is-lost.md)) | Adding a field stops being one descriptor row and becomes an edit to every surface that mentions it — and a surface that reads the draft directly is invisible to the derivation, so it silently keeps the old behaviour when the table changes. See §12 |
+| I21 | The navigation guard covers reload, tab close, and links this page renders — and nothing else                        | `useUnsavedChangesWarning` (`beforeunload`) and `<Link onNavigate>`; the gap is accepted, see §12                                       | Treating it as complete coverage. The admin sidemenu's links and the browser Back button cannot be intercepted at all, so a draft is lost through either with no prompt |
 
 ## 11. Violation → remedy
 
@@ -290,7 +294,52 @@ are behaviour that is deliberate — those are the ones that save the most time.
 | The three match cards look like duplication                 | Working as intended — they differ in chips, names and container (§6)      | Nothing. Extract shared derivation into `utils.ts` rather than merging them |
 | A cache tag exists but nothing ever clears it               | A granular tag on a resource with no write surface                        | I1 — add the matching `updateTag` in the same change, or delete the tag     |
 
-## 12. Known-open
+## 12. The match editor's two structural properties
+
+Both are implemented, both are load-bearing, and neither is visible from any single component — which
+is why they are here rather than left to be rediscovered.
+
+### The draft has exactly one derivation
+
+`fl_frontend/src/features/spiele/draftStatus.ts :: deriveSpielDraftStatus` answers everything the page
+says about a field. The label's markers, the change list, the open-items list with its two severity
+badges, the unsaved count on the action bar, the discard dialog's count and the navigation guard all
+read it, and **nothing reads a draft field directly** (I20).
+
+The mechanism is `FIELD_DESCRIPTORS`: one row per editable field, carrying how it is read, compared,
+formatted, which panel it belongs to and which action-required category waits on it. Adding a field is
+adding a row. A field with no row is invisible to every surface at once, which is a failure loud enough
+to catch — unlike a field that half the surfaces know about.
+
+**The rule that keeps it true is the negative one.** Any surface that reads `draft.team1.tore` instead
+of asking the derivation gets the answer right today and keeps giving the old answer when the table
+changes. There is always a shorter route for one component; taking it is what turns a one-row change
+into a sweep.
+
+### The navigation guard has an accepted gap
+
+Next 16 exposes **no navigation blocker** — verified against the `next/navigation` export list and
+`AppRouterInstance`. What the page can intercept, it does:
+
+| Leaving by                     | Guarded | How                                                 |
+| ------------------------------ | :-----: | --------------------------------------------------- |
+| Reload, tab close, browser quit |   ✅    | `beforeunload`, in `useUnsavedChangesWarning`       |
+| A link this page renders        |   ✅    | `<Link onNavigate>`                                 |
+| Abbrechen, and the Zurück pill  |   ✅    | The form's own `requestLeave`, via a register-callback |
+| The admin sidemenu's links      |   ❌    | Rendered by the layout, above this tree             |
+| The browser's Back button       |   ❌    | `popstate` fires after the router has committed     |
+
+**The owner accepted the two gaps** rather than pay for full coverage, and the shape of that payment is
+worth recording so the trade can be re-taken rather than re-derived: a `NavigationGuardContext` in the
+admin layout, which every intercept-able control consults before navigating and which this form
+registers its guard with. That is the upgrade path if full coverage is ever wanted. It is not built,
+and the browser's Back button stays outside even then — nothing in the platform makes that one
+interceptable.
+
+This is also why the header's Zurück pill earns its place beside the browser's own back button: the
+pill routes through the discard guard and the button cannot.
+
+## 13. Known-open
 
 | #   | Item                                                                    | State                                                                                                                                                                                                                                                                                                                                    |
 | --- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

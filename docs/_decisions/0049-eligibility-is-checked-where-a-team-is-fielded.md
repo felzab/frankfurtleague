@@ -1,10 +1,10 @@
 # ADR-0049 — Eligibility is refused where a team is newly fielded, and warned where the judgement is sporting
 
-**Status:** Accepted
+**Status:** Superseded
 **Date:** 2026-08-06
 **Surface:** backend, frontend
 **Supersedes:** —
-**Superseded by:** —
+**Superseded by:** [ADR-0052](0052-a-team-is-fielded-once-per-spieltag.md)
 **Source:** Open item FB-9, reported as a reproduction on 2026-08-06 and deferred the same day behind
 FB-14's evaluation, which this records the verdict of: implement as recorded.
 

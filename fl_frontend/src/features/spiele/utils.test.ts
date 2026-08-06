@@ -19,6 +19,7 @@ import { describe, it } from "node:test";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   adminSpielEditHref,
+  buildUndoPayloads,
   collectSpieltagTeamOccupancy,
   collectUsedQuelleKeys,
   computeErgebnisFor,
@@ -31,9 +32,10 @@ import {
   listDependentSpiele,
   listFeederSpiele,
   quelleKey,
+  toPatchPayload,
 } from "./utils.ts";
 
-import type { FLBracketFault, FLSpiel } from "./schemas.ts";
+import type { FLBracketFault, FLSpiel, FLSpielAdvancement } from "./schemas.ts";
 
 const TODAY = "2026-07-29";
 
@@ -232,28 +234,72 @@ describe("formatQuelle", () => {
 });
 
 describe("formatSpielUpdateMessage", () => {
+  /** A fixture that moved and lost nothing — the ordinary case, and the majority of them. */
+  const moved = (spielNr: number): FLSpielAdvancement => ({ spiel_nr: spielNr, voided_ergebnis: null, voided_elfmeterschiessen: null });
+
+  /** A fixture whose stored scoreline the same save deleted (ADR-0051). */
+  const voided = (spielNr: number, ergebnis: string): FLSpielAdvancement => ({
+    spiel_nr: spielNr,
+    voided_ergebnis: ergebnis,
+    voided_elfmeterschiessen: null,
+  });
+
   it("says only that the match was saved when the bracket did not move", () => {
     assert.equal(formatSpielUpdateMessage([]), "Die Spieldaten wurden erfolgreich aktualisiert");
   });
 
   it("names one advanced fixture in the singular", () => {
     assert.equal(
-      formatSpielUpdateMessage([29]),
+      formatSpielUpdateMessage([moved(29)]),
       "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarung in Spiel 29 wurde ebenfalls aktualisiert",
     );
   });
 
   it("joins several with und, as German does and a hand-rolled join would not", () => {
     assert.equal(
-      formatSpielUpdateMessage([29, 30, 31]),
+      formatSpielUpdateMessage([moved(29), moved(30), moved(31)]),
       "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarungen in den Spielen 29, 30 und 31 wurden ebenfalls aktualisiert",
     );
   });
 
   it("reports an advancement and a bracket fault in the same message", () => {
-    const message = formatSpielUpdateMessage([30], [gruppeFault("gruppe_too_small", "A", 5)]);
+    const message = formatSpielUpdateMessage([moved(30)], [gruppeFault("gruppe_too_small", "A", 5)]);
 
     assert.match(message, /Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. Spiel 25 verweist/);
+  });
+
+  it("says nothing about a deleted result when a slot merely filled", () => {
+    // The half that makes the sentence below worth reading: a warning that always fires is not one.
+    assert.doesNotMatch(formatSpielUpdateMessage([moved(29)]), /gelöscht/);
+  });
+
+  it("gives a destroyed scoreline its own sentence, naming the fixture", () => {
+    assert.match(
+      formatSpielUpdateMessage([voided(30, "2:0")]),
+      /Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. Das eingetragene Ergebnis in Spiel 30 wurde dabei gelöscht/,
+    );
+  });
+
+  it("names only the fixtures that actually lost a result", () => {
+    const message = formatSpielUpdateMessage([moved(29), voided(30, "2:0"), voided(31, "1:1")]);
+
+    assert.match(message, /Die eingetragenen Ergebnisse in den Spielen 30 und 31 wurden dabei gelöscht/);
+  });
+
+  it("names a team released from another fixture of the same Spieltag", () => {
+    const message = formatSpielUpdateMessage([], [], [{ spiel_nr: 12, side: "team1", team_name: "Adler", voided_ergebnis: null, voided_elfmeterschiessen: null }]);
+
+    assert.match(message, /Adler wurde aus Spiel 12 entfernt, da beide am selben Spieltag stattfinden/);
+  });
+
+  it("names the result a release destroyed, where there was one", () => {
+    const message = formatSpielUpdateMessage(
+      [],
+      [],
+      [{ spiel_nr: 12, side: "team2", team_name: "Adler", voided_ergebnis: "3:1", voided_elfmeterschiessen: null }],
+    );
+
+    assert.match(message, /dessen Ergebnis 3:1 damit gelöscht wurde/);
   });
 });
 
@@ -261,6 +307,79 @@ describe("formatSpielUpdateMessage", () => {
 function gruppeFault(reason: "gruppe_too_small" | "tie_unresolved", gruppe: "A" | "B", platz: number): FLBracketFault {
   return { reason, spiel_id: "6890a1b2c3d4e5f607180025", spiel_nr: 25, gruppe, platz };
 }
+
+describe("toPatchPayload and buildUndoPayloads", () => {
+  const fixture = (spielNr: number, ergebnis: string | null): FLSpiel =>
+    ({
+      id: `6890a1b2c3d4e5f6071800${String(spielNr).padStart(2, "0")}`,
+      spiel_nr: spielNr,
+      is_canceled: false,
+      team1: { team_id: TEAM_1, name: "Team A", tore: ergebnis === null ? null : Number(ergebnis.split(":")[0]), shorthand: "TA" },
+      team2: { team_id: TEAM_2, name: "Team B", tore: ergebnis === null ? null : Number(ergebnis.split(":")[1]), shorthand: "TB" },
+      team1_quelle: null,
+      team2_quelle: null,
+      elfmeterschiessen: null,
+      datum: "2026-03-15",
+      uhrzeit: "18:00:00",
+      ort: null,
+      schiedsrichter: null,
+      ergebnis,
+    }) as FLSpiel;
+
+  it("carries every field the write path would otherwise overwrite with nothing", () => {
+    // The payload is `$set` wholesale, so an omitted field is erased by the very request meant to
+    // restore it. Asserted as a key set, because that is exactly the failure: a value nobody notices.
+    assert.deepEqual(Object.keys(toPatchPayload(fixture(29, "2:0"))).sort(), [
+      "datum",
+      "elfmeterschiessen",
+      "is_canceled",
+      "ort",
+      "schiedsrichter",
+      "spiel_id",
+      "team1",
+      "team1_quelle",
+      "team2",
+      "team2_quelle",
+      "uhrzeit",
+    ]);
+  });
+
+  it("does not carry ergebnis, which the backend derives and refuses to accept", () => {
+    assert.equal("ergebnis" in toPatchPayload(fixture(29, "2:0")), false);
+  });
+
+  it("puts the edited fixture first, so the resolution runs before the results go back", () => {
+    // The whole correctness argument: restoring a downstream result first would have the resolution
+    // triggered by the edited fixture clear it again, and the undo would report a success it did not
+    // achieve.
+    const edited = fixture(25, "1:3");
+    const season = [fixture(30, "0:0"), edited, fixture(29, "2:0")];
+
+    assert.deepEqual(
+      buildUndoPayloads(edited, season, [29, 30]).map((payload) => payload.spiel_id),
+      [edited.id, season[0].id, season[2].id],
+    );
+  });
+
+  it("restores only the fixtures the save actually reported", () => {
+    const edited = fixture(25, "1:3");
+    const season = [edited, fixture(29, "2:0"), fixture(30, "0:0")];
+
+    assert.deepEqual(
+      buildUndoPayloads(edited, season, [29]).map((payload) => payload.spiel_id),
+      [edited.id, season[1].id],
+    );
+  });
+
+  it("never lists the edited fixture twice when the save also reported it", () => {
+    const edited = fixture(25, "1:3");
+
+    assert.deepEqual(
+      buildUndoPayloads(edited, [edited], [25]).map((payload) => payload.spiel_id),
+      [edited.id],
+    );
+  });
+});
 
 describe("formatBracketFault", () => {
   // Every reason gets a case: this is the only place either codebase turns a fault into words, and a
