@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -6,6 +7,7 @@ import { AdminContextWrapper } from "@/features/admin/components/providers/Admin
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
 import { getSpiel } from "@/features/spiele/queries";
 import { resolveSpielId } from "@/features/spiele/resolvers";
+import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { NextPageProps } from "@/shared/types/types";
@@ -25,9 +27,37 @@ import type { NextPageProps } from "@/shared/types/types";
  * which is what makes editing a past season's fixture correct rather than silently offering this
  * season's clubs (ADR-0002).
  */
-export default async function AdminSpielEditPage(props: NextPageProps<{ spiel_id: string }>) {
+/**
+ * The page itself resolves NOTHING, and that is what keeps this route renderable.
+ *
+ * `cacheComponents` prerenders an App Shell per route, and a segment with no `generateStaticParams`
+ * gets one built with FALLBACK params. Awaiting `params` — or any runtime API — at the page's top
+ * level ties that shell to a single URL, and the two states then contradict each other: Next crashed
+ * this exact route with `Invariant: postponed state should not be provided when fallback params are
+ * provided` whenever a server action's `updateTag` revalidated it from a different route. The action's
+ * response was truncated to a few bytes, the client reported "An unexpected response was received
+ * from the server", and the route kept serving its stale payload — which is why a saved fixture still
+ * opened with its old values.
+ *
+ * The fix is the documented shape: the `params` promise is passed DOWN into a component inside a
+ * `<Suspense>` boundary, and every await happens there. Next can then build the shell without knowing
+ * the URL. Nothing about the reads below changed, only where they are awaited.
+ *
+ * See: https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
+ */
+export default function AdminSpielEditPage(props: NextPageProps<{ spiel_id: string }>) {
+  return (
+    // The same loader `admin/loading.tsx` uses, for the same reason: the shell around it — sidemenu
+    // and topbar — is already painted, and only this region is still resolving.
+    <Suspense fallback={<ContentLoader />}>
+      <AdminSpielEditContent params={props.params} />
+    </Suspense>
+  );
+}
+
+async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel_id: string }>["params"] }) {
   await connection();
-  const spielId = await resolveSpielId(props.params);
+  const spielId = await resolveSpielId(params);
 
   const spielRes = await getSpiel(spielId).catch((error: unknown) => {
     // Only a genuine 404 means "no such fixture". Swallowing everything would turn a backend outage
