@@ -589,7 +589,16 @@ export function AdminEditSpielDataForm({
             (dispatchError) => {
               toast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
-              toast.danger("Die Rücknahme konnte nicht gesendet werden. Bitte prüfe das Spiel.", { timeout: 8000 });
+
+              // The detail is SHOWN, not only logged. This failure never reaches a server log — it is
+              // the call itself failing in the browser — so the generic-German rule that governs
+              // `actionError.ts` would leave the only copy of the diagnosis in a devtools console
+              // nobody has open. This surface is admin-only and the reader is the one person who can
+              // act on it.
+              toast.danger("Die Rücknahme konnte nicht gesendet werden. Bitte prüfe das Spiel.", {
+                description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
+                timeout: 15000,
+              });
             },
           );
         },
