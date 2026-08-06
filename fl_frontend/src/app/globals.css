@@ -250,9 +250,17 @@
      <a>, <button> or [tabindex] an outline with the same width, offset and colour, so the app has
      ONE focus appearance rather than three (owner, 2026-07-31).
 
-     Why this cannot double up on HeroUI's components: every one of them also declares
-     `outline-style: none` in @layer components, which outranks this @layer base rule. And why it
-     beats the browser's own focus ring: any author style does.
+     Why it beats the browser's own focus ring: any author style does.
+
+     **It CAN double up on HeroUI's components, and the unlayered rule below is what stops it.**
+     HeroUI opts its own controls out with `.button:focus-visible:not(:focus), .button[data-focus-visible="true"]`
+     in @layer components, which does outrank this rule — but only where it matches, and its first arm
+     never can: an element that is focused always matches `:focus`, so `:not(:focus)` excludes exactly
+     the state it was written for. The opt-out therefore rests entirely on the second arm, which
+     react-aria sets from its own modality tracking. Wherever that tracking and the browser's
+     `:focus-visible` heuristic disagree — see the switch's note below, the modality is global and
+     survives an earlier key press — this rule painted a 2px white outline over a control HeroUI was
+     already indicating.
 
      Form fields are absent from the selector by element type, and the field-shaped HeroUI triggers
      (autocomplete, select, search field) are handled by the unlayered exception block below. */
@@ -549,13 +557,41 @@
     outline: none;
   }
 
-  /* The indicator chevron inside a picker is a real react-aria Button and is the field's own focus
-     target, so it drew the base-layer outline as a floating box in the middle of the field while
-     the field border was already brand — two indicators for one control. The field owns the
-     affordance; its inner trigger must not add a second. */
-  & :is([data-slot$="-indicator"], [data-slot$="-default-indicator"]):focus-visible {
+  /* Any BUTTON inside a field group is the field's own focus target, so it drew the base-layer
+     outline as a floating box in the middle of the field while the field border was already brand —
+     two indicators for one control. The field owns the affordance; its inner controls must not add a
+     second.
+
+     Scoped to every inner button rather than to the indicator slots alone, because the two clear
+     controls on Spieldatum and Anpfiff are plain `<button>`s carrying no HeroUI slot at all: the
+     slot-suffix selector matched the chevron beside them and missed them, so completing a time lit a
+     white box around the control that had just appeared. Position, not markup, is what decides this
+     — anything focusable inside a field group is inside a control that already says it is focused. */
+  & button:focus-visible {
     outline: none;
   }
+}
+
+/* HeroUI's own controls keep HeroUI's ring and take no outline on top of it.
+
+   The @layer base rule above cannot be trusted to lose this race on its own: HeroUI's opt-out is
+   `.button:focus-visible:not(:focus)`, whose `:not(:focus)` arm can never match a focused element, so
+   the opt-out survives only through `[data-focus-visible]` — an attribute react-aria sets from a
+   modality that is global and diverges from the browser's `:focus-visible` heuristic. Unlayered, so
+   it outranks both the base rule and anything HeroUI ships.
+
+   The ring is NOT removed with it: `.button` still draws `--tw-ring-shadow` in var(--focus) from
+   `[data-focus-visible]`, so a keyboard user keeps an indicator with the same colour and offset.
+   What goes is the second one.
+
+   The one case this leaves without any indicator is a focus the BROWSER calls focus-visible and
+   react-aria does not flag. That direction is the unlikely one — react-aria's modality is global and
+   sticky, so it errs towards flagging more focus as keyboard, not less — and it is the trade for
+   removing an indicator that appears on a plain mouse press. Revisit here if a keyboard-only pass
+   ever finds a HeroUI control with no visible focus state. */
+:is(button, a).button:focus-visible,
+:is(button, a).link:focus-visible {
+  outline: none;
 }
 
 /* The theme switch. HeroUI rings `.switch__control` off the Switch root's focus state, and that ring

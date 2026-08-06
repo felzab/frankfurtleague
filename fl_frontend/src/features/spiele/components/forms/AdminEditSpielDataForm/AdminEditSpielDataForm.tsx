@@ -222,9 +222,12 @@ export function AdminEditSpielDataForm({
   // Speichern button, so the shortcut cannot become a second submit route that drifts. Read through a
   // ref for the same reason `useUnsavedChangesWarning` reads one — re-listening on every keystroke
   // that flips a flag is churn on a global listener.
+  // `isDirty` is in here for the same reason the Speichern button carries it: the shortcut and the
+  // button are two routes to one submit, and a shortcut that saved a clean draft while the button was
+  // disabled would be two answers to whether there is anything to save.
   const canSubmitRef = useRef(true);
   useEffect(() => {
-    canSubmitRef.current = !isPending && !isConfirmingDiscard;
+    canSubmitRef.current = !isPending && !isConfirmingDiscard && isDirty;
   });
   useEffect(() => {
     const handleSaveShortcut = (event: KeyboardEvent) => {
@@ -494,31 +497,39 @@ export function AdminEditSpielDataForm({
       // The fixtures this save rewrote, which the client can put back for as long as it still holds
       // their previous state — nothing on the server does (ADR-0051). Built BEFORE leaving, because
       // `spielData` and `saisonSpiele` are this render's props and the toast outlives the page.
+      //
+      // **Offered on EVERY save, not only a destructive one** (owner, 2026-08-06). Scoping it to
+      // saves that voided a result answered "what did this destroy" and left "I did not mean to save
+      // that" with no answer at all — which is the more common mistake and the one an admin notices
+      // one second too late. It costs nothing extra: with no other fixture affected the replay is the
+      // edited fixture's own pre-edit payload, which is exactly what taking the edit back means.
       const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
-      if (affected.length > 0) {
-        offerUndo(buildUndoPayloads(spielData, saisonSpiele, affected), res.message);
-      } else {
-        toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
-      }
+      offerUndo(buildUndoPayloads(spielData, saisonSpiele, affected), res.message, affected.length > 0);
 
       leavePage();
     });
   };
 
   /**
-   * The undo toast: fifteen seconds to take back a save that deleted something (ADR-0051).
+   * The undo toast: fifteen seconds to take a save back (ADR-0051).
    *
    * **There is no confirmation dialog anywhere on this page, and this is why.** Confirmation and undo
    * are alternatives, not companions: a dialog interrupts every save to ask about a case that is
    * usually harmless, and an admin who has dismissed thirty of them reads the thirty-first without
-   * seeing it. This costs nothing until something was actually destroyed, and then it is the only
-   * moment the previous values still exist anywhere.
+   * seeing it. Undo costs nothing until it is wanted, and it is the only offer that helps the admin
+   * who was not paying attention — which is the case worth designing for.
+   *
+   * `destroyedSomething` picks the grade rather than whether to appear. An ordinary save is a success
+   * that happens to be reversible; a save that deleted a scoreline elsewhere is a warning that
+   * happens to be reversible, and the two must not look alike at a glance.
    *
    * Fifteen seconds is long enough to read the sentence naming what went and decide, and short enough
    * that the offer is gone before the page is stale enough for the replay to be refused.
    */
-  const offerUndo = (payloads: FLPatchSpielDataPayload[], message?: string) => {
-    toast.warning("Änderung gespeichert", {
+  const offerUndo = (payloads: FLPatchSpielDataPayload[], message?: string, destroyedSomething = false) => {
+    const raise = destroyedSomething ? toast.warning : toast.success;
+
+    raise("Änderung gespeichert", {
       description: message || "Die Spieldaten wurden erfolgreich aktualisiert.",
       timeout: UNDO_TIMEOUT_MS,
       actionProps: {

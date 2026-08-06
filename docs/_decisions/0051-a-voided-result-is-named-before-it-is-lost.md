@@ -70,14 +70,24 @@ resolution ran, both `null` when the slot merely filled from empty. The success 
 destroyed scoreline **its own sentence** — a moved `Paarung` and a deleted result are two facts, and a
 reader told specifically that a pairing changed reasonably concludes the score did not.
 
-**A save that destroyed something offers an undo for fifteen seconds, and there is no confirmation
-dialog anywhere on the page.** Confirmation and undo are alternatives, not companions: a dialog
-interrupts every save to ask about a case that is usually harmless, and the thirty-first one is
-dismissed unread. The undo is **held by the client**, because nothing on the server holds a previous
-value (roadmap BE-15) — the page that was looking at the season is the only place those results still
-exist. It replays the edited fixture's pre-edit payload first, so the resolution restores the
-occupants, and then each voided fixture's own payload, so its scoreline goes back after the bracket
-has stopped moving.
+**Every save offers an undo for fifteen seconds, and there is no confirmation dialog anywhere on the
+page.** Confirmation and undo are alternatives, not companions: a dialog interrupts every save to ask
+about a case that is usually harmless, and the thirty-first one is dismissed unread.
+
+**The offer is not scoped to the destructive save**, and that is the owner's call over the narrower
+first draft of this decision: scoping it answered "what did this destroy" and left "I did not mean to
+save that" with no answer at all — which is the more common mistake, and the one noticed one second
+too late. It costs nothing to widen, because with no other fixture affected the replay is the edited
+fixture's own pre-edit payload, which is exactly what taking an edit back means. What the destructive
+case changes is the **grade**: an ordinary save is a success that happens to be reversible, a save
+that deleted a scoreline elsewhere is a warning that happens to be reversible, and the two must not
+look alike at a glance.
+
+The undo is **held by the client**, because nothing on the server holds a previous value (roadmap
+BE-15) — the page that was looking at the season is the only place those results still exist. It
+replays the edited fixture's pre-edit payload first, so the resolution restores the occupants, and
+then each voided fixture's own payload, so its scoreline goes back after the bracket has stopped
+moving.
 
 **`deriveSpielDraftStatus` is the edit page's single contract**, and it is recorded here because this
 is the decision that adds a surface to it. Every marker, badge, list, count and guard on the page

@@ -24,9 +24,15 @@ import { useDraftStatus } from "./DraftStatusContext";
  * longer fit alone onto a second row. The narrow layout is the platform convention — status on its
  * own line, then both actions side by side at equal width, Speichern in the thumb-side position.
  *
- * **Save is never disabled on a client verdict.** A verdict can be stale — the schema runs in the
+ * **Save is never disabled on a client VERDICT.** A verdict can be stale — the schema runs in the
  * browser and the server is the authority — so an invalid count is reported and the button still
  * works; `useServerFieldErrors` moves focus to the first real rejection when the server answers.
+ *
+ * **It IS disabled while nothing has changed** (owner, 2026-08-06), and that is a different thing:
+ * emptiness is not a judgement about whether a value is good, it is the arithmetic this bar already
+ * performs to print "Keine Änderungen". A save with no changes writes the fixture back over itself,
+ * re-resolves the season's bracket and raises an undo offer for an edit nobody made — so the button
+ * that does nothing should not look like the button that does something.
  */
 export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onCancel: () => void }) {
   const status = useDraftStatus();
@@ -62,11 +68,13 @@ export function FormActionBar({ isPending, onCancel }: { isPending: boolean; onC
             className={`${formButton({ intent: "cancel" })} flex-1 sm:flex-initial`}>
             Abbrechen
           </Button>
-          {/* Strg+S submits too — the form owns that listener. */}
+          {/* Strg+S submits too, and the form gates that path on the SAME `status.isDirty` — a
+              shortcut that saved a clean draft while the button beside it was disabled would be two
+              answers to one question. */}
           <Button
             type="submit"
             variant="primary"
-            isDisabled={isPending}
+            isDisabled={isPending || !status.isDirty}
             className={`${formButton({ intent: "submit" })} flex-1 sm:flex-initial`}>
             {isPending ? "Speichert..." : "Speichern"}
           </Button>
