@@ -1,20 +1,33 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
-import { Button, Form, Separator, Switch, toast } from "@heroui/react";
+import { parseDate, parseTime } from "@internationalized/date";
 
-import { formButton } from "@/shared/components/ui/formButtons";
+import { Form, toast } from "@heroui/react";
+
+import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
+import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 
 import { patchAdminSpielDataAction } from "../../../actions";
-import { FormDateTimeSection } from "./FormDateTimeSection";
+import { applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
+import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
+import { collectKnockoutTeamIds, listDependentSpiele } from "../../../utils";
+import { DraftRail } from "./DraftRail";
+import { DraftStatusProvider } from "./DraftStatusContext";
+import { FormActionBar } from "./FormActionBar";
+import { FormAnsetzungSection } from "./FormAnsetzungSection";
+import { FormCancelSection } from "./FormCancelSection";
+import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
-import { FormSchiedsrichterSection } from "./FormSchiedsrichterSection";
-import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
+  FLPatchSpielDataPayload,
   FLSpiel,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
@@ -22,14 +35,32 @@ import type {
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
 } from "@/features/spiele/schemas";
+import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
-import type { FLTeam } from "@/features/teams/schemas";
+import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { CalendarDate, Time } from "@internationalized/date";
+import type { ReactNode } from "react";
+import type { RailBanner } from "./DraftRail";
 
 /**
+ * The match editor's form: four panels, a sticky summary rail, and one derivation behind both.
+ *
  * The lookup lists arrive as props rather than from `useAdmin()`. They are only ever available on
  * admin routes, but reading the context here would make `spiele` depend on `admin` — the exact
- * direction the write path was moved out of `admin` to avoid. The aggregator supplies them
+ * direction the write path was moved out of `admin` to avoid (ADR-0005). The aggregator supplies them
  * instead, which is what an aggregator slice is for.
+ *
+ * **Every field is controlled, date and time included.** The draft has to be complete between
+ * keystrokes, because that is what the schema is asked about when a field is left and what the rail's
+ * preview and change list read — and a React 19 form `action` resets uncontrolled inputs once it
+ * resolves, which on a page the admin stays on would silently blank the two fields that used
+ * `defaultValue`.
+ *
+ * **One column of panels, and a second track holding one sticky card.** That is how the ragged bottom
+ * is fixed rather than balanced: a form of stacked panels and a column of unequal height can only end
+ * level by accident, and a sticky element never reaches the bottom to be uneven against. `xl` rather
+ * than `lg` because the admin sidemenu is 310px wide, so a 1024px viewport leaves about 650px of
+ * content — which is exactly why the previous two-column split read as cramped.
  */
 export function AdminEditSpielDataForm({
   spielData,
@@ -37,20 +68,55 @@ export function AdminEditSpielDataForm({
   spielorte,
   schiedsrichter,
   saisonSpiele,
-  onClose,
+  today,
+  categorize,
+  registerRequestLeave,
+  pageHeader,
 }: {
   spielData: FLSpiel;
   teams: FLTeam[];
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
   saisonSpiele: FLSpiel[];
-  onClose: () => void;
+  today: string;
+  /**
+   * Hands the caller the form's own "leave, asking first" routine, so an exit control rendered ABOVE
+   * this form — the view's Zurück pill — routes through the discard guard exactly as Abbrechen does.
+   * Without it the pill called `router.back()` directly, and the one control whose reason to exist is
+   * being guarded (see the settled note on the header pill) was the one exit that skipped the guard.
+   * A register-callback rather than a context, because exactly one caller exists and it sits one
+   * level up; re-registered every render so the latest closure is always the one invoked.
+   */
+  registerRequestLeave?: (requestLeave: () => void) => void;
+  /**
+   * The view's back pill and page header, rendered INSIDE the form's scroll container so they
+   * scroll with the content while the action bar below stays put — the shell needs the whole
+   * scrollable page under one roof, and the header's content is still the view's business.
+   */
+  pageHeader?: ReactNode;
+  /**
+   * Which action-required categories a fixture falls into, supplied by the aggregator view.
+   *
+   * **A function rather than a computed set, because the answer has to be live.** The admin toggles
+   * Absage and the four "fehlt" categories stop applying at once — `categorizeActionRequired` reports a
+   * cancelled fixture as cancelled and nothing else — so "Offene Angaben" has to be recomputed from the
+   * draft rather than frozen at load. The rule itself stays in `admin`, which is what keeps `spiele`
+   * from importing the aggregator to ask a question about a Spiel.
+   */
+  categorize: (spiel: FLSpiel) => ReadonlySet<ActionRequiredCategory>;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const [spielIsCanceled, setSpielIsCanceled] = useState<boolean>(spielData.is_canceled);
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
   const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
+
+  // Held as the calendar types the pickers speak, converted at the payload boundary below. The stored
+  // strings are already exactly what `parseDate` / `parseTime` accept, and a `null` is a fixture whose
+  // date or kick-off has not been set — which is a legitimate state, not an empty field to nag about.
+  const [datum, setDatum] = useState<CalendarDate | null>(spielData.datum ? parseDate(spielData.datum) : null);
+  const [uhrzeit, setUhrzeit] = useState<Time | null>(spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null);
 
   const [team1Payload, setTeam1Payload] = useState<FLSpielTeamField | null>(spielData.team1);
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
@@ -64,33 +130,258 @@ export function AdminEditSpielDataForm({
   // the two must not be the same value (ADR-0044).
   const [elfmeterschiessen, setElfmeterschiessen] = useState<FLSpielElfmeterschiessenDraft | null>(spielData.elfmeterschiessen);
 
+  // ALWAYS closed on open (owner, seventh review, overruling the opened-when-played variant): the
+  // deliberate flip is the guard, on every fixture alike, so a stray keystroke can neither invent a
+  // 0:0 nor silently rewrite a recorded result.
+  const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState(false);
+
+  // Latched on a successful save so the guard below does not challenge the navigation the save itself
+  // performs — at that moment the draft still differs from the `spielData` this render was given.
+  const [hasSaved, setHasSaved] = useState(false);
+  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
+
+  // Latched when a confirmed discard leaves the page, and it UNMOUNTS the dialog rather than closing
+  // it. Closing animates: `isOpen={false}` keeps the overlay mounted through its exit transition, and
+  // `router.back()` in the same tick froze the tree mid-exit — the App Router keeps the tree alive for
+  // back/forward, so returning to the fixture resumed a half-finished exit animation and the dialog
+  // flashed back in over a page whose draft was already gone. Unmounted, there is nothing to resume.
+  // `requestLeave` resets it, so the dialog still opens on the next visit's own unsaved changes.
+  const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
+
   // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
-  const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
+  const {
+    fieldErrors: serverFieldErrors,
+    setFieldErrors,
+    formRef,
+  } = useServerFieldErrors(() =>
     toast.danger("Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", { timeout: 6000 }),
   );
 
-  const handleFormSubmit = (formData: FormData) => {
-    // An empty picker is a legitimate answer, and it is how a bracket slot the group phase has not
-    // filled yet is recorded (ADR-0041) — so both sides submit as they stand, `null` included.
-    const payload = {
-      spiel_id: spielData.id,
-      is_canceled: spielIsCanceled,
+  // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the message the
+  // server would have produced (ADR-0050).
+  const { validatePaths, clearVerdicts, mergedWith } = useDraftValidation(FLPatchSpielDataPayloadSchema);
 
-      datum: formData.get("datum")?.toString() || null,
-      uhrzeit: formData.get("uhrzeit")?.toString() || null,
+  const draft: FLSpielDraftFields = {
+    datum: datum?.toString() ?? null,
+    // `Time.toString()` is `HH:MM:SS`, which is what `CustomTimeStringSchema` and the backend both
+    // require — the field carries no seconds segment, so the third pair is always `00`.
+    uhrzeit: uhrzeit?.toString() ?? null,
+    ort: ortPayload,
+    schiedsrichter: schiedsrichterPayload,
+    team1: team1Payload,
+    team2: team2Payload,
+    team1_quelle: team1Quelle,
+    team2_quelle: team2Quelle,
+    elfmeterschiessen,
+    is_canceled: spielIsCanceled,
+  };
 
-      ort: ortPayload,
-      schiedsrichter: schiedsrichterPayload,
+  // An empty picker is a legitimate answer, and it is how a bracket slot the group phase has not
+  // filled yet is recorded (ADR-0041) — so both sides submit as they stand, `null` included.
+  const buildPayload = (): FLPatchSpielDataPayload => ({ ...draft, spiel_id: spielData.id }) as FLPatchSpielDataPayload;
 
-      team1: team1Payload,
-      team2: team2Payload,
-      team1_quelle: team1Quelle,
-      team2_quelle: team2Quelle,
-      elfmeterschiessen,
+  // The fixture as it will stand once saved. Built once and read three times — the preview renders it,
+  // the categorisation asks it what is still outstanding, and the knockout-cancellation warning asks
+  // whether the admin is about to call off a bracket fixture.
+  const previewSpiel = applyDraftToSpiel(spielData, draft);
+
+  const fieldErrors = mergedWith(serverFieldErrors);
+  const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories: categorize(previewSpiel), fieldErrors });
+  const isDirty = status.isDirty && !hasSaved;
+
+  // `hasSaved` exists to keep the guard quiet during the save's own navigation, where the draft
+  // still differs from the `spielData` this render was given. Its job ends the moment the
+  // revalidated fixture arrives and the two agree — left latched, every LATER edit on a restored
+  // tree read as not-dirty and both guards were bypassed, which is the "sometimes the discard
+  // dialog does not appear" the owner caught: it never appeared again after a save. A render-phase
+  // adjustment rather than an effect: React restarts this component's render before committing, so
+  // no frame ever shows the stale latch.
+  if (hasSaved && !status.isDirty) setHasSaved(false);
+
+  useUnsavedChangesWarning(isDirty);
+
+  // Ctrl+S / Cmd+S submits the form — the shortcut every editor an admin also uses has taught their
+  // hands, intercepted so the browser's "save this page as HTML" dialog cannot appear over a form.
+  // `requestSubmit`, not a handler call: it runs the same native validation and `action` path as the
+  // Speichern button, so the shortcut cannot become a second submit route that drifts. Read through a
+  // ref for the same reason `useUnsavedChangesWarning` reads one — re-listening on every keystroke
+  // that flips a flag is churn on a global listener.
+  const canSubmitRef = useRef(true);
+  useEffect(() => {
+    canSubmitRef.current = !isPending && !isConfirmingDiscard;
+  });
+  useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (canSubmitRef.current) formRef.current?.requestSubmit();
+      }
     };
 
+    window.addEventListener("keydown", handleSaveShortcut);
+    return () => window.removeEventListener("keydown", handleSaveShortcut);
+  }, [formRef]);
+
+  // The fixtures whose occupants this one's result decides (ADR-0048). Read off the STORED sides: what
+  // is already wired is what a save resolves, and a group is a property of the clubs in the fixture
+  // rather than of the fixture document (ADR-0028).
+  const dependentSpiele = useMemo(() => {
+    const gruppen = [spielData.team1, spielData.team2]
+      .map((side) => teams.find((team) => team.id === side?.team_id)?.gruppe)
+      .filter((gruppe): gruppe is FLGruppenNames => gruppe !== undefined);
+
+    return listDependentSpiele(saisonSpiele, spielData, gruppen);
+  }, [saisonSpiele, spielData, teams]);
+
+  // Every team the bracket already fields — the client's proxy for "qualified for the knockout
+  // stage" (see `collectKnockoutTeamIds`). Read by the pickers for their warning chip, by the inline
+  // callout under a manual side, and by the rail banner below, so the three surfaces cannot disagree.
+  const knockoutTeamIds = useMemo(() => collectKnockoutTeamIds(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
+
+  /**
+   * The rail's mirror of every warning that appears inline somewhere in the form (owner, fifth
+   * review): a warning an admin scrolled past still has one place that lists it. Built from the same
+   * state the inline callouts read, so the two can never tell different stories.
+   */
+  const isKnockout = spielData.saison_phase !== "gruppenphase";
+  const extraBanners = [
+    { label: "Team 1", quelle: team1Quelle, team: team1Payload },
+    { label: "Team 2", quelle: team2Quelle, team: team2Payload },
+  ].flatMap((side): RailBanner[] => {
+    if (!isKnockout || side.quelle !== null) return [];
+
+    const banners: RailBanner[] = [
+      {
+        severity: "danger",
+        title: `${side.label} pflegt das System nicht`,
+        body: "Ohne Herkunft bleibt die Seite stehen, wie Du sie einträgst.",
+      },
+    ];
+    if (side.team !== null && !knockoutTeamIds.has(side.team.team_id)) {
+      banners.push({
+        severity: "warning",
+        title: `${side.team.name} ist nicht für diese Runde qualifiziert`,
+        body: "Laut Turnierbaum hat sich diese Mannschaft nicht für diese Runde qualifiziert. Prüfe die Auswahl.",
+      });
+    }
+    return banners;
+  });
+
+  if (isKnockout && spielIsCanceled && !spielData.is_canceled && dependentSpiele.length > 0) {
+    extraBanners.push({
+      severity: "danger",
+      title: "Dieses KO-Spiel speist andere Spiele",
+      body: "Ohne seinen Ausgang bleiben die davon abhängigen Spiele unbesetzt.",
+    });
+  }
+
+  // A cancelled fixture with a DECIDED score is legal — a Wertung is entered exactly like this, and
+  // the table counts it (ADR-0026) — but it is also the shape a mistaken cancellation takes, so it
+  // gets a warning rather than silence or a refusal (owner, eighth review).
+  const tore1 = team1Payload?.tore ?? null;
+  const tore2 = team2Payload?.tore ?? null;
+  const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
+
+  if (spielIsCanceled && hasDecidedErgebnis) {
+    extraBanners.push({
+      severity: "warning",
+      title: "Abgesagt, aber mit entschiedenem Ergebnis",
+      body: "Das kann beabsichtigt sein, etwa bei einer Wertung. Das Ergebnis zählt weiter für die Tabelle.",
+    });
+  }
+
+  /**
+   * Judges the named paths against the draft as it now stands. **For a control the user TYPES into,
+   * fired when the field is left** — by then the value has committed to state and the current draft
+   * is the draft.
+   *
+   * Both of these write only to the client-side verdicts, never to the server's map, and that
+   * separation is load-bearing: `useServerFieldErrors` calls `reportValidity()` whenever its map
+   * changes, which moves focus to the first rejected field. That is correct after a submit and wrong
+   * on a blur — clearing a corrected field there would have thrown focus onto the next unfixed one
+   * while somebody was tabbing past it. `mergedWith` retracts the stale server message at render.
+   */
+  const validateFields = (paths: readonly string[]) => validatePaths(buildPayload(), paths);
+
+  /**
+   * The same judgement for a control the user PICKS from, where the value arrives with the event.
+   *
+   * `selected` is not a convenience. A picker's handler calls `onXChange(next)` and then asks for
+   * validation in the same tick, and React has not re-rendered — so `buildPayload()` alone returns
+   * the draft holding the value the selection just REPLACED. That is why picking a feeder match
+   * reported "Bitte wähle ein Spiel aus." and only cleared when you picked a second time: the first
+   * pick was judged against the `NaN` that switching the source type had left behind.
+   */
+  const validateSelection = (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) =>
+    validatePaths({ ...buildPayload(), ...selected }, paths);
+
+  /**
+   * Where "leave" goes: back where there is a back, and the admin start page where there is none.
+   *
+   * `router.back()` on a cold deep link — a bookmark, a pasted URL, a fresh tab — is a silent no-op,
+   * which would leave every exit on this page dead. `history.length` is the only signal the platform
+   * offers (Next exposes no history introspection); a fresh tab is 1, so `> 1` is exactly "there is
+   * somewhere to go back to".
+   */
+  const leavePage = () => {
+    if (window.history.length > 1) router.back();
+    else router.push("/admin");
+  };
+
+  /** Leave, but ask first if there is anything to lose. Both routes out of this page — Abbrechen and
+   * the view's Zurück pill — come through here. */
+  const requestLeave = () => {
+    if (isDirty) {
+      setHasLeftViaDiscard(false);
+      setIsConfirmingDiscard(true);
+      return;
+    }
+    leavePage();
+  };
+
+  // Unconditional, so the registered closure never goes stale — the same pattern the guard hooks use
+  // for their refs.
+  useEffect(() => {
+    registerRequestLeave?.(requestLeave);
+  });
+
+  /**
+   * Puts every field back to what is stored, then leaves.
+   *
+   * **Navigating away is not enough, and assuming it was is what made the worst bug on this page.** The
+   * App Router keeps a page's React tree alive for back and forward navigation, so an admin who
+   * confirmed "Verwerfen" and then returned to the same fixture found the discarded draft still sitting
+   * in the fields — the dialog had promised the work was gone and it was not. Resetting explicitly means
+   * the promise holds whether the tree is rebuilt or restored.
+   *
+   * Every atom is listed rather than looped, and the list is the same one the `useState` calls above
+   * declare: a field added there and forgotten here would silently survive a discard, which is exactly
+   * the failure being fixed. `deriveSpielDraftStatus` is what would catch it — after this runs, nothing
+   * may remain in `status.changed`.
+   */
+  const discardAndLeave = () => {
+    setSpielIsCanceled(spielData.is_canceled);
+    setOrtPayload(spielData.ort);
+    setSchiedsrichterPayload(spielData.schiedsrichter);
+    setDatum(spielData.datum ? parseDate(spielData.datum) : null);
+    setUhrzeit(spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null);
+    setTeam1Payload(spielData.team1);
+    setTeam2Payload(spielData.team2);
+    setTeam1Quelle(spielData.team1_quelle);
+    setTeam2Quelle(spielData.team2_quelle);
+    setElfmeterschiessen(spielData.elfmeterschiessen);
+    setErgebnisCanBeEdited(false);
+
+    setFieldErrors({});
+    clearVerdicts();
+    setIsConfirmingDiscard(false);
+    setHasLeftViaDiscard(true);
+    leavePage();
+  };
+
+  const handleFormSubmit = () => {
     startTransition(async () => {
-      const res = await patchAdminSpielDataAction(payload, spielData.saison_id);
+      const res = await patchAdminSpielDataAction(buildPayload(), spielData.saison_id);
 
       if (!res.success) {
         setFieldErrors(res.fieldErrors ?? {});
@@ -105,104 +396,115 @@ export function AdminEditSpielDataForm({
       }
 
       setFieldErrors({});
+      clearVerdicts();
+      setHasSaved(true);
       toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
-      onClose();
+      leavePage();
     });
   };
 
   return (
-    <Form
-      ref={formRef}
-      validationErrors={fieldErrors}
-      className="flex min-h-full flex-col gap-y-6 pt-2 pb-6"
-      action={handleFormSubmit}>
-      <Separator className="bg-border" />
+    <DraftStatusProvider status={status}>
+      {/* The shell (owner, eighth review): the inner container scrolls the page — header, panels,
+          rail — and the action bar is its STATIC sibling below, outside the scroll content, where
+          nothing (overscroll bounce, the mobile URL bar, page-end spacing) can move it. `main`
+          never scrolls on this route, because this form fills it exactly. */}
+      <Form
+        ref={formRef}
+        validationErrors={fieldErrors}
+        className="flex min-h-0 w-full flex-1 flex-col"
+        action={() => handleFormSubmit()}>
+        <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
+          <div className="max-w-page mx-auto flex w-full flex-col">
+            {pageHeader}
 
-      {/** Cancel Spiel */}
-      {/* No `aria-label`: "Spiel absagen" below sits inside the switch's own <label>, so an
-          aria-label would only override the visible text with a copy of itself. */}
-      <div className="flex w-full flex-col gap-y-1">
-        <Switch
-          size="md"
-          aria-describedby="spiel-absagen-hint"
-          isSelected={spielIsCanceled}
-          onChange={() => setSpielIsCanceled(!spielIsCanceled)}>
-          <Switch.Content className="fluid-sm text-danger flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
-            Spiel absagen
-            <Switch.Control className={`${spielIsCanceled ? "bg-danger" : ""}`}>
-              <Switch.Thumb />
-            </Switch.Control>
-          </Switch.Content>
-        </Switch>
-        {/* Outside the `Switch`, which renders a `<label>`: as a child, this whole paragraph
-            toggled the switch on any click. `aria-describedby` keeps the screen-reader wiring that
-            `Description` provided. */}
-        <p
-          id="spiel-absagen-hint"
-          className="fluid-xxs text-foreground-muted leading-normal font-medium">
-          Wird dieser Schalter umgelegt, so wird das Spiel als abgesagt eingetragen. Dies kann zurückgesetzt werden, indem der Schalter zurück
-          umgelegt wird.
-        </p>
-      </div>
+            <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_380px] 2xl:gap-8">
+              {/* Explicit grid placement rather than `order-*`: the DOM order is the mobile reading order,
+              and on a phone the rail's warnings and preview belong above the fields rather than below
+              four panels of them. */}
+              <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
+                <DraftRail
+                  previewSpiel={previewSpiel}
+                  today={today}
+                  dependentSpiele={dependentSpiele}
+                  extraBanners={extraBanners}
+                />
+              </div>
 
-      <Separator className="bg-border" />
+              <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6 xl:col-start-1 xl:row-start-1 xl:mx-0 xl:max-w-none">
+                <FormAnsetzungSection
+                  datum={datum}
+                  onDatumChange={setDatum}
+                  uhrzeit={uhrzeit}
+                  onUhrzeitChange={setUhrzeit}
+                  spielorte={spielorte}
+                  ortPayload={ortPayload}
+                  onOrtChange={setOrtPayload}
+                  schiedsrichter={schiedsrichter}
+                  schiedsrichterPayload={schiedsrichterPayload}
+                  onSchiedsrichterChange={setSchiedsrichterPayload}
+                  onValidateFields={validateFields}
+                />
 
-      {/** Datum/uhrzeit */}
-      <FormDateTimeSection spielData={spielData} />
+                <FormMatchupSection
+                  spielData={spielData}
+                  saisonSpiele={saisonSpiele}
+                  teams={teams}
+                  knockoutTeamIds={knockoutTeamIds}
+                  team1Payload={team1Payload}
+                  onTeam1Change={setTeam1Payload}
+                  team2Payload={team2Payload}
+                  onTeam2Change={setTeam2Payload}
+                  team1Quelle={team1Quelle}
+                  onTeam1QuelleChange={setTeam1Quelle}
+                  team2Quelle={team2Quelle}
+                  onTeam2QuelleChange={setTeam2Quelle}
+                  onValidateSelection={validateSelection}
+                />
 
-      {/** Spielort */}
-      <FormSpielortSection
-        spielorte={spielorte}
-        ortPayload={ortPayload}
-        onOrtChange={setOrtPayload}
-      />
+                <FormErgebnisSection
+                  spielData={spielData}
+                  team1Payload={team1Payload}
+                  onTeam1Change={setTeam1Payload}
+                  team2Payload={team2Payload}
+                  onTeam2Change={setTeam2Payload}
+                  team1Quelle={team1Quelle}
+                  team2Quelle={team2Quelle}
+                  elfmeterschiessen={elfmeterschiessen}
+                  onElfmeterschiessenChange={setElfmeterschiessen}
+                  ergebnisCanBeEdited={ergebnisCanBeEdited}
+                  onErgebnisCanBeEditedChange={setErgebnisCanBeEdited}
+                  onValidateFields={validateFields}
+                />
 
-      {/** Schiedsrichter */}
-      <FormSchiedsrichterSection
-        schiedsrichter={schiedsrichter}
-        schiedsrichterPayload={schiedsrichterPayload}
-        onSchiedsrichterChange={setSchiedsrichterPayload}
-      />
+                <FormCancelSection
+                  spielData={spielData}
+                  spielIsCanceled={spielIsCanceled}
+                  onSpielIsCanceledChange={setSpielIsCanceled}
+                  dependentSpiele={dependentSpiele}
+                  hasDecidedErgebnis={hasDecidedErgebnis}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <Separator className="bg-border" />
+        <FormActionBar
+          isPending={isPending}
+          onCancel={requestLeave}
+        />
+      </Form>
 
-      {/** Team1 vs. Team2 */}
-      <FormMatchupSection
-        spielData={spielData}
-        saisonSpiele={saisonSpiele}
-        teams={teams}
-        team1Payload={team1Payload}
-        onTeam1Change={setTeam1Payload}
-        team2Payload={team2Payload}
-        onTeam2Change={setTeam2Payload}
-        team1Quelle={team1Quelle}
-        onTeam1QuelleChange={setTeam1Quelle}
-        team2Quelle={team2Quelle}
-        onTeam2QuelleChange={setTeam2Quelle}
-        elfmeterschiessen={elfmeterschiessen}
-        onElfmeterschiessenChange={setElfmeterschiessen}
-      />
-
-      <Separator className="bg-border" />
-
-      {/* Buttons */}
-      <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          onPress={onClose}
-          isDisabled={isPending}
-          className={formButton({ intent: "cancel" })}>
-          Abbrechen
-        </Button>
-        <Button
-          type="submit"
-          variant="primary"
-          isDisabled={isPending}
-          className={formButton({ intent: "submit" })}>
-          {isPending ? "Speichert..." : "Speichern"}
-        </Button>
-      </div>
-    </Form>
+      {/* Unmounted — not merely closed — once a discard has left the page; see `hasLeftViaDiscard`.
+          The "Weiter bearbeiten" path stays mounted so it keeps its exit animation. */}
+      {!hasLeftViaDiscard && (
+        <ConfirmDiscardModal
+          isOpen={isConfirmingDiscard}
+          onClose={() => setIsConfirmingDiscard(false)}
+          onDiscard={discardAndLeave}
+          changeCount={status.changed.length}
+        />
+      )}
+    </DraftStatusProvider>
   );
 }

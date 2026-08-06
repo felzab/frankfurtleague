@@ -1,0 +1,279 @@
+/**
+ * SPIELE · draft-status tests
+ *
+ * `deriveSpielDraftStatus` is the one thing the edit page believes about a field — the markers, the
+ * change list, the open-items list, the unsaved count and the navigation guard all read it, and none of
+ * them can be clicked in this repository (there is no component harness). So the cases below are the
+ * whole net, and they are chosen for the three ways this derivation can be wrong in a way a reader
+ * would not notice: a change that is not reported, a field nagged about that nobody is waiting on, and
+ * a value whose "empty" is not the absence of its own value.
+ */
+
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+// Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
+import { deriveSpielDraftStatus } from "./draftStatus.ts";
+
+import type { FLSpielDraftFields } from "./draftStatus.ts";
+import type { FLSpiel } from "./schemas.ts";
+import type { ActionRequiredCategory } from "./types.ts";
+
+const TEAM_1 = "6890a1b2c3d4e5f607182932";
+const TEAM_2 = "6890a1b2c3d4e5f607182933";
+const ORT = "6890a1b2c3d4e5f607182940";
+const SCHIRI = "6890a1b2c3d4e5f607182950";
+
+/** A fully populated group-phase fixture, so every descriptor has something to compare against. */
+function makeStored(overrides: Partial<FLSpiel> = {}): FLSpiel {
+  return {
+    id: "6890a1b2c3d4e5f607182900",
+    spieltag_id: "6890a1b2c3d4e5f607182901",
+    spiel_nr: 12,
+    saison_id: "2026",
+    saison_phase: "gruppenphase",
+    is_canceled: false,
+    datum: "2026-08-12",
+    uhrzeit: "18:30:00",
+    ort: { spielort_id: ORT, name: "Sportpark Nord", maps_link: "Sportpark Nord", mietpreis: 120 },
+    schiedsrichter: { schiedsrichter_id: SCHIRI, name: "Pierluigi Collina", payment: 40 },
+    team1: { team_id: TEAM_1, name: "Team A", shorthand: "TA", tore: 3 },
+    team2: { team_id: TEAM_2, name: "Team B", shorthand: "TB", tore: 1 },
+    team1_quelle: null,
+    team2_quelle: null,
+    ergebnis: "3:1",
+    elfmeterschiessen: null,
+    ...overrides,
+  } as FLSpiel;
+}
+
+/** The draft the form holds when nothing has been touched: exactly the stored fields. */
+function draftOf(stored: FLSpiel, overrides: Partial<FLSpielDraftFields> = {}): FLSpielDraftFields {
+  return {
+    datum: stored.datum,
+    uhrzeit: stored.uhrzeit,
+    ort: stored.ort,
+    schiedsrichter: stored.schiedsrichter,
+    team1: stored.team1,
+    team2: stored.team2,
+    team1_quelle: stored.team1_quelle,
+    team2_quelle: stored.team2_quelle,
+    elfmeterschiessen: stored.elfmeterschiessen,
+    is_canceled: stored.is_canceled,
+    ...overrides,
+  };
+}
+
+function derive(
+  stored: FLSpiel,
+  draft: FLSpielDraftFields,
+  categories: readonly ActionRequiredCategory[] = [],
+  fieldErrors: Record<string, string> = {},
+) {
+  return deriveSpielDraftStatus({ stored, draft, expectedCategories: new Set(categories), fieldErrors });
+}
+
+describe("deriveSpielDraftStatus · dirtiness", () => {
+  it("reports nothing changed when the draft is the stored fixture", () => {
+    const stored = makeStored();
+    const status = derive(stored, draftOf(stored));
+
+    assert.equal(status.isDirty, false);
+    assert.deepEqual(status.changed, []);
+  });
+
+  it("reports a changed date with both its readings, formatted as the site formats them", () => {
+    const stored = makeStored();
+    const status = derive(stored, draftOf(stored, { datum: "2026-08-19" }));
+
+    assert.equal(status.isDirty, true);
+    assert.deepEqual(
+      status.changed.map((field) => field.path),
+      ["datum"],
+    );
+    assert.equal(status.byPath.get("datum")?.storedText, "12.08.2026");
+    assert.equal(status.byPath.get("datum")?.draftText, "19.08.2026");
+  });
+
+  // A venue is a whole embedded object, so identity comparison would call every render a change.
+  it("compares a venue by its id rather than by object identity", () => {
+    const stored = makeStored();
+    const sameVenueNewObject = { spielort_id: ORT, name: "Sportpark Nord", maps_link: "Sportpark Nord", mietpreis: 120 };
+
+    assert.equal(derive(stored, draftOf(stored, { ort: sameVenueNewObject })).isDirty, false);
+  });
+
+  it("reports a venue swap and an emptied venue differently", () => {
+    const stored = makeStored();
+    const swapped = derive(
+      stored,
+      draftOf(stored, { ort: { spielort_id: "6890a1b2c3d4e5f607182941", name: "Riedwiese", maps_link: "Riedwiese", mietpreis: 90 } }),
+    );
+    const emptied = derive(stored, draftOf(stored, { ort: null }));
+
+    assert.equal(swapped.byPath.get("ort.spielort_id")?.draftText, "Riedwiese");
+    assert.equal(emptied.byPath.get("ort.spielort_id")?.draftText, null);
+    assert.equal(emptied.byPath.get("ort.spielort_id")?.storedText, "Sportpark Nord");
+  });
+
+  // Two structurally equal sources must not read as a change; the objects are rebuilt on every pick.
+  it("compares a bracket source by its contents", () => {
+    const stored = makeStored({ saison_phase: "halbfinale", team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "sieger" } });
+
+    assert.equal(derive(stored, draftOf(stored, { team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "sieger" } })).isDirty, false);
+    assert.equal(derive(stored, draftOf(stored, { team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "verlierer" } })).isDirty, true);
+    assert.equal(derive(stored, draftOf(stored, { team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 } })).isDirty, true);
+  });
+
+  it("reads a cancellation in both directions, each state with its own word", () => {
+    const going = makeStored();
+    const called = makeStored({ is_canceled: true });
+
+    assert.equal(derive(going, draftOf(going, { is_canceled: true })).byPath.get("is_canceled")?.draftText, "Abgesagt");
+    // "Angesetzt", never `null`: a null draft value renders as an emptied field in the danger
+    // grade, and putting a fixture back on is not an emptying.
+    assert.equal(derive(called, draftOf(called, { is_canceled: false })).byPath.get("is_canceled")?.draftText, "Angesetzt");
+    assert.equal(derive(called, draftOf(called, { is_canceled: false })).byPath.get("is_canceled")?.storedText, "Abgesagt");
+  });
+
+  // NaN is what a NumberField reports while a cleared box is being retyped, and NaN !== NaN.
+  it("does not report a still-empty goal field as changed", () => {
+    const stored = makeStored({ team1: { team_id: TEAM_1, name: "Team A", shorthand: "TA", tore: null }, ergebnis: null });
+    const status = derive(stored, draftOf(stored, { team1: { team_id: TEAM_1, name: "Team A", shorthand: "TA", tore: NaN } }));
+
+    assert.equal(status.byPath.get("team1.tore")?.draftText, null);
+    assert.equal(status.byPath.get("team1.tore")?.isChanged, false);
+  });
+});
+
+describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
+  it("marks nothing when no category applies, however empty the fixture is", () => {
+    const stored = makeStored({ datum: null, uhrzeit: null, ort: null, schiedsrichter: null });
+
+    assert.deepEqual(derive(stored, draftOf(stored)).expected, []);
+  });
+
+  it("marks an empty field its category names", () => {
+    const stored = makeStored({ datum: null });
+    const status = derive(stored, draftOf(stored), ["datum_missing"]);
+
+    assert.deepEqual(
+      status.expected.map((field) => field.path),
+      ["datum"],
+    );
+  });
+
+  // The category set is frozen from the stored fixture; emptiness is live. This is what makes the
+  // markers disappear as the admin fills them in rather than staying until a save.
+  it("stops marking a field once the draft fills it, without the category changing", () => {
+    const stored = makeStored({ datum: null });
+    const status = derive(stored, draftOf(stored, { datum: "2026-08-19" }), ["datum_missing"]);
+
+    assert.deepEqual(status.expected, []);
+    assert.equal(status.byPath.get("datum")?.isChanged, true);
+  });
+
+  it("marks both goal fields for one missing result", () => {
+    const stored = makeStored({
+      team1: { team_id: TEAM_1, name: "Team A", shorthand: "TA", tore: null },
+      team2: { team_id: TEAM_2, name: "Team B", shorthand: "TB", tore: null },
+      ergebnis: null,
+    });
+    const status = derive(stored, draftOf(stored), ["ergebnis_pending"]);
+
+    assert.deepEqual(
+      status.expected.map((field) => field.path),
+      ["team1.tore", "team2.tore"],
+    );
+  });
+
+  // ADR-0042: the resolution fills a side that has a source, so a side WITH a source and no team yet
+  // is correct and must not be nagged about. Only "no team AND no source" is an open slot.
+  it("marks an unwired knockout side and leaves a wired one alone", () => {
+    const unwired = makeStored({ saison_phase: "halbfinale", team1: null, team1_quelle: null, ergebnis: null });
+    const wired = makeStored({
+      saison_phase: "halbfinale",
+      team1: null,
+      team1_quelle: { type: "spiel", spiel_nr: 25, ausgang: "sieger" },
+      ergebnis: null,
+    });
+
+    assert.deepEqual(
+      derive(unwired, draftOf(unwired), ["besetzung_missing"]).expected.map((field) => field.path),
+      ["team1_quelle"],
+    );
+    assert.deepEqual(derive(wired, draftOf(wired), ["besetzung_missing"]).expected, []);
+  });
+
+  // A side an admin has hand-picked has a team and no source. It is not an open slot, and marking the
+  // source would tell the admin to wire something they have deliberately taken over.
+  it("leaves a manually filled side alone", () => {
+    const manual = makeStored({ saison_phase: "halbfinale", team1_quelle: null, ergebnis: null });
+
+    assert.deepEqual(derive(manual, draftOf(manual), ["besetzung_missing"]).expected, []);
+  });
+});
+
+describe("deriveSpielDraftStatus · rejected fields", () => {
+  it("attaches a message to the field it names", () => {
+    const stored = makeStored();
+    const status = derive(stored, draftOf(stored), [], { "ort.mietpreis": "Bitte gib einen Mietpreis ein." });
+
+    assert.equal(status.byPath.get("ort.mietpreis")?.error, "Bitte gib einen Mietpreis ein.");
+    assert.deepEqual(
+      status.invalid.map((field) => field.path),
+      ["ort.mietpreis"],
+    );
+  });
+
+  // A source reports its failures under the variant's own key, never under `teamN_quelle` itself, so
+  // the descriptor has to look at all four or the rail would count zero rejected fields.
+  it("finds a source's message under the variant key the schema uses", () => {
+    const stored = makeStored({ saison_phase: "halbfinale", team1_quelle: { type: "gruppe", gruppe: "A", platz: 1 } });
+    const status = derive(stored, draftOf(stored), [], { "team1_quelle.platz": "Bitte wähle einen Platz aus." });
+
+    assert.equal(status.byPath.get("team1_quelle")?.error, "Bitte wähle einen Platz aus.");
+  });
+
+  it("reports no error when the map is empty", () => {
+    const stored = makeStored();
+
+    assert.deepEqual(derive(stored, draftOf(stored)).invalid, []);
+  });
+});
+
+describe("deriveSpielDraftStatus · the table itself", () => {
+  // The guarantee the page rests on: every field it can change has a row, so nothing is invisible to
+  // the markers, the change list and the guard. A new editable field failing this is the whole point.
+  it("covers every field of the draft shape", () => {
+    const stored = makeStored();
+    const paths = new Set(derive(stored, draftOf(stored)).fields.map((field) => field.path));
+
+    for (const expectedPath of [
+      "datum",
+      "uhrzeit",
+      "ort.spielort_id",
+      "ort.mietpreis",
+      "schiedsrichter.schiedsrichter_id",
+      "schiedsrichter.payment",
+      "team1_quelle",
+      "team1.team_id",
+      "team2_quelle",
+      "team2.team_id",
+      "team1.tore",
+      "team2.tore",
+      "elfmeterschiessen.team1",
+      "elfmeterschiessen.team2",
+      "is_canceled",
+    ]) {
+      assert.ok(paths.has(expectedPath), `no descriptor for ${expectedPath}`);
+    }
+  });
+
+  it("keys every field by its own path", () => {
+    const stored = makeStored();
+    const status = derive(stored, draftOf(stored));
+
+    assert.equal(status.byPath.size, status.fields.length);
+  });
+});

@@ -1,42 +1,83 @@
-import { parseDate, parseTime } from "@internationalized/date";
+import { Xmark } from "@gravity-ui/icons";
 
-import { Calendar, DateField, DatePicker, Description, FieldError, Label, TimeField } from "@heroui/react";
+import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
 
-import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
+import { FieldLabel } from "./FieldLabel";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { CalendarDate, Time } from "@internationalized/date";
+
+/**
+ * The one clear affordance for the two segmented fields.
+ *
+ * It exists because a segmented field has no other way back to empty: react-aria clears one segment
+ * per Backspace, so "kein Termin mehr" — a legitimate value, the stored `null` the pickers render as
+ * TBD — used to cost six keystrokes and the knowledge that it was possible at all. Rendered only
+ * while there is something to clear, exactly like the pickers' own clear buttons.
+ *
+ * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
+ * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
+ * for what is a single synchronous state reset.
+ */
+function ClearFieldButton({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClear}
+      className="text-foreground-muted hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors">
+      <Xmark className="size-4" />
+    </button>
+  );
+}
 
 /**
  * Date and time of the fixture.
  *
- * **The only UNCONTROLLED section of the edit form.** Every sibling section lifts its state up to
- * `AdminEditSpielDataForm`; these two fields use `defaultValue` and a `name`, and the parent reads
- * them off `FormData` at submit time instead.
+ * **Controlled, like every sibling section.** The two fields hold calendar objects and the form converts
+ * them at the payload boundary. They are controlled for two reasons that both arrived with the page: the
+ * draft payload has to be complete for a field to be judged when it is left (ADR-0050), and a React 19
+ * form `action` resets uncontrolled inputs when it resolves — which on a page the admin stays on would
+ * blank exactly these two fields.
  *
- * That is deliberate rather than an oversight: date and time have no cross-field behaviour to
- * coordinate — unlike the teams (which disable each other) or the goals (which drive the outcome
- * readout) — so controlling them would add state that only ever mirrors the input. If a rule is ever
- * added that depends on the date, this section has to become controlled like the rest.
+ * **Both validate on blur, never on change.** A segmented date field reports a value only once every
+ * segment is filled, so judging it per keystroke says "Bitte gib ein gültiges Datum ein" to somebody who
+ * has typed the day and not yet the month.
+ *
+ * **Neither field carries a `Description`.** "Wähle das Datum aus, an dem das Spiel stattfindet" under a
+ * label reading "Spieldatum" is the label again in more words (ADR-0050).
  */
-export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
+export function FormDateTimeSection({
+  datum,
+  onDatumChange,
+  uhrzeit,
+  onUhrzeitChange,
+  onValidateFields,
+}: {
+  datum: CalendarDate | null;
+  onDatumChange: (value: CalendarDate | null) => void;
+  uhrzeit: Time | null;
+  onUhrzeitChange: (value: Time | null) => void;
+  onValidateFields: (paths: readonly string[]) => void;
+}) {
   return (
     <div
-      className="flex w-full flex-col gap-y-4"
+      className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2"
       onKeyDownCapture={suppressEnterSubmit}>
-      <h3 className={FORM_SECTION_HEADING}>Termin</h3>
-
       {/** Spieldatum */}
       <DatePicker
-        defaultValue={spielData.datum ? parseDate(spielData.datum) : null}
+        value={datum}
+        onChange={onDatumChange}
+        onBlur={() => onValidateFields(["datum"])}
         name="datum"
         className="w-full">
-        <Label className={FIELD_LABEL}>Spieldatum</Label>
+        <FieldLabel path="datum">Spieldatum</FieldLabel>
         <DateField.Group
           fullWidth
-          className="border-border bg-surface text-foreground rounded-lg border">
+          className={FIELD_GROUP}>
           {/* HeroUI styles literal segments (the "." and ":") with `text-muted`, which is a
               *background* token -- about 1.1:1 against the field surface, so the separators were
               effectively invisible. `data-type` comes from react-aria on every segment. */}
@@ -49,12 +90,17 @@ export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
             )}
           </DateField.Input>
           <DateField.Suffix>
+            {datum !== null && (
+              <ClearFieldButton
+                label="Datum entfernen"
+                onClear={() => onDatumChange(null)}
+              />
+            )}
             <DatePicker.Trigger>
               <DatePicker.TriggerIndicator />
             </DatePicker.Trigger>
           </DateField.Suffix>
         </DateField.Group>
-        <Description className="fluid-xxs text-foreground-muted">Wähle das Datum aus, an dem das Spiel stattfindet</Description>
         <FieldError className={FIELD_ERROR} />
         <DatePicker.Popover className="p-2">
           <Calendar
@@ -81,13 +127,15 @@ export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
 
       {/** Uhrzeit */}
       <TimeField
-        className="w-full sm:w-[256px]"
+        className="w-full"
         name="uhrzeit"
         hourCycle={24}
-        defaultValue={spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null}>
-        <Label className={FIELD_LABEL}>Uhrzeit</Label>
-        <TimeField.Group className="border-border bg-surface text-foreground rounded-lg border">
-          <TimeField.Input className="fluid-sm">
+        value={uhrzeit}
+        onChange={onUhrzeitChange}
+        onBlur={() => onValidateFields(["uhrzeit"])}>
+        <FieldLabel path="uhrzeit">Anpfiff</FieldLabel>
+        <TimeField.Group className={FIELD_GROUP}>
+          <TimeField.Input className="fluid-sm w-full">
             {(segment) => (
               <TimeField.Segment
                 segment={segment}
@@ -95,8 +143,13 @@ export function FormDateTimeSection({ spielData }: { spielData: FLSpiel }) {
               />
             )}
           </TimeField.Input>
+          {uhrzeit !== null && (
+            <ClearFieldButton
+              label="Uhrzeit entfernen"
+              onClear={() => onUhrzeitChange(null)}
+            />
+          )}
         </TimeField.Group>
-        <Description className="fluid-xxs text-foreground-muted">Die Uhrzeit des Anpfiffs</Description>
         <FieldError className={FIELD_ERROR} />
       </TimeField>
     </div>

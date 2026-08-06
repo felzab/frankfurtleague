@@ -1,46 +1,38 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
-import { Description, FieldError, Label, NumberField, Separator, Switch } from "@heroui/react";
+import { Separator } from "@heroui/react";
 
-import { collectUsedQuelleKeys, formatQuelle } from "@/features/spiele/utils";
-import { FIELD_ERROR, FIELD_LABEL, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
-import { PLACEHOLDER } from "@/shared/utils/format";
+import { formPanel } from "@/shared/components/ui/formPanel";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 
+import { collectSpieltagTeamOccupancy, collectUsedQuelleKeys } from "../../../utils";
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
-import type { FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 
 /**
- * The two team pickers, the goal fields, and the derived outcome readout.
+ * Who plays: one source-first control per side.
  *
- * **`NaN` is the empty goal value in the UI; `null` is the empty goal value in the payload.** HeroUI's
- * `NumberField` represents "no value" as `NaN`, while `FLSpielTeamField.tore` is `int | null`. The two
- * conversions at that boundary (`?? NaN` on the way in, `isNaN(val) ? null : val` on the way out) are
- * the reason this component holds no state for the scores itself. Getting either direction wrong turns
- * an unplayed match into a 0:0 one, which the backend then counts as a real draw in both teams'
- * statistics.
+ * **Before Ergebnis, and the Ergebnis panel's own hint is the argument.** It reads "Erst wenn beide
+ * Seiten feststehen", because `PATCH /spiele/{spiel_id}` reads through an absent side as no goals at all
+ * and a fixture with an unresolved slot can never carry a result (ADR-0041). A panel that states its own
+ * precondition cannot sit above it.
  *
- * Switching the result toggle OFF restores the goals the form was OPENED with, not `null`. Editing a
- * recorded result and changing your mind should leave the stored score intact — clearing it would
- * silently retract a played match's result, and the match would then drop out of the league table.
+ * Each picker disables whichever team the other side already holds, so a match cannot be a team against
+ * itself. The rule is unconditional because two unresolved sides are two nulls rather than one team
+ * document occupying both (ADR-0041), and `null` disables nothing. The other side's DRAFT source rides
+ * along the same way, so the two sides cannot pick one outcome.
  *
- * **A result needs both sides.** `PATCH /spiele/{spiel_id}` derives `ergebnis` from the two goal counts
- * and reads through an absent side as no goals at all, so a fixture with an unresolved slot can never
- * carry one (ADR-0041). The toggle says so rather than accepting scores the write path would discard.
- *
- * **The shoot-out section appears only on a KNOCKOUT fixture that finished level**, which is the only
- * shape it can describe — the write path discards a record stored against any other, so offering the
- * fields elsewhere would take input the save then threw away (ADR-0044). A group-phase draw is a final
- * result worth a point to each side, so the section never appears there however the goals end up. Its
- * counts are not goals: they decide which side the bracket advances and leave the league table's draw
- * untouched, which is what the hint under the switch tells the admin.
+ * A Gruppenphase fixture shows two team pickers and no source controls at all — its sides are drawn by
+ * the schedule, and offering wiring there would offer a mechanism the write path refuses (ADR-0046).
  */
 export function FormMatchupSection({
   spielData,
   saisonSpiele,
   teams,
+  knockoutTeamIds,
   team1Payload,
   onTeam1Change,
   team2Payload,
@@ -49,14 +41,15 @@ export function FormMatchupSection({
   onTeam1QuelleChange,
   team2Quelle,
   onTeam2QuelleChange,
-  elfmeterschiessen,
-  onElfmeterschiessenChange,
+  onValidateSelection,
 }: {
   /** The fixture as it was opened — its phase gates the source controls, its stored sides anchor
    * both the result-toggle restore and the automatic sides' payload (ADR-0046). */
   spielData: FLSpiel;
   saisonSpiele: FLSpiel[];
   teams: FLTeam[];
+  /** Teams the bracket already fields — the qualification proxy, computed by the form. */
+  knockoutTeamIds: ReadonlySet<string>;
   team1Payload: FLSpielTeamField | null;
   onTeam1Change: (payload: FLSpielTeamField | null) => void;
   team2Payload: FLSpielTeamField | null;
@@ -65,302 +58,108 @@ export function FormMatchupSection({
   onTeam1QuelleChange: (value: FLSpielQuelle | null) => void;
   team2Quelle: FLSpielQuelle | null;
   onTeam2QuelleChange: (value: FLSpielQuelle | null) => void;
-  elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
-  onElfmeterschiessenChange: (value: FLSpielElfmeterschiessenDraft | null) => void;
+  onValidateSelection: (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) => void;
 }) {
-  const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(false);
-
-  const saisonPhase = spielData.saison_phase;
-  const team1InitialData = spielData.team1;
-  const team2InitialData = spielData.team2;
+  const styles = formPanel();
 
   // Every source another fixture's slot already holds. Memoised by hand because the React Compiler
   // is deliberately off (see `next.config.ts`): the set is rebuilt from ~30 fixtures otherwise on
-  // every keystroke in the goal fields.
+  // every keystroke anywhere in the form.
   const usedQuelleKeys = useMemo(() => collectUsedQuelleKeys(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
 
-  const bothSidesResolved = team1Payload !== null && team2Payload !== null;
-  const ergebnisIsEditable = ergebnisCanBeEdited && bothSidesResolved;
+  // Which fixture of the same Spieltag already fields each team. A team plays once per matchday, so a
+  // pick that would field it twice is refused in the list, with the occupying fixture named — before
+  // this, the pick went through and nothing said the team stays in the other fixture too.
+  const spieltagOccupancy = useMemo(
+    () => collectSpieltagTeamOccupancy(saisonSpiele, { id: spielData.id, spieltag_id: spielData.spieltag_id }),
+    [saisonSpiele, spielData.id, spielData.spieltag_id],
+  );
 
-  const handleErgebnisCanBeEditedToggle = (isSelected: boolean) => {
-    setErgebnisCanBeEdited(isSelected);
-    if (!isSelected) {
-      // `?? null` rather than the initial field: a side that was unresolved when the form opened has
-      // no goals to restore, and reading `.tore` off it would be reading off nothing.
-      if (team1Payload) onTeam1Change({ ...team1Payload, tore: team1InitialData?.tore ?? null });
-      if (team2Payload) onTeam2Change({ ...team2Payload, tore: team2InitialData?.tore ?? null });
-    }
-  };
-  const handleToreTeam1Change = (val: number) => {
-    if (team1Payload) {
-      onTeam1Change({ ...team1Payload, tore: isNaN(val) ? null : val });
-    }
-  };
-  const handleToreTeam2Change = (val: number) => {
-    if (team2Payload) {
-      onTeam2Change({ ...team2Payload, tore: isNaN(val) ? null : val });
-    }
-  };
-
-  // A shoot-out settles a KNOCKOUT fixture that finished LEVEL, so the section below appears on exactly
-  // that shape and on no other. A group-phase draw is a final result — a point each and nothing to
-  // break — so the section never appears there however the goals end up. The backend discards a record
-  // stored anywhere else (ADR-0044); offering the fields would let an admin type something the save
-  // then silently threw away.
-  const isLevelKnockout =
-    saisonPhase !== "gruppenphase" &&
-    ergebnisIsEditable &&
-    team1Payload.tore !== null &&
-    team2Payload.tore !== null &&
-    team1Payload.tore === team2Payload.tore;
-
-  const handleElfmeterschiessenToggle = (isSelected: boolean) => {
-    // `null` on the way out, and both counts empty on the way in. An admin turning the switch off has
-    // said the fixture was not settled on penalties, which is a retraction rather than a blank form.
-    onElfmeterschiessenChange(isSelected ? { team1: null, team2: null } : null);
-  };
-
-  const handleElfmeterChange = (slot: "team1" | "team2") => (val: number) => {
-    // Reads through a null record, so the first keystroke after the toggle cannot land on nothing.
-    onElfmeterschiessenChange({ team1: null, team2: null, ...elfmeterschiessen, [slot]: isNaN(val) ? null : val });
-  };
-
-  // `?? NaN`, not `?? 0`: NumberField renders an empty box for NaN and a literal "0" for 0, and the
-  // readout below distinguishes "no result yet" from "nil-nil" on exactly this test.
-  // The names fall through team, then provenance, then the shared slot placeholder — the same order
-  // every card uses (ADR-0041), so the readout names a side exactly as the bracket does.
-  const team1Name = team1Payload?.name || formatQuelle(team1Quelle) || PLACEHOLDER.slot;
-  const team1Tore = team1Payload?.tore ?? NaN;
-  const team2Name = team2Payload?.name || formatQuelle(team2Quelle) || PLACEHOLDER.slot;
-  const team2Tore = team2Payload?.tore ?? NaN;
-
-  // Announced in the readout below, because the shoot-out is what decides which side the bracket
-  // advances — and an admin who has just typed two numbers should read the consequence, not infer it.
-  // `null` while either count is empty or the two are equal: a level shoot-out names nobody and the
-  // schema refuses it, so there is nothing to announce.
-  const elfmeterSiegerName =
-    elfmeterschiessen === null || elfmeterschiessen.team1 === null || elfmeterschiessen.team2 === null
-      ? null
-      : elfmeterschiessen.team1 === elfmeterschiessen.team2
-        ? null
-        : elfmeterschiessen.team1 > elfmeterschiessen.team2
-          ? team1Name
-          : team2Name;
+  const isKnockout = spielData.saison_phase !== "gruppenphase";
 
   return (
-    <div
-      className="flex w-full flex-col gap-y-6"
+    <section
+      className={styles.root()}
       onKeyDownCapture={suppressEnterSubmit}>
-      <h3 className={FORM_SECTION_HEADING}>Begegnung</h3>
-
-      {/* Each picker disables whichever team the other side already holds, so a match cannot be a team
-          against itself. The rule is unconditional because two unresolved sides are two nulls rather
-          than one team document occupying both (ADR-0041), and `null` disables nothing. The other
-          side's DRAFT source rides along the same way, so the two sides cannot pick one outcome. */}
-
-      {/** Team 1 */}
-      <FormTeamPicker
-        label="Team1"
-        fieldName="team1"
-        teams={teams}
-        teamPayload={team1Payload}
-        onTeamChange={onTeam1Change}
-        quelle={team1Quelle}
-        onQuelleChange={onTeam1QuelleChange}
-        disabledTeamId={team2Payload?.team_id}
-        spielData={spielData}
-        saisonSpiele={saisonSpiele}
-        usedQuelleKeys={usedQuelleKeys}
-        otherDraftQuelle={team2Quelle}
-      />
-
-      {/** Team 2 */}
-      <FormTeamPicker
-        label="Team2"
-        fieldName="team2"
-        teams={teams}
-        teamPayload={team2Payload}
-        onTeamChange={onTeam2Change}
-        quelle={team2Quelle}
-        onQuelleChange={onTeam2QuelleChange}
-        disabledTeamId={team1Payload?.team_id}
-        spielData={spielData}
-        saisonSpiele={saisonSpiele}
-        usedQuelleKeys={usedQuelleKeys}
-        otherDraftQuelle={team1Quelle}
-      />
-
-      <Separator className="bg-border" />
-
-      {/** Switch to enter Ergebnis */}
-      {/* Named by its own visible content — see the note on the cancel switch. */}
-      <div className="flex w-full flex-col gap-y-1">
-        <Switch
-          aria-describedby="ergebnis-eintragen-hint"
-          isDisabled={!bothSidesResolved}
-          isSelected={ergebnisCanBeEdited}
-          onChange={handleErgebnisCanBeEditedToggle}>
-          <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
-            Spielergebnis eintragen
-            <Switch.Control>
-              <Switch.Thumb />
-            </Switch.Control>
-          </Switch.Content>
-        </Switch>
-        {/* See the cancel switch: a `Description` child of `Switch` sits inside its `<label>`. */}
-        <p
-          id="ergebnis-eintragen-hint"
-          className="fluid-xxs text-foreground-muted leading-normal font-medium">
-          {bothSidesResolved
-            ? "Ist dieser Schalter umgelegt, so kann das Ergebnis bearbeitet werden. Wird er wieder ausgeschaltet, so wird das Ergebnis zurückgesetzt."
-            : "Solange eine Seite der Begegnung noch nicht feststeht, kann kein Ergebnis eingetragen werden."}
-        </p>
+      {/* This InfoHint is where the team-source vocabulary is explained — it used to be spread over a
+          `Description` per control, which is the "too much text" the owner reported. The fields keep
+          only what is needed while filling them in. */}
+      <div className={styles.header()}>
+        <h2 className={styles.heading()}>
+          Begegnung
+          <InfoHint label="Hinweis zur Begegnung">
+            {isKnockout ? (
+              <>
+                <p>Jede Seite hat eine Herkunft:</p>
+                <ul>
+                  <li>
+                    <strong>Sieger / Verlierer eines Spiels:</strong> folgt automatisch dem Ausgang der früheren Runde.
+                  </li>
+                  <li>
+                    <strong>Platz in einer Gruppe:</strong> folgt automatisch der Abschlusstabelle.
+                  </li>
+                  <li>
+                    <strong>Manuell gesetzt:</strong> bleibt stehen, wie Du es einträgst.
+                  </li>
+                </ul>
+                <p>Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt.</p>
+              </>
+            ) : (
+              <>
+                <p>Welche beiden Mannschaften aufeinandertreffen.</p>
+                <ul>
+                  <li>
+                    <strong>Disqualifizierte</strong> Teams bleiben sichtbar, sind aber gesperrt.
+                  </li>
+                  <li>
+                    Ein Team spielt <strong>einmal pro Spieltag</strong>. Steht es schon in einem anderen Spiel, ist es hier gesperrt.
+                  </li>
+                </ul>
+              </>
+            )}
+          </InfoHint>
+        </h2>
       </div>
 
-      {/** Tore Team 1 */}
-      <NumberField
-        isReadOnly={!ergebnisIsEditable}
-        minValue={0}
-        name="team1.tore"
-        value={team1Tore}
-        onChange={handleToreTeam1Change}
-        className={`${!ergebnisIsEditable ? "opacity-50" : ""}`}>
-        <Label className={FIELD_LABEL}>Team 1: Tore</Label>
-        <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
-          <NumberField.DecrementButton />
-          <NumberField.Input className="w-[120px]" />
-          <NumberField.IncrementButton />
-        </NumberField.Group>
-        <Description className="fluid-xxs text-foreground-muted">Anzahl der Tore von Team 1</Description>
-        <FieldError className={FIELD_ERROR} />
-      </NumberField>
+      <div className={styles.body()}>
+        <FormTeamPicker
+          label="Team 1"
+          fieldName="team1"
+          teams={teams}
+          teamPayload={team1Payload}
+          onTeamChange={onTeam1Change}
+          quelle={team1Quelle}
+          onQuelleChange={onTeam1QuelleChange}
+          disabledTeamId={team2Payload?.team_id}
+          spielData={spielData}
+          saisonSpiele={saisonSpiele}
+          usedQuelleKeys={usedQuelleKeys}
+          spieltagOccupancy={spieltagOccupancy}
+          knockoutTeamIds={knockoutTeamIds}
+          otherDraftQuelle={team2Quelle}
+          onValidateSelection={onValidateSelection}
+        />
 
-      {/** Tore Team 2 */}
-      <NumberField
-        isReadOnly={!ergebnisIsEditable}
-        minValue={0}
-        name="team2.tore"
-        value={team2Tore}
-        onChange={handleToreTeam2Change}
-        className={`${!ergebnisIsEditable ? "opacity-50" : ""}`}>
-        <Label className={FIELD_LABEL}>Team 2: Tore</Label>
-        <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
-          <NumberField.DecrementButton />
-          <NumberField.Input className="w-[120px]" />
-          <NumberField.IncrementButton />
-        </NumberField.Group>
-        <Description className="fluid-xxs text-foreground-muted">Anzahl der Tore von Team 2</Description>
-        <FieldError className={FIELD_ERROR} />
-      </NumberField>
+        <Separator className="bg-border" />
 
-      {/** Elfmeterschießen — only on a fixture that finished level */}
-      {isLevelKnockout && (
-        <div className="flex w-full flex-col gap-y-4">
-          <Separator className="bg-border" />
-
-          <div className="flex w-full flex-col gap-y-1">
-            <Switch
-              aria-describedby="elfmeterschiessen-hint"
-              isSelected={elfmeterschiessen !== null}
-              onChange={handleElfmeterschiessenToggle}>
-              <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
-                Im Elfmeterschießen entschieden
-                <Switch.Control>
-                  <Switch.Thumb />
-                </Switch.Control>
-              </Switch.Content>
-            </Switch>
-            {/* Outside the `Switch`, as the two above are: a `Description` child sits inside its
-                `<label>` and makes the whole paragraph a toggle target. */}
-            <p
-              id="elfmeterschiessen-hint"
-              className="fluid-xxs text-foreground-muted leading-normal font-medium">
-              Das Spiel ist unentschieden ausgegangen. Wurde es im Elfmeterschießen entschieden, so trage hier die Treffer ein — der Sieger
-              rückt damit im Turnierbaum weiter. Für die Tabelle bleibt das Spiel ein Unentschieden.
-            </p>
-          </div>
-
-          {elfmeterschiessen !== null && (
-            <>
-              <NumberField
-                minValue={0}
-                name="elfmeterschiessen.team1"
-                value={elfmeterschiessen.team1 ?? NaN}
-                onChange={handleElfmeterChange("team1")}>
-                <Label className={FIELD_LABEL}>{team1Name}: Treffer im Elfmeterschießen</Label>
-                <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
-                  <NumberField.DecrementButton />
-                  <NumberField.Input className="w-[120px]" />
-                  <NumberField.IncrementButton />
-                </NumberField.Group>
-                <FieldError className={FIELD_ERROR} />
-              </NumberField>
-
-              <NumberField
-                minValue={0}
-                name="elfmeterschiessen.team2"
-                value={elfmeterschiessen.team2 ?? NaN}
-                onChange={handleElfmeterChange("team2")}>
-                <Label className={FIELD_LABEL}>{team2Name}: Treffer im Elfmeterschießen</Label>
-                <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border">
-                  <NumberField.DecrementButton />
-                  <NumberField.Input className="w-[120px]" />
-                  <NumberField.IncrementButton />
-                </NumberField.Group>
-                <FieldError className={FIELD_ERROR} />
-              </NumberField>
-            </>
-          )}
-        </div>
-      )}
-
-      {/** Ergebniskontrolle */}
-      <div className="flex w-full flex-col items-center gap-y-2 text-center">
-        <h4 className={FORM_SECTION_HEADING}>Ergebniskontrolle</h4>
-
-        {/* Same equal-track grid as SpielCardUltraCompact's pill: both 1fr columns resolve to the
-            wider name's width, so the score stays centred however the two names differ. A flex row
-            sized both cells intrinsically and let the score drift off-centre. */}
-        <div className="bg-background border-border grid w-fit max-w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
-          <span className="flex min-w-0 justify-end">
-            <strong
-              className={`fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisIsEditable ? "text-foreground-muted" : "text-foreground"}`}>
-              {team1Name}
-            </strong>
-          </span>
-
-          <span
-            className={`fluid-xs rounded-md px-1.5 py-0.5 text-center font-extrabold ${
-              isNaN(team1Tore) || isNaN(team2Tore) ? "bg-danger/15 text-danger-strong" : "bg-success/15 text-success-strong"
-            }`}>
-            {isNaN(team1Tore) ? "-" : team1Tore} : {isNaN(team2Tore) ? "-" : team2Tore}
-          </span>
-
-          <span className="flex min-w-0 justify-start">
-            <strong
-              className={`fluid-sm max-w-full truncate font-bold transition-colors ${!ergebnisIsEditable ? "text-foreground-muted" : "text-foreground"}`}>
-              {team2Name}
-            </strong>
-          </span>
-        </div>
-
-        {/* The outcome is derived from two fields elsewhere on the form, so a screen-reader user
-            editing the score never learns it changed unless it is announced. */}
-        <div
-          role="status"
-          aria-live="polite">
-          {isNaN(team1Tore) || isNaN(team2Tore) ? (
-            <p className="fluid-xs text-danger font-medium italic">Noch kein vollständiges Ergebnis</p>
-          ) : (
-            <p className="fluid-xs text-brand font-extrabold tracking-wide">
-              {team1Tore === team2Tore &&
-                `Unentschieden${elfmeterSiegerName === null ? "" : ` — ${elfmeterSiegerName} gewinnt im Elfmeterschießen`}`}
-              {team1Tore > team2Tore && `Sieg für ${team1Name}`}
-              {team2Tore > team1Tore && `Sieg für ${team2Name}`}
-            </p>
-          )}
-        </div>
+        <FormTeamPicker
+          label="Team 2"
+          fieldName="team2"
+          teams={teams}
+          teamPayload={team2Payload}
+          onTeamChange={onTeam2Change}
+          quelle={team2Quelle}
+          onQuelleChange={onTeam2QuelleChange}
+          disabledTeamId={team1Payload?.team_id}
+          spielData={spielData}
+          saisonSpiele={saisonSpiele}
+          usedQuelleKeys={usedQuelleKeys}
+          spieltagOccupancy={spieltagOccupancy}
+          knockoutTeamIds={knockoutTeamIds}
+          otherDraftQuelle={team1Quelle}
+          onValidateSelection={onValidateSelection}
+        />
       </div>
-    </div>
+    </section>
   );
 }

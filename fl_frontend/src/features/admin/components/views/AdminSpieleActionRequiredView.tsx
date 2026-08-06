@@ -6,6 +6,7 @@ import { ChevronsDownWide } from "@gravity-ui/icons";
 
 import { Accordion } from "@heroui/react";
 
+import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { formatBracketFault } from "@/features/spiele/utils";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
@@ -13,7 +14,6 @@ import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "../../utils";
-import { AdminSpielCardsList } from "../collections/AdminSpielCardsList";
 
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
 
@@ -108,9 +108,10 @@ export function AdminSpieleActionRequiredView({
                     <div
                       role="list"
                       className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
-                      <AdminSpielCardsList
+                      <SpielCardsList
                         spiele={spiele}
                         today={today}
+                        isAdmin
                       />
                     </div>
                   ) : (

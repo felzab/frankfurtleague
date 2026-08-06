@@ -1,8 +1,8 @@
 /**
- * SPIELE · cached read
+ * SPIELE · cached reads
  *
- * The slice's only cached read. Its tags are invalidated by `actions.ts` in this same slice, which is
- * the pairing that keeps invalidation honest.
+ * The list read and the single read, both tagged and both invalidated by `actions.ts` in this same
+ * slice, which is the pairing that keeps invalidation honest.
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -10,6 +10,8 @@
  *     invalidates is not a caching strategy — it is decoration that reads like coverage.
  *   • Omitting `saison_id` means the current season, not all seasons. The backend resolves it, so the
  *     most common cache entries carry only the base tag.
+ *   • The single read declares the base tag ONLY. A match write resolves the whole season's bracket and
+ *     rewrites fixtures the request never named (ADR-0042), so no narrower tag describes it.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -20,9 +22,9 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 
-import { FLSpieleListResponseSchema } from "./schemas";
+import { FLSpieleListResponseSchema, FLSpieleSingleResponseSchema } from "./schemas";
 
-import type { FLSpieleListResponse } from "./schemas";
+import type { FLSpieleListResponse, FLSpieleSingleResponse } from "./schemas";
 import type { FLSpieleFilterParams } from "./types";
 
 export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
@@ -39,4 +41,25 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
   return apiClient("/spiele", FLSpieleListResponseSchema, {
     params: filters,
   });
+}
+
+/**
+ * One match by its id, for the edit page whose subject IS that match (ADR-0050).
+ *
+ * **The base tag alone, and that is not an oversight.** A season-scoped tag would need the season, which
+ * is what this response exists to supply — and it would be wrong even if it were available: the patch
+ * that resolves a bracket rewrites *other* fixtures of the same season (ADR-0042), so nothing narrower
+ * than `spiele` describes what one match write invalidates. The action invalidates `spiele`
+ * unconditionally on every match write, so this entry can never outlive an edit (ADR-0001).
+ *
+ * Throws `APIBadStatusError` with `statusCode: 404` when the id matches no match — the edit page catches
+ * exactly that and rethrows everything else, so a backend outage never reads as a missing fixture.
+ */
+export async function getSpiel(spielId: string): Promise<FLSpieleSingleResponse> {
+  "use cache";
+
+  cacheTag("spiele");
+  cacheLife("hours");
+
+  return apiClient(`/spiele/${spielId}`, FLSpieleSingleResponseSchema);
 }

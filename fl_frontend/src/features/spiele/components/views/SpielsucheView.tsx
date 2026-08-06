@@ -8,6 +8,7 @@ import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
 
 import { formatQuelle } from "../../utils";
+import { SpielCardsList } from "../collections/SpielCardsList";
 
 import type { FLSpiel } from "../../schemas";
 
@@ -30,21 +31,15 @@ const SEARCH_KEYS = [
 /**
  * Fuzzy search over a season's matches.
  *
- * `ListComponent` is injected rather than imported so the public and admin routes can share this whole
- * view while rendering different cards — the admin one opens an edit modal, the public one does not.
+ * `isAdmin` is how the public and the admin route share this whole view: the two differ by an edit link
+ * per card and by nothing else, so a boolean carries the difference. It replaced an injected list
+ * component, which was the right shape while the admin cards owned an edit modal's state and stopped
+ * being one when the editor became a page of its own (ADR-0050).
  *
  * The list is filtered CLIENT-side over the season already fetched, not by re-querying the backend.
  * That is why the search feels instant and why it cannot find matches outside the selected season.
  */
-export function SpielsucheView({
-  spiele,
-  today,
-  ListComponent,
-}: {
-  spiele: FLSpiel[];
-  today: string;
-  ListComponent: React.ComponentType<{ spiele: FLSpiel[]; today: string }>;
-}) {
+export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLSpiel[]; today: string; isAdmin?: boolean }) {
   const { urlValue: spielQuery, inputValue, setInputValue } = useDebouncedUrlQuery();
 
   // Adds searchable copies of two things a user types but the documents do not store as text. Dates are
@@ -101,9 +96,10 @@ export function SpielsucheView({
           <div
             role="list"
             className={`${CARDS_CASCADE} max-w-page grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
-            <ListComponent
+            <SpielCardsList
               spiele={filteredResults}
               today={today}
+              isAdmin={isAdmin}
             />
           </div>
         )}

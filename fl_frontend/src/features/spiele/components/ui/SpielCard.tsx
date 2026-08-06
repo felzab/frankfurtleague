@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
@@ -16,12 +18,20 @@ import type { FLSpiel } from "../../schemas";
 export function SpielCard({
   spielData,
   onOpenInfoModal,
-  onOpenAdminModal,
+  adminEditHref,
   today,
 }: {
   spielData: FLSpiel;
   onOpenInfoModal: () => void;
-  onOpenAdminModal?: () => void;
+  /**
+   * Where this fixture is edited, on the admin routes; absent on every public one.
+   *
+   * A LINK, not a button, because the editor is a page now (ADR-0050). Three things follow that a
+   * button could not give: Next prefetches the route on approach, so the first tap pays for no chunk —
+   * which is what the modal's hand-rolled idle preload existed to fake — and middle-click and
+   * open-in-new-tab work, so an admin can line up several fixtures at once.
+   */
+  adminEditHref?: string;
   today: string;
 }) {
   const {
@@ -52,16 +62,16 @@ export function SpielCard({
 
         {/* Buttons */}
         <div className="flex w-full items-center justify-end gap-x-2">
-          {onOpenAdminModal && (
-            <Button
-              isIconOnly
-              aria-label={`Spielinfo bearbeiten Spiel Nr.${spielData.spiel_nr}`}
-              onPress={onOpenAdminModal}
-              size="md"
-              variant="tertiary"
-              className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
+          {/* The two controls sit in one row and must read as one pair, so the radius is spelled on
+              BOTH rather than left to HeroUI on the button and guessed on the link. `rounded-xl` is
+              the app's icon-target radius — the same one `RowActions` uses for its 40×40 targets. */}
+          {adminEditHref && (
+            <Link
+              href={adminEditHref}
+              aria-label={`Spiel Nr.${spielData.spiel_nr} bearbeiten`}
+              className="bg-muted text-foreground hover:bg-muted/80 flex h-[35px] w-[35px] items-center justify-center rounded-xl transition-colors duration-200 md:h-[38px] md:w-[38px]">
               <PencilToSquare className="m-0 size-5" />
-            </Button>
+            </Link>
           )}
           <Button
             isIconOnly
@@ -69,7 +79,7 @@ export function SpielCard({
             onPress={onOpenInfoModal}
             size="md"
             variant="tertiary"
-            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
+            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
             <CircleExclamation className="m-0 size-5" />
           </Button>
         </div>

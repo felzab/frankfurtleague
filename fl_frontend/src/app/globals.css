@@ -508,14 +508,34 @@
 [data-slot="search-field-group"],
 [data-slot="date-input-group"],
 [data-slot="autocomplete-trigger"],
+[data-slot="select-trigger"],
 [data-slot="combo-box-input-group"] {
   /* `:not([data-invalid="true"])` matters: HeroUI marks a rejected field with a danger outline and
      upgrades it to a danger ring while focused. Without the guard this rule stripped both and
      painted the border brand — and it did so at the exact moment `useServerFieldErrors` moves focus
      into the rejected field, so a field the server had just refused looked normally focused. */
-  &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
-      [data-invalid="true"]
-    ) {
+  /* `[aria-expanded="true"]` and its `:has()` twin are in the list because a picker's focus goes
+     somewhere the other arms cannot see: react-aria moves it into the popover's own search input, so
+     a trigger keyed on focus alone drops its brand border at the exact moment the control is most
+     obviously active. An open picker is an active field whatever holds the caret. The `:has()` arm
+     is not decoration — on the Autocomplete and the DatePicker the expandable element is a BUTTON
+     INSIDE the slot (the trigger itself is `role="group"` and never carries `aria-expanded`), so the
+     attribute arm alone matches the Select and misses both of them. Verified against computed styles
+     with the popover open: the inner button holds `aria-expanded="true"`, the slot does not.
+     The `:has()` arm is its OWN selector, not a member of the `:is()` list: `:has()` is invalid
+     inside `:is()`, and because the list is forgiving the browser drops that one arm silently — the
+     rule then compiles, ships and does nothing, which is exactly how this fix failed its first
+     verification. */
+  &:is(
+      :focus,
+      :focus-visible,
+      :focus-within,
+      [data-focused="true"],
+      [data-focus-visible="true"],
+      [data-focus-within="true"],
+      [aria-expanded="true"]
+    ):not([data-invalid="true"]),
+  &:has([aria-expanded="true"]):not([data-invalid="true"]) {
     --tw-ring-shadow: 0 0 #0000;
     border-color: var(--accent-brand);
     outline: none;
@@ -574,7 +594,52 @@
    Known gap, recorded rather than hidden: a keyboard user arrowing through an open list has no
    indicator inside the popover (WCAG 2.4.7). The focus ring on the trigger still shows which control
    is open. Revisit if a reliable per-element signal appears — do NOT reintroduce a rule keyed off
-   `data-focus-visible`, which is what this block exists to prevent. */
+   `data-focus-visible`, which is what this block exists to prevent.
+
+   Removing the repository's own highlight was only half the job, and the other half went unnoticed
+   until the owner reported a white ring on the first search result. HeroUI's `list-box-item.css`
+   applies `status-focused` on `[data-focus-visible]`, which resolves to
+   `ring-2 ring-focus ring-offset-0 ring-offset-background` with `--ring-offset-width: 2px` — and this
+   app maps `--focus` to `--fg-base`, so the composite is a 2px `--bg-base` halo inside a 2px
+   near-black (light) or pure-white (dark) ring. It fires on the same global modality flag described
+   above, so it appeared and vanished at random on exactly the element that must not draw the eye.
+
+   Suppressed UNCONDITIONALLY, with no state selector at all. That is the distinction the prohibition
+   above is drawing: this rule keys off nothing, so it cannot flicker — it removes a highlight rather
+   than reintroducing one. Both ring custom properties have to be zeroed, not just the first: Tailwind
+   composes `box-shadow` from `--tw-ring-shadow` AND `--tw-ring-offset-shadow`, so killing one leaves
+   the 2px offset band behind, which is the white line itself. What remains to convey the option under
+   the pointer is each call site's own `hover:bg-muted`, which is all the owner wants there. */
+[data-slot="list-box-item"],
+[data-slot="menu-item"] {
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  outline: none;
+}
+
+/* The reliable per-element signal the block above says to wait for. It exists after all, and it is a
+   DIFFERENT attribute from the one that flickered: react-aria emits `data-focus-visible` from the
+   global interaction modality — whether the user's last action anywhere on the page was a key press —
+   and `data-focused` from the collection's own focused key, which is set when a combobox moves focus
+   onto the first match as you type and depends on no modality at all (verified in
+   react-aria-components 1.19, `private/ListBox.mjs`, which writes both).
+
+   So the highlight is keyed on `data-focused`: it appears on the option Enter would pick, it appears
+   for the same reason every time, and it cannot come and go with the pointer/keyboard mode. The fill is
+   `--bg-muted`, the same background hovering gives — deliberately no more than that, and no ring, which
+   the rule above still suppresses. This closes the WCAG 2.4.7 gap that block recorded: a keyboard user
+   arrowing through an open list now has an indicator inside the popover. */
+[data-slot="list-box-item"][data-focused="true"],
+[data-slot="menu-item"][data-focused="true"] {
+  background-color: var(--bg-muted);
+}
+
+/* Number fields carry no vertical padding, anywhere (owner decision, 2026-08-06). The group is a fixed
+   height with a centred grid, so padding on the input only fights it — and it was the reason a number
+   field and the autocomplete beside it did not line up. */
+[data-slot="number-field-input"] {
+  padding-block: 0;
+}
 
 /* Reduced motion, SOFTENED (owner decision 2026-07-31).
    The policy is "remove movement, keep fades", NOT "remove motion". Zeroing every animation- and

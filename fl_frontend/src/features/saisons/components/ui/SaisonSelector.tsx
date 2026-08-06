@@ -92,7 +92,12 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
           // user the press landed — a season switch is a server round-trip, so without it the only
           // feedback is the page changing some time later.
           aria-busy={isSwitching}
-          className={`border-border/60 bg-surface/50 hover:bg-surface hover:border-border aria-expanded:border-brand aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-200 ${
+          // No `aria-expanded:border-brand` here: `select-trigger` is in the field-focus block in
+          // `globals.css`, which paints the brand border on focus AND on the open state for every
+          // field-shaped control in the app. A second copy of that gesture spelled at this one call
+          // site is how the app previously ended up with fields that had the treatment and fields
+          // that did not.
+          className={`border-border/60 bg-surface/50 hover:bg-surface hover:border-border aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-200 ${
             isSwitching ? "opacity-60" : ""
           }`}>
           <div className="flex flex-col items-start gap-0.5 text-left">

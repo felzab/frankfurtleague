@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `df21894`, 2026-08-04
+**Verified against:** `fca0c45`, 2026-08-06
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -64,7 +64,7 @@ behaviour looks impossible.
 
 ## Caching
 
-Eleven functions carry `"use cache"`. Lifetimes reflect how volatile the data is: matches for hours,
+Thirteen functions carry `"use cache"`. Lifetimes reflect how volatile the data is: matches for hours,
 reference data (teams, players, matchdays, seasons, venues, referees) for days, system endpoints for
 minutes.
 
@@ -100,6 +100,12 @@ one**, imported by the admin layout and therefore loaded only under `/admin`. It
 component stylesheets no public route can reach — the date/time pickers, the calendar and the
 autocomplete. Keeping them out of the public bundle is worth 67 KB a public page would otherwise
 download and parse, measured 2026-08-01 (ADR-0023).
+
+**All nine reach the graph through one route: `app/admin/spiele/[spiel_id]`, the match editor.** That is
+a static import from a page under `/admin`, so the membership question — can any public route reach this
+— is answered by reading the route rather than by following a dynamic edge, which is how it had to be
+answered while the same form was a lazily imported modal (ADR-0050). The rule itself is unchanged and the
+tie-break still runs the same way: public unless proven otherwise.
 
 **HeroUI is imported component-by-component, not as `@import "@heroui/styles"`.** This is HeroUI's own
 documented mechanism — the v3 release notes call it "ship only the CSS you use" — and it exists because

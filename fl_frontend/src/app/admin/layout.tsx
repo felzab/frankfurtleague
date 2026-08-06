@@ -5,6 +5,7 @@ import "./admin.css";
 import { Suspense } from "react";
 
 import { AdminAuthGuard } from "@/features/admin/components/providers/AdminAuthGuard";
+import { AdminLocaleProvider } from "@/features/admin/components/providers/AdminLocaleProvider";
 import { AdminSidemenu } from "@/features/admin/components/ui/AdminSidemenu";
 import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -28,7 +29,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             i.e. INSIDE this boundary. This one covers the guard's session round-trip, which sits
             above the page segment and would otherwise have nothing between it and the shell. */}
         <Suspense fallback={<ContentLoader />}>
-          <AdminAuthGuard>{children}</AdminAuthGuard>
+          {/* Why the locale is pinned, and why through a client wrapper, is on the provider. */}
+          <AdminLocaleProvider>
+            <AdminAuthGuard>{children}</AdminAuthGuard>
+          </AdminLocaleProvider>
         </Suspense>
       </main>
     </div>

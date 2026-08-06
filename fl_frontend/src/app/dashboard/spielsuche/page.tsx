@@ -1,7 +1,6 @@
 import { connection } from "next/server";
 
 import { resolveSaisonId } from "@/features/saisons/resolvers";
-import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielsucheView } from "@/features/spiele/components/views/SpielsucheView";
 import { getSpiele } from "@/features/spiele/queries";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -30,7 +29,6 @@ export default async function SpielsuchePage(props: NextPageProps) {
     <SpielsucheView
       spiele={spieleRes.spiele}
       today={getGermanTodayStr()}
-      ListComponent={SpielCardsList}
     />
   );
 }

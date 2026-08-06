@@ -194,6 +194,18 @@ export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
 export type FLSpieleListResponse = z.infer<typeof FLSpieleListResponseSchema>;
 
 /**
+ * One match by its id, for the page whose subject IS that match (ADR-0034, ADR-0050).
+ *
+ * The edit page is addressed by match id alone and a match carries its own `saison_id`, so this read is
+ * what tells that page which season's lookup lists to load. A list read cannot: it needs the season to
+ * filter by, which is the answer this response supplies.
+ */
+export const FLSpieleSingleResponseSchema = BaseAPIResponseSchema.extend({
+  spiel: FLSpielSchema,
+});
+export type FLSpieleSingleResponse = z.infer<typeof FLSpieleSingleResponseSchema>;
+
+/**
  * The admin edit payload, composed from the field schemas above rather than redeclaring them, so
  * the write shape cannot drift from the read shape. That composition is intra-slice and must stay
  * so: the Spiel write path belongs to this slice, not to `admin` (ADR-0005).

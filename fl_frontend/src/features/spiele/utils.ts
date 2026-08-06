@@ -25,6 +25,7 @@
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { FLBracketFault, FLSpiel, FLSpielQuelle, FLSpielStatus } from "./schemas";
 
 export const computeSpielStatus = ({
@@ -127,6 +128,12 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
 export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
   if (quelle === null) return null;
 
+  // A source mid-edit holds `NaN` where its number is still unpicked, which is a `number` and
+  // type-checks — so without this guard every consumer printed "Sieger NaN." while somebody was
+  // choosing a feeder match. `null` here means "nothing renderable yet", which callers already
+  // handle: they fall through to the shared placeholder.
+  if (!Number.isInteger(quelle.type === "gruppe" ? quelle.platz : quelle.spiel_nr)) return null;
+
   if (quelle.type === "gruppe") {
     return quelle.platz === 1 ? `Gruppensieger ${quelle.gruppe}` : `${quelle.platz}. der Gruppe ${quelle.gruppe}`;
   }
@@ -172,6 +179,64 @@ export const collectUsedQuelleKeys = (saisonSpiele: readonly FLSpiel[], editedSp
 };
 
 /**
+ * Which fixture of the same Spieltag already fields each team, excluding the fixture being edited.
+ *
+ * A team appears at most once per Spieltag — it cannot play two matches on one matchday — and this
+ * map is what lets the picker say so where the answer is refused, instead of accepting a pick that
+ * silently leaves the team in both fixtures. Stored sides only, like `collectUsedQuelleKeys`: other
+ * fixtures' drafts are not visible here, and the edited fixture's own sides are the caller's to
+ * check against its draft. The write-path refusal is the backend's half (ADR-0049's successor); this
+ * is the UI half that makes the rule readable.
+ */
+export const collectSpieltagTeamOccupancy = (
+  saisonSpiele: readonly FLSpiel[],
+  edited: Pick<FLSpiel, "id" | "spieltag_id">,
+): Map<string, number> => {
+  const occupancy = new Map<string, number>();
+
+  for (const spiel of saisonSpiele) {
+    if (spiel.id === edited.id || spiel.spieltag_id !== edited.spieltag_id) continue;
+    for (const side of [spiel.team1, spiel.team2]) {
+      if (side !== null) occupancy.set(side.team_id, spiel.spiel_nr);
+    }
+  }
+
+  return occupancy;
+};
+
+/**
+ * Every team a knockout fixture of the season fields, excluding the fixture being edited.
+ *
+ * The client's honest proxy for "qualified for the knockout stage": a team standing in no bracket
+ * fixture at all has, as far as the stored season says, not advanced — and hand-picking it into a
+ * knockout slot deserves a warning. It is a proxy, not a derivation: re-deriving who SHOULD have
+ * advanced from the standings is exactly what ADR-0043 keeps out of the client, so this reads only
+ * what the bracket already holds. A warning, never a refusal — an admin correcting a hand-run
+ * season is allowed to know better.
+ */
+export const collectKnockoutTeamIds = (saisonSpiele: readonly FLSpiel[], editedSpielId: string): Set<string> => {
+  const teamIds = new Set<string>();
+
+  for (const spiel of saisonSpiele) {
+    if (spiel.id === editedSpielId || spiel.saison_phase === "gruppenphase") continue;
+    for (const side of [spiel.team1, spiel.team2]) {
+      if (side !== null) teamIds.add(side.team_id);
+    }
+  }
+
+  return teamIds;
+};
+
+/**
+ * Whether `feeder` plays in the round directly before `target`'s — the round a slot is ordinarily
+ * fed from (ADR-0042), and therefore the recommendation the feeder picker marks. The picker's list
+ * legitimately spans every earlier round; for a final that is quarter- AND semi-finals, and the
+ * chip is what says which of them the bracket ordinarily means.
+ */
+export const isDirectlyPrecedingRound = (feeder: Pick<FLSpiel, "saison_phase">, target: Pick<FLSpiel, "saison_phase">): boolean =>
+  PHASE_RANK[feeder.saison_phase] === PHASE_RANK[target.saison_phase] - 1;
+
+/**
  * The matches a slot of `target` may legally be fed by: knockout matches of the same season in a
  * strictly earlier round, in bracket order (ADR-0046).
  *
@@ -190,6 +255,57 @@ export const listFeederSpiele = (saisonSpiele: readonly FLSpiel[], target: Pick<
         PHASE_RANK[spiel.saison_phase] < PHASE_RANK[target.saison_phase],
     )
     .sort((a, b) => a.spiel_nr - b.spiel_nr);
+
+/**
+ * Where one fixture is edited (ADR-0050).
+ *
+ * One spelling of the route, because three surfaces need it — the match cards, the action-required list,
+ * and any later triage view that deep-links into a single fixture. A path built at each site is how two
+ * of them end up disagreeing after the segment is renamed.
+ */
+export const adminSpielEditHref = (spielId: string): string => `/admin/spiele/${spielId}`;
+
+/**
+ * The fixtures whose occupants this one's result decides — the wiring the edit surface warns about
+ * before a save (ADR-0048).
+ *
+ * The inverse direction to `listFeederSpiele`, and over stored wiring rather than legal candidates: a
+ * fixture is dependent when it actually names this one as a source, or when it seeds a placing from a
+ * group this fixture is played in.
+ *
+ * **Both routes matter, and the group one is the route an admin meets first.** A knockout slot fed by
+ * `{type: "spiel"}` is voided when the match it names changes hands; a slot fed by `{type: "gruppe"}` is
+ * voided when the standings that decide the placing change, which is what a corrected group result does
+ * (ADR-0043). `ausgang` is not compared, because either outcome of this fixture moves the slot.
+ *
+ * `gruppen` is the groups this fixture is played in, which a match document does not carry — `FLSpiel`
+ * embeds its sides and a group lives on the `saison_teams` junction the team list already joins
+ * (ADR-0028). Empty for a knockout fixture, where the group route cannot apply.
+ *
+ * **This states the wiring; it does not predict the loss.** Whether a save actually voids a stored
+ * result depends on running the resolution against the payload, which ADR-0048 rejects as a preview —
+ * so a dependent fixture listed here is one whose result *can* be cleared, and the caller says so in
+ * those words.
+ */
+export const listDependentSpiele = (
+  saisonSpiele: readonly FLSpiel[],
+  spiel: Pick<FLSpiel, "id" | "saison_id" | "saison_phase" | "spiel_nr">,
+  gruppen: readonly FLGruppenNames[],
+): FLSpiel[] => {
+  const seedsFromThisGruppe = (quelle: FLSpielQuelle): boolean =>
+    quelle.type === "gruppe" && spiel.saison_phase === "gruppenphase" && gruppen.includes(quelle.gruppe);
+
+  return saisonSpiele
+    .filter(
+      (candidate) =>
+        candidate.saison_id === spiel.saison_id &&
+        candidate.id !== spiel.id &&
+        [candidate.team1_quelle, candidate.team2_quelle].some(
+          (quelle) => quelle !== null && ((quelle.type === "spiel" && quelle.spiel_nr === spiel.spiel_nr) || seedsFromThisGruppe(quelle)),
+        ),
+    )
+    .sort((a, b) => a.spiel_nr - b.spiel_nr);
+};
 
 /**
  * The success message for an admin match edit, naming any bracket fixtures the write also moved.

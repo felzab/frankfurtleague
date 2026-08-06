@@ -14,23 +14,12 @@
  */
 
 import type { FLBracketFault, FLSpiel } from "../spiele/schemas";
+import type { ActionRequiredCategory } from "../spiele/types";
 
-/**
- * The eight things that can make a match need admin attention.
- *
- * A literal union rather than a loose index signature: the categorisation below builds a fully
- * keyed accumulator, so every read is checked and a mistyped category is a compile error instead of
- * a runtime crash on `undefined.spiele`.
- */
-export type ActionRequiredCategory =
-  | "ergebnis_pending"
-  | "besetzung_missing"
-  | "bracket_fault"
-  | "datum_missing"
-  | "uhrzeit_missing"
-  | "ort_missing"
-  | "schiedsrichter_missing"
-  | "is_canceled";
+// Re-exported so the eight views and tests that already import the union from here keep working, and
+// so this module stays the obvious place to look for it. It is DECLARED in `spiele`, because it
+// classifies a Spiel and the edit page reads it too — see the note on the declaration.
+export type { ActionRequiredCategory };
 
 /**
  * Declaration order is render order — the view maps `typedObjectEntries` straight into the accordion.
@@ -42,11 +31,11 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
   },
   besetzung_missing: {
     name: "Offene Besetzung",
-    desc: "K.-o.-Spiele mit einer Seite ohne Mannschaft und ohne Herkunft — sie wird von niemandem gepflegt",
+    desc: "KO-Spiele mit einer Seite ohne Mannschaft und ohne Herkunft. Diese Seite wird von niemandem gepflegt",
   },
   bracket_fault: {
     name: "Fehlerhafte Verweise",
-    desc: "K.-o.-Spiele, deren Herkunft sich nicht auflösen lässt — die Gründe stehen über den Karten",
+    desc: "KO-Spiele, deren Herkunft sich nicht auflösen lässt. Die Gründe stehen über den Karten",
   },
   datum_missing: { name: "Fehlendes Datum", desc: "Spiele ohne eingetragenes Datum" },
   uhrzeit_missing: { name: "Fehlende Uhrzeit", desc: "Spiele ohne eingetragene Uhrzeit" },
