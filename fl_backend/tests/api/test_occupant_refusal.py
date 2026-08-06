@@ -312,9 +312,11 @@ class TestSpieltagOccupancy:
 
     def test_one_club_on_both_sides_is_refused(self, season):
         """
-        A team against itself, and there is nothing to move it to — the only side to empty is one the
-        caller has just filled in. The wiring rules cannot see this: they key a source by identity, and
-        these two sides carry no source at all (ADR-0046).
+        A team against itself, and there is nothing to move it to.
+
+        The only side to empty is one the caller has just filled in. The wiring rules cannot see this
+        shape either: they key a source by identity, and these two sides carry no source at all
+        (ADR-0046).
         """
         verdict = occupancy_for(season, 30, team1=team(BIEBER, "Bieber"), team2=team(BIEBER, "Bieber"))
 
@@ -323,8 +325,10 @@ class TestSpieltagOccupancy:
 
     def test_a_refusal_plans_no_release(self, season):
         """
-        The invariant a caller depends on: reading `releases` without checking `refusal` first would
-        act on a plan that was rejected, and write into a fixture the request never touched.
+        A refusal plans no release, which is the invariant every caller depends on.
+
+        Reading `releases` without checking `refusal` first would act on a plan that was rejected, and
+        write into a fixture the request never touched.
         """
         occupied = [doc if doc["spiel_nr"] != 29 else {**doc, "team2": team(CRONBERG, "Cronberg")} for doc in season]
         verdict = occupancy_for(occupied, 30, team1=team(CRONBERG, "Cronberg"))

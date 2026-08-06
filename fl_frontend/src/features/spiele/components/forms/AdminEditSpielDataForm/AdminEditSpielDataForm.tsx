@@ -12,10 +12,10 @@ import { useDraftValidation } from "@/shared/hooks/useDraftValidation";
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 
-import { patchAdminSpielDataAction } from "../../../actions";
+import { patchAdminSpielDataAction, undoAdminSpielEditAction } from "../../../actions";
 import { applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
-import { collectKnockoutTeamIds, listDependentSpiele } from "../../../utils";
+import { buildUndoPayloads, collectKnockoutTeamIds, collectSpieltagTeamOccupancy, listDependentSpiele } from "../../../utils";
 import { DraftRail } from "./DraftRail";
 import { DraftStatusProvider } from "./DraftStatusContext";
 import { FormActionBar } from "./FormActionBar";
@@ -23,6 +23,7 @@ import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormCancelSection } from "./FormCancelSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
+import { useVoidPreview } from "./useVoidPreview";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
@@ -38,9 +39,24 @@ import type {
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { ReactNode } from "react";
 import type { RailBanner } from "./DraftRail";
+
+/**
+ * How long the undo offer stands after a save that destroyed something (ADR-0051).
+ *
+ * Long enough to read the sentence naming what went and decide; short enough that the offer is gone
+ * before the page's copy of the season is stale enough for the replay to be refused. There is no
+ * confirmation dialog anywhere on this page — confirmation and undo are alternatives, and a dialog
+ * that fires on every save is one an admin stops reading by the second week.
+ */
+const UNDO_TIMEOUT_MS = 15000;
+
+/** A list of fixture numbers as German writes it: "29, 30 und 31", with "und" and no serial comma. */
+const joinGerman = (spielNummern: readonly number[]): string =>
+  new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(spielNummern.map(String));
 
 /**
  * The match editor's form: four panels, a sticky summary rail, and one derivation behind both.
@@ -238,6 +254,41 @@ export function AdminEditSpielDataForm({
   // callout under a manual side, and by the rail banner below, so the three surfaces cannot disagree.
   const knockoutTeamIds = useMemo(() => collectKnockoutTeamIds(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
 
+  // Which fixture of the same Spieltag already fields each team. A team plays once per matchday, so a
+  // pick that would field it twice is disabled in the list with the occupying fixture named — and the
+  // server refuses the same shape (ADR-0052). Held HERE rather than in the matchup panel, because the
+  // save's refusal has to land on the side this map would have disabled: one derivation, two readers.
+  const spieltagOccupancy = useMemo(
+    () => collectSpieltagTeamOccupancy(saisonSpiele, { id: spielData.id, spieltag_id: spielData.spieltag_id }),
+    [saisonSpiele, spielData.id, spielData.spieltag_id],
+  );
+
+  /**
+   * What saving right now would destroy, asked live and answered by the write path itself (ADR-0051).
+   *
+   * Keyed on the fields that can move a bracket occupant and on nothing else: a venue or a kick-off
+   * time cannot void a result anywhere, so keying on the whole draft would be a request per keystroke
+   * answering a question that has not changed.
+   *
+   * Disabled where there is nothing to preview — a fixture that feeds no other. `listDependentSpiele`
+   * is the cheap client-side answer to "could this matter at all", and it is used as a gate rather
+   * than as the warning it used to be: it names what *can* lose a result, and the preview names what
+   * *would*.
+   */
+  const previewKey = JSON.stringify({
+    team1: team1Payload,
+    team2: team2Payload,
+    team1_quelle: team1Quelle,
+    team2_quelle: team2Quelle,
+    elfmeterschiessen,
+    is_canceled: spielIsCanceled,
+  });
+  const voidPreview = useVoidPreview({
+    previewKey,
+    buildPayload: () => buildPayload(),
+    isEnabled: dependentSpiele.length > 0 || spieltagOccupancy.size > 0,
+  });
+
   /**
    * The rail's mirror of every warning that appears inline somewhere in the form (owner, fifth
    * review): a warning an admin scrolled past still has one place that lists it. Built from the same
@@ -287,6 +338,41 @@ export function AdminEditSpielDataForm({
       severity: "warning",
       title: "Abgesagt, aber mit entschiedenem Ergebnis",
       body: "Das kann beabsichtigt sein, etwa bei einer Wertung. Das Ergebnis zählt weiter für die Tabelle.",
+    });
+  }
+
+  /**
+   * The void warning, and it names fixtures rather than possibilities (ADR-0051).
+   *
+   * The preview ran the actual resolution against this draft, so every number here is a fixture whose
+   * stored result **this save deletes** — not one that could lose it under some other edit. That is
+   * the whole difference from the note this replaces: a warning that fired whenever the fixture fed
+   * anything was right about the mechanism and wrong about the outcome most of the times it appeared,
+   * which is how an admin learns to scroll past it.
+   *
+   * `null` from the preview means "no answer yet", never "nothing would be lost", so nothing renders.
+   */
+  if (voidPreview !== null && voidPreview.voided.length > 0) {
+    const spielNummern = joinGerman(voidPreview.voided);
+    extraBanners.push({
+      severity: "danger",
+      title:
+        voidPreview.voided.length === 1
+          ? `Speichern löscht das Ergebnis in Spiel ${spielNummern}`
+          : `Speichern löscht die Ergebnisse in den Spielen ${spielNummern}`,
+      body: "Die Tore wurden von einer Mannschaft erzielt, die danach nicht mehr in diesem Spiel steht.",
+    });
+  }
+
+  if (voidPreview !== null && voidPreview.released.length > 0) {
+    const spielNummern = joinGerman(voidPreview.released);
+    extraBanners.push({
+      severity: "warning",
+      title:
+        voidPreview.released.length === 1
+          ? `Eine Mannschaft wird aus Spiel ${spielNummern} entfernt`
+          : `Mannschaften werden aus den Spielen ${spielNummern} entfernt`,
+      body: "Eine Mannschaft spielt höchstens einmal pro Spieltag, daher wird die Seite dort frei.",
     });
   }
 
@@ -384,10 +470,16 @@ export function AdminEditSpielDataForm({
       const res = await patchAdminSpielDataAction(buildPayload(), spielData.saison_id);
 
       if (!res.success) {
-        setFieldErrors(res.fieldErrors ?? {});
+        // An occupant refusal names a rule, and the FORM is what knows which side broke it: the code
+        // is the only channel a failure body has (ADR-0052), and the predicates below are the same
+        // ones the pickers already use for their chips. A field error rather than a toast, so the
+        // message lands on the control the admin has to change.
+        const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
+        const fieldErrorsFromServer = { ...(res.fieldErrors ?? {}), ...occupantErrors };
+        setFieldErrors(fieldErrorsFromServer);
 
         // Only for failures no single field owns.
-        if (!hasFieldErrors(res.fieldErrors)) {
+        if (!hasFieldErrors(fieldErrorsFromServer)) {
           toast.danger(res.error || res.message || "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten", {
             timeout: 6000,
           });
@@ -398,9 +490,91 @@ export function AdminEditSpielDataForm({
       setFieldErrors({});
       clearVerdicts();
       setHasSaved(true);
-      toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
+
+      // The fixtures this save rewrote, which the client can put back for as long as it still holds
+      // their previous state — nothing on the server does (ADR-0051). Built BEFORE leaving, because
+      // `spielData` and `saisonSpiele` are this render's props and the toast outlives the page.
+      const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
+      if (affected.length > 0) {
+        offerUndo(buildUndoPayloads(spielData, saisonSpiele, affected), res.message);
+      } else {
+        toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
+      }
+
       leavePage();
     });
+  };
+
+  /**
+   * The undo toast: fifteen seconds to take back a save that deleted something (ADR-0051).
+   *
+   * **There is no confirmation dialog anywhere on this page, and this is why.** Confirmation and undo
+   * are alternatives, not companions: a dialog interrupts every save to ask about a case that is
+   * usually harmless, and an admin who has dismissed thirty of them reads the thirty-first without
+   * seeing it. This costs nothing until something was actually destroyed, and then it is the only
+   * moment the previous values still exist anywhere.
+   *
+   * Fifteen seconds is long enough to read the sentence naming what went and decide, and short enough
+   * that the offer is gone before the page is stale enough for the replay to be refused.
+   */
+  const offerUndo = (payloads: FLPatchSpielDataPayload[], message?: string) => {
+    toast.warning("Änderung gespeichert", {
+      description: message || "Die Spieldaten wurden erfolgreich aktualisiert.",
+      timeout: UNDO_TIMEOUT_MS,
+      actionProps: {
+        children: "Rückgängig",
+        // The toast is the warning; the control on it is the safe way out, so it takes the same
+        // primary treatment every other affirmative action on the site has.
+        variant: "primary",
+        onPress: () => {
+          toast.clear();
+          // Deliberately outside the form's transition: the page it belonged to is gone by now, so
+          // there is no pending state left to drive and nothing on screen to keep consistent.
+          void undoAdminSpielEditAction(payloads, spielData.saison_id).then((result) => {
+            if (result.success) toast.success(result.message || "Die Änderung wurde zurückgenommen.", { timeout: 6000 });
+            else toast.danger(result.error || "Die Rücknahme ist fehlgeschlagen.", { timeout: 8000 });
+          });
+        },
+      },
+    });
+  };
+
+  /**
+   * Which field an occupant refusal belongs to, decided from the payload this form just submitted.
+   *
+   * The backend answers one code per RULE, because "team1 is disqualified" and "team2 is disqualified"
+   * are one failure mode and the code table's own rule is one code per mode (`docs/logging.md`). The
+   * side is the client's to work out, and it can: the predicates below are exactly the ones
+   * `FormTeamPicker` already evaluates to disable a team and put a chip on it, over the same data.
+   *
+   * A side it cannot identify produces no entry, and the caller falls back to the toast — so a refusal
+   * is never swallowed, even when this disagrees with the server about which team is at fault.
+   */
+  const placeOccupantRefusal = (errorCode: string, message?: string): FieldErrors => {
+    const text = message ?? "Diese Mannschaft kann hier nicht aufgestellt werden.";
+
+    const isAtFault = (side: FLSpielTeamField | null, stored: FLSpielTeamField | null): boolean => {
+      // Every occupant rule applies only to a team the payload NEWLY fields, exactly as the backend's
+      // does — without this the message would land on a side the admin did not touch.
+      if (side === null || side.team_id === stored?.team_id) return false;
+
+      const team = teams.find((candidate) => candidate.id === side.team_id);
+      switch (errorCode) {
+        case "REQ-ELIGIBILITY-001":
+          return team?.is_disqualified === true;
+        case "REQ-ELIGIBILITY-002":
+          return team === undefined;
+        case "REQ-SPIELTAG-001":
+          return spieltagOccupancy.has(side.team_id) || side.team_id === (side === team1Payload ? team2Payload : team1Payload)?.team_id;
+        default:
+          return false;
+      }
+    };
+
+    return {
+      ...(isAtFault(team1Payload, spielData.team1) ? { "team1.team_id": text } : {}),
+      ...(isAtFault(team2Payload, spielData.team2) ? { "team2.team_id": text } : {}),
+    };
   };
 
   return (
@@ -426,7 +600,6 @@ export function AdminEditSpielDataForm({
                 <DraftRail
                   previewSpiel={previewSpiel}
                   today={today}
-                  dependentSpiele={dependentSpiele}
                   extraBanners={extraBanners}
                 />
               </div>
@@ -451,6 +624,7 @@ export function AdminEditSpielDataForm({
                   saisonSpiele={saisonSpiele}
                   teams={teams}
                   knockoutTeamIds={knockoutTeamIds}
+                  spieltagOccupancy={spieltagOccupancy}
                   team1Payload={team1Payload}
                   onTeam1Change={setTeam1Payload}
                   team2Payload={team2Payload}

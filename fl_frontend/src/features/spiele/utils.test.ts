@@ -287,7 +287,11 @@ describe("formatSpielUpdateMessage", () => {
   });
 
   it("names a team released from another fixture of the same Spieltag", () => {
-    const message = formatSpielUpdateMessage([], [], [{ spiel_nr: 12, side: "team1", team_name: "Adler", voided_ergebnis: null, voided_elfmeterschiessen: null }]);
+    const message = formatSpielUpdateMessage(
+      [],
+      [],
+      [{ spiel_nr: 12, side: "team1", team_name: "Adler", voided_ergebnis: null, voided_elfmeterschiessen: null }],
+    );
 
     assert.match(message, /Adler wurde aus Spiel 12 entfernt, da beide am selben Spieltag stattfinden/);
   });
@@ -353,21 +357,25 @@ describe("toPatchPayload and buildUndoPayloads", () => {
     // triggered by the edited fixture clear it again, and the undo would report a success it did not
     // achieve.
     const edited = fixture(25, "1:3");
-    const season = [fixture(30, "0:0"), edited, fixture(29, "2:0")];
+    const later = fixture(30, "0:0");
+    const semi = fixture(29, "2:0");
+    // Deliberately not in bracket order: the season list's order must not decide the replay's.
+    const season = [later, edited, semi];
 
     assert.deepEqual(
       buildUndoPayloads(edited, season, [29, 30]).map((payload) => payload.spiel_id),
-      [edited.id, season[0].id, season[2].id],
+      [edited.id, later.id, semi.id],
     );
   });
 
   it("restores only the fixtures the save actually reported", () => {
     const edited = fixture(25, "1:3");
-    const season = [edited, fixture(29, "2:0"), fixture(30, "0:0")];
+    const semi = fixture(29, "2:0");
+    const season = [edited, semi, fixture(30, "0:0")];
 
     assert.deepEqual(
       buildUndoPayloads(edited, season, [29]).map((payload) => payload.spiel_id),
-      [edited.id, season[1].id],
+      [edited.id, semi.id],
     );
   });
 

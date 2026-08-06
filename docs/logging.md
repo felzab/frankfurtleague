@@ -137,25 +137,25 @@ request was wrong; `DB-*` — the database refused or failed; `SRV-*` — the se
 Backend codes (`fl_backend/app/core/exceptions.py`, handlers in
 `fl_backend/app/core/exception_handlers.py`):
 
-| Code             | Status | Meaning                                                                                      |
-| ---------------- | ------ | -------------------------------------------------------------------------------------------- |
-| `REQ-AUTH-001`   | 401    | No bearer credentials presented                                                              |
-| `REQ-AUTH-002`   | 401    | `base` key invalid                                                                           |
-| `REQ-AUTH-003`   | 401    | `system` key invalid                                                                         |
-| `REQ-AUTH-004`   | 401    | `admin` key invalid                                                                          |
-| `REQ-VAL-001`    | 422    | Request payload or parameters failed validation                                              |
-| `REQ-WIRING-001` | 409    | Bracket wiring the season cannot hold reached the match write path (ADR-0046)                |
-| `REQ-ELIGIBILITY-001` | 409 | A disqualified team was newly fielded on a match (ADR-0052)                                 |
-| `REQ-ELIGIBILITY-002` | 409 | A newly fielded team holds no `saison_teams` row for the fixture's season (ADR-0052)        |
-| `REQ-SPIELTAG-001` | 409  | A team would play two fixtures of one Spieltag, and the clash cannot be moved (ADR-0052)     |
-| `REQ-OID-001`    | 400    | A malformed ObjectId reached a handler                                                       |
-| `DB-CONN-001`    | 503    | Database client unavailable                                                                  |
-| `DB-CONN-002`    | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                              |
-| `DB-COMMON-001`  | 404    | No document matched the filter                                                               |
-| `DB-COMMON-002`  | 409    | A unique index refused the write                                                             |
-| `DB-FAIL-001`    | 500    | A database operation crashed                                                                 |
-| `SRV-VAL-001`    | 500    | A server-side model failed validation outside request parsing — a data bug, not a caller bug |
-| `SRV-FAIL-001`   | 500    | Unhandled crash                                                                              |
+| Code                  | Status | Meaning                                                                                      |
+| --------------------- | ------ | -------------------------------------------------------------------------------------------- |
+| `REQ-AUTH-001`        | 401    | No bearer credentials presented                                                              |
+| `REQ-AUTH-002`        | 401    | `base` key invalid                                                                           |
+| `REQ-AUTH-003`        | 401    | `system` key invalid                                                                         |
+| `REQ-AUTH-004`        | 401    | `admin` key invalid                                                                          |
+| `REQ-VAL-001`         | 422    | Request payload or parameters failed validation                                              |
+| `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path (ADR-0046)                |
+| `REQ-ELIGIBILITY-001` | 409    | A disqualified team was newly fielded on a match (ADR-0052)                                  |
+| `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season (ADR-0052)         |
+| `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved (ADR-0052)     |
+| `REQ-OID-001`         | 400    | A malformed ObjectId reached a handler                                                       |
+| `DB-CONN-001`         | 503    | Database client unavailable                                                                  |
+| `DB-CONN-002`         | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                              |
+| `DB-COMMON-001`       | 404    | No document matched the filter                                                               |
+| `DB-COMMON-002`       | 409    | A unique index refused the write                                                             |
+| `DB-FAIL-001`         | 500    | A database operation crashed                                                                 |
+| `SRV-VAL-001`         | 500    | A server-side model failed validation outside request parsing — a data bug, not a caller bug |
+| `SRV-FAIL-001`        | 500    | Unhandled crash                                                                              |
 
 Frontend codes (`fl_frontend/src/core/errors.ts`, plus the call sites named):
 
