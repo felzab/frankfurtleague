@@ -11,6 +11,9 @@
  *     trip, so it must never sit in front of a public page load.
  *   • No `callbackUrl` on the redirect. Nothing consumes one, and honouring it later introduces an
  *     open redirect unless the value is allowlisted.
+ *   • A SERVER ACTION request is never redirected. Redirecting one replaces its RSC response with an
+ *     HTML page and the client reports "An unexpected response was received from the server", which
+ *     names nothing and cannot be handled. The action's own `getAdminSession()` is what refuses it.
  *   • This file is `proxy.ts`, not `middleware.ts` — the latter is the deprecated name.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -33,6 +36,27 @@ import { auth } from "./core/auth";
  */
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
+
+  // A SERVER ACTION is never redirected, whatever this guard decides about it.
+  //
+  // An action is a POST whose response must be an RSC payload. A redirect is followed by the client's
+  // own fetch, which then reads an HTML page and reports "An unexpected response was received from
+  // the server" -- an error naming nothing, on a request that was refused for a perfectly ordinary
+  // reason. Measured against this stack: `POST /admin/spiele/<id>` with an action header answers
+  // `redirects=1, final=/signin`.
+  //
+  // **Letting it through costs no authorization**, which is the only reason this is allowed to be the
+  // fix. This guard is defence in depth by its own docblock, and every admin action independently
+  // begins with `getAdminSession()` and returns an access-denied result rather than throwing (spec
+  // I7, all nine of them). So an unauthorized action still fails, and it now fails as a RESULT the
+  // form can render -- "Access Denied" in a toast -- instead of as an unparseable response.
+  //
+  // Keyed on the header react-dom sends on every Server Action request. `sec-fetch-dest` is not used
+  // in its place: it distinguishes a document from a fetch, which would also exempt every RSC
+  // prefetch, and those SHOULD keep being redirected so a stale client learns it is signed out.
+  if (req.headers.has("next-action")) {
+    return NextResponse.next();
+  }
 
   // Not logged in -> Send to sign in.
   // No callbackUrl: nothing consumed it -- the signin page ignores searchParams and the action
