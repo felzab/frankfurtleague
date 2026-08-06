@@ -15,9 +15,10 @@ import { ModalShell } from "./ModalShell";
  * that is still on screen and that the admin has just asked to leave. Escalating it would be the
  * nagging this dialog exists to avoid, and a confirmation nobody reads is worse than none.
  *
- * **The safe action carries the brand and the loss carries the warning** (owner, sixth review): the
- * count of changes at stake is a warning-tinted chip, "Weiter bearbeiten" is the brand-primary
- * button, and "Verwerfen" is the destructive one. Both actions stack full-width at every size — the
+ * **The loss carries the warning; the buttons follow the site's confirm pattern.** The count of
+ * changes at stake is a warning-tinted chip, and the pair is one solid and one outline exactly as
+ * `ConfirmDeleteModal` has them — the destructive action the dialog exists for is the primary,
+ * the way back the secondary (owner, seventh review). Both stack full-width at every size — the
  * slim dialog cannot seat the two labels side by side, and a pair that stacks only sometimes reads
  * as two designs.
  *
@@ -62,23 +63,26 @@ export function ConfirmDiscardModal({
           verloren.
         </p>
 
+        {/* One primary, one secondary — the same pair `ConfirmDeleteModal` and every two-button form
+            on the site use: the action the dialog exists for is the solid one, the way back is the
+            outline (owner, seventh review — two solid fills read as two primaries). */}
         <div className="mt-6 flex w-full min-w-0 flex-col gap-2.5">
-          {/* "Weiter bearbeiten" rather than "Abbrechen": on a dialog whose subject IS cancelling
-              something, "Abbrechen" is genuinely ambiguous about which thing it cancels. */}
           <Button
             type="button"
             variant="primary"
-            className={formButton({ intent: "submit", fullWidth: true })}
-            onPress={onClose}>
-            Weiter bearbeiten
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
             className={formButton({ intent: "destructive", fullWidth: true })}
             onPress={onDiscard}>
             <ArrowUturnCwLeft className="m-0 size-4.5 shrink-0" />
             Verwerfen
+          </Button>
+          {/* "Weiter bearbeiten" rather than "Abbrechen": on a dialog whose subject IS cancelling
+              something, "Abbrechen" is genuinely ambiguous about which thing it cancels. */}
+          <Button
+            type="button"
+            variant="secondary"
+            className={formButton({ intent: "cancel", fullWidth: true })}
+            onPress={onClose}>
+            Weiter bearbeiten
           </Button>
         </div>
       </div>

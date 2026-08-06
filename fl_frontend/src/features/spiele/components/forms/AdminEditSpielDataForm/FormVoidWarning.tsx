@@ -32,7 +32,11 @@ export function FormVoidWarning({ dependentSpiele }: { dependentSpiele: readonly
   return (
     <Callout
       severity="warning"
-      title={dependentSpiele.length === 1 ? `Spiel ${spielNummern} hängt an diesem Spiel` : `Spiele ${spielNummern} hängen an diesem Spiel`}>
+      title={
+        dependentSpiele.length === 1
+          ? `Spiel ${spielNummern} ist von diesem Spiel abhängig`
+          : `Die Spiele ${spielNummern} sind von diesem Spiel abhängig`
+      }>
       Speichern kann dort und in den Spielen darunter ein eingetragenes Ergebnis löschen.
     </Callout>
   );

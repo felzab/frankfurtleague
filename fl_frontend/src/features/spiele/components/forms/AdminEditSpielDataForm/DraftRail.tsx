@@ -67,8 +67,12 @@ export function DraftRail({
   const bannerCount = bannerBySeverity.danger + bannerBySeverity.warning + bannerBySeverity.info;
 
   // Controlled, because the count moves it: shut when the last banner clears, open when one arrives.
-  // Only the TRANSITION drives it — in between, the state is the admin's own toggle.
-  const [hinweiseOpen, setHinweiseOpen] = useState(bannerCount > 0);
+  // Only the TRANSITION drives it — in between, the state is the admin's own toggle. Desktop starts
+  // open even at zero banners (owner, seventh review): every rail card opens on a desktop
+  // navigation, and this one showed a folded green zero instead. Same `xl` probe as `RailSection`.
+  const [hinweiseOpen, setHinweiseOpen] = useState(
+    () => bannerCount > 0 || (typeof window !== "undefined" && window.matchMedia("(min-width: 80rem)").matches),
+  );
   const previousCount = useRef(bannerCount);
   useEffect(() => {
     if (previousCount.current > 0 && bannerCount === 0) setHinweiseOpen(false);

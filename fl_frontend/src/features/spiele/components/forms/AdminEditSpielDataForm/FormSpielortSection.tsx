@@ -6,6 +6,7 @@ import { FormModal } from "@/shared/components/ui/FormModal";
 
 import { FieldLabel } from "./FieldLabel";
 import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
+import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
@@ -47,9 +48,19 @@ export function FormSpielortSection({
   };
 
   // NaN is an emptied field, not a zero price — see the note on `FormSchiedsrichterSection`.
+  // `Math.round`, because a decimal is typable (the field carries no `step`) and the payload wants
+  // an integer: rounding at entry beats a schema rejection for the one shape a price actually takes.
   const handleMietpreisChange = (newPrice: number) => {
     if (ortPayload) {
-      onOrtChange({ ...ortPayload, mietpreis: isNaN(newPrice) ? null : newPrice });
+      onOrtChange({ ...ortPayload, mietpreis: isNaN(newPrice) ? null : Math.round(newPrice) });
+    }
+  };
+
+  // The ±5 buttons' own arithmetic: an empty field steps from 0, and the floor is the field's own
+  // minimum. `?? null` twice, because `mietpreis` is already `number | null`.
+  const stepMietpreis = (delta: number) => {
+    if (ortPayload) {
+      onOrtChange({ ...ortPayload, mietpreis: Math.max(0, (ortPayload.mietpreis ?? 0) + delta) });
     }
   };
 
@@ -88,7 +99,6 @@ export function FormSpielortSection({
         // (`useDraftValidation`).
         onBlur={() => onValidateFields(["ort.mietpreis"])}
         onKeyDown={suppressEnterSubmit}
-        step={5}
         formatOptions={{
           currency: "EUR",
           currencySign: "accounting",
@@ -96,9 +106,17 @@ export function FormSpielortSection({
         }}>
         <FieldLabel path="ort.mietpreis">Mietpreis</FieldLabel>
         <NumberField.Group className={FIELD_GROUP}>
-          <NumberField.DecrementButton />
+          <StepFiveButton
+            direction="decrement"
+            isDisabled={!ortPayload}
+            onStep={() => stepMietpreis(-5)}
+          />
           <NumberField.Input className={FIELD_COUNT_INPUT} />
-          <NumberField.IncrementButton />
+          <StepFiveButton
+            direction="increment"
+            isDisabled={!ortPayload}
+            onStep={() => stepMietpreis(5)}
+          />
         </NumberField.Group>
         <FieldError className={FIELD_ERROR} />
       </NumberField>

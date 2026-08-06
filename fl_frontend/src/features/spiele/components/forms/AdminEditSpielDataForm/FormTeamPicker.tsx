@@ -328,7 +328,7 @@ export function FormTeamPicker({
         <Autocomplete.ClearButton
           type="button"
           aria-label={`${label}-Auswahl aufheben`}
-          className="hover:bg-muted hover:text-foreground size-7 rounded-md"
+          className="text-foreground-muted hover:text-foreground size-7 rounded-md [&_svg]:size-4"
         />
         <Autocomplete.Indicator />
       </Autocomplete.Trigger>

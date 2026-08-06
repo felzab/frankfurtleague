@@ -53,13 +53,18 @@ export function SpielDraftPreview({
 
   return (
     <div className={`flex w-full flex-col gap-y-3 rounded-xl border p-3 ${isDirty ? "border-brand/50 bg-brand/5" : "border-border"}`}>
-      {/* One left-aligned row: date and time first, the two chips directly beside them (owner,
-          sixth review) — right-parking the chips read as two unrelated corners on a narrow card. */}
-      <div className="flex w-full flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
-        <span className="fluid-xs text-foreground font-bold">{datum}</span>
-        <span className="fluid-xs text-foreground-muted font-medium">{uhrzeit}</span>
-        <SpielStatusChip spielStatus={spielStatus} />
-        <SaisonPhaseChip saisonPhase={previewSpiel.saison_phase} />
+      {/* Two rows, always: date and time, then the chips (owner, seventh review). One wrapping row
+          broke exactly on narrow cards — one chip on the first line, the other bleeding onto the
+          next — and a layout that is sometimes one row and sometimes two reads as two designs. */}
+      <div className="flex w-full flex-col gap-y-1.5">
+        <div className="flex w-full flex-row items-baseline gap-x-2">
+          <span className="fluid-xs text-foreground font-bold">{datum}</span>
+          <span className="fluid-xs text-foreground-muted font-medium">{uhrzeit}</span>
+        </div>
+        <div className="flex w-full flex-row flex-wrap items-center gap-1.5">
+          <SpielStatusChip spielStatus={spielStatus} />
+          <SaisonPhaseChip saisonPhase={previewSpiel.saison_phase} />
+        </div>
       </div>
 
       {/* The equal-track grid every scoreline in the app uses: both 1fr columns resolve to the wider

@@ -6,6 +6,7 @@ import { FormModal } from "@/shared/components/ui/FormModal";
 
 import { FieldLabel } from "./FieldLabel";
 import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
+import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
@@ -41,12 +42,21 @@ export function FormSchiedsrichterSection({
   // from a referee who genuinely works for free. `null` fails the payload schema instead, which is
   // the honest outcome. The `?? NaN` at the display boundary below is the other half and must stay:
   // RAC types `value?: number`, so `value={null}` is a type error.
+  // `Math.round` for the same reason the Mietpreis rounds: decimals are typable now that the field
+  // carries no `step`, and the payload wants an integer.
   const handlePaymentChange = (newPayment: number) => {
     if (schiedsrichterPayload) {
       onSchiedsrichterChange({
         ...schiedsrichterPayload,
-        payment: isNaN(newPayment) ? null : newPayment,
+        payment: isNaN(newPayment) ? null : Math.round(newPayment),
       });
+    }
+  };
+
+  // The ±5 buttons' own arithmetic — see the Mietpreis twin.
+  const stepPayment = (delta: number) => {
+    if (schiedsrichterPayload) {
+      onSchiedsrichterChange({ ...schiedsrichterPayload, payment: Math.max(0, (schiedsrichterPayload.payment ?? 0) + delta) });
     }
   };
 
@@ -83,7 +93,6 @@ export function FormSchiedsrichterSection({
         // On blur — see the note on the Mietpreis field, which is the same box with the same NaN window.
         onBlur={() => onValidateFields(["schiedsrichter.payment"])}
         onKeyDown={suppressEnterSubmit}
-        step={5}
         formatOptions={{
           currency: "EUR",
           currencySign: "accounting",
@@ -91,9 +100,17 @@ export function FormSchiedsrichterSection({
         }}>
         <FieldLabel path="schiedsrichter.payment">Entschädigung</FieldLabel>
         <NumberField.Group className={FIELD_GROUP}>
-          <NumberField.DecrementButton />
+          <StepFiveButton
+            direction="decrement"
+            isDisabled={!schiedsrichterPayload}
+            onStep={() => stepPayment(-5)}
+          />
           <NumberField.Input className={FIELD_COUNT_INPUT} />
-          <NumberField.IncrementButton />
+          <StepFiveButton
+            direction="increment"
+            isDisabled={!schiedsrichterPayload}
+            onStep={() => stepPayment(5)}
+          />
         </NumberField.Group>
         <FieldError className={FIELD_ERROR} />
       </NumberField>

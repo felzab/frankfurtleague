@@ -25,12 +25,13 @@ const OPERATION_PRESENTATION: Record<DraftOperation, { icon: typeof Plus; cls: s
 /**
  * Every unsaved edit, one line each, sectioned by the panel the field renders in.
  *
- * **A row is an operation icon, the field's label and the value as it will be saved** (owner, sixth
- * review). The earlier rows spelled the transition out — label, struck old value, new value — and
- * read as chaos once several accumulated; the icon now carries the WHAT (added, removed, altered)
- * and the row carries only the result. The icon is a hover hint through the same mechanism as every
- * info icon on the page: it names the operation and, for an alteration, the previous value. A
- * removal shows the old value struck through, because a removal has no result to print.
+ * **A row is the field's label, the value as it will be saved, and an operation icon at the row's
+ * end** (owner, sixth and seventh reviews). The earlier rows spelled the transition out — label,
+ * struck old value, new value — and read as chaos once several accumulated; the icon now carries the
+ * WHAT (added, removed, altered) and the row carries only the result. The icon is a hover hint
+ * through the same mechanism as every info icon on the page — `cursor-help` and a hover fill say it
+ * opens something — naming the operation with the previous value beneath, for a removal as well as
+ * an alteration. A removal shows the old value struck through, because it has no result to print.
  *
  * **The sections come from the descriptor table, not from a mapping kept here.** Each field's
  * `group` is a column of its row in `draftStatus.ts`, so a future field lands in the right section
@@ -66,20 +67,27 @@ export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldSta
                 <li
                   key={field.path}
                   className="fluid-xs flex w-full flex-row items-baseline gap-x-2">
-                  <InfoHint
-                    label={`${word}: ${field.label}`}
-                    trigger={<Icon className={`size-3.5 self-center ${cls}`} />}>
-                    <p>
-                      <strong>{word}.</strong>
-                      {operation === "altered" && <> Vorher: {field.storedText}</>}
-                    </p>
-                  </InfoHint>
                   {field.label !== group && <span className="text-foreground-muted min-w-0 shrink-0 font-medium">{field.label}</span>}
                   {operation === "removed" ? (
                     <s className="text-foreground-muted min-w-0 truncate">{field.storedText}</s>
                   ) : (
                     <span className="text-foreground min-w-0 truncate font-bold">{field.draftText}</span>
                   )}
+                  {/* At the row's END (owner, seventh review), and a two-line hint: the operation as
+                      its heading, the previous value under it — for a removal as well as for an
+                      alteration, since "what did I just delete" is the question the row's
+                      strikethrough answers only while it fits. */}
+                  <span className="ml-auto flex shrink-0">
+                    <InfoHint
+                      label={`${word}: ${field.label}`}
+                      trigger={<Icon className={`size-3.5 ${cls}`} />}>
+                      <p>
+                        <strong>{word}</strong>
+                      </p>
+                      {operation !== "added" && <p>Vorher: {field.storedText}</p>}
+                    </InfoHint>
+                  </span>
+                  <span className="sr-only">{word}</span>
                 </li>
               );
             })}

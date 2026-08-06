@@ -5,40 +5,31 @@ import { CircleDashed, PencilToLine } from "@gravity-ui/icons";
 import { Label } from "@heroui/react";
 
 import { FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 
 import { useFieldStatus } from "./DraftStatusContext";
 
 import type { ReactNode } from "react";
 
-/**
- * Both markers, so the two read as one family rather than as two ideas.
- *
- * **An icon in a small tinted disc, not a worded chip.** The previous recipe — icon plus uppercase
- * word plus padding — outweighed the field label it sat beside, twice per line at its worst (owner,
- * third review). The meaning survives the diet because the two icons differ in SHAPE, not only in
- * colour: a dashed circle for "still empty", a pencil for "edited". The word still exists for every
- * non-visual reader (`sr-only`) and for anyone hovering (`title`).
- */
+/** Both markers, so the two read as one family rather than as two ideas. */
 const MARKER = "inline-flex size-5 shrink-0 items-center justify-center rounded-full";
 
 /**
  * A field's label, plus what the page knows about that field.
  *
  * **Every label in the editor goes through this**, which is what makes a future field's markers free:
- * the field renders `<FieldLabel path="…">`, and the marker, the anchor and the previous value all
- * follow from its descriptor in `draftStatus.ts` without the field knowing they exist.
+ * the field renders `<FieldLabel path="…">`, and the marker and the anchor follow from its descriptor
+ * in `draftStatus.ts` without the field knowing they exist.
  *
- * Three things it adds, each answering a question the owner asked:
+ * Two markers, each a hover hint rather than a bare badge:
  *
- * - **"Fehlt" / "Empfohlen"** — a field that is empty while an action-required category waits on
- *   it, coloured by its severity (danger for required, warning for recommended). Its icon differs
- *   from the edited marker's in shape, not only in colour, so the two are distinct for every
- *   sighted reader; the word itself is `sr-only`. It disappears the moment the field is filled
- *   rather than waiting for a save.
- * - **"Geändert"** — the draft differs from what is stored.
- * - **`vorher: …`** — the stored value, struck through, under a changed field. This is the answer to
- *   glancing at the date and not knowing whether you are looking at the old one: the old one is
- *   labelled, struck through and muted, and the field itself always holds the new one.
+ * - **Fehlt / Empfohlen** — the field is empty while an action-required category waits on it,
+ *   coloured by severity (danger for required, warning for recommended). The hint says which.
+ * - **Geändert** — the draft differs from what is stored, and **the hint is where the previous value
+ *   lives**. It used to be a `vorher:` line under the label, and that line arrived exactly when the
+ *   admin edited the field — a layout shift on every first keystroke, most visible where two goal
+ *   fields share a row and one grew taller (owner, seventh review). A hint occupies no flow space,
+ *   so the answer is still one hover away and nothing moves.
  *
  * The wrapper carries `id={`feld-${path}`}` so the rail's open-items list can link straight to it, and
  * `scroll-mt-28` so the sticky page header does not land on top of the field it just jumped to. A dot in
@@ -52,40 +43,53 @@ export function FieldLabel({ path, children }: { path: string; children: ReactNo
     <div
       id={`feld-${path}`}
       className="flex w-full scroll-mt-28 flex-col gap-y-1">
-      <div className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
+      {/* `min-h-5`: the marker discs are 20px and the label's own line can be 18px, so a marker's
+          arrival grew the row by 2px — a shift, and a 2px mis-alignment between two fields sharing a
+          grid row. Reserving the marker's height keeps every label row constant whether marked or
+          not. */}
+      <div className="flex min-h-5 flex-row flex-wrap items-center gap-x-2 gap-y-1">
         <Label className={FIELD_LABEL}>{children}</Label>
 
-        {/* The disc's colour is the field's severity — danger where the fixture cannot happen
-            without the value, warning where it is merely recommended — so the marker beside a field
-            and the badge counting it in "Offene Angaben" speak the same colour language. */}
         {status?.isExpected && (
-          <span
-            title={status.expectedSeverity === "required" ? "Fehlt" : "Empfohlen"}
-            className={`${MARKER} ${
-              status.expectedSeverity === "required" ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"
-            }`}>
-            <CircleDashed className="size-3" />
-            <span className="sr-only">{status.expectedSeverity === "required" ? "Fehlt" : "Empfohlen"}</span>
-          </span>
+          <InfoHint
+            label={status.expectedSeverity === "required" ? "Fehlt" : "Empfohlen"}
+            trigger={
+              <span
+                className={`${MARKER} cursor-help ${
+                  status.expectedSeverity === "required" ? "bg-danger/15 text-danger-strong" : "bg-warning/15 text-warning-strong"
+                }`}>
+                <CircleDashed className="size-3" />
+              </span>
+            }>
+            <p>
+              {status.expectedSeverity === "required" ? (
+                <>
+                  <strong>Fehlt.</strong> Nötig, damit das Spiel stattfinden kann.
+                </>
+              ) : (
+                <>
+                  <strong>Fehlt.</strong> Empfohlen, aber nicht zwingend.
+                </>
+              )}
+            </p>
+          </InfoHint>
         )}
 
         {status?.isChanged && (
-          <span
-            title="Geändert"
-            className={`${MARKER} bg-brand/15 text-brand-solid`}>
-            <PencilToLine className="size-3" />
-            <span className="sr-only">Geändert</span>
-          </span>
+          <InfoHint
+            label="Geändert"
+            trigger={
+              <span className={`${MARKER} bg-brand/15 text-brand-solid cursor-help`}>
+                <PencilToLine className="size-3" />
+              </span>
+            }>
+            <p>
+              <strong>{status.storedText === null ? "Neu eingetragen." : "Geändert."}</strong>
+              {status.storedText !== null && <> Vorher: {status.storedText}</>}
+            </p>
+          </InfoHint>
         )}
       </div>
-
-      {/* Only where there was something before. A field filled from empty has nothing to strike
-          through, and "vorher: —" is noise on the one row that should read as progress. */}
-      {status?.isChanged && status.storedText !== null && (
-        <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
-          vorher: <span className="line-through">{status.storedText}</span>
-        </p>
-      )}
     </div>
   );
 }

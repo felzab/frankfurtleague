@@ -104,12 +104,18 @@ export function InfoHint({
         if (!open) stopTracking();
         setIsOpen(open);
       }}>
+      {/* `cursor-help` on both shapes — the cursor is what says "this holds an explanation", which
+          a bare icon otherwise does not (owner, seventh review). The custom-trigger shape adds a
+          hover fill for the same reason. In an `items-baseline` row the trigger box's baseline is
+          its icon's bottom edge (a flex container takes its first item's baseline, and an SVG's is
+          its bottom margin edge), which is exactly the "bottom pixel sits on the text's line"
+          alignment the owner asked for. */}
       <Popover.Trigger
         aria-label={label}
         className={
           trigger
-            ? "inline-flex shrink-0 cursor-pointer items-center justify-center"
-            : "text-foreground-muted hover:text-brand inline-flex size-5 shrink-0 cursor-pointer items-center justify-center transition-colors"
+            ? "hover:bg-muted -m-0.5 inline-flex shrink-0 cursor-help items-center justify-center rounded-md p-0.5 transition-colors"
+            : "text-foreground-muted hover:text-brand inline-flex size-5 shrink-0 cursor-help items-center justify-center transition-colors"
         }
         onMouseEnter={openFromHover}>
         {trigger ?? <CircleInfo className="size-5" />}

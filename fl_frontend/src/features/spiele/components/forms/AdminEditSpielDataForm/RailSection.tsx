@@ -70,7 +70,9 @@ export function RailSection({
 
   return (
     <section className={`${card()} flex w-full flex-col`}>
-      <div className="relative flex w-full flex-row items-center gap-x-2 px-4 py-3">
+      {/* `items-baseline` for the title and its hint icon (the icon's bottom edge is its baseline);
+          the badge and the chevron centre themselves — a count pill has no text line to sit on. */}
+      <div className="relative flex w-full flex-row items-baseline gap-x-2 px-4 py-3">
         {/* The whole-row press target. Empty on purpose: its accessible name is the heading beside
             it, and its visible content is the row it covers. */}
         <button
@@ -90,9 +92,9 @@ export function RailSection({
         {/* `flex`, not an inline span: an inline wrapper joins the text baseline and floats the icon
             a few pixels above the title's optical centre — the misalignment the owner reported. */}
         {info && <span className="relative z-10 flex items-center">{info}</span>}
-        {badge && <span className="pointer-events-none relative ml-auto">{badge}</span>}
+        {badge && <span className="pointer-events-none relative ml-auto self-center">{badge}</span>}
         <ChevronDown
-          className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 transition-transform duration-200 ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
+          className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 self-center transition-transform duration-200 ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
         />
       </div>
 

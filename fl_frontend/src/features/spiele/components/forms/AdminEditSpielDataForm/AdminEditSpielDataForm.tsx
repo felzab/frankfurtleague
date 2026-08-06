@@ -122,11 +122,10 @@ export function AdminEditSpielDataForm({
   // the two must not be the same value (ADR-0044).
   const [elfmeterschiessen, setElfmeterschiessen] = useState<FLSpielElfmeterschiessenDraft | null>(spielData.elfmeterschiessen);
 
-  // Open on a fixture that already has a result, closed on one that does not. Correcting a recorded
-  // result is the commonest reason anybody is here, and it used to start behind a switch over greyed-out
-  // fields; a fixture with no result still needs the deliberate flip, so a stray keystroke cannot invent
-  // a 0:0.
-  const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState<boolean>(spielData.ergebnis !== null);
+  // ALWAYS closed on open (owner, seventh review, overruling the opened-when-played variant): the
+  // deliberate flip is the guard, on every fixture alike, so a stray keystroke can neither invent a
+  // 0:0 nor silently rewrite a recorded result.
+  const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState(false);
 
   // Latched on a successful save so the guard below does not challenge the navigation the save itself
   // performs — at that moment the draft still differs from the `spielData` this render was given.
@@ -348,7 +347,7 @@ export function AdminEditSpielDataForm({
     setTeam1Quelle(spielData.team1_quelle);
     setTeam2Quelle(spielData.team2_quelle);
     setElfmeterschiessen(spielData.elfmeterschiessen);
-    setErgebnisCanBeEdited(spielData.ergebnis !== null);
+    setErgebnisCanBeEdited(false);
 
     setFieldErrors({});
     clearVerdicts();
