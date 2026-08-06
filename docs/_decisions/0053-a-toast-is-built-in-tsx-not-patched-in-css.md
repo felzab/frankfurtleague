@@ -59,22 +59,22 @@ read.
 
 Both are written against **HeroUI 3.2.3** and both say so at the rule.
 
-**The appearance follows the site's existing feedback vocabulary rather than inventing a fourth.**
-Severity is the plain accent at `/15` behind the glyph, its `-strong` companion for the glyph, and the
-plain accent for the timer bar — the pairing `globals.css` measured the accent tokens against, and the
-one `Callout` and the delete dialog's icon tile already use. The action button takes the brand fill
-every other affirmative control on the site takes.
+**A settled toast carries no icon, and severity is two thin marks: the border and the timer bar**
+(owner, 2026-08-06, after seeing the first build). Both are the plain accent, the border at `/60`.
 
-**Two deliberate departures from `Callout`, both because a toast is a separate surface rather than a
-block inside a page:**
+That is a real departure from `Callout`, which announces itself with a glyph in a tinted 36px tile, and
+the difference is the surface rather than the palette. A callout sits inside a page among body text and
+has to be found; a toast arrives alone over the page with the reader's eye already on it, so the tile
+restated what the edge and the bar already said and spent a third of the width doing it. The tokens are
+unchanged — this uses fewer of them.
 
-- **The title is `text-foreground`, not the severity's `-strong`.** The tile, the border and the timer
-  already carry the grade; a coloured heading on an opaque floating card makes it read as an alert box,
-  and it is the one element whose legibility must never depend on a tint.
-- **`danger` gets its own glyph.** `Callout` shares `TriangleExclamation` between warning and danger
-  because both are consequences of an edit differing only in degree. A toast's `danger` says the thing
-  did not happen at all, which is a different kind of statement from "it happened and it cost
-  something", so the two earn different shapes.
+**The indicator slot survives for exactly one case: a pending toast's spinner.** "Something is still
+running" is the one thing no border can express, so it is the one thing that still earns a mark.
+
+**The title is `text-foreground`, not the severity's `-strong`.** The border and the timer carry the
+grade; a coloured heading on an opaque floating card reads as an alert box, and the title is the one
+element whose legibility must never depend on a tint. The action button takes the brand fill every
+other affirmative control on the site takes.
 
 **A duration is derived from the message, not chosen at the call site.**
 `fl_frontend/src/shared/utils/appToast.ts :: readingDuration` is `2000 ms + 55 ms per character`,
@@ -100,6 +100,13 @@ button, because the library's `:not([data-frontmost="true"])` rule is more speci
 **The timer bar makes the remaining time visible**, animating from its own `timeout` and pausing with
 `animation-play-state` while the region is hovered or focused — which is when `useToastRegion` pauses
 the real timer. A pending toast has no bar, because nothing is counting down.
+
+**The toast surface is opaque, and that is a performance constraint rather than a taste.** The first
+build gave it `bg-surface/95` with `backdrop-blur-xl`, and the bar then drained in visible steps: a
+blurred backdrop is re-rasterised on every frame anything above it changes, and this bar changes on
+every frame for its whole life, so a 2px element was costing a full-surface blur pass per frame. An
+opaque surface costs nothing per frame, and `will-change: transform` keeps the bar on its own layer.
+**A future change that reintroduces `backdrop-filter` here reintroduces the stutter.**
 
 **The stacked-toast clamp is left exactly as HeroUI ships it, and this is the one recorded defect that
 was not changed.** Forcing `--front-height` to the value a live browser sets reproduces the truncation

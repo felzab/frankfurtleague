@@ -788,30 +788,34 @@
    *
    * Utilities beat components in this app's layer order, so anything `AppToaster` sets on an element
    * already outranks both HeroUI's rules and these. */
+  /* Opaque, and deliberately NOT `backdrop-blur`. A blurred backdrop has to be re-rasterised on every
+     frame anything above it changes, and the timer bar below changes on every frame for its whole
+     life — which made a 3px bar cost a full-surface blur pass and drain in visible steps rather than
+     smoothly. An opaque surface costs nothing per frame, and at 95% opacity the blur was buying
+     almost no visible depth anyway. */
   .toast {
-    @apply bg-surface/95 border-border rounded-2xl border p-3.5 shadow-2xl backdrop-blur-xl;
+    @apply bg-surface border-border rounded-xl border p-3.5 shadow-lg;
     /* `overflow-hidden` is what clips the timer bar to the rounded bottom corners. */
-    @apply items-start gap-3 overflow-hidden whitespace-normal;
+    @apply items-start gap-2.5 overflow-hidden whitespace-normal;
   }
 
-  /* Severity on the shell is a tinted border and nothing louder: the glyph tile and the timer bar
-     already carry the accent, and a third full-strength signal on a floating surface reads as an
-     alert box rather than a notification. `/30` matches `Callout`'s `/40` border at the lower
-     contrast a shadowed, blurred surface needs. */
+  /* Severity is the border and the timer bar, and with the icon tile gone (owner, 2026-08-06) the
+     border is the one mark a settled toast carries. `/60` rather than the `/30` it ran at beside a
+     tinted tile: it is now doing that work alone and has to read at a glance. */
   .toast--accent {
-    @apply border-info/30;
+    @apply border-info/60;
   }
 
   .toast--success {
-    @apply border-success/30;
+    @apply border-success/60;
   }
 
   .toast--warning {
-    @apply border-warning/30;
+    @apply border-warning/60;
   }
 
   .toast--danger {
-    @apply border-danger/30;
+    @apply border-danger/60;
   }
 
   /* THE DISMISS CONTROL, and this rule is the WCAG 2.2.1 fix rather than a preference.
@@ -839,6 +843,10 @@
    * failure than showing nothing. */
   .toast__timer {
     animation: toast-timer linear forwards;
+    /* Promotes the bar to its own compositor layer, so the fifteen seconds it animates cost no
+       repaint of the toast behind it. Named on `transform` rather than left as `auto` because this
+       element animates for its whole life — the case the hint exists for. */
+    will-change: transform;
   }
 
   .toast-region:hover .toast__timer,

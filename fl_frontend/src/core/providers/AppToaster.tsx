@@ -30,67 +30,53 @@
  * loads on every route, so a toast raised on `/admin` is already styled — `admin.css` must not gain a
  * second copy (ADR-0023).
  */
-import { CircleCheck, CircleInfo, CircleXmark, TriangleExclamation } from "@gravity-ui/icons";
 import { tv } from "tailwind-variants";
 
 import { Spinner, Toast } from "@heroui/react";
 
 /**
- * Severity, expressed the way every other feedback surface on this site expresses it: the plain
- * accent as a `/15` tint behind the glyph, its `-strong` companion for the glyph itself, and the
- * plain accent again for the timer bar, which is a fill rather than text.
+ * Severity, carried by two thin marks and nothing else (owner, 2026-08-06).
  *
- * That is the pairing `globals.css` measured the accent tokens against, and it is the same recipe
- * `Callout` and the delete dialog's icon tile use — a toast is the transient member of that family,
- * not a fourth vocabulary.
+ * **There is no icon, and its absence is the design rather than an omission.** A glyph in a tinted
+ * 36px tile is how a `Callout` announces itself, and a callout has to — it sits inside a page among
+ * body text and needs to be found. A toast arrives alone over a dimmed page with the reader's eye
+ * already on it, so the tile was restating what the border and the timer bar already say, at the cost
+ * of a third of the toast's width.
+ *
+ * What is left is the coloured edge and the draining bar, both the plain accent. The border runs at
+ * `/60` rather than the `/30` it used while the tile carried the grade: it is now the standing signal,
+ * and it has to read at a glance on a surface that is otherwise neutral.
  */
 const toastCard = tv({
   slots: {
-    tile: "flex size-9 shrink-0 items-center justify-center rounded-xl",
-    icon: "size-5",
     /** Sits on the shell's bottom edge; `origin-left` is what makes the scaleX read as draining. */
-    timer: "toast__timer absolute inset-x-0 bottom-0 h-[3px] origin-left",
+    timer: "toast__timer absolute inset-x-0 bottom-0 h-0.5 origin-left",
   },
   variants: {
     variant: {
-      default: { tile: "bg-muted", icon: "text-foreground-muted", timer: "bg-foreground-muted/40" },
-      accent: { tile: "bg-info/15", icon: "text-info-strong", timer: "bg-info" },
-      success: { tile: "bg-success/15", icon: "text-success-strong", timer: "bg-success" },
-      warning: { tile: "bg-warning/15", icon: "text-warning-strong", timer: "bg-warning" },
-      danger: { tile: "bg-danger/15", icon: "text-danger-strong", timer: "bg-danger" },
+      default: { timer: "bg-foreground-muted/40" },
+      accent: { timer: "bg-info" },
+      success: { timer: "bg-success" },
+      warning: { timer: "bg-warning" },
+      danger: { timer: "bg-danger" },
     },
   },
   defaultVariants: { variant: "default" },
 });
 
-/**
- * **`danger` gets its own glyph here, and `Callout` deliberately shares one.** That difference is not
- * drift: a callout's warning and danger are both consequences of an edit and differ only in degree,
- * which is why a second shape there would imply a category that does not exist. A toast's `danger`
- * says the thing did not happen at all — a different kind of statement from `warning`'s "it happened
- * and it cost something" — so the two earn different shapes.
- */
-const ICONS = {
-  default: CircleInfo,
-  accent: CircleInfo,
-  success: CircleCheck,
-  warning: TriangleExclamation,
-  danger: CircleXmark,
-} as const;
-
 export function AppToaster() {
   return (
     <Toast.Provider
-      // 420 over HeroUI's 460: the description is the part that wraps, and a narrower measure reads
-      // faster than a wide one. Below `sm` the region's own rule takes over at viewport width - 2rem.
-      width={420}
+      // 380 over HeroUI's 460: with the icon tile gone the text starts at the padding edge, so the
+      // same sentence needs less width to hold its measure. Below `sm` the region's own rule takes
+      // over at viewport width - 2rem.
+      width={380}
       gap={10}
       maxVisibleToasts={3}
       placement="bottom">
       {({ toast: queued }) => {
         const { actionProps, description, indicator, isLoading, title, variant = "default" } = queued.content;
         const styles = toastCard({ variant });
-        const Icon = ICONS[variant];
 
         // Only a toast that actually closes itself gets a timer bar. A pending toast is closed by its
         // own key when the answer arrives (`appToast.pending`), and drawing a bar that never drains
@@ -103,21 +89,27 @@ export function AppToaster() {
             toast={queued}
             variant={variant}
             placement="bottom">
-            <Toast.Indicator
-              variant={variant}
-              className={styles.tile()}>
-              {isLoading ? (
-                <Spinner
-                  color="current"
-                  size="sm"
-                />
-              ) : (
-                (indicator ?? <Icon className={styles.icon()} />)
-              )}
-            </Toast.Indicator>
+            {/* The ONLY thing left in the indicator slot is a spinner, and only while one is warranted:
+                a pending toast has to show that something is still running, which no border can say.
+                `indicator === null` removes the slot entirely rather than rendering an empty box, so a
+                settled toast's text starts at the padding edge. */}
+            {(isLoading || indicator) && (
+              <Toast.Indicator
+                variant={variant}
+                className="text-foreground-muted flex size-5 shrink-0 items-center justify-center p-0">
+                {isLoading ? (
+                  <Spinner
+                    color="current"
+                    size="sm"
+                  />
+                ) : (
+                  indicator
+                )}
+              </Toast.Indicator>
+            )}
 
             <Toast.Content className="flex min-w-0 flex-1 flex-col items-start gap-1">
-              {!!title && <Toast.Title className="fluid-sm text-foreground font-bold">{title}</Toast.Title>}
+              {!!title && <Toast.Title className="fluid-sm text-foreground font-semibold">{title}</Toast.Title>}
               {!!description && (
                 <Toast.Description className="fluid-xs text-foreground-muted leading-normal font-medium opacity-100">
                   {description}
@@ -131,7 +123,7 @@ export function AppToaster() {
                   // action and it is always the way out of what the toast just reported, so it takes
                   // the brand fill every other affirmative control takes — never a severity colour,
                   // which would read as "this button is the danger".
-                  className="bg-brand-solid text-brand-solid-foreground fluid-xs hover:bg-brand-solid/90 mt-1 h-9 rounded-lg px-4 font-semibold transition-colors">
+                  className="bg-brand-solid text-brand-solid-foreground fluid-xs hover:bg-brand-solid/90 mt-1 h-8 rounded-lg px-3.5 font-semibold transition-colors">
                   {actionProps.children}
                 </Toast.ActionButton>
               )}
@@ -139,10 +131,11 @@ export function AppToaster() {
 
             {/* `inset-auto` is load-bearing: HeroUI parks this control outside the shell's top-right
                 corner, and the redesign brings it back into the row. Its visibility is NOT set here —
-                see the `[data-frontmost]` note in `globals.css`. */}
+                see the `[data-frontmost]` note in `globals.css`. 28px is the smallest this may get:
+                WCAG 2.5.8 puts the floor at 24. */}
             <Toast.CloseButton
               aria-label="Benachrichtigung schließen"
-              className="text-foreground-muted hover:text-foreground hover:bg-muted relative inset-auto size-8 shrink-0 rounded-lg border-0 bg-transparent transition-colors"
+              className="text-foreground-muted hover:text-foreground hover:bg-muted relative inset-auto size-7 shrink-0 rounded-md border-0 bg-transparent transition-colors"
             />
 
             {hasTimer && (

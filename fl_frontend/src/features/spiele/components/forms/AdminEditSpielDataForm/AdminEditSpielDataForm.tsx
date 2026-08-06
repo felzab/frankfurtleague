@@ -416,6 +416,16 @@ export function AdminEditSpielDataForm({
    * somewhere to go back to".
    */
   const leavePage = () => {
+    // Blur first, and this is a correctness fix rather than tidiness. react-aria drives the brand
+    // border on a field group from its OWN state — `data-focused` / `data-focus-within`, matched by
+    // the unlayered rule in `globals.css` — and it clears that state when it sees a blur. Navigating
+    // away while a field still holds focus means the blur never happens, and the App Router keeps
+    // this tree alive for back and forward, so the attribute survives with it: reopening the same
+    // fixture restored a field still marked focused and painted it brand, on a page nobody had
+    // touched yet. Blurring here is the origin of that state rather than the place it showed up, so
+    // the CSS rule stays exactly as it is.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+
     if (window.history.length > 1) router.back();
     else router.push("/admin");
   };
