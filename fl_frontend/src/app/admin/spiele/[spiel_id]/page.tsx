@@ -28,15 +28,20 @@ import type { NextPageProps } from "@/shared/types/types";
  * season's clubs (ADR-0002).
  */
 /**
- * The page itself resolves NOTHING, and that is the shape every dynamic segment here takes.
+ * The page itself resolves NOTHING, and that is what keeps this route renderable.
  *
  * `cacheComponents` prerenders an App Shell per route, and a segment with no `generateStaticParams`
- * (ADR-0011) gets one built with FALLBACK params. Awaiting `params` — or any runtime API — at the
- * page's top level ties that shell to a single URL, which is a contradiction Next refuses. Passing the
- * `params` promise DOWN into a component inside a `<Suspense>` boundary, and awaiting everything
- * there, lets the shell be built without knowing the URL and lets the sidemenu and chrome paint while
- * the fixture is still being read. Invariant I22 in `docs/frontend/spec.md` is the rule; the other two
- * dynamic segments follow it too.
+ * gets one built with FALLBACK params. Awaiting `params` — or any runtime API — at the page's top
+ * level ties that shell to a single URL, and the two states then contradict each other: Next crashed
+ * this exact route with `Invariant: postponed state should not be provided when fallback params are
+ * provided` whenever a server action's `updateTag` revalidated it from a different route. The action's
+ * response was truncated to a few bytes, the client reported "An unexpected response was received
+ * from the server", and the route kept serving its stale payload — which is why a saved fixture still
+ * opened with its old values.
+ *
+ * The fix is the documented shape: the `params` promise is passed DOWN into a component inside a
+ * `<Suspense>` boundary, and every await happens there. Next can then build the shell without knowing
+ * the URL. Nothing about the reads below changed, only where they are awaited.
  *
  * See: https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
  */

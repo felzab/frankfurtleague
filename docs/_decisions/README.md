@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Fifty-four decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Fifty-two decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -85,7 +85,6 @@ written.
 | [0051](0051-a-voided-result-is-named-before-it-is-lost.md)                        | A voided result is named by a dry run, and undone rather than confirmed  | backend, frontend      | Accepted       | 2026-08-06 |
 | [0052](0052-a-team-is-fielded-once-per-spieltag.md)                               | A team is fielded once per Spieltag; a clash moves or is refused         | backend, frontend      | Accepted       | 2026-08-06 |
 | [0053](0053-a-toast-is-built-in-tsx-not-patched-in-css.md)                        | A toast is built in TSX, and its duration is derived from what it says   | frontend               | Accepted       | 2026-08-06 |
-| [0054](0054-the-match-editors-read-is-uncached.md)                                | The match editor's read is uncached, so no revalidation re-renders it    | frontend               | Accepted       | 2026-08-06 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.

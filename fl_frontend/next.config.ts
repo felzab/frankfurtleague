@@ -52,7 +52,16 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["@heroui/react", "@gravity-ui/icons"],
   },
   output: "standalone",
+  // **These two are a pair, and running the first without the second is a misconfiguration.** Next's
+  // own guide states the split: Cache Components produces the App Shell — the generic part of a route
+  // that does not depend on URL data — and Partial Prefetching is what upgrades that shell to a full
+  // route once the params are known. Omitting `partialPrefetching` is documented as doing nothing at
+  // all ("the legacy behavior, where dynamic data is included in the prefetch"), which leaves the
+  // three dynamic segments here serving a shell that nothing ever upgrades. It requires
+  // `cacheComponents`, and the build refuses the combination the other way round.
+  // https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
   cacheComponents: true,
+  partialPrefetching: true,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written (ADR-0020).
 };
