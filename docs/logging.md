@@ -166,6 +166,7 @@ Frontend codes (`fl_frontend/src/core/errors.ts`, plus the call sites named):
 | `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes)            |
 | `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`     |
 | `FE-ACT-001`    | A server action threw something that is not a typed API error (`shared/utils/serverAction.ts`)         |
+| `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write (ADR-0051)   |
 | `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                     |
 | `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                      |
 | `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`src/app/api/client-error/route.ts`)           |

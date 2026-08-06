@@ -560,23 +560,38 @@ export function AdminEditSpielDataForm({
           // with `toast.clear()`, which would also take down any toast this page did not raise.
           const pendingKey = toast("Änderung wird zurückgenommen...", { isLoading: true });
 
-          void undoAdminSpielEditAction(payloads, spielData.saison_id)
-            .then((result) => {
+          // The TWO-ARGUMENT form, and that is the fix rather than a style choice. A trailing
+          // `.catch` also catches anything the SUCCESS handler throws, so a restore that had already
+          // committed reported itself as "could not be sent" — the transport blamed for a failure
+          // downstream of it. A rejection handler passed here runs only for the action call.
+          void undoAdminSpielEditAction(payloads, spielData.saison_id).then(
+            (result) => {
               toast.close(pendingKey);
               if (!result.success) {
                 toast.danger(result.error || "Die Rücknahme ist fehlgeschlagen.", { timeout: 8000 });
                 return;
               }
 
-              // The write is committed and every tag is expired; this is what makes the page the
-              // admin is looking at show it.
-              router.refresh();
+              // Reported BEFORE the refresh, because at this point the restore is committed and
+              // nothing below can change that.
               toast.success(result.message || "Die Änderung wurde zurückgenommen.", { timeout: 6000 });
-            })
-            .catch(() => {
+
+              // Best-effort, and deliberately not allowed to fail the undo. This closure's component
+              // is unmounted, so the router's revalidation of the action never reaches the view and
+              // this is what re-renders it — but a refresh that cannot run costs a stale screen until
+              // the next navigation, never the restore itself.
+              try {
+                router.refresh();
+              } catch (refreshError) {
+                console.warn("Undo committed, refresh failed", refreshError);
+              }
+            },
+            (dispatchError) => {
               toast.close(pendingKey);
+              console.warn("Undo dispatch failed", dispatchError);
               toast.danger("Die Rücknahme konnte nicht gesendet werden. Bitte prüfe das Spiel.", { timeout: 8000 });
-            });
+            },
+          );
         },
       },
     });

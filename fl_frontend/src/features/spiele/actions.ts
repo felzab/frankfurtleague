@@ -36,6 +36,7 @@ import { updateTag } from "next/cache";
 import z from "zod";
 
 import { getAdminSession } from "@/core/auth";
+import { logger } from "@/core/logging";
 import { runAdminAction } from "@/shared/utils/serverAction";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -188,13 +189,24 @@ export async function undoAdminSpielEditAction(rawPayloads: unknown, rawSaisonId
     }
 
     // Identical to the save's invalidation, and for the identical reason: an undo is a write.
-    updateTag("spiele");
-    updateTag("teams");
+    //
+    // Guarded, which the save does not need to be. Every fixture above is already committed by the
+    // time this runs, so an invalidation that throws must not turn a restore that HAPPENED into a
+    // reported failure — the admin would go looking for work that was already done. It is the same
+    // rule this module already applies to a failed season-id parse, one line down: an admin's work is
+    // never rejected over a cache concern. The cost of swallowing it is a stale read, and the caller
+    // refreshes the router itself.
+    try {
+      updateTag("spiele");
+      updateTag("teams");
 
-    const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
-    if (saisonId.success) {
-      updateTag(`spiele:saison_id:${saisonId.data}`);
-      updateTag(`teams:saison_id:${saisonId.data}`);
+      const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
+      if (saisonId.success) {
+        updateTag(`spiele:saison_id:${saisonId.data}`);
+        updateTag(`teams:saison_id:${saisonId.data}`);
+      }
+    } catch (invalidationError) {
+      logger.warn("Undo committed but cache invalidation failed", { error_code: "FE-ACT-002", error: String(invalidationError) });
     }
 
     return { success: true, message: "Die Änderung wurde zurückgenommen." };
