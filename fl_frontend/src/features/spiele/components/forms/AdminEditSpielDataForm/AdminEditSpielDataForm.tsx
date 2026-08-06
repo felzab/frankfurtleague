@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
@@ -68,6 +68,7 @@ export function AdminEditSpielDataForm({
   saisonSpiele,
   today,
   categorize,
+  registerRequestLeave,
 }: {
   spielData: FLSpiel;
   teams: FLTeam[];
@@ -75,6 +76,15 @@ export function AdminEditSpielDataForm({
   schiedsrichter: FLSchiedsrichter[];
   saisonSpiele: FLSpiel[];
   today: string;
+  /**
+   * Hands the caller the form's own "leave, asking first" routine, so an exit control rendered ABOVE
+   * this form — the view's Zurück pill — routes through the discard guard exactly as Abbrechen does.
+   * Without it the pill called `router.back()` directly, and the one control whose reason to exist is
+   * being guarded (see the settled note on the header pill) was the one exit that skipped the guard.
+   * A register-callback rather than a context, because exactly one caller exists and it sits one
+   * level up; re-registered every render so the latest closure is always the one invoked.
+   */
+  registerRequestLeave?: (requestLeave: () => void) => void;
   /**
    * Which action-required categories a fixture falls into, supplied by the aggregator view.
    *
@@ -122,6 +132,14 @@ export function AdminEditSpielDataForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
 
+  // Latched when a confirmed discard leaves the page, and it UNMOUNTS the dialog rather than closing
+  // it. Closing animates: `isOpen={false}` keeps the overlay mounted through its exit transition, and
+  // `router.back()` in the same tick froze the tree mid-exit — the App Router keeps the tree alive for
+  // back/forward, so returning to the fixture resumed a half-finished exit animation and the dialog
+  // flashed back in over a page whose draft was already gone. Unmounted, there is nothing to resume.
+  // `requestLeave` resets it, so the dialog still opens on the next visit's own unsaved changes.
+  const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
+
   // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
   const {
     fieldErrors: serverFieldErrors,
@@ -165,6 +183,28 @@ export function AdminEditSpielDataForm({
 
   useUnsavedChangesWarning(isDirty);
 
+  // Ctrl+S / Cmd+S submits the form — the shortcut every editor an admin also uses has taught their
+  // hands, intercepted so the browser's "save this page as HTML" dialog cannot appear over a form.
+  // `requestSubmit`, not a handler call: it runs the same native validation and `action` path as the
+  // Speichern button, so the shortcut cannot become a second submit route that drifts. Read through a
+  // ref for the same reason `useUnsavedChangesWarning` reads one — re-listening on every keystroke
+  // that flips a flag is churn on a global listener.
+  const canSubmitRef = useRef(true);
+  useEffect(() => {
+    canSubmitRef.current = !isPending && !isConfirmingDiscard;
+  });
+  useEffect(() => {
+    const handleSaveShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (canSubmitRef.current) formRef.current?.requestSubmit();
+      }
+    };
+
+    window.addEventListener("keydown", handleSaveShortcut);
+    return () => window.removeEventListener("keydown", handleSaveShortcut);
+  }, [formRef]);
+
   // The fixtures whose occupants this one's result decides (ADR-0048). Read off the STORED sides: what
   // is already wired is what a save resolves, and a group is a property of the clubs in the fixture
   // rather than of the fixture document (ADR-0028).
@@ -201,14 +241,35 @@ export function AdminEditSpielDataForm({
   const validateSelection = (paths: readonly string[], selected: Partial<FLPatchSpielDataPayload>) =>
     validatePaths({ ...buildPayload(), ...selected }, paths);
 
-  /** Leave, but ask first if there is anything to lose. The one route out that this page controls. */
+  /**
+   * Where "leave" goes: back where there is a back, and the admin start page where there is none.
+   *
+   * `router.back()` on a cold deep link — a bookmark, a pasted URL, a fresh tab — is a silent no-op,
+   * which would leave every exit on this page dead. `history.length` is the only signal the platform
+   * offers (Next exposes no history introspection); a fresh tab is 1, so `> 1` is exactly "there is
+   * somewhere to go back to".
+   */
+  const leavePage = () => {
+    if (window.history.length > 1) router.back();
+    else router.push("/admin");
+  };
+
+  /** Leave, but ask first if there is anything to lose. Both routes out of this page — Abbrechen and
+   * the view's Zurück pill — come through here. */
   const requestLeave = () => {
     if (isDirty) {
+      setHasLeftViaDiscard(false);
       setIsConfirmingDiscard(true);
       return;
     }
-    router.back();
+    leavePage();
   };
+
+  // Unconditional, so the registered closure never goes stale — the same pattern the guard hooks use
+  // for their refs.
+  useEffect(() => {
+    registerRequestLeave?.(requestLeave);
+  });
 
   /**
    * Puts every field back to what is stored, then leaves.
@@ -240,7 +301,8 @@ export function AdminEditSpielDataForm({
     setFieldErrors({});
     clearVerdicts();
     setIsConfirmingDiscard(false);
-    router.back();
+    setHasLeftViaDiscard(true);
+    leavePage();
   };
 
   const handleFormSubmit = () => {
@@ -263,7 +325,7 @@ export function AdminEditSpielDataForm({
       clearVerdicts();
       setHasSaved(true);
       toast.success(res.message || "Die Spieldaten wurden erfolgreich aktualisiert.", { timeout: 6000 });
-      router.back();
+      leavePage();
     });
   };
 
@@ -335,6 +397,7 @@ export function AdminEditSpielDataForm({
               spielData={spielData}
               spielIsCanceled={spielIsCanceled}
               onSpielIsCanceledChange={setSpielIsCanceled}
+              dependentSpiele={dependentSpiele}
             />
           </div>
         </div>
@@ -345,12 +408,16 @@ export function AdminEditSpielDataForm({
         />
       </Form>
 
-      <ConfirmDiscardModal
-        isOpen={isConfirmingDiscard}
-        onClose={() => setIsConfirmingDiscard(false)}
-        onDiscard={discardAndLeave}
-        changeCount={status.changed.length}
-      />
+      {/* Unmounted — not merely closed — once a discard has left the page; see `hasLeftViaDiscard`.
+          The "Weiter bearbeiten" path stays mounted so it keeps its exit animation. */}
+      {!hasLeftViaDiscard && (
+        <ConfirmDiscardModal
+          isOpen={isConfirmingDiscard}
+          onClose={() => setIsConfirmingDiscard(false)}
+          onDiscard={discardAndLeave}
+          changeCount={status.changed.length}
+        />
+      )}
     </DraftStatusProvider>
   );
 }

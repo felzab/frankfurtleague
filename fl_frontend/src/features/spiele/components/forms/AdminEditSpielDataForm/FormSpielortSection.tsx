@@ -1,7 +1,7 @@
 import { FieldError, NumberField } from "@heroui/react";
 
 import { AdminCreateSpielortForm } from "@/features/spielorte/components/forms/AdminCreateSpielortForm";
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 import { FieldLabel } from "./FieldLabel";
@@ -95,9 +95,9 @@ export function FormSpielortSection({
           style: "currency",
         }}>
         <FieldLabel path="ort.mietpreis">Mietpreis</FieldLabel>
-        <NumberField.Group className="border-border bg-surface text-foreground rounded-lg border transition-colors">
+        <NumberField.Group className={FIELD_GROUP}>
           <NumberField.DecrementButton />
-          <NumberField.Input className="fluid-sm w-full py-0" />
+          <NumberField.Input className={FIELD_COUNT_INPUT} />
           <NumberField.IncrementButton />
         </NumberField.Group>
         <FieldError className={FIELD_ERROR} />

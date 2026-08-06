@@ -1,7 +1,8 @@
 import { FieldError, NumberField, Separator, Switch } from "@heroui/react";
 
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { formatQuelle } from "../../../utils";
@@ -15,9 +16,6 @@ const TORE_PATHS = ["team1.tore", "team2.tore"] as const;
 
 /** Both shoot-out paths, because the level-shoot-out rule reports on the second count either way. */
 const ELFMETER_PATHS = ["elfmeterschiessen.team1", "elfmeterschiessen.team2"] as const;
-
-/** The stepper chrome, spelled once for four identical count fields. */
-const COUNT_GROUP = "border-border bg-surface text-foreground rounded-lg border";
 
 /**
  * How the fixture went: the goals, the shoot-out where one applies, and the outcome in words.
@@ -140,8 +138,13 @@ export function FormErgebnisSection({
       className={styles.root()}
       onKeyDownCapture={suppressEnterSubmit}>
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>Ergebnis</h2>
-        <p className={styles.hint()}>Wie das Spiel ausgegangen ist.</p>
+        <div className={styles.headingRow()}>
+          <h2 className={styles.heading()}>Ergebnis</h2>
+          <InfoHint label="Hinweis zum Ergebnis">
+            Die Tore beider Seiten. Ausschalten setzt auf den gespeicherten Stand zurück. Endet ein K.-o.-Spiel unentschieden, entscheidet ein
+            Elfmeterschießen: sein Sieger rückt im Turnierbaum weiter, für die Tabelle bleibt es ein Unentschieden.
+          </InfoHint>
+        </div>
       </div>
 
       <div className={styles.body()}>
@@ -150,7 +153,7 @@ export function FormErgebnisSection({
             copy of itself. */}
         <div className="flex w-full flex-col gap-y-1.5">
           <Switch
-            aria-describedby="ergebnis-eintragen-hint"
+            aria-describedby={bothSidesResolved ? undefined : "ergebnis-eintragen-hint"}
             isDisabled={!bothSidesResolved}
             isSelected={ergebnisCanBeEdited}
             onChange={handleErgebnisCanBeEditedToggle}>
@@ -162,12 +165,16 @@ export function FormErgebnisSection({
             </Switch.Content>
           </Switch>
           {/* Outside the `Switch`, which renders a `<label>`: as a child, this paragraph toggled the
-              switch on any click. `aria-describedby` keeps the wiring `Description` provided. */}
-          <p
-            id="ergebnis-eintragen-hint"
-            className="fluid-xxs text-foreground-muted leading-normal font-medium">
-            {bothSidesResolved ? "Ausschalten setzt das Ergebnis auf den gespeicherten Stand zurück." : "Erst wenn beide Seiten feststehen."}
-          </p>
+              switch on any click. Only the disabled state keeps a sentence — it explains a control
+              that refuses input, which has to be answered in place; what switching off does moved to
+              the panel's InfoHint (ADR-0050). */}
+          {!bothSidesResolved && (
+            <p
+              id="ergebnis-eintragen-hint"
+              className="fluid-xxs text-foreground-muted leading-normal font-medium">
+              Erst wenn beide Seiten feststehen.
+            </p>
+          )}
         </div>
 
         {/* Side by side from `sm` up: the two counts are one answer. Stacked on a phone, where two
@@ -191,9 +198,9 @@ export function FormErgebnisSection({
               {/* The team's own name and nothing else — the panel title already says these are goals,
                   and a fixture is edited by somebody reading names rather than slot numbers. */}
               <FieldLabel path={`${slot}.tore`}>{name}</FieldLabel>
-              <NumberField.Group className={COUNT_GROUP}>
+              <NumberField.Group className={FIELD_GROUP}>
                 <NumberField.DecrementButton />
-                <NumberField.Input className="w-full" />
+                <NumberField.Input className={FIELD_COUNT_INPUT} />
                 <NumberField.IncrementButton />
               </NumberField.Group>
               <FieldError className={FIELD_ERROR} />
@@ -206,24 +213,18 @@ export function FormErgebnisSection({
           <div className="flex w-full flex-col gap-y-4">
             <Separator className="bg-border" />
 
-            <div className="flex w-full flex-col gap-y-1.5">
-              <Switch
-                aria-describedby="elfmeterschiessen-hint"
-                isSelected={elfmeterschiessen !== null}
-                onChange={handleElfmeterschiessenToggle}>
-                <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
-                  Im Elfmeterschießen entschieden
-                  <Switch.Control>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                </Switch.Content>
-              </Switch>
-              <p
-                id="elfmeterschiessen-hint"
-                className="fluid-xxs text-foreground-muted leading-normal font-medium">
-                Der Sieger rückt im Turnierbaum weiter. Für die Tabelle bleibt es ein Unentschieden.
-              </p>
-            </div>
+            {/* No hint sentence under this switch: what a shoot-out means for the bracket and the
+                table is the panel InfoHint's, and the outcome line below announces the winner live. */}
+            <Switch
+              isSelected={elfmeterschiessen !== null}
+              onChange={handleElfmeterschiessenToggle}>
+              <Switch.Content className="fluid-sm text-foreground flex h-fit w-fit flex-row items-center gap-x-3 font-bold">
+                Im Elfmeterschießen entschieden
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch.Content>
+            </Switch>
 
             {elfmeterschiessen !== null && (
               <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
@@ -241,9 +242,9 @@ export function FormErgebnisSection({
                     onChange={handleElfmeterChange(slot)}
                     onBlur={() => onValidateFields(ELFMETER_PATHS)}>
                     <FieldLabel path={`elfmeterschiessen.${slot}`}>{name} — Treffer</FieldLabel>
-                    <NumberField.Group className={COUNT_GROUP}>
+                    <NumberField.Group className={FIELD_GROUP}>
                       <NumberField.DecrementButton />
-                      <NumberField.Input className="w-full" />
+                      <NumberField.Input className={FIELD_COUNT_INPUT} />
                       <NumberField.IncrementButton />
                     </NumberField.Group>
                     <FieldError className={FIELD_ERROR} />

@@ -105,12 +105,20 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
   };
 }
 
+/**
+ * The panel a field renders in, carried on the descriptor so surfaces that group by panel — the
+ * change list — read it from the table instead of keeping a second path→panel mapping to drift.
+ */
+export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Absage";
+
 /** What the page knows about one editable field right now. */
 export type FLSpielFieldStatus = {
   /** Dotted payload path; also the input's `name`, the `FieldErrors` key and the anchor id. */
   path: string;
   /** German, sentence case. Used in the change list and the open-items list, not as the field's label. */
   label: string;
+  /** The panel the field renders in — the change list's section heading. */
+  group: FLSpielFieldGroup;
   /** The draft differs from what is stored. */
   isChanged: boolean;
   /** Empty, and an action-required category says somebody is waiting on it. */
@@ -142,6 +150,7 @@ export type FLSpielDraftStatus = {
 type FieldDescriptor<TValue> = {
   path: string;
   label: string;
+  group: FLSpielFieldGroup;
   expectedWhen: ActionRequiredCategory | null;
   read: (source: FLSpielDraftFields) => TValue;
   equals?: (a: TValue, b: TValue) => boolean;
@@ -161,6 +170,7 @@ type FieldDescriptor<TValue> = {
 type ErasedFieldDescriptor = {
   path: string;
   label: string;
+  group: FLSpielFieldGroup;
   expectedWhen: ActionRequiredCategory | null;
   hasChanged: (stored: FLSpielDraftFields, draft: FLSpielDraftFields) => boolean;
   format: (source: FLSpielDraftFields) => string | null;
@@ -174,6 +184,7 @@ const describeField = <TValue>(descriptor: FieldDescriptor<TValue>): ErasedField
   return {
     path: descriptor.path,
     label: descriptor.label,
+    group: descriptor.group,
     expectedWhen: descriptor.expectedWhen,
     hasChanged: (stored, draft) => !equals(descriptor.read(stored), descriptor.read(draft)),
     format: (source) => descriptor.format(descriptor.read(source)),
@@ -223,6 +234,7 @@ const sameCount = (a: number | null, b: number | null): boolean => {
 const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   describeField({
     path: "datum",
+    group: "Ansetzung",
     label: "Datum",
     expectedWhen: "datum_missing",
     read: (source) => source.datum,
@@ -230,6 +242,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "uhrzeit",
+    group: "Ansetzung",
     label: "Anpfiff",
     expectedWhen: "uhrzeit_missing",
     read: (source) => source.uhrzeit,
@@ -237,6 +250,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "ort.spielort_id",
+    group: "Ansetzung",
     label: "Spielort",
     expectedWhen: "ort_missing",
     read: (source) => source.ort,
@@ -245,6 +259,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "ort.mietpreis",
+    group: "Ansetzung",
     label: "Mietpreis",
     expectedWhen: null,
     read: (source) => source.ort?.mietpreis ?? null,
@@ -253,6 +268,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "schiedsrichter.schiedsrichter_id",
+    group: "Ansetzung",
     label: "Schiedsrichter",
     expectedWhen: "schiedsrichter_missing",
     read: (source) => source.schiedsrichter,
@@ -262,6 +278,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "schiedsrichter.payment",
+    group: "Ansetzung",
     label: "Entschädigung",
     expectedWhen: null,
     read: (source) => source.schiedsrichter?.payment ?? null,
@@ -270,6 +287,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "team1_quelle",
+    group: "Begegnung",
     label: "Herkunft Team 1",
     expectedWhen: "besetzung_missing",
     read: (source) => source.team1_quelle,
@@ -280,6 +298,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "team1.team_id",
+    group: "Begegnung",
     label: "Team 1",
     expectedWhen: null,
     read: (source) => source.team1,
@@ -288,6 +307,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "team2_quelle",
+    group: "Begegnung",
     label: "Herkunft Team 2",
     expectedWhen: "besetzung_missing",
     read: (source) => source.team2_quelle,
@@ -298,6 +318,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "team2.team_id",
+    group: "Begegnung",
     label: "Team 2",
     expectedWhen: null,
     read: (source) => source.team2,
@@ -306,6 +327,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "team1.tore",
+    group: "Ergebnis",
     label: "Tore Team 1",
     expectedWhen: "ergebnis_pending",
     read: (source) => source.team1?.tore ?? null,
@@ -314,6 +336,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "team2.tore",
+    group: "Ergebnis",
     label: "Tore Team 2",
     expectedWhen: "ergebnis_pending",
     read: (source) => source.team2?.tore ?? null,
@@ -322,6 +345,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "elfmeterschiessen.team1",
+    group: "Ergebnis",
     label: "Elfmeter Team 1",
     expectedWhen: null,
     read: (source) => source.elfmeterschiessen?.team1 ?? null,
@@ -330,6 +354,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "elfmeterschiessen.team2",
+    group: "Ergebnis",
     label: "Elfmeter Team 2",
     expectedWhen: null,
     read: (source) => source.elfmeterschiessen?.team2 ?? null,
@@ -338,6 +363,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
   }),
   describeField({
     path: "is_canceled",
+    group: "Absage",
     label: "Absage",
     expectedWhen: null,
     read: (source) => source.is_canceled,
@@ -384,6 +410,7 @@ export function deriveSpielDraftStatus({
     return {
       path: descriptor.path,
       label: descriptor.label,
+      group: descriptor.group,
       isChanged: descriptor.hasChanged(stored, draft),
       isExpected: descriptor.expectedWhen !== null && expectedCategories.has(descriptor.expectedWhen) && isEmptyNow,
       error,

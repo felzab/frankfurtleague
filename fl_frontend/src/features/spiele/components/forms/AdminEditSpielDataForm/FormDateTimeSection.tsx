@@ -1,12 +1,38 @@
+import { Xmark } from "@gravity-ui/icons";
+
 import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
 
-import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { FieldLabel } from "./FieldLabel";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { CalendarDate, Time } from "@internationalized/date";
+
+/**
+ * The one clear affordance for the two segmented fields.
+ *
+ * It exists because a segmented field has no other way back to empty: react-aria clears one segment
+ * per Backspace, so "kein Termin mehr" — a legitimate value, the stored `null` the pickers render as
+ * TBD — used to cost six keystrokes and the knowledge that it was possible at all. Rendered only
+ * while there is something to clear, exactly like the pickers' own clear buttons.
+ *
+ * A plain button rather than a react-aria one: it lives inside the group whose focus styling is
+ * keyed off `:focus-within` in `globals.css`, and a `Button` would add press/hover state machinery
+ * for what is a single synchronous state reset.
+ */
+function ClearFieldButton({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClear}
+      className="text-foreground-muted hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors">
+      <Xmark className="size-4" />
+    </button>
+  );
+}
 
 /**
  * Date and time of the fixture.
@@ -51,7 +77,7 @@ export function FormDateTimeSection({
         <FieldLabel path="datum">Spieldatum</FieldLabel>
         <DateField.Group
           fullWidth
-          className="border-border bg-surface text-foreground rounded-lg border">
+          className={FIELD_GROUP}>
           {/* HeroUI styles literal segments (the "." and ":") with `text-muted`, which is a
               *background* token -- about 1.1:1 against the field surface, so the separators were
               effectively invisible. `data-type` comes from react-aria on every segment. */}
@@ -64,6 +90,12 @@ export function FormDateTimeSection({
             )}
           </DateField.Input>
           <DateField.Suffix>
+            {datum !== null && (
+              <ClearFieldButton
+                label="Datum entfernen"
+                onClear={() => onDatumChange(null)}
+              />
+            )}
             <DatePicker.Trigger>
               <DatePicker.TriggerIndicator />
             </DatePicker.Trigger>
@@ -102,8 +134,8 @@ export function FormDateTimeSection({
         onChange={onUhrzeitChange}
         onBlur={() => onValidateFields(["uhrzeit"])}>
         <FieldLabel path="uhrzeit">Anpfiff</FieldLabel>
-        <TimeField.Group className="border-border bg-surface text-foreground rounded-lg border">
-          <TimeField.Input className="fluid-sm">
+        <TimeField.Group className={FIELD_GROUP}>
+          <TimeField.Input className="fluid-sm w-full">
             {(segment) => (
               <TimeField.Segment
                 segment={segment}
@@ -111,6 +143,12 @@ export function FormDateTimeSection({
               />
             )}
           </TimeField.Input>
+          {uhrzeit !== null && (
+            <ClearFieldButton
+              label="Uhrzeit entfernen"
+              onClear={() => onUhrzeitChange(null)}
+            />
+          )}
         </TimeField.Group>
         <FieldError className={FIELD_ERROR} />
       </TimeField>

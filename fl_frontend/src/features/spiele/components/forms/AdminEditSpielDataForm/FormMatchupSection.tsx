@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Separator } from "@heroui/react";
 
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 
 import { collectUsedQuelleKeys } from "../../../utils";
 import { FormTeamPicker } from "./FormTeamPicker";
@@ -69,11 +70,18 @@ export function FormMatchupSection({
     <section
       className={styles.root()}
       onKeyDownCapture={suppressEnterSubmit}>
+      {/* This InfoHint is where the team-source vocabulary is explained — it used to be spread over a
+          `Description` per control, which is the "too much text" the owner reported. The fields keep
+          only what is needed while filling them in. */}
       <div className={styles.header()}>
-        <h2 className={styles.heading()}>Begegnung</h2>
-        <p className={styles.hint()}>
-          {isKnockout ? "Woher jede Seite kommt — und wer dadurch antritt." : "Welche beiden Mannschaften hier aufeinandertreffen."}
-        </p>
+        <div className={styles.headingRow()}>
+          <h2 className={styles.heading()}>Begegnung</h2>
+          <InfoHint label="Hinweis zur Begegnung">
+            {isKnockout
+              ? "Jede Seite hat eine Herkunft. „Sieger/Verlierer eines Spiels“ folgt dem Ausgang einer früheren Runde, „Platz in einer Gruppe“ der Abschlusstabelle — beides pflegt das System automatisch. „Manuell gesetzt“ bleibt stehen, wie Du es einträgst. Wählbar sind nur frühere Runden, deren Ausgang noch kein anderes Spiel belegt."
+              : "Welche beiden Mannschaften aufeinandertreffen. Disqualifizierte Teams bleiben sichtbar, sind aber gesperrt."}
+          </InfoHint>
+        </div>
       </div>
 
       <div className={styles.body()}>

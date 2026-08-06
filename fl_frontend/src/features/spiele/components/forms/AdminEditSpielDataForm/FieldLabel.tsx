@@ -10,8 +10,16 @@ import { useFieldStatus } from "./DraftStatusContext";
 
 import type { ReactNode } from "react";
 
-/** Both markers, so the two read as one family rather than as two ideas. */
-const MARKER = "fluid-xxs inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-extrabold tracking-wide uppercase";
+/**
+ * Both markers, so the two read as one family rather than as two ideas.
+ *
+ * **An icon in a small tinted disc, not a worded chip.** The previous recipe — icon plus uppercase
+ * word plus padding — outweighed the field label it sat beside, twice per line at its worst (owner,
+ * third review). The meaning survives the diet because the two icons differ in SHAPE, not only in
+ * colour: a dashed circle for "still empty", a pencil for "edited". The word still exists for every
+ * non-visual reader (`sr-only`) and for anyone hovering (`title`).
+ */
+const MARKER = "inline-flex size-5 shrink-0 items-center justify-center rounded-full";
 
 /**
  * A field's label, plus what the page knows about that field.
@@ -22,9 +30,10 @@ const MARKER = "fluid-xxs inline-flex items-center gap-1 rounded-md px-1.5 py-0.
  *
  * Three things it adds, each answering a question the owner asked:
  *
- * - **"Fehlt"** — a field that is empty while an action-required category waits on it. It carries an
- *   icon as well as a word, because a colour alone is not a distinction for every reader, and it
- *   disappears the moment the field is filled rather than waiting for a save.
+ * - **"Fehlt"** — a field that is empty while an action-required category waits on it. Its icon
+ *   differs from the edited marker's in shape, not only in colour, so the two are distinct for every
+ *   sighted reader; the word itself is `sr-only`. It disappears the moment the field is filled
+ *   rather than waiting for a save.
  * - **"Geändert"** — the draft differs from what is stored.
  * - **`vorher: …`** — the stored value, struck through, under a changed field. This is the answer to
  *   glancing at the date and not knowing whether you are looking at the old one: the old one is
@@ -46,16 +55,20 @@ export function FieldLabel({ path, children }: { path: string; children: ReactNo
         <Label className={FIELD_LABEL}>{children}</Label>
 
         {status?.isExpected && (
-          <span className={`${MARKER} bg-warning/15 text-warning-strong`}>
+          <span
+            title="Fehlt"
+            className={`${MARKER} bg-warning/15 text-warning-strong`}>
             <CircleDashed className="size-3" />
-            Fehlt
+            <span className="sr-only">Fehlt</span>
           </span>
         )}
 
         {status?.isChanged && (
-          <span className={`${MARKER} bg-brand/15 text-brand-solid`}>
+          <span
+            title="Geändert"
+            className={`${MARKER} bg-brand/15 text-brand-solid`}>
             <PencilToLine className="size-3" />
-            Geändert
+            <span className="sr-only">Geändert</span>
           </span>
         )}
       </div>

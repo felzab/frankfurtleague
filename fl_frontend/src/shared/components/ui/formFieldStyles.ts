@@ -35,14 +35,18 @@ export const FIELD_HEIGHT = "h-10";
 export const FIELD_INPUT = `border-border bg-surface text-foreground fluid-sm ${FIELD_HEIGHT} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
 
 /**
- * A number field's stepper chrome — the same border, background and height as every other field.
+ * A composite field's group chrome — the number field's stepper group and the date and time groups —
+ * with the same border, background and height as every other field.
  *
- * HeroUI lays the group out as `grid-template-columns: 40px 1fr 40px`, so the two buttons are fixed and
- * only the input flexes; all this adds is the app's own surface and the shared height.
+ * HeroUI sizes these groups itself (`h-9` on `.number-field__group`, padding-derived on the date
+ * groups), which is exactly the 4px step this constant removes: every site that hand-rolled
+ * `border-border bg-surface … border` without the height token rendered 36px next to a 40px trigger.
+ * The number field's group is a `grid-template-columns: 40px 1fr 40px`, so the two buttons are fixed
+ * and only the input flexes; all this adds is the app's own surface and the shared height.
  */
-export const FIELD_COUNT_GROUP = `border-border bg-surface text-foreground ${FIELD_HEIGHT} rounded-lg border transition-colors`;
+export const FIELD_GROUP = `border-border bg-surface text-foreground ${FIELD_HEIGHT} rounded-lg border transition-colors`;
 
-/** The input inside that group. `w-full` because the grid's middle track is what sizes it. */
+/** The input inside a number field's group. `w-full` because the grid's middle track sizes it. */
 export const FIELD_COUNT_INPUT = "fluid-sm w-full";
 
 /**

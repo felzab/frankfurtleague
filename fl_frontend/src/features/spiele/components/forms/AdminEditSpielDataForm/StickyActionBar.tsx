@@ -29,11 +29,16 @@ export function StickyActionBar({ isPending, onCancel }: { isPending: boolean; o
   const status = useDraftStatus();
 
   return (
-    <div className="bg-background/85 border-border sticky bottom-0 -mx-4 flex flex-row flex-wrap items-center gap-3 border-t px-4 py-3 backdrop-blur-sm sm:-mx-8 sm:px-8">
+    /* Two rows on a phone, one from `sm` up — never `flex-wrap`. Wrapping is what the owner saw:
+       whichever button no longer fit dropped alone onto a second row, bottom-left under the status
+       text while its sibling stayed top-right. The narrow layout is the platform convention instead —
+       status on its own line, then both actions side by side at equal width, Speichern in the
+       thumb-side position. */
+    <div className="bg-background/85 border-border sticky bottom-0 -mx-4 flex flex-col gap-3 border-t px-4 py-3 backdrop-blur-sm sm:-mx-8 sm:flex-row sm:items-center sm:px-8">
       <p
         role="status"
         aria-live="polite"
-        className="fluid-xs mr-auto font-bold">
+        className="fluid-xs font-bold sm:mr-auto">
         {status.isDirty ? (
           <span className="text-warning-strong">
             {status.changed.length === 1 ? "1 nicht gespeicherte Änderung" : `${status.changed.length} nicht gespeicherte Änderungen`}
@@ -49,21 +54,25 @@ export function StickyActionBar({ isPending, onCancel }: { isPending: boolean; o
         )}
       </p>
 
-      <Button
-        type="button"
-        variant="secondary"
-        onPress={onCancel}
-        isDisabled={isPending}
-        className={formButton({ intent: "cancel" })}>
-        Abbrechen
-      </Button>
-      <Button
-        type="submit"
-        variant="primary"
-        isDisabled={isPending}
-        className={formButton({ intent: "submit" })}>
-        {isPending ? "Speichert..." : "Speichern"}
-      </Button>
+      <div className="flex w-full flex-row gap-3 sm:w-auto">
+        <Button
+          type="button"
+          variant="secondary"
+          onPress={onCancel}
+          isDisabled={isPending}
+          className={`${formButton({ intent: "cancel" })} flex-1 sm:flex-initial`}>
+          Abbrechen
+        </Button>
+        {/* Strg+S submits too — the form owns that listener; HeroUI's Button surfaces no `title`
+            passthrough, so the shortcut is not advertised here. */}
+        <Button
+          type="submit"
+          variant="primary"
+          isDisabled={isPending}
+          className={`${formButton({ intent: "submit" })} flex-1 sm:flex-initial`}>
+          {isPending ? "Speichert..." : "Speichern"}
+        </Button>
+      </div>
     </div>
   );
 }

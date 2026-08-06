@@ -110,10 +110,12 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
         <Autocomplete.Trigger className={FIELD_TRIGGER}>
           <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
           {/* HeroUI hardcodes aria-label="Clear selection" on this button and spreads props after it,
-              so passing one is the only way to germanise it. */}
+              so passing one is the only way to germanise it. `size-7` matches the team pickers': the
+              default 20px target was the smallest control on the page. */}
           <Autocomplete.ClearButton
             type="button"
             aria-label={`${label}-Auswahl aufheben`}
+            className="hover:bg-muted hover:text-foreground size-7 rounded-md"
           />
           <Autocomplete.Indicator />
         </Autocomplete.Trigger>

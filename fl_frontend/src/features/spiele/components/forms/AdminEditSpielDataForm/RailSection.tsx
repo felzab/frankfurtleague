@@ -28,12 +28,20 @@ import type { ReactNode } from "react";
 export function RailSection({
   title,
   badge,
+  info,
   defaultOpenOnMobile = true,
   children,
 }: {
   title: string;
   /** Rendered between the title and the chevron — a count, usually. Visible while collapsed. */
   badge?: ReactNode;
+  /**
+   * An `InfoHint` for the card, rendered BESIDE the fold button rather than inside it: the whole
+   * header is a `<button>`, and a popover trigger nested in a button is two interactive elements in
+   * one — the trap `TeamPopoverMenu` documents. Sitting after the chevron keeps the fold button's
+   * full-width press target intact.
+   */
+  info?: ReactNode;
   /**
    * Whether this card starts open on a narrow screen. Desktop always starts open.
    *
@@ -54,16 +62,19 @@ export function RailSection({
 
   return (
     <section className={`${card()} flex w-full flex-col`}>
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        aria-controls={contentId}
-        onClick={() => setIsOpen((open) => !open)}
-        className="hover:bg-muted/40 flex w-full flex-row items-center gap-x-2 rounded-2xl px-4 py-3 text-left transition-colors">
-        <h2 className="fluid-base text-foreground mr-auto font-extrabold tracking-tight">{title}</h2>
-        {badge}
-        <ChevronDown className={`text-foreground-muted size-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-      </button>
+      <div className="flex w-full flex-row items-center">
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          aria-controls={contentId}
+          onClick={() => setIsOpen((open) => !open)}
+          className="hover:bg-muted/40 flex min-w-0 flex-1 flex-row items-center gap-x-2 rounded-2xl px-4 py-3 text-left transition-colors">
+          <h2 className="fluid-base text-foreground mr-auto font-extrabold tracking-tight">{title}</h2>
+          {badge}
+          <ChevronDown className={`text-foreground-muted size-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+        </button>
+        {info && <div className="pe-3">{info}</div>}
+      </div>
 
       {isOpen && (
         <div

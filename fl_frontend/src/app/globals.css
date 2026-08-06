@@ -514,10 +514,18 @@
      upgrades it to a danger ring while focused. Without the guard this rule stripped both and
      painted the border brand — and it did so at the exact moment `useServerFieldErrors` moves focus
      into the rejected field, so a field the server had just refused looked normally focused. */
-  /* `[aria-expanded="true"]` is in the list because a picker's focus goes somewhere the selector
-     cannot see: react-aria moves it into the popover's own search input, so a trigger keyed on focus
-     alone drops its brand border at the exact moment the control is most obviously active. An open
-     picker is an active field whatever holds the caret. */
+  /* `[aria-expanded="true"]` and its `:has()` twin are in the list because a picker's focus goes
+     somewhere the other arms cannot see: react-aria moves it into the popover's own search input, so
+     a trigger keyed on focus alone drops its brand border at the exact moment the control is most
+     obviously active. An open picker is an active field whatever holds the caret. The `:has()` arm
+     is not decoration — on the Autocomplete and the DatePicker the expandable element is a BUTTON
+     INSIDE the slot (the trigger itself is `role="group"` and never carries `aria-expanded`), so the
+     attribute arm alone matches the Select and misses both of them. Verified against computed styles
+     with the popover open: the inner button holds `aria-expanded="true"`, the slot does not.
+     The `:has()` arm is its OWN selector, not a member of the `:is()` list: `:has()` is invalid
+     inside `:is()`, and because the list is forgiving the browser drops that one arm silently — the
+     rule then compiles, ships and does nothing, which is exactly how this fix failed its first
+     verification. */
   &:is(
       :focus,
       :focus-visible,
@@ -526,7 +534,8 @@
       [data-focus-visible="true"],
       [data-focus-within="true"],
       [aria-expanded="true"]
-    ):not([data-invalid="true"]) {
+    ):not([data-invalid="true"]),
+  &:has([aria-expanded="true"]):not([data-invalid="true"]) {
     --tw-ring-shadow: 0 0 #0000;
     border-color: var(--accent-brand);
     outline: none;

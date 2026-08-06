@@ -1,6 +1,6 @@
 "use client";
 
-import { Autocomplete, Description, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
+import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
 
 import { formatQuelle, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -205,17 +205,13 @@ export function FormTeamPicker({
   const recommendedChoice = recommendedChoiceFor(feederSpiele.length > 0);
 
   /**
-   * The Manuell warning is GRADED, and the grading is arithmetic rather than taste.
+   * The Manuell warning is one severity — danger — however the side came to be manual.
    *
-   * ADR-0042's migration left matches 25–28 — all four quarter-finals — with `null` on both sides, so
-   * eight of the fourteen knockout sides that render this control are "Manuell" today without anybody
-   * having chosen it. A single severe callout keyed on the state would therefore be red on the majority
-   * of sides, permanently, from first paint: the "dismissed unread by the second week" failure ADR-0048
-   * names when it refuses a confirmation dialog.
-   *
-   * So the standing fact gets a standing note — those eight sides really are maintained by nobody, and
-   * that has been invisible until now — and the ACT of taking a maintained side over gets the loud,
-   * announced one. Owner's decision, 2026-08-06.
+   * A graded version shipped first (standing manual sides as a quiet note, a fresh takeover as the
+   * alarm) and the owner overruled it after seeing it: a manual side on a knockout fixture is a
+   * danger callout, always, because the cost of missing it — a slot no resolution will ever correct —
+   * does not depend on when the side became manual. What stays graded is the ANNOUNCEMENT: only the
+   * takeover the admin performs in this edit interrupts a screen reader, because only it is an event.
    */
   const storedQuelle = fieldName === "team1" ? spielData.team1_quelle : spielData.team2_quelle;
   const isManual = isKnockout && quelle === null;
@@ -291,6 +287,14 @@ export function FormTeamPicker({
   // written, or the honest empty state while the source has not produced one yet.
   const occupantLabel = teamPayload?.name ?? PLACEHOLDER.slot;
 
+  // A disqualified team stays in the list — searchable, announced, visibly labelled — and cannot be
+  // picked. Hiding it would make "why can I not find X" a support question; disabling it makes the
+  // reason readable where the answer is refused. Eligibility is still the write path's question
+  // (ADR-0049): a disabled key is UI, not a security control, and the stale form and the second tab
+  // go around it.
+  const disqualifiedIds = teams.filter((team) => team.is_disqualified).map((team) => team.id);
+  const disabledTeamKeys = disabledTeamId ? [disabledTeamId, ...disqualifiedIds] : disqualifiedIds;
+
   const teamPicker = (
     <Autocomplete
       name={`${fieldName}.team_id`}
@@ -300,14 +304,17 @@ export function FormTeamPicker({
       selectionMode="single"
       value={teamPayload?.team_id ?? null}
       onChange={handleTeamSelection}
-      disabledKeys={disabledTeamId ? [disabledTeamId] : []}>
+      disabledKeys={disabledTeamKeys}>
       <FieldLabel path={`${fieldName}.team_id`}>{isKnockout ? `${label}: Mannschaft` : label}</FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
         <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
-        {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. */}
+        {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. `size-7`
+            because the default is a 20px target on the control that is the PRIMARY way a group
+            fixture's side is emptied — too small to see and to hit (owner, third review). */}
         <Autocomplete.ClearButton
           type="button"
           aria-label={`${label}-Auswahl aufheben`}
+          className="hover:bg-muted hover:text-foreground size-7 rounded-md"
         />
         <Autocomplete.Indicator />
       </Autocomplete.Trigger>
@@ -345,9 +352,14 @@ export function FormTeamPicker({
               <ListBox.Item
                 key={item.id}
                 id={item.id}
-                textValue={item.name}
-                className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                // The state rides in `textValue` as well as in the visible row, so searching "disq"
+                // finds the team and a screen reader hears why it cannot be chosen.
+                textValue={item.is_disqualified ? `${item.name} — disqualifiziert` : item.name}
+                className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
                 {item.name}
+                {item.is_disqualified && (
+                  <span className="fluid-xxs bg-danger/15 text-danger-strong rounded-md px-1.5 py-0.5 font-bold">disqualifiziert</span>
+                )}
               </ListBox.Item>
             ))}
           </ListBox>
@@ -407,9 +419,8 @@ export function FormTeamPicker({
             ))}
           </ListBox>
         </Autocomplete.Popover>
-        {/* One sentence, and it is the one thing the four labels do not say: who fills the slot. The
-            recommendation is a chip in the list rather than a clause here (ADR-0050). */}
-        <Description className="fluid-xxs text-foreground-muted">Bei „Manuell“ wählst Du die Mannschaft selbst.</Description>
+        {/* No `Description`: what each of the four answers does is the Begegnung panel InfoHint's one
+            explanation, instead of a sentence under every control (ADR-0050). */}
         <FieldError className={FIELD_ERROR} />
       </Autocomplete>
 
@@ -532,34 +543,23 @@ export function FormTeamPicker({
                 ))}
             </ListBox>
           </Autocomplete.Popover>
-          {/* Kept, because it is the one description on this form that explains an absence: the list is
-              short and the reason a particular match is missing from it is not visible. */}
-          <Description className="fluid-xxs text-foreground-muted">Nur frühere Runden, noch nicht anderweitig vergeben.</Description>
+          {/* The reason a match is missing from this list lives in the panel InfoHint with the rest of
+              the source vocabulary, not in a standing sentence under the control (ADR-0050). */}
           <FieldError className={FIELD_ERROR} />
         </Autocomplete>
       )}
 
-      {/* The loud half: the admin has just taken a maintained side over, so the consequence is reported
-          as an event. It states what stops happening and deliberately does NOT claim other fixtures are
-          affected — clearing a source changes this slot's own maintenance and nothing else (ADR-0042). */}
-      {hasJustBeenTakenOver && (
+      {/* Danger whether the takeover happened just now or in an earlier session — the severity keys on
+          the STATE, not on who caused it (owner's decision, third review). `isAnnounced` still keys on
+          the act: only the takeover performed in this edit is an event a screen reader should hear. It
+          deliberately does NOT claim other fixtures are affected — clearing a source changes this
+          slot's own maintenance and nothing else (ADR-0042). */}
+      {isManual && (
         <Callout
           severity="danger"
-          isAnnounced
-          title={`${label} wird nicht mehr vom System gepflegt`}>
-          Diese Seite füllt normalerweise das System — aus dem Sieger eines Spiels oder einem Gruppenplatz. Manuell gesetzt bleibt sie stehen,
-          wie Du sie einträgst: kein späteres Ergebnis korrigiert sie mehr.
-        </Callout>
-      )}
-
-      {/* The quiet half: a side that was already manual before this edit. It is the truth about eight of
-          the fourteen knockout sides in season 2026 and it has been invisible, but nobody did it just
-          now, so it is a note rather than an alarm. */}
-      {isManual && !hasJustBeenTakenOver && (
-        <Callout
-          severity="info"
-          title="Diese Seite pflegt das System nicht">
-          Sie hat keine Herkunft, bleibt also so stehen, wie sie hier eingetragen ist.
+          isAnnounced={hasJustBeenTakenOver}
+          title={`${label} pflegt das System nicht`}>
+          Ohne Herkunft bleibt diese Seite stehen, wie Du sie einträgst — kein Ergebnis korrigiert sie mehr.
         </Callout>
       )}
 
@@ -579,8 +579,10 @@ export function FormTeamPicker({
       )}
 
       {/* The same derivation the public cards use, shown here so the admin sees the sentence the
-          bracket will print rather than inferring it from three separate controls. */}
-      {derivedLabel !== null && (
+          bracket will print rather than inferring it from three separate controls. Only while the slot
+          is UNRESOLVED: once a team occupies it, the schedule prints the team's name and this line
+          would claim otherwise (owner, third review). */}
+      {derivedLabel !== null && teamPayload === null && (
         <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
           Im Spielplan erscheint: <strong className="text-foreground">{derivedLabel}</strong>
         </p>
