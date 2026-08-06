@@ -1,13 +1,11 @@
 "use client";
 
-import { card } from "@/shared/components/ui/card";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, formatQuelle, formatSpielDisplay } from "../../../utils";
 import { SaisonPhaseChip } from "../../ui/SaisonPhaseChip";
 import { SpielStatusChip } from "../../ui/SpielStatusChip";
 
-import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 /**
@@ -36,45 +34,15 @@ import type { FLSpiel } from "@/features/spiele/schemas";
  * named field by field, in the change list beside this and under each edited field.
  */
 export function SpielDraftPreview({
-  spielData,
-  draft,
+  previewSpiel,
   today,
   isDirty,
 }: {
-  /** The stored fixture — everything the editor cannot change comes from here. */
-  spielData: FLSpiel;
-  draft: FLSpielDraftFields;
+  /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
+  previewSpiel: FLSpiel;
   today: string;
   isDirty: boolean;
 }) {
-  const team1Tore = draft.team1?.tore ?? null;
-  const team2Tore = draft.team2?.tore ?? null;
-  const hasBothTore = team1Tore !== null && !Number.isNaN(team1Tore) && team2Tore !== null && !Number.isNaN(team2Tore);
-  const isLevel = hasBothTore && team1Tore === team2Tore;
-  const isKnockout = spielData.saison_phase !== "gruppenphase";
-
-  const previewSpiel: FLSpiel = {
-    ...spielData,
-    datum: draft.datum,
-    uhrzeit: draft.uhrzeit,
-    ort: draft.ort as FLSpiel["ort"],
-    schiedsrichter: draft.schiedsrichter as FLSpiel["schiedsrichter"],
-    team1: draft.team1,
-    team2: draft.team2,
-    team1_quelle: draft.team1_quelle,
-    team2_quelle: draft.team2_quelle,
-    is_canceled: draft.is_canceled,
-    ergebnis: hasBothTore ? `${team1Tore}:${team2Tore}` : null,
-    elfmeterschiessen:
-      isKnockout &&
-      isLevel &&
-      draft.elfmeterschiessen !== null &&
-      draft.elfmeterschiessen.team1 !== null &&
-      draft.elfmeterschiessen.team2 !== null
-        ? { team1: draft.elfmeterschiessen.team1, team2: draft.elfmeterschiessen.team2 }
-        : null,
-  };
-
   const { datum, uhrzeit, ergebnis, elfmeterschiessen } = formatSpielDisplay(previewSpiel);
   const spielStatus = computeSpielStatus({ datum: previewSpiel.datum, isCanceled: previewSpiel.is_canceled, today });
 
@@ -84,16 +52,7 @@ export function SpielDraftPreview({
   const team2Name = previewSpiel.team2?.name || formatQuelle(previewSpiel.team2_quelle) || PLACEHOLDER.slot;
 
   return (
-    <div className={`${card()} flex w-full flex-col gap-y-3 p-4 ${isDirty ? "border-brand/50" : ""}`}>
-      <div className="flex w-full flex-row flex-wrap items-center gap-2">
-        <h2 className="fluid-base text-foreground mr-auto font-extrabold tracking-tight">Vorschau</h2>
-        {isDirty && (
-          <span className="fluid-xxs bg-warning/15 text-warning-strong rounded-md px-1.5 py-0.5 font-extrabold tracking-wide uppercase">
-            Nicht gespeichert
-          </span>
-        )}
-      </div>
-
+    <div className={`flex w-full flex-col gap-y-3 rounded-xl border p-3 ${isDirty ? "border-brand/50 bg-brand/5" : "border-border"}`}>
       <div className="flex w-full flex-row flex-wrap items-center gap-2">
         <span className="fluid-xs text-foreground font-bold">{datum}</span>
         <span className="fluid-xs text-foreground-muted font-medium">{uhrzeit}</span>

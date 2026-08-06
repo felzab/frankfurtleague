@@ -13,7 +13,7 @@ import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFi
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 
 import { patchAdminSpielDataAction } from "../../../actions";
-import { deriveSpielDraftStatus } from "../../../draftStatus";
+import { applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { listDependentSpiele } from "../../../utils";
 import { DraftRail } from "./DraftRail";
@@ -67,7 +67,7 @@ export function AdminEditSpielDataForm({
   schiedsrichter,
   saisonSpiele,
   today,
-  expectedCategories,
+  categorize,
 }: {
   spielData: FLSpiel;
   teams: FLTeam[];
@@ -76,11 +76,15 @@ export function AdminEditSpielDataForm({
   saisonSpiele: FLSpiel[];
   today: string;
   /**
-   * The action-required categories the STORED fixture falls into, from `categorizeActionRequired`.
+   * Which action-required categories a fixture falls into, supplied by the aggregator view.
    *
-   * Passed in rather than derived here: that rule lives in `admin`, and one copy of it is the point.
+   * **A function rather than a computed set, because the answer has to be live.** The admin toggles
+   * Absage and the four "fehlt" categories stop applying at once — `categorizeActionRequired` reports a
+   * cancelled fixture as cancelled and nothing else — so "Offene Angaben" has to be recomputed from the
+   * draft rather than frozen at load. The rule itself stays in `admin`, which is what keeps `spiele`
+   * from importing the aggregator to ask a question about a Spiel.
    */
-  expectedCategories: ReadonlySet<ActionRequiredCategory>;
+  categorize: (spiel: FLSpiel) => ReadonlySet<ActionRequiredCategory>;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -150,8 +154,13 @@ export function AdminEditSpielDataForm({
   // filled yet is recorded (ADR-0041) — so both sides submit as they stand, `null` included.
   const buildPayload = (): FLPatchSpielDataPayload => ({ ...draft, spiel_id: spielData.id }) as FLPatchSpielDataPayload;
 
+  // The fixture as it will stand once saved. Built once and read three times — the preview renders it,
+  // the categorisation asks it what is still outstanding, and the knockout-cancellation warning asks
+  // whether the admin is about to call off a bracket fixture.
+  const previewSpiel = applyDraftToSpiel(spielData, draft);
+
   const fieldErrors = mergedWith(serverFieldErrors);
-  const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories, fieldErrors });
+  const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories: categorize(previewSpiel), fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
   useUnsavedChangesWarning(isDirty);
@@ -201,6 +210,39 @@ export function AdminEditSpielDataForm({
     router.back();
   };
 
+  /**
+   * Puts every field back to what is stored, then leaves.
+   *
+   * **Navigating away is not enough, and assuming it was is what made the worst bug on this page.** The
+   * App Router keeps a page's React tree alive for back and forward navigation, so an admin who
+   * confirmed "Verwerfen" and then returned to the same fixture found the discarded draft still sitting
+   * in the fields — the dialog had promised the work was gone and it was not. Resetting explicitly means
+   * the promise holds whether the tree is rebuilt or restored.
+   *
+   * Every atom is listed rather than looped, and the list is the same one the `useState` calls above
+   * declare: a field added there and forgotten here would silently survive a discard, which is exactly
+   * the failure being fixed. `deriveSpielDraftStatus` is what would catch it — after this runs, nothing
+   * may remain in `status.changed`.
+   */
+  const discardAndLeave = () => {
+    setSpielIsCanceled(spielData.is_canceled);
+    setOrtPayload(spielData.ort);
+    setSchiedsrichterPayload(spielData.schiedsrichter);
+    setDatum(spielData.datum ? parseDate(spielData.datum) : null);
+    setUhrzeit(spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null);
+    setTeam1Payload(spielData.team1);
+    setTeam2Payload(spielData.team2);
+    setTeam1Quelle(spielData.team1_quelle);
+    setTeam2Quelle(spielData.team2_quelle);
+    setElfmeterschiessen(spielData.elfmeterschiessen);
+    setErgebnisCanBeEdited(spielData.ergebnis !== null);
+
+    setFieldErrors({});
+    clearVerdicts();
+    setIsConfirmingDiscard(false);
+    router.back();
+  };
+
   const handleFormSubmit = () => {
     startTransition(async () => {
       const res = await patchAdminSpielDataAction(buildPayload(), spielData.saison_id);
@@ -238,8 +280,7 @@ export function AdminEditSpielDataForm({
               four panels of them. */}
           <div className="w-full xl:sticky xl:top-6 xl:col-start-2 xl:row-start-1 xl:self-start">
             <DraftRail
-              spielData={spielData}
-              draft={draft}
+              previewSpiel={previewSpiel}
               today={today}
               dependentSpiele={dependentSpiele}
             />
@@ -307,10 +348,7 @@ export function AdminEditSpielDataForm({
       <ConfirmDiscardModal
         isOpen={isConfirmingDiscard}
         onClose={() => setIsConfirmingDiscard(false)}
-        onDiscard={() => {
-          setIsConfirmingDiscard(false);
-          router.back();
-        }}
+        onDiscard={discardAndLeave}
         changeCount={status.changed.length}
       />
     </DraftStatusProvider>

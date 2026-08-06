@@ -54,41 +54,37 @@ export function ConfirmDiscardModal({
           />
         </div>
       }>
-      <div className="flex min-h-[80px] flex-col justify-center gap-4 px-3 pt-2">
-        <p className="fluid-sm text-foreground-muted leading-relaxed">
-          {changeCount === 1 ? "Eine Änderung ist" : `${changeCount} Änderungen sind`} noch nicht gespeichert. Wenn Du die Seite jetzt verlässt,{" "}
-          {changeCount === 1 ? (
-            <>geht sie verloren</>
-          ) : (
-            <>
-              gehen sie <strong className="text-foreground">verloren</strong>
-            </>
-          )}
-          .
+      <div className="flex w-full min-w-0 flex-col gap-4 px-3 pt-2">
+        <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
+          {changeCount === 1 ? "Eine Änderung ist" : `${changeCount} Änderungen sind`} noch nicht gespeichert und{" "}
+          <strong className="text-foreground">{changeCount === 1 ? "geht" : "gehen"} verloren</strong>, wenn Du die Seite jetzt verlässt.
         </p>
       </div>
 
-      <div className="mt-8 flex w-full flex-row items-center justify-end gap-3 px-2">
+      {/* Stacked on a phone, side by side from `sm` up. Two `formButton`s at `px-6` carrying labels this
+          long cannot fit a `max-w-md` dialog in one row — that is what was overflowing. `w-full` on the
+          buttons while stacked, so neither ends up a different width from the other. */}
+      <div className="mt-8 flex w-full min-w-0 flex-col-reverse gap-3 px-2 sm:flex-row sm:items-center sm:justify-end">
         {/* "Weiter bearbeiten" rather than "Abbrechen": on a dialog whose subject IS cancelling
             something, "Abbrechen" is genuinely ambiguous about which thing it cancels. */}
         <Button
           type="button"
           variant="secondary"
-          className={formButton({ intent: "cancel" })}
+          className={`${formButton({ intent: "cancel", fullWidth: true })} sm:w-auto`}
           onPress={onClose}>
           Weiter bearbeiten
         </Button>
         <Button
           type="button"
           variant="primary"
-          className={formButton({ intent: "destructive" })}
+          className={`${formButton({ intent: "destructive", fullWidth: true })} sm:w-auto`}
           onPress={onDiscard}>
           <ArrowUturnCwLeft
-            className="m-0"
+            className="m-0 shrink-0"
             width={18}
             height={18}
           />
-          Verwerfen und verlassen
+          Verwerfen
         </Button>
       </div>
     </ModalShell>

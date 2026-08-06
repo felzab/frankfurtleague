@@ -1,7 +1,5 @@
 "use client";
 
-import { card } from "@/shared/components/ui/card";
-
 import type { FLSpielFieldStatus } from "@/features/spiele/draftStatus";
 
 /**
@@ -20,9 +18,7 @@ import type { FLSpielFieldStatus } from "@/features/spiele/draftStatus";
  */
 export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldStatus[] }) {
   return (
-    <div className={`${card()} flex w-full flex-col gap-y-2 p-4`}>
-      <h2 className="fluid-base text-foreground font-extrabold tracking-tight">Deine Änderungen</h2>
-
+    <div className="flex w-full flex-col gap-y-2">
       {changed.length === 0 ? (
         <p className="fluid-xs text-foreground-muted font-medium">Noch keine Änderungen.</p>
       ) : (

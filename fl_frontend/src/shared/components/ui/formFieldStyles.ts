@@ -21,7 +21,29 @@
  */
 export const FIELD_LABEL = "fluid-xs text-foreground font-bold";
 
-export const FIELD_INPUT = "border-border bg-surface text-foreground fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
+/**
+ * The height every field-shaped control resolves to, so a picker and the number field beside it line
+ * up.
+ *
+ * They did not: HeroUI gives `.number-field__group` a fixed `h-9` while a trigger sized itself from
+ * `py-2` plus its line box, landing near 40px — a visible 4px step between two controls sharing a grid
+ * row. One number here settles it, and the vertical padding goes with it (a fixed height with centred
+ * content has no use for padding, and the number field's is neutralised globally in `globals.css`).
+ */
+export const FIELD_HEIGHT = "h-10";
+
+export const FIELD_INPUT = `border-border bg-surface text-foreground fluid-sm ${FIELD_HEIGHT} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
+
+/**
+ * A number field's stepper chrome — the same border, background and height as every other field.
+ *
+ * HeroUI lays the group out as `grid-template-columns: 40px 1fr 40px`, so the two buttons are fixed and
+ * only the input flexes; all this adds is the app's own surface and the shared height.
+ */
+export const FIELD_COUNT_GROUP = `border-border bg-surface text-foreground ${FIELD_HEIGHT} rounded-lg border transition-colors`;
+
+/** The input inside that group. `w-full` because the grid's middle track is what sizes it. */
+export const FIELD_COUNT_INPUT = "fluid-sm w-full";
 
 /**
  * A picker's trigger — `FIELD_INPUT` plus room for the chevron.
@@ -82,7 +104,13 @@ export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
  * title (`formPanel`), and this marks a group within one — "Termin", "Spielort", "Schiedsrichter"
  * inside "Ansetzung" (ADR-0050).
  *
+ * **`text-foreground-muted`, and the colour is the point.** Demoting it by size alone left it at
+ * `fluid-xs font-bold text-foreground` — character for character the same recipe as `FIELD_LABEL`
+ * beneath it, distinguished only by being uppercase. Two levels of a hierarchy rendered identically
+ * are one level. The group marker recedes and the field label stays at full contrast, because the
+ * label is what a reader is actually looking for.
+ *
  * Still only for groups whose members are heterogeneous. A group whose first field label already names
  * it gets no heading — that would render the same word twice and read it twice to a screen reader.
  */
-export const FORM_SECTION_HEADING = "fluid-xs text-foreground font-bold tracking-wider uppercase";
+export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold tracking-widest uppercase";

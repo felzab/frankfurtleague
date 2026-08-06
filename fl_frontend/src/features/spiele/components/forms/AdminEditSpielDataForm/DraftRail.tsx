@@ -3,14 +3,13 @@
 import { ArrowRight } from "@gravity-ui/icons";
 
 import { Callout } from "@/shared/components/ui/Callout";
-import { card } from "@/shared/components/ui/card";
 
 import { DraftChangeList } from "./DraftChangeList";
 import { useDraftStatus } from "./DraftStatusContext";
 import { FormVoidWarning } from "./FormVoidWarning";
+import { RailSection } from "./RailSection";
 import { SpielDraftPreview } from "./SpielDraftPreview";
 
-import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type { FLSpiel } from "@/features/spiele/schemas";
 
 /** The count badge the action-required accordion uses, so the two surfaces agree on sight. */
@@ -28,13 +27,12 @@ const COUNT_BADGE = "fluid-xxs inline-flex items-center justify-center rounded-l
  * is still outstanding, then what you have changed.
  */
 export function DraftRail({
-  spielData,
-  draft,
+  previewSpiel,
   today,
   dependentSpiele,
 }: {
-  spielData: FLSpiel;
-  draft: FLSpielDraftFields;
+  /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
+  previewSpiel: FLSpiel;
   today: string;
   /** Fixtures whose occupants this one's result decides (ADR-0048). */
   dependentSpiele: readonly FLSpiel[];
@@ -48,7 +46,7 @@ export function DraftRail({
       {/* A standing fact about the fixture, so it is not announced. It says the non-obvious half: a
           cancelled fixture stops being chased for a date, a venue and a referee, because
           `categorizeActionRequired` reports it as cancelled and nothing else. */}
-      {spielData.is_canceled && (
+      {previewSpiel.is_canceled && (
         <Callout
           severity="info"
           title="Dieses Spiel ist abgesagt">
@@ -56,25 +54,37 @@ export function DraftRail({
         </Callout>
       )}
 
-      <SpielDraftPreview
-        spielData={spielData}
-        draft={draft}
-        today={today}
-        isDirty={status.isDirty}
-      />
+      {/* Closed on a phone: the preview answers "what will this look like when I am done", which is a
+          question asked at the end, and expanded it puts the first field a scroll below the fold. */}
+      <RailSection
+        title="Vorschau"
+        defaultOpenOnMobile={false}
+        badge={
+          status.isDirty ? (
+            <span className="fluid-xxs bg-warning/15 text-warning-strong rounded-md px-1.5 py-0.5 font-extrabold tracking-wide uppercase">
+              Nicht gespeichert
+            </span>
+          ) : undefined
+        }>
+        <SpielDraftPreview
+          previewSpiel={previewSpiel}
+          today={today}
+          isDirty={status.isDirty}
+        />
+      </RailSection>
 
-      {/* Offene Angaben */}
-      <div className={`${card()} flex w-full flex-col gap-y-2 p-4`}>
-        <div className="flex w-full flex-row items-center gap-x-2">
-          <h2 className="fluid-base text-foreground mr-auto font-extrabold tracking-tight">Offene Angaben</h2>
+      {/* Open everywhere: this is the task list, it is why most admins are on the page, and collapsed it
+          is a number with no way to act on it. */}
+      <RailSection
+        title="Offene Angaben"
+        badge={
           <span
             className={`${COUNT_BADGE} ${
               status.expected.length > 0 ? "bg-danger-solid text-danger-solid-foreground" : "bg-success-solid text-success-solid-foreground"
             }`}>
             {status.expected.length}
           </span>
-        </div>
-
+        }>
         {status.expected.length === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">Alles ausgefüllt.</p>
         ) : (
@@ -94,9 +104,17 @@ export function DraftRail({
             ))}
           </ul>
         )}
-      </div>
+      </RailSection>
 
-      <DraftChangeList changed={status.changed} />
+      {/* Closed on a phone: empty until something is edited, and a review surface when it is not. */}
+      <RailSection
+        title="Deine Änderungen"
+        defaultOpenOnMobile={false}
+        badge={
+          status.changed.length > 0 ? <span className={`${COUNT_BADGE} bg-brand/15 text-brand-solid`}>{status.changed.length}</span> : undefined
+        }>
+        <DraftChangeList changed={status.changed} />
+      </RailSection>
     </div>
   );
 }

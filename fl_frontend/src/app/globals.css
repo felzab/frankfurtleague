@@ -608,6 +608,30 @@
   outline: none;
 }
 
+/* The reliable per-element signal the block above says to wait for. It exists after all, and it is a
+   DIFFERENT attribute from the one that flickered: react-aria emits `data-focus-visible` from the
+   global interaction modality — whether the user's last action anywhere on the page was a key press —
+   and `data-focused` from the collection's own focused key, which is set when a combobox moves focus
+   onto the first match as you type and depends on no modality at all (verified in
+   react-aria-components 1.19, `private/ListBox.mjs`, which writes both).
+
+   So the highlight is keyed on `data-focused`: it appears on the option Enter would pick, it appears
+   for the same reason every time, and it cannot come and go with the pointer/keyboard mode. The fill is
+   `--bg-muted`, the same background hovering gives — deliberately no more than that, and no ring, which
+   the rule above still suppresses. This closes the WCAG 2.4.7 gap that block recorded: a keyboard user
+   arrowing through an open list now has an indicator inside the popover. */
+[data-slot="list-box-item"][data-focused="true"],
+[data-slot="menu-item"][data-focused="true"] {
+  background-color: var(--bg-muted);
+}
+
+/* Number fields carry no vertical padding, anywhere (owner decision, 2026-08-06). The group is a fixed
+   height with a centred grid, so padding on the input only fights it — and it was the reason a number
+   field and the autocomplete beside it did not line up. */
+[data-slot="number-field-input"] {
+  padding-block: 0;
+}
+
 /* Reduced motion, SOFTENED (owner decision 2026-07-31).
    The policy is "remove movement, keep fades", NOT "remove motion". Zeroing every animation- and
    transition-duration is the obvious implementation and the wrong one: it makes the site

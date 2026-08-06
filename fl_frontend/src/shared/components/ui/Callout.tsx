@@ -8,6 +8,8 @@
 import { CircleInfo, TriangleExclamation } from "@gravity-ui/icons";
 import { tv } from "tailwind-variants";
 
+import { CloseButton } from "@heroui/react";
+
 import type { ReactNode } from "react";
 
 const callout = tv({
@@ -61,11 +63,21 @@ export function Callout({
   severity = "warning",
   title,
   isAnnounced = false,
+  onDismiss,
   children,
 }: {
   severity?: "info" | "warning" | "danger";
   title: string;
   isAnnounced?: boolean;
+  /**
+   * Makes the callout dismissible. Omit it and there is no close control at all.
+   *
+   * **Only for a callout the admin can afford to lose.** A standing note explaining the surface is one;
+   * a warning about what a save destroys is not, and it deliberately has no dismiss — hiding it would
+   * make the page quieter by making it less true. The caller decides, because the caller knows which
+   * of the two it is rendering.
+   */
+  onDismiss?: () => void;
   children: ReactNode;
 }) {
   const styles = callout({ severity });
@@ -76,10 +88,17 @@ export function Callout({
       role={isAnnounced ? "alert" : undefined}
       className={styles.root()}>
       <Icon className={styles.icon()} />
-      <div className="flex min-w-0 flex-col gap-y-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-y-1">
         <strong className={styles.title()}>{title}</strong>
         <p className={styles.body()}>{children}</p>
       </div>
+      {onDismiss && (
+        <CloseButton
+          aria-label={`${title} ausblenden`}
+          onPress={onDismiss}
+          className="text-foreground-muted hover:text-foreground -mt-0.5 shrink-0 transition-colors"
+        />
+      )}
     </div>
   );
 }

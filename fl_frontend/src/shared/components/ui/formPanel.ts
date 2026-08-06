@@ -39,6 +39,8 @@ export const formPanel = tv({
   slots: {
     root: "bg-surface border-border flex w-full flex-col rounded-2xl border shadow-sm",
     header: "border-border flex flex-col gap-y-0.5 rounded-t-2xl border-b p-4 sm:p-5",
+    /** The title row, so an `InfoHint` can sit beside the heading without a wrapper at each site. */
+    headingRow: "flex w-full flex-row items-center gap-x-2",
     heading: "fluid-base text-foreground font-extrabold tracking-tight",
     hint: "fluid-xxs text-foreground-muted font-medium",
     body: "flex w-full flex-col gap-y-5 p-4 sm:p-5",

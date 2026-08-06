@@ -37,14 +37,23 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
   const router = useRouter();
   const { teams, spielorte, schiedsrichter, saisonSpiele } = useAdmin();
 
-  // One fixture through the season-wide rule. `bracketFaults` is deliberately not passed: a fault is a
-  // backend derivation over a whole season (ADR-0047) and this route reads one match, so re-deriving it
-  // here would be a second copy of a rule that exists to have only one.
-  const expectedCategories: ReadonlySet<ActionRequiredCategory> = new Set(
-    Object.entries(categorizeActionRequired([spielData], today))
-      .filter(([, matches]) => matches.length > 0)
-      .map(([category]) => category as ActionRequiredCategory),
-  );
+  /**
+   * The season-wide rule, applied to one fixture and handed to the form as a function.
+   *
+   * A function rather than a set, because the answer has to move with the draft: toggling Absage makes
+   * `categorizeActionRequired` report the fixture as cancelled and stop reporting it under any of the
+   * four "fehlt" categories, so "Offene Angaben" empties in real time instead of at the next load.
+   *
+   * `bracketFaults` is deliberately not passed: a fault is a backend derivation over a whole season
+   * (ADR-0047) and this route reads one match, so re-deriving it here would be a second copy of a rule
+   * that exists to have only one.
+   */
+  const categorize = (spiel: FLSpiel): ReadonlySet<ActionRequiredCategory> =>
+    new Set(
+      Object.entries(categorizeActionRequired([spiel], today))
+        .filter(([, matches]) => matches.length > 0)
+        .map(([category]) => category as ActionRequiredCategory),
+    );
 
   return (
     <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center px-4 pt-6 pb-12 sm:px-8`}>
@@ -80,7 +89,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
           schiedsrichter={schiedsrichter}
           saisonSpiele={saisonSpiele}
           today={today}
-          expectedCategories={expectedCategories}
+          categorize={categorize}
         />
       </div>
     </div>

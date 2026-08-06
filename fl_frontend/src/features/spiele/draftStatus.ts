@@ -61,6 +61,50 @@ export type FLSpielDraftFields = {
   is_canceled: boolean;
 };
 
+/**
+ * The fixture as it will stand once the draft is saved.
+ *
+ * **One place builds this, and three read it**: the preview card, the live action-required
+ * categorisation, and anything later that needs to ask a question of the fixture-after-the-edit rather
+ * than of the fixture-as-stored. Two copies of it would be two answers to "what am I about to save".
+ *
+ * `ergebnis` is derived here the way the backend derives it — a scoreline only when both counts are
+ * present — because the stored string belongs to the stored goals and contradicts the draft the moment
+ * either is edited. The shoot-out follows ADR-0044: kept only on a knockout fixture that finished level,
+ * discarded anywhere else, exactly as the write path discards it, so the preview cannot promise
+ * something the save throws away.
+ */
+export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): FLSpiel {
+  const team1Tore = draft.team1?.tore ?? null;
+  const team2Tore = draft.team2?.tore ?? null;
+  const hasBothTore = team1Tore !== null && !Number.isNaN(team1Tore) && team2Tore !== null && !Number.isNaN(team2Tore);
+  const isLevel = hasBothTore && team1Tore === team2Tore;
+  const isKnockout = stored.saison_phase !== "gruppenphase";
+
+  const shootOut = draft.elfmeterschiessen;
+  // Narrowed field by field rather than through a compound flag: both counts have to be present for the
+  // record to be storable, and TypeScript only carries that knowledge if the checks are in the branch.
+  const storableShootOut =
+    isKnockout && isLevel && shootOut !== null && shootOut.team1 !== null && shootOut.team2 !== null
+      ? { team1: shootOut.team1, team2: shootOut.team2 }
+      : null;
+
+  return {
+    ...stored,
+    datum: draft.datum,
+    uhrzeit: draft.uhrzeit,
+    ort: draft.ort as FLSpiel["ort"],
+    schiedsrichter: draft.schiedsrichter as FLSpiel["schiedsrichter"],
+    team1: draft.team1,
+    team2: draft.team2,
+    team1_quelle: draft.team1_quelle,
+    team2_quelle: draft.team2_quelle,
+    is_canceled: draft.is_canceled,
+    ergebnis: hasBothTore ? `${team1Tore}:${team2Tore}` : null,
+    elfmeterschiessen: storableShootOut,
+  };
+}
+
 /** What the page knows about one editable field right now. */
 export type FLSpielFieldStatus = {
   /** Dotted payload path; also the input's `name`, the `FieldErrors` key and the anchor id. */
