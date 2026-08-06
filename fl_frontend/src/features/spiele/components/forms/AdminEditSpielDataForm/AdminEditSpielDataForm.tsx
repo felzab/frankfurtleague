@@ -525,6 +525,21 @@ export function AdminEditSpielDataForm({
    *
    * Fifteen seconds is long enough to read the sentence naming what went and decide, and short enough
    * that the offer is gone before the page is stale enough for the replay to be refused.
+   *
+   * **The toast outlives this component, and that is what the two lines below are about.** `leavePage()`
+   * runs immediately after the offer is raised, so by the time anyone presses the button this form is
+   * unmounted and the handler is a detached closure. Two things follow that a handler on a live page
+   * would get for free:
+   *
+   * - **`updateTag` inside the action expires the cache but nothing re-renders.** The router applies an
+   *   action's revalidation when the action is dispatched from the tree it belongs to; dispatched from
+   *   a closure whose tree is gone, the write lands and the screen does not move — which is
+   *   indistinguishable from a button that does nothing. `router.refresh()` is the missing half, and
+   *   the router instance is a stable singleton, so calling it from here is legal after unmount.
+   * - **A rejected promise has nowhere to surface.** `runAdminAction` converts an API failure into a
+   *   returned result, but a rejection before that — the action dispatch itself failing — would skip
+   *   `.then` entirely and leave the press with no feedback at all. `.catch` is what stops "nothing
+   *   happened" from ever being the honest description of a press.
    */
   const offerUndo = (payloads: FLPatchSpielDataPayload[], message?: string, destroyedSomething = false) => {
     const raise = destroyedSomething ? toast.warning : toast.success;
@@ -539,12 +554,29 @@ export function AdminEditSpielDataForm({
         variant: "primary",
         onPress: () => {
           toast.clear();
-          // Deliberately outside the form's transition: the page it belonged to is gone by now, so
-          // there is no pending state left to drive and nothing on screen to keep consistent.
-          void undoAdminSpielEditAction(payloads, spielData.saison_id).then((result) => {
-            if (result.success) toast.success(result.message || "Die Änderung wurde zurückgenommen.", { timeout: 6000 });
-            else toast.danger(result.error || "Die Rücknahme ist fehlgeschlagen.", { timeout: 8000 });
-          });
+
+          // No timeout, so it stands until the replay answers — a batch is one request per fixture and
+          // the press has to look like it did something immediately. Closed by its own key rather than
+          // with `toast.clear()`, which would also take down any toast this page did not raise.
+          const pendingKey = toast("Änderung wird zurückgenommen...", { isLoading: true });
+
+          void undoAdminSpielEditAction(payloads, spielData.saison_id)
+            .then((result) => {
+              toast.close(pendingKey);
+              if (!result.success) {
+                toast.danger(result.error || "Die Rücknahme ist fehlgeschlagen.", { timeout: 8000 });
+                return;
+              }
+
+              // The write is committed and every tag is expired; this is what makes the page the
+              // admin is looking at show it.
+              router.refresh();
+              toast.success(result.message || "Die Änderung wurde zurückgenommen.", { timeout: 6000 });
+            })
+            .catch(() => {
+              toast.close(pendingKey);
+              toast.danger("Die Rücknahme konnte nicht gesendet werden. Bitte prüfe das Spiel.", { timeout: 8000 });
+            });
         },
       },
     });

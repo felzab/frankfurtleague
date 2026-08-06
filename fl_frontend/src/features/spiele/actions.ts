@@ -171,16 +171,20 @@ export async function undoAdminSpielEditAction(rawPayloads: unknown, rawSaisonId
       return { success: false, error: "Die Rücknahme konnte nicht ausgeführt werden." };
     }
 
-    const restored: number[] = [];
+    let restored = 0;
     for (const payload of validated.data) {
       const operation = await patchAdminSpielData(payload);
       if (!operation.acknowledged) {
+        // The tags below are deliberately NOT invalidated on this path: some fixtures were written and
+        // some were not, so the caches are stale either way and the admin is being sent to look at the
+        // fixtures by hand. Reporting the count is the point — a partial restore is a worse state than
+        // either end of it.
         return {
           success: false,
-          error: `Die Rücknahme wurde nach ${restored.length} von ${validated.data.length} Spielen abgebrochen. Bitte prüfe die betroffenen Spiele.`,
+          error: `Die Rücknahme wurde nach ${restored} von ${validated.data.length} Spielen abgebrochen. Bitte prüfe die betroffenen Spiele.`,
         };
       }
-      restored.push(restored.length);
+      restored += 1;
     }
 
     // Identical to the save's invalidation, and for the identical reason: an undo is a write.
