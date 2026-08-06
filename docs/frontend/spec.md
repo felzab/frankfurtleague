@@ -348,6 +348,15 @@ moves when something the form displays has changed underneath it, and not when a
 holds (`ergebnis`, `spiel_nr`) does. Four cases in `utils.test.ts` pin it, including that one.
 **Narrowing this key back to `spiel.id` reintroduces a bug the type checker cannot see.**
 
+**The key is one of two gates, and neither is sufficient alone.** The other is `prefetch={false}` on
+the edit link (`fl_frontend/src/features/spiele/components/ui/SpielCard.tsx`): a prefetch captures the
+editor's payload when the link enters the viewport, so without it the click is answered from a
+snapshot taken before whatever changed the fixture. The key is what makes a fresh payload actually
+re-seed the fields once it arrives. An editing surface is opened for its current values, which is why
+neither the snapshot nor the preserved state is acceptable here — and why a route handler cannot cover
+it, having no way to evict the client Router Cache the way a server action's `refresh()` does
+([ADR-0055](../_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)).
+
 ### The navigation guard has an accepted gap
 
 Next 16 exposes **no navigation blocker** — verified against the `next/navigation` export list and
