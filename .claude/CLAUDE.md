@@ -159,9 +159,57 @@ pattern — it compiles and passes the gate, which is stronger evidence than rec
 pattern the repo does not already use, verify it against the official docs before writing it**, not
 after being challenged. Say plainly when you could not verify.
 
+### The `llms.txt` reference is consulted FIRST — always, where a qualifying one exists
+
+**Binding, not a suggestion.** Before answering anything about a library's API, and before writing a
+line that depends on one, check that library's `llms.txt` — ahead of the prose docs and long before
+recall. It is one plain-text file carrying the whole documentation site, so a prop name is a `grep`
+rather than a page hunt, and it is the only source that settles an API argument in seconds. **A claim
+about an API made without checking it, when one exists, is a claim that has not been verified** — say
+so if that is what you are doing.
+
+**Two conditions qualify a reference, and both must hold before it is treated as authoritative:**
+
+1. **Official** — published by the project itself, on the project's own domain. A mirror, an aggregator
+   or a third-party dump is not this, whatever it contains.
+2. **Current** — its newest documented release matches what is installed. Read the version from
+   `fl_frontend/package.json` or `fl_backend/pyproject.toml` and find it in the file (HeroUI's newest
+   release page was `v3.2.3` on 2026-08-07, which is the installed version). A reference that stops
+   short of the installed version documents a product nobody here runs.
+
+**If either condition fails, it is not the source** — fall back to the prose docs plus the installed
+typings in `node_modules`, and say plainly which you used. The table below is the checked set as of
+2026-08-07; re-confirm condition 2 for the package you are about to trust, because it is the one that
+goes stale on its own.
+
+| Package      | Index                                                 | Full text                                                                |
+| ------------ | ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| **HeroUI**   | [react/llms.txt](https://heroui.com/react/llms.txt)   | [react/llms-full.txt](https://heroui.com/react/llms-full.txt) — 5.4 MB   |
+| **Next.js**  | [docs/llms.txt](https://nextjs.org/docs/llms.txt)     | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt) — 3.8 MB     |
+| **Pydantic** | [llms.txt](https://docs.pydantic.dev/latest/llms.txt) | [llms-full.txt](https://docs.pydantic.dev/latest/llms-full.txt) — 1.9 MB |
+| **Zod**      | [llms.txt](https://zod.dev/llms.txt)                  | [llms-full.txt](https://zod.dev/llms-full.txt) — 260 KB                  |
+| **React**    | [llms.txt](https://react.dev/llms.txt)                | — (index only)                                                           |
+
+**Tailwind, FastAPI, Motor and Auth.js publish none** — those are still the prose docs below. **A
+package not in this table has not been checked rather than proven to have none**: probe
+`<docs-root>/llms.txt` before concluding either way, and add the row when one turns up.
+
+Three things about the file that decide whether the answer you find is the right one:
+
+- **Use HeroUI's `react/` URL, never the bare `heroui.com/llms-full.txt`.** The bare one merges the
+  React library with 73 pages of **HeroUI Native**, a React Native product this repo does not use, and
+  a grep lands in either. The `react/` file is 172 pages and all of them apply.
+- **It is current but it is not only-current.** Its newest release page matches the installed version
+  (v3.2.3 on 2026-08-07), and it also carries every release note back to the betas plus the v2→v3
+  migration guide. **Prefer a component's own page over a changelog entry or a migration table**, which
+  describe versions nobody here runs.
+- **It does not replace the installed package.** What actually runs is `node_modules`, so where the two
+  could disagree — a prop that a minor release renamed — read the `.d.ts`. Both agreeing is the
+  strongest evidence available without running the code.
+
 Docs: [Next.js](https://nextjs.org/docs/app) · [Next 16](https://nextjs.org/blog/next-16) ·
 [proxy](https://nextjs.org/docs/app/api-reference/file-conventions/proxy) ·
-[HeroUI](https://www.heroui.com/docs/react) · [llms-full](https://heroui.com/llms-full.txt) ·
+[HeroUI](https://www.heroui.com/docs/react) ·
 [Tailwind](https://tailwindcss.com/docs) · [FastAPI](https://fastapi.tiangolo.com) ·
 [Pydantic](https://docs.pydantic.dev/latest/) · [Motor](https://motor.readthedocs.io)
 

@@ -30,7 +30,13 @@ export function IconTooltip({
   if (!isEnabled) return <>{children}</>;
 
   return (
-    <Tooltip delay={0}>
+    /* `closeDelay` is stated rather than left to HeroUI, which resolves it from a CSS time and so
+       varies with the theme (owner, 2026-08-07: one disappearance delay everywhere, 200ms). Every
+       tooltip in the app is this component, so this is the whole website's answer. `delay={0}` is the
+       OPEN delay and stays at zero: these labels name an icon the user is already pointing at. */
+    <Tooltip
+      delay={0}
+      closeDelay={200}>
       {/* `tabIndex={-1}` and `role="presentation"` are load-bearing, not tidying.
           `Tooltip.Trigger` renders `<div role="button">` and runs react-aria's `useFocusable`, which
           hands it `tabIndex: 0` unconditionally (HeroUI 3.2.2, `tooltip.js`). Every child here is

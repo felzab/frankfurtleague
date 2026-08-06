@@ -41,26 +41,42 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
     <Tabs className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
       {pageHeading}
 
-      <Tabs.ListContainer className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8 [&>div]:max-w-full [&>div]:min-w-0">
-        {/* The width boundaries for mobile vs desktop */}
-        <Tabs.List
-          className={`${TAB_TRACK} scrollbar-hide lg:max-w-toolbar flex w-full max-w-full flex-row items-center gap-1 overflow-x-auto p-1.5 shadow-sm lg:w-[90%]`}>
-          {/** Tab options */}
-          {spielplanData?.spieltage.map((spieltagData) => {
-            return (
-              <Tabs.Tab
-                key={spieltagData.id}
-                id={spieltagData.id}
-                /* `whitespace-nowrap` is what keeps a Spieltag label on one line, and it does so by
-                   widening the tab — so the tab needs no `shrink-0` of its own inside the scroller. */
-                className={`${TAB_ITEM} flex h-11 items-center px-5 whitespace-nowrap md:px-6`}>
-                {spieltagData.name}
-                <Tabs.Indicator className={TAB_INDICATOR} />
-              </Tabs.Tab>
-            );
-          })}
-        </Tabs.List>
-      </Tabs.ListContainer>
+      {/* The sticky bar is an ordinary element and `Tabs.ListContainer` sits inside it holding only the
+          track, which is what its chevron buttons position against — see the fuller note in
+          `AdminSpieleActionRequiredView`, the other strip in the app. The width boundaries for mobile
+          vs desktop move onto the row for the same reason. */}
+      <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
+        <div className="lg:max-w-toolbar flex w-full max-w-full flex-row items-center justify-center lg:w-[90%]">
+          {/* **No `overflow-x-auto` and no `scrollbar-hide` on the list.** `Tabs.ListContainer` ships
+              the scroll affordance already: a `ScrollShadow` plus chevrons a `:has()` rule reveals only
+              while the shadow reports the strip can scroll. It detects that by letting the list grow
+              (`.tabs__list` is `w-max min-w-full`), so a list that scrolls itself hides the overflow
+              from the detector and the chevrons never appear — which is what a season of twelve
+              Spieltage looked like on a phone. `bg-transparent` undoes the container's `bg-default`,
+              and `min-w-fit` undoes its `min-w-full` — that floor stretched the track across the whole
+              rail, leaving empty track after the last Spieltag. `w-max` stays: it is what lets the list
+              outgrow the rail, which is what the overflow detection reads. */}
+          <Tabs.ListContainer className="max-w-full min-w-0 bg-transparent [&>div]:max-w-full [&>div]:min-w-0 [&>div]:[--scroll-shadow-size:24px]!">
+            <Tabs.List className={`${TAB_TRACK} flex w-max min-w-fit flex-row items-center gap-1 p-1.5 shadow-sm`}>
+              {/** Tab options */}
+              {spielplanData?.spieltage.map((spieltagData) => {
+                return (
+                  <Tabs.Tab
+                    key={spieltagData.id}
+                    id={spieltagData.id}
+                    /* `whitespace-nowrap` keeps a Spieltag label on one line, and `w-fit` undoes
+                       HeroUI's `w-full` on `.tabs__tab` — left at full width inside a `min-w-full`
+                       list, six Spieltage share the rail as six equal slabs instead of six labels. */
+                    className={`${TAB_ITEM} flex h-11 w-fit items-center px-5 whitespace-nowrap md:px-6`}>
+                    {spieltagData.name}
+                    <Tabs.Indicator className={TAB_INDICATOR} />
+                  </Tabs.Tab>
+                );
+              })}
+            </Tabs.List>
+          </Tabs.ListContainer>
+        </div>
+      </div>
 
       {/** A panel is generated for each game-day */}
       {spielplanData?.spieltage.map((spieltagData) => (

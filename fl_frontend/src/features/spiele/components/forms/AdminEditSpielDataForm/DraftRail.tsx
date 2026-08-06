@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { ArrowRight } from "@gravity-ui/icons";
 
+import { COUNT_BADGE, LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
-import { COUNT_BADGE, LABEL_BADGE } from "./badges";
 import { DraftChangeList, operationOf } from "./DraftChangeList";
 import { useDraftStatus } from "./DraftStatusContext";
 import { RailSection } from "./RailSection";

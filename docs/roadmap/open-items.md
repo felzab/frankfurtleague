@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `cc55487`, 2026-08-06
+**Verified against:** `2bfec81`, 2026-08-07
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -51,7 +51,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 7   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                           |
 | 8   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)        |
 | 9   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                           |
-| 10  | FE-12 | Action-required, redesigned                             | FE          | M      | Open     | — (its links have a target) |
+| 10  | FE-12 | Action-required, redesigned                             | FE          | M      | Closed   | — (its links have a target) |
 | 11  | FB-11 | Nothing shows a season's bracket wiring, at all         | FE, BE      | L      | Open     | — (FE-12 first, soft)       |
 | 12  | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (ADR-0050's patterns)     |
 | 13  | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)     |
@@ -480,6 +480,25 @@ category set — the eight stay eight.
 (`fl_frontend/src/features/spiele/utils.ts`) is the one spelling of that route to build them from.
 The derivation and the seven-plus-one category semantics (ADR-0046, ADR-0047) are the contract it
 builds on, not what it reopens.
+
+**Concluded**, and the argument is
+[ADR-0056](../_decisions/0056-a-triage-list-is-ordered-by-what-blocks-play.md). The accordion is the
+app's own tab strip over the app's own card grid; the categories are ordered by what each one blocks,
+declared once in `ACTION_REQUIRED_LABELS`; all eight tabs render at all times with the count badge
+carrying the state and green reserved for zero; and `?section=` holds the selection, which is what
+keeps the App Router's preserved tree from bringing back a stale one (spec invariant I24).
+
+**Two pieces of the entry's scope did not ship, both deliberately.** The per-item deep link is the
+card's existing edit control rather than a new one, and the bracket faults keep the panel above the
+grid ADR-0047 gave them: `SpielCard` renders identically on every surface (owner), so the page adds
+no card variant and no wrapper between the grid's `role="list"` and its items. **URL state for the
+item is not built** for the same reason — restoring the fixture an admin last opened needs an anchor
+on its card. The section survives a round trip to the editor; the scroll position within it does not.
+
+Four changes landed on surfaces beyond this page and are recorded here because no other entry owns
+them: `SpielCard`'s edit link takes the brand fill and both its icon buttons gained a tooltip, the
+finished-fixture `opacity-90` is gone, every tooltip in the app shares one 200 ms close delay, and
+both tab strips stopped suppressing HeroUI's own scroll affordance.
 
 ### 11 · FB-11 — Nothing shows a season's bracket wiring, and it is editable only one match at a time
 

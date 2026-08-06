@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Fifty-four decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Fifty-five decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -86,6 +86,7 @@ written.
 | [0052](0052-a-team-is-fielded-once-per-spieltag.md)                               | A team is fielded once per Spieltag; a clash moves or is refused         | backend, frontend      | Accepted       | 2026-08-06 |
 | [0053](0053-a-toast-is-built-in-tsx-not-patched-in-css.md)                        | A toast is built in TSX, and its duration is derived from what it says   | frontend               | Accepted       | 2026-08-06 |
 | [0055](0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)                   | The undo is a route handler, until Next.js fixes E592                    | frontend               | Accepted       | 2026-08-06 |
+| [0056](0056-a-triage-list-is-ordered-by-what-blocks-play.md)                      | A triage list is ordered by what blocks play; its section is in the URL  | frontend               | Accepted       | 2026-08-07 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.

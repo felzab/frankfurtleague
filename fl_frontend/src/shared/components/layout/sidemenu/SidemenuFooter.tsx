@@ -43,10 +43,13 @@ export function SidemenuFooter({
         </Link>
       </IconTooltip>
 
-      {/* Desktop Collapse Toggle — always tooltipped, because its label is the state itself */}
+      {/* Desktop Collapse Toggle. Tooltipped only while collapsed, like the two controls above it:
+          expanded, the button already carries "Menü einklappen" as visible text, so the tooltip was
+          repeating a label the user could read — the one case a tooltip is noise rather than help. */}
       <IconTooltip
         label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}
-        placement="right">
+        placement="right"
+        isEnabled={isDesktopCollapsed}>
         <button
           onClick={onToggleDesktopMenu}
           className={`text-foreground-muted hover:bg-muted hover:text-foreground hidden h-9 shrink-0 items-center rounded-md transition-colors lg:flex ${

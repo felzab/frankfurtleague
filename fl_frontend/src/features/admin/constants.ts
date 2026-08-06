@@ -28,7 +28,10 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Spiele",
     sub_options: [
-      { id: "action_required", label: "Übersicht", iconName: "ExclamationShape" },
+      // "Handlungsbedarf", not "Übersicht": the page is a queue of the things needing an admin, ranked
+      // by what each one blocks (ADR-0056) — an overview is what `spielsuche` below is. The label is
+      // also the collapsed sidemenu's tooltip and the page's own `h1`, so all three move together.
+      { id: "action_required", label: "Handlungsbedarf", iconName: "ExclamationShape" },
       { id: "spielsuche", label: "Spielsuche", iconName: "Magnifier" },
     ],
   },

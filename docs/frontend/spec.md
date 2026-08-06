@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `2893522`, 2026-08-06
+**Verified against:** `2bfec81`, 2026-08-07
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -285,6 +285,7 @@ is covered without an edit, and `core` gains no static import of `features` (I9)
 | I21 | The navigation guard covers reload, tab close, and links this page renders — and nothing else                                                                                                                                           | `useUnsavedChangesWarning` (`beforeunload`) and `<Link onNavigate>`; the gap is accepted, see §12                                                                                                            | Treating it as complete coverage. The admin sidemenu's links and the browser Back button cannot be intercepted at all, so a draft is lost through either with no prompt                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | I22 | **A dynamic segment's page awaits `params` (and every runtime API) INSIDE a `<Suspense>` boundary, never at its own top level.** All three do: `/admin/spiele/[spiel_id]`, `/dashboard/teams/[team_id]`, `/dashboard/spieler/[team_id]` | The page component is synchronous and renders `<Suspense><…Content {...props} /></Suspense>`; `next build` prints an App Shell sub-entry under each of the three, which is the visible signal it worked      | `cacheComponents` builds an App Shell with FALLBACK params for a segment with no `generateStaticParams` (ADR-0011). A top-level await ties that shell to one URL, and Next then raises `Invariant: postponed state should not be provided when fallback params are provided` whenever a server action's `updateTag` revalidates the route from a DIFFERENT route. The action's response is truncated, the client reports "An unexpected response was received from the server", and the route keeps serving its stale payload — so a saved fixture reopens with its old values. Nothing in the toolchain catches it: it type-checks, lints, builds and renders correctly on a direct visit |
 | I23 | **A toast is raised through `appToast`, and its appearance is built in `AppToaster`** — never `toast` from `@heroui/react` at a call site, and never a new `.toast*` rule in a stylesheet                                               | `fl_frontend/src/shared/utils/appToast.ts` (20 call sites across 7 files) and `fl_frontend/src/core/providers/AppToaster.tsx` ([ADR-0053](../_decisions/0053-a-toast-is-built-in-tsx-not-patched-in-css.md)) | HeroUI applies a 4000 ms default to any toast that states no `timeout`, so a call site that bypasses `appToast` silently gets a clock sized for a one-word message — and a pending toast omitting it retires while its request is still running. Styling a toast from CSS instead reaches it through vendored selectors that an upgrade can rename with no error anywhere                                                                                                                                                                                                                                                                                                                  |
+| I24 | **The action-required page holds no client state: which section is on screen is `?section=`, read with `useSearchParams` and written with `window.history.replaceState`**                                                               | `fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx :: SECTION_PARAM` ([ADR-0056](../_decisions/0056-a-triage-list-is-ordered-by-what-blocks-play.md))                        | The App Router hides an admin route's tree with `<Activity>` rather than unmounting it, so a selection in `useState` — or inside an uncontrolled `Tabs` — survives a round trip to the editor and comes back describing the page as it was. It is §12's hazard on a second surface, and here there is no content key and no reset to be fixed by. `router.replace` is the other trap: this route's read is uncached (ADR-0013), so a router navigation re-reads the whole archive to change which already-loaded section is displayed                                                                                                                                                      |
 
 ## 11. Violation → remedy
 
@@ -310,8 +311,8 @@ are behaviour that is deliberate — those are the ones that save the most time.
 
 ## 12. The match editor's three structural properties
 
-Both are implemented, both are load-bearing, and neither is visible from any single component — which
-is why they are here rather than left to be rediscovered.
+All three are implemented, all three are load-bearing, and none is visible from any single
+component — which is why they are here rather than left to be rediscovered.
 
 ### The draft has exactly one derivation
 
