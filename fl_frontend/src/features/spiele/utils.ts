@@ -296,6 +296,29 @@ export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
 });
 
 /**
+ * The React key of the match editor's subtree: **the stored state a draft is seeded from.**
+ *
+ * The editor's fields are `useState` initialised from `spielData`, and an initialiser runs once per
+ * mounted instance. React keeps that instance for as long as its `key` and position hold, so fresh
+ * props alone never re-seed a field — which is why resetting is done with a key at all
+ * (["you can reset state with a key"](https://react.dev/learn/preserving-and-resetting-state#resetting-state-with-a-key)).
+ *
+ * **The fixture id alone is not enough, and the gap is the undo.** Two different fixtures differ by
+ * id, so `/admin/spiele/A → /admin/spiele/B` resets correctly. The *same* fixture whose stored values
+ * changed does not: after an undo restores a fixture and the admin opens it again, the server sends
+ * the restored data and the mounted editor keeps showing what it was seeded with, until a reload.
+ *
+ * Built from `toPatchPayload` rather than from the whole fixture, and that is the precise statement:
+ * those are exactly the fields the draft mirrors, so the key changes when — and only when — something
+ * the form is showing has changed underneath it. Fields no draft atom holds (`spiel_nr`, `ergebnis`,
+ * `saison_phase`) cannot reset a form that never displayed them as editable state.
+ *
+ * The id is kept in front of the digest so the key stays readable in a React devtools tree, and so two
+ * fixtures that happen to hold identical values still key apart.
+ */
+export const spielStateKey = (spiel: FLSpiel): string => `${spiel.id}:${JSON.stringify(toPatchPayload(spiel))}`;
+
+/**
  * The requests that put a season back the way it was before one save (ADR-0051).
  *
  * **Order is the whole correctness argument.** The edited fixture goes first, because restoring it is

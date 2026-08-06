@@ -308,7 +308,7 @@ are behaviour that is deliberate — those are the ones that save the most time.
 | A toast disappears before it can be read, or a spinner retires mid-request       | The call site used HeroUI's `toast` directly, so it took the library's 4000 ms default                       | I23 — raise it through `appToast`, which derives the duration and gives `pending` `timeout: 0`                       |
 | A toast renders unstyled or misaligned after a HeroUI upgrade                    | One of the two vendored selectors `globals.css` still owns was renamed — `.toast` or `.toast__close-button`  | Re-read `@heroui/styles/dist/components/toast.css`; the rules say which version they were written against (ADR-0053) |
 
-## 12. The match editor's two structural properties
+## 12. The match editor's three structural properties
 
 Both are implemented, both are load-bearing, and neither is visible from any single component — which
 is why they are here rather than left to be rediscovered.
@@ -329,6 +329,24 @@ to catch — unlike a field that half the surfaces know about.
 of asking the derivation gets the answer right today and keeps giving the old answer when the table
 changes. There is always a shorter route for one component; taking it is what turns a one-row change
 into a sweep.
+
+### The editor's subtree is keyed by the fixture's stored state
+
+`fl_frontend/src/app/admin/spiele/[spiel_id]/page.tsx` keys `AdminSpielEditView` with
+`fl_frontend/src/features/spiele/utils.ts :: spielStateKey`, which is the fixture id **plus the
+payload the draft mirrors** — not the id alone.
+
+Every field on the page is `useState` initialised from `spielData`, and an initialiser runs once per
+mounted instance, so fresh props never re-seed a field. React's own answer is to reset with a `key`,
+and the id covers only half the cases: two different fixtures differ by id, but the _same_ fixture
+whose stored values changed does not. That second case is the undo's — a restored fixture reopened in
+a still-mounted editor reads as un-restored until a reload, with the server sending correct data the
+whole time.
+
+Built from `toPatchPayload` deliberately: those are exactly the fields the draft mirrors, so the key
+moves when something the form displays has changed underneath it, and not when a field no draft atom
+holds (`ergebnis`, `spiel_nr`) does. Four cases in `utils.test.ts` pin it, including that one.
+**Narrowing this key back to `spiel.id` reintroduces a bug the type checker cannot see.**
 
 ### The navigation guard has an accepted gap
 

@@ -7,6 +7,7 @@ import { AdminContextWrapper } from "@/features/admin/components/providers/Admin
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
 import { getSpiel } from "@/features/spiele/queries";
 import { resolveSpielId } from "@/features/spiele/resolvers";
+import { spielStateKey } from "@/features/spiele/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -76,15 +77,19 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
     // matches of the season being edited (ADR-0046), and `/admin/spielsuche?saison_id=` can reach a past
     // season's fixtures.
     <AdminContextWrapper saison_id={spielRes.spiel.saison_id}>
-      {/* Keyed by fixture id, and it is not decoration. `/admin/spiele/A → /admin/spiele/B` is the
-          same route pattern, so React reconciles the same component types at the same tree positions
-          and no `useState` initialiser re-runs — every draft atom on the page carried A's values into
-          B's editor, which is unpredictable in the worst way: the fields look like B's stored data.
-          A changed `key` unmounts and remounts the whole client subtree. Keyed at the VIEW rather
-          than at the form so it covers the view's own state too, and so a future field costs nothing
-          here. */}
+      {/* Keyed by the fixture's STORED STATE, and it is not decoration. `/admin/spiele/A →
+          /admin/spiele/B` is the same route pattern, so React reconciles the same component types at
+          the same tree positions and no `useState` initialiser re-runs — every draft atom carried A's
+          values into B's editor, which is unpredictable in the worst way: the fields look like B's
+          stored data. A changed `key` unmounts and remounts the whole client subtree.
+
+          The id alone covered that case and not the one the undo creates: reopening the SAME fixture
+          after its values changed underneath keeps the seeded fields, so a restored fixture reads as
+          un-restored until a reload. `spielStateKey` is the id plus the payload the draft mirrors, so
+          the subtree also resets when the fixture itself moved. Keyed at the VIEW rather than at the
+          form so it covers the view's own state too, and so a future field costs nothing here. */}
       <AdminSpielEditView
-        key={spielRes.spiel.id}
+        key={spielStateKey(spielRes.spiel)}
         spielData={spielRes.spiel}
         today={getGermanTodayStr()}
       />

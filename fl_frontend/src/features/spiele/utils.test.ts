@@ -32,6 +32,7 @@ import {
   listDependentSpiele,
   listFeederSpiele,
   quelleKey,
+  spielStateKey,
   toPatchPayload,
 } from "./utils.ts";
 
@@ -346,6 +347,32 @@ describe("toPatchPayload and buildUndoPayloads", () => {
       "team2_quelle",
       "uhrzeit",
     ]);
+  });
+
+  it("keys a fixture by its stored values, not by its id alone", () => {
+    // The regression this guards is the undo's: reopening the SAME fixture after its values changed
+    // must remount the editor, or every field keeps what its `useState` initialiser was seeded with.
+    const before = fixture(29, null);
+    const after = { ...before, uhrzeit: "20:15:00" } as FLSpiel;
+
+    assert.notEqual(spielStateKey(before), spielStateKey(after));
+  });
+
+  it("keys two readings of an unchanged fixture identically, so re-entry does not thrash", () => {
+    assert.equal(spielStateKey(fixture(29, null)), spielStateKey(fixture(29, null)));
+  });
+
+  it("keys two fixtures apart even when every stored value matches", () => {
+    // The id leads the key precisely so identical values cannot collapse two fixtures into one.
+    assert.notEqual(spielStateKey(fixture(29, null)), spielStateKey(fixture(30, null)));
+  });
+
+  it("ignores a change to a field no draft atom holds", () => {
+    // `ergebnis` is derived by the backend and is on no payload, so it cannot reset a form that never
+    // showed it as editable state — the key is the draft's mirror, not the whole document.
+    const played = { ...fixture(29, null), ergebnis: "2:0" } as FLSpiel;
+
+    assert.equal(spielStateKey(fixture(29, null)), spielStateKey(played));
   });
 
   it("does not carry ergebnis, which the backend derives and refuses to accept", () => {
