@@ -76,24 +76,20 @@ export function InfoHint({ label, children, trigger }: { label: string; children
 
           The default icon is an INLINE glyph, not a flex sibling: it lives inside the heading's own
           text flow. Centring in a flex row can never look right, because the text's visual mass
-          sits above its line box's centre (owner's diagnosis, ninth round). Everything below is in
-          font-relative units — no pixel anywhere — and the vertical offset is DERIVED from the icon
-          size, so any text size and any icon size stay aligned by construction: a box of height H
-          sitting with its bottom V above the baseline has its centre at V + H/2, and
-          `0.3em − H/2` pins that centre to 0.3em above the baseline — a shade under the x-height
-          band's middle (0.375em), which is where the owner's eye settled it: the icon's bottom then
-          reaches the text's descender depth, so the two share a bottom edge. To resize the icon,
-          change `--hint-icon-size` alone; the offset follows. To retune the optical height, the
-          0.3em constant is the only knob. */}
+          sits above its line box's centre (owner's diagnosis, ninth round). `align-middle` does the
+          rest natively: per the CSS spec it pins the box's vertical midpoint to the parent's
+          baseline plus half the parent's x-height — the middle of the text's visual mass — so any
+          icon size and any text size stay aligned with no tuned constant. To resize the icon,
+          change `--hint-icon-size` alone. */}
       <Popover.Trigger
         aria-label={label}
         className={
           trigger
             ? "hover:bg-muted -m-0.5 inline-flex shrink-0 cursor-help items-center justify-center rounded-md p-0.5 transition-colors"
-            : "text-foreground-muted hover:text-brand ms-1.5 inline-flex shrink-0 cursor-help align-[calc(0.3em-var(--hint-icon-size)/2)] transition-colors [--hint-icon-size:1em]"
+            : "text-foreground-muted hover:text-brand ms-1.5 inline-flex shrink-0 cursor-help align-middle transition-colors [--hint-icon-size:1em]"
         }
         onMouseEnter={openFromHover}>
-        {trigger ?? <CircleInfo className="h-(--hint-icon-size) w-(--hint-icon-size)" />}
+        {trigger ?? <CircleInfo className="h-(--hint-icon-size) w-(--hint-icon-size) cursor-help" />}
       </Popover.Trigger>
 
       <Popover.Content
