@@ -458,11 +458,18 @@ as long as the vendored selectors do, so the upgrade that changes them is silent
   can be adjusted or dismissal is the user's — which is exactly what the previous point removes on
   touch. This is the argument that settles the duration debate: the fix is a reachable dismiss
   control first, and tuned durations second.
-- **Every toast is one unstructured title string.** Eighteen call sites across eight files, and
-  exactly one — `SignInForm` — passes `description` and `actionProps`. `formatSpielUpdateMessage`
-  joins its sentences with `". "` into a single title: the base sentence, an advancement sentence, and
+- **Most toasts are one unstructured title string.** **21 call sites across eight files**, of which
+  `SignInForm` and the match editor's four (ADR-0051) pass `description` or `actionProps`; the rest
+  pass a bare title. `formatSpielUpdateMessage` joins its sentences with `". "` into a single title:
+  the base sentence, an advancement sentence, a voided-result sentence, one per released side, and
   **one more per bracket fault**, with no ceiling. (The earlier note of "up to three sentences" was
   one high; the fixed part is two.)
+- **The match editor's four are the reference and are NOT part of the sweep**, except for their
+  copy: a pending `isLoading` toast with no timeout, the undo offer in two grades (success where
+  nothing was destroyed, warning where something was), and a dispatch-failure `danger` toast that
+  carries a **raw error string** in its `description` at 15s. That last one deliberately breaks this
+  module's generic-German rule, because the failure it names never reaches a server log — deciding
+  whether it stays is part of this entry.
 - **Durations are wrong by construction.** `DEFAULT_TOAST_TIMEOUT` is 4000ms in HeroUI 3.2.3; only
   the match form and `SignInForm` override, both to 6000ms. A fault report of five sentences and a
   one-word success get the same clock.
