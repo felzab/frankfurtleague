@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `efed00a`, 2026-08-06
+**Verified against:** `cc55487`, 2026-08-06
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -51,6 +51,7 @@ OPS-6 and OPS-7 are both retired here.
 | 23  | FB-13 | Two bracket faults lived in one toast and three more were contained without a word           | FE, BE      | M      | — (surface: ADR-0046)     | [`125f1cc`](https://github.com/felzab/frankfurtleague/commit/125f1cc) |
 | 24  | FB-14 | The seeding, advancement, edit and feedback surfaces measured against established practice   | FE, BE, DB  | L      | — (owned FB-9's verdict)  | [`0fae7b4`](https://github.com/felzab/frankfurtleague/commit/0fae7b4) |
 | 25  | FE-10 | The match editor was a dialog with no URL, 311px of width and a round-trip per error message | FE          | L      | — (ADR-0048 landed on it) | [`efed00a`](https://github.com/felzab/frankfurtleague/commit/efed00a) |
+| 26  | FE-11 | A toast could not be dismissed without a hover, and every message shared a four-second clock | FE          | S      | — (ADR-0051 shaped it)    | [`cc55487`](https://github.com/felzab/frankfurtleague/commit/cc55487) |
 
 ## What each one produced
 
@@ -157,6 +158,15 @@ no row here — its commit is the whole story.
   FB-5/FB-7/FE-2/FE-1 batch, which changes the patch response shape and regenerates the mirror. It
   opened nothing and unblocked nothing formally: FE-11, FE-12, FB-3 and FB-6 all named it as a soft
   ordering preference, and each of those `Path` lines now names the page as a fact instead.
+- **FE-11** → [ADR-0053](../_decisions/0053-a-toast-is-built-in-tsx-not-patched-in-css.md): a toast's
+  markup is this app's, supplied through `Toast.Provider`'s render function rather than patched into
+  HeroUI's from a stylesheet, and its duration is derived from its text rather than chosen at the call
+  site. The entry was widened by the owner mid-session from four recorded defects to a full redesign,
+  and that is what decided the mechanism — CSS could recolour what the library renders but not move it.
+  One recorded defect was deliberately not fixed, with a measurement as the reason: the stacked-toast
+  height clamp truncates a queued message, and the visible band of the toast behind is 6.4 px, so
+  nothing it cuts was ever on screen. It opened nothing and unblocked nothing formally; FE-12 rebuilds
+  the surface these toasts report from and now has one shape to build against.
 - **FB-12** → [ADR-0046](../_decisions/0046-the-write-path-refuses-wiring-the-season-cannot-hold.md),
   which reaches past the entry's own scope: an unwired knockout slot became the seventh
   action-required category on both ends, and with it the match write path refuses wiring the season

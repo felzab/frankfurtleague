@@ -1,6 +1,6 @@
 # Currency — how documentation stays true
 
-**Verified against:** `738c2b3`, 2026-08-04
+**Verified against:** `cc55487`, 2026-08-06
 
 A documentation standard that only says how to write is a standard that produces accurate documents
 once. This chapter is about the other problem: keeping them accurate while the code moves.

@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `6331791`, 2026-08-05
+**Verified against:** `cc55487`, 2026-08-06
 
 Applies to `fl_frontend/src` and `fl_backend/app`. The principles in
 [`1-principles.md`](1-principles.md) apply here too; this chapter adds what is specific to source
