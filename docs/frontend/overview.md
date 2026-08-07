@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `616612d`, 2026-08-06
+**Verified against:** `2b69c68`, 2026-08-07
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -193,8 +193,13 @@ and again when the session is built. `getAdminSession()` is the single definitio
 note that it neither throws nor redirects, so calling it without checking the return value guards
 nothing.
 
-Sessions last 8 hours and magic links 15 minutes, both shortened from the library defaults. There is no
-in-app sign-out, so session lifetime is the only revocation mechanism.
+Sessions last 8 hours and magic links 15 minutes, both shortened from the library defaults. **Two
+mechanisms end a session before that, and they belong to different people.** The signed-in admin has
+the sidemenu's own sign-out (`fl_frontend/src/features/auth/actions.ts :: signOutAction`), which
+arms on the first press and ends the session on the second. An operator revoking somebody else
+removes the address from `ALLOWED_ADMIN_EMAILS`: the `session` callback re-derives `role` on every
+read, so the row survives and stops authorizing anything on the next request after the restart that
+change already needs.
 
 Route protection is layered: `proxy.ts` guards `/admin/:path*`, and `app/admin/layout.tsx` checks
 independently, so rendering fails closed even if the matcher stops matching.

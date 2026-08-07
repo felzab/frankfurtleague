@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `68ac42d`, 2026-08-07
+**Verified against:** `2b69c68`, 2026-08-07
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -51,7 +51,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 7   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 8   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
 | 9   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
-| 10  | FB-11 | Nothing shows a season's bracket wiring, at all         | FE, BE      | L      | Open     | —                         |
+| 10  | FB-11 | Nothing shows a season's bracket wiring, at all         | FE, BE      | L      | Closed   | —                         |
 | 11  | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (ADR-0050's patterns)   |
 | 12  | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
 | 13  | FB-5  | `is_disqualified` inside `FLSpiel`'s team fields        | FE, BE      | S      | Blocked  | FB-2 (field shape)        |
@@ -441,6 +441,13 @@ becomes real the moment a second person can write, and LOG-2 improves the fideli
 convention that already works.
 
 ### 10 · FB-11 — Nothing shows a season's bracket wiring, and it is editable only one match at a time
+
+**Status: Closed.** The read view is built and is `/admin/finalrunden`
+([ADR-0057](../_decisions/0057-a-draw-is-reviewed-as-a-table-of-provenance.md)) — one row per knockout
+fixture, each side stating its source over its occupant, so a draw is reviewable as a draw for the first
+time. **The editor half is deliberately not built and is not scheduled**: it needs a transaction over
+several fixtures, which `PATCH /spiele/{spiel_id}` does not offer, and the evaluation below already
+recorded that the read view is most of the value and is worth shipping alone.
 
 **Found 2026-08-05, reviewing the bracket after FB-8 closed.**
 

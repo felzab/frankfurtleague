@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `2bfec81`, 2026-08-07
+**Verified against:** `2b69c68`, 2026-08-07
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -394,4 +394,4 @@ pill routes through the discard guard and the button cannot.
 | --- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | F1  | `ausstehend` means `>= today` on the server and `> today` on the client | Open question of intent, not a filed bug. Tracked in [`docs/roadmap/open-items.md`](../roadmap/open-items.md)                                                                                                                                                                                                                            |
 | —   | Pydantic and Zod models are hand-mirrored, no generation step           | Checked rather than generated ([ADR-0040](../_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md)): `fl_frontend/src/core/apiContract.test.ts` compares presence, required, nullable, type and enum members against the committed `fl_backend/openapi.json`. Patterns, lengths and messages stay each side's own |
-| —   | No in-app sign-out                                                      | Session lifetime (8h) is the only revocation mechanism                                                                                                                                                                                                                                                                                   |
+| —   | Two revocation paths, neither of them the 8h lifetime                   | The admin's own sign-out is `fl_frontend/src/features/auth/actions.ts :: signOutAction`; an operator revokes by removing the address from `ALLOWED_ADMIN_EMAILS`, which the `session` callback re-reads on every request                                                                                                                 |

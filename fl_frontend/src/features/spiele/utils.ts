@@ -34,6 +34,7 @@ import type {
   FLSpielQuelle,
   FLSpielReleasedSide,
   FLSpielStatus,
+  FLSpielTeamField,
 } from "./schemas";
 
 export const computeSpielStatus = ({
@@ -130,8 +131,10 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
  * a group-phase fixture, or one an admin has taken manual charge of — and the caller falls through to
  * `PLACEHOLDER.slot`.
  *
- * "Gruppensieger A" rather than "1. der Gruppe A" for first place, because that is what the competition
- * calls it; every other placing reads as an ordinal.
+ * **Every placing reads as an ordinal, first included** — "1. der Gruppe A", not "Gruppensieger A"
+ * (owner, 2026-08-07). One form for the whole set is what lets a reader compare two slots at a glance
+ * on the Finalrunden review, and a special case for one placing is a second thing to recognise for no
+ * information: the ordinal already says the team won the group.
  */
 export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
   if (quelle === null) return null;
@@ -143,11 +146,33 @@ export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
   if (!Number.isInteger(quelle.type === "gruppe" ? quelle.platz : quelle.spiel_nr)) return null;
 
   if (quelle.type === "gruppe") {
-    return quelle.platz === 1 ? `Gruppensieger ${quelle.gruppe}` : `${quelle.platz}. der Gruppe ${quelle.gruppe}`;
+    return `${quelle.platz}. der Gruppe ${quelle.gruppe}`;
   }
 
   return `${quelle.ausgang === "sieger" ? "Sieger" : "Verlierer"} ${quelle.spiel_nr}.`;
 };
+
+/**
+ * Who maintains one side of a fixture — the three answers a slot's two fields add up to.
+ *
+ * A `quelle` and a team are independent and all four combinations are stored states (ADR-0041), but
+ * only one question has three answers: **what fills this side from here on.** A source owns the slot
+ * and the resolution writes it; with no source the slot is the admin's, occupied or not; and a side
+ * that is the admin's AND empty is filled by nobody at all (ADR-0042).
+ *
+ * - `quelle` — a source names it, so the resolution maintains it.
+ * - `manuell` — no source, a team standing in it. The admin's, and settled.
+ * - `offen` — no source and no team. The one legal state that stays broken by default.
+ *
+ * **This is the single declaration of that reading**, which is why it is a function over two fields
+ * rather than a branch at each call site: the triage list's `besetzung_missing` category and the
+ * wiring review's per-slot badge are the same question asked twice, and a second spelling of `offen`
+ * is how the two surfaces come to disagree about which fixtures need somebody.
+ */
+export type FLSlotHerkunft = "quelle" | "manuell" | "offen";
+
+export const deriveSlotHerkunft = (team: FLSpielTeamField | null, quelle: FLSpielQuelle | null): FLSlotHerkunft =>
+  quelle !== null ? "quelle" : team !== null ? "manuell" : "offen";
 
 /**
  * The rounds in the order they are played. Mirrors `PHASE_RANK` in

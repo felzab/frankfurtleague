@@ -13,7 +13,9 @@
  *   • `useSecureCookies` is a string test, not `new URL(...)`. This is evaluated at module scope and
  *     the Docker builder stage has no AUTH_URL at all, so constructing a URL here fails the image
  *     build.
- *   • There is no in-app sign-out, so session lifetime is the only revocation mechanism.
+ *   • `role` is re-derived from ALLOWED_ADMIN_EMAILS on EVERY session read, not stamped at sign-in.
+ *     That is what makes removing an address take effect on the next request rather than at expiry:
+ *     the session row survives and stops authorizing anything.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -89,7 +91,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: { signIn: "/signin", error: "/signin" },
 
   // Default is a 30-day sliding window, for an interface whose only purpose is mutating league data.
-  // There is still no in-app sign-out, so the lifetime is the only revocation mechanism.
+  // The lifetime is not the only revocation mechanism: the sidemenu's sign-out ends a session on
+  // demand, and the `session` callback above re-derives `role` on every read, so an address removed
+  // from the allowlist stops authorizing on the next request.
   session: {
     maxAge: 60 * 60 * 8, // 8h -- one working session
     updateAge: 60 * 60, // refresh the DB row at most hourly

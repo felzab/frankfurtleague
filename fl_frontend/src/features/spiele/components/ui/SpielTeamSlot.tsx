@@ -11,7 +11,7 @@ import type { FLSpielQuelle, FLSpielTeamField } from "../../schemas";
  * One side of a fixture, as a match card renders it.
  *
  * A resolved side is its own text behind a `TeamPopoverMenu`. A side whose occupant the group phase
- * has not produced yet renders its derived source label — "Sieger 25.", "Gruppensieger A" — as plain text and mounts no
+ * has not produced yet renders its derived source label — "Sieger 25.", "1. der Gruppe A" — as plain text and mounts no
  * popover at all: there is no team page and no squad to link to (ADR-0041).
  *
  * **The three `SpielCard` variants stay separate** (ADR-0007) and pass their own `text` and layout

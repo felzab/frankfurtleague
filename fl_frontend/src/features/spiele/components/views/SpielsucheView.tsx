@@ -15,7 +15,7 @@ import type { FLSpiel } from "../../schemas";
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
 // The two `searchable_quelle` keys are here because a `quelle` is a reference and holds no text at all,
 // while the label DERIVED from it is what a bracket fixture shows while its sides are unresolved —
-// without them, searching for what is on screen ("Sieger 25.", "Gruppensieger A") finds nothing.
+// without them, searching for what is on screen ("Sieger 25.", "1. der Gruppe A") finds nothing.
 const SEARCH_KEYS = [
   "team1.name",
   "team2.name",

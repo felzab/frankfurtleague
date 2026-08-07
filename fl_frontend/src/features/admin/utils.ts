@@ -16,8 +16,12 @@
  *     fully keyed, so a mistyped category is a compile error rather than a crash on `undefined`.
  *   • `categorizeActionRequired` is read by two surfaces — this list and the match editor — so its
  *     rules live here once and nothing re-implements them.
+ *   • The one rule it does NOT own is what fills a bracket slot: `deriveSlotHerkunft` answers that in
+ *     `spiele`, beside the reference it reads, because the wiring review asks the same question of the
+ *     same two fields.
  */
 
+import { deriveSlotHerkunft } from "@/features/spiele/utils";
 import { typedObjectEntries } from "@/shared/utils/type";
 
 import type { FLBracketFault, FLSpiel } from "../spiele/schemas";
@@ -161,9 +165,13 @@ export function categorizeActionRequired(
     // (ADR-0046). A Gruppenphase fixture is exempt: an unfilled schedule is not an orphaned slot,
     // and every group fixture legitimately carries no source forever. Mirrors the backend arm in
     // `get_spiele_action_required`.
+    //
+    // `deriveSlotHerkunft` rather than the two null checks spelled out here: the wiring review badges
+    // the same three states per slot, and two spellings of `offen` is how that page and this one come
+    // to disagree about which fixtures need somebody.
     if (
       spiel.saison_phase !== "gruppenphase" &&
-      ((spiel.team1 === null && spiel.team1_quelle === null) || (spiel.team2 === null && spiel.team2_quelle === null))
+      (deriveSlotHerkunft(spiel.team1, spiel.team1_quelle) === "offen" || deriveSlotHerkunft(spiel.team2, spiel.team2_quelle) === "offen")
     ) {
       categorized.besetzung_missing.push(spiel);
     }

@@ -521,15 +521,23 @@ export function FormTeamPicker({
                   (_, index) => index + 1,
                 )
                   .filter((platz) => platz === quelle.platz || !blockedKeys.has(`gruppe:${quelle.gruppe}:${platz}`))
-                  .map((platz) => (
-                    <ListBox.Item
-                      key={platz}
-                      id={String(platz)}
-                      textValue={platz === 1 ? `Gruppensieger ${quelle.gruppe}` : `${platz}. der Gruppe ${quelle.gruppe}`}
-                      className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
-                      {platz === 1 ? `Gruppensieger ${quelle.gruppe}` : `${platz}. der Gruppe ${quelle.gruppe}`}
-                    </ListBox.Item>
-                  ))}
+                  .map((platz) => {
+                    // `formatQuelle` and not a second spelling of the same rule. This list had its
+                    // own copy, so the placing an admin PICKED and the placing every card, preview
+                    // and review page DERIVED were two independent strings that agreed only by
+                    // coincidence — and stopped agreeing the moment the wording changed.
+                    const label = formatQuelle({ type: "gruppe", gruppe: quelle.gruppe, platz }) ?? String(platz);
+
+                    return (
+                      <ListBox.Item
+                        key={platz}
+                        id={String(platz)}
+                        textValue={label}
+                        className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                        {label}
+                      </ListBox.Item>
+                    );
+                  })}
               </ListBox>
             </Autocomplete.Popover>
             <FieldError className={FIELD_ERROR} />

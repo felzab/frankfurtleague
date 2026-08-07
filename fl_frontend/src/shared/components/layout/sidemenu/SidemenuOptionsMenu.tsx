@@ -160,8 +160,22 @@ export function SidemenuOptionsMenu({
                     }
                     handleSignOut();
                   }}
+                  /* **`data-focused`, and important, or the row goes grey under the pointer.**
+                     `globals.css` paints `--bg-muted` on `[data-slot="menu-item"][data-focused="true"]`
+                     to give a keyboard user an indicator inside an open menu, and a menu moves focus
+                     with the pointer: react-aria's `useMenuItem` hook calls `setFocusedKey` from its
+                     own hover-start handler, so hovering this row sets `data-focused` as well. That
+                     rule is UNLAYERED and a Tailwind utility is not, which decides a tie the two
+                     selectors would otherwise draw on specificity, so a plain `data-hovered:` class
+                     loses and the danger tint is overpainted. `!` wins it back, because an important
+                     declaration outranks a normal one whatever the layer. The theme row above needs
+                     the same escape for the same reason.
+
+                     Keying on `data-focused` rather than `data-hovered` also keeps the promise that
+                     rule was added for: arrowing onto this row still indicates, in the colour that
+                     says what pressing it does. */
                   className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
-                    isConfirmingSignOut ? "bg-danger/10 data-hovered:bg-danger/20" : "data-hovered:bg-danger/10"
+                    isConfirmingSignOut ? "bg-danger/10 data-focused:bg-danger/20!" : "data-focused:bg-danger/10!"
                   }`}>
                   <Label className="fluid-sm text-danger min-w-0 flex-1 font-semibold">
                     {isSigningOut ? "Wird abgemeldet..." : isConfirmingSignOut ? "Wirklich abmelden?" : "Abmelden"}

@@ -24,6 +24,7 @@ import {
   collectUsedQuelleKeys,
   computeErgebnisFor,
   computeSpielStatus,
+  deriveSlotHerkunft,
   formatBracketFault,
   formatElfmeterschiessen,
   formatQuelle,
@@ -215,12 +216,12 @@ describe("formatQuelle", () => {
     assert.equal(formatQuelle({ type: "spiel", spiel_nr: 29, ausgang: "verlierer" }), "Verlierer 29.");
   });
 
-  it("calls first place in a group what the competition calls it, rather than an ordinal", () => {
-    assert.equal(formatQuelle({ type: "gruppe", gruppe: "A", platz: 1 }), "Gruppensieger A");
-  });
-
-  it("reads every other placing as an ordinal", () => {
+  // One form for the whole set, first place included, so two slots compare at a glance on the
+  // Finalrunden review and the picker's list reads exactly as the cards do.
+  it("reads every placing as an ordinal, first included", () => {
+    assert.equal(formatQuelle({ type: "gruppe", gruppe: "A", platz: 1 }), "1. der Gruppe A");
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "C", platz: 2 }), "2. der Gruppe C");
+    assert.equal(formatQuelle({ type: "gruppe", gruppe: "B", platz: 4 }), "4. der Gruppe B");
   });
 
   // The defect this fixed: a source mid-edit drafts `NaN` where its number is unpicked, and every
@@ -231,6 +232,32 @@ describe("formatQuelle", () => {
 
   it("returns null while a group-fed slot's placing is still unpicked", () => {
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "B", platz: NaN }), null);
+  });
+});
+
+describe("deriveSlotHerkunft", () => {
+  const team = { team_id: TEAM_1, name: "Team A", tore: null, shorthand: "TA" };
+  const quelle = { type: "spiel", spiel_nr: 25, ausgang: "sieger" } as const;
+
+  it("reads a slot with a source as the resolution's, whether or not the winner has arrived", () => {
+    assert.equal(deriveSlotHerkunft(null, quelle), "quelle");
+    assert.equal(deriveSlotHerkunft(team, quelle), "quelle");
+  });
+
+  it("reads an occupied slot with no source as the admin's own", () => {
+    assert.equal(deriveSlotHerkunft(team, null), "manuell");
+  });
+
+  // The state both surfaces exist to surface: nothing fills this side, and no later result will.
+  it("reads a slot with neither a team nor a source as maintained by nobody", () => {
+    assert.equal(deriveSlotHerkunft(null, null), "offen");
+  });
+
+  // The source wins over the team, which is the rule the write path enforces: while a source stands,
+  // a hand-set team is reverted or refused (ADR-0046). Flipping this precedence would report a
+  // resolution-owned slot as manual on both surfaces at once.
+  it("takes the source over the occupant, because the source is what maintains the slot", () => {
+    assert.equal(deriveSlotHerkunft(team, { type: "gruppe", gruppe: "A", platz: 1 }), "quelle");
   });
 });
 

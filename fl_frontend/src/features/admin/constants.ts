@@ -5,7 +5,7 @@
  * the two cannot disagree.
  */
 
-import { ExclamationShape, Magnifier, MapPin, Person } from "@gravity-ui/icons";
+import { ExclamationShape, Magnifier, MapPin, Medal, Person } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
@@ -18,6 +18,7 @@ import type React from "react";
 export const ADMIN_SIDEMENU_ICONS = {
   ExclamationShape,
   Magnifier,
+  Medal,
   Person,
   MapPin,
 } as const satisfies Record<string, React.ElementType>;
@@ -32,6 +33,12 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
       // by what each one blocks (ADR-0056) — an overview is what `spielsuche` below is. The label is
       // also the collapsed sidemenu's tooltip and the page's own `h1`, so all three move together.
       { id: "action_required", label: "Handlungsbedarf", iconName: "ExclamationShape" },
+      // Below the queue and above the search box, which is the order the three are reached in: what
+      // needs doing, then the draw that decides what will need doing, then looking one fixture up.
+      // Named AND iconed for the public bracket's own entry (`DASHBOARD_SIDEMENU_ICONS`), because it
+      // is the same rounds seen for a different purpose — a second word and a second glyph for one
+      // stage are two more things to learn for nothing.
+      { id: "finalrunden", label: "Finalrunden", iconName: "Medal" },
       { id: "spielsuche", label: "Spielsuche", iconName: "Magnifier" },
     ],
   },
