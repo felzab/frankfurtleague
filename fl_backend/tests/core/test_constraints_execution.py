@@ -76,7 +76,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "address": dict(ADDRESS),
             "inactive_since": None,
         },
-        "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "is_disqualified": False},
+        "saison_teams": {"saison_id": SAISON_ID, "team_id": TEAM_OID, "gruppe": "A", "disqualifikation": None},
         "spieler": {"_id": SPIELER_OID, "vorname": "Max", "nachname": "Mustermann", "inactive_since": None},
         "saison_spieler": {
             "spieler_id": SPIELER_OID,

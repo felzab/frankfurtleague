@@ -8,7 +8,7 @@
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
  *   • `FLTeam` looks like one document and is not: the season-independent team record, plus `gruppe`
- *     and `is_disqualified` from a `saison_teams` junction row, plus a `statistik` the backend
+ *     and `disqualifikation` from a `saison_teams` junction row, plus a `statistik` the backend
  *     computes from that season's matches. All three sources are why those fields are season-dependent.
  *   • The grouped response requires ALL FOUR group keys. A backend that builds the map from the teams
  *     present omits an empty group, and this parse then fails and takes down the table page.
@@ -20,6 +20,7 @@
  *   ADR-0032  `inactive_since` is the day the club left the league
  *   ADR-0034  one team shape; `GET /teams/{id}` is its own response
  *   ADR-0040  the wire contract is checked against the published OpenAPI document
+ *   ADR-0059  a disqualification is a record, and its absence is the null
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -34,6 +35,21 @@ import { CustomDateStringSchema, CustomObjectIdStringSchema, ExternalUrlSchema, 
 /** Mirrors `FLGruppenNames`. A closed set, so a group outside it is a malformed response, not a name. */
 export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"]);
 export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
+
+/**
+ * Mirrors `FLDisqualifikation` — why a team is out of one season, and from when (ADR-0059).
+ *
+ * A team is disqualified exactly when `FLTeam.disqualifikation` is not null. There is no boolean
+ * beside it on either side of the wire, so no reader has two answers to choose between.
+ *
+ * `grund` is free text written for publication, so it renders as authored — never truncated to a
+ * label, and never parsed for a category it does not carry.
+ */
+export const FLDisqualifikationSchema = z.object({
+  grund: z.string().nonempty(),
+  datum: CustomDateStringSchema,
+});
+export type FLDisqualifikation = z.infer<typeof FLDisqualifikationSchema>;
 
 export const FLTeamStatistikSchema = z.object({
   anzahl_gespielte_spiele: z.int().nonnegative(),
@@ -54,7 +70,9 @@ export const FLTeamSchema = z.object({
 
   statistik: FLTeamStatistikSchema,
 
-  is_disqualified: z.boolean(),
+  // Out of THIS season, or null while the team competes (ADR-0059). Joined from the junction by the
+  // backend on every read, so it cannot go stale against a match document.
+  disqualifikation: FLDisqualifikationSchema.nullable(),
   shorthand: z.string().length(2),
   description: z.string(),
   full_name: z.string().nonempty(),
@@ -62,7 +80,7 @@ export const FLTeamSchema = z.object({
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,
   // The day this CLUB left the league, null while it plays (ADR-0032). Not the same thing as leaving
-  // one season -- that is `is_disqualified`, which lives on the junction (ADR-0033).
+  // one season -- that is `disqualifikation`, which lives on the junction (ADR-0033).
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLTeam = z.infer<typeof FLTeamSchema>;

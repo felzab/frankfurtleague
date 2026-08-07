@@ -29,7 +29,7 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import build_team_pipeline
 
-from .conftest import SAISON, SeededLeague
+from .conftest import DISQUALIFIKATION, SAISON, SeededLeague
 
 pytestmark = pytest.mark.db
 
@@ -206,8 +206,10 @@ def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague)
     by_name = {row["name"]: row for row in rows(league)}
 
     assert by_name["Ohne"]["gruppe"] == "B"
-    assert by_name["Lessing"]["is_disqualified"] is True
-    assert by_name["Helmholtz"]["is_disqualified"] is False
+    # The whole record travels, not a flag derived from it: the reason and the date are what FE-3's note
+    # renders, and a projection that flattened this to a boolean would pass a presence check (ADR-0059).
+    assert by_name["Lessing"]["disqualifikation"] == DISQUALIFIKATION
+    assert by_name["Helmholtz"]["disqualifikation"] is None
 
 
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):

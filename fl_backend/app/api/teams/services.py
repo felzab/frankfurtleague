@@ -7,7 +7,7 @@ tiebreak chain and answer which placings no remaining result can still change (A
 throughout, so the whole ranking is testable without a database.
 
 The pipeline's shape exists because a team document is SEASON-INDEPENDENT: name, shorthand, address
-and description live on `teams`, while `gruppe` and `is_disqualified` are scoped to a season and live
+and description live on `teams`, while `gruppe` and `disqualifikation` are scoped to a season and live
 on the `saison_teams` junction, joined here. `statistik` is season-scoped too and is joined from
 nowhere -- it is DERIVED from that season's `spiele` documents by a second lookup. `FLTeam` flattens
 all of it back together, which is why the model looks like one document and is not.
@@ -190,7 +190,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     base_match: dict[str, Any] = {}
 
     # Clubs that have left the league (ADR-0032). Not the same as a team disqualified FOR a season --
-    # that is `is_disqualified` on the junction, filtered inside the lookup below, and a disqualified
+    # that is `disqualifikation` on the junction, filtered inside the lookup below, and a disqualified
     # team stays in the table.
     if not filters.include_inactive:
         base_match["inactive_since"] = None
@@ -209,10 +209,17 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     # ==========================================
     # Use Pydantic's model_dump with your specific includes for the season data
     lookup_filters = filters.model_dump(
-        include={"saison_id", "gruppe", "is_disqualified"},
+        include={"saison_id", "gruppe"},
         exclude_none=True,
         context={"keep_oid": True},
     )
+
+    # Translated rather than dumped: `is_disqualified` is a question about whether the junction row
+    # holds a `disqualifikation` record, and the row stores no boolean to match it against (ADR-0059).
+    # `$ne: null` also excludes a row missing the key entirely, which is the state the runbook's first
+    # step removes and the validator then forbids.
+    if filters.is_disqualified is not None:
+        lookup_filters["disqualifikation"] = {"$ne": None} if filters.is_disqualified else None
 
     lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$team_id", "$$base_team_id"]}}}]
 
@@ -271,7 +278,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
                 "statistik": {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
                 "saison_id": f"${AS_NAME}.saison_id",
                 "gruppe": f"${AS_NAME}.gruppe",
-                "is_disqualified": f"${AS_NAME}.is_disqualified",
+                "disqualifikation": f"${AS_NAME}.disqualifikation",
             }
         }
     )
@@ -459,7 +466,7 @@ def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
     whose first fixture is still to come.
     """
 
-    return not team.is_disqualified and (team.statistik.anzahl_gespielte_spiele + still_to_play) > 0
+    return team.disqualifikation is None and (team.statistik.anzahl_gespielte_spiele + still_to_play) > 0
 
 
 def _spiele_by_gruppe(

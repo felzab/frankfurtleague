@@ -631,7 +631,7 @@ def find_eligibility_refusal(
     different codes, because the advice differs -- "reload the page" is right for a raced bracket and
     wrong for a team somebody disqualified.
 
-    `membership` maps a team id to its `is_disqualified` for THIS season, read from `saison_teams`
+    `membership` maps a team id to whether it is disqualified for THIS season, read from `saison_teams`
     inside the caller's transaction. A team absent from it holds no row for the season at all, which is
     the second rule below.
 

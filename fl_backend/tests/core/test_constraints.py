@@ -40,7 +40,7 @@ from app.api.spieler.schemas import FLSpieler
 from app.api.spieler.services import SAISON_SPIELER_COLLECTION_NAME
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
-from app.api.teams.schemas import FLTeam, FLTeamRecord
+from app.api.teams.schemas import FLDisqualifikation, FLTeam, FLTeamRecord
 from app.api.teams.services import SAISON_TEAMS_COLLECTION_NAME
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose_failure
 from app.shared.schemas.addresses import FLAddress
@@ -61,8 +61,10 @@ EXPECTED_COLLECTIONS = {
     "schiedsrichter",
 }
 
-# The two collections with no Pydantic model of their own. Named here so that giving one a model later
-# fails this file rather than silently leaving its validator unmirrored.
+# The two collections with no Pydantic model of the ROW. Named here so that giving one a model later
+# fails this file rather than silently leaving its validator unmirrored. A model of an EMBEDDED
+# sub-document does not take a collection off this list -- `saison_teams.disqualifikation` has one and
+# the row around it still does not.
 MODELLESS_COLLECTIONS = {SAISON_TEAMS_COLLECTION_NAME, SAISON_SPIELER_COLLECTION_NAME}
 
 # JSON Schema keywords ADR-0027 puts out of scope. Ranges, formats and lengths stay Pydantic's, and a
@@ -111,9 +113,9 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[B
     ("spielorte", ("address",), FLAddress, frozenset()),
     ("schiedsrichter", (), FLSchiedsrichter, frozenset()),
     ("schiedsrichter", ("kontakt",), FLKontakt, frozenset()),
-    # `gruppe` and `is_disqualified` are joined from saison_teams; `statistik` is derived from spiele
+    # `gruppe` and `disqualifikation` are joined from saison_teams; `statistik` is derived from spiele
     # and stored nowhere at all (ADR-0026). None of the three is on a teams document.
-    ("teams", (), FLTeam, frozenset({"gruppe", "is_disqualified", "statistik"})),
+    ("teams", (), FLTeam, frozenset({"gruppe", "disqualifikation", "statistik"})),
     # The same collection twice, on purpose. `FLTeam` is the READ shape and is allowed to carry three
     # fields no document has; `FLTeamRecord` is what a write echoes, so its field set must match the
     # validator EXACTLY -- an empty `not_stored` is the assertion.
@@ -121,6 +123,9 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[B
     ("teams", ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
     ("spieler", (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen"})),
+    # The one sub-document of a modelless row that does have a model, so the drift check reaches it
+    # (ADR-0059). `FLTeam` embeds it, which is how the record travels from the junction to the reader.
+    ("saison_teams", ("disqualifikation",), FLDisqualifikation, frozenset()),
 ]
 
 
@@ -167,13 +172,17 @@ def test_every_collection_has_a_validator():
 
 def test_only_the_two_junctions_are_unmirrored():
     """
-    The junctions have no model, and nothing else may quietly join them.
+    The junctions have no model of their ROW, and nothing else may quietly join them.
 
     Without this, adding a tenth collection whose model was never written would pass every other test
     in this file — the drift check only walks what MIRRORED_MODELS lists.
+
+    Root entries only, which is what makes the claim the one worth asserting. `saison_teams` is mirrored
+    at `("disqualifikation",)` and its row is still modelless, so counting a sub-document entry here
+    would take the junction off this list while the gap it names is entirely unchanged.
     """
-    mirrored = {collection for collection, _, _, _ in MIRRORED_MODELS}
-    assert set(COLLECTION_VALIDATORS) - mirrored == MODELLESS_COLLECTIONS
+    mirrored_rows = {collection for collection, path, _, _ in MIRRORED_MODELS if not path}
+    assert set(COLLECTION_VALIDATORS) - mirrored_rows == MODELLESS_COLLECTIONS
 
 
 @pytest.mark.parametrize(("collection", "path", "model", "not_stored"), MIRRORED_MODELS)

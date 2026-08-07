@@ -143,6 +143,24 @@ _KONTAKT = _object(
     properties={"telefon": {"bsonType": _STRING_OR_NULL}, "email": {"bsonType": _STRING_OR_NULL}},
 )
 
+_DISQUALIFIKATION = _object(
+    # Null for every team still competing, which is all sixteen of them. The absence of the record is
+    # what "not disqualified" means -- there is no boolean beside it, here or on the model, because the
+    # two could disagree and nothing available could refuse that (ADR-0059, and ADR-0032 before it).
+    nullable=True,
+    # Both keys, because a record missing either is not half a disqualification -- it is one that cannot
+    # be rendered. `grund` carries `min_length=1` in `FLDisqualifikation` and no length is repeated
+    # here: an empty reason is a wrong value rather than a structurally broken document, which is the
+    # line ADR-0027 draws and `test_no_validator_constrains_a_range_or_a_format` enforces.
+    required=("grund", "datum"),
+    properties={
+        "grund": {"bsonType": "string"},
+        # The German YYYY-MM-DD string every other date here is. Its FORMAT is Pydantic's, for the
+        # reason `_INACTIVE_SINCE` states.
+        "datum": {"bsonType": "string"},
+    },
+)
+
 _SPIEL_QUELLE = _object(
     # Null on every group-phase fixture, and on any slot an admin has taken manual charge of by clearing
     # it -- which is the only manual-override mechanism there is (ADR-0042).
@@ -255,7 +273,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
     },
     "teams": {
         "$jsonSchema": _object(
-            # `gruppe`, `is_disqualified` and `statistik` are absent because a team document does not
+            # `gruppe`, `disqualifikation` and `statistik` are absent because a team document does not
             # carry them: the first two are season-scoped and live on `saison_teams`, and the third is
             # derived from `spiele` on every read and stored nowhere (ADR-0026).
             required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "inactive_since"),
@@ -277,24 +295,27 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
     "saison_teams": {
         "$jsonSchema": _object(
             # Transcribed from the documents, not from a model: this junction is the one collection
-            # with no Pydantic model of its own. The four fields are what the team pipeline reads, and
+            # with no Pydantic model of the ROW. The four fields are what the team pipeline reads, and
             # no row here carries `statistik`: the seven figures are derived from the matches on every
-            # read and stored nowhere (ADR-0026).
+            # read and stored nowhere (ADR-0026). One sub-document is an exception and is transcribed
+            # from a model like every other collection here -- `_DISQUALIFIKATION` mirrors
+            # `FLDisqualifikation`, and the drift check covers it through `FLTeam`, which embeds it.
             #
             # There is no `inactive_since` either, and that is the deliberate part. Once a season's
             # squads are settled a team never leaves it; the only way out is disqualification, which is
             # the field below (ADR-0033). So no row here is ever retired, `uniq_saison_id_team_id` is
             # never held by a dead one, and a create here can never collide with a row an admin cannot
             # see -- which is the case `saison_spieler` has to offer a reactivate endpoint for.
-            required=("_id", "saison_id", "team_id", "gruppe", "is_disqualified"),
+            required=("_id", "saison_id", "team_id", "gruppe", "disqualifikation"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
-                # A bare boolean today. FB-2 replaces it with an embedded record carrying a reason and
-                # a date, and this line is what has to change with it.
-                "is_disqualified": {"bsonType": "bool"},
+                # The reason a team is out of this season and the day it took effect, or null while it
+                # competes (ADR-0059). Required, so a row that has never carried the key is rejected --
+                # which is why the runbook in that ADR seeds it BEFORE the deploy that attaches this.
+                "disqualifikation": _DISQUALIFIKATION,
             },
         )
     },

@@ -2325,7 +2325,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Change a team's group or disqualify it",
-        "description": "Change which group a team is in for a season, or disqualify it.\n\nDisqualification is how a team leaves a season; there is no delete here (ADR-0033). The flag is\nread by `GET /teams` and joined into match data rather than copied (ADR-0028), so setting it here\nreaches every surface that shows a DQ badge with no second write to keep in step.",
+        "description": "Change which group a team is in for a season, or disqualify it.\n\nDisqualification is how a team leaves a season; there is no delete here (ADR-0033). It is a RECORD\ncarrying the reason and the effective date, and `null` is what lifting one looks like — there is no\nboolean beside it to contradict it (ADR-0059). The record is read by `GET /teams` and joined into\nmatch data rather than copied (ADR-0028), so entering it here reaches every surface that shows a DQ\nbadge with no second write to keep in step.\n\nBoth writable fields are required on the payload, so this replaces them wholesale. An omitted\n`disqualifikation` is a 422 rather than a team quietly reinstated by a form that forgot the field.",
         "operationId": "patch_saison_team_api_v0_teams__team_id__saisons__saison_id__patch",
         "security": [
           {
@@ -3068,6 +3068,27 @@
         "title": "FLBracketFaultSpiel",
         "description": "One fixture whose two references resolve to the SAME club, so it would be a team against itself.\n\nUnlike the other four, this one survives every write-path rule: the refusal keys a source by its\nidentity, so two DIFFERENT sources that happen to name one club pass it (ADR-0046). A manual side\nholding a club, against a side fed by a match that club then wins, is the reachable shape.\n\nThe fixture keeps its stored sides and everything downstream keeps deriving from them."
       },
+      "FLDisqualifikation": {
+        "properties": {
+          "grund": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Grund"
+          },
+          "datum": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "grund",
+          "datum"
+        ],
+        "title": "FLDisqualifikation",
+        "description": "Why a team is out of one season, and from when (ADR-0059).\n\nEmbedded on the `saison_teams` junction row and served from there. Its ABSENCE — the field holding\n`null` — is what \"not disqualified\" means, so nothing beside it records the same fact and the two\ncannot disagree. That is ADR-0032's shape applied to a second question, for the same reason: a\nboolean and a record together is the one arrangement with a state the database cannot refuse.\n\n`grund` is FREE TEXT and it is PUBLIC. It is written knowing it appears on the team's own page,\nwhich is the same trust this system already places in `teams.description`. A closed set was rejected\nbecause this league publishes no disciplinary code an enum could cite (ADR-0059)."
+      },
       "FLGruppen": {
         "additionalProperties": {
           "items": {
@@ -3229,15 +3250,21 @@
             ],
             "title": "Gruppe"
           },
-          "is_disqualified": {
-            "type": "boolean",
-            "title": "Is Disqualified"
+          "disqualifikation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLDisqualifikation"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
         "required": [
           "gruppe",
-          "is_disqualified"
+          "disqualifikation"
         ],
         "title": "FLPatchSaisonTeamPayload"
       },
@@ -4257,9 +4284,15 @@
             ],
             "title": "Gruppe"
           },
-          "is_disqualified": {
-            "type": "boolean",
-            "title": "Is Disqualified"
+          "disqualifikation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLDisqualifikation"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -4267,7 +4300,7 @@
           "saison_id",
           "team_id",
           "gruppe",
-          "is_disqualified"
+          "disqualifikation"
         ],
         "title": "FLSaisonTeamResponse",
         "description": "A junction row, which has no read model of its own -- so it is echoed as it was written."
@@ -5496,9 +5529,15 @@
           "statistik": {
             "$ref": "#/components/schemas/FLTeamStatistik"
           },
-          "is_disqualified": {
-            "type": "boolean",
-            "title": "Is Disqualified"
+          "disqualifikation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLDisqualifikation"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "shorthand": {
             "type": "string",
@@ -5541,7 +5580,7 @@
           "name",
           "gruppe",
           "statistik",
-          "is_disqualified",
+          "disqualifikation",
           "shorthand",
           "description",
           "full_name",
@@ -5609,7 +5648,7 @@
           "inactive_since"
         ],
         "title": "FLTeamRecord",
-        "description": "The club document as it is STORED — `FLTeam` minus the three fields no `teams` document carries.\n\nWhat the write endpoints echo back. A write to `teams` changes the club and nothing season-scoped,\nso `gruppe`, `is_disqualified` and `statistik` are not this endpoint's to report — and reading them\nwould mean re-running the team pipeline, whose junction join is strict. A club with no\n`saison_teams` row for the current season drops out of that pipeline entirely, which is the normal\nstate for a club being created, retired or reactivated."
+        "description": "The club document as it is STORED — `FLTeam` minus the three fields no `teams` document carries.\n\nWhat the write endpoints echo back. A write to `teams` changes the club and nothing season-scoped,\nso `gruppe`, `disqualifikation` and `statistik` are not this endpoint's to report — and reading them\nwould mean re-running the team pipeline, whose junction join is strict. A club with no\n`saison_teams` row for the current season drops out of that pipeline entirely, which is the normal\nstate for a club being created, retired or reactivated."
       },
       "FLTeamStatistik": {
         "properties": {

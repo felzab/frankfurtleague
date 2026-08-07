@@ -128,7 +128,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                           <TeamPopoverMenu
                             teamName={teamData.name}
                             teamId={teamData.id}
-                            teamIsDisqualified={teamData.is_disqualified}>
+                            teamIsDisqualified={teamData.disqualifikation !== null}>
                             {/** Desktop view */}
                             <span className="fluid-xs text-foreground hover:text-brand hidden max-w-full min-w-0 truncate font-medium transition-colors lg:block">
                               {`${teamData.name} - ${teamData.shorthand}`}
@@ -137,7 +137,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                             <span className="fluid-sm text-foreground hover:text-brand block font-medium transition-colors lg:hidden">
                               {teamData.shorthand}
                             </span>
-                            {teamData.is_disqualified && (
+                            {teamData.disqualifikation !== null && (
                               <Badge
                                 size="sm"
                                 placement="top-right"

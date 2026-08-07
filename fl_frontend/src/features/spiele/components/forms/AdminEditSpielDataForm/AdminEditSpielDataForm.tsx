@@ -702,7 +702,7 @@ export function AdminEditSpielDataForm({
       const team = teams.find((candidate) => candidate.id === side.team_id);
       switch (errorCode) {
         case "REQ-ELIGIBILITY-001":
-          return team?.is_disqualified === true;
+          return team !== undefined && team.disqualifikation !== null;
         case "REQ-ELIGIBILITY-002":
           return team === undefined;
         case "REQ-SPIELTAG-001":

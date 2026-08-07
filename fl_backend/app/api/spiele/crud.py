@@ -185,10 +185,14 @@ async def pull_saison_membership(
     Read directly rather than through `build_team_pipeline`: that pipeline serves the league table, so
     it skips seasons a team has no matches in and filters `inactive_since` -- both of which would drop
     a row this refusal has to see. What is needed here is the junction itself, which is the document
-    `is_disqualified` actually lives on.
+    `disqualifikation` actually lives on.
 
     A team absent from the returned map holds no row at all, which is a distinct refusal from being
     disqualified: the first is a dangling reference and the second is a decision somebody recorded.
+
+    The map's value is a BOOLEAN, deliberately narrower than the record it is read from (ADR-0059).
+    This answers one question -- may this team be fielded -- and the reason and the date do not change
+    the answer. The surfaces that display them read `FLTeam` instead.
 
     Takes the caller's SESSION on the write path, for the reason every read on it does: a
     disqualification written by the same transaction has to be visible to the rule that reads it.
@@ -197,11 +201,11 @@ async def pull_saison_membership(
     rows = await pull_many_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
-        projection={"team_id": 1, "is_disqualified": 1},
+        projection={"team_id": 1, "disqualifikation": 1},
         session=session,
     )
 
-    return {row["team_id"]: bool(row.get("is_disqualified", False)) for row in rows}
+    return {row["team_id"]: row.get("disqualifikation") is not None for row in rows}
 
 
 async def preview_bracket_after_patch(

@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `2b69c68`, 2026-08-07
+**Verified against:** `05ac046`, 2026-08-07
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -585,8 +585,9 @@ A new season needs, at minimum:
    **It carries no "have all the games finished" guard, on purpose.** That check belongs to FB-6's
    admin control, where an operator can see what is incomplete and decide.
 
-3. A **`saison_teams` junction row per participating team**, carrying `gruppe` and `is_disqualified` —
-   `POST /api/v0/teams/{team_id}/saisons`. A team with no row for the season disappears from that
+3. A **`saison_teams` junction row per participating team**, carrying `gruppe` and `disqualifikation` —
+   `POST /api/v0/teams/{team_id}/saisons`, which seeds the record as `null`. A team with no row for the
+   season disappears from that
    season's results entirely: the join is strict. No `statistik`, because the league table is derived
    from the season's matches ([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)),
    so a new season starts at zero without anything being written.

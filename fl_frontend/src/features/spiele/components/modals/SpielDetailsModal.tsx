@@ -108,7 +108,6 @@ export function SpielDetailsModal({
               <Modal.Body className="text-foreground">
                 {/* Teams area  */}
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
-                  {/** I just pass teamIsDisqualified=false because it's not included in the game data */}
                   {/* Plain links, not a team popover (owner decision, 2026-07-31). A popover
                       anchored inside a `position: fixed` overlay is mispositioned by react-aria,
                       which adds `document.scrollTop` to the trigger's viewport rect — on the landing
