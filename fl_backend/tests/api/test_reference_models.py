@@ -160,11 +160,25 @@ class TestSpieltag:
         with pytest.raises(ValidationError):
             FLSpieltag.model_validate(spieltag(name=""))
 
-    @pytest.mark.parametrize("anzahl", [0, -1])
-    def test_rejects_a_non_positive_match_count(self, spieltag, anzahl):
-        """Zero and negative: a matchday with no matches is not a matchday."""
+    def test_rejects_a_negative_match_count(self, spieltag):
+        """
+        A count below zero is not a count, and it is the only value this field refuses.
+
+        The bound is `ge=0` because the count is derived from the season's rules (ADR-0065), and zero is
+        a real answer there — which the test below pins.
+        """
         with pytest.raises(ValidationError):
-            FLSpieltag.model_validate(spieltag(anzahl_spiele=anzahl))
+            FLSpieltag.model_validate(spieltag(anzahl_spiele=-1))
+
+    def test_accepts_a_match_count_of_zero(self, spieltag):
+        """
+        Zero is the honest answer for a phase this season's bracket does not reach.
+
+        `anzahl_spiele` is derived from the season's rules and this matchday's phase (ADR-0065). A season
+        sending eight teams into the bracket plays no round of sixteen, so a matchday claiming to be one
+        expects no matches — and the admin list showing `0 / 0` is exactly the report that says so.
+        """
+        assert FLSpieltag.model_validate(spieltag(anzahl_spiele=0)).anzahl_spiele == 0
 
     def test_carries_no_stored_position(self, spieltag):
         """

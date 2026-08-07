@@ -58,19 +58,35 @@ from app.api.teams.schemas import FLDisqualifikation, FLGruppenNames
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString, CustomOptionalTimeString, CustomTimeString
 from app.shared.schemas.responses import BaseAPIResponse
 
-FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
+FLSaisonPhase = Literal["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
 FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
 
-# The rounds in the order they are played, declared beside the set it ranks so the two cannot drift.
-# Two rules read it and neither is about presentation: `find_wiring_refusal` needs "strictly earlier"
-# to refuse a feeder that is not played first, and `order_spieltage` needs a total order over the
-# phases because a matchday's position is derived rather than stored (ADR-0064). A new phase slots in
-# by rank without touching either.
+# ── The competition's shape, derived from the phase set ──────────────────────────────────────────────
 #
-# It is a Mapping rather than a tuple because both callers ask "which rank is this phase", never "what
-# is at rank n" -- the frontend's `SAISON_PHASE_OPTIONS` is the array form, and it is a mirror of this
-# the same way every schema over there mirrors one here.
-PHASE_RANK: Mapping[FLSaisonPhase, int] = {"gruppenphase": 0, "viertelfinale": 1, "halbfinale": 2, "finale": 3}
+# **`PHASE_ORDER` is the one declaration of how many knockout rounds this competition can have, and
+# adding one is adding a member to it.** Everything below reads the tuple rather than a literal count:
+# the ladder, the bracket's capacity, and how many matches a round holds. A `sechzehntelfinale` between
+# `gruppenphase` and `achtelfinale` would raise the ceiling from 16 qualifiers to 32 and change nothing
+# else in this file (ADR-0065).
+#
+# The order is the order the rounds are PLAYED, so the group phase is first and the final is last. That
+# ordering is what `find_wiring_refusal` needs to refuse a feeder played too late, and what
+# `order_spieltage` needs because a matchday's position is derived rather than stored (ADR-0064).
+PHASE_ORDER: tuple[FLSaisonPhase, ...] = ("gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale")
+
+# The rank of each phase, built from the order above so the two cannot disagree. A Mapping because both
+# callers ask "which rank is this phase" rather than "what is at rank n" -- the frontend's
+# `SAISON_PHASE_OPTIONS` is the array form and mirrors `PHASE_ORDER` the way every schema there mirrors
+# one here.
+PHASE_RANK: Mapping[FLSaisonPhase, int] = {phase: rank for rank, phase in enumerate(PHASE_ORDER)}
+
+# The knockout rounds, largest first: every phase except the group phase, which is not a round.
+KNOCKOUT_PHASES: tuple[FLSaisonPhase, ...] = PHASE_ORDER[1:]
+
+# How many teams a season may send into the bracket. A knockout ladder halves each round down to one
+# final, so it needs a power of two -- and the ceiling is what the phase set can hold: 2**4 = 16 with
+# the five phases above.
+MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
 
 
 # The three embedded field models are declared BEFORE the payload and FLSpiel that reference them.
@@ -342,8 +358,8 @@ class FLSpiel(BaseModel):
     schiedsrichter: FLSpielSchiedsrichterField | None
 
     # "Tore:Tore", or null when the match has not been played. Parsed as structured data by the
-    # frontend, which derives win/draw/loss from it -- a malformed value rendered as a loss for
-    # both teams before this was constrained.
+    # frontend, which derives win/draw/loss from it -- so a malformed value renders as a loss for both
+    # teams, which is what the pattern is here to refuse.
     ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
 
     # How a knockout that finished level was settled, or null -- which is every match that was not, and
@@ -436,8 +452,8 @@ class FLSpielAdvancement(BaseModel):
 
     **The two are separate facts and the second is the one an admin needs.** A slot filling from empty
     is the ordinary, harmless case; a slot whose occupant changed while the fixture already held a
-    scoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044), and until this model
-    existed the response said only that a `Paarung` had been updated (ADR-0051).
+    scoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044) -- which a response
+    reporting only that a `Paarung` was updated cannot convey (ADR-0051).
 
     Both voided fields are `None` on the harmless case, so "was anything destroyed here" is a null
     check rather than a comparison against the fixture's earlier state — which the caller does not

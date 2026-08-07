@@ -22,7 +22,7 @@ season to the next.
   docs/backend/spec.md -- section 3, the write path
 """
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
@@ -34,11 +34,13 @@ from app.api.saisons.schemas import (
     FLPostSaisonPayload,
     FLPostSaisonResponse,
     FLSaison,
+    FLSaisonRules,
 )
+from app.api.saisons.services import find_rules_refusal
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db
-from app.core.dependencies import DBClient, SaisonsCollection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection
+from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.security import verify_access_admin
 
 router = APIRouter(
@@ -60,7 +62,22 @@ async def post_saison(
     `_id` index and comes back as a 409.
 
     Making it live is a separate, deliberate step — `POST /saisons/{saison_id}/activate`.
+
+    The rules are refused if they describe a competition with no bracket — `number_of_groups x
+    qualifiers_per_group` has to be a power of two the phase set can hold (`REQ-RULES-001`, ADR-0065).
+    None of the other four rules can apply to a season that has no teams and no fixtures yet.
     """
+
+    refusal = find_rules_refusal(
+        saison_status="future",
+        stored=None,
+        proposed=saison_data.rules,
+        occupancy_by_gruppe={},
+        highest_wired_platz=0,
+    )
+    if refusal is not None:
+        error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     post_operation = await post_one_to_db(
         collection=saisons_collection,
@@ -80,14 +97,59 @@ async def patch_saison(
     saison_id: str,
     saison_data: Annotated[FLPatchSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    spiele_collection: SpieleCollection,
 ) -> FLPatchSaisonResponse:
     """
     Update a season's dates and scoring rules. `status` is deliberately not part of the payload.
 
     Editing `rules.win_points` or `draw_points` changes **every league table for this season on the
     next read** — the standings are derived from the matches rather than stored (ADR-0026), so there is
-    no migration to run and equally nothing to announce that the numbers moved.
+    no migration to run and equally nothing to announce that the numbers moved. Which is exactly why a
+    `past` season freezes them: `REQ-RULES-005` refuses the edit rather than silently rewriting who won a
+    finished competition.
+
+    **Five refusals, and three of them read the season's own data** (ADR-0065, docs/domain.md). The rules
+    decide the shape of the competition, so narrowing one below what already exists strands it: a group the
+    season stops running while teams are still entered in it, a group left over its own capacity, or a
+    bracket slot naming a placing that can no longer be reached. Each of those is legal at every layer and
+    invisible until something downstream reads it.
     """
+
+    stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+
+    # Group occupancy, disqualified rows included: a team never leaves a season (ADR-0033), so its place
+    # stays taken and a narrowing has to account for it.
+    occupancy: dict[Any, int] = {}
+    async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1}):
+        gruppe = row.get("gruppe")
+        if gruppe is not None:
+            occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
+
+    # The highest group placing any of this season's bracket slots names. Read from both sides, because a
+    # `quelle` sits on either (ADR-0041), and 0 where the season has no group-seeded slot at all.
+    highest_platz = 0
+    async for spiel in spiele_collection.find(
+        {"saison_id": saison_id, "$or": [{"team1_quelle.type": "gruppe"}, {"team2_quelle.type": "gruppe"}]},
+        {"team1_quelle": 1, "team2_quelle": 1},
+    ):
+        for side in ("team1_quelle", "team2_quelle"):
+            quelle = spiel.get(side)
+            if isinstance(quelle, dict) and quelle.get("type") == "gruppe":
+                highest_platz = max(highest_platz, int(quelle.get("platz", 0)))
+
+    refusal = find_rules_refusal(
+        saison_status=str(stored_raw["status"]),
+        # Validated rather than read raw, so a season document still missing a rules key fails loudly here
+        # instead of being compared against a default nobody chose (ADR-0043's rule).
+        stored=FLSaisonRules.model_validate(stored_raw["rules"]),
+        proposed=saison_data.rules,
+        occupancy_by_gruppe=occupancy,
+        highest_wired_platz=highest_platz,
+    )
+    if refusal is not None:
+        error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_document_raw = await patch_one_in_db(
         collection=saisons_collection,

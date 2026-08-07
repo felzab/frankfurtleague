@@ -103,7 +103,7 @@ _INACTIVE_SINCE = {"bsonType": _STRING_OR_NULL}
 # What keeps each copy in step is `test_every_validator_enum_matches_its_literal`, which imports both
 # sides and compares them member by member -- the field-name drift check two doors down does NOT reach
 # enum values, so a renamed member would otherwise be caught by nothing until a live write was refused.
-_SAISON_PHASEN = ["gruppenphase", "viertelfinale", "halbfinale", "finale"]
+_SAISON_PHASEN = ["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
 _SAISON_STATUS = ["past", "active", "future"]
 _GRUPPEN = ["A", "B", "C", "D"]
 # The two ways a bracket slot is fed, and the two outcomes a match-fed one can name.
@@ -452,19 +452,18 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
     },
     "spieltage": {
         "$jsonSchema": _object(
-            required=("_id", "name", "beginn", "ende", "anzahl_spiele", "saison_phase", "saison_id", "inactive_since"),
+            required=("_id", "name", "beginn", "ende", "saison_phase", "saison_id", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
                 "beginn": {"bsonType": "string"},
                 "ende": {"bsonType": "string"},
-                # A stored count of something countable, maintained by hand. Recorded as the obvious
-                # second candidate for ADR-0026's treatment and deliberately not decided; typing it
-                # here neither blesses nor blocks that.
-                "anzahl_spiele": {"bsonType": "int"},
-                # A matchday's position is DERIVED, so no property here holds one (ADR-0064). It is
-                # `saison_phase` in bracket order, then `beginn`, then `name` -- a total order over
-                # fields that already have to be right for other reasons.
+                # NEITHER a position NOR a match count is stored here, and both absences are decisions.
+                # The position is `saison_phase` in bracket order, then `beginn`, then `name` (ADR-0064);
+                # the match count follows from the season's `rules` and this matchday's phase, because a
+                # single round robin per group determines it exactly (ADR-0065). `FLSpieltag` serves
+                # `anzahl_spiele` as a derived field, which is why `MIRRORED_MODELS` lists it as
+                # not-stored -- the same shape `statistik` has on a team.
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
                 # Retiring a matchday does not touch the matches pointing at it: `spiele.spieltag_id`

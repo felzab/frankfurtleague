@@ -122,7 +122,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "name": "1. Spieltag",
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
-            "anzahl_spiele": 4,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
             "inactive_since": None,

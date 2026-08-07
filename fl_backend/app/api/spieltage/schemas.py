@@ -1,10 +1,11 @@
 """
 SPIELTAGE · models
 
-**A matchday's position is DERIVED and no field holds one** (ADR-0064). The order is `saison_phase` in
-bracket order, then `beginn`, then `name` -- fields that already have to be right for other reasons, so
-there is nothing to set, nothing to collide and nothing to reorder. `order_spieltage` is the one place
-that order is expressed.
+**Neither a matchday's POSITION nor its MATCH COUNT is stored, and both absences are decisions.** The
+position is `saison_phase` in bracket order, then `beginn`, then `name` (ADR-0064) -- fields that already
+have to be right for other reasons, so there is nothing to set and nothing to collide. The count follows
+from the season's rules, because a single round robin per group determines it exactly (ADR-0065), so
+`anzahl_spiele` is on the read model and on neither payload: it is served, never written.
 
 `FLSaisonPhase` and `PHASE_RANK` are imported from the spiele slice rather than redeclared, so the set
 and its ordering cannot drift from the rules that refuse a feeder played too late.
@@ -25,7 +26,12 @@ class FLSpieltag(BaseModel):
 
     beginn: CustomDateString
     ende: CustomDateString
-    anzahl_spiele: int = Field(gt=0)
+    # DERIVED, and on no document (ADR-0065). A single round robin per group determines exactly how many
+    # matches a matchday of a given phase holds, so this is `app/api/saisons/schedule.py ::
+    # expected_matches` over the season's `rules` -- the same shape `FLTeam.statistik` has. `ge=0` rather
+    # than `gt=0` because a matchday in a phase this season's bracket does not reach expects none, which
+    # is the honest answer and the one the admin list reports.
+    anzahl_spiele: int = Field(ge=0)
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=4, max_length=4)
     # The day this matchday was retired, or null while it is live (ADR-0032). Retiring one leaves its
@@ -43,9 +49,10 @@ class FLSpieltageFilterParams(BaseModel):
 
     limit: int = Field(default=1024, ge=1, le=1024)
     # `natural` is the derived order and the default: `saison_phase` in bracket order, then `beginn`,
-    # then `name` (ADR-0064). The three explicit alternatives remain because a caller may genuinely
-    # want a date or a size ordering; none of them is what a bracket reads.
-    sort_by: Literal["natural", "beginn", "ende", "anzahl_spiele"] = Field(default="natural")
+    # then `name` (ADR-0064). The two alternatives are the only other SORTABLE fields -- `anzahl_spiele`
+    # left this list with the stored column, because a Mongo sort cannot order by a value no document
+    # holds (ADR-0065).
+    sort_by: Literal["natural", "beginn", "ende"] = Field(default="natural")
     order: Literal["asc", "desc"] = Field(default="asc")
 
 
@@ -53,7 +60,6 @@ class FLPostSpieltagPayload(BaseModel):
     name: str = Field(min_length=1)
     beginn: CustomDateString
     ende: CustomDateString
-    anzahl_spiele: int = Field(gt=0)
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=4, max_length=4)
 
@@ -62,7 +68,6 @@ class FLPatchSpieltagPayload(BaseModel):
     name: str = Field(min_length=1)
     beginn: CustomDateString
     ende: CustomDateString
-    anzahl_spiele: int = Field(gt=0)
     saison_phase: FLSaisonPhase
     # `saison_id` is absent: moving a matchday between seasons would strand its matches, which carry
     # their own `saison_id` and are not rewritten here.

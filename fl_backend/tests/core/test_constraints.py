@@ -114,7 +114,9 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[B
     ("spiele", ("elfmeterschiessen",), FLSpielElfmeterschiessen, frozenset()),
     ("spiele", ("ort",), FLSpielOrtField, frozenset()),
     ("spiele", ("schiedsrichter",), FLSpielSchiedsrichterField, frozenset()),
-    ("spieltage", (), FLSpieltag, frozenset()),
+    # `anzahl_spiele` is derived from the season's rules and this matchday's phase, and is stored
+    # nowhere (ADR-0065) -- the same shape `statistik` has on a team two entries down.
+    ("spieltage", (), FLSpieltag, frozenset({"anzahl_spiele"})),
     ("spielorte", (), FLSpielort, frozenset()),
     ("spielorte", ("address",), FLAddress, frozenset()),
     ("schiedsrichter", (), FLSchiedsrichter, frozenset()),
@@ -270,9 +272,9 @@ def test_every_validator_enum_matches_its_literal(
     """
     A validator's `enum` holds exactly the members of the `Literal` it copies.
 
-    The sibling drift check compares field NAMES and reaches no further, so before this test a
-    renamed or dropped enum member passed the whole default tier and surfaced as a live write the
-    database refused for a value the models consider perfectly legal.
+    The sibling drift check compares field NAMES and reaches no further, so without this test a
+    renamed or dropped enum member passes the whole default tier and surfaces as a live write the
+    database refuses for a value the models consider perfectly legal.
 
     Compared as SETS: `enum` is an unordered membership rule, and MongoDB does not care what order the
     list is in, so an ordering difference is not drift.

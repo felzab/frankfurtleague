@@ -112,6 +112,7 @@
                 {
                   "enum": [
                     "gruppenphase",
+                    "achtelfinale",
                     "viertelfinale",
                     "halbfinale",
                     "finale"
@@ -739,7 +740,7 @@
     "/api/v0/spieltage": {
       "get": {
         "summary": "List Spieltage",
-        "description": "List matchdays for a season, in the order they are played.\n\nThat order is derived rather than stored: the phase in bracket order, then `beginn`, then `name`. It\nis what `sort_by=natural` means and it is the default; the other three sort options are dates and a\nsize, and none of them is what a bracket reads.\n\nOmitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\".",
+        "description": "List matchdays for a season, in the order they are played.\n\nThat order is derived rather than stored: the phase in bracket order, then `beginn`, then `name`. It\nis what `sort_by=natural` means and it is the default; the other two sort options are dates, and\nneither is what a bracket reads.\n\nOmitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\".",
         "operationId": "get_spieltage_api_v0_spieltage_get",
         "security": [
           {
@@ -776,6 +777,7 @@
                 {
                   "enum": [
                     "gruppenphase",
+                    "achtelfinale",
                     "viertelfinale",
                     "halbfinale",
                     "finale"
@@ -819,8 +821,7 @@
               "enum": [
                 "natural",
                 "beginn",
-                "ende",
-                "anzahl_spiele"
+                "ende"
               ],
               "type": "string",
               "default": "natural",
@@ -911,7 +912,7 @@
     "/api/v0/spieltage/{spieltag_id}": {
       "get": {
         "summary": "One Spieltag",
-        "description": "Return one matchday by its id.\n\nAddressed directly, so no season is resolved and a retired matchday is returned rather than\nhidden — a caller holding an id was given it by something.",
+        "description": "Return one matchday by its id.\n\nAddressed directly, so no season is chosen by this endpoint and a retired matchday is returned rather\nthan hidden — a caller holding an id was given it by something. The matchday's OWN `saison_id` is\nstill resolved, because the derived match count needs that season's rules (ADR-0065).",
         "operationId": "get_spieltag_api_v0_spieltage__spieltag_id__get",
         "security": [
           {
@@ -1492,7 +1493,7 @@
       },
       "post": {
         "summary": "Create a Saison",
-        "description": "Create a season. It is always created `future` and never `active`.\n\nThe id is supplied rather than generated: `saisons._id` is the four-character season string that\nevery `saison_id` elsewhere in the database references. Reusing an existing one is refused by the\n`_id` index and comes back as a 409.\n\nMaking it live is a separate, deliberate step — `POST /saisons/{saison_id}/activate`.",
+        "description": "Create a season. It is always created `future` and never `active`.\n\nThe id is supplied rather than generated: `saisons._id` is the four-character season string that\nevery `saison_id` elsewhere in the database references. Reusing an existing one is refused by the\n`_id` index and comes back as a 409.\n\nMaking it live is a separate, deliberate step — `POST /saisons/{saison_id}/activate`.\n\nThe rules are refused if they describe a competition with no bracket — `number_of_groups x\nqualifiers_per_group` has to be a power of two the phase set can hold (`REQ-RULES-001`, ADR-0065).\nNone of the other four rules can apply to a season that has no teams and no fixtures yet.",
         "operationId": "post_saison_api_v0_saisons_post",
         "security": [
           {
@@ -1603,7 +1604,7 @@
       },
       "patch": {
         "summary": "Update a Saison's dates and rules",
-        "description": "Update a season's dates and scoring rules. `status` is deliberately not part of the payload.\n\nEditing `rules.win_points` or `draw_points` changes **every league table for this season on the\nnext read** — the standings are derived from the matches rather than stored (ADR-0026), so there is\nno migration to run and equally nothing to announce that the numbers moved.",
+        "description": "Update a season's dates and scoring rules. `status` is deliberately not part of the payload.\n\nEditing `rules.win_points` or `draw_points` changes **every league table for this season on the\nnext read** — the standings are derived from the matches rather than stored (ADR-0026), so there is\nno migration to run and equally nothing to announce that the numbers moved. Which is exactly why a\n`past` season freezes them: `REQ-RULES-005` refuses the edit rather than silently rewriting who won a\nfinished competition.\n\n**Five refusals, and three of them read the season's own data** (ADR-0065, docs/domain.md). The rules\ndecide the shape of the competition, so narrowing one below what already exists strands it: a group the\nseason stops running while teams are still entered in it, a group left over its own capacity, or a\nbracket slot naming a placing that can no longer be reached. Each of those is legal at every layer and\ninvisible until something downstream reads it.",
         "operationId": "patch_saison_api_v0_saisons__saison_id__patch",
         "security": [
           {
@@ -3699,15 +3700,11 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ende"
           },
-          "anzahl_spiele": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Anzahl Spiele"
-          },
           "saison_phase": {
             "type": "string",
             "enum": [
               "gruppenphase",
+              "achtelfinale",
               "viertelfinale",
               "halbfinale",
               "finale"
@@ -3720,7 +3717,6 @@
           "name",
           "beginn",
           "ende",
-          "anzahl_spiele",
           "saison_phase"
         ],
         "title": "FLPatchSpieltagPayload"
@@ -4104,15 +4100,11 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ende"
           },
-          "anzahl_spiele": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Anzahl Spiele"
-          },
           "saison_phase": {
             "type": "string",
             "enum": [
               "gruppenphase",
+              "achtelfinale",
               "viertelfinale",
               "halbfinale",
               "finale"
@@ -4131,7 +4123,6 @@
           "name",
           "beginn",
           "ende",
-          "anzahl_spiele",
           "saison_phase",
           "saison_id"
         ],
@@ -4670,7 +4661,7 @@
           "voided_elfmeterschiessen"
         ],
         "title": "FLSpielAdvancement",
-        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\n**The two are separate facts and the second is the one an admin needs.** A slot filling from empty\nis the ordinary, harmless case; a slot whose occupant changed while the fixture already held a\nscoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044), and until this model\nexisted the response said only that a `Paarung` had been updated (ADR-0051).\n\nBoth voided fields are `None` on the harmless case, so \"was anything destroyed here\" is a null\ncheck rather than a comparison against the fixture's earlier state — which the caller does not\nhave."
+        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\n**The two are separate facts and the second is the one an admin needs.** A slot filling from empty\nis the ordinary, harmless case; a slot whose occupant changed while the fixture already held a\nscoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044) -- which a response\nreporting only that a `Paarung` was updated cannot convey (ADR-0051).\n\nBoth voided fields are `None` on the harmless case, so \"was anything destroyed here\" is a null\ncheck rather than a comparison against the fixture's earlier state — which the caller does not\nhave."
       },
       "FLSpielElfmeterschiessen": {
         "properties": {
@@ -4852,6 +4843,7 @@
             "type": "string",
             "enum": [
               "gruppenphase",
+              "achtelfinale",
               "viertelfinale",
               "halbfinale",
               "finale"
@@ -5767,13 +5759,14 @@
           },
           "anzahl_spiele": {
             "type": "integer",
-            "exclusiveMinimum": 0.0,
+            "minimum": 0.0,
             "title": "Anzahl Spiele"
           },
           "saison_phase": {
             "type": "string",
             "enum": [
               "gruppenphase",
+              "achtelfinale",
               "viertelfinale",
               "halbfinale",
               "finale"
