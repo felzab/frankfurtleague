@@ -121,7 +121,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                   <Table.Cell className="px-6 py-4">
                     {/* The TeamCard's chip colour, so the Kürzel wears one tint on the admin surface
                         and the public one (owner, 2026-08-07). */}
-                    <span className="bg-brand/50 text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-extrabold tracking-wide shadow-sm">
+                    {/* Fixed width, sized to the widest pair: WW measures 54.4px at this font with
+                        the old px-3 padding, so w-14 holds every combination and the column stops
+                        wobbling between rows (owner, 2026-08-07). */}
+                    <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
                       {team.shorthand}
                     </span>
                   </Table.Cell>

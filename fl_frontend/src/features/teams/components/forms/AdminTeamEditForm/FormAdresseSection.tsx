@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe } from "@gravity-ui/icons";
+import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -53,7 +53,9 @@ export function FormAdresseSection({
                   ? "text-foreground-muted hover:bg-muted/40 hover:text-brand cursor-pointer"
                   : "text-foreground-muted/40 cursor-not-allowed"
               }`}>
-              <Globe
+              {/* The same glyph the website field's follow-link uses, so "opens elsewhere" has
+                  one icon on this page (owner, 2026-08-07). */}
+              <ArrowUpRightFromSquare
                 aria-hidden="true"
                 width={18}
                 height={18}
