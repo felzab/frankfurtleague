@@ -16,7 +16,7 @@ does. The pipeline joins them and flattens the result into `FLSpieler`.
     two shapes are two questions and neither is derivable from the other (ADR-0034).
 """
 
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from app.api.spieler.schemas import FLSpielerFilterParams
 
@@ -169,3 +169,72 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
         },
         {"$sort": {"vorname": 1, "nachname": 1}},
     ]
+
+
+# =====================================================================================================
+# WHAT A SQUAD WRITE REFUSES
+# =====================================================================================================
+
+# The squad row names a team holding no `saison_teams` row for that season (owner, 2026-08-08). A player
+# listed for a club that is not in the competition, which is the same dangling reference
+# `REQ-ELIGIBILITY-002` refuses on the match side -- and it was open here while closed there.
+SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
+
+# Two players in one team and one season wearing the same number. Refused only where the write INTRODUCES
+# the collision (owner, 2026-08-08): a row nobody touches keeps whatever number it holds, so existing data
+# is never made uneditable, and the same clause shape `find_eligibility_refusal` uses for a newly fielded
+# team applies here for a newly taken number.
+SQUAD_NUMMER_TAKEN = "REQ-SQUAD-002"
+
+
+def normalised_nummer(nummer: str | None) -> str | None:
+    """
+    A squad number as the uniqueness rule compares it, or `None` where there is nothing to compare.
+
+    `nummer` is a nullable free-text STRING because numbers are worn rather than counted, so "7" and " 7 "
+    are one number and an empty string is no number at all. Leading zeros are NOT stripped: "07" is a shirt
+    somebody had printed, and deciding it is the same shirt as "7" is a judgement this rule does not make.
+    """
+
+    if nummer is None:
+        return None
+
+    stripped = nummer.strip()
+
+    return stripped or None
+
+
+def find_squad_refusal(
+    *,
+    team_in_saison: bool,
+    proposed_nummer: str | None,
+    stored_nummer: str | None,
+    taken_nummern: Iterable[str | None],
+) -> tuple[str, str] | None:
+    """
+    Why this squad row must be refused, as `(error_code, detail)` -- or `None`.
+
+    `team_in_saison` is whether the named team holds a junction row for the season, read by the caller.
+    `taken_nummern` is every OTHER row's number in the same team and season; `stored_nummer` is what this
+    row holds today, and `None` on a create.
+
+    **The number rule fires only on a number this write introduces.** Resubmitting the stored value passes
+    even where it duplicates -- which is what keeps an existing duplicate editable, including by the edit
+    that would resolve it. A row with no number is never a collision: several players may have no shirt
+    assigned yet, and that is the ordinary state of a squad being filled in.
+    """
+
+    if not team_in_saison:
+        return (
+            SQUAD_TEAM_NOT_IN_SAISON,
+            "the named team holds no saison_teams row for this season; a squad entry needs the club to be entered first",
+        )
+
+    proposed = normalised_nummer(proposed_nummer)
+    if proposed is None or proposed == normalised_nummer(stored_nummer):
+        return None
+
+    if proposed in {normalised_nummer(taken) for taken in taken_nummern}:
+        return (SQUAD_NUMMER_TAKEN, f"number {proposed} is already worn in this squad; two players cannot share one")
+
+    return None

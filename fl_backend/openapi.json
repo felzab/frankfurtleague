@@ -1880,7 +1880,7 @@
       },
       "delete": {
         "summary": "Deactivate a Spielort (soft delete)",
-        "description": "Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.\n\nMatches embed a copy of the venue, so a hard delete would orphan every historical match that used\nit. Returns the updated document rather than a bare acknowledgement.",
+        "description": "Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.\n\nMatches embed a copy of the venue, so a hard delete would orphan every historical match that used\nit. Returns the updated document rather than a bare acknowledgement.\n\n**It is refused while an unplayed fixture is still booked here** (`REQ-RETIRE-003`, owner,\n2026-08-08). Retiring the venue takes it out of every picker while matches are still scheduled at it,\nwhich is the state this soft delete exists to prevent, reached through the soft delete itself — the\nreasoning `REQ-RETIRE-001` already applies to a club. A PLAYED fixture never blocks: its `ort` is an\nembedded record of where the match was held, so the venue document has nothing left to supply.",
         "operationId": "delete_spielort_api_v0_spielorte__spielort_id__delete",
         "security": [
           {
@@ -2591,7 +2591,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Update a squad entry",
-        "description": "Update a player's squad entry — their team, number, position or stufe for that season.\n\nChanging `team_id` here is how a transfer is recorded, and it is the whole reason the junction\nexists separately from the person.\n\n`position` and `stufe` are closed sets (ADR-0061), so a value outside either is a 422 rather than\na second spelling of a position the league already has. `nummer` stays free text: a squad number\nis worn rather than counted, and it is not unique within a squad.",
+        "description": "Update a player's squad entry — their team, number, position or stufe for that season.\n\nChanging `team_id` here is how a transfer is recorded, and it is the whole reason the junction\nexists separately from the person.\n\n`position` and `stufe` are closed sets (ADR-0061), so a value outside either is a 422 rather than\na second spelling of a position the league already has. `nummer` stays free TEXT — a squad number is\nworn rather than counted — but it is no longer free to collide: `REQ-SQUAD-002` refuses a number this\nwrite would newly take from another player in the same squad (owner, 2026-08-08). Resubmitting the\nstored number always passes, so an existing duplicate stays editable.",
         "operationId": "patch_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__patch",
         "security": [
           {

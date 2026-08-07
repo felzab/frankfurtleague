@@ -27,7 +27,7 @@ lives, and it is the only place in the system that says what "the third matchday
   docs/domain.md -- what a derived field is, and why a position is one
 """
 
-from typing import Any
+from typing import Any, Sequence
 
 from app.api.spiele.schemas import PHASE_RANK
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
@@ -136,6 +136,70 @@ def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int) -> 
             SPIELTAG_OVER_ITS_PHASE,
             f"the matchday holds {attached_count} fixtures and this phase accounts for {expected_count}; "
             "a single round robin per group fixes that number",
+        )
+
+    return None
+
+
+# =====================================================================================================
+# WHAT CONTAINS WHAT: THE DATE SPANS
+# =====================================================================================================
+#
+# Three rules, one family, and they all say the same thing in different places: a span contains what sits
+# inside it (owner, 2026-08-08). A season contains its matchdays, a matchday contains its fixtures.
+#
+# **A postponed match means PROLONGING the matchday, and there is deliberately no exception** (owner,
+# 2026-08-08). A matchday's `beginn`/`ende` DESCRIBES when its fixtures are played rather than planning
+# when they must be, so a fixture moving to the 20th means the matchday now runs to the 20th -- editing
+# `ende` makes the data true. A per-fixture escape hatch would need a marker saying "this one may sit
+# outside", which is a second statement of the same fact with nothing holding the two consistent: the
+# shape ADR-0042 refused for `is_manual` and ADR-0032 refused for a boolean beside a date. Extending
+# `ende` also costs no ordering, because matchdays sort by `beginn` (ADR-0064).
+
+# The matchday's own span falls outside its season's. A matchday is a named block of that season's
+# fixtures, so one running before the season opens or after it closes is a block of a competition that
+# was not on.
+SPIELTAG_OUTSIDE_SAISON = "REQ-DATE-002"
+
+# The matchday's span would no longer cover a date one of its own fixtures holds. The mirror of
+# `REQ-DATE-001`: the same containment, refused from the container's side, because shrinking the span is
+# the other way to break it.
+SPIELTAG_SPAN_BELOW_FIXTURES = "REQ-DATE-003"
+
+
+def find_spieltag_span_refusal(
+    *,
+    beginn: str,
+    ende: str,
+    saison_start: str,
+    saison_end: str,
+    fixture_dates: Sequence[str],
+) -> tuple[str, str] | None:
+    """
+    Why this matchday's span must be refused, as `(error_code, detail)` -- or `None`.
+
+    Two checks in one function because they are one question asked twice: does this span sit inside its
+    season, and does it still cover its own fixtures. `fixture_dates` is every DATED fixture of the
+    matchday -- an undated one constrains nothing, so the caller filters them out rather than passing a
+    null this has to interpret.
+
+    The season check runs first. It is a property of the two documents alone, so it holds even for a
+    matchday with no fixtures at all -- which is every matchday at the moment it is created.
+    """
+
+    if beginn < saison_start or ende > saison_end:
+        return (
+            SPIELTAG_OUTSIDE_SAISON,
+            f"the matchday runs {beginn} to {ende} and its season runs {saison_start} to {saison_end}; "
+            "a matchday is a block of that season's fixtures",
+        )
+
+    outside = sorted(datum for datum in fixture_dates if datum < beginn or datum > ende)
+    if outside:
+        return (
+            SPIELTAG_SPAN_BELOW_FIXTURES,
+            f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
+            "widen the span or move those fixtures",
         )
 
     return None

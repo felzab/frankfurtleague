@@ -33,7 +33,7 @@ from app.api.spieltage.schemas import (
     FLSpieltag,
     FLSpieltagWriteResponse,
 )
-from app.api.spieltage.services import find_spieltag_phase_refusal, find_spieltag_retire_refusal
+from app.api.spieltage.services import find_spieltag_phase_refusal, find_spieltag_retire_refusal, find_spieltag_span_refusal
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, SpieltageCollection, get_german_date_str
@@ -52,6 +52,7 @@ router = APIRouter(
 async def post_spieltag(
     spieltag_data: Annotated[FLPostSpieltagPayload, Body()],
     spieltage_collection: SpieltageCollection,
+    saisons_collection: SaisonsCollection,
 ) -> FLSpieltagWriteResponse:
     """
     Create a matchday.
@@ -60,6 +61,20 @@ async def post_spieltag(
     matchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date
     is wrong, and correcting either moves it (ADR-0064).
     """
+
+    # The span has to sit inside the season it names (`REQ-DATE-002`). A new matchday has no fixtures, so
+    # the second half of that rule has nothing to check yet.
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spieltag_data.saison_id})
+    span_refusal = find_spieltag_span_refusal(
+        beginn=spieltag_data.beginn,
+        ende=spieltag_data.ende,
+        saison_start=str(saison_raw["start_date"]),
+        saison_end=str(saison_raw["end_date"]),
+        fixture_dates=[],
+    )
+    if span_refusal is not None:
+        error_code, detail = span_refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     post_operation = await post_one_to_db(
         collection=spieltage_collection,
@@ -106,6 +121,23 @@ async def patch_spieltag(
     )
     if refusal is not None:
         error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
+
+    # The span, against the season above and against this matchday's own fixtures. Undated fixtures are
+    # filtered out rather than passed as nulls: one constrains nothing, and a season being scheduled is
+    # full of them.
+    fixture_dates = [
+        str(row["datum"]) async for row in spiele_collection.find({"spieltag_id": spieltag_id, "datum": {"$ne": None}}, {"datum": 1})
+    ]
+    span_refusal = find_spieltag_span_refusal(
+        beginn=spieltag_data.beginn,
+        ende=spieltag_data.ende,
+        saison_start=str(saison_raw["start_date"]),
+        saison_end=str(saison_raw["end_date"]),
+        fixture_dates=fixture_dates,
+    )
+    if span_refusal is not None:
+        error_code, detail = span_refusal
         raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_raw = await patch_one_in_db(

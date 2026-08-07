@@ -113,7 +113,8 @@ class Aggregate:
     name: str
     root: str
     members: tuple[str, ...]
-    #: Why these belong together, in a sentence a reader can check against the rules below.
+    #: **THE INVARIANT, then what it means for membership.** One or two sentences: the first names the rule
+    #: that holds root and members true together, the second (where there is one) says what that excludes.
     boundary: str
 
 
@@ -127,6 +128,8 @@ class Reference:
     target: str
     on_target_change: Action
     on_target_removed: Action
+    #: **WHAT THE CODE DOES, then what it deliberately does not.** The first sentence states the action in
+    #: the present tense; the second names the part a reader would otherwise assume travels with it.
     note: str
 
 
@@ -137,7 +140,9 @@ class FieldPolicy:
     collection: str
     field: str
     editability: Editability
-    #: The state or the control the editability depends on. Empty where the field is plainly editable.
+    #: **WHEN, then WHY.** Opens with the timing word the editability turns on -- "frozen once", "never
+    #: below", "written only by", "computed from", "absent from" -- and the reason follows after a colon or
+    #: a semicolon. Empty only where the field is plainly `EDITABLE`.
     condition: str = ""
     #: A dotted path to what enforces it, or "" where the enforcement is an ABSENCE -- no payload carries
     #: the field, which is not a symbol that can be named.
@@ -149,8 +154,11 @@ class Rule:
     """One refusal a write path performs."""
 
     code: str
+    #: The endpoints that perform it, ` . `-separated where more than one does.
     operation: str
     aggregate: str
+    #: **ONE CLAUSE naming what is refused, present tense, no closing period.** It is a table cell rather
+    #: than a sentence, and the reason lives in the constant's own comment beside the code.
     summary: str
     implemented_by: str
     tested_by: str
@@ -163,7 +171,10 @@ class Rule:
 class Unenforced:
     """A state the system permits on purpose, and what shows it to a person instead."""
 
+    #: **THE STATE, as a noun phrase.** Not a sentence: it completes "the system permits ...".
     subject: str
+    #: **WHY REFUSING WOULD BE WRONG, then what happens instead.** Always in that order -- the cost of the
+    #: rule first, because that is the argument, and the mitigation second.
     reason: str
     #: The surface reporting the state, or "" where nothing does and nothing needs to.
     surfaced_by: str = ""
@@ -689,6 +700,24 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-DATE-002",
+        operation="POST /spieltage . PATCH /spieltage/{spieltag_id}",
+        aggregate="Spieltag",
+        summary="a matchday's span must fall inside its season's",
+        implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestAMatchdaySitsInsideItsSeason",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-DATE-003",
+        operation="PATCH /spieltage/{spieltag_id}",
+        aggregate="Spieltag",
+        summary="a matchday's span may not shrink below a date one of its own fixtures holds",
+        implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestAMatchdayKeepsCoveringItsFixtures",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-RETIRE-002",
         operation="DELETE /spieltage/{spieltag_id}",
         aggregate="Spieltag",
@@ -704,6 +733,24 @@ RULES: tuple[Rule, ...] = (
         summary="a matchday's phase may not account for fewer matches than the matchday already holds",
         implemented_by="app.api.spieltage.services.find_spieltag_phase_refusal",
         tested_by="tests/api/test_spieltag_refusals.py::TestChangingThePhase",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-DATE-001",
+        operation="PATCH /spiele/{spiel_id}",
+        aggregate="Saison-Spielplan",
+        summary="a fixture's date must fall inside the span of the matchday it belongs to",
+        implemented_by="app.api.spiele.services.find_fixture_date_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestAFixtureSitsInsideItsMatchday",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-CLASH-001",
+        operation="PATCH /spiele/{spiel_id}",
+        aggregate="Saison-Spielplan",
+        summary="a venue and a referee need four hours between two fixtures they both serve",
+        implemented_by="app.api.spiele.services.find_clash_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestOneVenueAndOneRefereeAtATime",
         multi_document=True,
     ),
     Rule(
@@ -743,6 +790,42 @@ RULES: tuple[Rule, ...] = (
         summary="a team plays once per Spieltag; a clash moves a manual side and is refused against a maintained one",
         implemented_by="app.api.spiele.services.judge_spieltag_occupancy",
         tested_by="tests/api/test_occupant_refusal.py::TestSpieltagOccupancy",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-RETIRE-003",
+        operation="DELETE /spielorte/{spielort_id}",
+        aggregate="Spielort",
+        summary="a venue still booked for an unplayed fixture may not be retired",
+        implemented_by="app.api.spielorte.services.find_venue_retire_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestRetiringAVenueOrAReferee",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-RETIRE-004",
+        operation="DELETE /schiedsrichter/{schiedsrichter_id}",
+        aggregate="Schiedsrichter",
+        summary="a referee still assigned to an unplayed fixture may not be retired",
+        implemented_by="app.api.schiedsrichter.services.find_referee_retire_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestRetiringAVenueOrAReferee",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SQUAD-001",
+        operation="POST /spieler/{spieler_id}/saisons . PATCH /spieler/{spieler_id}/saisons/{saison_id}",
+        aggregate="Saison",
+        summary="a squad row's team must hold a junction row for that season",
+        implemented_by="app.api.spieler.services.find_squad_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestASquadEntry",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SQUAD-002",
+        operation="POST /spieler/{spieler_id}/saisons . PATCH /spieler/{spieler_id}/saisons/{saison_id}",
+        aggregate="Saison",
+        summary="a squad number this write would newly take from another player is refused",
+        implemented_by="app.api.spieler.services.find_squad_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestASquadEntry",
         multi_document=True,
     ),
 )

@@ -815,6 +815,96 @@ def find_eligibility_refusal(
     return None
 
 
+# The fixture's own date falls outside the span of the matchday it belongs to (owner, 2026-08-08). The
+# matchday is a named block of the season's fixtures and the public Spielplan prints this date under that
+# matchday's heading, so a fixture outside the block reads as a data error on a public page. The repair is
+# to widen the matchday rather than to except the fixture -- see the note in `spieltage/services.py`.
+FIXTURE_OUTSIDE_SPIELTAG = "REQ-DATE-001"
+
+# Another fixture already holds this venue, or this referee, within the buffer below (owner, 2026-08-08).
+# Physically impossible, and easy to enter because neither picker shows availability. The same shape as
+# `REQ-SPIELTAG-001`, which refuses a team playing twice on one matchday.
+FIXTURE_DOUBLE_BOOKED = "REQ-CLASH-001"
+
+# How far apart two fixtures must be to share a venue and a referee, in minutes (owner, 2026-08-08: four
+# hours). A match plus its overrun, the changeover and the travel between them -- the league plays several
+# matches at one ground on a matchday, so the rule is a spacing rule rather than a ban.
+CLASH_BUFFER_MINUTES = 4 * 60
+
+
+def _minutes_into_day(uhrzeit: str) -> int:
+    """`HH:MM:SS` as minutes past midnight. Seconds are dropped: no fixture is scheduled to the second."""
+
+    hours, minutes, _ = uhrzeit.split(":")
+
+    return int(hours) * 60 + int(minutes)
+
+
+def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str, spieltag_ende: str) -> tuple[str, str] | None:
+    """
+    Why this fixture's date must be refused, as `(error_code, detail)` -- or `None`.
+
+    `None` for `datum` passes. An undated fixture is one nobody has scheduled yet, which is the ordinary
+    state of a season being set up, and it contradicts no span -- unlike the disqualification rule, where
+    an absent date is evidence of nothing and therefore refused.
+
+    The message names the matchday's span rather than only the offending date, because the repair is a
+    choice between two edits and the admin needs both numbers to make it.
+    """
+
+    if datum is None or spieltag_beginn <= datum <= spieltag_ende:
+        return None
+
+    return (
+        FIXTURE_OUTSIDE_SPIELTAG,
+        f"the fixture is dated {datum} and its matchday runs {spieltag_beginn} to {spieltag_ende}; "
+        "move the fixture inside that span or widen the matchday",
+    )
+
+
+@dataclass(frozen=True)
+class BookedSlot:
+    """One other fixture's claim on a venue or a referee, as the clash rule needs to see it."""
+
+    spiel_nr: int
+    datum: str
+    uhrzeit: str
+    #: Which resource this claim is for, so the refusal can say which one collides.
+    resource: Literal["Spielort", "Schiedsrichter"]
+
+
+def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequence[BookedSlot]) -> tuple[str, str] | None:
+    """
+    Why this fixture's venue or referee must be refused, as `(error_code, detail)` -- or `None`.
+
+    `booked` is every OTHER fixture holding the same venue or the same referee on the same day, which the
+    caller reads; this decides only whether any of them is too close. Two fixtures at one ground four hours
+    apart are the league's ordinary matchday, so the rule spaces them rather than forbidding the pairing.
+
+    **A fixture with no date or no time cannot clash and is not caught.** There is nothing to compare, and
+    refusing on that basis would refuse every fixture in a season still being scheduled. It is the one gap
+    in this rule and it is deliberate: what is unscheduled is not yet double-booked.
+    """
+
+    if datum is None or uhrzeit is None:
+        return None
+
+    start = _minutes_into_day(uhrzeit)
+    for slot in sorted(booked, key=lambda entry: (entry.datum, entry.uhrzeit, entry.spiel_nr)):
+        if slot.datum != datum:
+            continue
+
+        gap = abs(_minutes_into_day(slot.uhrzeit) - start)
+        if gap < CLASH_BUFFER_MINUTES:
+            return (
+                FIXTURE_DOUBLE_BOOKED,
+                f"the same {slot.resource} is booked for spiel_nr {slot.spiel_nr} at {slot.uhrzeit} on {slot.datum}, "
+                f"{gap} minutes away; two fixtures need {CLASH_BUFFER_MINUTES} minutes between them",
+            )
+
+    return None
+
+
 def find_disqualified_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFaultOccupant]:
     """
     Every fixture fielding a team the season disqualified before the day it is played (owner, 2026-08-08).

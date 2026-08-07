@@ -51,11 +51,11 @@ from app.api.spieler.schemas import (
     FLSpielerWithMemberships,
     FLSpielerWriteResponse,
 )
-from app.api.spieler.services import build_spieler_memberships_pipeline
+from app.api.spieler.services import build_spieler_memberships_pipeline, find_squad_refusal
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db
-from app.core.dependencies import SaisonSpielerCollection, SpielerCollection, get_german_date_str
-from app.core.exceptions import DocumentNotFoundException
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db, pull_one_from_db
+from app.core.dependencies import SaisonSpielerCollection, SaisonTeamsCollection, SpielerCollection, get_german_date_str
+from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -220,6 +220,7 @@ async def post_saison_spieler(
     spieler_id: CustomRouteObjectId,
     saison_spieler_data: Annotated[FLPostSaisonSpielerPayload, Body()],
     saison_spieler_collection: SaisonSpielerCollection,
+    saison_teams_collection: SaisonTeamsCollection,
 ) -> FLSaisonSpielerResponse:
     """
     Put a player in a team's squad for a season, with their number, position and stufe.
@@ -232,6 +233,35 @@ async def post_saison_spieler(
     `POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate` — reviving inside create would quietly
     overwrite the number and position the old row still carries.
     """
+
+    # The club has to be in the season, and the number has to be free (`REQ-SQUAD-001`/`002`). Read here
+    # rather than in a service, because both facts live in other collections.
+    team_in_saison = (
+        await saison_teams_collection.count_documents(
+            {"saison_id": saison_spieler_data.saison_id, "team_id": saison_spieler_data.team_id}, limit=1
+        )
+    ) > 0
+    taken = [
+        row.get("nummer")
+        async for row in saison_spieler_collection.find(
+            {
+                "saison_id": saison_spieler_data.saison_id,
+                "team_id": saison_spieler_data.team_id,
+                "spieler_id": {"$ne": spieler_id},
+                "inactive_since": None,
+            },
+            {"nummer": 1},
+        )
+    ]
+    squad_refusal = find_squad_refusal(
+        team_in_saison=team_in_saison,
+        proposed_nummer=saison_spieler_data.nummer,
+        stored_nummer=None,
+        taken_nummern=taken,
+    )
+    if squad_refusal is not None:
+        error_code, detail = squad_refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     document = {
         "spieler_id": spieler_id,
@@ -250,6 +280,7 @@ async def patch_saison_spieler(
     saison_id: str,
     saison_spieler_data: Annotated[FLPatchSaisonSpielerPayload, Body()],
     saison_spieler_collection: SaisonSpielerCollection,
+    saison_teams_collection: SaisonTeamsCollection,
 ) -> FLSaisonSpielerResponse:
     """
     Update a player's squad entry — their team, number, position or stufe for that season.
@@ -258,9 +289,40 @@ async def patch_saison_spieler(
     exists separately from the person.
 
     `position` and `stufe` are closed sets (ADR-0061), so a value outside either is a 422 rather than
-    a second spelling of a position the league already has. `nummer` stays free text: a squad number
-    is worn rather than counted, and it is not unique within a squad.
+    a second spelling of a position the league already has. `nummer` stays free TEXT — a squad number is
+    worn rather than counted — but it is no longer free to collide: `REQ-SQUAD-002` refuses a number this
+    write would newly take from another player in the same squad (owner, 2026-08-08). Resubmitting the
+    stored number always passes, so an existing duplicate stays editable.
     """
+
+    # What this row holds today, so the number rule can tell a NEW collision from an existing one.
+    stored_raw = await pull_one_from_db(
+        collection=saison_spieler_collection,
+        db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
+        projection=["nummer"],
+    )
+
+    # The club has to be in the season, and the number has to be free (`REQ-SQUAD-001`/`002`). Read here
+    # rather than in a service, because both facts live in other collections.
+    team_in_saison = (
+        await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": saison_spieler_data.team_id}, limit=1)
+    ) > 0
+    taken = [
+        row.get("nummer")
+        async for row in saison_spieler_collection.find(
+            {"saison_id": saison_id, "team_id": saison_spieler_data.team_id, "spieler_id": {"$ne": spieler_id}, "inactive_since": None},
+            {"nummer": 1},
+        )
+    ]
+    squad_refusal = find_squad_refusal(
+        team_in_saison=team_in_saison,
+        proposed_nummer=saison_spieler_data.nummer,
+        stored_nummer=stored_raw.get("nummer"),
+        taken_nummern=taken,
+    )
+    if squad_refusal is not None:
+        error_code, detail = squad_refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_raw = await patch_one_in_db(
         collection=saison_spieler_collection,

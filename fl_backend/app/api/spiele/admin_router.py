@@ -79,10 +79,13 @@ from app.api.spiele.schemas import (
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
+    BookedSlot,
     SpieltagRelease,
     apply_payload_to_spiel,
     build_spiele_pipeline,
+    find_clash_refusal,
     find_eligibility_refusal,
+    find_fixture_date_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
 )
@@ -93,6 +96,7 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonTeamsCollection,
     SpieleCollection,
+    SpieltageCollection,
     TeamsCollection,
     get_german_date_str,
 )
@@ -187,6 +191,7 @@ async def patch_spiel_data(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    spieltage_collection: SpieltageCollection,
     dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> FLPatchSpielDataResponse:
     """
@@ -295,6 +300,64 @@ async def patch_spiel_data(
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         if verdict.refusal is not None:
             raise DocumentConflictException(error_code=verdict.refusal.error_code, message=verdict.refusal.message)
+
+        # The fixture's own date against the span of the matchday it belongs to (`REQ-DATE-001`). Read
+        # through the session like everything else here, so a matchday widened by a concurrent write is
+        # seen. `stored` is the fixture being patched, which is what names the matchday: `spieltag_id` is
+        # on no payload, so this write cannot move it.
+        stored = next((entry for entry in season if entry.id == spiel_id), None)
+        if stored is not None:
+            # `find_one` directly rather than `pull_one_from_db`, which takes no session. A fixture whose
+            # matchday is missing is left alone: `spieltag_id` is on no payload, so this write did not
+            # create that dangling reference and refusing here would trap the fixture rather than fix it.
+            spieltag_raw = await spieltage_collection.find_one(
+                {"_id": stored.spieltag_id},
+                {"beginn": 1, "ende": 1},
+                session=session,
+            )
+            if spieltag_raw is not None:
+                date_refusal = find_fixture_date_refusal(
+                    datum=spiel_data.datum,
+                    spieltag_beginn=str(spieltag_raw["beginn"]),
+                    spieltag_ende=str(spieltag_raw["ende"]),
+                )
+                if date_refusal is not None:
+                    error_code, detail = date_refusal
+                    raise DocumentConflictException(error_code=error_code, message=detail)
+
+        # The venue and the referee, across EVERY season rather than this one: a ground is double-booked by
+        # two fixtures at one time whether or not they belong to the same competition. Only the same day is
+        # read, because the buffer is a within-day comparison.
+        if spiel_data.datum is not None:
+            claims: list[BookedSlot] = []
+            for resource, field, chosen in (
+                ("Spielort", "ort.spielort_id", spiel_data.ort.spielort_id if spiel_data.ort is not None else None),
+                (
+                    "Schiedsrichter",
+                    "schiedsrichter.schiedsrichter_id",
+                    spiel_data.schiedsrichter.schiedsrichter_id if spiel_data.schiedsrichter is not None else None,
+                ),
+            ):
+                if chosen is None:
+                    continue
+                async for other in spiele_collection.find(
+                    {field: chosen, "datum": spiel_data.datum, "uhrzeit": {"$ne": None}, "_id": {"$ne": spiel_id}, "is_canceled": False},
+                    {"spiel_nr": 1, "datum": 1, "uhrzeit": 1},
+                    session=session,
+                ):
+                    claims.append(
+                        BookedSlot(
+                            spiel_nr=int(other["spiel_nr"]),
+                            datum=str(other["datum"]),
+                            uhrzeit=str(other["uhrzeit"]),
+                            resource=resource,  # type: ignore[arg-type]
+                        )
+                    )
+
+            clash_refusal = find_clash_refusal(datum=spiel_data.datum, uhrzeit=spiel_data.uhrzeit, booked=claims)
+            if clash_refusal is not None:
+                error_code, detail = clash_refusal
+                raise DocumentConflictException(error_code=error_code, message=detail)
 
         return season, verdict.releases
 
