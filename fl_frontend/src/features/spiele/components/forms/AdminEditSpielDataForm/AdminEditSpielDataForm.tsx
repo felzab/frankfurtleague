@@ -36,6 +36,7 @@ import type {
   FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
+  FLSpielWithStoredSides,
 } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
@@ -152,7 +153,7 @@ export function AdminEditSpielDataForm({
    * draft rather than frozen at load. The rule itself stays in `admin`, which is what keeps `spiele`
    * from importing the aggregator to ask a question about a Spiel.
    */
-  categorize: (spiel: FLSpiel) => ReadonlySet<ActionRequiredCategory>;
+  categorize: (spiel: FLSpielWithStoredSides) => ReadonlySet<ActionRequiredCategory>;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();

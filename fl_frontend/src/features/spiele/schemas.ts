@@ -14,8 +14,10 @@
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
- *   • The patch payload composes from the read model's field schemas rather than redeclaring them, so
- *     the write shape cannot drift from the read shape.
+ *   • The patch payload composes from the field schemas rather than redeclaring them, so the write
+ *     shape cannot drift from the read shape. It composes from the STORED side, though, never the
+ *     joined one: `disqualifikation` is joined per request and writing it back would denormalise it
+ *     into the match document (ADR-0028, rule 4).
  *   • A fixture side is `null` when its occupant is not yet known, and `teamN_quelle` says where that
  *     occupant comes from (ADR-0041, ADR-0042). The two are independent and nothing pairs them, so every
  *     consumer reads `team?.name ?? formatQuelle(quelle) ?? "Noch offen"` and never branches on a state.
@@ -39,7 +41,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { FLGruppenNamesSchema } from "@/features/teams/schemas";
+import { FLDisqualifikationSchema, FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
@@ -47,6 +49,13 @@ import { FLSaisonPhaseSchema } from "../saisons/schemas";
 export const FLSpielStatusSchema = z.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"], { error: "FLSpielStatus is invalid" });
 export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
 
+/**
+ * One side of a fixture as the match document STORES it, and as the admin patch writes it back.
+ *
+ * Mirrors `FLSpielTeamField`. Nothing joined belongs here: the backend writes this payload back
+ * wholesale, so a field added to it would be persisted into the match on the next edit — the
+ * denormalisation ADR-0028 rule 4 refuses. `FLSpielTeamFieldJoinedSchema` below is the read shape.
+ */
 export const FLSpielTeamFieldSchema = z.object({
   team_id: CustomObjectIdStringSchema,
   name: z.string(),
@@ -54,6 +63,22 @@ export const FLSpielTeamFieldSchema = z.object({
   shorthand: z.string().length(2),
 });
 export type FLSpielTeamField = z.infer<typeof FLSpielTeamFieldSchema>;
+
+/**
+ * One side as a READ serves it: the stored copy above, plus this season's state joined onto it.
+ *
+ * Mirrors `FLSpielTeamFieldJoined`, which the backend builds with a `$lookup` into `saison_teams`
+ * keyed on the fixture's own season (ADR-0028 rule 4, ADR-0059) — so a disqualification entered on
+ * the junction reaches every match card at once and no copy can go stale.
+ *
+ * The whole record rather than a boolean, matching `FLTeamSchema.disqualifikation` exactly: a team is
+ * disqualified when this is not null, which is the same question every other surface asks.
+ * `null` also covers a team holding no junction row for the season at all — not a disqualification.
+ */
+export const FLSpielTeamFieldJoinedSchema = FLSpielTeamFieldSchema.extend({
+  disqualifikation: FLDisqualifikationSchema.nullable(),
+});
+export type FLSpielTeamFieldJoined = z.infer<typeof FLSpielTeamFieldJoinedSchema>;
 
 export const FLSpielOrtFieldSchema = z.object({
   spielort_id: CustomObjectIdStringSchema,
@@ -151,9 +176,11 @@ export const FLSpielSchema = z.object({
   id: CustomObjectIdStringSchema,
   spieltag_id: CustomObjectIdStringSchema,
 
-  // `null` while the occupant is unknown — a playoff slot the group phase has not filled yet.
-  team1: FLSpielTeamFieldSchema.nullable(),
-  team2: FLSpielTeamFieldSchema.nullable(),
+  // `null` while the occupant is unknown — a playoff slot the group phase has not filled yet. The
+  // JOINED side, because every response carrying matches serves it: both reads and the
+  // action-required list, which renders through the same card.
+  team1: FLSpielTeamFieldJoinedSchema.nullable(),
+  team2: FLSpielTeamFieldJoinedSchema.nullable(),
 
   // Where each side comes from. Survives the team arriving, so it is a sibling of the field above
   // rather than a key inside it (ADR-0041). `null` also means "this slot is the admin's": clearing
@@ -188,6 +215,22 @@ export const FLSpielSchema = z.object({
 });
 export type FLSpiel = z.infer<typeof FLSpielSchema>;
 
+/**
+ * A fixture read for what the DOCUMENT holds — its two sides narrowed to the stored shape.
+ *
+ * No schema, because nothing parses this: it is what an `FLSpiel` looks like to code that reads only
+ * stored fields, and what an editor's draft produces before a save. An `FLSpiel` satisfies it, so a
+ * rule declared against it serves both a loaded fixture and a drafted one without a second copy.
+ *
+ * Use it wherever a joined `disqualifikation` is neither read nor available. Asking for the joined
+ * side there would force a caller to invent one, and an invented disqualification is a wrong answer
+ * rather than a missing one.
+ */
+export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
+  team1: FLSpielTeamField | null;
+  team2: FLSpielTeamField | null;
+};
+
 export const FLSpieleListResponseSchema = BaseAPIResponseSchema.extend({
   spiele: z.array(FLSpielSchema),
 });
@@ -217,6 +260,10 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   ort: FLSpielOrtFieldSchema.nullable(),
   schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 
+  // The STORED side, never the joined one. `disqualifikation` is looked up per request and belongs on
+  // no match document (ADR-0028, rule 4), and this payload is written back wholesale — so sending it
+  // would persist it. Zod strips the extra key when the form passes a loaded side straight through,
+  // which is the safety net rather than the rule.
   team1: FLSpielTeamFieldSchema.nullable(),
   team2: FLSpielTeamFieldSchema.nullable(),
 

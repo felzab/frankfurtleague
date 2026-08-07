@@ -24,7 +24,7 @@
 import { deriveSlotHerkunft } from "@/features/spiele/utils";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import type { FLBracketFault, FLSpiel } from "../spiele/schemas";
+import type { FLBracketFault, FLSpiel, FLSpielWithStoredSides } from "../spiele/schemas";
 import type { ActionRequiredCategory } from "../spiele/types";
 
 // Re-exported so the eight views and tests that already import the union from here keep working, and
@@ -119,14 +119,14 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
  * `datum` and `today` are both `YYYY-MM-DD`, so the `<` comparison is lexicographic and correct.
  * It is strict: a match dated today with no result is not yet overdue.
  */
-export function categorizeActionRequired(
-  spiele: FLSpiel[],
+export function categorizeActionRequired<T extends FLSpielWithStoredSides>(
+  spiele: readonly T[],
   today: string,
   bracketFaults: readonly FLBracketFault[] = [],
-): Record<ActionRequiredCategory, FLSpiel[]> {
+): Record<ActionRequiredCategory, T[]> {
   // Keyed in the label table's order, so `Object.keys` on the result and on the table agree — the
   // property one test asserts, and what lets a caller walk either one.
-  const categorized: Record<ActionRequiredCategory, FLSpiel[]> = {
+  const categorized: Record<ActionRequiredCategory, T[]> = {
     bracket_fault: [],
     besetzung_missing: [],
     ergebnis_pending: [],

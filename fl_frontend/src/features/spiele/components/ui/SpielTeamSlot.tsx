@@ -5,7 +5,7 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { formatQuelle } from "../../utils";
 
-import type { FLSpielQuelle, FLSpielTeamField } from "../../schemas";
+import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
 /**
  * One side of a fixture, as a match card renders it.
@@ -13,6 +13,10 @@ import type { FLSpielQuelle, FLSpielTeamField } from "../../schemas";
  * A resolved side is its own text behind a `TeamPopoverMenu`. A side whose occupant the group phase
  * has not produced yet renders its derived source label — "Sieger 25.", "1. der Gruppe A" — as plain text and mounts no
  * popover at all: there is no team page and no squad to link to (ADR-0041).
+ *
+ * **This is the one place the three cards get their DQ badge**, because it is the one place they mount
+ * the popover. The side arrives carrying its season's `disqualifikation`, joined onto the match by the
+ * backend rather than fetched here (ADR-0028, rule 4), so the badge costs this component no request.
  *
  * **The three `SpielCard` variants stay separate** (ADR-0007) and pass their own `text` and layout
  * classes. What is shared here is the branch whose copies would each be a crash rather than a
@@ -30,7 +34,7 @@ export function SpielTeamSlot({
   text,
   className,
 }: {
-  team: FLSpielTeamField | null;
+  team: FLSpielTeamFieldJoined | null;
   quelle: FLSpielQuelle | null;
   /** What a RESOLVED side shows — the full name on the two wide cards, the shorthand on the bracket. */
   text: string;
@@ -44,7 +48,8 @@ export function SpielTeamSlot({
   return (
     <TeamPopoverMenu
       teamName={team.name}
-      teamId={team.team_id}>
+      teamId={team.team_id}
+      teamIsDisqualified={team.disqualifikation !== null}>
       <strong className={`${className} hover:text-brand transition-colors duration-200`}>{text}</strong>
     </TeamPopoverMenu>
   );

@@ -74,17 +74,20 @@ from app.api.spiele.schemas import (
     FLPatchSpielDataResponse,
     FLSpiel,
     FLSpieleActionRequiredResponse,
+    FLSpielJoined,
+    FLSpielJoinedListAdapter,
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
     SpieltagRelease,
     apply_payload_to_spiel,
+    build_spiele_pipeline,
     find_eligibility_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
 )
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -131,28 +134,33 @@ async def get_spiele_action_required(
     (ADR-0013), and a derived fault list would be wrong the moment a document changed under it anyway.
     """
 
-    # Fetch all games with either a missing attribute or games which have a date in the past but don't have a final score
-    spiele_raw = await pull_many_from_db(
+    # Fetch all games with either a missing attribute or games which have a date in the past but don't
+    # have a final score. Through `build_spiele_pipeline`, as both public reads are: this list renders
+    # through the same `SpielCard`, so serving the unjoined shape here would be a DQ badge the grids
+    # show and the triage list silently does not.
+    spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
-        db_filter={
-            "$or": [
-                {"is_canceled": True},
-                {"datum": None},
-                {"uhrzeit": None},
-                {"ort": None},
-                {"schiedsrichter": None},
-                {"datum": {"$lt": today}, "ergebnis": None},
-                {
-                    "saison_phase": {"$ne": "gruppenphase"},
-                    "$or": [
-                        {"team1": None, "team1_quelle": None},
-                        {"team2": None, "team2_quelle": None},
-                    ],
-                },
-            ]
-        },
+        pipeline=build_spiele_pipeline(
+            db_filter={
+                "$or": [
+                    {"is_canceled": True},
+                    {"datum": None},
+                    {"uhrzeit": None},
+                    {"ort": None},
+                    {"schiedsrichter": None},
+                    {"datum": {"$lt": today}, "ergebnis": None},
+                    {
+                        "saison_phase": {"$ne": "gruppenphase"},
+                        "$or": [
+                            {"team1": None, "team1_quelle": None},
+                            {"team2": None, "team2_quelle": None},
+                        ],
+                    },
+                ]
+            }
+        ),
     )
-    spiele = FLSpielListAdapter.validate_python(spiele_raw)
+    spiele = FLSpielJoinedListAdapter.validate_python(spiele_raw)
 
     bracket_faults, faulted_spiele = await find_bracket_faults(
         spiele_collection=spiele_collection,
@@ -163,7 +171,7 @@ async def get_spiele_action_required(
     # Keyed by id and not by `spiel_nr`, which repeats across the seasons this route spans. A faulted
     # fixture the filter above already selected keeps that copy; both come from the same collection in
     # the same request, so the two are the same document.
-    by_id: dict[CustomObjectId, FLSpiel] = {spiel.id: spiel for spiel in spiele}
+    by_id: dict[CustomObjectId, FLSpielJoined] = {spiel.id: spiel for spiel in spiele}
     for spiel in faulted_spiele:
         by_id.setdefault(spiel.id, spiel)
 

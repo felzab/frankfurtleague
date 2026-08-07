@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `05ac046`, 2026-08-07
+**Verified against:** `e9577cd`, 2026-08-07
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -53,22 +53,21 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 9   | FB-11 | Nothing shows a season's bracket wiring, at all         | FE, BE      | L      | Closed   | —                         |
 | 10  | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (ADR-0050's patterns)   |
 | 11  | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
-| 12  | FB-5  | The disqualification inside `FLSpiel`'s team fields     | FE, BE      | S      | Open     | — (batch with 13, 14, 15) |
-| 13  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 12, 14, 15) |
-| 14  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 12, 13, 15) |
-| 15  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 12, 13, 14) |
-| 16  | FE-3  | TeamDetailsView rework                                  | FE          | M      | Open     | — (ADR-0059 settles it)   |
-| 17  | FE-5  | Filters for the Spielsuche                              | FE          | M      | Open     | — (F1 informs it)         |
-| 18  | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | —                         |
-| 19  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
-| 20  | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
-| 21  | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
-| 22  | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0049 settles it)   |
-| 23  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
-| 24  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
-| 25  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
-| 26  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
-| 27  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
+| 12  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 13, 14)     |
+| 13  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 12, 14)     |
+| 14  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 12, 13)     |
+| 15  | FE-3  | TeamDetailsView rework                                  | FE          | M      | Open     | — (ADR-0059 settles it)   |
+| 16  | FE-5  | Filters for the Spielsuche                              | FE          | M      | Open     | — (F1 informs it)         |
+| 17  | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | —                         |
+| 18  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
+| 19  | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
+| 20  | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
+| 21  | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0049 settles it)   |
+| 22  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
+| 23  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
+| 24  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
+| 25  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
+| 26  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
 
 ## The bracket, end to end
 
@@ -118,11 +117,11 @@ admin must act on now has a durable home; what a fault list cannot give is the r
 before it is played, which is the only moment reviewing it is worth anything.
 
 **Two entries sit beside it, both concluded and neither scheduled.**
-**[FB-9](#22--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** — a
+**[FB-9](#21--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** — a
 manual slot takes a disqualified team and no layer says a word. The design is ratified as
 [ADR-0049](../_decisions/0049-eligibility-is-checked-where-a-team-is-fielded.md); the owner's deferral
 of the work stands.
-**[BE-14](#25--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
+**[BE-14](#24--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
 capped at ten outstanding fixtures, which is a group of five, and a group of six would stop seeding
 with nothing said. The audit established that no faster exact algorithm exists to replace it, so the
 cap is a design boundary rather than debt.
@@ -169,8 +168,8 @@ line governs. What is left of the string, in order:
    disqualification record their junction editor enters already exists
    ([ADR-0059](../_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)).
 
-**[FB-9](#22--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** and
-**[BE-14](#25--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** are not sessions of the
+**[FB-9](#21--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** and
+**[BE-14](#24--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** are not sessions of the
 string. Both are concluded: FB-9's design is ratified and its implementation stays deferred, and
 BE-14's cap is measured as a boundary the competition's size does not reach.
 
@@ -398,9 +397,9 @@ a refusal that does not happen.
 Dependency order, and most of it is the admin-surface string in its working order. The surface the tier
 was built around exists: the match editor is a page at `/admin/spiele/[spiel_id]`
 ([ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md)), so the schema/form
-batch at ranks 12–15 renders on it, the triage list links into it, and FB-3 and FB-6 adopt its
+batch at ranks 12–14 renders on it, the triage list links into it, and FB-3 and FB-6 adopt its
 patterns — none of them has to be built against a dialog first and then again. FB-11 is the
-season-wide draw review, and the FB-5/FB-7/FE-2/FE-1 batch keeps its one-pass
+season-wide draw review, and the FB-7/FE-2/FE-1 batch keeps its one-pass
 rule: one schema surface, one form, one mirror pass, now aimed at the page rather than the modal
 ([ADR-0040](../_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md) makes a
 mirror that falls behind a gate failure that names the field). The last three are prospective rather
@@ -492,6 +491,13 @@ Three things that API decided, which the pages inherit rather than choose:
   reporting a generic failure.
 - **A team never leaves a season**; disqualification is the only way out (ADR-0033), so the junction
   editor has no delete control to build.
+- **A junction save must invalidate `spiele`, not only `teams`.** Every side of every match carries
+  the team's `disqualifikation`, joined from the junction by
+  `fl_backend/app/api/spiele/services.py :: build_spiele_pipeline` — so writing
+  `PATCH /teams/{team_id}/saisons/{saison_id}` changes what `GET /spiele` returns. The action calling
+  it needs `updateTag("spiele")` and `updateTag(\`spiele:saison_id:${saisonId}\`)`beside the`teams`pair, exactly as`patchAdminSpielDataAction`invalidates both
+([ADR-0001](../_decisions/0001-two-granular-cache-tags.md)). Invalidating`teams` alone leaves every
+  Spiel card showing a badge the league table has already stopped showing.
 
 **Three things the 2026-08-02 database inspection hands this item:**
 
@@ -558,45 +564,7 @@ generic components, both adopting the edit page's patterns (ADR-0050). **Nothing
 the item that would**, so the season form covers `qualifiers_per_group` alongside the two point values
 ([ADR-0043](../_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)).
 
-### 12 · FB-5 — The disqualification inside `FLSpiel`'s team fields
-
-**Owner's item, 2026-08-02.** In order to display the DQ badge in **every** `TeamPopoverMenu`, the
-`FLSpiel` object needs the team's disqualification state in its `team1` and `team2` dictionaries
-respectively, so it does not need to be fetched separately. (Today the badge renders only where a
-caller happens to have team data in hand — the grids and the Saisontabelle — and never on the Spiel
-cards.)
-
-The wrinkle that makes this more than a field add: `team1`/`team2` are **embedded** in the spiel
-document, while `disqualifikation` lives season-scoped on the `saison_teams` junction.
-
-**What to project is a choice this item still makes.** The badge needs only whether the team is out,
-and `pull_saison_membership` already narrows the record to a boolean for exactly that reason
-([ADR-0059](../_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)). A
-`SpielCard` that wanted to say _why_ would need the record itself, which is a larger `$lookup`
-projection for a surface nobody has asked for.
-
-**That wrinkle is decided.**
-[ADR-0028](../_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md), 2026-08-02:
-**join the flag from `saison_teams`; do not denormalise it into the embedded team fields.** A
-disqualification changes _during_ a season, so a fan-out would run on the field most likely to be
-forgotten, and a stale DQ badge is a visibly wrong answer on a public page. Denormalising it would
-also put season-scoped state into a document that has deliberately never carried any.
-
-**The cost, stated plainly, because it is the bulk of this item.** `GET /spiele` is a plain
-`pull_many_from_db` with a filter — no aggregation pipeline at all, and it is the most-read endpoint
-on the site (landing page, every grid, the bracket). Joining the flag means converting it to an
-`aggregate` with a `$lookup` into `saison_teams`, keyed on both team ids and the season. That is real
-work on a hot path, for a badge, and it was chosen over the cheaper fan-out deliberately — read the
-ADR before reversing it.
-
-This READS the junction's record rather than copying it, so the two cannot drift.
-
-**Path:** the field shape and the storage question are both settled (ADR-0059, ADR-0028). Batch with FB-7, FE-2 and
-FE-1 — same schema surfaces, one mirror pass — and the batch lands on `/admin/spiele/[spiel_id]`. The mirror is checked against the published document
-([ADR-0040](../_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md)), so
-regenerate `fl_backend/openapi.json` in the same commit as the model.
-
-### 13 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
+### 12 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 
 **Owner's item, 2026-08-04:** a team showing fewer games than its group's fixtures should say why.
 The sketch is `Spiele: 2 +1` in two colours, with a tooltip on hover for a pointer and on tap for
@@ -634,12 +602,12 @@ not consult it.
 focusable and announced gives the tap behaviour on touch and the hover behaviour on a pointer without
 branching on the device at all.
 
-**Path:** batch with FB-5, FE-2 and FE-1 — one schema and mirror pass, landing on the edit page. Its
+**Path:** batch with FE-2 and FE-1 — one schema and mirror pass, landing on the edit page. Its
 display half depends on
 nothing. The eighth `FLTeamStatistik` field lands in both mirrors and in
 `fl_backend/openapi.json`, which the gate compares (ADR-0040).
 
-### 14 · FE-2 — Optional per-game notes
+### 13 · FE-2 — Optional per-game notes
 
 **Owner's item, 2026-08-02.** Add a place for **small notes on every game** — optional, containing
 information about the game such as exciting moments. **Editable in the admin form**
@@ -648,10 +616,10 @@ information about the game such as exciting moments. **Editable in the admin for
 An optional field on `FLSpiel` in both mirrors, a form section, and a display decision (where the
 note appears — `SpielDetailsModal` is the obvious candidate) that is deliberately left open here.
 
-**Path:** batch with FB-5, FB-7 and FE-1 — same form, same schemas, one mirror pass. The form is
+**Path:** batch with FB-7 and FE-1 — same form, same schemas, one mirror pass. The form is
 `/admin/spiele/[spiel_id]`, and the display decision is untouched by that.
 
-### 15 · FE-1 — Date ranges instead of specific dates for games (heavy)
+### 14 · FE-1 — Date ranges instead of specific dates for games (heavy)
 
 **Owner's item, 2026-08-02.** At some point, implement **date ranges** instead of specific dates
 for games. A heavy change, in the owner's scoping: it would change `AdminEditSpielDataForm`, the
@@ -663,10 +631,10 @@ documents; `computeSpielStatus`'s date comparisons; `formatSpielDisplay` and the
 semantics — a range makes the ausstehend/heute/vergangen ternary genuinely harder, so settle F1's
 intent at the latest here.
 
-**Path:** batch with FB-5, FB-7 and FE-2 (one schema/mirror/form pass, on the edit page). Resolves or
+**Path:** batch with FB-7 and FE-2 (one schema/mirror/form pass, on the edit page). Resolves or
 restates F1.
 
-### 16 · FE-3 — TeamDetailsView rework
+### 15 · FE-3 — TeamDetailsView rework
 
 **Owner's item, 2026-08-02.** Rework `TeamDetailsView` to look nicer — **especially the saison
 progress line at the bottom**, which should also include important notes and milestones like "went
@@ -688,7 +656,7 @@ Contents the rework must carry:
 **Path:** nothing blocks it — the record it renders exists. FE-8 fixes the compact card this view is
 the only consumer of.
 
-### 17 · FE-5 — Filters for the Spielsuche, and Spielhistorie as one of them
+### 16 · FE-5 — Filters for the Spielsuche, and Spielhistorie as one of them
 
 **Owner's item, 2026-08-04:** add filters to the Spielsuche, after which Spielhistorie could simply
 link into it with a "past" filter instead of existing as its own page.
@@ -714,7 +682,7 @@ Three things to settle when it is worked:
 
 **Path:** independent. Inherits whatever F1 decides.
 
-### 18 · FE-6 — A way to report an error from the error page
+### 17 · FE-6 — A way to report an error from the error page
 
 **Owner's item, 2026-08-04, with the evaluation he asked for**: is a report affordance worth having
 when everything is already logged?
@@ -740,7 +708,7 @@ need a machine path.
 **Path:** independent. Every request carries an edge-minted correlation id and the joining recipe
 is `docs/logging.md` (ADR-0039), so the affordance quotes real coordinates. Nothing waits on this.
 
-### 19 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 18 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Opened 2026-08-03, when BE-4 closed. It is the reason that field is a date rather than a boolean**
 ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
@@ -774,7 +742,7 @@ prospective item, opened so the field's purpose is recorded rather than rediscov
 **Path:** independent, and genuinely not urgent — it becomes real the first time something is retired,
 which needs FB-3 or FB-6 to exist. Doing it before then is designing against zero rows.
 
-### 20 · BE-15 — An admin action log, and a smarter undo over it
+### 19 · BE-15 — An admin action log, and a smarter undo over it
 
 **Opened 2026-08-06, out of the evaluation of this system against established practice.** It is the
 one place where that evaluation found this system materially behind the reference model on the data
@@ -836,7 +804,7 @@ becomes a log rather than a collection, which the owner's direction above makes 
 blocks this and this blocks neither. ADR-0051 raises the value of doing it: the client-held undo makes
 the gap visible on the one surface an admin uses most.
 
-### 21 · LOG-2 — Full trace context: `traceparent`, spans, and somewhere to send them
+### 20 · LOG-2 — Full trace context: `traceparent`, spans, and somewhere to send them
 
 **Owner's item, 2026-08-05, opened out of LOG-1: implement the industry-standard shape of what
 LOG-1 built a subset of.**
@@ -909,7 +877,7 @@ elsewhere: two are seeded into backend audit passes and two into ops, and FB-9 i
 whose implementation the owner has deferred. BE-14 is the exception and carries its own trigger — a group of six teams —
 because no pass covers a constant that is correct at today's group size and wrong at a larger one.
 
-### 22 · FB-9 — A manual knockout slot accepts a disqualified team, and nothing says a word
+### 21 · FB-9 — A manual knockout slot accepts a disqualified team, and nothing says a word
 
 **Owner's item, 2026-08-06, reported as a reproduction — and deferred the same day, by the owner:**
 the site has exactly one admin, who is the person who found the hole, so the interim risk is priced
@@ -994,7 +962,7 @@ cover this — it is a cross-collection relation); or the hole being exercised b
 in a test. Absent one of those it stays unscheduled, and the page it is built onto is
 `/admin/spiele/[spiel_id]`.
 
-### 23 · BE-7 — `typing` imports instead of `collections.abc`
+### 22 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -1002,7 +970,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 24 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 23 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -1011,7 +979,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 25 · BE-14 — The certainty walk gives up in a group of six or more
+### 24 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Found 2026-08-05, reviewing the bracket after FB-8 closed. Not a defect today, and the numbers say why.**
 
@@ -1070,7 +1038,7 @@ and nobody needs to until a group grows.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 26 · OPS-2 — nothing validates the contents of a restored `.env`
+### 25 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -1108,7 +1076,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 27 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 26 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 

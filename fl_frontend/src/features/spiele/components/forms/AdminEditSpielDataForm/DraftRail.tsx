@@ -13,7 +13,7 @@ import { useDraftStatus } from "./DraftStatusContext";
 import { RailSection } from "./RailSection";
 import { SpielDraftPreview } from "./SpielDraftPreview";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpielWithStoredSides } from "@/features/spiele/schemas";
 
 /**
  * One warning the form also shows inline, mirrored into the rail's warnings card — the owner's rule
@@ -45,7 +45,7 @@ export function DraftRail({
   extraBanners,
 }: {
   /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
-  previewSpiel: FLSpiel;
+  previewSpiel: FLSpielWithStoredSides;
   today: string;
   /** The form's inline warnings, mirrored — see `RailBanner`. */
   extraBanners: readonly RailBanner[];

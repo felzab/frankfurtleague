@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `05ac046`, 2026-08-07
+**Verified against:** `e9577cd`, 2026-08-07
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -81,12 +81,19 @@ until FB-6 builds the season admin form.
 
 The central entity. Fixtures, results, tables and the bracket are all views of matches.
 
-**In code:** `spiele` collection · `FLSpiel` (`fl_backend/app/api/spiele/schemas.py`) ·
-`FLSpielSchema` (`fl_frontend/src/features/spiele/schemas.ts`).
+**In code:** `spiele` collection · `FLSpiel` and `FLSpielJoined`
+(`fl_backend/app/api/spiele/schemas.py`) · `FLSpielSchema`
+(`fl_frontend/src/features/spiele/schemas.ts`).
 
 **Pitfalls.** The two teams are **embedded, not referenced** — `team1` and `team2` each carry
 `team_id`, `name`, `shorthand` and `tore`. A team rename must therefore fan out into every match
 document, which is what the venue and referee patch endpoints do for their own embedded copies.
+
+**Two backend models, and the difference is which direction they serve.** `FLSpiel` is the document as
+stored, and it is what the admin write path holds. `FLSpielJoined` is what every endpoint returns: the
+same fixture with each side's `disqualifikation` looked up from `saison_teams`, which is stored on no
+match ([ADR-0028](_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md), rule 4). The
+frontend parses no stored document, so it has one shape and calls it `FLSpiel`.
 
 Either side is **null while its occupant is unknown** — a bracket slot the group phase has not
 filled yet. What a card shows in its place is derived from `team1_quelle` / `team2_quelle`; see `Quelle`.
@@ -403,7 +410,7 @@ permanently. Two keys: `grund`, the reason as free text, and `datum`, the day it
 `YYYY-MM-DD` string.
 
 **Its absence is the null, and no boolean exists.** A team is disqualified exactly when the field is
-not null, on the document, on `FLTeam` and in the Zod mirror alike
+not null — on the document, on `FLTeam`, on each side of a served `FLSpiel`, and in the Zod mirror alike
 ([ADR-0059](_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)). A flag
 beside the record could contradict it and no `$jsonSchema` validator can express that it must not,
 which is the argument that made `inactive_since` a bare date.

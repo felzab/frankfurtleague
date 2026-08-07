@@ -38,6 +38,7 @@ import type {
   FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
+  FLSpielWithStoredSides,
 } from "./schemas";
 import type { ActionRequiredCategory } from "./types";
 
@@ -73,8 +74,13 @@ export type FLSpielDraftFields = {
  * either is edited. The shoot-out follows ADR-0044: kept only on a knockout fixture that finished level,
  * discarded anywhere else, exactly as the write path discards it, so the preview cannot promise
  * something the save throws away.
+ *
+ * The result carries STORED sides rather than joined ones, and that is not a convenience: the draft's
+ * sides are what the payload sends, and a team the admin has just picked has no joined season state to
+ * carry. Nothing reading this asks for one — `SpielDraftPreview` mounts no popover, and the picker
+ * warns about a disqualified team where the choice is actually made.
  */
-export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): FLSpiel {
+export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): FLSpielWithStoredSides {
   const team1Tore = draft.team1?.tore ?? null;
   const team2Tore = draft.team2?.tore ?? null;
   const hasBothTore = team1Tore !== null && !Number.isNaN(team1Tore) && team2Tore !== null && !Number.isNaN(team2Tore);

@@ -67,6 +67,11 @@ const NAME_ALIASES: Record<string, string> = {
   // its mirror after the action.
   FLSchiedsrichterWriteResponse: "FLDeleteSchiedsrichterResponse",
   FLSpielortWriteResponse: "FLDeleteSpielortResponse",
+
+  // The backend has two match models because it also validates STORED documents: `FLSpiel` is what a
+  // raw document is, `FLSpielJoined` is what every endpoint serves. Only the second reaches the wire,
+  // and the frontend parses no stored document, so it has one shape and names it `FLSpiel`.
+  FLSpielJoined: "FLSpiel",
 };
 
 /**
@@ -361,7 +366,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 51;
+const EXPECTED_PAIRS = 52;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

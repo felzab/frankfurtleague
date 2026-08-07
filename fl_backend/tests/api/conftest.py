@@ -1,19 +1,19 @@
 """
-The one seeded league every executing team-pipeline test reads (ADR-0030).
+The one seeded league every executing pipeline test reads (ADR-0030).
 
 The `mongod` container itself is a session fixture in `tests/conftest.py`, because the constraint
 suite wants the same one.
 
-These exist because `build_team_pipeline` is a dict that MongoDB executes: the schema suite can prove
-the dict says the right thing, and only a database can prove the right thing comes back. Everything
-here is therefore behind the `db` marker, which `pyproject.toml` deselects by default -- a normal
-`pytest` run neither imports `testcontainers` nor contacts Docker.
+These exist because `build_team_pipeline` and `build_spiele_pipeline` are dicts that MongoDB executes:
+the schema suites can prove a dict says the right thing, and only a database can prove the right thing
+comes back. Everything here is therefore behind the `db` marker, which `pyproject.toml` deselects by
+default -- a normal `pytest` run neither imports `testcontainers` nor contacts Docker.
 
  THE CORPUS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-Five teams and eight matches, sized so the expected figures can be worked out on paper and checked
-against the assertions. Each row exists to make exactly one invariant from `teams/services.py`
-observable:
+Five teams and nine matches, sized so the expected figures can be worked out on paper and checked
+against the assertions. Each row exists to make exactly one invariant from `teams/services.py` or
+`spiele/services.py` observable:
 
   Helmholtz  three Gruppenphase matches and one Viertelfinale -- the SCOPE, and the only team whose
              two tables differ. Its junction row also carries a stale `statistik`, so a pipeline that
@@ -22,11 +22,18 @@ observable:
              planted deliberately, and never to be "cleaned up" to match production.
   Bock       a cancelled match WITH a result -- the FORFEIT rule -- plus a match with no `ergebnis`.
   Lessing    a match whose `ergebnis` is set while `team1.tore` is null, which is the shape a
-             hand-edited document takes and the reason the `$match` restates the goal counts.
+             hand-edited document takes and the reason the `$match` restates the goal counts. It is
+             also the ONLY DISQUALIFIED team, and its junction row is the one the spiele join reads.
   Ohne       a junction row and no counting match at all -- the ZEROED FALLBACK.
   Fremd      no junction row -- the STRICT JOIN, which must drop it entirely.
 
-Season 2025 carries a played Helmholtz match that must never reach a 2026 table.
+Season 2025 carries a played Helmholtz match that must never reach a 2026 table. It carries the
+spiele join's sharpest case too: neither of its sides holds a 2025 junction row, and one of them is
+disqualified in 2026 -- so a join keyed on anything but the fixture's own season shows a badge on a
+match played a year before the decision.
+
+Match 9 is a bracket slot with no occupant on one side, which is the state the join must survive
+rather than turn into an object holding only a disqualification.
 
 The figures every test asserts against, derived by hand from the rows below:
 
@@ -97,8 +104,8 @@ def _team(name: str, shorthand: str) -> dict[str, Any]:
 def _spiel(
     nr: int,
     phase: str,
-    team1: str,
-    team2: str,
+    team1: str | None,
+    team2: str | None,
     tore1: int | None,
     tore2: int | None,
     *,
@@ -112,6 +119,9 @@ def _spiel(
     Production derives one from the other, so they always agree there. Passing them independently is
     what lets a test build the one document where they do not -- the hand-edited shape the pipeline's
     `team1.tore` / `team2.tore` filters exist to survive.
+
+    A team name of `None` is a bracket slot whose occupant is not decided yet, which is a legal and
+    permanent-by-default state (ADR-0041) and the one the spiele pipeline's join has to survive.
     """
     return {
         "spiel_nr": nr,
@@ -119,8 +129,8 @@ def _spiel(
         "saison_phase": phase,
         "is_canceled": is_canceled,
         "ergebnis": ergebnis,
-        "team1": {"team_id": TEAM_OIDS[team1], "name": team1, "tore": tore1},
-        "team2": {"team_id": TEAM_OIDS[team2], "name": team2, "tore": tore2},
+        "team1": None if team1 is None else {"team_id": TEAM_OIDS[team1], "name": team1, "tore": tore1},
+        "team2": None if team2 is None else {"team_id": TEAM_OIDS[team2], "name": team2, "tore": tore2},
     }
 
 
@@ -179,8 +189,13 @@ def league(mongo_database: Database) -> SeededLeague:
             _spiel(6, "viertelfinale", "Helmholtz", "Bock", 5, 0, ergebnis="5:0"),
             # An `ergebnis` with no goal counts behind it -- excluded, or it would group as a 0:0 draw.
             _spiel(7, "gruppenphase", "Lessing", "Ohne", None, None, ergebnis="3:0"),
-            # Last season, played, and out of scope for every assertion in this suite.
+            # Last season, played, and out of scope for every team-table assertion. It is the whole
+            # point of the spiele suite, though: both its sides are teams whose 2026 junction rows say
+            # something the 2025 fixture must not pick up.
             _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
+            # A bracket slot the group phase has not filled (ADR-0041). Carries no result, so it counts
+            # towards nothing here and exists only so the spiele join is proved against a null side.
+            _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
         ]
     )
 

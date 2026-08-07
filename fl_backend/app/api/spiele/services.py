@@ -2,10 +2,12 @@
 SPIELE · query construction, the playoff bracket, and what the write path refuses
 
 Pure throughout -- no I/O, no collection access -- which is what makes the query semantics, the
-advancement algorithm and every refusal rule testable without a database. Five halves:
+advancement algorithm and every refusal rule testable without a database. Six halves:
 
   • `build_spiele_filter` / `build_spiele_sort` translate `FLSpieleFilterParams` into a Mongo filter
     document and a sort specification.
+  • `build_spiele_pipeline` wraps those into the aggregation every match-serving endpoint runs, whose
+    one `$lookup` joins each side's disqualification from `saison_teams` (ADR-0028 rule 4).
   • `apply_payload_to_spiel` normalises one patch payload into the fixture it produces. The SAVE and
     the `dry_run=true` PREVIEW both go through it, which is what stops the two disagreeing (ADR-0051).
   • `resolve_bracket` computes what every bracket slot in a season should hold, reports every stored
@@ -23,6 +25,12 @@ advancement algorithm and every refusal rule testable without a database. Five h
     INCLUDES today -- the frontend's own status derivation excludes it and labels those matches
     `heute`. The two definitions differ deliberately; see the glossary before changing either.
   • `unbekannt` has no branch and therefore filters nothing: passing it returns everything.
+  • The lookup keys on each DOCUMENT'S own `saison_id`, never on one the caller resolved. Three of the
+    four callers span more than one season, and a fixed season would report a team's disqualification
+    from the wrong one.
+  • A joined side is only ever produced by the pipeline. Nothing here constructs an
+    `FLSpielTeamFieldJoined`, and `resolve_bracket` builds the STORED `FLSpielTeamField`, because what
+    it builds is written back to the document (ADR-0028, rule 4).
   • `team_id` matches either side of the fixture, so it needs `$or` rather than a field equality.
   • A slot with a `quelle` is maintained by `resolve_bracket` and by nothing else; a slot without one is
     the admin's, and nothing here writes it. That one rule is the whole manual-override story -- there is
@@ -129,6 +137,127 @@ def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, 
         ]
 
     return query
+
+
+SAISON_TEAMS_COLLECTION_NAME = "saison_teams"
+# Where the junction rows land before the two sides are matched to them. Dropped again by the final
+# stage, so it never reaches a response and `FLSpielJoined` never has to declare it.
+SAISON_TEAMS_AS_NAME = "saison_teams_rows"
+
+
+def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
+    """
+    One side with its season state folded in, or `None` when the fixture has no occupant there yet.
+
+    `$mergeObjects` rather than a rebuilt object: the stored keys are `FLSpielTeamField`'s and listing
+    them here would be a second copy of that model, silently short by one the day a field is added.
+
+    Three absences all mean the same thing to this expression and all resolve to `null` -- an empty
+    lookup result (the team holds no `saison_teams` row for this season), a row whose
+    `disqualifikation` is null, and a row missing the key entirely. Only the first two are reachable
+    now; the third is the pre-runbook document shape and costs nothing to survive (ADR-0059).
+    """
+
+    # `$let` and a field path rather than `$getField`, which would read more directly but needs
+    # MongoDB 5.0. This form has worked since 2.6, and the production server's version is not
+    # something the test tier can speak for -- it runs `mongo:8` in a container (ADR-0030).
+    matching_row = {"$filter": {"input": f"${SAISON_TEAMS_AS_NAME}", "cond": {"$eq": ["$$this.team_id", f"${side}.team_id"]}}}
+    joined_record = {
+        "$let": {
+            "vars": {"row": {"$first": matching_row}},
+            "in": {"$ifNull": ["$$row.disqualifikation", None]},
+        }
+    }
+
+    return {
+        "$cond": [
+            # An unresolved bracket slot stays null rather than becoming an object holding only a
+            # disqualification (ADR-0041). `$eq` against null also catches a document missing the key.
+            {"$eq": [f"${side}", None]},
+            None,
+            {"$mergeObjects": [f"${side}", {"disqualifikation": joined_record}]},
+        ]
+    }
+
+
+def build_spiele_pipeline(
+    db_filter: Mapping[str, Any],
+    sort_by: Sequence[tuple[str, int]] | None = None,
+    limit: int | None = None,
+) -> list[Mapping[str, Any]]:
+    """
+    The read pipeline for every endpoint that serves matches.
+
+    The stored documents, plus each side's disqualification joined from `saison_teams`.
+
+    **The join is why `GET /spiele` is an aggregation at all**, and it was chosen over the cheaper
+    alternative deliberately: a disqualification changes DURING a season, so denormalising it into the
+    embedded team fields would put the fan-out on the one field most likely to be forgotten, and a
+    stale DQ badge is a visibly wrong answer on a public page (ADR-0028, rule 4). Read that decision
+    before reversing this into a stored flag.
+
+    **Keyed on each DOCUMENT'S own `saison_id`, never on a season the caller resolved.**
+    `find_bracket_faults` runs this over every season at once, so a fixed season would answer for the
+    wrong one -- and a 2025 fixture would show a team's 2026 disqualification, which is the exact
+    failure `uniq_saison_id_team_id` exists to make cheap to avoid.
+
+    **One lookup, not two.** Both sides of a fixture are in the same season, so a single correlated
+    sub-pipeline fetches at most two rows and `_joined_side` matches each side to its own. The
+    junction's compound unique index over `(saison_id, team_id)` backs the equality.
+
+    The filter, sort and limit are applied BEFORE the lookup, so the join runs over the documents that
+    survive rather than over the collection.
+    """
+
+    pipeline: list[Mapping[str, Any]] = [{"$match": db_filter}]
+
+    if sort_by is not None:
+        # A dict, because `$sort` is order-sensitive and Python preserves insertion order -- which is
+        # what `build_spiele_sort` returns its pairs in. It never repeats a key, so nothing collapses.
+        pipeline.append({"$sort": dict(sort_by)})
+
+    if limit is not None:
+        pipeline.append({"$limit": limit})
+
+    pipeline.append(
+        {
+            "$lookup": {
+                "from": SAISON_TEAMS_COLLECTION_NAME,
+                "let": {
+                    "spiel_saison_id": "$saison_id",
+                    # `$ifNull` rather than the bare path: a null side makes `$teamN.team_id` MISSING,
+                    # and a missing value inside an array expression shifts the other element into its
+                    # position -- so the surviving side would be compared against the wrong slot.
+                    "team1_id": {"$ifNull": ["$team1.team_id", None]},
+                    "team2_id": {"$ifNull": ["$team2.team_id", None]},
+                },
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$saison_id", "$$spiel_saison_id"]},
+                                    # No junction row carries a null `team_id`, so a null slot matches
+                                    # nothing rather than matching a row by accident.
+                                    {"$in": ["$team_id", ["$$team1_id", "$$team2_id"]]},
+                                ]
+                            }
+                        }
+                    },
+                    {"$project": {"_id": 0, "team_id": 1, "disqualifikation": 1}},
+                ],
+                "as": SAISON_TEAMS_AS_NAME,
+            }
+        }
+    )
+
+    pipeline.append({"$set": {"team1": _joined_side("team1"), "team2": _joined_side("team2")}})
+
+    # The rows themselves are working state and belong to no model. Left in place they would ride on
+    # every response, and Pydantic's default `extra="ignore"` means nothing would report them.
+    pipeline.append({"$unset": SAISON_TEAMS_AS_NAME})
+
+    return pipeline
 
 
 # One fixture's resolved sides, plus whether either occupant differs from the one stored.
