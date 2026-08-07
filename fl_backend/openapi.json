@@ -4485,7 +4485,67 @@
         "title": "FLSchiedsrichterWriteResponse",
         "description": "Shared by delete and reactivate — both answer with the referee as they now stand."
       },
-      "FLSpiel": {
+      "FLSpielAdvancement": {
+        "properties": {
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "voided_ergebnis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+:[0-9]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided Ergebnis"
+          },
+          "voided_elfmeterschiessen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "spiel_nr",
+          "voided_ergebnis",
+          "voided_elfmeterschiessen"
+        ],
+        "title": "FLSpielAdvancement",
+        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\n**The two are separate facts and the second is the one an admin needs.** A slot filling from empty\nis the ordinary, harmless case; a slot whose occupant changed while the fixture already held a\nscoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044), and until this model\nexisted the response said only that a `Paarung` had been updated (ADR-0051).\n\nBoth voided fields are `None` on the harmless case, so \"was anything destroyed here\" is a null\ncheck rather than a comparison against the fixture's earlier state — which the caller does not\nhave."
+      },
+      "FLSpielElfmeterschiessen": {
+        "properties": {
+          "team1": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Team1"
+          },
+          "team2": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Team2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielElfmeterschiessen",
+        "description": "The penalty shoot-out that settled a knockout fixture whose goals finished level (ADR-0044).\n\n**A `gruppenphase` fixture never carries one**, and that is not expressible here: `saison_phase` is a\nsibling field, so pairing the two would be a cross-field rule failing on READ for a hand-edited\ndocument and taking the bracket page down with it (ADR-0041, invariant I22). `patch_spiel_data`\ndiscards a shoot-out arriving on a group fixture, and `_outcome_of` refuses to read one.\n\nThe two counts are the SHOOT-OUT's own scoreline and are never added to `tore`: a shoot-out win is a\ndraw for the league table, and only the bracket reads the winner off this (ADR-0026).\n\n`team1` and `team2` name the same two sides the fixture does, so the winner is DERIVED here exactly\nas it is from the goals. There is deliberately no `sieger` field: a second statement of the same\nfact could contradict the counts, and no `$jsonSchema` validator could express that it must not --\nthe reasoning that kept an `is_manual` flag off `quelle` (ADR-0042) and made `inactive_since` a date\n(ADR-0032)."
+      },
+      "FLSpielJoined": {
         "properties": {
           "id": {
             "type": "string",
@@ -4494,7 +4554,7 @@
           "team1": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielTeamField"
+                "$ref": "#/components/schemas/FLSpielTeamFieldJoined"
               },
               {
                 "type": "null"
@@ -4504,7 +4564,7 @@
           "team2": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielTeamField"
+                "$ref": "#/components/schemas/FLSpielTeamFieldJoined"
               },
               {
                 "type": "null"
@@ -4676,67 +4736,8 @@
           "saison_phase",
           "saison_id"
         ],
-        "title": "FLSpiel"
-      },
-      "FLSpielAdvancement": {
-        "properties": {
-          "spiel_nr": {
-            "type": "integer",
-            "exclusiveMinimum": 0.0,
-            "title": "Spiel Nr"
-          },
-          "voided_ergebnis": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]+:[0-9]+$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Voided Ergebnis"
-          },
-          "voided_elfmeterschiessen": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielElfmeterschiessen"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "spiel_nr",
-          "voided_ergebnis",
-          "voided_elfmeterschiessen"
-        ],
-        "title": "FLSpielAdvancement",
-        "description": "One fixture the bracket resolution rewrote, and the result that rewrite destroyed.\n\n**The two are separate facts and the second is the one an admin needs.** A slot filling from empty\nis the ordinary, harmless case; a slot whose occupant changed while the fixture already held a\nscoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044), and until this model\nexisted the response said only that a `Paarung` had been updated (ADR-0051).\n\nBoth voided fields are `None` on the harmless case, so \"was anything destroyed here\" is a null\ncheck rather than a comparison against the fixture's earlier state — which the caller does not\nhave."
-      },
-      "FLSpielElfmeterschiessen": {
-        "properties": {
-          "team1": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Team1"
-          },
-          "team2": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Team2"
-          }
-        },
-        "type": "object",
-        "required": [
-          "team1",
-          "team2"
-        ],
-        "title": "FLSpielElfmeterschiessen",
-        "description": "The penalty shoot-out that settled a knockout fixture whose goals finished level (ADR-0044).\n\n**A `gruppenphase` fixture never carries one**, and that is not expressible here: `saison_phase` is a\nsibling field, so pairing the two would be a cross-field rule failing on READ for a hand-edited\ndocument and taking the bracket page down with it (ADR-0041, invariant I22). `patch_spiel_data`\ndiscards a shoot-out arriving on a group fixture, and `_outcome_of` refuses to read one.\n\nThe two counts are the SHOOT-OUT's own scoreline and are never added to `tore`: a shoot-out win is a\ndraw for the league table, and only the bracket reads the winner off this (ADR-0026).\n\n`team1` and `team2` name the same two sides the fixture does, so the winner is DERIVED here exactly\nas it is from the goals. There is deliberately no `sieger` field: a second statement of the same\nfact could contradict the counts, and no `$jsonSchema` validator could express that it must not --\nthe reasoning that kept an `is_manual` flag off `quelle` (ADR-0042) and made `inactive_since` a date\n(ADR-0032)."
+        "title": "FLSpielJoined",
+        "description": "One fixture as an ENDPOINT serves it.\n\nThe stored document above, with each side's season state joined onto it by `build_spiele_pipeline`.\n\n**This is the wire shape of every response carrying matches**, and that uniformity is load-bearing\nrather than tidy: the frontend mirrors all of them with one `FLSpielSchema`, so a route serving the\nnarrower shape would leave `SpielTeamSlot` with no badge to render and nothing would report it\n(ADR-0040 compares the published document, and a field absent from one route is still published).\n\n**A subclass, so a joined fixture is still an `FLSpiel`.** The bracket resolution takes the stored\nshape and reads none of what is added here, and `find_bracket_faults` reports faults over documents\nit has already joined for display -- so narrowing the two sides keeps one read serving both instead\nof forcing a second query per faulted fixture. Nothing assigns to `team1` or `team2` after\nvalidation; a joined fixture is built by the pipeline and read.\n\n**The direction of the inheritance is deliberate and must not be flipped.** The stored shape is the\none a write can reach, so it is the one that stays free of derived fields. Adding\n`disqualifikation` to `FLSpielTeamField` and stripping it on write would put the burden on every\nfuture writer instead of on the type."
       },
       "FLSpielOrtField": {
         "properties": {
@@ -4947,7 +4948,59 @@
           "tore",
           "shorthand"
         ],
-        "title": "FLSpielTeamField"
+        "title": "FLSpielTeamField",
+        "description": "One side of a fixture as the DOCUMENT stores it, and as the admin PATCH writes it back.\n\nEvery key here is either embedded on `spiele` or derived from what is. Nothing joined belongs on\nthis model: `patch_spiel_data` writes the payload back wholesale with `$set` and\n`advance_bracket_winners` dumps a resolved side straight into one, so a field added here reaches\nthe document on the next edit -- which is the denormalisation ADR-0028 rule 4 refuses, arriving\nthrough the write path instead of through a fan-out. `FLSpielTeamFieldJoined` below is where a\njoined field goes."
+      },
+      "FLSpielTeamFieldJoined": {
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "tore": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tore"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          },
+          "disqualifikation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLDisqualifikation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "team_id",
+          "name",
+          "tore",
+          "shorthand",
+          "disqualifikation"
+        ],
+        "title": "FLSpielTeamFieldJoined",
+        "description": "One side as a READ serves it: the stored copy above, plus this season's state joined onto it.\n\nProduced only by `build_spiele_pipeline`, never by a write and never by a validation of a raw\n`spiele` document. The distinction is the whole reason there are two models -- see `FLSpielJoined`."
       },
       "FLSpieleActionRequiredResponse": {
         "properties": {
@@ -4962,7 +5015,7 @@
           },
           "spiele": {
             "items": {
-              "$ref": "#/components/schemas/FLSpiel"
+              "$ref": "#/components/schemas/FLSpielJoined"
             },
             "type": "array",
             "title": "Spiele"
@@ -5000,7 +5053,7 @@
           "spiele"
         ],
         "title": "FLSpieleActionRequiredResponse",
-        "description": "What `get_spiele_action_required` returns: the matches needing attention, and why the bracket ones do.\n\n`spiele` carries every match the route's filter selected PLUS every match named by a fault below, so\nthe client always holds the document behind a fault and can render it as an ordinary card. A fault is\njoined to its match by `spiel_id`, never by `spiel_nr`, which repeats across seasons\n(`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`) and this route spans them.\n\n`bracket_faults` is DERIVED on every request and stored nowhere (ADR-0047). It is the same list\n`PATCH /spiele/{spiel_id}` reports in its response, computed over every season instead of one."
+        "description": "What `get_spiele_action_required` returns: the matches needing attention, and why the bracket ones do.\n\n`spiele` carries every match the route's filter selected PLUS every match named by a fault below, so\nthe client always holds the document behind a fault and can render it as an ordinary card. A fault is\njoined to its match by `spiel_id`, never by `spiel_nr`, which repeats across seasons\n(`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`) and this route spans them.\n\n`bracket_faults` is DERIVED on every request and stored nowhere (ADR-0047). It is the same list\n`PATCH /spiele/{spiel_id}` reports in its response, computed over every season instead of one.\n\nThe matches are `FLSpielJoined`, as the two read endpoints' are. This route's list renders through\nthe same `SpielCard`, so a narrower shape here would be a DQ badge that the public grids show and\nthe admin triage list silently does not."
       },
       "FLSpieleListResponse": {
         "properties": {
@@ -5015,7 +5068,7 @@
           },
           "spiele": {
             "items": {
-              "$ref": "#/components/schemas/FLSpiel"
+              "$ref": "#/components/schemas/FLSpielJoined"
             },
             "type": "array",
             "title": "Spiele"
@@ -5039,7 +5092,7 @@
             "default": 1
           },
           "spiel": {
-            "$ref": "#/components/schemas/FLSpiel"
+            "$ref": "#/components/schemas/FLSpielJoined"
           }
         },
         "type": "object",

@@ -25,7 +25,13 @@ export function TeamPopoverMenu({
 }: {
   teamName: string;
   teamId: string;
-  teamIsDisqualified?: boolean;
+  /**
+   * Required, not optional. Every caller can answer it — the two team views read `FLTeam` and the
+   * match cards read the side the `spiele` join carries — and while it was optional a caller that
+   * simply omitted it compiled clean and rendered no badge, which is how the Spiel cards went without
+   * one. `tsc` is what should catch the next caller that cannot supply it.
+   */
+  teamIsDisqualified: boolean;
   /**
    * Defaults to `"right"`, which suits the cards: their triggers are truncated inside narrow grid
    * tracks, so one side always has room. Pass `"top"` where the trigger is wide and centred — with

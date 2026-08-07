@@ -16,6 +16,13 @@ thing to check when behaviour looks impossible.
 
   • The three embedded field models are declared BEFORE the payload and FLSpiel that reference them --
     see the note below, this has bitten before.
+  • The STORED shape and the JOINED read shape are two models, and the stored one is the base.
+    `FLSpiel`/`FLSpielTeamField` are what a raw document validates as and what a write dumps;
+    `FLSpielJoined`/`FLSpielTeamFieldJoined` add what `build_spiele_pipeline` looks up. A joined field
+    on the stored pair would be written into the document by the very next admin edit (ADR-0028,
+    rule 4), and a default on it would make six internal reads assert that nobody is disqualified.
+  • Every response carrying matches carries the JOINED shape -- both reads and the action-required
+    list. One wire shape, because the frontend mirrors all three with one `FLSpielSchema`.
   • A fixture side is `None` when its occupant is not yet known, and `teamN_quelle` says where that
     occupant comes from (ADR-0041, ADR-0042). The two fields are INDEPENDENT and nothing pairs them:
     `quelle` is a fact about the FIXTURE and stays true once the team arrives, while the team field is a
@@ -46,7 +53,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, model_validator
 
-from app.api.teams.schemas import FLGruppenNames
+from app.api.teams.schemas import FLDisqualifikation, FLGruppenNames
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString, CustomOptionalTimeString, CustomTimeString
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -59,10 +66,44 @@ FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekan
 # lazy rebuild -- __pydantic_complete__ stayed False until the first validation, so anything reaching
 # into the core schema earlier raised PydanticUserError instead of a clean ValidationError.
 class FLSpielTeamField(BaseModel):
+    """
+    One side of a fixture as the DOCUMENT stores it, and as the admin PATCH writes it back.
+
+    Every key here is either embedded on `spiele` or derived from what is. Nothing joined belongs on
+    this model: `patch_spiel_data` writes the payload back wholesale with `$set` and
+    `advance_bracket_winners` dumps a resolved side straight into one, so a field added here reaches
+    the document on the next edit -- which is the denormalisation ADR-0028 rule 4 refuses, arriving
+    through the write path instead of through a fan-out. `FLSpielTeamFieldJoined` below is where a
+    joined field goes.
+    """
+
     team_id: CustomObjectId
     name: str = Field(min_length=1)
     tore: Annotated[int, Field(ge=0)] | None
     shorthand: str = Field(min_length=2, max_length=2)
+
+
+class FLSpielTeamFieldJoined(FLSpielTeamField):
+    """
+    One side as a READ serves it: the stored copy above, plus this season's state joined onto it.
+
+    Produced only by `build_spiele_pipeline`, never by a write and never by a validation of a raw
+    `spiele` document. The distinction is the whole reason there are two models -- see `FLSpielJoined`.
+    """
+
+    # Out of THIS fixture's season, with the reason and the date, or null while the team competes.
+    # JOINED from the `saison_teams` row keyed on the fixture's own `saison_id` and this side's
+    # `team_id`, and copied into no document (ADR-0028 rule 4, ADR-0059), so a disqualification
+    # entered on the junction reaches every match card at once and the two cannot drift.
+    #
+    # The whole record rather than a boolean, matching `FLTeam.disqualifikation` exactly: the badge
+    # needs only its presence, but one shape across both models means every reader asks the same
+    # question -- `disqualifikation is not None` -- and the popover can say WHY without a second read.
+    #
+    # Null ALSO covers a side whose team holds no `saison_teams` row for the season at all. That is a
+    # different fact from competing (`find_eligibility_refusal` refuses it as `REQ-ELIGIBILITY-002`),
+    # but it is not a disqualification, and this field answers only that question.
+    disqualifikation: FLDisqualifikation | None
 
 
 class FLSpielOrtField(BaseModel):
@@ -258,6 +299,17 @@ class FLPatchSpielDataPayload(BaseModel):
 
 
 class FLSpiel(BaseModel):
+    """
+    One fixture as the `spiele` collection STORES it -- every field read off the document itself.
+
+    This is what the write path holds and what a raw document validates as, at eight sites: both
+    reads below, the three season reads inside `patch_spiel_data`, `find_bracket_faults`,
+    `advance_bracket_winners` and the grouped table's match read in `teams/router.py`. Six of those
+    eight neither want nor could supply a joined field, which is why `FLSpielJoined` is a second model
+    rather than a default on this one -- a default would make those six quietly assert that nobody is
+    disqualified.
+    """
+
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through id
 
     # `None` while the occupant is unknown -- a playoff slot the group phase has not filled yet. The
@@ -295,7 +347,35 @@ class FLSpiel(BaseModel):
     saison_id: str = Field(min_length=4, max_length=4)
 
 
+class FLSpielJoined(FLSpiel):
+    """
+    One fixture as an ENDPOINT serves it.
+
+    The stored document above, with each side's season state joined onto it by `build_spiele_pipeline`.
+
+    **This is the wire shape of every response carrying matches**, and that uniformity is load-bearing
+    rather than tidy: the frontend mirrors all of them with one `FLSpielSchema`, so a route serving the
+    narrower shape would leave `SpielTeamSlot` with no badge to render and nothing would report it
+    (ADR-0040 compares the published document, and a field absent from one route is still published).
+
+    **A subclass, so a joined fixture is still an `FLSpiel`.** The bracket resolution takes the stored
+    shape and reads none of what is added here, and `find_bracket_faults` reports faults over documents
+    it has already joined for display -- so narrowing the two sides keeps one read serving both instead
+    of forcing a second query per faulted fixture. Nothing assigns to `team1` or `team2` after
+    validation; a joined fixture is built by the pipeline and read.
+
+    **The direction of the inheritance is deliberate and must not be flipped.** The stored shape is the
+    one a write can reach, so it is the one that stays free of derived fields. Adding
+    `disqualifikation` to `FLSpielTeamField` and stripping it on write would put the burden on every
+    future writer instead of on the type.
+    """
+
+    team1: FLSpielTeamFieldJoined | None
+    team2: FLSpielTeamFieldJoined | None
+
+
 FLSpielListAdapter = TypeAdapter(list[FLSpiel])
+FLSpielJoinedListAdapter = TypeAdapter(list[FLSpielJoined])
 
 
 class FLSpieleFilterParams(BaseModel):
@@ -310,11 +390,11 @@ class FLSpieleFilterParams(BaseModel):
 
 
 class FLSpieleListResponse(BaseAPIResponse):
-    spiele: list[FLSpiel]
+    spiele: list[FLSpielJoined]
 
 
 class FLSpieleSingleResponse(BaseAPIResponse):
-    spiel: FLSpiel
+    spiel: FLSpielJoined
 
 
 class FLSpieleActionRequiredResponse(BaseAPIResponse):
@@ -328,9 +408,13 @@ class FLSpieleActionRequiredResponse(BaseAPIResponse):
 
     `bracket_faults` is DERIVED on every request and stored nowhere (ADR-0047). It is the same list
     `PATCH /spiele/{spiel_id}` reports in its response, computed over every season instead of one.
+
+    The matches are `FLSpielJoined`, as the two read endpoints' are. This route's list renders through
+    the same `SpielCard`, so a narrower shape here would be a DQ badge that the public grids show and
+    the admin triage list silently does not.
     """
 
-    spiele: list[FLSpiel]
+    spiele: list[FLSpielJoined]
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
 
 

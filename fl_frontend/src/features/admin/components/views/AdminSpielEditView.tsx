@@ -14,7 +14,7 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpiel, FLSpielWithStoredSides } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 
 /**
@@ -58,7 +58,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
    * (ADR-0047) and this route reads one match, so re-deriving it here would be a second copy of a rule
    * that exists to have only one.
    */
-  const categorize = (spiel: FLSpiel): ReadonlySet<ActionRequiredCategory> =>
+  const categorize = (spiel: FLSpielWithStoredSides): ReadonlySet<ActionRequiredCategory> =>
     new Set(
       Object.entries(categorizeActionRequired([spiel], today))
         .filter(([, matches]) => matches.length > 0)

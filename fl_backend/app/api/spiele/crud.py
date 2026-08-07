@@ -22,6 +22,9 @@ it over ONE season rebuilt in memory, which is what `dry_run=true` answers with 
     written the result that triggers it, and a read without the session sees the last committed
     snapshot instead -- so it would resolve the bracket from the match as it was before the write and
     advance nothing.
+  • The team fields go through `_stored_side`, which dumps the STORED field set and nothing else. The
+    read endpoints serve a side carrying a joined `disqualifikation`, and a write that dumped one would
+    denormalise it into the document (ADR-0028, rule 4).
   • The team fields are dumped with `context={"keep_oid": True}`. Without it `team_id` serialises to a
     string, the `spiele` `$jsonSchema` validator rejects the write, and the transaction takes the
     admin's own edit down with it.
@@ -45,7 +48,7 @@ it over ONE season rebuilt in memory, which is what `dry_run=true` answers with 
   docs/backend/spec.md -- section 3, the write path step by step
 """
 
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from motor.motor_asyncio import AsyncIOMotorClientSession, AsyncIOMotorCollection
 
@@ -54,12 +57,14 @@ from app.api.spiele.schemas import (
     FLBracketFault,
     FLSpiel,
     FLSpielAdvancement,
+    FLSpielJoined,
+    FLSpielJoinedListAdapter,
     FLSpielListAdapter,
     FLSpielQuelleGruppe,
     FLSpielReleasedSide,
     FLSpielTeamField,
 )
-from app.api.spiele.services import BracketResolution, SlotAdvancement, SpieltagRelease, resolve_bracket
+from app.api.spiele.services import BracketResolution, SlotAdvancement, SpieltagRelease, build_spiele_pipeline, resolve_bracket
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import DecidedStanding, build_decided_standings, build_team_pipeline
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
@@ -120,7 +125,7 @@ async def find_bracket_faults(
     spiele_collection: AsyncIOMotorCollection,
     teams_collection: AsyncIOMotorCollection,
     saisons_collection: AsyncIOMotorCollection,
-) -> tuple[list[FLBracketFault], list[FLSpiel]]:
+) -> tuple[list[FLBracketFault], list[FLSpielJoined]]:
     """
     Every stored bracket fault in every season, and the fixtures they name (ADR-0047).
 
@@ -137,9 +142,17 @@ async def find_bracket_faults(
     The 1024-document cap on the `spiele` read is a ceiling on the WHOLE archive here rather than on one
     season, which is about thirty seasons at today's size. Named because the failure would be silent:
     an unread fixture makes every reference to it read as dangling and reports a fault that is not one.
+
+    **The read is JOINED, and the same documents serve both halves.** The resolution reads none of what
+    the join adds -- an `FLSpielJoined` is an `FLSpiel` and the algorithm takes the base shape -- while
+    the fixtures returned for display go to the caller's response, which serves the joined shape. One
+    read rather than a re-query by id, and the lookup keys on each document's own `saison_id`, which is
+    the property that lets this span every season at once.
     """
 
-    spiele = FLSpielListAdapter.validate_python(await pull_many_from_db(collection=spiele_collection, db_filter={}))
+    spiele = FLSpielJoinedListAdapter.validate_python(
+        await aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={}))
+    )
     saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, projection={"rules": 1})
 
     by_saison: dict[str, list[FLSpiel]] = {}
@@ -148,7 +161,6 @@ async def find_bracket_faults(
 
     faults: list[FLBracketFault] = []
     faulted_ids: set[object] = set()
-    faulted_spiele: list[FLSpiel] = []
 
     # Sorted, so the report is ordered by season and then -- within `_resolve_one_saison` -- by fixture,
     # rather than by whatever order the two reads came back in.
@@ -251,6 +263,29 @@ async def preview_bracket_after_patch(
     )
 
 
+def _stored_side(side: FLSpielTeamField | None) -> Mapping[str, Any] | None:
+    """
+    One resolved side as the DOCUMENT stores it -- the stored keys, and never a joined one.
+
+    `include` names the field set of `FLSpielTeamField` rather than dumping whatever the instance
+    happens to carry, which is the same guard `patch_spiel_data` puts on its own `$set`. The read
+    endpoints serve `FLSpielTeamFieldJoined`, whose `disqualifikation` is looked up per request and
+    belongs on no `spiele` document (ADR-0028, rule 4) -- so a joined side reaching this write is the
+    one way that decision could be reversed by accident, and it is closed here rather than by
+    everyone remembering.
+
+    Derived from the model, so a field added to the stored shape is written without touching this.
+
+    `keep_oid` keeps `team_id` an ObjectId: serialised to a string, the `spiele` `$jsonSchema`
+    validator rejects the write and the transaction takes the admin's own edit down with it.
+    """
+
+    if side is None:
+        return None
+
+    return side.model_dump(context={"keep_oid": True}, include=set(FLSpielTeamField.model_fields))
+
+
 async def advance_bracket_winners(
     spiele_collection: AsyncIOMotorCollection,
     teams_collection: AsyncIOMotorCollection,
@@ -308,8 +343,8 @@ async def advance_bracket_winners(
             filter={"_id": advancement.spiel_id},
             update={
                 "$set": {
-                    "team1": advancement.team1.model_dump(context={"keep_oid": True}) if advancement.team1 is not None else None,
-                    "team2": advancement.team2.model_dump(context={"keep_oid": True}) if advancement.team2 is not None else None,
+                    "team1": _stored_side(advancement.team1),
+                    "team2": _stored_side(advancement.team2),
                     "ergebnis": None,
                     "elfmeterschiessen": None,
                 }

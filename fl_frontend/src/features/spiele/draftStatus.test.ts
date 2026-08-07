@@ -16,13 +16,28 @@ import { describe, it } from "node:test";
 import { deriveSpielDraftStatus } from "./draftStatus.ts";
 
 import type { FLSpielDraftFields } from "./draftStatus.ts";
-import type { FLSpiel } from "./schemas.ts";
+import type { FLSpiel, FLSpielTeamFieldJoined } from "./schemas.ts";
 import type { ActionRequiredCategory } from "./types.ts";
 
 const TEAM_1 = "6890a1b2c3d4e5f607182932";
 const TEAM_2 = "6890a1b2c3d4e5f607182933";
 const ORT = "6890a1b2c3d4e5f607182940";
 const SCHIRI = "6890a1b2c3d4e5f607182950";
+
+/**
+ * One resolved side, as a READ serves it.
+ *
+ * `disqualifikation` is on every one of them because the fixtures here are what an endpoint returns,
+ * and an endpoint joins it (ADR-0028, rule 4). Nothing in this suite asserts on it — the helper exists
+ * so a side stays one call rather than five keys repeated per case.
+ */
+const side = (team_id: string, name: string, shorthand: string, tore: number | null): FLSpielTeamFieldJoined => ({
+  team_id,
+  name,
+  shorthand,
+  tore,
+  disqualifikation: null,
+});
 
 /** A fully populated group-phase fixture, so every descriptor has something to compare against. */
 function makeStored(overrides: Partial<FLSpiel> = {}): FLSpiel {
@@ -37,8 +52,8 @@ function makeStored(overrides: Partial<FLSpiel> = {}): FLSpiel {
     uhrzeit: "18:30:00",
     ort: { spielort_id: ORT, name: "Sportpark Nord", maps_link: "Sportpark Nord", mietpreis: 120 },
     schiedsrichter: { schiedsrichter_id: SCHIRI, name: "Pierluigi Collina", payment: 40 },
-    team1: { team_id: TEAM_1, name: "Team A", shorthand: "TA", tore: 3 },
-    team2: { team_id: TEAM_2, name: "Team B", shorthand: "TB", tore: 1 },
+    team1: side(TEAM_1, "Team A", "TA", 3),
+    team2: side(TEAM_2, "Team B", "TB", 1),
     team1_quelle: null,
     team2_quelle: null,
     ergebnis: "3:1",
@@ -138,8 +153,8 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
 
   // NaN is what a NumberField reports while a cleared box is being retyped, and NaN !== NaN.
   it("does not report a still-empty goal field as changed", () => {
-    const stored = makeStored({ team1: { team_id: TEAM_1, name: "Team A", shorthand: "TA", tore: null }, ergebnis: null });
-    const status = derive(stored, draftOf(stored, { team1: { team_id: TEAM_1, name: "Team A", shorthand: "TA", tore: NaN } }));
+    const stored = makeStored({ team1: side(TEAM_1, "Team A", "TA", null), ergebnis: null });
+    const status = derive(stored, draftOf(stored, { team1: side(TEAM_1, "Team A", "TA", NaN) }));
 
     assert.equal(status.byPath.get("team1.tore")?.draftText, null);
     assert.equal(status.byPath.get("team1.tore")?.isChanged, false);
@@ -175,8 +190,8 @@ describe("deriveSpielDraftStatus · what somebody is waiting on", () => {
 
   it("marks both goal fields for one missing result", () => {
     const stored = makeStored({
-      team1: { team_id: TEAM_1, name: "Team A", shorthand: "TA", tore: null },
-      team2: { team_id: TEAM_2, name: "Team B", shorthand: "TB", tore: null },
+      team1: side(TEAM_1, "Team A", "TA", null),
+      team2: side(TEAM_2, "Team B", "TB", null),
       ergebnis: null,
     });
     const status = derive(stored, draftOf(stored), ["ergebnis_pending"]);

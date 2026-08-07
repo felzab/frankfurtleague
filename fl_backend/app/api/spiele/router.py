@@ -12,6 +12,10 @@ the admin router.
     never a stored value -- you will not find it on a document.
   • Authorization comes from the router-level `verify_access_base` dependency. A new endpoint added
     here inherits it.
+  • BOTH reads go through `build_spiele_pipeline`, and neither may go back to a plain `find`. The
+    disqualification each side carries is JOINED from `saison_teams` and stored on no match document
+    (ADR-0028, rule 4), so a `find` here returns a shape `FLSpielJoined` cannot validate -- which is
+    the failure being loud rather than a badge quietly going missing.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -22,16 +26,17 @@ from fastapi import APIRouter, Depends
 
 from app.api.saisons.crud import pull_current_saison_id
 from app.api.spiele.schemas import (
-    FLSpiel,
     FLSpieleFilterParams,
     FLSpieleListResponse,
     FLSpieleSingleResponse,
-    FLSpielListAdapter,
+    FLSpielJoined,
+    FLSpielJoinedListAdapter,
 )
-from app.api.spiele.services import build_spiele_filter, build_spiele_sort
+from app.api.spiele.services import build_spiele_filter, build_spiele_pipeline, build_spiele_sort
 from app.core.config import API_VERSION
-from app.core.crud import pull_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db
 from app.core.dependencies import SaisonsCollection, SpieleCollection, get_german_date_str
+from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -66,13 +71,16 @@ async def get_spiele(
     db_filter = build_spiele_filter(filters=filters, today=today)
     db_sort = build_spiele_sort(sort_by=filters.sort_by, order=filters.order)
 
-    spiele_raw = await pull_many_from_db(
+    # An AGGREGATION rather than a find, and this is the endpoint that pays for it: the one `$lookup`
+    # joins each side's disqualification from `saison_teams` so a DQ badge renders on the card without
+    # a second request. Chosen over embedding the state and fanning it out, because it changes during
+    # a season and a stale badge is a visibly wrong answer on a public page (ADR-0028, rule 4).
+    spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
-        db_filter=db_filter,
-        limit=filters.limit,
-        sort_by=db_sort,
+        pipeline=build_spiele_pipeline(db_filter=db_filter, sort_by=db_sort, limit=filters.limit),
+        length=filters.limit,
     )
-    spiele = FLSpielListAdapter.validate_python(spiele_raw)
+    spiele = FLSpielJoinedListAdapter.validate_python(spiele_raw)
 
     return FLSpieleListResponse(spiele=spiele)
 
@@ -86,6 +94,15 @@ async def get_spiel(spiel_id: CustomRouteObjectId, spiele_collection: SpieleColl
     `spiel_status` is a property of a query rather than of a match.
     """
 
-    spiel_raw = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id})
+    # The same pipeline the list runs, over a filter selecting one document -- so this route and the
+    # list cannot disagree about what a match looks like. The 404 is raised here rather than by
+    # `pull_one_from_db`, because an aggregation returning nothing is an empty list, not a `None`.
+    spiele_raw = await aggregate_many_from_db(
+        collection=spiele_collection,
+        pipeline=build_spiele_pipeline(db_filter={"_id": spiel_id}),
+        length=1,
+    )
+    if not spiele_raw:
+        raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code="DB-COMMON-001")
 
-    return FLSpieleSingleResponse(spiel=FLSpiel.model_validate(spiel_raw))
+    return FLSpieleSingleResponse(spiel=FLSpielJoined.model_validate(spiele_raw[0]))
