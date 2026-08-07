@@ -87,22 +87,13 @@ const BACKEND_ONLY: Record<string, string> = {
   ValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
 
   // ADR-0034 gives every resource a GET /{id} for uniform addressability, and only /teams/{id} and
-  // /spiele/{id} are called. Five single reads therefore have no mirror, which the backend spec records
-  // as known-open.
+  // /spiele/{id} are called. Three single reads therefore have no mirror, which the backend spec
+  // records as known-open. The season editor addresses a season through `getSaisons`, which it needs
+  // whole anyway for the rollover's outgoing season, so `/saisons/{id}` gains no caller either — but
+  // `FLSaisonsSingleResponse` is mirrored regardless, because `/saisons/current` returns that shape.
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
   FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
-
-  // BE-4 built the whole write path; the admin pages that call these are FB-3's spieler half and
-  // FB-6, unbuilt. Each entry gains a mirror when the page that posts to it is written.
-  FLActivateSaisonResponse: "write path with no admin page yet (FB-6)",
-  FLPatchSaisonPayload: "write path with no admin page yet (FB-6)",
-  FLPatchSaisonResponse: "write path with no admin page yet (FB-6)",
-  FLPostSaisonPayload: "write path with no admin page yet (FB-6)",
-  FLPostSaisonResponse: "write path with no admin page yet (FB-6)",
-  FLPatchSpieltagPayload: "write path with no admin page yet (FB-6)",
-  FLPostSpieltagPayload: "write path with no admin page yet (FB-6)",
-  FLSpieltagWriteResponse: "write path with no admin page yet (FB-6)",
 };
 
 /**
@@ -164,6 +155,12 @@ const FRONTEND_ONLY: Record<string, string> = {
   // The squad junction's DELETE and reactivate share one key shape, because both address the row by
   // its natural key and neither carries a body.
   FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
+  // The rollover is the same shape once more: `POST /saisons/{id}/activate` takes the season id from
+  // the path and sends nothing, which is what makes it impossible to activate the wrong season by
+  // mistyping a body field.
+  FLActivateSaisonPayload: "the activate POST takes its id from the path and has no request body",
+  // The matchday's DELETE and reactivate share one key shape, for the junction's reason.
+  FLSpieltagKeyPayload: "the matchday's DELETE and reactivate take the id from the path, with no request body",
 
   // One form creates the club AND enters it into a season — a club without a junction row would be
   // invisible to every season-scoped read (I11) — so the action's argument spans two request bodies.
@@ -184,6 +181,8 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpielDataPayload: ["spiel_id"],
   FLPatchTeamPayload: ["id"],
   FLPatchSpielerPayload: ["id"],
+  FLPatchSaisonPayload: ["id"],
+  FLPatchSpieltagPayload: ["id"],
   // The junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
@@ -374,7 +373,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 74;
+const EXPECTED_PAIRS = 82;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

@@ -1,8 +1,8 @@
 /**
  * SAISONS · route-parameter resolution
  *
- * Bridges `?saison_id=` to a value the query layer can pass through. Used by nine page components.
- * Kept out of `queries.ts` because it is not caching code.
+ * Bridges `?saison_id=` to a value the query layer can pass through, and a `[saison_id]` segment to
+ * the season an editor addresses. Kept out of `queries.ts` because it is not caching code.
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -13,6 +13,8 @@
  *   • `apiClient` drops `undefined` params rather than serialising them, which is what lets callers
  *     pass the result straight through without branching.
  */
+
+import { notFound } from "next/navigation";
 
 import z from "zod";
 
@@ -36,4 +38,22 @@ const saisonIdSchema = z.string().trim().length(4).optional().catch(undefined);
  */
 export async function resolveSaisonId(searchParamsPromise: NextPageProps["searchParams"]): Promise<string | undefined> {
   return saisonIdSchema.parse((await searchParamsPromise)?.saison_id);
+}
+
+/**
+ * Parses a `[saison_id]` route SEGMENT, or renders not-found.
+ *
+ * The opposite disposition from the function above, and for the reason `resolveSpielerId` documents: a
+ * search parameter names a preference the backend has a default for, while a segment names the subject
+ * of the page. There is no sensible fallback season for an editor addressed by a season that does not
+ * parse, and degrading to the current one would silently edit a season nobody asked for.
+ */
+export async function resolveSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string> {
+  const parsed = z
+    .string()
+    .length(4)
+    .safeParse((await paramsPromise).saison_id);
+  if (!parsed.success) notFound();
+
+  return parsed.data;
 }
