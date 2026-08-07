@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `2893522`, 2026-08-06
+**Verified against:** `cf88b87`, 2026-08-07
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
@@ -148,6 +148,7 @@ Backend codes (`fl_backend/app/core/exceptions.py`, handlers in
 | `REQ-ELIGIBILITY-001` | 409    | A disqualified team was newly fielded on a match (ADR-0052)                                  |
 | `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season (ADR-0052)         |
 | `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved (ADR-0052)     |
+| `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                         |
 | `REQ-OID-001`         | 400    | A malformed ObjectId reached a handler                                                       |
 | `DB-CONN-001`         | 503    | Database client unavailable                                                                  |
 | `DB-CONN-002`         | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                              |

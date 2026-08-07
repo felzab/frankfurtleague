@@ -694,7 +694,7 @@
       },
       "delete": {
         "summary": "Retire a team (soft delete)",
-        "description": "Retire a club from the league.\n\nA SOFT delete: it stamps `inactive_since` and the document stays.\n\nMatches embed a copy of the team and reference it by id, so a hard delete would orphan every\nhistorical match it ever played. Its junction rows are left alone as well — the seasons it played\nin still happened, and its results still count towards those tables.\n\nReversed by `POST /teams/{team_id}/reactivate`, never by creating the club again — the create\nendpoint refuses a shorthand a retired club still holds, because it cannot tell the same club\nreturning from a different one wanting those two letters.",
+        "description": "Retire a club from the league.\n\nA SOFT delete: it stamps `inactive_since` and the document stays.\n\n**Refused with a 409 (`REQ-RETIRE-001`) while the club is entered in an `active` or `future`\nseason.** Retiring hides the club from every picker and default list while its fixtures are\nstill being played or drawn; a club leaves a running season only by disqualification (ADR-0033).\nA club whose seasons are all `past`, or that is in no season, retires normally.\n\nMatches embed a copy of the team and reference it by id, so a hard delete would orphan every\nhistorical match it ever played. Its junction rows are left alone as well — the seasons it played\nin still happened, and its results still count towards those tables.\n\nReversed by `POST /teams/{team_id}/reactivate`, never by creating the club again — the create\nendpoint refuses a shorthand a retired club still holds, because it cannot tell the same club\nreturning from a different one wanting those two letters.",
         "operationId": "delete_team_api_v0_teams__team_id__delete",
         "security": [
           {
@@ -3662,6 +3662,7 @@
           },
           "description": {
             "type": "string",
+            "maxLength": 4096,
             "title": "Description"
           },
           "full_name": {
@@ -4054,6 +4055,7 @@
           },
           "description": {
             "type": "string",
+            "maxLength": 4096,
             "title": "Description"
           },
           "full_name": {
@@ -5600,6 +5602,7 @@
           },
           "description": {
             "type": "string",
+            "maxLength": 4096,
             "title": "Description"
           },
           "full_name": {
@@ -5662,6 +5665,7 @@
           },
           "description": {
             "type": "string",
+            "maxLength": 4096,
             "title": "Description"
           },
           "full_name": {

@@ -731,3 +731,30 @@ def build_decided_standings(
         for name in get_args(FLGruppenNames)
         if gruppen is None or name in gruppen
     }
+
+
+# =====================================================================================================
+# RETIRING A CLUB
+# =====================================================================================================
+
+# A club still entered in a season that is running or planned. Retiring it would pull it out of every
+# picker while its fixtures are still being played or drawn -- the state the soft delete exists to
+# prevent, reached through the soft delete itself. Leaving a season is not an option either: a team
+# never leaves a season, disqualification is the only way out (ADR-0033).
+RETIRE_BLOCKED = "REQ-RETIRE-001"
+
+
+def find_retire_refusal(saison_statuses: Iterable[str]) -> str | None:
+    """
+    Why retiring this club must be refused, or `None` when it may be retired.
+
+    One rule (owner, 2026-08-07): a club whose seasons are all `past` -- or that is in no season at
+    all -- may be retired; a club entered in an `active` or `future` season may not. The message is
+    the English log detail; the code is what the client reads (docs/logging.md).
+    """
+
+    blocking = sorted({saison_status for saison_status in saison_statuses if saison_status in ("active", "future")})
+    if not blocking:
+        return None
+
+    return f"club is entered in a season with status {'/'.join(blocking)}; only a club whose seasons are all past may be retired"

@@ -52,15 +52,17 @@ from app.api.teams.schemas import (
     FLTeamRecord,
     FLTeamWriteResponse,
 )
+from app.api.teams.services import RETIRE_BLOCKED, find_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import (
+    SaisonsCollection,
     SaisonTeamsCollection,
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -150,12 +152,19 @@ async def patch_team(
 async def delete_team(
     team_id: CustomRouteObjectId,
     teams_collection: TeamsCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLTeamWriteResponse:
     """
     Retire a club from the league.
 
     A SOFT delete: it stamps `inactive_since` and the document stays.
+
+    **Refused with a 409 (`REQ-RETIRE-001`) while the club is entered in an `active` or `future`
+    season.** Retiring hides the club from every picker and default list while its fixtures are
+    still being played or drawn; a club leaves a running season only by disqualification (ADR-0033).
+    A club whose seasons are all `past`, or that is in no season, retires normally.
 
     Matches embed a copy of the team and reference it by id, so a hard delete would orphan every
     historical match it ever played. Its junction rows are left alone as well — the seasons it played
@@ -165,6 +174,24 @@ async def delete_team(
     endpoint refuses a shorthand a retired club still holds, because it cannot tell the same club
     returning from a different one wanting those two letters.
     """
+
+    # The junction names the club's seasons; their statuses decide the refusal. Two small reads
+    # rather than a lookup: sixteen rows and a handful of seasons.
+    junction_rows = await pull_many_from_db(
+        collection=saison_teams_collection,
+        db_filter={"team_id": team_id},
+        projection=["saison_id"],
+    )
+    saison_ids = [row["saison_id"] for row in junction_rows]
+    saison_rows = await pull_many_from_db(
+        collection=saisons_collection,
+        db_filter={"_id": {"$in": saison_ids}},
+        projection=["status"],
+    )
+
+    refusal = find_retire_refusal(str(row["status"]) for row in saison_rows)
+    if refusal is not None:
+        raise DocumentConflictException(error_code=RETIRE_BLOCKED, message=refusal)
 
     updated_raw = await patch_one_in_db(
         collection=teams_collection,

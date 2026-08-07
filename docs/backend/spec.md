@@ -59,7 +59,7 @@ across seven slices**, each addressed resource-first with the id in the path.
 |        | _no `POST /spiele`, no `DELETE /spiele/{spiel_id}`_    | A season's fixtures are created once — see I26                            |
 | POST   | `/teams`                                               | Creates a club                                                            |
 | PATCH  | `/teams/{team_id}`                                     | Renames a club **and fans it out** into `spiele`, with no exception       |
-| DELETE | `/teams/{team_id}`                                     | Soft delete — stamps `inactive_since`                                     |
+| DELETE | `/teams/{team_id}`                                     | Soft delete; 409 while the club is in an `active` or `future` season      |
 | POST   | `/teams/{team_id}/reactivate`                          | Clears `inactive_since`                                                   |
 | POST   | `/teams/{team_id}/saisons`                             | Adds the club to a season. `saison_id` and `gruppe` on the body           |
 | PATCH  | `/teams/{team_id}/saisons/{saison_id}`                 | Group, and the disqualification record. **No DELETE** — see I19, I31      |
@@ -291,6 +291,7 @@ not here — it is a constant of the code (`fl_backend/app/core/config.py :: API
 | A team vanishes from `/teams`                       | No `saison_teams` row for that season                                                  | Create the junction row (I11)                                                                     |
 | `/dashboard/saisontabelle` fails to load            | A group key missing from the grouped response                                          | I10 — should be impossible now                                                                    |
 | A create comes back 409                             | A unique index still holds the key                                                     | The retired row keeps its slot on purpose (I20). Reactivate it, or choose another key             |
+| A retire comes back 409 with `REQ-RETIRE-001`       | The club is entered in a running or planned season                                     | Wait for the season to end, or leave the club active — a season is left only by disqualification  |
 | A retired venue is missing from an admin picker     | The default read filters it out                                                        | Pass `include_inactive=true` — a switch, not a value to match on                                  |
 | A disqualified team still appears in the table      | Working as intended — it keeps its row and only loses its placing (I24b)               | Nothing. The placings walk past it and the team below takes the place                             |
 | A PATCH to a junction row comes back 422            | `disqualifikation` is required on the payload and the form omitted it (I31)            | Send the record, or `null` to lift one. There is no partial update of a junction row              |
