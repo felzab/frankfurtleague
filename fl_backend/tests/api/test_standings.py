@@ -29,6 +29,11 @@ MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 
 RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2)
 
+# What `disqualifikation` holds for a team that is out. Its CONTENTS do not reach this file's subject --
+# the standing walks past a team because the field is non-null, never because of what it says (ADR-0059)
+# -- so one value serves every case here.
+DISQUALIFIZIERT = {"grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+
 PayloadFactory = Callable[..., dict[str, Any]]
 TeamFactory = Callable[..., FLTeam]
 MatchFactory = Callable[..., dict[str, Any]]
@@ -172,7 +177,7 @@ class TestWhoMayHoldAPlatz:
     def test_a_disqualified_team_keeps_its_row_in_the_table(self, a_team: TeamFactory):
         """The standing is unchanged: disqualification is about advancing, not about the table."""
 
-        teams = [a_team(1, punkte=9, is_disqualified=True), a_team(2, punkte=6)]
+        teams = [a_team(1, punkte=9, disqualifikation=DISQUALIFIZIERT), a_team(2, punkte=6)]
 
         assert order(teams, []) == ["Team 1", "Team 2"]
 
@@ -184,7 +189,7 @@ class TestWhoMayHoldAPlatz:
         the bracket seeds another.
         """
 
-        teams = [a_team(1, punkte=9, is_disqualified=True), a_team(2, punkte=6), a_team(3, punkte=3)]
+        teams = [a_team(1, punkte=9, disqualifikation=DISQUALIFIZIERT), a_team(2, punkte=6), a_team(3, punkte=3)]
         decided = standing(teams, [])
 
         assert decided.eligible == 2

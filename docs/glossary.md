@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `2b69c68`, 2026-08-07
+**Verified against:** `05ac046`, 2026-08-07
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -31,7 +31,7 @@ with a result still counts · `inactive_since` is a date, never a boolean.
 | `Quelle`                          | Where a fixture's side comes from            | Attributes and values |
 | `Platz`                           | A placing in a group's standing              | Attributes and values |
 | `Ausgang`                         | Which side of a match a reference names      | Attributes and values |
-| `is_disqualified`                 | Out of one season, not the league            | Attributes and values |
+| `disqualifikation`                | Out of one season, with the reason and date  | Attributes and values |
 | `is_nachgetragen`                 | A squad entry added after the fact           | Attributes and values |
 | `inactive_since`                  | Soft deletion, as a date                     | Attributes and values |
 | `Statistik`                       | The derived league-table figures             | Attributes and values |
@@ -119,9 +119,9 @@ badly here, so prefer the German in code and conversation.
 **season-independent**. What is season-specific comes from somewhere else, assembled at read time by
 `fl_backend/app/api/teams/services.py :: build_team_pipeline`:
 
-| On the `teams` document                                                                     | On the `saison_teams` junction           | Computed from `spiele` |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------- |
-| `name`, `full_name`, `shorthand`, `description`, `website_url`, `address`, `inactive_since` | `saison_id`, `gruppe`, `is_disqualified` | `statistik`            |
+| On the `teams` document                                                                     | On the `saison_teams` junction            | Computed from `spiele` |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------- | ---------------------- |
+| `name`, `full_name`, `shorthand`, `description`, `website_url`, `address`, `inactive_since` | `saison_id`, `gruppe`, `disqualifikation` | `statistik`            |
 
 So a team's group, table position and disqualification are **properties of a team-in-a-season**, not of
 the team. `FLTeam` flattens all of it back together, which is why the model looks like one document and
@@ -396,9 +396,29 @@ one season: a wider list resolves a `Quelle` against a match from the wrong year
 `Quelle` references a match by this number rather than by `_id` — a bracket is drawn by match number
 before the documents exist.
 
-### `is_disqualified` — out of one season
+### `disqualifikation` — out of one season, with the reason
 
-On the `saison_teams` junction — a team is disqualified **for a season**, not permanently.
+An embedded record on the `saison_teams` junction — a team is disqualified **for a season**, not
+permanently. Two keys: `grund`, the reason as free text, and `datum`, the day it took effect as a
+`YYYY-MM-DD` string.
+
+**Its absence is the null, and no boolean exists.** A team is disqualified exactly when the field is
+not null, on the document, on `FLTeam` and in the Zod mirror alike
+([ADR-0059](_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)). A flag
+beside the record could contradict it and no `$jsonSchema` validator can express that it must not,
+which is the argument that made `inactive_since` a bare date.
+
+**`grund` is public.** It is served on `FLTeam` and rendered as authored on the team's own page, so it
+is written for readers rather than for a file. There is no closed set of reasons: this league publishes
+no disciplinary code an enum could cite.
+
+**It is the only way out of a season.** The junction has no `DELETE`
+([ADR-0033](_decisions/0033-one-active-season-and-one-path-to-it.md)), so
+`PATCH /teams/{team_id}/saisons/{saison_id}` writing this record is how a team stops competing, and
+writing `null` over it is how that is lifted.
+
+**`GET /teams?is_disqualified=` is a question, not this field.** It is a boolean the backend translates
+into a null test — nobody filters a list by the wording of a reason.
 
 ### `is_nachgetragen` — "entered later", retrospectively added
 
@@ -417,8 +437,8 @@ The date is also what a future scheduled purge selects on (open item BE-12).
 **It is on no payload.** `DELETE /{resource}/{id}` stamps it and `POST /{resource}/{id}/reactivate`
 clears it. Creating never revives a retired row — a natural-key collision comes back **409**.
 
-**Not the same thing as leaving one season.** A club that stops competing _in a season_ is
-`is_disqualified` on the junction; `inactive_since` on `teams` is the club leaving the league
+**Not the same thing as leaving one season.** A club that stops competing _in a season_ carries a
+`disqualifikation` on the junction; `inactive_since` on `teams` is the club leaving the league
 ([ADR-0033](_decisions/0033-one-active-season-and-one-path-to-it.md)).
 
 ### `Statistik` — team statistics

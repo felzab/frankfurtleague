@@ -181,7 +181,7 @@ class TestFLTeamRecord:
     """
     The STORED club document, which is what every write endpoint echoes.
 
-    It exists because `FLTeam` cannot be echoed by a write: `gruppe`, `is_disqualified` and `statistik`
+    It exists because `FLTeam` cannot be echoed by a write: `gruppe`, `disqualifikation` and `statistik`
     come from a junction row and a derived lookup, and re-reading a club through that pipeline 404s
     when it has no `saison_teams` row for the current season -- the normal state for a club being
     created, retired or reactivated.
@@ -198,10 +198,10 @@ class TestFLTeamRecord:
         """
         The case the write path actually produces, and the whole reason this model exists.
 
-        A club with no junction row for the current season has no `gruppe`, no `is_disqualified` and no
+        A club with no junction row for the current season has no `gruppe`, no `disqualifikation` and no
         `statistik` anywhere -- validating it against `FLTeam` would fail on all three.
         """
-        stored = {key: value for key, value in team().items() if key not in {"gruppe", "is_disqualified", "statistik"}}
+        stored = {key: value for key, value in team().items() if key not in {"gruppe", "disqualifikation", "statistik"}}
 
         assert FLTeamRecord.model_validate(stored).name == "Carl-Schurz"
 

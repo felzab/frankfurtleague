@@ -89,11 +89,12 @@ written.
 | [0056](0056-a-triage-list-is-ordered-by-what-blocks-play.md)                      | A triage list is ordered by what blocks play; its section is in the URL    | frontend               | Accepted       | 2026-08-07 |
 | [0057](0057-a-draw-is-reviewed-as-a-table-of-provenance.md)                       | A draw is reviewed as a table of provenance, on a page that writes nothing | frontend               | Accepted       | 2026-08-07 |
 | [0058](0058-one-bar-across-the-viewport-owns-every-page-title.md)                 | One bar across the viewport owns every page's title                        | frontend               | Accepted       | 2026-08-07 |
+| [0059](0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)        | A disqualification is a record, and its absence is the null                | backend, frontend      | Accepted       | 2026-08-07 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · 0043 · 0044 · 0045 · 0046 · 0047 · 0048 · 0049 · 0051 · 0052 · ops: 0009 ·
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · 0043 · 0044 · 0045 · 0046 · 0047 · 0048 · 0049 · 0051 · 0052 · 0059 · ops: 0009 ·
 0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · 0039 · 0040 · frontend: all except 0017,
 0027, 0030, 0031, 0033, 0036, 0037, 0038 and 0045.
 

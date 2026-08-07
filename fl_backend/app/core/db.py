@@ -14,7 +14,7 @@ through the typed dependencies in `dependencies.py`, never constructed ad hoc.
     enforcing eight of nine validators is indistinguishable from one enforcing all nine. The likeliest
     cause is a database user without `collMod` -- see `constraints.py`.
   • `get_teams_collection` returns `db.teams`, which is the SEASON-INDEPENDENT team document. `gruppe`
-    and `is_disqualified` are season-scoped and live in the separate `saison_teams` collection, joined
+    and `disqualifikation` are season-scoped and live in the separate `saison_teams` collection, joined
     at read time; `statistik` is season-scoped as well and is derived from `spiele` in the same
     pipeline rather than stored anywhere (ADR-0026). See `app/api/teams/services.py`.
 

@@ -28,7 +28,7 @@ import type { FLTeam } from "./schemas";
  * derivations below apply this one predicate, so the marker and the ordinal cannot disagree about
  * who is passed over.
  */
-const mayHoldAPlatz = (team: FLTeam): boolean => !team.is_disqualified && team.statistik.anzahl_gespielte_spiele > 0;
+const mayHoldAPlatz = (team: FLTeam): boolean => team.disqualifikation === null && team.statistik.anzahl_gespielte_spiele > 0;
 
 /**
  * The ids of the teams currently holding a qualifying place in one group.

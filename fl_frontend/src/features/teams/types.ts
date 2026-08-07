@@ -23,6 +23,8 @@ export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
 export type FLTeamsFilterParams = {
   saison_id?: string;
   gruppe?: string;
+  // A question about the junction, not a field on it: the row stores a `disqualifikation` record and
+  // no boolean, and the backend translates this into a null test (ADR-0059).
   is_disqualified?: boolean;
   in_gruppen?: boolean;
   // Retired clubs are excluded unless an admin picker asks for them (ADR-0032).

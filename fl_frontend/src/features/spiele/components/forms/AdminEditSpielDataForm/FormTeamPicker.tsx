@@ -306,7 +306,7 @@ export function FormTeamPicker({
   // UI, not a security control, and the stale form and the second tab go around it.
   const disabledTeamKeys = [
     ...(disabledTeamId ? [disabledTeamId] : []),
-    ...teams.filter((team) => team.is_disqualified || spieltagOccupancy.has(team.id)).map((team) => team.id),
+    ...teams.filter((team) => team.disqualifikation !== null || spieltagOccupancy.has(team.id)).map((team) => team.id),
   ];
 
   const teamPicker = (
@@ -369,13 +369,14 @@ export function FormTeamPicker({
               // nowhere else stays pickable on a knockout fixture, warned rather than locked,
               // because correcting a hand-run season may legitimately need it. The chip rides in
               // `textValue` too, so searching still finds the team and a screen reader hears why.
-              const chip = item.is_disqualified
-                ? { text: "Disqualifiziert", cls: "bg-danger/15 text-danger-strong" }
-                : occupiedBy !== undefined
-                  ? { text: `Schon in Spiel ${occupiedBy}`, cls: "bg-danger/15 text-danger-strong" }
-                  : isKnockout && !knockoutTeamIds.has(item.id)
-                    ? { text: "Nicht für diese Runde qualifiziert", cls: "bg-warning/15 text-warning-strong" }
-                    : null;
+              const chip =
+                item.disqualifikation !== null
+                  ? { text: "Disqualifiziert", cls: "bg-danger/15 text-danger-strong" }
+                  : occupiedBy !== undefined
+                    ? { text: `Schon in Spiel ${occupiedBy}`, cls: "bg-danger/15 text-danger-strong" }
+                    : isKnockout && !knockoutTeamIds.has(item.id)
+                      ? { text: "Nicht für diese Runde qualifiziert", cls: "bg-warning/15 text-warning-strong" }
+                      : null;
 
               return (
                 <ListBox.Item

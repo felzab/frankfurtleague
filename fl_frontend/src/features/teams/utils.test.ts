@@ -17,11 +17,16 @@ import type { FLTeam } from "./schemas.ts";
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
 
-/** One row of a standing, reduced to the three fields this derivation reads. */
+/**
+ * One row of a standing, reduced to the three fields this derivation reads.
+ *
+ * The record's contents do not reach the subject here: a team is walked past because
+ * `disqualifikation` is non-null, never because of what it says (ADR-0059).
+ */
 const row = (seed: number, { gespielt = 3, disqualified = false } = {}) =>
   ({
     id: TEAM_ID(seed),
-    is_disqualified: disqualified,
+    disqualifikation: disqualified ? { grund: "Nicht angetreten zum Spieltag", datum: "2026-03-14" } : null,
     statistik: { anzahl_gespielte_spiele: gespielt },
   }) as FLTeam;
 

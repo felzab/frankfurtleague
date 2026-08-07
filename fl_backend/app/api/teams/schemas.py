@@ -7,8 +7,11 @@ their echoes, plus the statistics model and the four-group container.
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
   • `FLTeam` is FLATTENED from more than one source: the season-independent `teams` record, the
-    `gruppe` and `is_disqualified` of the `saison_teams` junction row, and a `statistik` computed from
+    `gruppe` and `disqualifikation` of the `saison_teams` junction row, and a `statistik` computed from
     the season's matches. That is why fields exist here that no single collection carries.
+  • A team is disqualified exactly when `disqualifikation` is not null. There is no boolean beside it
+    anywhere, on this model or in the database, because a flag and a record can disagree and no
+    `$jsonSchema` validator can say they must not (ADR-0059, ADR-0027).
   • There is ONE team shape. Never add a reduced projection beside it (ADR-0034).
   • `FLGruppen` always emits all four group keys, even empty ones. A map built from the teams present
     omits "D" for a season with nobody in it, and the frontend schema requires all four.
@@ -33,6 +36,7 @@ their echoes, plus the statistics model and the four-group container.
   ADR-0032  `inactive_since` is the day the club left the league
   ADR-0034  one team shape, no reduced projection
   ADR-0043  one tiebreak chain orders the table and seeds the bracket
+  ADR-0059  a disqualification is a record, and its absence is the null
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -44,7 +48,7 @@ from typing import Annotated, Literal, Mapping, Union
 from pydantic import BaseModel, Field, RootModel, TypeAdapter
 
 from app.shared.schemas.addresses import FLAddress
-from app.shared.schemas.custom import CustomExternalUrl, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomDateString, CustomExternalUrl, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLGruppenNames = Literal["A", "B", "C", "D"]
@@ -53,6 +57,27 @@ FLGruppenNames = Literal["A", "B", "C", "D"]
 # filter: a table of the Halbfinale alone is not a standing anybody wants, and offering it invites
 # one. `"gruppenphase"` is spelled exactly as the stored `FLSpiel.saison_phase` value it filters on.
 FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
+
+
+class FLDisqualifikation(BaseModel):
+    """
+    Why a team is out of one season, and from when (ADR-0059).
+
+    Embedded on the `saison_teams` junction row and served from there. Its ABSENCE — the field holding
+    `null` — is what "not disqualified" means, so nothing beside it records the same fact and the two
+    cannot disagree. That is ADR-0032's shape applied to a second question, for the same reason: a
+    boolean and a record together is the one arrangement with a state the database cannot refuse.
+
+    `grund` is FREE TEXT and it is PUBLIC. It is written knowing it appears on the team's own page,
+    which is the same trust this system already places in `teams.description`. A closed set was rejected
+    because this league publishes no disciplinary code an enum could cite (ADR-0059).
+    """
+
+    grund: str = Field(min_length=1)
+    # The day the disqualification took effect, not the day somebody typed it in. A German YYYY-MM-DD
+    # string like every other date here (`datum`, `beginn`, `inactive_since`), so the frontend keeps one
+    # parsing rule.
+    datum: CustomDateString
 
 
 class FLTeamStatistik(BaseModel):
@@ -75,7 +100,10 @@ class FLTeam(BaseModel):
     name: str = Field(min_length=1)
     gruppe: FLGruppenNames
     statistik: FLTeamStatistik
-    is_disqualified: bool
+    # Out of THIS season, with the reason and the date, or null while the team competes (ADR-0059).
+    # Joined from the junction on every read and never copied into a match document, so a
+    # disqualification entered here reaches every surface at once (ADR-0028, rule 4).
+    disqualifikation: FLDisqualifikation | None
     shorthand: str = Field(min_length=2, max_length=2)
     description: str  # May be empty -- not every team writes one.
     full_name: str = Field(min_length=1)
@@ -85,7 +113,7 @@ class FLTeam(BaseModel):
     address: FLAddress
     # The day this CLUB left the league, or null while it plays (ADR-0032). Not the same thing as
     # leaving one season: a team never leaves a season except by disqualification, which is
-    # `is_disqualified` above and lives on the junction (ADR-0033).
+    # `disqualifikation` above and lives on the junction (ADR-0033).
     inactive_since: CustomOptionalDateString
 
 
@@ -97,7 +125,7 @@ class FLTeamRecord(BaseModel):
     The club document as it is STORED — `FLTeam` minus the three fields no `teams` document carries.
 
     What the write endpoints echo back. A write to `teams` changes the club and nothing season-scoped,
-    so `gruppe`, `is_disqualified` and `statistik` are not this endpoint's to report — and reading them
+    so `gruppe`, `disqualifikation` and `statistik` are not this endpoint's to report — and reading them
     would mean re-running the team pipeline, whose junction join is strict. A club with no
     `saison_teams` row for the current season drops out of that pipeline entirely, which is the normal
     state for a club being created, retired or reactivated.
@@ -159,10 +187,13 @@ class FLPostSaisonTeamPayload(BaseModel):
 
 class FLPatchSaisonTeamPayload(BaseModel):
     gruppe: FLGruppenNames
-    # A bare boolean today. FB-2 replaces it with a record carrying a reason and a date, and this is
-    # the field that becomes it -- there is no second copy anywhere, because FLSpiel joins the flag
-    # rather than storing it (ADR-0028).
-    is_disqualified: bool
+    # The whole disqualification, or `null` to lift one. There is no second copy anywhere to keep in
+    # step, because `FLSpiel` joins this from the junction rather than storing it (ADR-0028, rule 4).
+    #
+    # No `default=None`: the field is REQUIRED on the payload, so an omitted key cannot silently
+    # reinstate a team the admin never meant to touch. `PATCH` here replaces the junction row's two
+    # writable fields wholesale, exactly as `gruppe` above already does.
+    disqualifikation: FLDisqualifikation | None
 
 
 class FLTeamsFilterParams(BaseModel):
@@ -170,6 +201,10 @@ class FLTeamsFilterParams(BaseModel):
     # what stays here narrows a list.
     saison_id: str | None = None
     gruppe: FLGruppenNames | None = None
+    # A QUESTION about the junction, not a field on it -- nothing stores a boolean any more (ADR-0059).
+    # `true` selects the teams holding a `disqualifikation` record and `false` those holding none, which
+    # `build_team_pipeline` translates into a null test. Kept as a boolean because that is the only
+    # useful shape for the question: nobody filters a list by the wording of a reason.
     is_disqualified: bool | None = None
     in_gruppen: bool | None = None
     include_inactive: bool = False  # Exclude clubs that have left the league by default
@@ -256,7 +291,7 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     saison_id: str
     team_id: CustomObjectId
     gruppe: FLGruppenNames
-    is_disqualified: bool
+    disqualifikation: FLDisqualifikation | None
 
 
 # Pydantic uses the 'format' field to decide which model to validate against

@@ -57,6 +57,11 @@ TEAM_OIDS = {
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
 }
 
+# Lessing's disqualification, the one in the seed. A dict rather than a model so the seed stays a
+# description of DOCUMENTS: a fixture built through Pydantic could not express a row the validator
+# rejects, which is half of what this database tier exists to test.
+DISQUALIFIKATION = {"grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
+
 
 @dataclass(frozen=True)
 class SeededLeague:
@@ -143,7 +148,7 @@ def league(mongo_database: Database) -> SeededLeague:
                 "saison_id": SAISON,
                 "team_id": TEAM_OIDS["Helmholtz"],
                 "gruppe": "A",
-                "is_disqualified": False,
+                "disqualifikation": None,
                 "statistik": {
                     "anzahl_gespielte_spiele": 99,
                     "siege": 99,
@@ -154,9 +159,9 @@ def league(mongo_database: Database) -> SeededLeague:
                     "punkte": 99,
                 },
             },
-            {"saison_id": SAISON, "team_id": TEAM_OIDS["Bock"], "gruppe": "A", "is_disqualified": False},
-            {"saison_id": SAISON, "team_id": TEAM_OIDS["Lessing"], "gruppe": "A", "is_disqualified": True},
-            {"saison_id": SAISON, "team_id": TEAM_OIDS["Ohne"], "gruppe": "B", "is_disqualified": False},
+            {"saison_id": SAISON, "team_id": TEAM_OIDS["Bock"], "gruppe": "A", "disqualifikation": None},
+            {"saison_id": SAISON, "team_id": TEAM_OIDS["Lessing"], "gruppe": "A", "disqualifikation": dict(DISQUALIFIKATION)},
+            {"saison_id": SAISON, "team_id": TEAM_OIDS["Ohne"], "gruppe": "B", "disqualifikation": None},
             # No row for Fremd, and none for Helmholtz in 2025 -- both absences are asserted on.
         ]
     )

@@ -228,7 +228,9 @@ async def post_saison_team(
             "saison_id": saison_team_data.saison_id,
             "team_id": team_id,
             "gruppe": saison_team_data.gruppe,
-            "is_disqualified": False,
+            # Written explicitly rather than left off: the key is required by the validator and by
+            # `FLTeam`, and a row without it is unreadable rather than merely undecorated (ADR-0059).
+            "disqualifikation": None,
         },
     )
 
@@ -236,7 +238,7 @@ async def post_saison_team(
         saison_id=saison_team_data.saison_id,
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
-        is_disqualified=False,
+        disqualifikation=None,
     )
 
 
@@ -254,9 +256,14 @@ async def patch_saison_team(
     """
     Change which group a team is in for a season, or disqualify it.
 
-    Disqualification is how a team leaves a season; there is no delete here (ADR-0033). The flag is
-    read by `GET /teams` and joined into match data rather than copied (ADR-0028), so setting it here
-    reaches every surface that shows a DQ badge with no second write to keep in step.
+    Disqualification is how a team leaves a season; there is no delete here (ADR-0033). It is a RECORD
+    carrying the reason and the effective date, and `null` is what lifting one looks like — there is no
+    boolean beside it to contradict it (ADR-0059). The record is read by `GET /teams` and joined into
+    match data rather than copied (ADR-0028), so entering it here reaches every surface that shows a DQ
+    badge with no second write to keep in step.
+
+    Both writable fields are required on the payload, so this replaces them wholesale. An omitted
+    `disqualifikation` is a 422 rather than a team quietly reinstated by a form that forgot the field.
     """
 
     updated_raw = await patch_one_in_db(
@@ -272,5 +279,5 @@ async def patch_saison_team(
         saison_id=saison_id,
         team_id=team_id,
         gruppe=saison_team_data.gruppe,
-        is_disqualified=saison_team_data.is_disqualified,
+        disqualifikation=saison_team_data.disqualifikation,
     )

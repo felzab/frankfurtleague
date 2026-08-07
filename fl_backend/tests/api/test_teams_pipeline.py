@@ -22,7 +22,7 @@ from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
-from app.api.teams.services import STATISTIK_AS_NAME, build_team_pipeline
+from app.api.teams.services import AS_NAME, STATISTIK_AS_NAME, build_team_pipeline
 
 STANDARD_RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2)
 
@@ -42,9 +42,10 @@ def build(
     saison_id: str = "2026",
     scope: FLTeamStatistikScope | None = None,
     team_id: Any | None = None,
+    is_disqualified: bool | None = None,
 ) -> Pipeline:
     """A pipeline for season 2026 under 3/1/0, unless a test says otherwise."""
-    filters = FLTeamsFilterParams(saison_id=saison_id)
+    filters = FLTeamsFilterParams(saison_id=saison_id, is_disqualified=is_disqualified)
     if scope is not None:
         filters.statistik_scope = scope
 
@@ -54,6 +55,19 @@ def build(
 def statistik_stage(pipeline: Pipeline) -> Mapping[str, Any]:
     """The `$lookup` into `spiele`, found by its `as` name rather than by position."""
     return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == STATISTIK_AS_NAME)
+
+
+def junction_match(pipeline: Pipeline) -> Mapping[str, Any] | None:
+    """
+    The filter applied INSIDE the junction lookup, or None when the lookup only joins on the team id.
+
+    The first stage of that sub-pipeline is always the `$expr` join, so anything a filter contributes is
+    the second — and its absence is itself the assertion in one case below.
+    """
+    junction = next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == AS_NAME)
+    extra = junction["pipeline"][1:]
+
+    return extra[0]["$match"] if extra else None
 
 
 def projection(pipeline: Pipeline) -> Mapping[str, Any]:
@@ -148,7 +162,28 @@ def test_reads_statistik_from_no_stored_copy():
     assert projected["statistik"] == {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, {field: 0 for field in FLTeamStatistik.model_fields}]}
     assert "$saison_data.statistik" not in repr(projected)
     assert projected["gruppe"] == "$saison_data.gruppe"
-    assert projected["is_disqualified"] == "$saison_data.is_disqualified"
+    assert projected["disqualifikation"] == "$saison_data.disqualifikation"
+
+
+class TestTheDisqualifiedFilterIsTranslated:
+    """
+    `is_disqualified` is a QUESTION and the junction stores no boolean to answer it with (ADR-0059).
+
+    Three cases because the translation has three outcomes and two of them are easy to get wrong: a
+    dumped `True` would match nothing at all, and a dumped `False` would match nothing either — both
+    silently, as an empty group rather than an error.
+    """
+
+    def test_true_selects_the_rows_holding_a_record(self):
+        assert junction_match(build(is_disqualified=True)) == {"saison_id": "2026", "disqualifikation": {"$ne": None}}
+
+    def test_false_selects_the_rows_holding_none(self):
+        """An explicit null, which also excludes a row missing the key — the state the seed removes."""
+        assert junction_match(build(is_disqualified=False)) == {"saison_id": "2026", "disqualifikation": None}
+
+    def test_an_omitted_filter_asks_nothing_about_disqualification(self):
+        """A disqualified team stays in the table, so the default read must not narrow on the field."""
+        assert junction_match(build()) == {"saison_id": "2026"}
 
 
 def test_there_is_exactly_one_team_shape():

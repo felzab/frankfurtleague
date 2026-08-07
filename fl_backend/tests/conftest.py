@@ -153,7 +153,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "name": "Carl-Schurz",
             "gruppe": "A",
             "statistik": statistik(),
-            "is_disqualified": False,
+            "disqualifikation": None,
             "shorthand": "CS",
             "description": "",
             "full_name": "Carl-Schurz-Schule",
