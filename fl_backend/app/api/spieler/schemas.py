@@ -38,6 +38,17 @@ FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 # entry the moment the year turns (ADR-0061).
 FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
+# A PERSON's name: letters and the three separators a real one uses. Unicode letters rather than
+# `[A-Za-z]`, because half the league's squads would fail an ASCII rule -- `Körner` and `El Damarawy`
+# are both live. Digits and every other symbol are out, which is what stops a note being typed into a
+# name field: the six `(C)` captain markers got there exactly that way, and `is_captain` is where
+# that fact belongs now.
+#
+# On the WRITE payloads ONLY, never on `FLSpieler`. A read model that refused a stored name would
+# 500 the whole response for one bad row rather than showing it -- the failure `GET /spieler`
+# demonstrated twice while this branch was being built.
+PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
+
 
 class FLSpieler(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
@@ -50,6 +61,9 @@ class FLSpieler(BaseModel):
     nummer: str | None
     position: FLSpielerPosition | None
     is_nachgetragen: bool = False
+    # The squad's captain for this season. On the JUNCTION, not the person: captaincy is a role
+    # within one team for one season, and a player who captains 2026 need not captain 2027.
+    is_captain: bool = False
     team_id: CustomObjectId
     # The day this PERSON left the league, or null. Distinct from the squad row's own
     # `inactive_since`: a player who left one team's squad has a retired junction row and is very much
@@ -78,11 +92,11 @@ class FLSpielerFilterParams(BaseModel):
 class FLPostSpielerPayload(BaseModel):
     """The PERSON. Everything a squad list shows is season-scoped and lives on the junction below."""
 
-    vorname: str = Field(min_length=1)
+    vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
     # Optional here and REQUIRED on the patch below, and the asymmetry is deliberate: a create has
     # nothing to overwrite, so entering a team sheet forename-first is legitimate, while a patch that
     # omits it would erase a surname somebody typed.
-    nachname: str | None = None
+    nachname: str | None = Field(default=None, pattern=PERSON_NAME_PATTERN)
 
 
 class FLPatchSpielerPayload(BaseModel):
@@ -95,8 +109,8 @@ class FLPatchSpielerPayload(BaseModel):
     "omitted" from "deliberately cleared" once the dump is built. An omitted `nachname` is a 422.
     """
 
-    vorname: str = Field(min_length=1)
-    nachname: str | None
+    vorname: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
+    nachname: str | None = Field(pattern=PERSON_NAME_PATTERN)
 
 
 class FLPostSaisonSpielerPayload(BaseModel):
@@ -117,6 +131,7 @@ class FLPostSaisonSpielerPayload(BaseModel):
     # True when the player joined a season that had already started. The admin form derives it from
     # the season's status rather than asking, so it cannot be forgotten there either.
     is_nachgetragen: bool
+    is_captain: bool
 
 
 class FLPatchSaisonSpielerPayload(BaseModel):
@@ -129,6 +144,7 @@ class FLPatchSaisonSpielerPayload(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     is_nachgetragen: bool
+    is_captain: bool
 
 
 class FLSpielerListResponse(BaseAPIResponse):
@@ -165,6 +181,7 @@ class FLSaisonSpielerResponse(BaseAPIResponse):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     is_nachgetragen: bool
+    is_captain: bool
     inactive_since: str | None
 
 
@@ -183,6 +200,7 @@ class FLSpielerMembership(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     is_nachgetragen: bool
+    is_captain: bool
     inactive_since: CustomOptionalDateString
 
 

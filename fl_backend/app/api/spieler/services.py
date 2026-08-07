@@ -101,6 +101,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
                 "saison_id": f"${AS_NAME}.saison_id",
                 "team_id": f"${AS_NAME}.team_id",
                 "is_nachgetragen": f"${AS_NAME}.is_nachgetragen",
+                "is_captain": f"${AS_NAME}.is_captain",
                 "stufe": f"${AS_NAME}.stufe",
                 "position": f"${AS_NAME}.position",
                 "nummer": f"${AS_NAME}.nummer",
@@ -137,9 +138,9 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
     the list badges them and offers the reactivate -- and a player with no squad row at all comes
     back with an empty list rather than disappearing or failing to validate.
 
-    Sorted by surname then forename, which is how a squad sheet reads. `nachname` is nullable, and
-    MongoDB sorts null before every string, so the handful of players with no surname lead the list
-    rather than scattering through it.
+    Sorted by FORENAME then surname (owner, 2026-08-07), which is how the admin list reads and how
+    the other admin lists are ordered. `nachname` is nullable and MongoDB sorts null before every
+    string, so two players sharing a forename put the surnameless one first rather than scattering.
     """
 
     return [
@@ -158,6 +159,7 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
                             "position": 1,
                             "stufe": 1,
                             "is_nachgetragen": 1,
+                            "is_captain": 1,
                             "inactive_since": 1,
                         }
                     }
@@ -165,5 +167,5 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
                 "as": "memberships",
             }
         },
-        {"$sort": {"nachname": 1, "vorname": 1}},
+        {"$sort": {"vorname": 1, "nachname": 1}},
     ]

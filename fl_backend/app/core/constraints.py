@@ -264,7 +264,14 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # /admin/activate_saison` is the only path to the value and enforces it in one
                 # transaction (ADR-0033); nothing else may write `status` at all.
                 "rules": _object(
-                    required=("win_points", "draw_points", "qualifiers_per_group", "number_of_groups", "teams_per_group"),
+                    required=(
+                        "win_points",
+                        "draw_points",
+                        "qualifiers_per_group",
+                        "number_of_groups",
+                        "teams_per_group",
+                        "erlaubte_stufen",
+                    ),
                     properties={
                         "win_points": {"bsonType": "int"},
                         "draw_points": {"bsonType": "int"},
@@ -278,6 +285,12 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                         # `--check` again reports the documents still lacking the keys.
                         "number_of_groups": {"bsonType": "int"},
                         "teams_per_group": {"bsonType": "int"},
+                        # Which school levels this season's squads may hold -- a subset of the
+                        # league's own set, which `saison_spieler.stufe` is held to (ADR-0061). The
+                        # ITEMS are enumerated, so a season cannot offer a level the league lacks;
+                        # `minItems` is `FLSaisonRules`'s, because a length is a range and ADR-0027
+                        # leaves ranges to Pydantic.
+                        "erlaubte_stufen": {"bsonType": "array", "items": {"bsonType": "string", "enum": _STUFEN}},
                     },
                 ),
             },
@@ -348,7 +361,18 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
     },
     "saison_spieler": {
         "$jsonSchema": _object(
-            required=("_id", "spieler_id", "saison_id", "team_id", "is_nachgetragen", "stufe", "position", "nummer", "inactive_since"),
+            required=(
+                "_id",
+                "spieler_id",
+                "saison_id",
+                "team_id",
+                "is_nachgetragen",
+                "is_captain",
+                "stufe",
+                "position",
+                "nummer",
+                "inactive_since",
+            ),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "spieler_id": {"bsonType": "objectId"},
@@ -357,6 +381,10 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # instead of this reference: unique, well-formed, and wrong.
                 "team_id": {"bsonType": "objectId"},
                 "is_nachgetragen": {"bsonType": "bool"},
+                # The squad's captain for this season. On the JUNCTION rather than the person: it is a
+                # role within one team for one season. Not unique by any rule the database can express
+                # -- a co-captaincy is a real arrangement, and no validator sees two documents (I16).
+                "is_captain": {"bsonType": "bool"},
                 # Closed sets, both nullable while a squad entry is still being filled in (ADR-0061).
                 # This validator is what makes the sets true of the DATA rather than only of the write
                 # path: squads are also hand-edited in MongoDB, where no Pydantic model runs.

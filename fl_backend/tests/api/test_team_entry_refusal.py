@@ -6,6 +6,7 @@ and only while that group has space. Pure, so the default tier covers it without
 """
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.services import (
     ENTRY_GRUPPE_FULL,
     ENTRY_GRUPPE_NOT_OFFERED,
@@ -14,7 +15,11 @@ from app.api.teams.services import (
     offered_gruppen,
 )
 
-RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=2, teams_per_group=4)
+# The levels the seeded season offers. Its own name so the rule lines stay readable, and typed as
+# the Literal list `FLSaisonRules` declares -- a bare list of `str` is invariant against it.
+STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
+
+RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=2, teams_per_group=4, erlaubte_stufen=STUFEN)
 
 
 class TestOfferedGruppen:

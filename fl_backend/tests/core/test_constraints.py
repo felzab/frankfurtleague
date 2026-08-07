@@ -128,7 +128,7 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[B
     ("teams", (), FLTeamRecord, frozenset()),
     ("teams", ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
-    ("spieler", (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen"})),
+    ("spieler", (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "is_captain"})),
     # The one sub-document of a modelless row that does have a model, so the drift check reaches it
     # (ADR-0059). `FLTeam` embeds it, which is how the record travels from the junction to the reader.
     ("saison_teams", ("disqualifikation",), FLDisqualifikation, frozenset()),
@@ -145,6 +145,9 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[B
 # to the spiele slice for a test's benefit, which is the tail wagging the dog.
 MIRRORED_ENUMS: list[tuple[str, tuple[str, ...], str, tuple[object, ...], bool]] = [
     ("saisons", (), "status", get_args(FLSaisonStatus), False),
+    # An ARRAY of the league's set: which levels this season runs. Not nullable and not itself a
+    # Literal — the members are, which is what this row compares.
+    ("saisons", ("rules",), "erlaubte_stufen", get_args(FLSpielerStufe), False),
     ("saison_teams", (), "gruppe", get_args(FLGruppenNames), False),
     ("spiele", (), "saison_phase", get_args(FLSaisonPhase), False),
     ("spieltage", (), "saison_phase", get_args(FLSaisonPhase), False),
@@ -275,7 +278,9 @@ def test_every_validator_enum_matches_its_literal(
     list is in, so an ordering difference is not drift.
     """
 
-    declared = properties_at(collection, path)[field].get("enum")
+    schema = properties_at(collection, path)[field]
+    # An array of a closed set carries its enum on `items`; the row names the property either way.
+    declared = schema.get("enum", schema.get("items", {}).get("enum"))
     expected = set(members) | ({None} if nullable else set())
 
     where = ".".join((collection, *path, field))
@@ -298,9 +303,24 @@ def test_every_declared_enum_is_checked():
     """
 
     def walk(schema: Mapping[str, Any], path: tuple[str, ...]) -> set[tuple[str, ...]]:
-        found = {(*path, name) for name, child in schema.get("properties", {}).items() if "enum" in child}
+        """
+        Descends `properties` AND `items`, because an enum can sit on either.
+
+        `items` was missed at first and `rules.erlaubte_stufen` is why it no longer is: an array of a
+        closed set declares its enum one level below the property, so a walker that only followed
+        `properties` reported the whole file checked while that one went unread.
+        """
+        found: set[tuple[str, ...]] = set()
+
         for name, child in schema.get("properties", {}).items():
-            found |= walk(child, (*path, name))
+            here = (*path, name)
+            # An array's members are the same field as far as MIRRORED_ENUMS is concerned, so the
+            # enum on `items` is recorded under the property's own path rather than a synthetic one.
+            if "enum" in child or "enum" in child.get("items", {}):
+                found.add(here)
+            found |= walk(child, here)
+            found |= walk(child.get("items", {}), here)
+
         return found
 
     declared: set[tuple[str, ...]] = set()

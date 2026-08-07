@@ -72,13 +72,14 @@ class TestTheMembershipsPipeline:
             "position": 1,
             "stufe": 1,
             "is_nachgetragen": 1,
+            "is_captain": 1,
             # Unlike the team junction, a squad row really can be retired (ADR-0032), and the admin
             # list badges it in place. Dropping this field would make a retired row look live.
             "inactive_since": 1,
         }
 
-    def test_it_sorts_by_surname_then_forename(self):
-        assert build_spieler_memberships_pipeline()[-1] == {"$sort": {"nachname": 1, "vorname": 1}}
+    def test_it_sorts_by_forename_then_surname(self):
+        assert build_spieler_memberships_pipeline()[-1] == {"$sort": {"vorname": 1, "nachname": 1}}
 
 
 class TestWhyTheSeasonScopedReadCannotAnswerIt:
@@ -162,6 +163,7 @@ class TestTheResponseModel:
                             "position": "Sturm",
                             "stufe": "Q1",
                             "is_nachgetragen": False,
+                            "is_captain": False,
                             "inactive_since": None,
                         }
                     ],
@@ -184,6 +186,7 @@ class TestTheResponseModel:
                         "position": None,
                         "stufe": None,
                         "is_nachgetragen": False,
+                        "is_captain": False,
                         "inactive_since": None,
                     }
                 ],
@@ -217,6 +220,7 @@ def _squad_row(name: str, saison_id: str, *, nummer: str | None, inactive_since:
         "position": "Mittelfeld",
         "stufe": "Q1",
         "is_nachgetragen": False,
+        "is_captain": False,
         "inactive_since": inactive_since,
     }
 
@@ -294,7 +298,8 @@ class TestTheMembershipsPipelineExecuted:
         # Reactivating preserves what the retired row carries, so the number has to survive the read.
         assert rows[PRIOR_SAISON].nummer == "9"
 
-    def test_the_order_is_by_surname(self, squads: Database):
+    def test_the_order_is_by_forename(self, squads: Database):
+        """The seed's forenames are the surnames' initials, so this also pins that the key changed."""
         raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
 
-        assert [row["nachname"] for row in raw] == ["Abel", "Baum", "Cordes", "Ohne"]
+        assert [row["vorname"] for row in raw] == ["A", "B", "C", "O"]

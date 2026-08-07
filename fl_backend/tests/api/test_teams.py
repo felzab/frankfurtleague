@@ -9,12 +9,17 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam, FLTeamRecord, FLTeamsGroupedResponse
 from app.api.teams.services import build_gruppen
 
 # Ordinary scoring. Every case below is decided on points or goals, so the head-to-head criterion these
 # rules also feed is exercised in `test_standings.py` rather than here.
-RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
+# The levels the seeded season offers. Its own name so the rule lines stay readable, and typed as
+# the Literal list `FLSaisonRules` declares -- a bare list of `str` is invariant against it.
+STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
+
+RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
 
 # 20 hex characters plus a four-digit suffix, so each club in a multi-team case gets its own valid
 # 24-character ObjectId and a failing assertion names the club it came from.

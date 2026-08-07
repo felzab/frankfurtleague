@@ -84,6 +84,10 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         position=document.get("position"),
         stufe=document.get("stufe"),
         is_nachgetragen=document["is_nachgetragen"],
+        # `.get` with a default rather than a subscript: this echoes rows the reactivate and delete
+        # endpoints read back, and a row written before the field existed would otherwise KeyError on
+        # a request that changed nothing about it. The migration seeds every live row.
+        is_captain=document.get("is_captain", False),
         inactive_since=document.get("inactive_since"),
     )
 

@@ -21,10 +21,17 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import AS_NAME, STATISTIK_AS_NAME, build_team_pipeline
 
-STANDARD_RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
+# The levels the seeded season offers. Its own name so the rule lines stay readable, and typed as
+# the Literal list `FLSaisonRules` declares -- a bare list of `str` is invariant against it.
+STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
+
+STANDARD_RULES = FLSaisonRules(
+    win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN
+)
 
 Pipeline = list[Mapping[str, Any]]
 
@@ -133,7 +140,7 @@ def test_never_consults_is_canceled():
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
     """A 2/0/0 season, which shares no number with the 3/1/0 default — a hardcoded scheme cannot pass both."""
-    unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
+    unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
 
     punkte = statistik_stage(build(rules=unusual))["pipeline"][-1]["$project"]["punkte"]
 

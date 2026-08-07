@@ -251,6 +251,7 @@ def spieler() -> PayloadFactory:
             # (ADR-0061). A fixture spelling it the other way describes a document nothing may store.
             "position": "Angriff",
             "is_nachgetragen": False,
+            "is_captain": False,
             "team_id": TEAM_ID,
             "inactive_since": None,
         }
@@ -282,7 +283,14 @@ def saison() -> PayloadFactory:
             "start_date": "2026-01-01",
             "end_date": "2026-06-30",
             "status": "active",
-            "rules": {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2, "number_of_groups": 4, "teams_per_group": 4},
+            "rules": {
+                "win_points": 3,
+                "draw_points": 1,
+                "qualifiers_per_group": 2,
+                "number_of_groups": 4,
+                "teams_per_group": 4,
+                "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
+            },
         }
     )
 

@@ -21,13 +21,18 @@ import pytest
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLBracketFaultGruppe, FLSpielListAdapter
 from app.api.spiele.services import BracketResolution, resolve_bracket
+from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam
 from app.api.teams.services import build_decided_standings, build_gruppen
 
 TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 
-RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
+# The levels the seeded season offers. Its own name so the rule lines stay readable, and typed as
+# the Literal list `FLSaisonRules` declares -- a bare list of `str` is invariant against it.
+STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
+
+RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
 
 # What `disqualifikation` holds for a team that is out. Its CONTENTS do not reach this file's subject --
 # the standing walks past a team because the field is non-null, never because of what it says (ADR-0059)

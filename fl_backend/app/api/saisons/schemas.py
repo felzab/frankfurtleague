@@ -17,6 +17,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
+# The league's school-level vocabulary, imported rather than restated: `rules.erlaubte_stufen` names
+# WHICH of it a season runs and must not be able to name a level the league does not have (ADR-0061).
+# Acyclic -- the spieler slice imports nothing from this one.
+from app.api.spieler.schemas import FLSpielerStufe
 from app.shared.schemas.custom import CustomDateString
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -45,6 +49,20 @@ class FLSaisonRules(BaseModel):
     # them.
     number_of_groups: int = Field(gt=0, le=4)
     teams_per_group: int = Field(gt=0)
+
+    # Which school levels this season's squads may hold (owner, 2026-08-07). A SUBSET of the closed
+    # set `FLSpielerStufe` declares -- that Literal is the vocabulary, and this is which of it a given
+    # season runs, exactly as `number_of_groups` picks a prefix of the closed A-D set rather than
+    # redefining it (ADR-0061).
+    #
+    # REQUIRED with no default, for the reason `qualifiers_per_group` is: a default would let a
+    # season that has never carried the key read as though it had, and the offered levels would then
+    # be a constant chosen in this file. `--check` reports a document still lacking it.
+    #
+    # Not enforced against `saison_spieler` by any validator, and deliberately: a row's `stufe` is
+    # held to the LEAGUE's set, not to one season's, so narrowing a season cannot retroactively
+    # invalidate the squads of a season already played. This bounds what the form offers.
+    erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
 
 
 class FLSaison(BaseModel):

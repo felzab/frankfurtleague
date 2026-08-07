@@ -33,6 +33,7 @@ with a result still counts · `inactive_since` is a date, never a boolean.
 | `Ausgang`                         | Which side of a match a reference names      | Attributes and values |
 | `disqualifikation`                | Out of one season, with the reason and date  | Attributes and values |
 | `is_nachgetragen`                 | A squad entry added after the fact           | Attributes and values |
+| `is_captain`                      | The squad's captain, for one season          | Attributes and values |
 | `inactive_since`                  | Soft deletion, as a date                     | Attributes and values |
 | `Statistik`                       | The derived league-table figures             | Attributes and values |
 | `Mietpreis`                       | Venue cost, whole euros                      | Attributes and values |
@@ -70,6 +71,12 @@ every table for that season on the next read.
 is required with no default on either side, so a season without it fails to read rather than seeding a
 bracket from a number nobody chose. It reaches the frontend on the grouped teams response, beside the
 table whose qualifying prefix it measures.
+
+`erlaubte_stufen` is which school levels that season's squads may hold — a SUBSET of the league's own
+closed set (ADR-0061), never a redefinition of it, exactly as `number_of_groups` picks a prefix of the
+closed A–D group set. The squad forms offer these and nothing else. It binds the FORM rather than the
+data: a row's `stufe` is held to the league's set, so narrowing a season cannot retroactively
+invalidate the squads of a season already played.
 
 `number_of_groups` and `teams_per_group` bound the season's field: it runs the first
 `number_of_groups` of the closed A–D group set, and each group takes `teams_per_group` teams.
@@ -442,6 +449,19 @@ writing `null` over it is how that is lifted.
 
 **`GET /teams?is_disqualified=` is a question, not this field.** It is a boolean the backend translates
 into a null test — nobody filters a list by the wording of a reason.
+
+### `is_captain` — the squad's captain for one season
+
+On the **`saison_spieler` junction**, not on the person, and that is the whole point: captaincy is a
+role within one team for one season, so a player who captains 2026 need not captain 2027 and a player
+who moves club does not carry it with them.
+
+Not unique by any rule the database enforces. A co-captaincy is a real arrangement, and no validator
+sees two documents at once anyway (backend spec I16).
+
+**The marker used to live inside the name.** Six squad rows carried a literal `(C)` in `vorname` or
+`nachname`, because there was nowhere else to put it; the field replaced them and the names were
+cleaned in the same change. `PERSON_NAME_PATTERN` on the write payloads is what stops the next one.
 
 ### `is_nachgetragen` — "entered later", retrospectively added
 

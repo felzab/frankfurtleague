@@ -21,6 +21,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import (
     FLTeamListAdapter,
     FLTeamsFilterParams,
@@ -33,7 +34,13 @@ from .conftest import DISQUALIFIKATION, SAISON, SeededLeague
 
 pytestmark = pytest.mark.db
 
-STANDARD_RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
+# The levels the seeded season offers. Its own name so the rule lines stay readable, and typed as
+# the Literal list `FLSaisonRules` declares -- a bare list of `str` is invariant against it.
+STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
+
+STANDARD_RULES = FLSaisonRules(
+    win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN
+)
 
 
 def rows(
@@ -168,7 +175,7 @@ def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
 
 def test_points_come_from_the_seasons_own_rules(league: SeededLeague):
     """A 2/0/0 season. Helmholtz's 1 win, 1 draw and 1 loss is 4 points under 3/1/0 and 2 under this."""
-    unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
+    unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
 
     assert table(league, rules=unusual)["Helmholtz"]["punkte"] == 2
 
