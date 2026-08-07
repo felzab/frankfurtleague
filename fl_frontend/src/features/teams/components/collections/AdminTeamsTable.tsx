@@ -1,8 +1,9 @@
 "use client";
 
 import { memo, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 
-import { Pencil, Persons } from "@gravity-ui/icons";
+import { Calendar, Globe, Pencil, Persons } from "@gravity-ui/icons";
 
 import { Table } from "@heroui/react";
 
@@ -37,6 +38,13 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   setDeletingTeam: (team: FLTeam) => void;
 }) {
   const [, startReactivating] = useTransition();
+
+  // The selector's season rides along on every row link, so the editor and the public page open on
+  // the season this list is showing. Reading it here is safe: the parent view already subscribes
+  // this tree to the router (see the memo note), so no new re-render class is introduced.
+  const searchParams = useSearchParams();
+  const selectedSaisonId = searchParams.get("saison_id");
+  const saisonQuery = selectedSaisonId ? `?saison_id=${encodeURIComponent(selectedSaisonId)}` : "";
 
   // One press, then a toast either way. No confirmation step: reactivation is undone by the delete
   // control that takes its place.
@@ -104,7 +112,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                   </Table.Cell>
 
                   <Table.Cell className="px-6 py-4">
-                    <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
+                    {/* The TeamCard's chip colour, so the Kürzel wears one tint on the admin surface
+                        and the public one (owner, 2026-08-07). */}
+                    <span className="bg-brand/50 text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-extrabold tracking-wide shadow-sm">
                       {team.shorthand}
                     </span>
                   </Table.Cell>
@@ -134,7 +144,27 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                   <Table.Cell className="px-6 py-4">
                     <RowActions>
                       <RowActionLink
-                        href={`/admin/teams/${team.id}`}
+                        href={`/admin/spielsuche?q=${encodeURIComponent(team.name)}`}
+                        label="Spiele anzeigen"
+                        ariaLabel={`Spiele von ${team.name} anzeigen`}>
+                        <Calendar
+                          aria-hidden="true"
+                          width={18}
+                          height={18}
+                        />
+                      </RowActionLink>
+                      <RowActionLink
+                        href={`/dashboard/teams/${team.id}${saisonQuery}`}
+                        label="Öffentliche Teamseite"
+                        ariaLabel={`Öffentliche Seite von ${team.name} öffnen`}>
+                        <Globe
+                          aria-hidden="true"
+                          width={18}
+                          height={18}
+                        />
+                      </RowActionLink>
+                      <RowActionLink
+                        href={`/admin/teams/${team.id}${saisonQuery}`}
                         label="Bearbeiten"
                         ariaLabel={`Verein ${team.name} bearbeiten`}>
                         {/* The pencil the other tables draw, but as a LINK: the editor is a page. */}

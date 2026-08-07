@@ -1,7 +1,8 @@
 "use client";
 
-import { FieldError, Input, Label, TextField } from "@heroui/react";
+import { FieldError, Input, Label, TextArea, TextField } from "@heroui/react";
 
+import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
@@ -9,27 +10,22 @@ import type { FLPostTeamPayload } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
- * The club's own fields, shared by the create modal and the Stammdaten panel of the team page.
+ * The club's own fields, for the create dialog. The edit page composes richer versions of the same
+ * controls in its panels; what the two share is the field BEHAVIOUR — the Kürzel uppercases as it
+ * is typed, the website keeps its fixed `https://` prefix, and the description is a real text area.
  *
- * Field names match their path in the create/patch payload, so react-aria's `Form` distributes
+ * Field names match their path in the create payload, so react-aria's `Form` distributes
  * `validationErrors` to them by name — see `SchiedsrichterFormFields`.
- *
- * `onFieldLeft` is the page half of ADR-0050: the panel judges a typed field when it is left, so it
- * passes the paths to refresh. The create modal judges on submit like its two siblings and passes
- * nothing — a blur handler that does nothing is exactly the dialog behaviour.
  */
 export function TeamFormFields<T extends FLPostTeamPayload>({
   draft,
   onChange,
   errors,
-  onFieldLeft,
 }: {
   draft: T;
   onChange: (updatedDraft: T) => void;
   /** Server messages keyed by payload path — see `SpielortFormFields` for when this is passed. */
   errors?: FieldErrors;
-  /** Called with the payload paths of a control the user just left (ADR-0050). */
-  onFieldLeft?: (paths: readonly string[]) => void;
 }) {
   return (
     <>
@@ -39,7 +35,6 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
           name="name"
           value={draft.name}
           onChange={(next) => onChange({ ...draft, name: next })}
-          onBlur={() => onFieldLeft?.(["name"])}
           // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
           isInvalid={errors?.["name"] ? true : undefined}>
           <Label className={FIELD_LABEL}>Name</Label>
@@ -53,15 +48,16 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         <TextField
           isRequired
           name="shorthand"
+          // Uppercased at the boundary, so the stored value and the typed value cannot differ by
+          // case alone — the two letters are unique across every club (ADR-0032).
           value={draft.shorthand}
-          onChange={(next) => onChange({ ...draft, shorthand: next })}
-          onBlur={() => onFieldLeft?.(["shorthand"])}
+          onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
           maxLength={2}
           isInvalid={errors?.["shorthand"] ? true : undefined}>
           <Label className={FIELD_LABEL}>Kürzel</Label>
           <Input
-            placeholder="z.B. FF"
-            className={FIELD_INPUT}
+            placeholder="FF"
+            className={`${FIELD_INPUT} font-extrabold tracking-widest uppercase`}
           />
           <FieldError className={FIELD_ERROR}>{errors?.["shorthand"]}</FieldError>
         </TextField>
@@ -72,7 +68,6 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         name="full_name"
         value={draft.full_name}
         onChange={(next) => onChange({ ...draft, full_name: next })}
-        onBlur={() => onFieldLeft?.(["full_name"])}
         isInvalid={errors?.["full_name"] ? true : undefined}>
         <Label className={FIELD_LABEL}>Vollständiger Name</Label>
         <Input
@@ -82,32 +77,22 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         <FieldError className={FIELD_ERROR}>{errors?.["full_name"]}</FieldError>
       </TextField>
 
-      <TextField
-        name="website_url"
+      <WebsiteUrlField
         value={draft.website_url}
-        onChange={(next) => onChange({ ...draft, website_url: next })}
-        onBlur={() => onFieldLeft?.(["website_url"])}
-        isInvalid={errors?.["website_url"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Website</Label>
-        <Input
-          placeholder="https://..."
-          className={FIELD_INPUT}
-        />
-        <FieldError className={FIELD_ERROR}>{errors?.["website_url"]}</FieldError>
-      </TextField>
+        onChange={(nextUrl) => onChange({ ...draft, website_url: nextUrl })}
+        error={errors?.["website_url"]}
+      />
 
-      {/* A plain text field, not a textarea: the descriptions in the data are one to two sentences,
-          and the public page renders them as a single paragraph either way. */}
       <TextField
         name="description"
         value={draft.description}
         onChange={(next) => onChange({ ...draft, description: next })}
-        onBlur={() => onFieldLeft?.(["description"])}
         isInvalid={errors?.["description"] ? true : undefined}>
         <Label className={FIELD_LABEL}>Beschreibung</Label>
-        <Input
-          placeholder="Öffentlich sichtbarer Kurztext über die Mannschaft"
-          className={FIELD_INPUT}
+        <TextArea
+          fullWidth
+          placeholder="Öffentlich sichtbarer Text über die Mannschaft"
+          className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
         />
         <FieldError className={FIELD_ERROR}>{errors?.["description"]}</FieldError>
       </TextField>
@@ -116,7 +101,6 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         value={draft.address}
         onChange={(newAddress) => onChange({ ...draft, address: newAddress })}
         errors={errors}
-        onFieldLeft={onFieldLeft}
       />
     </>
   );

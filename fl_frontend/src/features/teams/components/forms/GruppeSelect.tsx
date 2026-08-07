@@ -20,6 +20,7 @@ export function GruppeSelect({
   onChange,
   name = "gruppe",
   error,
+  withOwnLabel = true,
 }: {
   value: FLGruppenNames | null;
   onChange: (gruppe: FLGruppenNames) => void;
@@ -27,6 +28,8 @@ export function GruppeSelect({
   name?: string;
   /** The message for the caller without a `<Form>` context — same split as `SpielortFormFields`. */
   error?: string;
+  /** Off for the caller whose label is a marker-carrying `TeamFieldLabel` rendered outside. */
+  withOwnLabel?: boolean;
 }) {
   const handleChange = (key: Key | null) => {
     if (!key) return;
@@ -41,7 +44,7 @@ export function GruppeSelect({
       onChange={handleChange}
       isInvalid={error ? true : undefined}
       className="w-full">
-      <Label className={FIELD_LABEL}>Gruppe</Label>
+      {withOwnLabel && <Label className={FIELD_LABEL}>Gruppe</Label>}
       <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would show
             HeroUI's English placeholder. Same reasoning as `SaisonSelector`'s trigger. */}

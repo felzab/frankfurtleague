@@ -51,11 +51,16 @@ export function formatUhrzeit(uhrzeit: string | null | undefined, fallback: stri
 export function formatAddress(address?: FLAddress): string {
   if (!address) return "Keine Adresse hinterlegt";
 
-  return `${address.strasse} ${address.hausnummer}, ${address.plz} ${address.stadt} (${address.stadtteil})`;
+  // Stadtteil is optional; an empty one renders nothing rather than an empty "()" tail.
+  const stadtteil = address.stadtteil.trim() === "" ? "" : ` (${address.stadtteil})`;
+  return `${address.strasse} ${address.hausnummer}, ${address.plz} ${address.stadt}${stadtteil}`;
 }
 
 export function formatAddressFull(address: FLAddress): string {
-  return `${address.strasse} ${address.hausnummer}, ${address.plz} ${address.stadtteil ?? ""} ${address.stadt}, Deutschland`;
+  // Joined and filtered rather than templated, so an empty optional part cannot leave a double
+  // space in the middle of the line.
+  const ort = [address.plz, address.stadtteil, address.stadt].filter((part) => part.trim() !== "").join(" ");
+  return `${address.strasse} ${address.hausnummer}, ${ort}, Deutschland`;
 }
 
 /**

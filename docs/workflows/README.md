@@ -570,7 +570,7 @@ sign-out, which arms on the first press and ends the session on the second.
 > **Derived from the data model, not from an observed rollover.** Every step below has an endpoint
 > ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)), and step 3
 > is the one with an admin page: a club's Saison-Zugehörigkeit panel on `/admin/teams/[team_id]`
-> enters it into a season while that season is still `future`. The rest is still done by hand,
+> enters it into the season the sidemenu selector holds while that season is still `future`. The rest is still done by hand,
 > either against the API or in Compass, and nothing prompts for a step that is forgotten — the
 > rollover control is open item FB-6.
 

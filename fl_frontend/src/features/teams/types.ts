@@ -64,12 +64,28 @@ export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe">
 };
 
 /**
- * One season's membership state for one club, assembled by the team page: the junction row's two
- * fields when the club is in the season, `null` when it is not — which is what the panel's
- * "Aufnehmen" affordance keys off.
+ * The selected season's membership state for one club, assembled by the team page: the junction
+ * row's two fields when the club is in the season, `null` when it is not — which is what the
+ * editor's "Aufnehmen" affordance keys off.
  */
 export type TeamSaisonMembership = {
   saisonId: string;
   saisonStatus: "past" | "active" | "future";
   membership: { gruppe: FLGruppenNames; disqualifikation: FLDisqualifikation | null } | null;
+};
+
+/** The season the editor addresses — the sidemenu selector's, resolved by the page. */
+export type TeamSaisonContext = Pick<TeamSaisonMembership, "saisonId" | "saisonStatus">;
+
+/**
+ * Whether the group may be edited, decided by the page from the season's status and the club's
+ * fixtures (owner's rule, 2026-08-07): editable only while the season is `future` or the club has
+ * no fixture in it. `draftChangesGruppe` is the form's own live addition — it is what raises the
+ * warning callout while an edit is pending.
+ */
+export type TeamGruppeLock = {
+  locked: boolean;
+  /** The sentence shown under the read-only group, naming why it is locked. */
+  reason: string;
+  draftChangesGruppe: boolean;
 };

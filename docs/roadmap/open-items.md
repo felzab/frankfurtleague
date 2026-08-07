@@ -419,7 +419,8 @@ resource.**
 is the third declaration over the generic `AdminCrudView` / `AdminCrudShell` pair, and the spieler
 pages would be the fourth. The team editor is a page at `/admin/teams/[team_id]` with sections in
 panels and fields judged when they are left (ADR-0050's patterns, adopted as the entry planned);
-its Saison-Zugehörigkeit panel is the junction editor, one section per season, and is where the
+its Saison-Zugehörigkeit panel is the junction editor, addressing the season the sidemenu selector
+holds, and is where the
 disqualification record is entered — one text input for `grund`, one date input for `datum`, `null`
 to lift it
 ([ADR-0059](../_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)). The

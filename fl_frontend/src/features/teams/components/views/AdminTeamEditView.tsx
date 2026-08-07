@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { ArrowUturnCwLeft } from "@gravity-ui/icons";
@@ -8,11 +8,8 @@ import { ArrowUturnCwLeft } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { reactivateTeamAction } from "@/features/teams/actions";
-import { SaisonMembershipPanel } from "@/features/teams/components/forms/SaisonMembershipPanel";
-import { TeamStammdatenPanel } from "@/features/teams/components/forms/TeamStammdatenPanel";
+import { AdminTeamEditForm } from "@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
-import { Callout } from "@/shared/components/ui/Callout";
-import { formButton } from "@/shared/components/ui/formButtons";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -21,20 +18,33 @@ import type { FLTeam } from "@/features/teams/schemas";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 
 /**
- * The whole body of `/admin/teams/[team_id]` — who the club is, then the two panels that edit it.
+ * The whole body of `/admin/teams/[team_id]` — who the club is, then the form that edits it, in the
+ * match editor's shell: the header scrolls with the form's content, the action bar stays pinned
+ * below it, and every exit routes through the form's own discard guard.
  *
- * A page rather than a dialog (ADR-0050): the club form is ten fields plus a structured address,
- * and the season junction beneath it is a second endpoint with its own save. Sections sit in
- * panels, which is the page form's first level of grouping.
- *
- * **The header states identity and nothing live** — the same rule as the match editor. The back
- * control answers with history, like every detail page reached from several places.
+ * **The header states identity and nothing live** — the shorthand chip wears the TeamCard's brand
+ * tint, so the same two letters look the same on the admin surface and the public one. The one
+ * header-level control is reactivation, because a retired club's state is club-level rather than a
+ * field of the form.
  */
-export function AdminTeamEditView({ team, memberships, today }: { team: FLTeam; memberships: TeamSaisonMembership[]; today: string }) {
+export function AdminTeamEditView({
+  team,
+  saison,
+  gruppeLocked,
+  today,
+}: {
+  team: FLTeam;
+  saison: TeamSaisonMembership;
+  gruppeLocked: boolean;
+  today: string;
+}) {
   const router = useRouter();
   const [isReactivating, startReactivating] = useTransition();
 
   const isRetired = team.inactive_since !== null;
+
+  // The form's own guarded exit, registered from below — see `AdminSpielEditView`.
+  const requestLeaveRef = useRef<() => void>(() => router.back());
 
   const handleReactivate = () => {
     startReactivating(async () => {
@@ -45,49 +55,49 @@ export function AdminTeamEditView({ team, memberships, today }: { team: FLTeam; 
   };
 
   return (
-    <div className={`${PAGE_RISE} max-w-page mx-auto flex w-full flex-col gap-y-6 p-6 sm:p-8`}>
-      <div>
-        <Button
-          onPress={() => router.back()}
-          className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
-          <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
-          <span>Zurück</span>
-        </Button>
-
-        <header className="flex w-full flex-col gap-y-1">
-          <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
-            <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">{team.name}</h2>
-            <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
-              {team.shorthand}
-            </span>
-            {isRetired && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt</span>}
-          </div>
-          <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst — jeder Bereich für sich.</p>
-        </header>
-      </div>
-
-      {isRetired && (
-        <div className="flex w-full flex-col gap-y-3">
-          <Callout
-            severity="info"
-            title={`Stillgelegt seit ${formatSpielDatum(team.inactive_since ?? "")}`}>
-            Der Verein steht in keiner Auswahlliste mehr, sein Kürzel bleibt reserviert, und seine Spiele und Saisons bleiben erhalten.
-          </Callout>
-          <Button
-            onPress={handleReactivate}
-            isDisabled={isReactivating}
-            className={`${formButton({ intent: "submit" })} w-fit`}>
-            {isReactivating ? "Reaktiviert..." : "Verein reaktivieren"}
-          </Button>
-        </div>
-      )}
-
-      <TeamStammdatenPanel team={team} />
-
-      <SaisonMembershipPanel
-        teamId={team.id}
-        memberships={memberships}
+    <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
+      <AdminTeamEditForm
+        team={team}
+        saison={saison}
         today={today}
+        gruppeLocked={gruppeLocked}
+        registerRequestLeave={(requestLeave) => {
+          requestLeaveRef.current = requestLeave;
+        }}
+        pageHeader={
+          <>
+            <Button
+              onPress={() => requestLeaveRef.current()}
+              className="bg-surface border-border text-foreground hover:bg-muted fluid-xs mb-6 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+              <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
+              <span>Zurück</span>
+            </Button>
+
+            <header className="mb-6 flex w-full flex-col gap-y-2">
+              <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
+                <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">{team.name}</h2>
+                {/* The TeamCard's chip, so the Kürzel wears one colour everywhere (owner, 2026-08-07). */}
+                <span className="bg-brand/50 text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
+                  {team.shorthand}
+                </span>
+                {isRetired && (
+                  <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
+                    Stillgelegt seit {formatSpielDatum(team.inactive_since ?? "")}
+                  </span>
+                )}
+                {isRetired && (
+                  <Button
+                    onPress={handleReactivate}
+                    isDisabled={isReactivating}
+                    className="border-border bg-surface text-foreground hover:bg-muted fluid-xs flex h-8 w-fit items-center rounded-lg border px-3 font-bold shadow-sm transition-colors">
+                    {isReactivating ? "Reaktiviert..." : "Reaktivieren"}
+                  </Button>
+                )}
+              </div>
+              <p className="fluid-sm text-foreground-muted font-medium">Änderungen gelten erst, wenn Du speicherst.</p>
+            </header>
+          </>
+        }
       />
     </div>
   );

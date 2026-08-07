@@ -6,11 +6,11 @@ import { ArrowRight } from "@gravity-ui/icons";
 
 import { COUNT_BADGE, LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
+import { DraftChangeList, operationOf } from "@/shared/components/ui/DraftChangeList";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { RailSection } from "@/shared/components/ui/RailSection";
 
-import { DraftChangeList, operationOf } from "./DraftChangeList";
 import { useDraftStatus } from "./DraftStatusContext";
-import { RailSection } from "./RailSection";
 import { SpielDraftPreview } from "./SpielDraftPreview";
 
 import type { FLSpielWithStoredSides } from "@/features/spiele/schemas";
