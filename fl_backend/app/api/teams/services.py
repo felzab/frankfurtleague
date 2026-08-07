@@ -733,6 +733,29 @@ def build_decided_standings(
     }
 
 
+def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
+    """
+    Every club with every junction row it holds, for the admin list (`GET /teams/memberships`).
+
+    Deliberately UNLIKE `build_team_pipeline`: no season resolution, no strict join, no statistics.
+    The admin surface asks a club-centric question, so retired clubs stay in, a club in no season
+    comes back with an empty list, and the lookup projects exactly the junction's three data fields.
+    """
+
+    return [
+        {
+            "$lookup": {
+                "from": SAISON_TEAMS_COLLECTION_NAME,
+                "localField": "_id",
+                "foreignField": "team_id",
+                "pipeline": [{"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "disqualifikation": 1}}],
+                "as": "memberships",
+            }
+        },
+        {"$sort": {"name": 1}},
+    ]
+
+
 # =====================================================================================================
 # RETIRING A CLUB
 # =====================================================================================================

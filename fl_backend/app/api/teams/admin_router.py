@@ -50,11 +50,13 @@ from app.api.teams.schemas import (
     FLPostTeamResponse,
     FLSaisonTeamResponse,
     FLTeamRecord,
+    FLTeamsMembershipsResponse,
+    FLTeamWithMemberships,
     FLTeamWriteResponse,
 )
-from app.api.teams.services import RETIRE_BLOCKED, find_retire_refusal
+from app.api.teams.services import RETIRE_BLOCKED, build_team_memberships_pipeline, find_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
+from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import (
     SaisonsCollection,
     SaisonTeamsCollection,
@@ -71,6 +73,27 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
     dependencies=[Depends(verify_access_admin)],
 )
+
+
+@router.get("/memberships", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
+async def get_team_memberships(teams_collection: TeamsCollection) -> FLTeamsMembershipsResponse:
+    """
+    Every team, retired ones included, each with every season membership it holds. Sorted by name.
+
+    The admin list's one read. `GET /teams` cannot answer it: that read is season-scoped with a
+    strict junction join by design, so listing every team meant one request per season and a
+    client-side union. This is the club-centric question as one aggregation instead.
+
+    In the admin router rather than the read router because only the admin surface asks it — the
+    same split that puts `GET /spiele/action_required` beside the match writes (ADR-0034).
+
+    A static path beside `by_id` routes: the id convertor takes 24 hex characters, so
+    `/teams/memberships` can never be captured by an id route regardless of declaration order.
+    """
+
+    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_memberships_pipeline())
+
+    return FLTeamsMembershipsResponse(teams=[FLTeamWithMemberships.model_validate(team) for team in teams_raw])
 
 
 @router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team")

@@ -162,6 +162,33 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
     """
 
 
+class FLTeamMembership(BaseModel):
+    """One junction row as seen from its club: which season, which group, and the record if any."""
+
+    saison_id: str
+    gruppe: FLGruppenNames
+    disqualifikation: FLDisqualifikation | None
+
+
+class FLTeamWithMemberships(FLTeamRecord):
+    """
+    The stored club document plus every season membership it holds — the admin list's one read.
+
+    A DIFFERENT question from `FLTeam`, not a projection of it (ADR-0034): `FLTeam` answers "this
+    club in one season" with a strict junction join and a derived `statistik`, which is why a club
+    outside the season is absent from it by design. The admin surface asks "every club, and which
+    seasons hold it", which no composition of season-scoped reads answers in one request.
+    """
+
+    memberships: list[FLTeamMembership]
+
+
+class FLTeamsMembershipsResponse(BaseAPIResponse):
+    """Every club, retired ones included, each with its memberships. Sorted by name."""
+
+    teams: list[FLTeamWithMemberships]
+
+
 class FLPostTeamPayload(BaseModel):
     name: str = Field(min_length=1)
     shorthand: str = Field(min_length=2, max_length=2)

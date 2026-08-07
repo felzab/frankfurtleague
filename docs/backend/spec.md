@@ -54,6 +54,7 @@ across seven slices**, each addressed resource-first with the id in the path.
 | Method | Path                                                   | Effect                                                                    |
 | ------ | ------------------------------------------------------ | ------------------------------------------------------------------------- |
 | GET    | `/spiele/action_required`                              | Matches needing attention, plus the season's derived bracket faults — I28 |
+| GET    | `/teams/memberships`                                   | Every team with every season membership it holds — the admin list's read  |
 | PATCH  | `/spiele/{spiel_id}`                                   | Writes one match, then resolves that season's bracket. See §3             |
 |        | `/spiele/{spiel_id}?dry_run=true`                      | The same call, reporting what it would move and destroy. Writes nothing   |
 |        | _no `POST /spiele`, no `DELETE /spiele/{spiel_id}`_    | A season's fixtures are created once — see I26                            |

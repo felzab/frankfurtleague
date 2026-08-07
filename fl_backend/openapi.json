@@ -2222,6 +2222,30 @@
         ]
       }
     },
+    "/api/v0/teams/memberships": {
+      "get": {
+        "summary": "Every team with its season memberships",
+        "description": "Every team, retired ones included, each with every season membership it holds. Sorted by name.\n\nThe admin list's one read. `GET /teams` cannot answer it: that read is season-scoped with a\nstrict junction join by design, so listing every team meant one request per season and a\nclient-side union. This is the club-centric question as one aggregation instead.\n\nIn the admin router rather than the read router because only the admin surface asks it — the\nsame split that puts `GET /spiele/action_required` beside the match writes (ADR-0034).\n\nA static path beside `by_id` routes: the id convertor takes 24 hex characters, so\n`/teams/memberships` can never be captured by an id route regardless of declaration order.",
+        "operationId": "get_team_memberships_api_v0_teams_memberships_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLTeamsMembershipsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v0/teams/{team_id}/reactivate": {
       "post": {
         "summary": "Bring a retired team back",
@@ -5646,6 +5670,42 @@
         ],
         "title": "FLTeam"
       },
+      "FLTeamMembership": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Gruppe"
+          },
+          "disqualifikation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLDisqualifikation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "gruppe",
+          "disqualifikation"
+        ],
+        "title": "FLTeamMembership",
+        "description": "One junction row as seen from its club: which season, which group, and the record if any."
+      },
       "FLTeamRecord": {
         "properties": {
           "id": {
@@ -5755,6 +5815,75 @@
         "type": "object",
         "title": "FLTeamStatistik"
       },
+      "FLTeamWithMemberships": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "shorthand": {
+            "type": "string",
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Shorthand"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4096,
+            "title": "Description"
+          },
+          "full_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "website_url": {
+            "type": "string",
+            "title": "Website Url"
+          },
+          "address": {
+            "$ref": "#/components/schemas/FLAddress"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamMembership"
+            },
+            "type": "array",
+            "title": "Memberships"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "shorthand",
+          "description",
+          "full_name",
+          "website_url",
+          "address",
+          "inactive_since",
+          "memberships"
+        ],
+        "title": "FLTeamWithMemberships",
+        "description": "The stored club document plus every season membership it holds — the admin list's one read.\n\nA DIFFERENT question from `FLTeam`, not a projection of it (ADR-0034): `FLTeam` answers \"this\nclub in one season\" with a strict junction join and a derived `statistik`, which is why a club\noutside the season is absent from it by design. The admin surface asks \"every club, and which\nseasons hold it\", which no composition of season-scoped reads answers in one request."
+      },
       "FLTeamWriteResponse": {
         "properties": {
           "acknowledged": {
@@ -5841,6 +5970,32 @@
           "teams"
         ],
         "title": "FLTeamsListResponse"
+      },
+      "FLTeamsMembershipsResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamWithMemberships"
+            },
+            "type": "array",
+            "title": "Teams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "teams"
+        ],
+        "title": "FLTeamsMembershipsResponse",
+        "description": "Every club, retired ones included, each with its memberships. Sorted by name."
       },
       "FLTeamsSingleResponse": {
         "properties": {

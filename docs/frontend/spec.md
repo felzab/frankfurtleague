@@ -38,6 +38,7 @@ Thirteen `"use cache"` functions.
 | `getSpiel`                                     | spiele         | `hours`   | `spiele`                                         |
 | `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
 | `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
+| `getTeamMemberships`                           | teams          | `days`    | `teams` (admin-authed; every team action clears) |
 | `getSaisons`                                   | saisons        | `days`    | `saisons`                                        |
 | `getCurrentSaison`                             | saisons        | `days`    | `saisons`                                        |
 | `getSpieler`                                   | spieler        | `days`    | `spieler`                                        |
