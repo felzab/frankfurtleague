@@ -76,14 +76,14 @@ export function FormZeitraumSection({
           />
         </div>
 
-        {/* Not a refusal, and it deliberately does not block the save: no schema and no endpoint holds
-            the two dates in order, so a page refusing here would enforce a rule the API does not have.
-            Naming it is the honest amount of help. */}
+        {/* The same rule the payload schema and the model validator both hold (owner, 2026-08-08), said
+            here as well because the save bar is the other end of the page: a person editing the Ende
+            should read why it will be refused beside the field, not only when they press save. */}
         {isEndBeforeStart && (
           <Callout
-            severity="warning"
+            severity="danger"
             title="Das Ende liegt vor dem Beginn">
-            Gespeichert wird das trotzdem, weil nichts diese Reihenfolge verlangt. Meistens ist es ein Zahlendreher im Jahr.
+            So lässt sich die Saison nicht speichern. Meistens ist es ein Zahlendreher im Jahr.
           </Callout>
         )}
       </div>

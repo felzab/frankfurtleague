@@ -185,9 +185,9 @@ export function AdminSaisonEditForm({
   }
   if (isEndBeforeStart) {
     banners.push({
-      severity: "warning",
+      severity: "danger",
       title: "Das Ende liegt vor dem Beginn",
-      body: "Nichts verlangt diese Reihenfolge, gespeichert wird es also. Meistens ist es ein Zahlendreher im Jahr.",
+      body: "So lässt sich die Saison nicht speichern. Meistens ist es ein Zahlendreher im Jahr.",
     });
   }
   if (rules.qualifiers_per_group > rules.teams_per_group) {

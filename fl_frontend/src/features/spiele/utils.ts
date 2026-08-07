@@ -22,6 +22,7 @@
  *   docs/glossary.md — spiel_status, for the two definitions and why they differ
  */
 
+import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { formatSpielDatum, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/format";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
@@ -175,12 +176,20 @@ export const deriveSlotHerkunft = (team: FLSpielTeamField | null, quelle: FLSpie
   quelle !== null ? "quelle" : team !== null ? "manuell" : "offen";
 
 /**
- * The rounds in the order they are played. Mirrors `PHASE_RANK` in
- * `fl_backend/app/api/spiele/services.py`, and exists for the same rule: a bracket slot is fed only by
- * a knockout match of a strictly earlier round (ADR-0046). The form derives its legal options from
- * this; the backend refuses anything outside them.
+ * Each round's place in the order they are played, so "strictly earlier" is a comparison.
+ *
+ * Mirrors `PHASE_RANK` in `fl_backend/app/api/spiele/schemas.py` and exists for the same rule: a
+ * bracket slot is fed only by a knockout match of an earlier round (ADR-0046). The form derives its
+ * legal options from this; the backend refuses anything outside them.
+ *
+ * **Derived from `SAISON_PHASE_OPTIONS` rather than written out**, exactly as the backend derives its
+ * copy from `PHASE_ORDER`. A hand-written map is a second statement of the sequence, and adding a round
+ * would then compile with that round ranked nowhere (ADR-0065).
  */
-const PHASE_RANK: Record<FLSaisonPhase, number> = { gruppenphase: 0, viertelfinale: 1, halbfinale: 2, finale: 3 };
+const PHASE_RANK: Record<FLSaisonPhase, number> = Object.fromEntries(SAISON_PHASE_OPTIONS.map((phase, rank) => [phase, rank])) as Record<
+  FLSaisonPhase,
+  number
+>;
 
 /**
  * One source as a comparable identity, so "this outcome already feeds a slot" is a set lookup.
@@ -496,9 +505,9 @@ const joinSpiele = (advancements: readonly { spiel_nr: number }[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(advancements.map((entry) => String(entry.spiel_nr)));
 
 /**
- * Why one stored bracket fault needs a person, in a sentence an admin can act on (ADR-0047).
+ * Why one derived fault needs a person, in a sentence an admin can act on (ADR-0047).
  *
- * Five reasons, and every one of them names the fixture to open and what is wrong inside it. Only states
+ * Six reasons, and every one of them names the fixture to open and what is wrong inside it. Only states
  * no further result can fix reach here — a group that is still being played produces none of them,
  * because a placing that is not decided yet needs nobody's attention (ADR-0043).
  *
@@ -517,5 +526,11 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
       return `Spiel ${fault.spiel_nr} verweist über Spiel ${fault.quelle_spiel_nr} auf eine Verweiskette, die sich schließt und kein Ergebnis liefern kann`;
     case "same_team":
       return `In Spiel ${fault.spiel_nr} führen beide Seiten zur selben Mannschaft`;
+    // The one fault that is not about the bracket, so its sentence names both dates rather than a
+    // reference: what makes it a fault is their order, and the fixture's own date may be missing.
+    case "disqualified_occupant":
+      return fault.spiel_datum === null
+        ? `In Spiel ${fault.spiel_nr} steht ${fault.team_name}, disqualifiziert seit ${formatSpielDatum(fault.disqualifiziert_seit)} — das Spiel hat kein Datum, also ist nicht belegt, dass es vorher stattfand`
+        : `Spiel ${fault.spiel_nr} am ${formatSpielDatum(fault.spiel_datum)} führt ${fault.team_name}, disqualifiziert seit ${formatSpielDatum(fault.disqualifiziert_seit)}`;
   }
 };

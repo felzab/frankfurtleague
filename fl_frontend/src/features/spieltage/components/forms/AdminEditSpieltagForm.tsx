@@ -27,7 +27,6 @@ export function AdminEditSpieltagForm({ spieltag, onClose }: { spieltag: AdminSp
         name: spieltag.name,
         beginn: spieltag.beginn,
         ende: spieltag.ende,
-        anzahl_spiele: spieltag.anzahl_spiele,
         saison_phase: spieltag.saison_phase,
       }}
       renderFields={(draft, setDraft) => (

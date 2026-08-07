@@ -174,11 +174,13 @@
     --fg-on-warn: #ffffff;
     --fg-on-danger: #ffffff;
 
-    /* Tournament rounds. The four phases are an ordered sequence, not a semantic state, so none of
+    /* Tournament rounds. The five phases are an ordered sequence, not a semantic state, so none of
        the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
-       palette. Values are Tailwind's sky/indigo/purple/rose 700 verbatim, i.e. exactly what the chip
-       rendered before, and each is used both as the label colour and as a /15 tint behind it. */
+       palette. Values are Tailwind's sky/blue/indigo/purple/rose 700 verbatim, and each is used both
+       as the label colour and as a /10 tint behind it. Blue sits between sky and indigo on the hue
+       wheel, which is where `achtelfinale` sits in the sequence (ADR-0065). */
     --accent-phase-gruppenphase: oklch(50% 0.134 242.749);
+    --accent-phase-achtelfinale: oklch(48.8% 0.243 264.376);
     --accent-phase-viertelfinale: oklch(45.7% 0.24 277.023);
     --accent-phase-halbfinale: oklch(49.6% 0.265 301.924);
     --accent-phase-finale: oklch(51.4% 0.222 16.935);
@@ -234,8 +236,9 @@
     --fg-on-warn: #ffffff;
     --fg-on-danger: #ffffff;
 
-    /* Tailwind's sky/indigo/purple/rose 400 -- the values the chip's `dark:` escapes used. */
+    /* Tailwind's sky/blue/indigo/purple/rose 400, one step lighter for the dark surface. */
     --accent-phase-gruppenphase: oklch(74.6% 0.16 232.661);
+    --accent-phase-achtelfinale: oklch(70.7% 0.165 254.624);
     --accent-phase-viertelfinale: oklch(67.3% 0.182 276.935);
     --accent-phase-halbfinale: oklch(71.4% 0.203 305.504);
     --accent-phase-finale: oklch(71.2% 0.194 13.428);
@@ -313,6 +316,7 @@
   --color-danger-solid-foreground: var(--fg-on-danger);
   --color-success-solid-foreground: var(--fg-on-success);
   --color-phase-gruppenphase: var(--accent-phase-gruppenphase);
+  --color-phase-achtelfinale: var(--accent-phase-achtelfinale);
   --color-phase-viertelfinale: var(--accent-phase-viertelfinale);
   --color-phase-halbfinale: var(--accent-phase-halbfinale);
   --color-phase-finale: var(--accent-phase-finale);

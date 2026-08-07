@@ -16,7 +16,7 @@ export const SAISONS_CRUD_COPY = {
 } as const;
 
 /**
- * What each `saison_phase` is called on screen — one German spelling of the four, for every surface.
+ * What each `saison_phase` is called on screen — one German spelling of the five, for every surface.
  *
  * **In this slice because `FLSaisonPhaseSchema` is**, and a label belongs beside the set it labels: both
  * `spiele` and `spieltage` already import the phase type from here, so reading its names from the same
@@ -24,8 +24,21 @@ export const SAISONS_CRUD_COPY = {
  * for a concrete reason rather than tidiness — a `.tsx` module cannot be loaded by the node test runner,
  * so nothing importing it could be unit-tested.
  */
+/**
+ * The five phases in the order a season runs them: the order the admin list sections them in, the order
+ * the picker offers them, and the order `PHASE_RANK` in `fl_frontend/src/features/spiele/utils.ts`
+ * derives its comparison from.
+ *
+ * **The schema owns the SET and this owns the SEQUENCE** — the same split `POSITION_OPTIONS` makes for
+ * the player positions. It is the competition's own order rather than a presentation choice: a season
+ * plays its group phase and then each knockout round in turn, which is why the bracket rules can rank
+ * phases against it (ADR-0065).
+ */
+export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = ["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"];
+
 export const PHASE_LABELS: Record<FLSaisonPhase, string> = {
   gruppenphase: "Gruppenphase",
+  achtelfinale: "Achtelfinale",
   viertelfinale: "Viertelfinale",
   halbfinale: "Halbfinale",
   finale: "Finale",

@@ -65,7 +65,6 @@ export type SaisonOffeneSpiel = {
   datum: string | null;
   /** `Team A – Team B`, with a placeholder where the bracket has not filled a side yet. */
   paarung: string;
-  isCanceled: boolean;
 };
 
 /**

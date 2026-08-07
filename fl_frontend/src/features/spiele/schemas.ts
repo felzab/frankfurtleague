@@ -326,7 +326,31 @@ export const FLBracketFaultSpielSchema = z.object({
 export type FLBracketFaultSpiel = z.infer<typeof FLBracketFaultSpielSchema>;
 
 /**
- * The five stored bracket faults, tagged on `reason` (ADR-0047).
+ * One fixture fielding a team the season disqualified before the day it is played (owner, 2026-08-08).
+ *
+ * **The only one of the six that is not about the bracket**, and the only one that covers a group-phase
+ * fixture: it compares the fixture's own date against a disqualification recorded on the junction row.
+ * A fixture played BEFORE the effective day is not a fault — the team was eligible then, so the match
+ * and its result stand. `spiel_datum` is null on an undated fixture, which is reported, because nothing
+ * shows it was played in time.
+ *
+ * Both dates travel so a card can state the ordering without a second read, and nothing is emptied:
+ * cancel, award or replace is a competition decision (roadmap FB-9).
+ */
+export const FLBracketFaultOccupantSchema = z.object({
+  reason: z.literal("disqualified_occupant"),
+  spiel_id: CustomObjectIdStringSchema,
+  spiel_nr: z.int().positive(),
+  side: z.enum(["team1", "team2"]),
+  team_id: CustomObjectIdStringSchema,
+  team_name: z.string().nonempty(),
+  disqualifiziert_seit: CustomDateStringSchema,
+  spiel_datum: CustomDateStringSchema.nullable(),
+});
+export type FLBracketFaultOccupant = z.infer<typeof FLBracketFaultOccupantSchema>;
+
+/**
+ * The six derived faults, tagged on `reason` (ADR-0047).
  *
  * `discriminatedUnion` rather than a flat object with optional fields, mirroring `FLSpielQuelleSchema`
  * and the Pydantic union it is hand-mirrored from: each variant carries exactly the fields its own fault
@@ -336,6 +360,7 @@ export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
   FLBracketFaultGruppeSchema,
   FLBracketFaultQuelleSchema,
   FLBracketFaultSpielSchema,
+  FLBracketFaultOccupantSchema,
 ]);
 export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
 

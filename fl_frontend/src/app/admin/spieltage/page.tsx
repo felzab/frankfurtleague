@@ -75,8 +75,8 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
  * Every matchday of the selected season, retired ones included, in the order they are played.
  *
  * **Two reads, and the second is what makes this more than a list of stored fields.** `GET /spiele` for the
- * season gives the fixtures actually attached to each matchday, which is the only way `anzahl_spiele` — a
- * hand-maintained count the backend writes as given and never derives — can be checked against reality.
+ * season gives the fixtures actually attached to each matchday, which is the only way the expected count —
+ * derived from the season's rules and the matchday's phase (ADR-0065) — can be checked against reality.
  * Retired matchdays are included for the same reason the delete is soft: their matches are untouched and
  * still resolve, so hiding the matchday would hide why those fixtures are where they are.
  *
@@ -105,9 +105,16 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
 
   // How many fixtures each matchday actually holds. Counted from the season's matches rather than asked
   // for per matchday: one read answers it for all of them.
+  // Two counts per matchday from the one read: everything attached, and how much of it is played. The
+  // second is what `REQ-RETIRE-002` refuses a retirement over, so the list needs it to avoid offering a
+  // control whose answer it already knows.
   const spieleBySpieltag = new Map<string, number>();
+  const gespieltBySpieltag = new Map<string, number>();
   for (const spiel of spieleRes.spiele) {
     spieleBySpieltag.set(spiel.spieltag_id, (spieleBySpieltag.get(spiel.spieltag_id) ?? 0) + 1);
+    if (spiel.ergebnis !== null) {
+      gespieltBySpieltag.set(spiel.spieltag_id, (gespieltBySpieltag.get(spiel.spieltag_id) ?? 0) + 1);
+    }
   }
 
   // The ordinal, counted per phase over the order the API returned. A plain counter is enough precisely
@@ -128,6 +135,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
       saison_id: spieltag.saison_id,
       inactive_since: spieltag.inactive_since,
       spieleAngelegt: spieleBySpieltag.get(spieltag.id) ?? 0,
+      spieleGespielt: gespieltBySpieltag.get(spieltag.id) ?? 0,
       ordinal,
     };
   });

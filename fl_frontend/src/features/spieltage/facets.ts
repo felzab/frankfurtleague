@@ -8,9 +8,7 @@
  * season with twelve group matchdays and three knockout rounds is a different act.
  */
 
-import { PHASE_LABELS } from "@/features/saisons/constants";
-
-import { SAISON_PHASE_OPTIONS } from "./constants";
+import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 
 import type { Facet } from "@/shared/utils/facets";
 import type { AdminSpieltagRow } from "./types";
@@ -38,9 +36,9 @@ export const SPIELTAG_FACETS: readonly Facet<AdminSpieltagRow>[] = [
       { value: "vollstaendig", label: "Vollständig angelegt" },
       { value: "unvollstaendig", label: "Weicht ab" },
     ],
-    // The one fact only this surface can catch, made filterable: `anzahl_spiele` is hand-maintained and
-    // never derived, so „Weicht ab“ is the shortlist of matchdays whose stored count disagrees with the
-    // fixtures actually attached (ADR-0063).
+    // The one fact only this surface can catch, made filterable: the expected count is derived from the
+    // season's rules (ADR-0065) and nothing holds the attached fixtures equal to it, so „Weicht ab“ is the
+    // shortlist of matchdays still missing fixtures — or holding more than their phase accounts for.
     read: (spieltag) => [spieltag.spieleAngelegt === spieltag.anzahl_spiele ? "vollstaendig" : "unvollstaendig"],
   },
 ];

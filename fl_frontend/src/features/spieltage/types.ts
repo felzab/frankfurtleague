@@ -11,8 +11,10 @@ import type { FLSaisonPhase } from "../saisons/schemas";
 import type { FLPostSpieltagPayload } from "./schemas";
 
 // `natural` is the derived order the backend applies and the default: the phase in bracket order, then
-// `beginn`, then `name` (ADR-0064). No caller passes any of the others, and none should have to.
-export type FLSpieltageSortingOptions = "natural" | "beginn" | "ende" | "anzahl_spiele";
+// `beginn`, then `name` (ADR-0064). No caller passes either of the others, and none should have to.
+// `anzahl_spiele` is not sortable, because it is derived on read rather than stored, so no Mongo sort
+// can reach it (ADR-0065).
+export type FLSpieltageSortingOptions = "natural" | "beginn" | "ende";
 
 export type FLSpieltageFilterParams = {
   saison_id?: string;
@@ -43,9 +45,11 @@ export type SpieltagCreateDraft = Omit<FLPostSpieltagPayload, "saison_phase"> & 
  * One row of the admin matchday list.
  *
  * **`spieleAngelegt` is the whole reason this is a list rather than a link into the Spielplan.**
- * `anzahl_spiele` is a hand-maintained count of something countable — the backend writes it as given
- * and never derives it — so the only surface that can catch it drifting is one that shows the stored
- * number beside the fixtures actually attached to this matchday.
+ * `anzahl_spiele` is how many matches this matchday *should* hold, derived from the season's rules
+ * (ADR-0065); `spieleAngelegt` is how many actually carry its id. Both are facts about the same
+ * matchday and nothing holds them equal, because a season being set up passes through every
+ * intermediate count — so a surface showing the two side by side is the only place the difference is
+ * visible.
  *
  * **`ordinal` is presentation and nothing else.** It is the row's 1-based place within its phase
  * section, assigned by the page from the order the API already returned (ADR-0064). Nothing stores it,
@@ -63,6 +67,13 @@ export type AdminSpieltagRow = {
   inactive_since: string | null;
   /** How many matches actually carry this matchday's id, counted from the season's fixtures. */
   spieleAngelegt: number;
+  /**
+   * How many of those carry a result — the count `REQ-RETIRE-002` refuses a retirement over.
+   *
+   * Retiring a matchday takes its fixtures off the public Spielplan with it, so a played result would be
+   * unpublished. The list uses this to not offer the control rather than to explain a 409 afterwards.
+   */
+  spieleGespielt: number;
   /** 1-based place within this row's phase section. Derived per render, never stored. */
   ordinal: number;
 };

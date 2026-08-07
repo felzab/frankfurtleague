@@ -5,10 +5,9 @@ import Link from "next/link";
 
 import { Globe } from "@gravity-ui/icons";
 
-import { PHASE_LABELS } from "@/features/saisons/constants";
+import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
 import { reactivateSpieltagAction } from "@/features/spieltage/actions";
-import { SAISON_PHASE_OPTIONS } from "@/features/spieltage/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
@@ -34,10 +33,11 @@ import type { AdminSpieltagRow } from "../../types";
  * That number is presentation: two rows cannot claim the same one, and nothing can make it disagree with
  * where the row actually is.
  *
- * **`spieleAngelegt` against `anzahl_spiele` is now the one fact only this surface can catch.** The stored
- * count is hand-maintained and written as given, never derived, which ADR-0026 pointedly did not extend to
- * it — so showing it beside the fixtures actually carrying this matchday's id is the only way that drift
- * becomes visible.
+ * **`spieleAngelegt` against `anzahl_spiele` is the one fact only this surface can catch.** The expected
+ * count follows from the season's rules and this matchday's phase (ADR-0065); the attached count is how
+ * many fixtures carry its id. Nothing refuses a disagreement, because a season being set up passes through
+ * every intermediate count on the way — so showing the two together is what makes the gap visible without
+ * making the intermediate states illegal.
  *
  * **No per-row link to a matchday's fixtures**, and that is a fact about the Spielsuche rather than a gap
  * here: it searches team, venue, date, fixture number and referee, and a matchday's name is none of those,
@@ -91,7 +91,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   }));
   const phasesWithout = SAISON_PHASE_OPTIONS.filter((phase) => !byPhase.has(phase));
 
-  /** The stored expectation against what is actually attached — the one number only this list can check. */
+  /** The derived expectation against what is actually attached — the one number only this list can check. */
   const renderSpieleCount = (spieltag: AdminSpieltagRow) => {
     const matches = spieltag.spieleAngelegt === spieltag.anzahl_spiele;
     // The noun agrees with the EXPECTED count, which is the number it belongs to: a final expects one
@@ -128,7 +128,15 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
         />
       ) : (
         <RowActionDelete
-          label="Stilllegen"
+          // Not offered while the matchday holds a result: retiring it would take that result off the
+          // public Spielplan, which `REQ-RETIRE-002` refuses. The tooltip carries the reason, because a
+          // disabled control with the live wording explains nothing.
+          isDisabled={spieltag.spieleGespielt > 0}
+          label={
+            spieltag.spieleGespielt > 0
+              ? `Nicht möglich: ${spieltag.spieleGespielt === 1 ? "1 Spiel hat" : `${String(spieltag.spieleGespielt)} Spiele haben`} schon ein Ergebnis`
+              : "Stilllegen"
+          }
           ariaLabel={`Spieltag ${spieltag.name} stilllegen`}
           onPress={() => onDelete(spieltag)}
         />
@@ -169,10 +177,10 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0 ${
                   spieltag.inactive_since !== null ? "opacity-80" : ""
                 }`}>
-                {/* The ordinal and the identity share one row at EVERY width (owner, 2026-08-07). On a
-                    phone the marker used to sit on a line of its own above the name, which spent a whole
-                    row on one digit; the number belongs beside the thing it numbers. From `md` the same
-                    row is the start of the horizontal layout, so one wrapper serves both. */}
+                {/* The ordinal and the identity share one row at EVERY width (owner, 2026-08-07). A
+                    number belongs beside the thing it numbers, and giving it a phone row of its own
+                    spends a whole row on one digit. From `md` the same row is the start of the
+                    horizontal layout, so one wrapper serves both. */}
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"

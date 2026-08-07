@@ -20,7 +20,6 @@ export function AdminCreateSpieltagForm({ saisonId, onClose }: { saisonId: strin
         name: "",
         beginn: "",
         ende: "",
-        anzahl_spiele: 1,
         saison_phase: null,
         saison_id: saisonId,
       }}

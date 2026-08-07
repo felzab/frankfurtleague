@@ -5,12 +5,13 @@ import { PHASE_LABELS } from "@/features/saisons/constants";
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
 // See SpielStatusChip for why all three maps live at module scope. This one mattered more: the icon
-// map allocated four <svg> elements holding 17 children on every render to use one of them.
+// map allocates five <svg> elements and would rebuild all of them on every render to use one.
 // The tint is the label colour at 10%, not 15%: one token has to serve both roles here, and at /15
 // the deeper tint pulled `gruppenphase` and `finale` to 4.39:1 and 4.46:1 in the light theme —
 // below AA, and below what the two-value raw-palette version managed. /10 restores 4.72 and 4.87.
 const PHASE_CLASSES: Record<FLSaisonPhase, string> = {
   gruppenphase: "bg-phase-gruppenphase/10 text-phase-gruppenphase",
+  achtelfinale: "bg-phase-achtelfinale/10 text-phase-achtelfinale",
   viertelfinale: "bg-phase-viertelfinale/10 text-phase-viertelfinale",
   halbfinale: "bg-phase-halbfinale/10 text-phase-halbfinale",
   finale: "bg-phase-finale/10 text-phase-finale",
@@ -55,6 +56,35 @@ const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {
         height="6"
         rx="1"
       />
+    </svg>
+  ),
+  // Four pair-brackets narrowing to one line, against `viertelfinale`'s two below. A thinner stroke
+  // because eight entry arms in a 24-unit box cannot carry 2: what has to survive at 14px is the
+  // SILHOUETTE — a busy left edge collapsing to a single output — and the German label sits beside it.
+  achtelfinale: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="size-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+      strokeLinejoin="round">
+      <path d="M3 1.5h3v3H3" />
+      <path d="M3 7.5h3v3H3" />
+      <path d="M3 13.5h3v3H3" />
+      <path d="M3 19.5h3v3H3" />
+      <path d="M6 3h2" />
+      <path d="M6 9h2" />
+      <path d="M6 15h2" />
+      <path d="M6 21h2" />
+      <path d="M8 3v6" />
+      <path d="M8 15v6" />
+      <path d="M8 6h3" />
+      <path d="M8 18h3" />
+      <path d="M11 6v12" />
+      <path d="M11 12h4" />
     </svg>
   ),
   viertelfinale: (

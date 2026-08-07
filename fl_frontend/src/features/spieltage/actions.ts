@@ -16,9 +16,11 @@
  *     changes -- and a granular tag nothing invalidates is decoration (ADR-0001).
  *   • `spieltage` is the ONLY resource invalidated. A matchday joins into no second resource:
  *     `GET /spiele` never joins `spieltage`, which is the same fact that makes retirement safe.
- *   • There is no 409 branch anywhere here, and nothing for one to refuse: no field of a matchday is
- *     unique and none needs to be. Its place in the season is derived from the phase and the date
- *     (ADR-0064), so two matchdays cannot claim one position -- there is no position to claim.
+ *   • **Two 409s, and neither is about a unique index.** No field of a matchday is unique and none needs
+ *     to be -- its place in the season is derived (ADR-0064), so there is no position to claim. Both
+ *     refusals are about the matchday's CONTENTS, which it does not know about: retiring one that holds a
+ *     played result would take that result off the public Spielplan (`REQ-RETIRE-002`), and a phase
+ *     accounting for fewer matches than are attached would strand them (`REQ-SPIELTAG-002`).
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -27,6 +29,7 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
+import { APIBadStatusError } from "@/core/errors";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -38,6 +41,31 @@ import type { FLPatchSpieltagPayload, FLSpieltagKeyPayload, FLSpieltagWriteRespo
 import type { SpieltagCreateDraft } from "./types";
 
 const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
+
+/**
+ * The two matchday refusals in German, or `null` when the 409 is neither.
+ *
+ * `REQ-SPIELTAG-002` lands on `saison_phase`, the field that caused it; `REQ-RETIRE-002` has no field to
+ * land on -- the retire control is a dialog, not a form -- so it comes back as the dialog's error.
+ */
+function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-RETIRE-002") {
+    return {
+      error:
+        "Dieser Spieltag hat schon gespielte Partien. Stillgelegt würde er samt Ergebnissen aus dem öffentlichen Spielplan verschwinden — trage die Spiele auf einen anderen Spieltag um oder sage sie ab.",
+    };
+  }
+  if (error.serverErrorCode === "REQ-SPIELTAG-002") {
+    return {
+      fieldErrors: {
+        saison_phase: "In dieser Phase sind weniger Spiele vorgesehen, als dieser Spieltag schon enthält.",
+      },
+    };
+  }
+  return null;
+}
 
 /** Every spieltage read, in one call. Base tag only, for the reason in this module's invariants. */
 function invalidateSpieltage(): void {
@@ -94,7 +122,17 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const patchOperation = await patchSpieltag(validated.data);
+    // The phase is refused if the matchday already holds more fixtures than it accounts for
+    // (`REQ-SPIELTAG-002`), which lands on the phase field in the dialog that is still open.
+    let patchOperation;
+    try {
+      patchOperation = await patchSpieltag(validated.data);
+    } catch (error) {
+      const refusal = mapSpieltagRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      throw error;
+    }
+
     if (!patchOperation.acknowledged) {
       return { success: false, error: "Bei der Bearbeitung des Spieltags ist ein unerwarteter Fehler aufgetreten" };
     }
@@ -105,8 +143,9 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0032). The matchday's matches are
-// left alone and stay readable, which is the reason this is not a delete.
+// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0032). Its matches are left alone
+// and stay resolvable, which is the reason this is not a delete — but they do leave the public Spielplan
+// with the matchday, which is why a matchday holding a RESULT is refused (`REQ-RETIRE-002`).
 export async function deleteSpieltagAction(rawPayload: FLSpieltagKeyPayload): Promise<{
   success: boolean;
   spieltag?: FLSpieltagWriteResponse;
@@ -125,7 +164,17 @@ export async function deleteSpieltagAction(rawPayload: FLSpieltagKeyPayload): Pr
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const deleteOperation = await deleteSpieltag(validated.data);
+    // The retirement is refused while the matchday holds a result (`REQ-RETIRE-002`). It reaches the
+    // dialog rather than the error page, because the dialog is where the decision is being taken.
+    let deleteOperation;
+    try {
+      deleteOperation = await deleteSpieltag(validated.data);
+    } catch (error) {
+      const refusal = mapSpieltagRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
     if (!deleteOperation.acknowledged) {
       return { success: false, error: "Beim Stilllegen des Spieltags ist ein unerwarteter Fehler aufgetreten" };
     }

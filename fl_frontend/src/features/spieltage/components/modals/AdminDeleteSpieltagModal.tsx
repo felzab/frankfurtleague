@@ -7,13 +7,16 @@ import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
 /**
- * Retires a matchday. The write is SOFT — it stamps `inactive_since` and the document stays (ADR-0032) —
- * and the consequence line says what that buys: the matchday's matches are not touched and stay readable,
- * because `GET /spiele` never joins `spieltage`.
+ * Retires a matchday. The write is SOFT — it stamps `inactive_since` and the document stays (ADR-0032).
  *
- * The count is in the sentence rather than a generic reassurance, because the number is the reassurance:
- * "die 6 Spiele bleiben erhalten" is checkable against the row the admin just pressed, and "nichts geht
- * verloren" is not.
+ * **The consequence line says what actually happens to the fixtures, which is not "nothing".** They are
+ * untouched in the database and `GET /spiele` still returns them, but the public Spielplan builds itself
+ * from the matchdays it received and a retired one is not among them — so the fixtures leave that page
+ * with their container. That is why `REQ-RETIRE-002` refuses this while any of them carries a result, and
+ * why the list disables the control rather than letting the dialog open on a refusal.
+ *
+ * The count is in the sentence rather than a generic reassurance, because the number is what an admin can
+ * check against the row they just pressed.
  */
 export function AdminDeleteSpieltagModal({
   spieltagData,
@@ -39,7 +42,7 @@ export function AdminDeleteSpieltagModal({
       consequence={
         spieltag.spieleAngelegt === 0
           ? "Der Spieltag verschwindet aus den Listen und aus dem Spielplan."
-          : `Die ${String(spieltag.spieleAngelegt)} Spiele dieses Spieltags bleiben vollständig erhalten und bearbeitbar. Nur der Spieltag selbst verschwindet aus den Listen und aus dem Spielplan.`
+          : `Die ${String(spieltag.spieleAngelegt)} Spiele dieses Spieltags bleiben erhalten und bearbeitbar, verschwinden mit dem Spieltag aber aus dem öffentlichen Spielplan. Noch keines von ihnen hat ein Ergebnis — sonst wäre das Stilllegen nicht möglich.`
       }
       successMessage="Spieltag stillgelegt"
       onConfirm={() => deleteSpieltagAction({ id: spieltag.id })}

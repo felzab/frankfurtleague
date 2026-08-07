@@ -68,6 +68,11 @@ export function FormRolloverSection({
   const offene = rollover.offeneSpiele;
   const outgoing = rollover.outgoingSaisonId;
 
+  // An outgoing season with unplayed fixtures is what the endpoint refuses, so the control does not offer
+  // it. There is no such season to be unfinished when nothing holds `active`, which is the first rollover
+  // of a fresh database — that case stays live.
+  const isBlocked = outgoing !== null && offene.length > 0;
+
   const handleActivate = () => {
     if (!isConfirming) {
       if (!onBeforeActivate()) return;
@@ -146,14 +151,14 @@ export function FormRolloverSection({
 
             {outgoing !== null && offene.length > 0 && (
               <Callout
-                severity="warning"
+                severity="danger"
                 title={
                   offene.length === 1
                     ? `1 Spiel der Saison ${outgoing} hat noch kein Ergebnis`
                     : `${String(offene.length)} Spiele der Saison ${outgoing} haben noch kein Ergebnis`
                 }>
-                Die Umstellung ist trotzdem möglich. Die Spiele bleiben bearbeitbar, ihre Ergebnisse zählen weiter für die Tabelle von{" "}
-                {outgoing}.
+                Solange das so ist, lässt sich Saison {outgoing} nicht abschließen. Trage die fehlenden Ergebnisse ein oder sage die Spiele ab —
+                ein abgesagtes Spiel gilt als erledigt.
               </Callout>
             )}
 
@@ -170,7 +175,6 @@ export function FormRolloverSection({
                       {spiel.spielNr}
                     </span>
                     <span className="fluid-xs text-foreground min-w-0 flex-1 truncate font-semibold">{spiel.paarung}</span>
-                    {spiel.isCanceled && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted shrink-0`}>Abgesagt</span>}
                     <span className="fluid-xxs text-foreground-muted shrink-0">
                       {spiel.datum === null ? "Ohne Datum" : formatSpielDatum(spiel.datum)}
                     </span>
@@ -205,11 +209,15 @@ export function FormRolloverSection({
               </div>
             )}
 
+            {/* Disabled rather than left live to fail. The endpoint refuses the same thing
+                (`REQ-ACTIVATE-001`) and stays the authority — this only stops the page offering an act it
+                knows the answer to, which is the same division the season form's rules panel makes. The
+                list above is what makes the disabled state actionable. */}
             <div className="flex w-full flex-row flex-wrap items-center gap-3">
               <Button
                 type="button"
                 variant="primary"
-                isDisabled={isActivating}
+                isDisabled={isActivating || isBlocked}
                 onPress={handleActivate}
                 className={`${formButton({ intent: isConfirming ? "destructive" : "submit" })} flex items-center gap-x-2`}>
                 {!isConfirming && (

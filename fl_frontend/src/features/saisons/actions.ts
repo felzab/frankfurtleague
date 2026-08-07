@@ -53,6 +53,54 @@ const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 const SAISON_ID_TAKEN = "Diese Saison-ID ist bereits vergeben. Wähle eine andere oder bearbeite die vorhandene Saison.";
 
 /**
+ * The rules edit's six refusals (`REQ-RULES-001..006`), answered in German on the field the admin can act
+ * on. `null` when the 409 is none of the six, so a caller falls through to its own wording.
+ *
+ * Four land on a field and two do not: the freeze is about the whole season and the matchday overflow is
+ * about a document this form does not show, so neither has a field to sit under.
+ *
+ * Each message states what the data already is rather than what the rule forbids, because that is the
+ * part the admin has to change: "Gruppe C und D halten noch Teams" is actionable and "number_of_groups
+ * darf nicht sinken" is not. The backend `detail` carries the same fact in English for the log
+ * (docs/logging.md); this is the reader's half (ADR-0065).
+ */
+function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  switch (error.serverErrorCode) {
+    case "REQ-RULES-001":
+      return {
+        fieldErrors: {
+          "rules.qualifiers_per_group":
+            "Gruppenanzahl x Qualifizierte muss eine Zweierpotenz von 2 bis 16 ergeben, sonst lässt sich kein K.-o.-Baum spielen.",
+        },
+      };
+    case "REQ-RULES-002":
+      return { fieldErrors: { "rules.number_of_groups": "Eine Gruppe, die noch Teams hält, kann nicht wegfallen." } };
+    case "REQ-RULES-003":
+      return { fieldErrors: { "rules.teams_per_group": "Mindestens eine Gruppe hält schon mehr Teams als das neue Maximum." } };
+    case "REQ-RULES-004":
+      return {
+        fieldErrors: {
+          "rules.qualifiers_per_group": "Ein Platz im K.-o.-Baum verweist auf eine Platzierung, die dann nicht mehr erreicht wird.",
+        },
+      };
+    case "REQ-RULES-005":
+      return {
+        error:
+          "Diese Saison ist abgeschlossen. Punkte und Qualifizierte sind festgeschrieben, weil die Tabelle daraus berechnet wird — nur die Daten bleiben änderbar.",
+      };
+    case "REQ-RULES-006":
+      return {
+        error:
+          "Mit diesen Regeln wären für mindestens einen Spieltag weniger Spiele vorgesehen, als er schon enthält. Die Zahl folgt aus den Regeln, also würden die überzähligen Spiele nirgends stattfinden.",
+      };
+    default:
+      return null;
+  }
+}
+
+/**
  * What a season's own reads depend on, plus the league table.
  *
  * `teams` rather than `saisons` alone: `GET /teams` reads the season document on every call to score
@@ -94,13 +142,17 @@ export async function postSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The 409 that matters here: the id is chosen by the admin and is the document key, so a
-    // collision is an ordinary typo rather than an unexpected state. It lands as a form error because
-    // it is about what was submitted.
+    // TWO different 409s reach this call, and the code is what separates them. `REQ-RULES-001` refuses
+    // a bracket the phase set cannot hold (ADR-0065) and is checked FIRST, because the fallback below
+    // has no code to inspect: a duplicate id arrives from the unique index, so it is the 409 that is
+    // left once the named refusals are ruled out. Both land as form errors -- each is about what was
+    // submitted, and the admin fixes it in the dialog that is still open.
     let postOperation;
     try {
       postOperation = await postSaison(validated.data);
     } catch (error) {
+      const refusal = mapRulesRefusal(error);
+      if (refusal) return { success: false, error: VALIDATION_FAILED, ...refusal };
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
         return { success: false, error: SAISON_ID_TAKEN, fieldErrors: { id: SAISON_ID_TAKEN } };
       }
@@ -141,7 +193,17 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const patchOperation = await patchSaison(validated.data);
+    // All five rules refusals are reachable here (ADR-0065), and each has to reach the editor rather
+    // than the error page -- the panel the admin is looking at is where the wrong value still sits.
+    let patchOperation;
+    try {
+      patchOperation = await patchSaison(validated.data);
+    } catch (error) {
+      const refusal = mapRulesRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      throw error;
+    }
+
     if (!patchOperation.acknowledged) {
       return { success: false, error: "Bei der Bearbeitung der Saison ist ein unerwarteter Fehler aufgetreten" };
     }
@@ -159,10 +221,10 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
 /**
  * The rollover. One call, one transaction on the backend, and the only path to `status: "active"`.
  *
- * **It carries no precondition of its own, deliberately.** The all-games-finished check belongs to the
- * page, which shows what is incomplete and lets the operator proceed — the one case where someone
- * genuinely needs to activate a season is when the data is *not* in the state a rule would assume
- * (ADR-0033).
+ * **The outgoing season has to be finished** (`REQ-ACTIVATE-001`, owner, 2026-08-08). Demoting it to
+ * `past` freezes its competitive rules and makes its derived table the record of what happened, so a
+ * rollover across unplayed fixtures closes a competition that is not over. The panel disables the control
+ * and lists what is open; the endpoint refuses it, and remains the authority.
  */
 export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<{
   success: boolean;
@@ -182,7 +244,23 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const activateOperation = await activateSaison(validated.data);
+    // The rollover is refused while the OUTGOING season still has unplayed fixtures
+    // (`REQ-ACTIVATE-001`). The panel already disables the button in that case and lists them, so this is
+    // the stale-page path: the answer has to name what to do rather than be a bare failure.
+    let activateOperation;
+    try {
+      activateOperation = await activateSaison(validated.data);
+    } catch (error) {
+      if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-ACTIVATE-001") {
+        return {
+          success: false,
+          error:
+            "Die laufende Saison hat noch Spiele ohne Ergebnis. Trage sie ein oder sage die Spiele ab — ein abgesagtes Spiel gilt als erledigt. Die Liste steht im Umstellungs-Panel.",
+        };
+      }
+      throw error;
+    }
+
     if (!activateOperation.acknowledged) {
       return { success: false, error: "Bei der Umstellung der Saison ist ein unerwarteter Fehler aufgetreten" };
     }

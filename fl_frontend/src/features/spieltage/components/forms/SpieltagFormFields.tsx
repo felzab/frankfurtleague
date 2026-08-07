@@ -4,9 +4,8 @@ import { parseDate } from "@internationalized/date";
 
 import { FieldError, Input, Label, ListBox, Select, TextField } from "@heroui/react";
 
-import { SaisonDateField, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
-import { PHASE_LABELS } from "@/features/saisons/constants";
-import { SAISON_PHASE_OPTIONS } from "@/features/spieltage/constants";
+import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
+import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -15,18 +14,19 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { Key } from "@heroui/react";
 
 /**
- * The five fields a matchday carries, shared by the create and edit dialogs.
+ * The four fields a matchday carries, shared by the create and edit dialogs.
  *
  * **A dialog rather than a page, and that is the decision this file rests on.** ADR-0050's threshold is a
- * form that OUTGREW a dialog: five scalar controls, no nested object, no junction row and no lookup list
+ * form that OUTGREW a dialog: four scalar controls, no nested object, no junction row and no lookup list
  * do not reach it, and the Spielort form beside it is the same size in the same container.
  *
- * **There is no position control, and adding one would be a regression** (ADR-0064). Where a matchday
- * sits in its season is derived from `saison_phase` and `beginn`, both of which are on this form — so the
- * two fields that decide the order are the two an admin was going to fill in anyway, and a matchday
- * cannot be in the wrong place without one of them being wrong.
+ * **Neither the position nor the match count is a control, and adding either would be a regression**
+ * (ADR-0064, ADR-0065). Where a matchday sits in its season is derived from `saison_phase` and `beginn`,
+ * both of which are on this form; how many matches it expects is derived from the season's rules and that
+ * same phase. So the fields that decide both are ones an admin was going to fill in anyway, and neither
+ * derived value can be wrong without one of them being wrong.
  *
- * **The date and number controls are the season slice's**, imported rather than rewritten. A matchday's
+ * **The date control is the season slice's**, imported rather than rewritten. A matchday's
  * `beginn`/`ende` pair and a season's `start_date`/`end_date` pair are the same control doing the same
  * job, and writing a second picker is how two date fields in one admin acquire two different popovers.
  * The cross-feature import is legal: that lint is scoped to `core` and `shared` (ADR-0012).
@@ -41,7 +41,6 @@ export type SpieltagFormDraft = {
   name: string;
   beginn: string;
   ende: string;
-  anzahl_spiele: number;
   saison_phase: FLSaisonPhase | null;
 };
 
@@ -137,33 +136,27 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
             onChange={(next) => onChange({ ...draft, ende: next?.toString() ?? "" })}
           />
         </div>
+        {/* Refused by the payload schema in the browser and by the model validator at the endpoint
+            (owner, 2026-08-08). Said here too, because a matchday's `beginn` also decides where it sits
+            in the season's list — a reversed span is a matchday disagreeing with itself about that. */}
         {isEndBeforeStart && (
           <Callout
-            severity="warning"
+            severity="danger"
             title="Das Ende liegt vor dem Beginn">
-            Gespeichert wird das trotzdem, weil nichts diese Reihenfolge verlangt.
+            So lässt sich der Spieltag nicht speichern.
           </Callout>
         )}
       </div>
 
-      <div className="flex w-full flex-col gap-y-3">
-        <h3 className={FORM_SECTION_HEADING}>Umfang</h3>
-        <SaisonRuleNumberField
-          name="anzahl_spiele"
-          label={<Label className={FIELD_LABEL}>Erwartete Spiele</Label>}
-          minValue={1}
-          value={draft.anzahl_spiele}
-          onChange={(anzahl_spiele) => onChange({ ...draft, anzahl_spiele })}
-        />
-
-        {/* Where the matchday lands is not a field, so the form says which fields decide it instead
-            (ADR-0064). Without this the reader has no way to know the list's order is not arbitrary. */}
-        <Callout
-          severity="info"
-          title="Die Position ergibt sich aus Phase und Beginn">
-          Der Spieltag wird automatisch dort einsortiert. Es gibt keine Reihenfolge einzutragen: um ihn zu verschieben, ändere sein Datum.
-        </Callout>
-      </div>
+      {/* Neither the position nor the expected match count is a field, so the form names what decides
+          each of them instead (ADR-0064, ADR-0065). Without this the reader has no way to know the
+          list's order is not arbitrary, or where the `x / y` count on each row comes from. */}
+      <Callout
+        severity="info"
+        title="Position und erwartete Spiele ergeben sich von selbst">
+        Einsortiert wird nach Phase und Beginn — um den Spieltag zu verschieben, ändere sein Datum. Wie viele Spiele er umfasst, folgt aus den
+        Regeln der Saison: bei einer einfachen Hin-Runde pro Gruppe steht die Zahl fest.
+      </Callout>
     </>
   );
 }

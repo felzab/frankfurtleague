@@ -19,7 +19,9 @@ import { CustomDateStringSchema } from "@/shared/schemas";
 
 export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error: "FLSaisonStatus is invalid" });
 export type FLSaisonStatus = z.infer<typeof FLSaisonStatusSchema>;
-export const FLSaisonPhaseSchema = z.enum(["gruppenphase", "viertelfinale", "halbfinale", "finale"], { error: "FLSaisonPhase is invalid" });
+export const FLSaisonPhaseSchema = z.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"], {
+  error: "FLSaisonPhase is invalid",
+});
 export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
 
 /**
@@ -88,27 +90,39 @@ export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSche
  * German messages throughout, because these schemas bind the admin form's inputs directly and the
  * browser renders whichever one a value fails.
  */
-export const FLPostSaisonPayloadSchema = z.object({
-  // CHOSEN rather than generated, unlike every other create in the app: `saisons._id` IS the
-  // four-character string every `saison_id` in the database references, so a fifth character breaks
-  // every match and matchday that will point at this season. Digits and a slash is what a season id
-  // looks like here ("2526"), and the length is what the backend enforces.
-  id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z. B. 2526." }),
+// Mirrors the model validator on both season payloads. The message goes on `end_date`, because that is
+// the field a person changes to fix it: a season starting later than it ends is almost always a
+// mistyped end, and react-aria renders a server or client message under the input whose path it names.
+const endsAfterItStarts = {
+  error: "Das Enddatum darf nicht vor dem Startdatum liegen.",
+  path: ["end_date"],
+};
 
-  start_date: CustomDateStringSchema,
-  end_date: CustomDateStringSchema,
-  rules: FLSaisonRulesSchema,
-});
+export const FLPostSaisonPayloadSchema = z
+  .object({
+    // CHOSEN rather than generated, unlike every other create in the app: `saisons._id` IS the
+    // four-character string every `saison_id` in the database references, so a fifth character breaks
+    // every match and matchday that will point at this season. Digits and a slash is what a season id
+    // looks like here ("2526"), and the length is what the backend enforces.
+    id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z. B. 2526." }),
+
+    start_date: CustomDateStringSchema,
+    end_date: CustomDateStringSchema,
+    rules: FLSaisonRulesSchema,
+  })
+  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts);
 export type FLPostSaisonPayload = z.infer<typeof FLPostSaisonPayloadSchema>;
 
-export const FLPatchSaisonPayloadSchema = z.object({
-  // In the PATH on the wire; carried here because the editor has to know which season it is saving.
-  id: z.string().length(4),
+export const FLPatchSaisonPayloadSchema = z
+  .object({
+    // In the PATH on the wire; carried here because the editor has to know which season it is saving.
+    id: z.string().length(4),
 
-  start_date: CustomDateStringSchema,
-  end_date: CustomDateStringSchema,
-  rules: FLSaisonRulesSchema,
-});
+    start_date: CustomDateStringSchema,
+    end_date: CustomDateStringSchema,
+    rules: FLSaisonRulesSchema,
+  })
+  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts);
 export type FLPatchSaisonPayload = z.infer<typeof FLPatchSaisonPayloadSchema>;
 
 /** The rollover's argument: an id in the path and no request body at all. */

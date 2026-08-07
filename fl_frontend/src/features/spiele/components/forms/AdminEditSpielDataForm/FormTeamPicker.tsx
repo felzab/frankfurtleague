@@ -107,8 +107,8 @@ const describeFeeder = (spiel: FLSpiel): string => {
  * team picker is the whole editor. A knockout side is source-first: fed by an earlier match, seeded
  * from a group placing, or taken over manually. Only the manual answer shows a team picker; a side
  * with a source shows its occupant read-only, because the resolution maintains it and a team picked
- * against it would be reverted by the same request that reported success — the incoherence this
- * component used to permit.
+ * against it would be reverted by the same request that reported success, which is the incoherence
+ * this component declines to offer.
  *
  * **A match is picked from the season's legal feeders, never typed as a number.** The list offers
  * knockout matches of a strictly earlier round whose outcome no other slot already takes, so a

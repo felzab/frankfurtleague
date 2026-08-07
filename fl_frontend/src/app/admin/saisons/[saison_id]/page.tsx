@@ -59,16 +59,19 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   ]);
 
   /**
-   * The outgoing season's unfinished matches — the precondition the page presents and the endpoint
-   * deliberately does not enforce (ADR-0033).
+   * The outgoing season's unfinished matches — the precondition the ENDPOINT now enforces
+   * (`REQ-ACTIVATE-001`, owner, 2026-08-08), listed here so the block is actionable rather than a 409.
    *
-   * "Unfinished" is `ergebnis === null`, which is the same rule the action-required list uses for
-   * `ergebnis_pending`: a cancelled match that HAS a result is a forfeit and counts as played
-   * (ADR-0026), while one cancelled without a result genuinely has no outcome and belongs here — marked,
-   * so the operator can tell the two situations apart at a glance.
+   * **"Unfinished" is `ergebnis === null && !is_canceled`, and it mirrors `unplayed_spiel_nrs` exactly.**
+   * Cancelling is the route past the refusal, so a cancelled fixture is settled: it is what turns a match
+   * nobody will ever play into a decision somebody recorded. A cancelled match that DOES carry a result
+   * is a forfeit and counts for the table (ADR-0026), so it is settled either way.
+   *
+   * The two definitions have to agree. If this list is empty while the endpoint refuses, the page shows a
+   * live rollover button that always fails; if it is longer, the page blocks a rollover that would work.
    */
   const offeneSpiele: SaisonOffeneSpiel[] = (outgoingSpieleRes?.spiele ?? [])
-    .filter((spiel) => spiel.ergebnis === null)
+    .filter((spiel) => spiel.ergebnis === null && !spiel.is_canceled)
     .map((spiel) => ({
       id: spiel.id,
       spielNr: spiel.spiel_nr,
@@ -78,7 +81,6 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       // reads. The provenance label is deliberately not resolved here: this list exists to be recognised
       // and clicked, and the fixture's own page is where its wiring belongs.
       paarung: `${spiel.team1?.name ?? PLACEHOLDER.slot} – ${spiel.team2?.name ?? PLACEHOLDER.slot}`,
-      isCanceled: spiel.is_canceled,
     }))
     .sort((left, right) => left.spielNr - right.spielNr);
 
