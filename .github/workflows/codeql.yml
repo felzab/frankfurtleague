@@ -90,7 +90,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@v4.37.3
+        uses: github/codeql-action/init@v4.37.4
         with:
           # Covers fl_frontend.
           languages: javascript-typescript
@@ -100,7 +100,7 @@ jobs:
           # -- so start quiet and escalate on evidence, which is the same rule the audit method uses.
           # To escalate: add `queries: security-extended` here.
       - name: Analyse
-        uses: github/codeql-action/analyze@v4.37.3
+        uses: github/codeql-action/analyze@v4.37.4
 
   analyze-python:
     needs: changes
@@ -112,11 +112,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@v4.37.3
+        uses: github/codeql-action/init@v4.37.4
         with:
           # Covers fl_backend.
           languages: python
           build-mode: none
           # Same reasoning as the JavaScript job: default suite, escalate on evidence.
       - name: Analyse
-        uses: github/codeql-action/analyze@v4.37.3
+        uses: github/codeql-action/analyze@v4.37.4
