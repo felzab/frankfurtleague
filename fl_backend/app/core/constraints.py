@@ -96,17 +96,24 @@ _INT_OR_NULL = ["int", "null"]
 # scheduled purge possible; the boolean alone could only say "eventually" (open item BE-12).
 _INACTIVE_SINCE = {"bsonType": _STRING_OR_NULL}
 
-# The three enumerations that are already closed sets in Python. Spelled out rather than derived from
-# the `Literal`s: importing the models here would make this module depend on every API slice, and the
+# The enumerations that are already closed sets in Python. Spelled out rather than derived from the
+# `Literal`s: importing the models here would make this module depend on every API slice, and the
 # values are stored strings whose spelling is the contract.
+#
+# What keeps each copy in step is `test_every_validator_enum_matches_its_literal`, which imports both
+# sides and compares them member by member -- the field-name drift check two doors down does NOT reach
+# enum values, so a renamed member would otherwise be caught by nothing until a live write was refused.
 _SAISON_PHASEN = ["gruppenphase", "viertelfinale", "halbfinale", "finale"]
 _SAISON_STATUS = ["past", "active", "future"]
 _GRUPPEN = ["A", "B", "C", "D"]
-# The two ways a bracket slot is fed, and the two outcomes a match-fed one can name. Spelled out here
-# rather than imported from `FLSpielQuelle`: this module imports nothing from `app.api` on purpose
-# (ADR-0031), so the drift check in the test suite is what keeps the two copies in step.
+# The two ways a bracket slot is fed, and the two outcomes a match-fed one can name.
 _QUELLE_TYPES = ["gruppe", "spiel"]
 _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
+# A squad row's position and school level (ADR-0061). Both are NULLABLE -- a squad is filled in over
+# time and an unanswered field is null rather than a placeholder string -- so `None` is a member of
+# each list, which is what lets the `enum` keyword stand beside a nullable `bsonType`.
+_POSITIONEN = ["Tor", "Abwehr", "Mittelfeld", "Angriff"]
+_STUFEN = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
 
 def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
@@ -350,12 +357,11 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # instead of this reference: unique, well-formed, and wrong.
                 "team_id": {"bsonType": "objectId"},
                 "is_nachgetragen": {"bsonType": "bool"},
-                # Typed, not enumerated. Both are free text and have already split -- `Sturm` and
-                # `Angriff` name the same position in the live data -- so a closed set here would
-                # reject rows that exist. FB-3 is where they become one, in the same change that
-                # normalises the strays.
-                "stufe": {"bsonType": _STRING_OR_NULL},
-                "position": {"bsonType": _STRING_OR_NULL},
+                # Closed sets, both nullable while a squad entry is still being filled in (ADR-0061).
+                # This validator is what makes the sets true of the DATA rather than only of the write
+                # path: squads are also hand-edited in MongoDB, where no Pydantic model runs.
+                "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
+                "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
                 # A STRING, not an int. Squad numbers are worn, not counted.
                 "nummer": {"bsonType": _STRING_OR_NULL},
                 # This row is retired, and `uniq_spieler_id_saison_id` keeps indexing it -- so a second

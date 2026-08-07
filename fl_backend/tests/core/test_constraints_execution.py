@@ -84,7 +84,9 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "team_id": TEAM_OID,
             "is_nachgetragen": False,
             "stufe": "Q2",
-            "position": "Sturm",
+            # `Angriff`, not `Sturm`: the two named the same position and the set closed on this one
+            # (ADR-0061). A "valid document" spelling it the other way is one the validator refuses.
+            "position": "Angriff",
             "nummer": "10",
             "inactive_since": None,
         },

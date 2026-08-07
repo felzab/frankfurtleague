@@ -101,6 +101,30 @@ class TestSpieler:
         """The other four are nullable, because squads are filled in over time. Consumers must handle every one."""
         assert getattr(FLSpieler.model_validate(spieler(**{field: None})), field) is None
 
+    # ADR-0061 closed both sets. Nullable is not the same as open: a missing answer is null, and a
+    # value outside the set is a document nothing may store.
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            # The two spellings the live data had split into, and which the runbook normalised away.
+            ("position", "Sturm"),
+            ("position", "TW"),
+            # A placeholder somebody typed where null already meant the same thing.
+            ("position", "?"),
+            ("stufe", "??"),
+            # Outside the Oberstufe, which is where the set stops.
+            ("stufe", "10"),
+        ],
+    )
+    def test_rejects_a_position_or_stufe_outside_its_closed_set(self, spieler, field, value):
+        """A second spelling of a position the league already has is the failure mode ADR-0061 closes."""
+        with pytest.raises(ValidationError):
+            FLSpieler.model_validate(spieler(**{field: value}))
+
+    def test_accepts_the_stufe_no_row_holds_yet(self, spieler):
+        """`E2` is offered although the current season has nobody in it — the phases run in sequence."""
+        assert FLSpieler.model_validate(spieler(stufe="E2")).stufe == "E2"
+
 
 class TestSpieltag:
     def test_accepts_a_valid_spieltag(self, spieltag):
