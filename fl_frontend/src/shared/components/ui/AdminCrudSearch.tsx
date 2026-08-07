@@ -21,7 +21,10 @@ export function AdminCrudSearch({ searchLabel, searchPlaceholder }: { searchLabe
       placeholder={searchPlaceholder}
       value={inputValue}
       onChange={setInputValue}
-      className="w-full sm:max-w-md"
+      // `flex-1 min-w-0` below `sm`: the bar fills whatever the joined plus-trigger leaves of the
+      // row; from `sm` the familiar capped width returns.
+      className="min-w-0 flex-1 sm:max-w-md"
+      attachEnd
     />
   );
 }

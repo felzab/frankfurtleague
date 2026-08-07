@@ -168,9 +168,12 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 <span className="fluid-sm text-foreground truncate font-semibold">{team.name}</span>
                 <span className="fluid-xs text-foreground-muted truncate">{team.full_name}</span>
               </div>
-              {team.selected && <span className="fluid-sm text-foreground ml-auto shrink-0 font-semibold">Gruppe {team.selected.gruppe}</span>}
             </div>
-            {renderStatusBadges(team)}
+            {/* Group and status share the row below the identity (owner, 2026-08-07). */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              {team.selected && <span className="fluid-sm text-foreground shrink-0 font-semibold">Gruppe {team.selected.gruppe}</span>}
+              {renderStatusBadges(team)}
+            </div>
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(team)}</div>
           </div>
         ))}
@@ -186,16 +189,19 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                   className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
                   Team
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                {/* The three data columns are PINNED to their content's width with one px-3 inset
+                each, so every value sits the same distance from its neighbour and the leftover
+                width all goes to the name column (owner, 2026-08-07 — auto layout had been handing
+                the spare width to Kürzel and Status while Gruppe got none). */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Kürzel
                 </Table.Column>
                 {/* Season-scoped columns; WHICH season is the sidemenu selector's, stated by the page
-                context rather than repeated per header (owner, 2026-08-07). Narrow: one letter and
-                one badge do not earn a text column's width. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-16 border-b px-3 py-4 font-bold tracking-wider uppercase">
+                context rather than repeated per header (owner, 2026-08-07). */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Gruppe
                 </Table.Column>
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-3 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-40 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Status
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
@@ -227,7 +233,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                         </div>
                       </Table.Cell>
 
-                      <Table.Cell className="px-6 py-4">
+                      <Table.Cell className="px-3 py-4">
                         {/* The TeamCard's chip colour, so the Kürzel wears one tint on the admin surface
                         and the public one (owner, 2026-08-07). */}
                         {/* Fixed width, sized to the widest pair: WW measures 54.4px at this font with

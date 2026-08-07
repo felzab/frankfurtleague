@@ -78,6 +78,23 @@ export type TeamSaisonMembership = {
 export type TeamSaisonContext = Pick<TeamSaisonMembership, "saisonId" | "saisonStatus">;
 
 /**
+ * One group's fill state in one season, derived from the season's `rules` and the memberships read
+ * (`buildGruppeOffer`). The pickers disable a full group; the junction write's refusal
+ * (REQ-ENTER-003) stays authoritative.
+ */
+export type GruppeOffer = {
+  gruppe: FLGruppenNames;
+  occupied: number;
+  capacity: number;
+};
+
+/** One PLANNED season the create form may enter a team into, with its groups' fill state. */
+export type TeamCreateSaisonOption = {
+  saisonId: string;
+  offer: GruppeOffer[];
+};
+
+/**
  * One row of the admin club list: EVERY club across every season, carrying the selected season's
  * junction data where the club is entered there (owner, 2026-08-07 — the list is club-centric, the
  * season columns follow the sidemenu selector). Assembled by the page from the per-season reads,

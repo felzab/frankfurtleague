@@ -27,7 +27,7 @@ import { TeamRail } from "./TeamRail";
 
 import type { FLGruppenNames, FLPatchSaisonTeamPayload, FLPatchTeamPayload, FLPostTeamPayload, FLTeamRecord } from "@/features/teams/schemas";
 import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
-import type { TeamSaisonMembership } from "@/features/teams/types";
+import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
@@ -92,6 +92,7 @@ export function AdminTeamEditForm({
   saison,
   today,
   gruppeLocked,
+  gruppeOffer,
   registerRequestLeave,
   pageHeader,
 }: {
@@ -101,6 +102,8 @@ export function AdminTeamEditForm({
   today: string;
   /** The page's answer to "may the group move": season not `future` and fixtures exist (owner's rule). */
   gruppeLocked: boolean;
+  /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
+  gruppeOffer: readonly GruppeOffer[];
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
@@ -497,6 +500,7 @@ export function AdminTeamEditForm({
 
                 <FormSaisonSection
                   saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus }}
+                  gruppeOffer={gruppeOffer}
                   gruppeLock={{
                     locked: gruppeLocked,
                     reason:

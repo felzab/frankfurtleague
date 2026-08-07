@@ -133,6 +133,16 @@ The team create is **one action over two requests** — `POST /teams`, then
 join (I11 there): a club created without a junction row would be invisible to the very list the
 create form sits on, with no surface left that could give it one.
 
+**Season entry is offered only where the backend would take it.** The create form and the club
+editor's Aufnehmen affordance offer only `future` seasons, and their group picker
+(`fl_frontend/src/features/teams/components/forms/GruppeSelect.tsx :: offer`) shows each offered
+group's fill state with full ones disabled — derived by
+`fl_frontend/src/features/teams/utils.ts :: buildGruppeOffer` from the season's `rules` and the
+memberships read. The junction write's refusals (`REQ-ENTER-001..003`,
+[`docs/logging.md`](../logging.md)) stay authoritative;
+`fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal` turns each into its German answer, on
+the group field where the group is what was refused.
+
 **Every mutation addresses its resource with the id in the PATH** — `PATCH /spielorte/{id}`,
 `DELETE /schiedsrichter/{id}`, `PATCH /spiele/{spiel_id}`. There is no admin-prefixed route namespace,
 and adding one would split a resource's writes from its reads

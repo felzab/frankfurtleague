@@ -32,10 +32,12 @@ export function AdminCrudShell({
 }) {
   return (
     <div className="max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
-      {/* One row (owner, 2026-08-07): with the page descriptions gone, nothing separates the search
-          from the create trigger, and neither depends on the resource list — the whole row paints
-          before the table streams in. Stacked on a phone, side by side from `sm`. */}
-      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* One row at EVERY width (owner, 2026-08-07): neither half depends on the resource list, so
+          the whole row paints before the table streams in. Below `sm` the two are one joined
+          control — the search bar with the create trigger as its bare-plus continuation (no gap,
+          shared seam; the corner and label flattening live in `SearchBar` and `formButton`'s
+          trigger). From `sm` they separate into the familiar search-left, button-right row. */}
+      <div className="flex w-full flex-row items-center gap-0 sm:justify-between sm:gap-3">
         {search}
         {createModal}
       </div>

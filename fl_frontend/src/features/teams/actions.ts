@@ -64,6 +64,25 @@ function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string):
   updateTag(`${resource}:saison_id:${saisonId}`);
 }
 
+/**
+ * The junction write's three refusals (REQ-ENTER-001..003), each answered in German where the admin
+ * can act on it: the season gate as a form error, the two group gates on the picker itself. `null`
+ * when the error is not one of the three, so callers fall through to their own 409 wording.
+ */
+function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+  if (error.serverErrorCode === "REQ-ENTER-001") {
+    return { error: "Teams können nur in eine geplante Saison aufgenommen werden." };
+  }
+  if (error.serverErrorCode === "REQ-ENTER-002") {
+    return { fieldErrors: { gruppe: "Diese Gruppe gibt es in der gewählten Saison nicht." } };
+  }
+  if (error.serverErrorCode === "REQ-ENTER-003") {
+    return { fieldErrors: { gruppe: "Diese Gruppe ist bereits voll." } };
+  }
+  return null;
+}
+
 export async function postTeamAction(
   // The DRAFT shape, not the parsed payload: the form may submit `gruppe: null` from an untouched
   // picker, and the schema below is what turns that into a field error rather than a type error.
@@ -104,12 +123,18 @@ export async function postTeamAction(
     // the whole form would then 409 on the shorthand of the club just created.
     try {
       await postSaisonTeam({ team_id: postOperation.created_id, saison_id, gruppe });
-    } catch {
+    } catch (error) {
       updateTag("teams");
+      // A capacity refusal names its reason; the form pre-filters seasons and groups, so reaching
+      // one here means the picture changed under the form. Either way the club now EXISTS without a
+      // season, so the message says so instead of pretending nothing happened.
+      const refusal = mapEntryRefusal(error);
+      const reason = refusal?.error ?? refusal?.fieldErrors?.gruppe;
       return {
         success: false,
-        error:
-          "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Es ist dadurch auf keiner Seite sichtbar. Bitte melde dies dem Betreiber, bevor Du es erneut versuchst.",
+        error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${
+          reason ? `: ${reason}` : "."
+        } Es ist dadurch auf keiner Seite sichtbar. Bitte melde dies dem Betreiber, bevor Du es erneut versuchst.`,
       };
     }
 
@@ -262,14 +287,18 @@ export async function postSaisonTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // One row per team per season, held by a unique index -- so this 409 means "already entered",
-    // which deserves its own words rather than the generic conflict message.
+    // A 409 here is one of the capacity refusals (REQ-ENTER-001..003) or the unique index saying
+    // "already entered" -- each deserves its own words rather than the generic conflict message.
     let saisonTeam;
     try {
       saisonTeam = await postSaisonTeam(validated.data);
     } catch (error) {
+      const refusal = mapEntryRefusal(error);
+      if (refusal !== null) {
+        return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      }
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
-        return { success: false, error: "Diese Mannschaft ist bereits in dieser Saison. Bitte lade die Seite neu." };
+        return { success: false, error: "Dieses Team ist bereits in dieser Saison. Bitte lade die Seite neu." };
       }
       throw error;
     }

@@ -56,8 +56,13 @@ export const formButton = tv({
       // This pair holds one value in both themes and measures 6.47:1 (owner, 2026-08-01, closing the
       // decision this line was waiting on).
       destructive: "bg-danger-solid text-danger-solid-foreground shadow-danger/25 tracking-wide shadow-lg",
-      /** The "Neuen X anlegen" page-header buttons — taller to match the search bar beside them. */
-      trigger: "bg-brand-solid text-brand-solid-foreground h-12 font-bold shadow-sm",
+      /** The "Neuen X anlegen" page-header buttons. The height MIRRORS `SearchBar`'s group
+       * (`h-12 lg:h-15`) at every breakpoint — the two share the CRUD header row, and one growing
+       * without the other is the mismatch the owner reported. Below `sm` the trigger is the bare
+       * plus continuing the search bar (owner, 2026-08-07): its left corners flatten onto the
+       * bar's right edge, and each modal hides its label text at that width. */
+      trigger:
+        "bg-brand-solid text-brand-solid-foreground flex h-12 shrink-0 items-center justify-center gap-x-2 font-bold shadow-sm max-sm:rounded-l-none max-sm:px-4 lg:h-15",
     },
     /** For forms whose submit is the only control — the sign-in tabs have no "Abbrechen" beside it. */
     fullWidth: { true: "flex w-full items-center justify-center" },

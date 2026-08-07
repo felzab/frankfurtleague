@@ -27,6 +27,12 @@ export const FLSaisonRulesSchema = z.object({
   // default on either side: a season that has never carried it must fail loudly rather than seed a
   // bracket from a number nobody chose.
   qualifiers_per_group: z.int().positive(),
+  // The season's capacity (owner, 2026-08-07): it runs the first `number_of_groups` of the closed
+  // A-D set — the `.max(4)` — and each group takes `teams_per_group` rows. Required for the same
+  // reason as the line above; the junction write refuses an entry outside these bounds
+  // (REQ-ENTER-001..003).
+  number_of_groups: z.int().positive().max(4),
+  teams_per_group: z.int().positive(),
 });
 
 export const FLSaisonSchema = z.object({

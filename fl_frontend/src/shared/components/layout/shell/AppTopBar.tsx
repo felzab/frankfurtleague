@@ -101,19 +101,19 @@ export function AppTopBar({
         {/* `truncate` and not wrap: the bar is a fixed height, so a title that wrapped would be
             clipped mid-letter rather than pushed onto a second line. Every label in the two nav
             structures fits at every width the app supports; this is the guard for the next one. */}
-        <h1 className="fluid-base text-foreground min-w-0 truncate font-semibold tracking-wide">{title}</h1>
-
-        {/* One glyph per page, and the shell owns it so no view has to remember to add one.
-            `InfoHint` rather than `IconTooltip`, for the reason it is used everywhere else in the
-            app: react-aria's tooltip opens on hover and focus and deliberately never on tap, so on a
-            phone it would be unreachable. */}
-        {/* **Never squeezed out, whatever the title does.** The heading truncates and this does not:
-            on a phone the name is the part that can afford to lose its tail, and the glyph is the
-            part that would otherwise leave the page with no explanation at all. `shrink-0` on the
-            wrapper rather than trusting the trigger's own, because what flexes here is whatever
-            `Popover` renders around it. */}
-        {hint && (
-          <span className="shrink-0">
+        {/* The glyph lives INSIDE the h1, on the text's own baseline — the exact placement the
+            editors' panel headings use, and the one where an icon truly aligns with text (owner,
+            2026-08-07: closer to the title, aligned like the Spiel editor). It inherits the h1's
+            font size, so `InfoHint`'s 1em icon matches, and its own `ms-1.5` is the whole gap. A
+            title long enough to truncate would clip it — the fits-at-every-width guarantee above is
+            what rules that out. */}
+        <h1 className="fluid-base text-foreground min-w-0 truncate font-semibold tracking-wide">
+          {title}
+          {/* One glyph per page, and the shell owns it so no view has to remember to add one.
+              `InfoHint` rather than `IconTooltip`, for the reason it is used everywhere else in the
+              app: react-aria's tooltip opens on hover and focus and deliberately never on tap, so
+              on a phone it would be unreachable. */}
+          {hint && (
             <InfoHint label={`Was auf „${title}“ zu finden ist`}>
               {/* Three levels, always in this order: the page's name, one sentence saying what it is
                 for, then the things on it — each as a bold term and its explanation. The term is what
@@ -126,15 +126,15 @@ export function AppTopBar({
                 <ul>
                   {hint.points.map((point) => (
                     <li key={point.term}>
-                      <strong>{point.term}</strong> — {point.detail}
+                      <strong>{point.term}</strong>: {point.detail}
                     </li>
                   ))}
                 </ul>
               )}
               {hint.note && <p className="text-foreground-muted">{hint.note}</p>}
             </InfoHint>
-          </span>
-        )}
+          )}
+        </h1>
 
         {/* **The two account controls, inline and not behind a menu** (owner). They lived in the
             sidemenu's footer, where on a phone they sat behind a shut drawer — so the appearance

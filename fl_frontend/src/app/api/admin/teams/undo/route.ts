@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (club !== undefined) {
       const operation = await patchTeam(club);
       if (!operation.acknowledged) {
-        return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Bitte prüfe die Vereinsdaten." };
+        return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Bitte prüfe die Teamdaten." };
       }
     }
 

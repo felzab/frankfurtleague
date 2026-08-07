@@ -569,15 +569,17 @@ html:has([data-app-shell]) {
      inside `:is()`, and because the list is forgiving the browser drops that one arm silently — the
      rule then compiles, ships and does nothing, which is exactly how this fix failed its first
      verification. */
-  &:is(
-      :focus,
-      :focus-visible,
-      :focus-within,
-      [data-focused="true"],
-      [data-focus-visible="true"],
-      [data-focus-within="true"],
-      [aria-expanded="true"]
-    ):not([data-invalid="true"]),
+  /* `[data-border-on-open="true"]` opts a trigger out of the FOCUS arms while keeping the
+     open-state arm: react-aria restores focus to a trigger when its popover dismisses — after the
+     exit animation, so no blur scheduled at close time can beat it — and the restored focus kept
+     the brand border on a control the user had just clicked away from. The season selector is the
+     one bearer (owner, 2026-08-07: brand only while open, the resting border always otherwise).
+     A keyboard user still gets an indicator: with these arms skipped, the ring suppression below
+     is skipped too, so HeroUI's own focus-visible ring shows — the app's standard one. */
+  &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
+      [data-invalid="true"]
+    ):not([data-border-on-open="true"]),
+  &[aria-expanded="true"]:not([data-invalid="true"]),
   &:has([aria-expanded="true"]):not([data-invalid="true"]) {
     --tw-ring-shadow: 0 0 #0000;
     border-color: var(--accent-brand);

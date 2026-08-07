@@ -15,7 +15,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLTeamRecord } from "@/features/teams/schemas";
-import type { TeamSaisonMembership } from "@/features/teams/types";
+import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 
 /**
  * The whole body of `/admin/teams/[team_id]` — who the club is, then the form that edits it, in the
@@ -31,11 +31,14 @@ export function AdminTeamEditView({
   team,
   saison,
   gruppeLocked,
+  gruppeOffer,
   today,
 }: {
   team: FLTeamRecord;
   saison: TeamSaisonMembership;
   gruppeLocked: boolean;
+  /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
+  gruppeOffer: readonly GruppeOffer[];
   today: string;
 }) {
   const router = useRouter();
@@ -61,6 +64,7 @@ export function AdminTeamEditView({
         saison={saison}
         today={today}
         gruppeLocked={gruppeLocked}
+        gruppeOffer={gruppeOffer}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;
         }}

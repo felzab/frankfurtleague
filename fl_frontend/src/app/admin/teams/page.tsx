@@ -1,17 +1,18 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getCurrentSaison, getSaisons } from "@/features/saisons/queries";
+import { getSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { AdminCreateTeamModal } from "@/features/teams/components/modals/AdminCreateTeamModal";
 import { AdminTeamsView } from "@/features/teams/components/views/AdminTeamsView";
 import { TEAMS_CRUD_COPY } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
+import { buildGruppeOffer } from "@/features/teams/utils";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-import type { AdminTeamRow } from "@/features/teams/types";
+import type { AdminTeamRow, TeamCreateSaisonOption } from "@/features/teams/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 // Not async, so the chrome never waits on the team list — the pattern of the two sibling pages.
@@ -44,14 +45,23 @@ export default function AdminTeamsPage(props: NextPageProps) {
 async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const requestedSaisonId = await resolveSaisonId(searchParams);
-  const [saisonsRes, currentSaisonRes] = await Promise.all([getSaisons(), getCurrentSaison()]);
+  const [saisonsRes, membershipsRes] = await Promise.all([getSaisons(), getTeamMemberships()]);
+
+  // Only PLANNED seasons are offered (owner, 2026-08-07): a team enters a season before it starts.
+  // Each carries its groups' fill state, so the form can disable a full group up front.
+  const allMemberships = membershipsRes.teams.map((team) => team.memberships);
+  const saisonOptions: TeamCreateSaisonOption[] = saisonsRes.saisons
+    .filter((saison) => saison.status === "future")
+    .map((saison) => ({ saisonId: saison.id, offer: buildGruppeOffer(saison.id, saison.rules, allMemberships) }));
+
+  // The viewed season when it is planned — at rollover time that is where a new club belongs —
+  // else the first planned one.
+  const defaultSaisonId = saisonOptions.find((option) => option.saisonId === requestedSaisonId)?.saisonId ?? saisonOptions[0]?.saisonId ?? null;
 
   return (
     <AdminCreateTeamModal
-      saisons={saisonsRes.saisons}
-      // The create defaults to the season being VIEWED — at rollover time that is the future season
-      // the admin has just switched to, which is exactly where a new club belongs.
-      currentSaisonId={requestedSaisonId ?? currentSaisonRes.saison.id}
+      saisonOptions={saisonOptions}
+      defaultSaisonId={defaultSaisonId}
     />
   );
 }

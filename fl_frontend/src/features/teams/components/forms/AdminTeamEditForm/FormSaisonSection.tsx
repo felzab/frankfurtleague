@@ -18,7 +18,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { TeamFieldLabel } from "./TeamFieldLabel";
 
 import type { FLGruppenNames } from "@/features/teams/schemas";
-import type { TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
+import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
 
 /** The season's own state, said in one badge beside its id. */
 function SaisonBadge({ status }: { status: TeamSaisonContext["saisonStatus"] }) {
@@ -37,13 +37,18 @@ function SaisonBadge({ status }: { status: TeamSaisonContext["saisonStatus"] }) 
  * `future` or the club has no fixture in it yet (owner's rule, 2026-08-07). A locked group is a
  * read-only row naming why; a legal swap of two clubs is a future control, not this select.
  *
- * A club NOT in the season gets exactly one affordance: entering it, with a group. It fires its own
- * action immediately rather than joining the save bar — entering a season is an event, not a field
- * edit, and it is what creates the row the rest of this panel edits.
+ * A club NOT in the season gets exactly one affordance — entering it, with a group — and only while
+ * the season is `future` (owner, 2026-08-07): a season's field is settled before it starts, so a
+ * running or past season shows why there is nothing to do instead. The picker offers the season's
+ * own groups with their fill state, full ones disabled; `POST /teams/{team_id}/saisons` refuses the
+ * same shapes (REQ-ENTER-001..003) and stays authoritative. Entering fires its own action
+ * immediately rather than joining the save bar — it is an event, not a field edit, and it is what
+ * creates the row the rest of this panel edits.
  */
 export function FormSaisonSection({
   saison,
   gruppeLock,
+  gruppeOffer,
   isMember,
   gruppe,
   onGruppeChange,
@@ -52,6 +57,8 @@ export function FormSaisonSection({
 }: {
   saison: TeamSaisonContext;
   gruppeLock: TeamGruppeLock;
+  /** The season's groups with their fill state (`buildGruppeOffer`) — what the pickers may offer. */
+  gruppeOffer: readonly GruppeOffer[];
   isMember: boolean;
   gruppe: FLGruppenNames | null;
   onGruppeChange: (next: FLGruppenNames) => void;
@@ -120,6 +127,7 @@ export function FormSaisonSection({
                       onGruppeChange(next);
                       onValidateSelection(["gruppe"], { gruppe: next });
                     }}
+                    offer={gruppeOffer}
                     withOwnLabel={false}
                   />
                 </div>
@@ -135,17 +143,18 @@ export function FormSaisonSection({
               )}
             </>
           )
-        ) : (
+        ) : saison.saisonStatus === "future" ? (
           <div className="flex w-full flex-col gap-y-4">
             <Callout
               severity="info"
               title={`Nicht in Saison ${saison.saisonId}`}>
-              Ohne Aufnahme erscheint die Mannschaft in dieser Saison auf keiner Seite, weder in einer Tabelle noch in einer Auswahlliste.
+              Ohne Aufnahme erscheint das Team in dieser Saison auf keiner Seite, weder in einer Tabelle noch in einer Auswahlliste.
             </Callout>
             <div className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,15rem)_auto]">
               <GruppeSelect
                 value={gruppe}
                 onChange={onGruppeChange}
+                offer={gruppeOffer}
               />
               <Button
                 type="button"
@@ -157,6 +166,15 @@ export function FormSaisonSection({
               </Button>
             </div>
           </div>
+        ) : (
+          // No entry affordance at all outside a planned season (owner, 2026-08-07): a season's
+          // field is settled before it starts. The junction write refuses the same (REQ-ENTER-001).
+          <Callout
+            severity="info"
+            title={`Nicht in Saison ${saison.saisonId}`}>
+            Teams können nur in eine geplante Saison aufgenommen werden. Diese Saison
+            {saison.saisonStatus === "active" ? " läuft bereits" : " ist beendet"}, ihr Teilnehmerfeld steht fest.
+          </Callout>
         )}
       </div>
     </section>

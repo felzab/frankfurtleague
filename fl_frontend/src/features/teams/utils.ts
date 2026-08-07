@@ -17,7 +17,35 @@
  *   docs/_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md
  */
 
-import type { FLTeam } from "./schemas";
+import { GRUPPEN_OPTIONS } from "./constants";
+
+import type { FLSaison } from "@/features/saisons/schemas";
+import type { FLTeam, FLTeamMembership } from "./schemas";
+import type { GruppeOffer } from "./types";
+
+/**
+ * One season's groups with their fill state, for the entry and move pickers.
+ *
+ * The backend's `offered_gruppen` + `find_entry_refusal` read on the memberships read: the season
+ * runs the first `rules.number_of_groups` of the closed set, each taking `rules.teams_per_group`
+ * rows, and every junction row counts — a disqualified team never leaves its season (ADR-0033), so
+ * its place stays taken. The pickers disable what `POST /teams/{team_id}/saisons` would refuse
+ * (REQ-ENTER-002/003), which stays the authoritative check.
+ */
+export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], memberships: readonly FLTeamMembership[][]): GruppeOffer[] => {
+  const occupied = new Map<string, number>();
+  for (const teamMemberships of memberships) {
+    for (const membership of teamMemberships) {
+      if (membership.saison_id === saisonId) occupied.set(membership.gruppe, (occupied.get(membership.gruppe) ?? 0) + 1);
+    }
+  }
+
+  return GRUPPEN_OPTIONS.slice(0, rules.number_of_groups).map((gruppe) => ({
+    gruppe,
+    occupied: occupied.get(gruppe) ?? 0,
+    capacity: rules.teams_per_group,
+  }));
+};
 
 /**
  * Whether a row can hold a `Platz` at all, read on the table as it stands.

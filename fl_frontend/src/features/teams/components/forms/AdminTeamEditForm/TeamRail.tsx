@@ -65,7 +65,7 @@ export function TeamRail({ banners }: { banners: readonly TeamRailBanner[] }) {
             {bannerCount === 0 && <span className={`${COUNT_BADGE} bg-success/15 text-success-strong`}>0</span>}
           </span>
         }
-        info={<InfoHint label="Was die Hinweise bedeuten">Alle Warnungen zu diesem Verein an einem Ort, auch die aus dem Formular.</InfoHint>}>
+        info={<InfoHint label="Was die Hinweise bedeuten">Alle Warnungen zu diesem Team an einem Ort, auch die aus dem Formular.</InfoHint>}>
         {bannerCount === 0 ? (
           <p className="fluid-xs text-foreground-muted font-medium">Keine Hinweise.</p>
         ) : (

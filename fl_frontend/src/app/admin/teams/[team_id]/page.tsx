@@ -8,6 +8,7 @@ import { getSpiele } from "@/features/spiele/queries";
 import { AdminTeamEditView } from "@/features/teams/components/views/AdminTeamEditView";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
+import { buildGruppeOffer } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -74,6 +75,14 @@ async function AdminTeamEditContent({
     membership: membership === null ? null : { gruppe: membership.gruppe, disqualifikation: membership.disqualifikation },
   };
 
+  // What the group pickers may offer: the season's own groups with their fill state, counted over
+  // the same memberships read (owner, 2026-08-07 — a team enters only a group with space).
+  const gruppeOffer = buildGruppeOffer(
+    selectedSaison.id,
+    selectedSaison.rules,
+    membershipsRes.teams.map((candidate) => candidate.memberships),
+  );
+
   return (
     // Keyed by the state the drafts mirror — the match editor's reason: the same route pattern
     // reconciles in place, and a saved team must reopen with its saved values.
@@ -82,6 +91,7 @@ async function AdminTeamEditContent({
       team={team}
       saison={saison}
       gruppeLocked={gruppeLocked}
+      gruppeOffer={gruppeOffer}
       today={getGermanTodayStr()}
     />
   );
