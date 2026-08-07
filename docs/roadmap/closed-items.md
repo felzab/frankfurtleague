@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `05ac046`, 2026-08-07
+**Verified against:** `e9577cd`, 2026-08-07
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -54,6 +54,7 @@ OPS-6 and OPS-7 are both retired here.
 | 26  | FE-11 | A toast could not be dismissed without a hover, and every message shared a four-second clock | FE          | S      | — (ADR-0051 shaped it)     | [`cc55487`](https://github.com/felzab/frankfurtleague/commit/cc55487) |
 | 27  | FE-12 | An eight-section accordion ordered by how the categories happened to be declared             | FE          | M      | — (its links had a target) | [`68ac42d`](https://github.com/felzab/frankfurtleague/commit/68ac42d) |
 | 28  | FB-2  | A team could only **be** disqualified, with no record of why or from when                    | FE, BE, DB  | M      | —                          | [`3669cc7`](https://github.com/felzab/frankfurtleague/commit/3669cc7) |
+| 29  | FB-5  | The Spiel cards were the one surface a disqualification could not reach                      | FE, BE      | S      | — (FB-2 shaped the field)  | [`3287df2`](https://github.com/felzab/frankfurtleague/commit/3287df2) |
 
 ## What each one produced
 
@@ -206,3 +207,10 @@ no row here — its commit is the whole story.
   code a closed set of offence categories could cite. It unblocked **FB-5** (the field shape it was
   waiting on) and **FE-3** (the note it renders), and it left a three-step production data change the
   ADR carries as a runbook. It opened nothing.
+- **FB-5** → no ADR: ADR-0028 rule 4 had already settled that the state is joined rather than embedded,
+  and ADR-0059 had settled its shape, so what was left was the build. It carried one decision worth
+  naming, and the models carry it: `spiele` now has a stored shape and a served shape, because one
+  class served the read and the admin payload both, and a joined field on it would have been persisted
+  by the next edit. It closed no other item and opened none; it left **FB-3** an obligation, recorded
+  in that entry — a junction write now changes what `GET /spiele` returns, so its action must
+  invalidate `spiele` as well as `teams`.
