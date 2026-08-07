@@ -166,8 +166,10 @@ export function ConfirmDeleteModal({
 
       {/* The same footer band as every other modal, from the same constant (owner, 2026-08-07):
           a separator that reaches the dialog's edges, then the buttons. `justify-evenly` rather than
-          the old `justify-end`, so the pair sits exactly as it does in the create and edit forms. */}
-      <div className={`${MODAL_FOOTER} mt-6 flex w-full flex-row items-center justify-evenly gap-3`}>
+          the old `justify-end`, so the pair sits exactly as it does in the create and edit forms.
+          No width here — `MODAL_FOOTER` declares its own, and a `w-full` beside it wins on source
+          order and pulls the band 2rem narrow, which is what made this dialog asymmetric. */}
+      <div className={`${MODAL_FOOTER} mt-6 flex flex-row items-center justify-evenly gap-3`}>
         <Button
           type="button"
           variant="secondary"
