@@ -14,7 +14,8 @@ import type { ReactNode } from "react";
  * and are ~87% identical once the domain nouns are folded out.
  *
  * Generic rather than two thin siblings (owner decision, 2026-07-30): a third admin resource would
- * otherwise be a third copy, and here it costs a `renderTable` plus two modal renderers.
+ * otherwise be a third copy, and here it costs a `renderTable` plus up to two modal renderers — both
+ * of which are optional, because a resource may edit on a page and may have nothing to delete.
  *
  * The heading, description and create trigger moved to `AdminCrudShell`, which the page
  * renders *above* the boundary this sits behind — they never depended on the resource list, so they
@@ -46,7 +47,12 @@ export function AdminCrudView<TItem extends { id: string }>({
    * is that case; Schiedsrichter and Spielorte pass a modal.
    */
   renderEditModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
-  renderDeleteModal: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
+  /**
+   * Optional, because not every resource can be removed: a season is never deleted and never retired —
+   * one that is over is `past`, and deleting it would orphan every spiel, spieltag and junction row
+   * carrying its id (ADR-0033). Saisons is that case; the other four pass one.
+   */
+  renderDeleteModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
 }) {
   // The search FIELD is the shell's (`AdminCrudSearch`); the two meet in the URL, so this only
   // reads the debounced value.
@@ -66,7 +72,7 @@ export function AdminCrudView<TItem extends { id: string }>({
       {renderTable({ query, filteredItems, onEdit: setEditingItem, onDelete: setDeletingItem })}
 
       {renderEditModal?.({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
-      {renderDeleteModal({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
+      {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
     </div>
   );
 }

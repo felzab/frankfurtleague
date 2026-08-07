@@ -5,7 +5,7 @@
  * the two cannot disagree.
  */
 
-import { ExclamationShape, Magnifier, MapPin, Medal, Person, PersonPencil, Persons } from "@gravity-ui/icons";
+import { Calendar, ExclamationShape, Magnifier, MapPin, Medal, Person, PersonPencil, Persons, Sliders } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
@@ -25,11 +25,58 @@ export const ADMIN_SIDEMENU_ICONS = {
   PersonPencil,
   Persons,
   MapPin,
+  // The season's own glyph. Not a calendar, which is the Spieltage entry's below and the public
+  // Spielplan's: what that page edits is the competition's settings — the points, the groups, the
+  // levels — and the rollover, so a set of controls reads truer than a date range would.
+  Sliders,
+  // The matchday list's, and the public Spielplan's own (`DASHBOARD_SIDEMENU_ICONS`): the same
+  // matchdays seen for a different purpose, which the Finalrunden and Teams entries treat the same way.
+  Calendar,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
+  // First, because everything below it is scoped by a season: the sidemenu's own season selector, the
+  // group a team holds, the squad a player is in, the matches a Spieltag groups. The season is the top
+  // of that tree, so the two pages that define one sit above the pages that read one.
+  {
+    category_name: "Wettbewerb",
+    sub_options: [
+      {
+        id: "saisons",
+        label: "Saisons",
+        iconName: "Sliders",
+        hint: {
+          lead: "Alle Saisons, ihre Zeiträume und die Regeln, nach denen sie gespielt werden.",
+          points: [
+            { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Eine neue Saison ist immer geplant, nie laufend." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Saisonseite mit Zeitraum, Regeln und Umstellung." },
+            { term: "Umstellen", detail: "macht eine geplante Saison zur laufenden und schließt die bisherige ab." },
+            { term: "Punkte", detail: "gelten rückwirkend, weil die Tabelle bei jedem Aufruf neu gerechnet wird." },
+          ],
+          note: "Eine Saison wird nie gelöscht. Eine gespielte Saison ist abgeschlossen und bleibt abrufbar.",
+        },
+      },
+      // Directly below Saisons, which is the order the two are reached in: a matchday belongs to a
+      // season and carries its id, so the season has to exist first.
+      {
+        id: "spieltage",
+        label: "Spieltage",
+        iconName: "Calendar",
+        hint: {
+          lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und Reihenfolge.",
+          points: [
+            { term: "Reihenfolge", detail: "die Zahl vor dem Namen. Danach sortiert der Turnierbaum, nicht nach Datum." },
+            { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
+            { term: "Stilllegen", detail: "nimmt den Spieltag aus den Listen. Seine Spiele bleiben erhalten." },
+          ],
+          note: "Zwei Spieltage dürfen dieselbe Reihenfolge tragen. Die Liste kennzeichnet das, verhindert es aber nicht.",
+        },
+      },
+    ],
+  },
+
   {
     category_name: "Spiele",
     sub_options: [
