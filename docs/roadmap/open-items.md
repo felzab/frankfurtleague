@@ -61,12 +61,13 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 17  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
 | 18  | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
 | 19  | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
-| 20  | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0049 settles it)   |
-| 21  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
-| 22  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
-| 23  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
-| 24  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
-| 25  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
+| 20  | FB-15 | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —                         |
+| 21  | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0049 settles it)   |
+| 22  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
+| 23  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
+| 24  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
+| 25  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
+| 26  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
 
 ## The bracket, end to end
 
@@ -116,11 +117,11 @@ closed.
   qualifier count is set by hand until it exists.
 
 **Two entries remain, both concluded and neither scheduled.**
-**[FB-9](#20--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** — a
+**[FB-9](#21--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** — a
 manual slot takes a disqualified team and no layer says a word. The design is ratified as
 [ADR-0049](../_decisions/0049-eligibility-is-checked-where-a-team-is-fielded.md); the owner's deferral
 of the work stands.
-**[BE-14](#23--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
+**[BE-14](#24--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
 capped at ten outstanding fixtures, which is a group of five, and a group of six would stop seeding
 with nothing said. The audit established that no faster exact algorithm exists to replace it, so the
 cap is a design boundary rather than debt.
@@ -170,8 +171,8 @@ remaining admin pages and the rollover control, adopting the edit page's pattern
 disqualification record their junction editor enters already exists
 ([ADR-0059](../_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)).
 
-**[FB-9](#20--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** and
-**[BE-14](#23--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** are not sessions of the
+**[FB-9](#21--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** and
+**[BE-14](#24--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** are not sessions of the
 string. Both are concluded: FB-9's design is ratified and its implementation stays deferred, and
 BE-14's cap is measured as a boundary the competition's size does not reach.
 
@@ -407,7 +408,8 @@ rule: one schema surface, one form, one mirror pass, now aimed at the page rathe
 mirror that falls behind a gate failure that names the field). The last three are prospective rather
 than dependent: BE-12 becomes real only once FB-3 or FB-6 makes retiring a row possible at all, BE-15
 becomes real the moment a second person can write, and LOG-2 improves the fidelity of a logging
-convention that already works.
+convention that already works. FB-15 closes the tier as parked feature work: the group swap the club
+editor's lock names as the one defensible mid-season move.
 
 ### 9 · FB-3 — Admin panel pages for spieler data; the teams half is built
 
@@ -813,6 +815,32 @@ neither should be guessed.
 **Path:** independent. ADR-0039 is the floor it builds on, not a blocker — logging works today, and
 this is fidelity rather than function. Nothing waits on it.
 
+### 20 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
+
+**Owner's item, 2026-08-07, out of FB-3's teams session.** The club editor locks the Gruppe select
+the moment the selected season is underway and the club has a fixture in it: a group decides which
+table counts the club's results and which bracket slot its placing seeds (ADR-0043), so moving one
+club mid-season falsifies two standings at once. The lock's own message names the one move that
+would be defensible: **two clubs exchanging groups**, which keeps both group sizes and both
+schedules intact.
+
+**Why it is not a pair of junction PATCHes.** `PATCH /teams/{team_id}/saisons/{saison_id}` addresses
+one row, so a swap done as two calls has a window in which one group holds five clubs and the other
+three — and a failure after the first call leaves the season in that state. A swap is one decision
+and wants one transaction over two junction rows, which no endpoint offers. This is the same
+endpoint question FB-11's editor half recorded for fixtures, on a smaller surface.
+
+**A second bound, also the owner's:** once the knockout rounds have begun, no swap is defensible
+either — the standings have been consumed by the seeding, and a group change behind a played
+bracket rewrites what its slots meant. The control must refuse then, not merely warn.
+
+**Where it lands is open.** The club editor addresses one club, so a two-club operation sits
+awkwardly there; the saisons surface (FB-6) addresses the season, which is the thing a swap belongs
+to. Decide when one of the two is next touched.
+
+**Path:** independent. Nothing blocks it, and it blocks nothing — the lock in the club editor is the
+interim answer, and today's data has no case that needs a swap.
+
 ---
 
 ## Tier 4 — standing cautions and watch items
@@ -822,7 +850,7 @@ elsewhere: two are seeded into backend audit passes and two into ops, and FB-9 i
 whose implementation the owner has deferred. BE-14 is the exception and carries its own trigger — a group of six teams —
 because no pass covers a constant that is correct at today's group size and wrong at a larger one.
 
-### 20 · FB-9 — A manual knockout slot accepts a disqualified team, and nothing says a word
+### 21 · FB-9 — A manual knockout slot accepts a disqualified team, and nothing says a word
 
 **Owner's item, 2026-08-06, reported as a reproduction — and deferred the same day, by the owner:**
 the site has exactly one admin, who is the person who found the hole, so the interim risk is priced
@@ -907,7 +935,7 @@ cover this — it is a cross-collection relation); or the hole being exercised b
 in a test. Absent one of those it stays unscheduled, and the page it is built onto is
 `/admin/spiele/[spiel_id]`.
 
-### 21 · BE-7 — `typing` imports instead of `collections.abc`
+### 22 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -915,7 +943,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 22 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 23 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -924,7 +952,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 23 · BE-14 — The certainty walk gives up in a group of six or more
+### 24 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Found 2026-08-05, reviewing the bracket after FB-8 closed. Not a defect today, and the numbers say why.**
 
@@ -983,7 +1011,7 @@ and nobody needs to until a group grows.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 24 · OPS-2 — nothing validates the contents of a restored `.env`
+### 25 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -1021,7 +1049,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 25 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 26 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 
