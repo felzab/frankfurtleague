@@ -82,6 +82,12 @@ RULES_QUALIFIERS_BELOW_WIRING = "REQ-RULES-004"
 # finished competition's result and nothing records the previous one.
 RULES_SAISON_FINISHED = "REQ-RULES-005"
 
+# `qualifiers_per_group` exceeds `teams_per_group` (owner, 2026-08-08). A group of four cannot supply six
+# qualifiers, so the bracket would expect more teams out of the group phase than the group phase can
+# produce -- and the seeding walk then asks for a placing no standing will ever hold, which is the state
+# `REQ-RULES-004` refuses from the other direction. The editor warned about this and saved anyway.
+RULES_QUALIFIERS_ABOVE_GROUP = "REQ-RULES-007"
+
 # The narrowing would leave one of the season's matchdays holding more fixtures than its phase accounts
 # for (owner, 2026-08-08). The matchday's expected count is derived from these rules (ADR-0065), so
 # lowering `number_of_groups` or `teams_per_group` lowers it for every group-phase matchday at once --
@@ -125,6 +131,16 @@ def find_rules_refusal(
                 RULES_SAISON_FINISHED,
                 f"season is past; {', '.join(changed)} cannot change because the league table is scored from rules on every read",
             )
+
+    # A group cannot supply more qualifiers than it holds teams. Before the bracket rule, because it is
+    # the narrower statement: it names two fields an admin can compare, where the bracket's answer is a
+    # property of their product.
+    if proposed.qualifiers_per_group > proposed.teams_per_group:
+        return (
+            RULES_QUALIFIERS_ABOVE_GROUP,
+            f"{proposed.qualifiers_per_group} qualifier(s) per group from groups of {proposed.teams_per_group}; "
+            "a group cannot send more teams into the bracket than it holds",
+        )
 
     # The bracket next, because it is a property of the proposed rules alone and needs no stored data.
     qualifiers = proposed.number_of_groups * proposed.qualifiers_per_group

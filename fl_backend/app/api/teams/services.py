@@ -769,11 +769,45 @@ ENTRY_GRUPPE_NOT_OFFERED = "REQ-ENTER-002"
 # never leaves the season (ADR-0033), so its place stays taken.
 ENTRY_GRUPPE_FULL = "REQ-ENTER-003"
 
+# A group CHANGE, in a season that has started, for a team whose fixtures are already drawn (owner,
+# 2026-08-08). The group phase is a single round robin inside each group, so a team's fixtures ARE its
+# group -- moving it afterwards leaves every one of them played against the group it left, and nothing
+# rewrites them. Distinct from `REQ-ENTER-001`, which refuses ENTERING a season that is not `future`: a
+# move is not an entry, and it stays legal in a running season whose fixtures nobody has drawn yet.
+ENTRY_GRUPPE_LOCKED = "REQ-ENTER-004"
+
 
 def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
     """The groups a season runs: the first `number_of_groups` of the closed A-D set, in order."""
 
     return get_args(FLGruppenNames)[:number_of_groups]
+
+
+def find_gruppe_move_refusal(*, saison_status: str, fixtures_drawn: int) -> tuple[str, str] | None:
+    """
+    Why moving this team to another group must be refused, as `(error_code, detail)` -- or `None`.
+
+    **The legal window is "the season is `future`, OR the team has no fixture in it yet"**, which is the
+    rule the admin page has always applied and the endpoint never did (owner, 2026-08-08). Both halves are
+    needed: a `future` season may already have its fixtures drawn, and a running season may not.
+
+    `fixtures_drawn` is how many of the season's matches field this team on either side. Zero means the
+    group phase has not been drawn for it, so the group is still just a label and moving it costs nothing.
+
+    A disqualification is not a move and never reaches here -- the caller compares the groups first, so
+    writing the same group back passes whatever the season's state.
+    """
+
+    if saison_status != "future" and fixtures_drawn > 0:
+        noun = "fixture" if fixtures_drawn == 1 else "fixtures"
+
+        return (
+            ENTRY_GRUPPE_LOCKED,
+            f"season is {saison_status} and the team already has {fixtures_drawn} {noun} in it; "
+            "a group change would leave them played against the group it left",
+        )
+
+    return None
 
 
 def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> tuple[str, str] | None:

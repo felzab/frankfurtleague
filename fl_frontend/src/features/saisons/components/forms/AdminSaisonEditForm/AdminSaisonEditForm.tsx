@@ -192,9 +192,9 @@ export function AdminSaisonEditForm({
   }
   if (rules.qualifiers_per_group > rules.teams_per_group) {
     banners.push({
-      severity: "warning",
+      severity: "danger",
       title: "Mehr Qualifikanten als Teams pro Gruppe",
-      body: "Die KO.-Runde erwartet dann mehr Mannschaften, als eine Gruppe hergeben kann.",
+      body: "So lässt sich die Saison nicht speichern. Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.",
     });
   }
   // The one edit on this page whose effect is retroactive and invisible at the field: the league table

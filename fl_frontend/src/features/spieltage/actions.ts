@@ -45,8 +45,9 @@ const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 /**
  * The two matchday refusals in German, or `null` when the 409 is neither.
  *
- * `REQ-SPIELTAG-002` lands on `saison_phase`, the field that caused it; `REQ-RETIRE-002` has no field to
- * land on -- the retire control is a dialog, not a form -- so it comes back as the dialog's error.
+ * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`: `REQ-SPIELTAG-002` lands
+ * on `saison_phase` and is one sentence about that value, while `REQ-RETIRE-002` has no field to land on
+ * -- the retire control is a dialog -- so it is two sentences with the action second.
  */
 function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -54,15 +55,11 @@ function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: Fie
   if (error.serverErrorCode === "REQ-RETIRE-002") {
     return {
       error:
-        "Dieser Spieltag hat schon gespielte Partien. Stillgelegt würde er samt Ergebnissen aus dem öffentlichen Spielplan verschwinden — trage die Spiele auf einen anderen Spieltag um oder sage sie ab.",
+        "Dieser Spieltag hat gespielte Partien und würde samt ihren Ergebnissen aus dem öffentlichen Spielplan verschwinden. Verschiebe die Spiele auf einen anderen Spieltag oder sage sie ab.",
     };
   }
   if (error.serverErrorCode === "REQ-SPIELTAG-002") {
-    return {
-      fieldErrors: {
-        saison_phase: "In dieser Phase sind weniger Spiele vorgesehen, als dieser Spieltag schon enthält.",
-      },
-    };
+    return { fieldErrors: { saison_phase: "In dieser Phase sind weniger Spiele vorgesehen, als dieser Spieltag enthält." } };
   }
   return null;
 }

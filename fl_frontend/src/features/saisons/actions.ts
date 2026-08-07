@@ -53,47 +53,50 @@ const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 const SAISON_ID_TAKEN = "Diese Saison-ID ist bereits vergeben. Wähle eine andere oder bearbeite die vorhandene Saison.";
 
 /**
- * The rules edit's six refusals (`REQ-RULES-001..006`), answered in German on the field the admin can act
- * on. `null` when the 409 is none of the six, so a caller falls through to its own wording.
+ * ONE SHAPE FOR EVERY GERMAN REFUSAL MESSAGE, and which one depends on where the message lands.
  *
- * Four land on a field and two do not: the freeze is about the whole season and the matchday overflow is
- * about a document this form does not show, so neither has a field to sit under.
+ * - **A FIELD message** (`fieldErrors`) renders under the input it names, so the input is the remedy:
+ *   ONE sentence, present tense, saying what is wrong with the value. No advice, because the advice
+ *   would be "change this field", which is where the message already is.
+ * - **A FORM message** (`error`) is about data this form does not show, so the remedy is elsewhere: TWO
+ *   sentences, the first stating what is true and the second naming the action, imperative.
  *
- * Each message states what the data already is rather than what the rule forbids, because that is the
- * part the admin has to change: "Gruppe C und D halten noch Teams" is actionable and "number_of_groups
- * darf nicht sinken" is not. The backend `detail` carries the same fact in English for the log
- * (docs/logging.md); this is the reader's half (ADR-0065).
+ * No em dashes, no parentheses, no error codes. The code travels in the log line (docs/logging.md); this
+ * is the half a person reads.
+ */
+
+/**
+ * The rules edit's seven refusals (`REQ-RULES-001..007`), or `null` when the 409 is none of them.
+ *
+ * Five land on a field and two do not: the freeze is about the whole season, and the matchday overflow is
+ * about a document this form does not show.
  */
 function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
 
   switch (error.serverErrorCode) {
     case "REQ-RULES-001":
-      return {
-        fieldErrors: {
-          "rules.qualifiers_per_group":
-            "Gruppenanzahl x Qualifizierte muss eine Zweierpotenz von 2 bis 16 ergeben, sonst lässt sich kein K.-o.-Baum spielen.",
-        },
-      };
+      return { fieldErrors: { "rules.qualifiers_per_group": "Gruppen mal Qualifizierte muss eine Zweierpotenz von 2 bis 16 ergeben." } };
     case "REQ-RULES-002":
       return { fieldErrors: { "rules.number_of_groups": "Eine Gruppe, die noch Teams hält, kann nicht wegfallen." } };
     case "REQ-RULES-003":
-      return { fieldErrors: { "rules.teams_per_group": "Mindestens eine Gruppe hält schon mehr Teams als das neue Maximum." } };
+      return { fieldErrors: { "rules.teams_per_group": "Mindestens eine Gruppe hält schon mehr Teams als dieses Maximum." } };
     case "REQ-RULES-004":
       return {
         fieldErrors: {
           "rules.qualifiers_per_group": "Ein Platz im K.-o.-Baum verweist auf eine Platzierung, die dann nicht mehr erreicht wird.",
         },
       };
+    case "REQ-RULES-007":
+      return { fieldErrors: { "rules.qualifiers_per_group": "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst." } };
     case "REQ-RULES-005":
       return {
-        error:
-          "Diese Saison ist abgeschlossen. Punkte und Qualifizierte sind festgeschrieben, weil die Tabelle daraus berechnet wird — nur die Daten bleiben änderbar.",
+        error: "Diese Saison ist abgeschlossen, deshalb sind Punkte und Qualifizierte festgeschrieben. Ändere nur noch den Zeitraum.",
       };
     case "REQ-RULES-006":
       return {
         error:
-          "Mit diesen Regeln wären für mindestens einen Spieltag weniger Spiele vorgesehen, als er schon enthält. Die Zahl folgt aus den Regeln, also würden die überzähligen Spiele nirgends stattfinden.",
+          "Mindestens ein Spieltag enthält mehr Spiele, als diese Regeln vorsehen. Erhöhe die Zahlen wieder oder verschiebe die überzähligen Spiele.",
       };
     default:
       return null;
@@ -254,8 +257,7 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-ACTIVATE-001") {
         return {
           success: false,
-          error:
-            "Die laufende Saison hat noch Spiele ohne Ergebnis. Trage sie ein oder sage die Spiele ab — ein abgesagtes Spiel gilt als erledigt. Die Liste steht im Umstellungs-Panel.",
+          error: "Die laufende Saison hat noch Spiele ohne Ergebnis. Trage die Ergebnisse ein oder sage die Spiele ab.",
         };
       }
       throw error;

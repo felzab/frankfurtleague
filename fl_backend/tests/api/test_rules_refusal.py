@@ -1,11 +1,13 @@
 """
 What a season's rules edit refuses — `find_rules_refusal`, pure and therefore in the default tier.
 
-Six rules, and each guards a state that no other layer refuses. Four of them are NARROWINGS: the rules
-decide the shape of the competition, so lowering one below what already exists strands data that was
-entered legally under the wider value — a group, a group's capacity, a wired placing, or a matchday's
-fixtures. One is the bracket's own shape, which is a property of the proposed rules alone. And one is the
-freeze on a finished season, a different kind of protection: nothing is stranded, the result is rewritten.
+Seven rules, and each guards a state that no other layer refuses. They come in three kinds.
+
+FOUR are NARROWINGS: the rules decide the shape of the competition, so lowering one below what already
+exists strands data that was entered legally under the wider value — a group, a group's capacity, a wired
+placing, or a matchday's fixtures. TWO are properties of the proposed rules ALONE, needing nothing stored:
+the bracket must have a shape, and a group cannot qualify more teams than it holds. And ONE is the freeze
+on a finished season, a different kind of protection: nothing is stranded, the result is rewritten.
 
 The order the checks run in is asserted here too, because it is the order an admin can act on: telling
 somebody their group count strands a team is noise when the whole edit is refused for being on a past
@@ -20,6 +22,7 @@ from app.api.saisons.services import (
     RULES_CAPACITY_BELOW_USE,
     RULES_GROUPS_IN_USE,
     RULES_MATCHDAY_OVER_ITS_PHASE,
+    RULES_QUALIFIERS_ABOVE_GROUP,
     RULES_QUALIFIERS_BELOW_WIRING,
     RULES_SAISON_FINISHED,
     find_rules_refusal,
@@ -66,9 +69,14 @@ class TestTheBracketMustHaveAShape:
 
     @pytest.mark.parametrize(("groups", "qualifiers"), [(4, 3), (3, 1), (2, 3), (4, 5)])
     def test_refuses_a_field_that_cannot_be_paired_down(self, groups, qualifiers):
-        """Each round halves, so twelve qualifiers cannot be paired down to one final."""
+        """
+        Each round halves, so twelve qualifiers cannot be paired down to one final.
 
-        refusal = judge(proposed=rules(groups=groups, qualifiers=qualifiers))
+        `per_group=8` so every case reaches this rule: `REQ-RULES-007` runs first and would answer the
+        `(4, 5)` case instead, because five qualifiers out of a group of four is the narrower fault.
+        """
+
+        refusal = judge(proposed=rules(groups=groups, qualifiers=qualifiers, per_group=8))
 
         assert refusal is not None
         assert refusal[0] == RULES_BRACKET_IMPOSSIBLE
@@ -352,3 +360,61 @@ class TestNarrowingBelowAMatchdaysFixtures:
 
         assert refusal is not None
         assert refusal[0] == RULES_GROUPS_IN_USE
+
+
+class TestAGroupCannotQualifyMoreThanItHolds:
+    """
+    The seventh rule (owner, 2026-08-08), and it was a warning banner that saved.
+
+    `qualifiers_per_group` above `teams_per_group` asks each group for more placings than it has teams,
+    so the seeding walk requests a placing no standing will ever hold — the same incoherence
+    `REQ-RULES-004` refuses from the wiring side, reachable here through the rules themselves.
+    """
+
+    def test_equal_is_legal(self):
+        """A group where every team advances. Unusual, not incoherent."""
+
+        assert judge(stored=rules(qualifiers=4, per_group=4), proposed=rules(qualifiers=4, per_group=4)) is None
+
+    def test_fewer_qualifiers_than_teams_is_legal(self):
+        assert judge(proposed=rules(qualifiers=2, per_group=4)) is None
+
+    def test_more_qualifiers_than_teams_is_refused(self):
+        refusal = judge(proposed=rules(qualifiers=8, per_group=4))
+
+        assert refusal is not None
+        assert refusal[0] == RULES_QUALIFIERS_ABOVE_GROUP
+
+    def test_it_applies_on_a_create(self):
+        """A property of the proposed rules alone, so it needs nothing stored — like the bracket rule."""
+
+        refusal = find_rules_refusal(
+            saison_status="future",
+            stored=None,
+            proposed=rules(qualifiers=8, per_group=4),
+            occupancy_by_gruppe={},
+            highest_wired_platz=0,
+        )
+
+        assert refusal is not None
+        assert refusal[0] == RULES_QUALIFIERS_ABOVE_GROUP
+
+    def test_it_is_reported_before_the_bracket_rule(self):
+        """
+        Both apply to 4 groups of 4 qualifying 5, and this one names two fields to compare.
+
+        The bracket rule's answer is a property of their product, which is a step further from anything
+        the admin typed — so the narrower statement goes first.
+        """
+
+        refusal = judge(proposed=rules(groups=4, qualifiers=5, per_group=4))
+
+        assert refusal is not None
+        assert refusal[0] == RULES_QUALIFIERS_ABOVE_GROUP
+
+    def test_the_refusal_names_both_numbers(self):
+        refusal = judge(proposed=rules(qualifiers=8, per_group=4))
+
+        assert refusal is not None
+        assert "8" in refusal[1]
+        assert "4" in refusal[1]

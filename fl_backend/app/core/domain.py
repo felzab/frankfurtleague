@@ -585,6 +585,14 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_rules_refusal.py::TestTheBracketMustHaveAShape",
     ),
     Rule(
+        code="REQ-RULES-007",
+        operation="POST /saisons . PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="`qualifiers_per_group` may not exceed `teams_per_group`",
+        implemented_by="app.api.saisons.services.find_rules_refusal",
+        tested_by="tests/api/test_rules_refusal.py::TestAGroupCannotQualifyMoreThanItHolds",
+    ),
+    Rule(
         code="REQ-RULES-002",
         operation="PATCH /saisons/{saison_id}",
         aggregate="Saison",
@@ -660,6 +668,15 @@ RULES: tuple[Rule, ...] = (
         summary="the group must have space, and a disqualified team still holds its place",
         implemented_by="app.api.teams.services.find_entry_refusal",
         tested_by="tests/api/test_team_entry_refusal.py::TestEnteringASeason",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-ENTER-004",
+        operation="PATCH /teams/{team_id}/saisons/{saison_id}",
+        aggregate="Saison",
+        summary="a group change is refused once the season has started and the team's fixtures are drawn",
+        implemented_by="app.api.teams.services.find_gruppe_move_refusal",
+        tested_by="tests/api/test_gruppe_move_refusal.py::TestTheWindowForAGroupChange",
         multi_document=True,
     ),
     Rule(

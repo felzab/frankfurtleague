@@ -65,20 +65,28 @@ function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string):
 }
 
 /**
- * The junction write's three refusals (REQ-ENTER-001..003), each answered in German where the admin
- * can act on it: the season gate as a form error, the two group gates on the picker itself. `null`
- * when the error is not one of the three, so callers fall through to their own 409 wording.
+ * The junction write's four refusals (`REQ-ENTER-001..004`), or `null` when the 409 is none of them.
+ *
+ * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`: the two group gates land
+ * on the picker and are one sentence about the chosen group, while the season gate and the group-move
+ * window are about the season's own state, so each is two sentences with the action second.
  */
 function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
   if (error.serverErrorCode === "REQ-ENTER-001") {
-    return { error: "Teams können nur in eine geplante Saison aufgenommen werden." };
+    return { error: "Diese Saison läuft schon oder ist abgeschlossen. Nimm das Team in eine geplante Saison auf." };
   }
   if (error.serverErrorCode === "REQ-ENTER-002") {
     return { fieldErrors: { gruppe: "Diese Gruppe gibt es in der gewählten Saison nicht." } };
   }
   if (error.serverErrorCode === "REQ-ENTER-003") {
     return { fieldErrors: { gruppe: "Diese Gruppe ist bereits voll." } };
+  }
+  if (error.serverErrorCode === "REQ-ENTER-004") {
+    return {
+      error:
+        "Für dieses Team sind in dieser Saison schon Spiele angelegt. Ein Gruppenwechsel ist nur möglich, solange die Saison geplant ist oder noch keine Spiele bestehen.",
+    };
   }
   return null;
 }

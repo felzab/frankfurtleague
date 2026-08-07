@@ -127,14 +127,14 @@ export function FormRegelnSection({
             />
           </div>
 
-          {/* A real state with a real consequence, and neither side refuses it: the seeding walk asks each
-              group for this many placings, and a group that cannot produce them leaves the bracket short.
-              Stated rather than blocked, because a season mid-setup passes through it. */}
+          {/* Refused by `REQ-RULES-007` (owner, 2026-08-08), and said here as well because the two fields
+              that cause it are the two directly above: the seeding walk asks each group for this many
+              placings, and a group that cannot produce them leaves the bracket short. */}
           {rules.qualifiers_per_group > rules.teams_per_group && (
             <Callout
-              severity="warning"
+              severity="danger"
               title="Mehr Qualifikanten als Teams pro Gruppe">
-              Die KO.-Runde erwartet dann mehr Mannschaften, als eine Gruppe hergeben kann. Gespeichert wird es trotzdem.
+              So lässt sich die Saison nicht speichern. Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.
             </Callout>
           )}
         </div>
