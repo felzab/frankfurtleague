@@ -528,6 +528,19 @@ html:has([data-app-shell]) {
    Deliberately unlayered: unlayered rules outrank every @layer, including HeroUI's `components` and
    Tailwind's `utilities`, so neither a library default nor a stray per-site class can reintroduce a
    ring. That also means this is the ONE place either rule can be changed -- which is the point. */
+/* iOS Safari zooms the whole page into any focused control whose computed font-size is under
+   16px, and several field styles resolve below that on a phone (`fluid-sm` bottoms out around
+   14px). The cure is the control's font-size, never `maximum-scale` in the viewport tag — that
+   would disable pinch zoom for everyone, which is an accessibility failure. Scoped to touch-first
+   devices so desktop keeps the designed sizes; `max()` keeps any control that is already larger. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
 [data-slot="input"],
 [data-slot="input-group"],
 [data-slot="number-field-group"],

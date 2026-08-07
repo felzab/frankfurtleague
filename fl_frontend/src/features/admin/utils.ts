@@ -101,7 +101,7 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
   is_canceled: {
     name: "Abgesagt",
     short: "Abgesagt",
-    desc: "Abgesagte Spiele. Nichts zu erledigen — sie stehen hier zum Nachschlagen",
+    desc: "Abgesagte Spiele. Nichts zu erledigen, sie stehen hier zum Nachschlagen",
     urgency: "none",
   },
 };

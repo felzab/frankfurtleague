@@ -26,13 +26,13 @@ export function AdminCreateTeamModal({ saisons, currentSaisonId }: { saisons: FL
           width={18}
           height={18}
         />
-        Neuen Verein anlegen
+        Neues Team anlegen
       </Button>
 
       <FormModal
         isOpen={modalState.isOpen}
         onClose={modalState.close}
-        heading="Verein anlegen">
+        heading="Team anlegen">
         <AdminCreateTeamForm
           saisons={saisons}
           currentSaisonId={currentSaisonId}

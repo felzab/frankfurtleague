@@ -16,11 +16,11 @@ export function AdminDeleteTeamModal({ teamData, isOpen, onClose }: { teamData: 
     <ConfirmDeleteModal
       isOpen={isOpen}
       onClose={onClose}
-      heading="Verein stilllegen"
-      entityLabel="den Verein"
+      heading="Team stilllegen"
+      entityLabel="das Team"
       entityName={team.name}
-      consequence="Seine Spiele, Saisons und Tabellen bleiben erhalten, und sein Kürzel bleibt reserviert. Der Verein steht nur nicht mehr zur Auswahl und kann jederzeit reaktiviert werden."
-      successMessage="Verein stillgelegt"
+      consequence="Seine Spiele, Saisons und Tabellen bleiben erhalten, und sein Kürzel bleibt reserviert. Das Team steht nur nicht mehr zur Auswahl und kann jederzeit reaktiviert werden."
+      successMessage="Team stillgelegt"
       onConfirm={() => deleteTeamAction({ id: team.id })}
     />
   );

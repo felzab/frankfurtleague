@@ -1,6 +1,8 @@
 "use client";
 
+import { useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@heroui/react";
 
@@ -8,6 +10,23 @@ import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 
 export function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const router = useRouter();
+  const [isRetrying, startRetrying] = useTransition();
+
+  /**
+   * `reset()` alone re-renders the failed segment FROM THE ROUTER'S CACHE, so for a server-side
+   * failure it replayed the same broken payload and the button visibly did nothing — the browser's
+   * own reload worked precisely because it refetched. `router.refresh()` first is what makes the
+   * retry a real second attempt: it drops the cached payload and refetches from the server, and
+   * `reset()` then clears the error boundary over the fresh result.
+   */
+  const handleRetry = () => {
+    startRetrying(() => {
+      router.refresh();
+      reset();
+    });
+  };
+
   return (
     <StatusPanel
       badgeLabel="Spielunterbrechung"
@@ -29,9 +48,10 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
       <div className="mt-8 flex w-full flex-col-reverse gap-3 sm:mt-10 sm:flex-row sm:gap-4">
         <Button
           variant="ghost"
-          onPress={() => reset()}
+          onPress={handleRetry}
+          isDisabled={isRetrying}
           className={`${ctaButton({ intent: "outline" })} w-full`}>
-          Erneut versuchen
+          {isRetrying ? "Versucht erneut..." : "Erneut versuchen"}
         </Button>
 
         <Link

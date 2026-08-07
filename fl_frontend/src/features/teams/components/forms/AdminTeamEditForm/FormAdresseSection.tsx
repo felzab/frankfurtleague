@@ -66,7 +66,7 @@ export function FormAdresseSection({
         <h2 className={panel.heading()}>
           Adresse
           <InfoHint label="Hinweis zur Adresse">
-            <p>Der Heimstandort des Vereins, öffentlich auf der Teamseite.</p>
+            <p>Der Heimstandort des Teams, öffentlich auf der Teamseite.</p>
             <ul>
               <li>
                 Der <strong>Stadtteil</strong> ist optional.

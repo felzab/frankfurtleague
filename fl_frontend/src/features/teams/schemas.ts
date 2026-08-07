@@ -203,6 +203,28 @@ export const FLTeamRecordSchema = z.object({
 });
 export type FLTeamRecord = z.infer<typeof FLTeamRecordSchema>;
 
+/** Mirrors `FLTeamMembership` — one junction row as seen from its club. */
+export const FLTeamMembershipSchema = z.object({
+  saison_id: z.string(),
+  gruppe: FLGruppenNamesSchema,
+  disqualifikation: FLDisqualifikationSchema.nullable(),
+});
+export type FLTeamMembership = z.infer<typeof FLTeamMembershipSchema>;
+
+/**
+ * Mirrors `FLTeamWithMemberships` — the stored club record plus every season membership it holds.
+ * The admin list's one read; a different question from `FLTeam`, not a projection of it (ADR-0034).
+ */
+export const FLTeamWithMembershipsSchema = FLTeamRecordSchema.extend({
+  memberships: z.array(FLTeamMembershipSchema),
+});
+export type FLTeamWithMemberships = z.infer<typeof FLTeamWithMembershipsSchema>;
+
+export const FLTeamsMembershipsResponseSchema = BaseAPIResponseSchema.extend({
+  teams: z.array(FLTeamWithMembershipsSchema),
+});
+export type FLTeamsMembershipsResponse = z.infer<typeof FLTeamsMembershipsResponseSchema>;
+
 export const FLPostTeamResponseSchema = BaseAPIResponseSchema.extend({
   created_id: CustomObjectIdStringSchema,
 });

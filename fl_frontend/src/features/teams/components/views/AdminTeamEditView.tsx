@@ -14,7 +14,7 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLTeam } from "@/features/teams/schemas";
+import type { FLTeamRecord } from "@/features/teams/schemas";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 
 /**
@@ -33,7 +33,7 @@ export function AdminTeamEditView({
   gruppeLocked,
   today,
 }: {
-  team: FLTeam;
+  team: FLTeamRecord;
   saison: TeamSaisonMembership;
   gruppeLocked: boolean;
   today: string;
@@ -49,7 +49,7 @@ export function AdminTeamEditView({
   const handleReactivate = () => {
     startReactivating(async () => {
       const res = await reactivateTeamAction({ id: team.id });
-      if (res.success) appToast.success(res.message ?? "Verein reaktiviert!");
+      if (res.success) appToast.success(res.message ?? "Team reaktiviert!");
       else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };

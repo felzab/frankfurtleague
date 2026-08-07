@@ -43,7 +43,7 @@ export type FLTeamDraftFields = {
 };
 
 /** The panel a field renders in — the change list's section heading. */
-export type FLTeamFieldGroup = "Verein" | "Adresse" | "Saison";
+export type FLTeamFieldGroup = "Team" | "Adresse" | "Saison";
 
 /** What the page knows about one editable field right now. */
 export type FLTeamFieldStatus = {
@@ -87,11 +87,11 @@ const emptyAsNull = (value: string): string | null => (value.trim() === "" ? nul
  * three.
  */
 const FIELD_DESCRIPTORS: readonly FieldDescriptor[] = [
-  { path: "name", label: "Name", group: "Verein", read: (source) => emptyAsNull(source.name) },
-  { path: "shorthand", label: "Kürzel", group: "Verein", read: (source) => emptyAsNull(source.shorthand) },
-  { path: "full_name", label: "Vollständiger Name", group: "Verein", read: (source) => emptyAsNull(source.full_name) },
-  { path: "website_url", label: "Website", group: "Verein", read: (source) => emptyAsNull(source.website_url) },
-  { path: "description", label: "Beschreibung", group: "Verein", read: (source) => emptyAsNull(source.description) },
+  { path: "name", label: "Name", group: "Team", read: (source) => emptyAsNull(source.name) },
+  { path: "shorthand", label: "Kürzel", group: "Team", read: (source) => emptyAsNull(source.shorthand) },
+  { path: "full_name", label: "Vollständiger Name", group: "Team", read: (source) => emptyAsNull(source.full_name) },
+  { path: "website_url", label: "Website", group: "Team", read: (source) => emptyAsNull(source.website_url) },
+  { path: "description", label: "Beschreibung", group: "Team", read: (source) => emptyAsNull(source.description) },
   { path: "address.strasse", label: "Straße", group: "Adresse", read: (source) => emptyAsNull(source.address.strasse) },
   { path: "address.hausnummer", label: "Hausnummer", group: "Adresse", read: (source) => emptyAsNull(source.address.hausnummer) },
   { path: "address.plz", label: "PLZ", group: "Adresse", read: (source) => emptyAsNull(source.address.plz) },

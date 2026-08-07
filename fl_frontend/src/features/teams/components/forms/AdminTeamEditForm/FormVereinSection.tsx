@@ -44,15 +44,15 @@ export function FormVereinSection({
     <section className={panel.root()}>
       <div className={panel.header()}>
         <h2 className={panel.heading()}>
-          Verein
-          <InfoHint label="Hinweis zu den Vereinsdaten">
+          Team
+          <InfoHint label="Hinweis zu den Teamdaten">
             <p>Name, Kürzel und Beschreibung erscheinen öffentlich.</p>
             <ul>
               <li>
-                Eine Umbenennung wird in <strong>alle Spiele</strong> des Vereins übernommen.
+                Eine Umbenennung wird in <strong>alle Spiele</strong> des Teams übernommen.
               </li>
               <li>
-                Das <strong>Kürzel</strong> ist ligaweit eindeutig. Auch stillgelegte Vereine behalten ihres.
+                Das <strong>Kürzel</strong> ist ligaweit eindeutig. Auch stillgelegte Teams behalten ihres.
               </li>
             </ul>
           </InfoHint>

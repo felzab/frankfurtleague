@@ -25,7 +25,7 @@ import { TeamActionBar } from "./TeamActionBar";
 import { TeamDraftStatusProvider } from "./TeamDraftStatusContext";
 import { TeamRail } from "./TeamRail";
 
-import type { FLGruppenNames, FLPatchSaisonTeamPayload, FLPatchTeamPayload, FLPostTeamPayload, FLTeam } from "@/features/teams/schemas";
+import type { FLGruppenNames, FLPatchSaisonTeamPayload, FLPatchTeamPayload, FLPostTeamPayload, FLTeamRecord } from "@/features/teams/schemas";
 import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -95,7 +95,7 @@ export function AdminTeamEditForm({
   registerRequestLeave,
   pageHeader,
 }: {
-  team: FLTeam;
+  team: FLTeamRecord;
   /** The selected season's context and membership — the sidemenu selector's season, resolved by the page. */
   saison: TeamSaisonMembership;
   today: string;
@@ -216,8 +216,8 @@ export function AdminTeamEditForm({
   if (team.inactive_since !== null) {
     banners.push({
       severity: "info",
-      title: "Dieser Verein ist stillgelegt",
-      body: "Er erscheint in keiner Auswahlliste; sein Kürzel bleibt reserviert. Reaktivieren über den Kopf der Seite.",
+      title: "Dieses Team ist stillgelegt",
+      body: "Es erscheint in keiner Auswahlliste; sein Kürzel bleibt reserviert. Reaktivieren über den Kopf der Seite.",
     });
   }
   if (storedMembership === null) {
@@ -325,7 +325,7 @@ export function AdminTeamEditForm({
           if (renameTouched) consequenceNotes.push(describeFanOut(res.fanned_out_to_spiele ?? 0));
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
-          failedNotes.push(res.fieldErrors?.shorthand ?? res.error ?? "Die Vereinsdaten konnten nicht gespeichert werden.");
+          failedNotes.push(res.fieldErrors?.shorthand ?? res.error ?? "Die Teamdaten konnten nicht gespeichert werden.");
         }
       }
 
@@ -422,7 +422,7 @@ export function AdminTeamEditForm({
     const raise = destroyedSomething ? appToast.warning : appToast.success;
 
     raise("Änderung gespeichert", {
-      description: message ?? "Die Vereinsdaten wurden aktualisiert.",
+      description: message ?? "Die Teamdaten wurden aktualisiert.",
       // A decision window, not a reading time — the one case where the text's length does not
       // govern the toast's duration.
       timeout: UNDO_TIMEOUT_MS,
@@ -455,7 +455,7 @@ export function AdminTeamEditForm({
               appToast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
               appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                description: "Die Änderung steht weiterhin. Bitte prüfe die Verbindung und den Verein.",
+                description: "Die Änderung steht weiterhin. Bitte prüfe die Verbindung und das Team.",
               });
             },
           );

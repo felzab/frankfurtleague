@@ -56,7 +56,7 @@ const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 // The shorthand's unique index spans retired clubs (ADR-0032), and reviving is deliberately not the
 // create's job -- so the message names the one path that is.
 const SHORTHAND_TAKEN =
-  "Dieses Kürzel ist bereits vergeben, möglicherweise von einem stillgelegten Verein. Reaktiviere diesen Verein, statt ihn neu anzulegen.";
+  "Dieses Kürzel ist bereits vergeben, möglicherweise von einem stillgelegten Team. Reaktiviere dieses Team, statt es neu anzulegen.";
 
 /** Both cache layers for one resource and one season (ADR-0001): the base tag serves the default reads. */
 function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string): void {
@@ -95,7 +95,7 @@ export async function postTeamAction(
       throw error;
     }
     if (!postOperation.acknowledged) {
-      return { success: false, error: "Beim Anlegen des neuen Vereins ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Beim Anlegen des neuen Teams ist ein unerwarteter Fehler aufgetreten" };
     }
 
     // The junction row, in the same action: without one the club is invisible to every season-scoped
@@ -109,7 +109,7 @@ export async function postTeamAction(
       return {
         success: false,
         error:
-          "Der Verein wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Er ist dadurch auf keiner Seite sichtbar. Bitte melde dies dem Betreiber, bevor Du es erneut versuchst.",
+          "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Es ist dadurch auf keiner Seite sichtbar. Bitte melde dies dem Betreiber, bevor Du es erneut versuchst.",
       };
     }
 
@@ -118,7 +118,7 @@ export async function postTeamAction(
     return {
       success: Boolean(postOperation.acknowledged),
       created_id: postOperation.created_id,
-      message: "Verein erfolgreich angelegt!",
+      message: "Team erfolgreich angelegt!",
     };
   });
 }
@@ -154,7 +154,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
       throw error;
     }
     if (!patchOperation.acknowledged) {
-      return { success: false, error: "Beim Bearbeiten der Vereinsdaten ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Beim Bearbeiten der Teamdaten ist ein unerwarteter Fehler aufgetreten" };
     }
 
     // Base tags only, on purpose: the club document is season-independent, so the rename and its
@@ -167,7 +167,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
       success: Boolean(patchOperation.acknowledged),
       updated_document: patchOperation.updated_document,
       fanned_out_to_spiele: patchOperation.fanned_out_to_spiele,
-      message: "Verein erfolgreich bearbeitet!",
+      message: "Team erfolgreich bearbeitet!",
     };
   });
 }
@@ -196,13 +196,13 @@ export async function deleteTeamAction(
       if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-RETIRE-001") {
         return {
           success: false,
-          error: "Der Verein spielt in einer laufenden oder geplanten Saison und kann nicht stillgelegt werden.",
+          error: "Das Team spielt in einer laufenden oder geplanten Saison und kann nicht stillgelegt werden.",
         };
       }
       throw error;
     }
     if (!deleteOperation.acknowledged) {
-      return { success: false, error: "Beim Stilllegen des Vereins ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Beim Stilllegen des Teams ist ein unerwarteter Fehler aufgetreten" };
     }
 
     // Base tag only: retirement hides the club from every season's default list at once, so no
@@ -212,7 +212,7 @@ export async function deleteTeamAction(
     return {
       success: Boolean(deleteOperation.acknowledged),
       updated_document: deleteOperation.updated_document,
-      message: "Verein stillgelegt. Seine Spiele und Saisons bleiben erhalten.",
+      message: "Team stillgelegt. Seine Spiele und Saisons bleiben erhalten.",
     };
   });
 }
@@ -233,7 +233,7 @@ export async function reactivateTeamAction(
 
     const reactivateOperation = await reactivateTeam(validated.data);
     if (!reactivateOperation.acknowledged) {
-      return { success: false, error: "Beim Reaktivieren des Vereins ist ein unerwarteter Fehler aufgetreten" };
+      return { success: false, error: "Beim Reaktivieren des Teams ist ein unerwarteter Fehler aufgetreten" };
     }
 
     updateTag("teams");
@@ -241,7 +241,7 @@ export async function reactivateTeamAction(
     return {
       success: Boolean(reactivateOperation.acknowledged),
       updated_document: reactivateOperation.updated_document,
-      message: "Verein reaktiviert!",
+      message: "Team reaktiviert!",
     };
   });
 }

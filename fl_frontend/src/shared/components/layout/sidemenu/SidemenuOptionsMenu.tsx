@@ -80,7 +80,7 @@ export function SidemenuOptionsMenu({
            control. The popover is portalled, so overhanging the drawer costs nothing; react-aria keeps
            it on screen. From `lg` it matches the footer's content box again, which is what stops it
            spilling into the content area beside a permanent rail. */
-        className={`rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
+        className={`min-w-[200px] rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
         <Dropdown.Menu aria-label="Seitenmenü-Optionen">
           <Dropdown.Section aria-label="Einstellungen">
             {/* `shouldCloseOnSelect={false}`: this row is a container for a control, not a command,
@@ -145,7 +145,8 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
   return (
     <Dropdown.Item
       id="sign-out"
-      textValue={isConfirming ? "Wirklich abmelden?" : "Abmelden"}
+      textValue={isConfirming ? "Abmelden?" : "Abmelden"}
+      data-signout-control="true"
       isDisabled={isSigningOut}
       /* Without this the first press dismisses the menu and the second never happens — the escape
          hatch that makes an in-place confirm possible at all. Escaping stays deliberately easy:
@@ -170,7 +171,7 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
         isConfirming ? "bg-danger/20!" : "bg-danger/10!"
       }`}>
       <Label className="fluid-sm text-danger min-w-0 flex-1 font-semibold">
-        {isSigningOut ? "Wird abgemeldet..." : isConfirming ? "Wirklich abmelden?" : "Abmelden"}
+        {isSigningOut ? "Wird abgemeldet..." : isConfirming ? "Abmelden?" : "Abmelden"}
       </Label>
       {/* The icon changes with the state so the row does not rely on colour alone to say it is armed
           — the tint and the label both shift, and so does the glyph. */}

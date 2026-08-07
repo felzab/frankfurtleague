@@ -39,7 +39,7 @@ export function toActionErrorResult(error: unknown): NonNullable<FormState> {
       // tab, another admin, or a resolution that ran since the page loaded. Reloading is the fix.
       return {
         success: false,
-        error: "Die Änderung passt nicht mehr zum aktuellen Turnierbaum — die Saison wurde inzwischen geändert. Bitte lade die Seite neu.",
+        error: "Die Änderung passt nicht mehr zum aktuellen Turnierbaum, denn die Saison wurde inzwischen geändert. Bitte lade die Seite neu.",
       };
     }
     if (error.statusCode === 409 && error.serverErrorCode !== undefined && error.serverErrorCode in OCCUPANT_REFUSALS) {

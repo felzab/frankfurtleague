@@ -31,9 +31,9 @@ import { cacheLife, cacheTag } from "next/cache";
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
 
-import { FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
+import { FLTeamsMembershipsResponseSchema, FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
 
-import type { FLTeamsResponse, FLTeamsSingleResponse } from "./schemas";
+import type { FLTeamsMembershipsResponse, FLTeamsResponse, FLTeamsSingleResponse } from "./schemas";
 import type { FLTeamsFilterParams, FLTeamSingleFilterParams } from "./types";
 
 export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
@@ -82,4 +82,23 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
     if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
     throw error;
   });
+}
+
+/**
+ * Every team with every season membership it holds, for the admin surfaces (`GET
+ * /teams/memberships`, admin-authed). The one read behind the club list and the club editor,
+ * replacing a request per season: the season-scoped reads cannot answer a club-centric question.
+ *
+ * Cached under the same `teams` tag as the other team reads, because every team action already
+ * invalidates it — the base tag is what makes an admin edit visible here immediately. The
+ * action-required read stays uncached by decision (ADR-0013); this list has none of its
+ * freshness-over-everything character.
+ */
+export async function getTeamMemberships(): Promise<FLTeamsMembershipsResponse> {
+  "use cache";
+
+  cacheTag("teams");
+  cacheLife("days");
+
+  return apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" });
 }

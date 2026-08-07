@@ -57,7 +57,7 @@ export const formButton = tv({
       // decision this line was waiting on).
       destructive: "bg-danger-solid text-danger-solid-foreground shadow-danger/25 tracking-wide shadow-lg",
       /** The "Neuen X anlegen" page-header buttons — taller to match the search bar beside them. */
-      trigger: "bg-brand-solid text-brand-solid-foreground shadow-brand/25 h-12 font-bold shadow-lg lg:h-15",
+      trigger: "bg-brand-solid text-brand-solid-foreground h-12 font-bold shadow-sm",
     },
     /** For forms whose submit is the only control — the sign-in tabs have no "Abbrechen" beside it. */
     fullWidth: { true: "flex w-full items-center justify-center" },

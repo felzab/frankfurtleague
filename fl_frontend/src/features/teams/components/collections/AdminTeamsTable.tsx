@@ -34,12 +34,13 @@ import type { AdminTeamRow } from "../../types";
 export const AdminTeamsTable = memo(function AdminTeamsTable({
   teamsQuery,
   filteredTeams,
-  selectedSaisonId,
+  selectedSaisonStatus,
   setDeletingTeam,
 }: {
   teamsQuery: string;
   filteredTeams: AdminTeamRow[];
-  selectedSaisonId: string;
+  /** Decides the status column's wording: a past season reads Abgeschlossen, a planned one Ausstehend. */
+  selectedSaisonStatus: "past" | "active" | "future";
   setDeletingTeam: (team: AdminTeamRow) => void;
 }) {
   const [, startReactivating] = useTransition();
@@ -56,174 +57,202 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   const handleReactivate = (team: AdminTeamRow) => {
     startReactivating(async () => {
       const res = await reactivateTeamAction({ id: team.id });
-      if (res.success) appToast.success(res.message ?? "Verein reaktiviert!");
+      if (res.success) appToast.success(res.message ?? "Team reaktiviert!");
       else appToast.danger("Reaktivieren fehlgeschlagen", { description: res.error });
     });
   };
 
+  // One source for both layouts: the `md+` table's cells and the phone cards render these, so the
+  // two presentations cannot disagree about a row's state or its controls.
+  const renderStatusBadges = (team: AdminTeamRow) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {team.inactive_since !== null && (
+        <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Stillgelegt seit {formatSpielDatum(team.inactive_since ?? "")}</span>
+      )}
+      {team.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht aufgenommen</span>}
+      {team.selected?.disqualifikation != null && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>Disqualifiziert</span>}
+      {team.inactive_since === null && team.selected !== null && team.selected.disqualifikation === null && (
+        <>
+          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>}
+          {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}
+          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Ausstehend</span>}
+        </>
+      )}
+    </div>
+  );
+
+  const renderActions = (team: AdminTeamRow) => (
+    <RowActions>
+      <RowActionLink
+        href={`/admin/spielsuche?q=${encodeURIComponent(team.name)}`}
+        label="Spiele anzeigen"
+        ariaLabel={`Spiele von ${team.name} anzeigen`}>
+        <Calendar
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
+      <RowActionLink
+        href={`/dashboard/teams/${team.id}${saisonQuery}`}
+        label="Öffentliche Teamseite"
+        ariaLabel={`Öffentliche Seite von ${team.name} öffnen`}>
+        <Globe
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
+      <RowActionLink
+        href={`/admin/teams/${team.id}${saisonQuery}`}
+        label="Bearbeiten"
+        ariaLabel={`Team ${team.name} bearbeiten`}>
+        <Pencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
+      {team.inactive_since !== null ? (
+        <RowActionRestore
+          label="Reaktivieren"
+          ariaLabel={`Team ${team.name} reaktivieren`}
+          onPress={() => handleReactivate(team)}
+        />
+      ) : team.isRetireable ? (
+        <RowActionDelete
+          label="Stilllegen"
+          ariaLabel={`Team ${team.name} stilllegen`}
+          onPress={() => setDeletingTeam(team)}
+        />
+      ) : (
+        <IconTooltip label="Stilllegen ist nur möglich, wenn das Team in keiner laufenden oder geplanten Saison spielt.">
+          <span
+            aria-label={`Team ${team.name} kann nicht stillgelegt werden, solange es in einer laufenden oder geplanten Saison spielt`}
+            className="text-foreground-muted/40 flex h-10 w-10 shrink-0 cursor-not-allowed items-center justify-center rounded-xl">
+            <TrashBin
+              aria-hidden="true"
+              width={18}
+              height={18}
+            />
+          </span>
+        </IconTooltip>
+      )}
+    </RowActions>
+  );
+
+  const emptyState = (
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+      <p className="fluid-sm text-foreground-muted font-medium">
+        {teamsQuery ? "Keine Teams für diese Suche gefunden." : "Es wurden noch keine Teams angelegt."}
+      </p>
+    </div>
+  );
+
   return (
-    <Table className={`${card()} h-fit w-full p-0`}>
-      <Table.ScrollContainer className="scrollbar-hide">
-        <Table.Content aria-label="Tabelle aller Vereine">
-          <Table.Header>
-            <Table.Column
-              isRowHeader
-              className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-              Verein
-            </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-              Kürzel
-            </Table.Column>
-            {/* The two season-scoped columns name their season, so "which season am I looking at"
-                is answered in the header rather than guessed. */}
-            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-              Gruppe {selectedSaisonId}
-            </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-              Status {selectedSaisonId}
-            </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
-              Aktionen
-            </Table.Column>
-          </Table.Header>
-
-          {/* `items` + a render function, not mapped children — see the memo note above. */}
-          <Table.Body
-            items={filteredTeams}
-            renderEmptyState={() => (
-              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                <p className="fluid-sm text-foreground-muted font-medium">
-                  {teamsQuery ? "Keine Vereine für diese Suche gefunden." : "Es wurden noch keine Vereine angelegt."}
-                </p>
+    <>
+      {/* The phone layout: one card per team, no horizontal scrolling anywhere (owner, 2026-08-07).
+          The table below `md` forced the whole grid sideways; a stacked card holds the same data
+          and the same controls at reading width. */}
+      <div className="flex w-full flex-col gap-3 md:hidden">
+        {filteredTeams.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredTeams.map((team) => (
+          <div
+            key={team.id}
+            className={`${card()} flex w-full flex-col gap-y-3 p-4 ${team.inactive_since !== null ? "opacity-80" : ""}`}>
+            <div className="flex w-full flex-row items-center gap-3">
+              <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 shrink-0 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
+                {team.shorthand}
+              </span>
+              <div className="flex min-w-0 flex-col">
+                <span className="fluid-sm text-foreground truncate font-semibold">{team.name}</span>
+                <span className="fluid-xs text-foreground-muted truncate">{team.full_name}</span>
               </div>
-            )}>
-            {(team: AdminTeamRow) => {
-              const isRetired = team.inactive_since !== null;
+              {team.selected && <span className="fluid-sm text-foreground ml-auto shrink-0 font-semibold">Gruppe {team.selected.gruppe}</span>}
+            </div>
+            {renderStatusBadges(team)}
+            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(team)}</div>
+          </div>
+        ))}
+      </div>
 
-              return (
-                <Table.Row
-                  id={team.id}
-                  className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
-                  <Table.Cell className="px-6 py-4">
-                    <div className={`flex items-center gap-3 ${isRetired ? "opacity-60" : ""}`}>
-                      <Persons
-                        className="text-brand shrink-0"
-                        width={18}
-                        height={18}
-                      />
-                      <div className="flex flex-col gap-0.5">
-                        <span className="fluid-sm text-foreground font-semibold">{team.name}</span>
-                        <span className="fluid-xs text-foreground-muted">{team.full_name}</span>
-                      </div>
-                    </div>
-                  </Table.Cell>
+      <div className="hidden w-full md:block">
+        <Table className={`${card()} h-fit w-full p-0`}>
+          <Table.ScrollContainer className="scrollbar-hide">
+            <Table.Content aria-label="Tabelle aller Teams">
+              <Table.Header>
+                <Table.Column
+                  isRowHeader
+                  className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Team
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Kürzel
+                </Table.Column>
+                {/* Season-scoped columns; WHICH season is the sidemenu selector's, stated by the page
+                context rather than repeated per header (owner, 2026-08-07). Narrow: one letter and
+                one badge do not earn a text column's width. */}
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-16 border-b px-3 py-4 font-bold tracking-wider uppercase">
+                  Gruppe
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-36 border-b px-3 py-4 font-bold tracking-wider uppercase">
+                  Status
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                  Aktionen
+                </Table.Column>
+              </Table.Header>
 
-                  <Table.Cell className="px-6 py-4">
-                    {/* The TeamCard's chip colour, so the Kürzel wears one tint on the admin surface
+              {/* `items` + a render function, not mapped children — see the memo note above. */}
+              <Table.Body
+                items={filteredTeams}
+                renderEmptyState={() => emptyState}>
+                {(team: AdminTeamRow) => {
+                  const isRetired = team.inactive_since !== null;
+                  return (
+                    <Table.Row
+                      id={team.id}
+                      className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
+                      <Table.Cell className="px-6 py-4">
+                        <div className={`flex items-center gap-3 ${isRetired ? "opacity-60" : ""}`}>
+                          <Persons
+                            className="text-brand shrink-0"
+                            width={18}
+                            height={18}
+                          />
+                          <div className="flex flex-col gap-0.5">
+                            <span className="fluid-sm text-foreground font-semibold">{team.name}</span>
+                            <span className="fluid-xs text-foreground-muted">{team.full_name}</span>
+                          </div>
+                        </div>
+                      </Table.Cell>
+
+                      <Table.Cell className="px-6 py-4">
+                        {/* The TeamCard's chip colour, so the Kürzel wears one tint on the admin surface
                         and the public one (owner, 2026-08-07). */}
-                    {/* Fixed width, sized to the widest pair: WW measures 54.4px at this font with
+                        {/* Fixed width, sized to the widest pair: WW measures 54.4px at this font with
                         the old px-3 padding, so w-14 holds every combination and the column stops
                         wobbling between rows (owner, 2026-08-07). */}
-                    <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
-                      {team.shorthand}
-                    </span>
-                  </Table.Cell>
-
-                  <Table.Cell className="px-6 py-4">
-                    {team.selected ? (
-                      <span className="fluid-sm text-foreground font-semibold">{team.selected.gruppe}</span>
-                    ) : (
-                      <span className="fluid-sm text-foreground-muted">–</span>
-                    )}
-                  </Table.Cell>
-
-                  <Table.Cell className="px-6 py-4">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {/* Club-level and season-level states are independent: retirement belongs to
-                          the club (ADR-0032), the rest to the selected season's junction row. */}
-                      {isRetired && (
-                        <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
-                          Stillgelegt seit {formatSpielDatum(team.inactive_since ?? "")}
+                        <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
+                          {team.shorthand}
                         </span>
-                      )}
-                      {team.selected === null && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Nicht aufgenommen</span>}
-                      {team.selected?.disqualifikation != null && (
-                        <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>Disqualifiziert</span>
-                      )}
-                      {!isRetired && team.selected !== null && team.selected.disqualifikation === null && (
-                        <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>
-                      )}
-                    </div>
-                  </Table.Cell>
+                      </Table.Cell>
 
-                  <Table.Cell className="px-6 py-4">
-                    <RowActions>
-                      <RowActionLink
-                        href={`/admin/spielsuche?q=${encodeURIComponent(team.name)}`}
-                        label="Spiele anzeigen"
-                        ariaLabel={`Spiele von ${team.name} anzeigen`}>
-                        <Calendar
-                          aria-hidden="true"
-                          width={18}
-                          height={18}
-                        />
-                      </RowActionLink>
-                      <RowActionLink
-                        href={`/dashboard/teams/${team.id}${saisonQuery}`}
-                        label="Öffentliche Teamseite"
-                        ariaLabel={`Öffentliche Seite von ${team.name} öffnen`}>
-                        <Globe
-                          aria-hidden="true"
-                          width={18}
-                          height={18}
-                        />
-                      </RowActionLink>
-                      <RowActionLink
-                        href={`/admin/teams/${team.id}${saisonQuery}`}
-                        label="Bearbeiten"
-                        ariaLabel={`Verein ${team.name} bearbeiten`}>
-                        {/* The pencil the other tables draw, but as a LINK: the editor is a page. */}
-                        <Pencil
-                          aria-hidden="true"
-                          width={18}
-                          height={18}
-                        />
-                      </RowActionLink>
-                      {isRetired ? (
-                        <RowActionRestore
-                          label="Reaktivieren"
-                          ariaLabel={`Verein ${team.name} reaktivieren`}
-                          onPress={() => handleReactivate(team)}
-                        />
-                      ) : team.isRetireable ? (
-                        <RowActionDelete
-                          label="Stilllegen"
-                          ariaLabel={`Verein ${team.name} stilllegen`}
-                          onPress={() => setDeletingTeam(team)}
-                        />
-                      ) : (
-                        // Inert rather than hidden, so the rule is discoverable: the hover names why
-                        // there is nothing to press. The write path refuses the same shape.
-                        <IconTooltip label="Stilllegen ist nur möglich, wenn der Verein in keiner laufenden oder geplanten Saison spielt.">
-                          <span
-                            aria-label={`Verein ${team.name} kann nicht stillgelegt werden, solange er in einer laufenden oder geplanten Saison spielt`}
-                            className="text-foreground-muted/40 flex h-10 w-10 shrink-0 cursor-not-allowed items-center justify-center rounded-xl">
-                            <TrashBin
-                              aria-hidden="true"
-                              width={18}
-                              height={18}
-                            />
-                          </span>
-                        </IconTooltip>
-                      )}
-                    </RowActions>
-                  </Table.Cell>
-                </Table.Row>
-              );
-            }}
-          </Table.Body>
-        </Table.Content>
-      </Table.ScrollContainer>
-    </Table>
+                      <Table.Cell className="px-3 py-4">
+                        {team.selected ? <span className="fluid-sm text-foreground font-semibold">{team.selected.gruppe}</span> : null}
+                      </Table.Cell>
+
+                      <Table.Cell className="px-3 py-4">{renderStatusBadges(team)}</Table.Cell>
+
+                      <Table.Cell className="px-6 py-4">{renderActions(team)}</Table.Cell>
+                    </Table.Row>
+                  );
+                }}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
+      </div>
+    </>
   );
 });

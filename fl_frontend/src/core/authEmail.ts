@@ -74,7 +74,7 @@ function renderHtml(url: string): string {
       </p>
       <hr style="border:none;border-top:1px solid #d4d4d4;margin:28px 0 16px;" />
       <p style="margin:0;font-size:12px;line-height:1.6;color:#525252;">
-        Du hast diese Anmeldung nicht angefordert? Dann ignoriere diese E-Mail einfach — ohne den
+        Du hast diese Anmeldung nicht angefordert? Dann ignoriere diese E-Mail einfach. Ohne den
         Link passiert nichts.
       </p>
     </div>
@@ -84,7 +84,7 @@ function renderHtml(url: string): string {
 
 function renderText(url: string): string {
   return [
-    `${BRAND_NAME} — Anmeldung bestätigen`,
+    `${BRAND_NAME}: Anmeldung bestätigen`,
     "",
     `Öffne diesen Link, um dich bei der ${BRAND_NAME}-Verwaltung anzumelden.`,
     `Er ist ${LINK_VALIDITY_TEXT} gültig und kann nur einmal verwendet werden.`,
@@ -93,7 +93,7 @@ function renderText(url: string): string {
     "",
     url,
     "",
-    "Du hast diese Anmeldung nicht angefordert? Dann ignoriere diese E-Mail einfach —",
+    "Du hast diese Anmeldung nicht angefordert? Dann ignoriere diese E-Mail einfach.",
     "ohne den Link passiert nichts.",
   ].join("\n");
 }

@@ -508,13 +508,13 @@ const joinSpiele = (advancements: readonly { spiel_nr: number }[]): string =>
 export const formatBracketFault = (fault: FLBracketFault): string => {
   switch (fault.reason) {
     case "gruppe_too_small":
-      return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe} — so weit reicht diese Gruppe nicht`;
+      return `Spiel ${fault.spiel_nr} verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe}, doch so weit reicht diese Gruppe nicht`;
     case "tie_unresolved":
       return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht zu entscheiden, daher bleibt Spiel ${fault.spiel_nr} offen`;
     case "spiel_missing":
       return `Spiel ${fault.spiel_nr} verweist auf Spiel ${fault.quelle_spiel_nr}, das es in dieser Saison nicht gibt`;
     case "reference_cycle":
-      return `Spiel ${fault.spiel_nr} verweist über Spiel ${fault.quelle_spiel_nr} auf eine Verweiskette, die sich schließt — sie kann kein Ergebnis liefern`;
+      return `Spiel ${fault.spiel_nr} verweist über Spiel ${fault.quelle_spiel_nr} auf eine Verweiskette, die sich schließt und kein Ergebnis liefern kann`;
     case "same_team":
       return `In Spiel ${fault.spiel_nr} führen beide Seiten zur selben Mannschaft`;
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Description, ListBox, Select } from "@heroui/react";
@@ -33,6 +33,27 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
   //
   // Forcing it closed on every pathname change means every press starts from a known state.
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
+
+  // react-aria restores focus to the trigger when the popover dismisses, so an OUTSIDE click closed
+  // the list and then handed focus straight back — and the unlayered field-focus rule paints the
+  // brand border for a focused trigger, which is why the border flicked and returned to brand
+  // instead of resting (owner, 2026-08-07). Blurring after the restoration puts the control back to
+  // its resting border; a keyboard user who reopens with Enter is unaffected, because opening
+  // focuses the listbox rather than this trigger.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const hadBeenOpen = useRef(false);
+  useEffect(() => {
+    if (isOpen) {
+      hadBeenOpen.current = true;
+      return;
+    }
+    if (!hadBeenOpen.current) return;
+    const frame = requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && rootRef.current?.contains(active)) active.blur();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
 
   // Validated against the list, not taken raw from the URL. `?saison_id=` is user-editable, and an
   // id absent from `saisons` would otherwise leave the two halves of this component disagreeing: the
@@ -78,7 +99,9 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
   if (!isMounted) return <SaisonSlotSkeleton />;
 
   return (
-    <div className="w-full">
+    <div
+      ref={rootRef}
+      className="w-full">
       <Select
         aria-label="Saison auswählen"
         value={activeSaisonId}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { appToast } from "@/shared/utils/appToast";
@@ -25,6 +25,22 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
   const [isSigningOut, startSignOut] = useTransition();
   const [isConfirming, setIsConfirming] = useState(false);
   const router = useRouter();
+
+  // The armed state must survive nothing but a second press on the control itself. `onBlur` covers
+  // a keyboard user; on iOS a tap on non-interactive content moves focus NOWHERE, so the armed
+  // button sat there until it was pressed again (owner, 2026-08-07). A capture-phase pointerdown
+  // is the reliable disarm: any press outside an element marked as the sign-out control resets it.
+  useEffect(() => {
+    if (!isConfirming) return;
+
+    const handleOutsidePress = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-signout-control="true"]')) return;
+      setIsConfirming(false);
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePress, true);
+    return () => document.removeEventListener("pointerdown", handleOutsidePress, true);
+  }, [isConfirming]);
 
   // The action returns rather than redirecting, so the navigation happens here — see the note on
   // `signOutAction`. The toast is fired BEFORE navigating: `Toast.Provider` is mounted once above the

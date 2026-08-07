@@ -26,7 +26,8 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
     <button
       type="button"
       disabled={isSigningOut}
-      aria-label={isConfirming ? "Wirklich abmelden?" : "Abmelden"}
+      aria-label={isConfirming ? "Abmelden?" : "Abmelden"}
+      data-signout-control="true"
       onClick={press}
       // `onBlur` is the reliable disarm: arming leaves focus on this button, so anything else the
       // user does moves focus away from here.
@@ -55,7 +56,7 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       )}
       {/* Only while armed: the resting control is one glyph, so the bar stays quiet until it has a
           question to ask. */}
-      {isConfirming && <span className="fluid-xs whitespace-nowrap">{isSigningOut ? "Wird abgemeldet..." : "Wirklich?"}</span>}
+      {isConfirming && <span className="fluid-xs whitespace-nowrap">{isSigningOut ? "Wird abgemeldet..." : "Abmelden?"}</span>}
     </button>
   );
 
