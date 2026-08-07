@@ -16,9 +16,9 @@
  *     changes -- and a granular tag nothing invalidates is decoration (ADR-0001).
  *   • `spieltage` is the ONLY resource invalidated. A matchday joins into no second resource:
  *     `GET /spiele` never joins `spieltage`, which is the same fact that makes retirement safe.
- *   • There is no 409 branch anywhere here. Nothing about a matchday is unique -- not its name, not its
- *     `order_val` -- so no write can collide, which is exactly why the list marks a duplicate
- *     `order_val` rather than relying on a refusal that will never come.
+ *   • There is no 409 branch anywhere here, and nothing for one to refuse: no field of a matchday is
+ *     unique and none needs to be. Its place in the season is derived from the phase and the date
+ *     (ADR-0064), so two matchdays cannot claim one position -- there is no position to claim.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
  *

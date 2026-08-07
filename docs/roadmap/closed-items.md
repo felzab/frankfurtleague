@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `445241b`, 2026-08-07
+**Verified against:** `3b74b5f`, 2026-08-07
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -85,7 +85,8 @@ no row here — its commit is the whole story.
   (resource-first URLs in a second router per slice). It also produced **DS14 and DS15** in
   [`../_standard/6-decisions.md`](../_standard/6-decisions.md), and opened **FB-6** (admin pages for
   seasons and matchdays, plus the rollover control) and **BE-12** (the purge `inactive_since` is a
-  date for). It unblocked FB-3 and left ADR-0015 standing: the endpoints exist, no UI calls one.
+  date for). It unblocked FB-3, and it left ADR-0015 standing on the reasoning that endpoint would have
+  been redundant with the write path it was building.
 - **DB-2** → [ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md),
   the rule that the `$jsonSchema` validators are hand-written and compared to the Pydantic models by a
   test rather than generated from them. It opened nothing. Two findings that were not decisions left

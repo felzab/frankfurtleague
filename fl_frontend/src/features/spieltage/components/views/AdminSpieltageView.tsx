@@ -7,10 +7,9 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
-// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The phase is
-// searchable by its STORED value rather than its German label, which is what a reader would type — but the
-// list is sectioned by phase and labelled with the phase's own chip, so filtering by phase is what the
-// sections already do and the search is for finding one matchday by name or date.
+// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The search finds a
+// matchday by name or date; the phase is what the sections already group by, and narrowing to one is the
+// filter bar's job rather than something to type.
 const SEARCH_KEYS = ["name", "beginn", "ende"] as const;
 
 /**
@@ -24,10 +23,6 @@ const SEARCH_KEYS = ["name", "beginn", "ende"] as const;
  * Saisons: six scalar fields with no nested object and no junction row do not reach ADR-0050's threshold.
  */
 export function AdminSpieltageView({ spieltage, saisonId }: { spieltage: AdminSpieltagRow[]; saisonId: string | null }) {
-  // Every position in the season, so a form can say that the one it holds is already taken. Computed from
-  // the unfiltered list on purpose: a search must not make a collision disappear.
-  const orderVals = spieltage.map((spieltag) => spieltag.order_val);
-
   return (
     <AdminCrudView<AdminSpieltagRow>
       items={spieltage}
@@ -44,7 +39,6 @@ export function AdminSpieltageView({ spieltage, saisonId }: { spieltage: AdminSp
       renderEditModal={({ item, isOpen, onClose }) => (
         <AdminEditSpieltagModal
           spieltagData={item}
-          siblingOrderVals={orderVals}
           isOpen={isOpen}
           onClose={onClose}
         />

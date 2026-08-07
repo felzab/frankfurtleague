@@ -452,7 +452,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
     },
     "spieltage": {
         "$jsonSchema": _object(
-            required=("_id", "name", "beginn", "ende", "anzahl_spiele", "order_val", "saison_phase", "saison_id", "inactive_since"),
+            required=("_id", "name", "beginn", "ende", "anzahl_spiele", "saison_phase", "saison_id", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "name": {"bsonType": "string"},
@@ -462,8 +462,9 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # second candidate for ADR-0026's treatment and deliberately not decided; typing it
                 # here neither blesses nor blocks that.
                 "anzahl_spiele": {"bsonType": "int"},
-                # What the bracket orders by. Not `beginn` -- matchdays routinely share dates.
-                "order_val": {"bsonType": "int"},
+                # A matchday's position is DERIVED, so no property here holds one (ADR-0064). It is
+                # `saison_phase` in bracket order, then `beginn`, then `name` -- a total order over
+                # fields that already have to be right for other reasons.
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
                 # Retiring a matchday does not touch the matches pointing at it: `spiele.spieltag_id`

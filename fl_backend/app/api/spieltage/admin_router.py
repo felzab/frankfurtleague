@@ -1,15 +1,15 @@
 """
 SPIELTAGE · write endpoints
 
-Matchdays: named blocks of fixtures inside a season, ordered by `order_val`.
+Matchdays: named blocks of fixtures inside a season.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
   • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
     construction. Never move the guard onto an individual endpoint.
-  • `order_val` is what the bracket orders by, NOT the date. Matchdays routinely share dates, so
-    ordering by `beginn` interleaves playoff rounds unpredictably -- which makes this field load-bearing
-    rather than decorative, and it is the one most worth getting right when creating a season's rounds.
+  • **No payload here carries a position, and none may gain one** (ADR-0064). A matchday's place in its
+    season is derived from `saison_phase` and `beginn` -- both of which have to be right anyway -- so
+    there is nothing to set and no two matchdays can claim the same place.
   • Deletion is SOFT. `spiele.spieltag_id` points here and nothing cascades, so a hard delete would
     leave matches referencing a matchday that no longer exists.
   • `anzahl_spiele` is a hand-maintained count of something countable. It is written as given and never
@@ -49,9 +49,9 @@ async def post_spieltag(
     """
     Create a matchday.
 
-    `order_val` decides where it sits in the bracket and in every ordered listing — not `beginn`, since
-    matchdays routinely share dates. Nothing enforces that two matchdays in a season hold different
-    `order_val`s; equal values sort against each other by `beginn` as a tie-break.
+    Where it sits in the season follows from what it is: the phase in bracket order, then `beginn`. So a
+    matchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date
+    is wrong, and correcting either moves it (ADR-0064).
     """
 
     post_operation = await post_one_to_db(

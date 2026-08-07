@@ -739,7 +739,7 @@
     "/api/v0/spieltage": {
       "get": {
         "summary": "List Spieltage",
-        "description": "List matchdays for a season, ordered by `order_val` rather than by date.\n\nOmitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\".",
+        "description": "List matchdays for a season, in the order they are played.\n\nThat order is derived rather than stored: the phase in bracket order, then `beginn`, then `name`. It\nis what `sort_by=natural` means and it is the default; the other three sort options are dates and a\nsize, and none of them is what a bracket reads.\n\nOmitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias\nfor \"any phase except gruppenphase\".",
         "operationId": "get_spieltage_api_v0_spieltage_get",
         "security": [
           {
@@ -817,13 +817,13 @@
             "required": false,
             "schema": {
               "enum": [
+                "natural",
                 "beginn",
                 "ende",
-                "anzahl_spiele",
-                "order_val"
+                "anzahl_spiele"
               ],
               "type": "string",
-              "default": "order_val",
+              "default": "natural",
               "title": "Sort By"
             }
           },
@@ -867,7 +867,7 @@
       },
       "post": {
         "summary": "Create a Spieltag",
-        "description": "Create a matchday.\n\n`order_val` decides where it sits in the bracket and in every ordered listing — not `beginn`, since\nmatchdays routinely share dates. Nothing enforces that two matchdays in a season hold different\n`order_val`s; equal values sort against each other by `beginn` as a tie-break.",
+        "description": "Create a matchday.\n\nWhere it sits in the season follows from what it is: the phase in bracket order, then `beginn`. So a\nmatchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date\nis wrong, and correcting either moves it (ADR-0064).",
         "operationId": "post_spieltag_api_v0_spieltage_post",
         "security": [
           {
@@ -3704,11 +3704,6 @@
             "exclusiveMinimum": 0.0,
             "title": "Anzahl Spiele"
           },
-          "order_val": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Order Val"
-          },
           "saison_phase": {
             "type": "string",
             "enum": [
@@ -3726,7 +3721,6 @@
           "beginn",
           "ende",
           "anzahl_spiele",
-          "order_val",
           "saison_phase"
         ],
         "title": "FLPatchSpieltagPayload"
@@ -4115,11 +4109,6 @@
             "exclusiveMinimum": 0.0,
             "title": "Anzahl Spiele"
           },
-          "order_val": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Order Val"
-          },
           "saison_phase": {
             "type": "string",
             "enum": [
@@ -4143,7 +4132,6 @@
           "beginn",
           "ende",
           "anzahl_spiele",
-          "order_val",
           "saison_phase",
           "saison_id"
         ],
@@ -5782,11 +5770,6 @@
             "exclusiveMinimum": 0.0,
             "title": "Anzahl Spiele"
           },
-          "order_val": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Order Val"
-          },
           "saison_phase": {
             "type": "string",
             "enum": [
@@ -5823,7 +5806,6 @@
           "beginn",
           "ende",
           "anzahl_spiele",
-          "order_val",
           "saison_phase",
           "saison_id",
           "inactive_since"

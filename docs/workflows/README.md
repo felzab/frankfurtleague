@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `445241b`, 2026-08-07
+**Verified against:** `3b74b5f`, 2026-08-07
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -482,11 +482,10 @@ the machine is outside the repo.
 
 `saisons`, `spieler` and `spieltage` are cached for a day, and **no code path observes a HAND edit to
 them** — a change made directly in MongoDB invalidates nothing, so it is invisible until the cache
-expires. For `saisons` and `spieltage` that is the only way in: the write endpoints exist
-([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)) and nothing in
-the app calls one yet. For `spieler` it is now the exception rather than the rule — the admin pages
-clear the `spieler` tag as they save, so only an edit that goes around them is stale. That staleness
-is bounded by design
+expires. All three now have admin pages that clear their own tags as they save
+([ADR-0063](../_decisions/0063-a-matchday-list-is-the-seasons-skeleton.md) built the last two), so a hand
+edit is the exception rather than the rule: an edit made through `/admin` is visible at once, and only one
+that goes around the pages is stale. That staleness is bounded by design
 ([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)): 24 hours at
 worst, and there is no invalidation endpoint. To make the edit visible sooner, recreate the frontend
 container — its cache lives in the container filesystem, so recreation starts empty at the cost of
@@ -497,8 +496,9 @@ every cached page:
 docker compose up -d --force-recreate frontend
 ```
 
-The durable fix is FB-6: admin pages that invalidate as they save, as the teams and spieler pages
-already do.
+**A hand edit to a season is the one that leaves the most stale**, because a season decides what an omitted
+`saison_id` means: the season's own reads, plus `spiele`, `spieltage` and `teams`. Making it through
+`/admin/saisons/[saison_id]` clears all four; making it in Compass clears none.
 
 ### Before any hand edit that a code change depends on
 
@@ -570,26 +570,29 @@ sign-out, which arms on the first press and ends the session on the second.
 
 ### Season rollover
 
-> **Derived from the data model, not from an observed rollover.** Every step below has an endpoint
-> ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)), and step 3
-> is the one with an admin page: a club's Saison-Zugehörigkeit panel on `/admin/teams/[team_id]`
-> enters it into the season the sidemenu selector holds while that season is still `future`. The rest is still done by hand,
-> either against the API or in Compass, and nothing prompts for a step that is forgotten — the
-> rollover control is open item FB-6.
+> **Derived from the data model, not from an observed rollover.** Every step below now has both an
+> endpoint ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)) and an
+> admin page, so the whole sequence can be done through `/admin` and each step invalidates its own caches
+> as it saves. What still has no prompt is the sequence itself: nothing notices a step that is skipped, and
+> nothing announces that the rollover is due. An email reminder is an open roadmap item.
 
 A new season needs, at minimum:
 
 1. A `saisons` document whose `_id` is **exactly four characters** — every `saison_id` referencing it is
-   constrained to that length, and a longer id breaks every match and matchday pointing at it.
-   `POST /api/v0/saisons` creates one, always as `future`.
-2. **`POST /api/v0/saisons/{saison_id}/activate`** when the season starts. It demotes the outgoing
-   season and promotes this one in one transaction, and it is the **only** code path that writes
-   `status` ([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)). Do not set
-   `status` in Compass: two active seasons is a state nothing detects, and `pull_current_saison` then
-   returns whichever Mongo hands back first.
+   constrained to that length, and a longer id breaks every match and matchday pointing at it. The
+   Neue-Saison dialog on `/admin/saisons` creates one over `POST /api/v0/saisons`, always as `future`, and
+   the id cannot be changed afterwards.
+2. **`POST /api/v0/saisons/{saison_id}/activate`** when the season starts, from the Umstellung panel on
+   `/admin/saisons/[saison_id]`. It demotes the outgoing season and promotes this one in one transaction,
+   and it is the **only** code path that writes `status`
+   ([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)). Do not set `status` in
+   Compass: two active seasons is a state nothing detects, and `pull_current_saison` then returns
+   whichever Mongo hands back first.
 
-   **It carries no "have all the games finished" guard, on purpose.** That check belongs to FB-6's
-   admin control, where an operator can see what is incomplete and decide.
+   **It carries no "have all the games finished" guard, on purpose.** The panel lists the outgoing
+   season's matches that have no result, each linking into its fixture, and activates anyway if you press
+   through — an early rollover is a legitimate decision (ADR-0033,
+   [ADR-0063](../_decisions/0063-a-matchday-list-is-the-seasons-skeleton.md)).
 
 3. A **`saison_teams` junction row per participating team**, carrying `gruppe` and `disqualifikation` —
    `POST /api/v0/teams/{team_id}/saisons`, which seeds the record as `null`; the Saison-Zugehörigkeit
@@ -598,23 +601,25 @@ A new season needs, at minimum:
    season's results entirely: the join is strict. No `statistik`, because the league table is derived
    from the season's matches ([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)),
    so a new season starts at zero without anything being written.
-4. A **`saison_spieler` row per player** — `POST /api/v0/spieler/{spieler_id}/saisons`. A player who
-   already has a row for that season comes back **409**: creating never revives a retired row, and
-   `POST .../saisons/{saison_id}/reactivate` is what brings them back
-   ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
-5. `spieltage` documents with `order_val` set — the bracket orders by that, not by date.
+4. A **`saison_spieler` row per player** — `POST /api/v0/spieler/{spieler_id}/saisons`, from the Kader
+   panel on `/admin/spieler/[spieler_id]`. A player who already has a row for that season comes back
+   **409**: creating never revives a retired row, and `POST .../saisons/{saison_id}/reactivate` is what
+   brings them back ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
+5. `spieltage` documents, one per matchday. `/admin/spieltage` creates them into the season the sidemenu
+   selector holds. **There is no position to set**: a matchday's place in the season is derived from its
+   phase and its `beginn` ([ADR-0064](../_decisions/0064-a-matchdays-position-is-derived-not-stored.md)), so
+   entering the phase and the dates correctly is the whole of it, and a matchday in the wrong place is one
+   whose phase or date is wrong.
 
 A playoff fixture whose participants the group phase has not produced yet needs **no team row at all**:
 both sides are null, and `team1_herkunft` / `team2_herkunft` carry what the bracket shows in their
 place ([ADR-0041](../_decisions/0041-a-bracket-slot-carries-its-own-provenance.md)).
 
-Then recreate the frontend container so the rollover is visible immediately, or accept the daily
-cache expiry — the command and the reasoning are under "After editing seasons, players or matchdays
-directly in MongoDB" above
-([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). A team
-junction entered through the admin page invalidates its own caches as it saves, and so does a squad
-edit; a hand edit to `saisons` or `spieltage` stays invisible until FB-6 gives those two resources
-admin pages.
+**A rollover done through `/admin` needs nothing afterwards**: the action clears `saisons`, `spiele`,
+`spieltage` and `teams`, which is every read an omitted `saison_id` reaches. One done in Compass clears
+none of them and stays invisible until the daily cache expiry or a container recreation — the command and
+the reasoning are under "After editing seasons, players or matchdays directly in MongoDB" above
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)).
 
 ### Certificate renewal
 

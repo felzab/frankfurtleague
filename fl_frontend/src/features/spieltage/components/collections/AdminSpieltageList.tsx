@@ -19,33 +19,24 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { AdminSpieltagRow } from "../../types";
 
 /**
- * The season's matchdays, sectioned by phase and ordered within a section by `order_val`.
+ * The season's matchdays, sectioned by phase and in the order they are played.
  *
  * **Not a table, and not the public Spielplan's tab strip either** (owner, 2026-08-07, ADR-0063). The
  * Spielplan shows one matchday at a time because a reader's question is what is being played on it; the
- * admin's questions are all comparisons BETWEEN matchdays — does the sequence run clean, are the phases in
- * bracket order, does the expected fixture count match what is attached — and a strip showing one matchday
- * hides every one of them. A flat table would show the fields and hide the structure: a column of integers
- * reading 0, 1, 2, 3, 3, 5 is exactly the presentation in which the duplicate and the gap do not register.
+ * admin's questions are comparisons BETWEEN matchdays — are the phases right, does the expected fixture
+ * count match what is attached — and a strip showing one matchday hides both.
  *
- * So the list is the season's skeleton: one section per phase in the order a season runs them, each row
- * leading with its position as a rank marker rather than as a sortable number, and the two facts nothing
- * else in the system can catch marked on the row itself.
+ * **The order arrives already correct and this list does not re-sort it** (ADR-0064). It is derived on the
+ * backend from `saison_phase` in bracket order, then `beginn`, then `name`, so there is no stored position
+ * to render, no collision to detect and no reordering control to offer. What the row shows instead is an
+ * `ordinal` — its 1-based place within its phase section, assigned by the page from the order it received.
+ * That number is presentation: two rows cannot claim the same one, and nothing can make it disagree with
+ * where the row actually is.
  *
- * **Those two marks are the point of the surface.**
- *
- * `hasOrderCollision` — nothing in the database or the API makes `order_val` unique within a season, and
- * the bracket orders by it, so two matchdays sharing a position sort against each other by `beginn` as a
- * tie-break and the playoff rounds interleave. Nothing else reports it.
- *
- * `spieleAngelegt` against `anzahl_spiele` — the stored count is hand-maintained and written as given,
- * never derived, which ADR-0026 pointedly did not extend to it. Showing it beside the fixtures actually
- * carrying this matchday's id is the only way that drift becomes visible.
- *
- * **No drag-to-reorder** (owner, 2026-08-07). Renumbering a season is several writes and
- * `PATCH /spieltage/{spieltag_id}` writes one document, which is the shape ADR-0057 refused for the
- * whole-draw save; it would need a transactional bulk endpoint that does not exist. Matchdays are laid out
- * about twice a year, so the position is a field on the edit form.
+ * **`spieleAngelegt` against `anzahl_spiele` is now the one fact only this surface can catch.** The stored
+ * count is hand-maintained and written as given, never derived, which ADR-0026 pointedly did not extend to
+ * it — so showing it beside the fixtures actually carrying this matchday's id is the only way that drift
+ * becomes visible.
  *
  * **No per-row link to a matchday's fixtures**, and that is a fact about the Spielsuche rather than a gap
  * here: it searches team, venue, date, fixture number and referee, and a matchday's name is none of those,
@@ -81,9 +72,12 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     });
   };
 
-  // Grouped by phase in the competition's own order, and a phase with no matchday is skipped rather than
+  // Grouped by phase in the competition's own order. A phase with no matchday is skipped rather than
   // rendered empty: a season part-way through its setup has no Finale yet, and an empty heading would read
   // as something missing rather than as something not reached.
+  //
+  // No sort inside a section — the rows arrive in the played order and re-sorting here would be a second
+  // answer to a question the backend already answered (ADR-0064).
   const byPhase = new Map<FLSaisonPhase, AdminSpieltagRow[]>();
   for (const spieltag of filteredSpieltage) {
     const section = byPhase.get(spieltag.saison_phase);
@@ -92,26 +86,27 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   }
   const sections = SAISON_PHASE_OPTIONS.filter((phase) => byPhase.has(phase)).map((phase) => ({
     phase,
-    // Within a phase, position first and then date — the same tie-break the backend applies, so the list
-    // and the bracket read a duplicated position identically.
-    rows: [...(byPhase.get(phase) ?? [])].sort((left, right) => left.order_val - right.order_val || left.beginn.localeCompare(right.beginn)),
+    rows: byPhase.get(phase) ?? [],
   }));
   const phasesWithout = SAISON_PHASE_OPTIONS.filter((phase) => !byPhase.has(phase));
 
   /** The stored expectation against what is actually attached — the one number only this list can check. */
   const renderSpieleCount = (spieltag: AdminSpieltagRow) => {
     const matches = spieltag.spieleAngelegt === spieltag.anzahl_spiele;
+    // The noun agrees with the EXPECTED count, which is the number it belongs to: a final expects one
+    // match, so the badge reads „1 / 1 Spiel“.
+    const noun = spieltag.anzahl_spiele === 1 ? "Spiel" : "Spiele";
 
     return (
       <IconTooltip
         label={
           matches
-            ? `${String(spieltag.spieleAngelegt)} von ${String(spieltag.anzahl_spiele)} erwarteten Spielen angelegt.`
-            : `${String(spieltag.spieleAngelegt)} Spiele angelegt, erwartet sind ${String(spieltag.anzahl_spiele)}.`
+            ? `${String(spieltag.spieleAngelegt)} von ${String(spieltag.anzahl_spiele)} erwarteten ${spieltag.anzahl_spiele === 1 ? "Spiel" : "Spielen"} angelegt.`
+            : `${String(spieltag.spieleAngelegt)} angelegt, erwartet ${spieltag.anzahl_spiele === 1 ? "ist 1 Spiel" : `sind ${String(spieltag.anzahl_spiele)} Spiele`}.`
         }
         tone={matches ? undefined : "danger"}>
         <span className={`${LABEL_BADGE} cursor-help ${matches ? "bg-success/15 text-success-strong" : "bg-warning/15 text-warning-strong"}`}>
-          {spieltag.spieleAngelegt} / {spieltag.anzahl_spiele} Spiele
+          {spieltag.spieleAngelegt} / {spieltag.anzahl_spiele} {noun}
         </span>
       </IconTooltip>
     );
@@ -173,38 +168,34 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0 ${
                   spieltag.inactive_since !== null ? "opacity-80" : ""
                 }`}>
-                {/* The position leads the row because it is what the row is ordered by, and it is a
-                    marker rather than a number in a cell because its value only means anything relative
-                    to its neighbours. It turns warning-toned on a collision, which is the one state in
-                    which the number itself is the problem. */}
-                <span
-                  aria-label={`Reihenfolge ${String(spieltag.order_val)}`}
-                  className={`fluid-sm flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm ${
-                    spieltag.hasOrderCollision ? "bg-warning/20 text-warning-strong" : "bg-brand/50 text-foreground"
-                  }`}>
-                  {spieltag.order_val}
-                </span>
-
-                <div className="flex min-w-0 flex-1 flex-col gap-y-1">
-                  <span className="fluid-sm text-foreground truncate font-semibold">{spieltag.name}</span>
-                  {/* One date where the matchday is one day, which most are — a range repeating the same
-                      date twice reads as two facts. */}
-                  <span className="fluid-xs text-foreground-muted">
-                    {spieltag.beginn === spieltag.ende
-                      ? formatSpielDatum(spieltag.beginn)
-                      : `${formatSpielDatum(spieltag.beginn)} bis ${formatSpielDatum(spieltag.ende)}`}
+                {/* The ordinal and the identity share one row at EVERY width (owner, 2026-08-07). On a
+                    phone the marker used to sit on a line of its own above the name, which spent a whole
+                    row on one digit; the number belongs beside the thing it numbers. From `md` the same
+                    row is the start of the horizontal layout, so one wrapper serves both. */}
+                <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
+                  <span
+                    aria-hidden="true"
+                    className="bg-brand/50 text-foreground fluid-sm flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
+                    {spieltag.ordinal}
                   </span>
+
+                  <div className="flex min-w-0 flex-1 flex-col gap-y-1">
+                    {/* The ordinal is decorative for a screen reader — the list order already carries it,
+                        and reading "1" before every name is noise. The name is the row's accessible
+                        identity, which is what the action labels name too. */}
+                    <span className="fluid-sm text-foreground truncate font-semibold">{spieltag.name}</span>
+                    {/* One date where the matchday is one day, which most are — a range repeating the same
+                        date twice reads as two facts. */}
+                    <span className="fluid-xs text-foreground-muted">
+                      {spieltag.beginn === spieltag.ende
+                        ? formatSpielDatum(spieltag.beginn)
+                        : `${formatSpielDatum(spieltag.beginn)} bis ${formatSpielDatum(spieltag.ende)}`}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 md:shrink-0">
                   {renderSpieleCount(spieltag)}
-                  {spieltag.hasOrderCollision && (
-                    <IconTooltip
-                      label="Ein anderer Spieltag dieser Saison trägt dieselbe Reihenfolge. Die beiden sortieren dann nach Beginn."
-                      tone="danger">
-                      <span className={`${LABEL_BADGE} bg-warning/15 text-warning-strong cursor-help`}>Reihenfolge doppelt</span>
-                    </IconTooltip>
-                  )}
                   {spieltag.inactive_since !== null && (
                     <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>
                       Stillgelegt seit {formatSpielDatum(spieltag.inactive_since)}
@@ -221,8 +212,8 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
 
       {/* The phases this season has no matchday for, named once at the foot rather than as empty headings
           between the sections that do: a season being set up reaches them in order, so "not there yet" is
-          the normal state and belongs as a quiet line rather than as gaps. Suppressed while a search is
-          running, where an absent phase says something about the query instead. */}
+          the normal state and belongs as a quiet line rather than as gaps. Suppressed while a search or a
+          filter is narrowing the list, where an absent phase says something about the query instead. */}
       {phasesWithout.length > 0 && spieltageQuery === "" && (
         <p className="fluid-xs text-foreground-muted font-medium">
           Ohne Spieltag: {phasesWithout.map((phase) => PHASE_LABELS[phase]).join(", ")}.

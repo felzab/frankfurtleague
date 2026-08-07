@@ -10,7 +10,9 @@
 import type { FLSaisonPhase } from "../saisons/schemas";
 import type { FLPostSpieltagPayload } from "./schemas";
 
-export type FLSpieltageSortingOptions = "beginn" | "ende" | "anzahl_spiele" | "order_val";
+// `natural` is the derived order the backend applies and the default: the phase in bracket order, then
+// `beginn`, then `name` (ADR-0064). No caller passes any of the others, and none should have to.
+export type FLSpieltageSortingOptions = "natural" | "beginn" | "ende" | "anzahl_spiele";
 
 export type FLSpieltageFilterParams = {
   saison_id?: string;
@@ -29,6 +31,9 @@ export type FLSpieltageFilterParams = {
  * The create form's draft — the payload with the picked field widened to `null`, so the form can
  * start with no phase chosen rather than silently preselecting one. The schema is what turns an
  * untouched picker into a field error rather than a type error.
+ *
+ * The phase is also what decides where the new matchday lands in the list, since the order is derived
+ * from it (ADR-0064) — so the one field the form must not guess is the one that positions the row.
  */
 export type SpieltagCreateDraft = Omit<FLPostSpieltagPayload, "saison_phase"> & {
   saison_phase: FLSaisonPhase | null;
@@ -42,8 +47,10 @@ export type SpieltagCreateDraft = Omit<FLPostSpieltagPayload, "saison_phase"> & 
  * and never derives it — so the only surface that can catch it drifting is one that shows the stored
  * number beside the fixtures actually attached to this matchday.
  *
- * `hasOrderCollision` is the other: nothing in the database or the API stops two matchdays of one
- * season holding the same `order_val`, and the bracket orders by that field.
+ * **`ordinal` is presentation and nothing else.** It is the row's 1-based place within its phase
+ * section, assigned by the page from the order the API already returned (ADR-0064). Nothing stores it,
+ * no payload carries it, and two rows cannot claim the same one — so unlike the position it replaced,
+ * there is no state for it to be wrong about.
  */
 export type AdminSpieltagRow = {
   id: string;
@@ -51,12 +58,11 @@ export type AdminSpieltagRow = {
   beginn: string;
   ende: string;
   anzahl_spiele: number;
-  order_val: number;
   saison_phase: FLSaisonPhase;
   saison_id: string;
   inactive_since: string | null;
   /** How many matches actually carry this matchday's id, counted from the season's fixtures. */
   spieleAngelegt: number;
-  /** True when another matchday of the same season holds this `order_val`. */
-  hasOrderCollision: boolean;
+  /** 1-based place within this row's phase section. Derived per render, never stored. */
+  ordinal: number;
 };

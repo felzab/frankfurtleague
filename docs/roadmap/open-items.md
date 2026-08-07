@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `445241b`, 2026-08-07
+**Verified against:** `3b74b5f`, 2026-08-07
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -50,7 +50,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 6   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 7   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
 | 8   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
-| 9   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
+| 9   | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Closed   | — (ADR-0033 settles it)   |
 | 10  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 12, 13)     |
 | 11  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 11, 13)     |
 | 12  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 11, 12)     |
@@ -272,20 +272,23 @@ pays a Mongo query for an answer that changes once a year.
   is in place; the round trip itself is what remains.
 - **`rules` is about as static as data gets.** It has never changed, and a season that changed its
   points scheme mid-season would be a different competition. The same is true of which season is
-  active — twice a year at most, and by hand.
+  active — twice a year at most.
 
-The consideration that makes it non-trivial is still **invalidation**. Seasons are edited by hand
-today — the endpoints exist and no UI calls one (FB-6) — so no code path observes the active season
-flipping or the points changing in practice; a naive process-lifetime cache serves the old answer
-until a restart. Two candidates
+The consideration that makes it non-trivial is still **invalidation**, and the balance of the two
+candidates has shifted now that a season is edited through the API. Two remain
 ([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md) removed a
 third — there is no frontend revalidation route to hook): **a TTL measured in minutes**, which
 bounds the staleness without needing an event and mirrors how the frontend's own reference caches
 are bounded; or **a drop on the write path BE-4 built** — `PATCH /saisons/{saison_id}` and
 `POST /saisons/{saison_id}/activate` are the only writes that can change either answer, and they
-are the exact points where a process-lifetime cache drops with no staleness at all. The write-path
-hook is the cheapest and cleanest, but it covers only edits that go through the API, and today none
-do — so it wants the TTL as its backstop until FB-6 exists.
+are the exact points where a process-lifetime cache drops with no staleness at all.
+
+**The write-path hook is now the whole answer rather than half of it.** Both of those endpoints have an
+admin page calling them
+([ADR-0063](../_decisions/0063-a-matchday-list-is-the-seasons-skeleton.md)), so an ordinary rollover or
+points change goes through the hook and the cache drops with no staleness. What the TTL would still buy is
+coverage of a hand edit in Compass, which is the same residual case the frontend's own caches carry and is
+bounded there by a day rather than by minutes.
 
 **Path:** independent. Nothing blocks it.
 
@@ -423,7 +426,8 @@ a step that is skipped.
 teams and spieler pages use, plus a `spieltage` editor. The season form covers dates and every field of `rules`;
 `status` is on no payload and must not appear on one
 ([ADR-0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)). `spieltage` is mostly
-`order_val`, which the bracket orders by and the date does not.
+`order_val`, which the bracket orders by and the date does not — an assumption the work disproved, see the
+concluding block.
 
 **The rollover control is the substantive part**, and it is one button calling
 `POST /saisons/{saison_id}/activate` — which demotes the incumbent and promotes the target in one
@@ -449,6 +453,30 @@ The spieler pages already closed their half of it; `saisons` and `spieltage` are
 the teams and spieler pages, adopting the edit page's patterns (ADR-0050). **Nothing edits `FLSaison.rules` today and this is
 the item that would**, so the season form covers `qualifiers_per_group` alongside the two point values
 ([ADR-0043](../_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)).
+
+**Concluded 2026-08-07.** Three routes exist: `/admin/saisons`, `/admin/saisons/[saison_id]` and
+`/admin/spieltage`. The rollover is a panel on the season's own page carrying the incomplete-matches list,
+and every write invalidates its own cache tags, which closes the `saisons` and `spieltage` half of
+ADR-0035's staleness window. `FLSaison.rules` has an editor covering all six fields.
+
+Two decisions were taken and are ratified as
+[ADR-0063](../_decisions/0063-a-matchday-list-is-the-seasons-skeleton.md): the matchday surface is a
+phase-sectioned ordered list rather than the public Spielplan's tab strip or a CRUD table, and the
+rollover belongs to the season's editor page rather than to a row action. Both were put to the owner
+before building.
+
+**This entry's own premise about `order_val` turned out to be false, and a third decision followed.** The
+field's stated justification — the bracket orders by it, because matchdays routinely share dates — held in
+neither half: nothing in `fl_backend/app/api/spiele/` reads it, and the live season's six matchdays begin on
+six distinct dates. `order_val` is deleted and a matchday's position is derived from `saison_phase` and
+`beginn`, ratified as
+[ADR-0064](../_decisions/0064-a-matchdays-position-is-derived-not-stored.md) on the owner's correction.
+
+Two findings were rehomed rather than fixed here. **The soft-delete dialog copy** — all five admin
+deletes stamp `inactive_since` and keep the document, while `ConfirmDeleteModal` hardcoded "endgültig
+löschen" for every one of them — was fixed in this branch on the owner's instruction, as its own commit.
+**The email reminder** the owner asked be recorded is not built and is now its own entry, FB-16: it is a
+scheduled job rather than a page, so it shares nothing with the work above.
 
 ### 10 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 

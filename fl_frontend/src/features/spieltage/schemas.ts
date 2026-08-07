@@ -3,7 +3,9 @@
  *
  * Mirrors `fl_backend/app/api/spieltage/schemas.py`.
  *
- * `order_val` is the ordering the bracket depends on — not `beginn`. Matchdays routinely share dates.
+ * **A matchday carries no position and no field here holds one** (ADR-0064). The order is
+ * `saison_phase` in bracket order, then `beginn`, then `name`, applied by the backend before the
+ * response is built — so a list arrives in the order it is played and nothing on this side re-sorts it.
  *
  * The phase enum is imported from `saisons` and the Spiel model from `spiele` rather than redeclared,
  * so the three cannot drift apart.
@@ -24,7 +26,6 @@ export const FLSpieltagSchema = z.object({
   beginn: CustomDateStringSchema,
   ende: CustomDateStringSchema,
   anzahl_spiele: z.int().positive(),
-  order_val: z.int().nonnegative(),
   saison_phase: FLSaisonPhaseSchema,
   saison_id: z.string().length(4),
   // The day this matchday was retired, null while it is played (ADR-0032). Declared because the
@@ -52,17 +53,15 @@ export type FLSpieltageListResponse = z.infer<typeof FLSpieltageListResponseSche
  * The fields both write payloads carry. German messages: these bind the matchday form's inputs
  * directly, judged in the browser with the schema the action parses (ADR-0050).
  *
- * **`order_val` is the field this form exists to get right.** The bracket and every ordered listing
- * read it, not `beginn` — matchdays routinely share dates — and nothing in the database or the API
- * stops two matchdays of one season holding the same value, which is why the list marks a collision
- * rather than trusting it cannot happen.
+ * **No position, on either payload** (ADR-0064). Where a matchday sits in its season follows from its
+ * phase and its date, so the two fields that decide it are already here and there is no third one to
+ * keep in step with them.
  */
 const spieltagPayloadFields = {
   name: z.string().nonempty({ error: "Der Spieltag braucht einen Namen." }),
   beginn: CustomDateStringSchema,
   ende: CustomDateStringSchema,
   anzahl_spiele: z.int().positive({ error: "Ein Spieltag umfasst mindestens 1 Spiel." }),
-  order_val: z.int().nonnegative({ error: "Die Reihenfolge beginnt bei 0." }),
   saison_phase: FLSaisonPhaseSchema,
 };
 

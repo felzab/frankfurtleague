@@ -9,9 +9,12 @@
  *   • The bracket's edges live in `teamN_quelle` and nowhere else (ADR-0042). Position within a round
  *     is geometry, not topology: the 2026 draw feeds match 29 from 25 and 27, so any pairing derived
  *     from indices alone puts a match on the wrong branch.
- *   • Rounds arrive ordered by `order_val`, and the LAST round anchors the walk: each earlier round is
- *     ordered by the round after it, so the two feeders of one fixture sit adjacent and in the order
- *     that fixture's own sides name them.
+ *   • Rounds arrive in the order they are PLAYED, and the LAST round anchors the walk: each earlier round
+ *     is ordered by the round after it, so the two feeders of one fixture sit adjacent and in the order
+ *     that fixture's own sides name them. That arrival order is the backend's derived one —
+ *     `saison_phase` in bracket order, then `beginn`, then `name` (ADR-0064) — and this walk is why it
+ *     has to be right rather than merely plausible: anchoring on the wrong round mis-orders every
+ *     column before it.
  *   • A fixture nothing references keeps its arrival order, after the referenced ones. A `gruppe`
  *     reference and a `null` contribute no edge — the first knockout round is seeded from the group
  *     phase and has no earlier round to order (ADR-0043).

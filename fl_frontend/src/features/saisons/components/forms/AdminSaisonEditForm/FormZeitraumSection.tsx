@@ -13,9 +13,9 @@ import type { CalendarDate } from "@internationalized/date";
  * When the season runs.
  *
  * **Nothing in the app holds these two dates against anything.** A match's own `datum` is not required to
- * fall inside them, matchdays are ordered by `order_val` rather than by date, and the rollover is a
- * deliberate act rather than something the end date triggers — so this pair describes the season rather
- * than constraining it, and the callout below says what it is instead of implying a guard exists.
+ * fall inside them, a matchday's `beginn` is not either, and the rollover is a deliberate act rather than
+ * something the end date triggers — so this pair describes the season rather than constraining it, and the
+ * callout below says what it is instead of implying a guard exists.
  */
 export function FormZeitraumSection({
   startDate,

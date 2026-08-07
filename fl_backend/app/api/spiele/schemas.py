@@ -49,6 +49,7 @@ thing to check when behaviour looks impossible.
   docs/glossary.md -- Ergebnis, Tore, saison_phase
 """
 
+from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, model_validator
@@ -59,6 +60,17 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
 FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
+
+# The rounds in the order they are played, declared beside the set it ranks so the two cannot drift.
+# Two rules read it and neither is about presentation: `find_wiring_refusal` needs "strictly earlier"
+# to refuse a feeder that is not played first, and `order_spieltage` needs a total order over the
+# phases because a matchday's position is derived rather than stored (ADR-0064). A new phase slots in
+# by rank without touching either.
+#
+# It is a Mapping rather than a tuple because both callers ask "which rank is this phase", never "what
+# is at rank n" -- the frontend's `SAISON_PHASE_OPTIONS` is the array form, and it is a mirror of this
+# the same way every schema over there mirrors one here.
+PHASE_RANK: Mapping[FLSaisonPhase, int] = {"gruppenphase": 0, "viertelfinale": 1, "halbfinale": 2, "finale": 3}
 
 
 # The three embedded field models are declared BEFORE the payload and FLSpiel that reference them.

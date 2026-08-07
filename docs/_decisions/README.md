@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Fifty-seven decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Sixty-three decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -93,11 +93,13 @@ written.
 | [0060](0060-an-editors-undo-is-a-route-handler-until-e592-is-fixed.md)            | An editor's undo is a route handler, until Next.js fixes E592              | frontend               | Superseded by 0062 | 2026-08-07 |
 | [0061](0061-position-and-stufe-are-closed-sets.md)                                | A player's position and stufe are closed sets                              | backend                | Accepted           | 2026-08-07 |
 | [0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)                  | Every page-owned editor's undo is a route handler, until E592 is fixed     | frontend               | Accepted           | 2026-08-07 |
+| [0063](0063-a-matchday-list-is-the-seasons-skeleton.md)                           | A matchday list is the season's skeleton, and the rollover is on its page  | frontend               | Accepted           | 2026-08-07 |
+| [0064](0064-a-matchdays-position-is-derived-not-stored.md)                        | A matchday's position is derived from what it is, not stored beside it     | backend, frontend      | Accepted           | 2026-08-07 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
 
-**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · 0043 · 0044 · 0045 · 0046 · 0047 · 0048 · 0049 · 0051 · 0052 · 0059 · 0061 · ops: 0009 ·
+**By surface** — backend: 0001 · 0002 · 0014 · 0026 · 0027 · 0028 · 0029 · 0030 · 0031 · 0032 · 0033 · 0034 · 0039 · 0040 · 0041 · 0042 · 0043 · 0044 · 0045 · 0046 · 0047 · 0048 · 0049 · 0051 · 0052 · 0059 · 0061 · 0064 · ops: 0009 ·
 0011 · 0014 · 0015 · 0016 · 0017 · 0021 · 0022 · 0024 · 0027 · 0030 · 0035 · 0036 · 0037 · 0038 · 0039 · 0040 · frontend: all except 0017,
 0027, 0030, 0031, 0033, 0036, 0037, 0038, 0045 and 0061.
 

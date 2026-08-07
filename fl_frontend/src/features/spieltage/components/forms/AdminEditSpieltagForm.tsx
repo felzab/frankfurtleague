@@ -15,18 +15,11 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
  * the browser refuse an emptied one.
  *
  * `saison_id` is on neither the draft nor the payload. Moving a matchday between seasons would strand its
- * matches, which carry their own and are not rewritten by this endpoint.
+ * matches, which carry their own and are not rewritten by this endpoint. Its POSITION is on neither
+ * either, and for a different reason: the order is derived, so moving a matchday is editing its date
+ * (ADR-0064).
  */
-export function AdminEditSpieltagForm({
-  spieltag,
-  orderValInUse,
-  onClose,
-}: {
-  spieltag: AdminSpieltagRow;
-  /** The `order_val`s the season's OTHER matchdays hold — this row's own is excluded by the caller. */
-  orderValInUse: readonly number[];
-  onClose: () => void;
-}) {
+export function AdminEditSpieltagForm({ spieltag, onClose }: { spieltag: AdminSpieltagRow; onClose: () => void }) {
   return (
     <EntityForm<FLPatchSpieltagPayload>
       initialDraft={{
@@ -35,14 +28,12 @@ export function AdminEditSpieltagForm({
         beginn: spieltag.beginn,
         ende: spieltag.ende,
         anzahl_spiele: spieltag.anzahl_spiele,
-        order_val: spieltag.order_val,
         saison_phase: spieltag.saison_phase,
       }}
       renderFields={(draft, setDraft) => (
         <SpieltagFormFields
           draft={draft}
           onChange={setDraft}
-          orderValInUse={orderValInUse}
         />
       )}
       onSubmit={async (draft) => {

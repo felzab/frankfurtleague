@@ -82,12 +82,12 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Mapping, Sequence
 
 from app.api.spiele.schemas import (
+    PHASE_RANK,
     FLBracketFault,
     FLBracketFaultGruppe,
     FLBracketFaultQuelle,
     FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
-    FLSaisonPhase,
     FLSpiel,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
@@ -909,11 +909,6 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
             )
 
     return SpieltagVerdict(refusal=None, releases=releases)
-
-
-# The rounds in the order they are played. What the refusal below needs is only "strictly earlier",
-# so a new phase slots in by rank without touching the rules that read this.
-PHASE_RANK: Mapping[FLSaisonPhase, int] = {"gruppenphase": 0, "viertelfinale": 1, "halbfinale": 2, "finale": 3}
 
 
 def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:

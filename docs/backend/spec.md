@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `445241b`, 2026-08-07
+**Verified against:** `3b74b5f`, 2026-08-07
 **Scope:** `fl_backend/`
 
 ---
@@ -77,7 +77,7 @@ across seven slices**, each addressed resource-first with the id in the path.
 | PATCH  | `/saisons/{saison_id}`                                 | Dates and scoring rules. `status` is on no payload                                                                                                                |
 | POST   | `/saisons/{saison_id}/activate`                        | **The only path that writes `status`** — see I18                                                                                                                  |
 | POST   | `/spieltage`                                           | Creates a matchday                                                                                                                                                |
-| PATCH  | `/spieltage/{spieltag_id}`                             | Updates a matchday; `order_val` is what the bracket orders by                                                                                                     |
+| PATCH  | `/spieltage/{spieltag_id}`                             | Updates a matchday; its position is derived from `saison_phase` and `beginn`, so no payload carries one                                                           |
 | DELETE | `/spieltage/{spieltag_id}`                             | Soft delete                                                                                                                                                       |
 | POST   | `/spieltage/{spieltag_id}/reactivate`                  | Clears `inactive_since`                                                                                                                                           |
 | POST   | `/spielorte`                                           | Creates a venue; builds `maps_link` server-side                                                                                                                   |

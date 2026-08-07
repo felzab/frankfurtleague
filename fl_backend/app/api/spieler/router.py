@@ -1,7 +1,7 @@
 """
-SPIELER · read endpoint
+SPIELER · read endpoints
 
-Squad lists. Reference data: read-only through the API, edited directly in MongoDB.
+Squad lists. Written through `admin_router.py` in this slice and read here.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `445241b`, 2026-08-07
+**Verified against:** `3b74b5f`, 2026-08-07
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -59,9 +59,10 @@ fail to parse on read.
 
 `status` is `past` · `active` · `future` — English, unlike almost everything else in the model.
 
-`rules` carries `win_points`, `draw_points`, `qualifiers_per_group`, `number_of_groups` and
-`teams_per_group` per season, so the scoring, the size of the knockout round and the season's capacity
-are all season-configurable — and all five are live. `GET /teams` scores its derived league table with
+`rules` carries `win_points`, `draw_points`, `qualifiers_per_group`, `number_of_groups`,
+`teams_per_group` and `erlaubte_stufen` per season, so the scoring, the size of the knockout round, the
+season's capacity and the levels it admits are all season-configurable — and all six are live.
+`GET /teams` scores its derived league table with
 the two point values ([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)); a defeat
 scores nothing, and there is deliberately no `loss_points` to say otherwise. Editing either changes
 every table for that season on the next read.
@@ -84,11 +85,15 @@ invalidate the squads of a season already played.
 the same capacity (`REQ-ENTER-001..003` in [logging.md](logging.md)). Both are required with no
 default, for the same reason `qualifiers_per_group` is.
 
-**All five field names are English**, unlike almost everything else in the model: they configure the
-competition rather than naming anything in it.
+**Five of the six field names are English**, unlike almost everything else in the model: they configure
+the competition rather than naming anything in it. `erlaubte_stufen` is the exception and is German
+because its VALUES are — it names which of the league's own school levels a season admits, and those are
+the German vocabulary (ADR-0061).
 
-**Nothing edits `rules`.** No page calls `PATCH /saisons/{saison_id}`, so these values are set by hand
-until FB-6 builds the season admin form.
+**`rules` is edited on one surface**, the Regeln panel of `/admin/saisons/[saison_id]`
+([ADR-0063](_decisions/0063-a-matchday-list-is-the-seasons-skeleton.md)). All six fields are writable
+there and nowhere else. `status` is on no payload at all, so the rollover control on the same page remains
+the only path to it ([ADR-0033](_decisions/0033-one-active-season-and-one-path-to-it.md)).
 
 ### `Spiel` — match, game
 
@@ -125,11 +130,19 @@ makes cancellation something other than a soft delete.
 A named block of matches inside a season, with a date range.
 
 **In code:** `spieltage` collection · `FLSpieltag` (`fl_backend/app/api/spieltage/schemas.py`).
-**Fields:** `name`, `beginn`, `ende`, `anzahl_spiele`, `order_val`, `saison_phase`, `saison_id`.
+**Fields:** `name`, `beginn`, `ende`, `anzahl_spiele`, `saison_phase`, `saison_id`, `inactive_since`.
 
-**Pitfalls.** Ordering is by `order_val`, not by date — that is the default sort. **Not the same as
-`Spiel`.** A `Spieltag` groups matches; a `Spiel` is one of them. The English "matchday" collides
-badly here, so prefer the German in code and conversation.
+**Pitfalls.** **A matchday carries no position, and its place in the season is derived**
+(`fl_backend/app/api/spieltage/services.py :: order_spieltage`,
+[ADR-0064](_decisions/0064-a-matchdays-position-is-derived-not-stored.md)): `saison_phase` in bracket
+order, then `beginn`, then `name`. So moving a matchday means editing its date or its phase, and two
+matchdays cannot claim one place. The number the admin list shows beside a name is its 1-based place
+within its phase section, counted per render.
+
+**Not the same as `Spiel`.** A `Spieltag` groups matches; a `Spiel` is one of them. The English
+"matchday" collides badly here, so prefer the German in code and conversation. `anzahl_spiele` is how
+many it _should_ contain, maintained by hand — the admin list is what compares it against the fixtures
+actually attached.
 
 ### `Team` — club
 

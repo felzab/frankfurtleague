@@ -267,7 +267,6 @@ def spieltag() -> PayloadFactory:
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "anzahl_spiele": 4,
-            "order_val": 0,
             "saison_phase": "gruppenphase",
             "saison_id": "2026",
             "inactive_since": None,

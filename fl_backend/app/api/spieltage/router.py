@@ -1,13 +1,13 @@
 """
-SPIELTAGE · read endpoint
+SPIELTAGE · read endpoints
 
-Matchdays: named blocks of fixtures inside a season, with a date range. Reference data -- read-only
-through the API, edited directly in MongoDB.
+Matchdays: named blocks of fixtures inside a season, with a date range. Written through
+`admin_router.py` in this slice and read here.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • Ordering is by `order_val`, NOT by date. That is the default sort and the one the bracket depends
-    on; sorting by `beginn` reorders the playoff rounds wrongly when dates overlap.
+  • Ordering is DERIVED and no field holds it: `saison_phase` in bracket order, then `beginn`, then
+    `name`. `order_spieltage` applies it and is the only expression of it (ADR-0064).
   • Omitting `saison_id` means the current season, resolved in the handler because a field default
     cannot query the database.
   • A Spieltag is not a Spiel. It groups matches; `anzahl_spiele` records how many it should contain.
@@ -23,7 +23,7 @@ from app.api.spieltage.schemas import (
     FLSpieltageSingleResponse,
     FLSpieltagListAdapter,
 )
-from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort
+from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort, order_spieltage
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpieltageCollection
@@ -44,7 +44,11 @@ async def get_spieltage(
     filters: FLSpieltageFilterParams = Depends(),
 ) -> FLSpieltageListResponse:
     """
-    List matchdays for a season, ordered by `order_val` rather than by date.
+    List matchdays for a season, in the order they are played.
+
+    That order is derived rather than stored: the phase in bracket order, then `beginn`, then `name`. It
+    is what `sort_by=natural` means and it is the default; the other three sort options are dates and a
+    size, and none of them is what a bracket reads.
 
     Omitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias
     for "any phase except gruppenphase".
@@ -65,6 +69,14 @@ async def get_spieltage(
         sort_by=db_sort,
     )
     spieltage = FLSpieltagListAdapter.validate_python(spieltage_raw)
+
+    # The exact order, applied after the read: the four phases sort lexically in Mongo and that is not
+    # the order they are played in (ADR-0064). Only the natural order is refined here — a caller who
+    # asked for a date or a size ordering asked for exactly that.
+    if filters.sort_by == "natural":
+        spieltage = order_spieltage(spieltage)
+        if filters.order == "desc":
+            spieltage.reverse()
 
     return FLSpieltageListResponse(spieltage=spieltage)
 

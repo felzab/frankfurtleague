@@ -9,23 +9,11 @@ import type { SpieltagCreateDraft } from "@/features/spieltage/types";
 /**
  * Creates one matchday in the season the page is showing.
  *
- * **`order_val` is preselected and the rest is not.** The form opens on the next free position after the
- * season's current last matchday, because laying out a season means adding matchdays in sequence and a
- * default of 0 would collide on the second one. Everything else starts empty: a phase the form guessed
- * would be the one field nobody re-reads.
+ * **Nothing is preselected, and there is no position to preselect** (ADR-0064). Where the new matchday
+ * lands follows from the phase and the date the admin enters, so the form opens empty and the row appears
+ * in its place — rather than opening on a guessed number the admin then has to check.
  */
-export function AdminCreateSpieltagForm({
-  saisonId,
-  nextOrderVal,
-  orderValInUse,
-  onClose,
-}: {
-  saisonId: string;
-  /** One past the season's current highest `order_val`, or 0 for a season with no matchdays yet. */
-  nextOrderVal: number;
-  orderValInUse: readonly number[];
-  onClose: () => void;
-}) {
+export function AdminCreateSpieltagForm({ saisonId, onClose }: { saisonId: string; onClose: () => void }) {
   return (
     <EntityForm<SpieltagCreateDraft>
       initialDraft={{
@@ -33,7 +21,6 @@ export function AdminCreateSpieltagForm({
         beginn: "",
         ende: "",
         anzahl_spiele: 1,
-        order_val: nextOrderVal,
         saison_phase: null,
         saison_id: saisonId,
       }}
@@ -41,7 +28,6 @@ export function AdminCreateSpieltagForm({
         <SpieltagFormFields
           draft={draft}
           onChange={setDraft}
-          orderValInUse={orderValInUse}
         />
       )}
       onSubmit={async (draft) => {

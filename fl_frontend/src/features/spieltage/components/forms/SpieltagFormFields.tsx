@@ -15,11 +15,16 @@ import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { Key } from "@heroui/react";
 
 /**
- * The six fields a matchday carries, shared by the create and edit dialogs.
+ * The five fields a matchday carries, shared by the create and edit dialogs.
  *
  * **A dialog rather than a page, and that is the decision this file rests on.** ADR-0050's threshold is a
- * form that OUTGREW a dialog: six scalar controls, no nested object, no junction row and no lookup list
+ * form that OUTGREW a dialog: five scalar controls, no nested object, no junction row and no lookup list
  * do not reach it, and the Spielort form beside it is the same size in the same container.
+ *
+ * **There is no position control, and adding one would be a regression** (ADR-0064). Where a matchday
+ * sits in its season is derived from `saison_phase` and `beginn`, both of which are on this form — so the
+ * two fields that decide the order are the two an admin was going to fill in anyway, and a matchday
+ * cannot be in the wrong place without one of them being wrong.
  *
  * **The date and number controls are the season slice's**, imported rather than rewritten. A matchday's
  * `beginn`/`ende` pair and a season's `start_date`/`end_date` pair are the same control doing the same
@@ -37,7 +42,6 @@ export type SpieltagFormDraft = {
   beginn: string;
   ende: string;
   anzahl_spiele: number;
-  order_val: number;
   saison_phase: FLSaisonPhase | null;
 };
 
@@ -48,7 +52,6 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
   draft,
   onChange,
   errors,
-  orderValInUse,
 }: {
   draft: T;
   onChange: (updatedDraft: T) => void;
@@ -58,17 +61,8 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
    * the same split `SpielortFormFields` makes.
    */
   errors?: Record<string, string | undefined>;
-  /**
-   * The `order_val`s the season's other matchdays already hold, so the form can say a value collides.
-   *
-   * **It says so and permits it.** Nothing in the database or the API makes `order_val` unique, and equal
-   * values sort against each other by `beginn` as a tie-break — so a page that refused here would enforce
-   * a rule the API does not have, and a season mid-setup legitimately passes through the state.
-   */
-  orderValInUse: readonly number[];
 }) {
   const isEndBeforeStart = draft.beginn !== "" && draft.ende !== "" && draft.ende < draft.beginn;
-  const collides = orderValInUse.includes(draft.order_val);
 
   return (
     <>
@@ -153,39 +147,22 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
       </div>
 
       <div className="flex w-full flex-col gap-y-3">
-        <h3 className={FORM_SECTION_HEADING}>Reihenfolge und Umfang</h3>
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
-          <SaisonRuleNumberField
-            name="order_val"
-            label={<Label className={FIELD_LABEL}>Reihenfolge</Label>}
-            minValue={0}
-            value={draft.order_val}
-            onChange={(order_val) => onChange({ ...draft, order_val })}
-          />
-          <SaisonRuleNumberField
-            name="anzahl_spiele"
-            label={<Label className={FIELD_LABEL}>Erwartete Spiele</Label>}
-            minValue={1}
-            value={draft.anzahl_spiele}
-            onChange={(anzahl_spiele) => onChange({ ...draft, anzahl_spiele })}
-          />
-        </div>
+        <h3 className={FORM_SECTION_HEADING}>Umfang</h3>
+        <SaisonRuleNumberField
+          name="anzahl_spiele"
+          label={<Label className={FIELD_LABEL}>Erwartete Spiele</Label>}
+          minValue={1}
+          value={draft.anzahl_spiele}
+          onChange={(anzahl_spiele) => onChange({ ...draft, anzahl_spiele })}
+        />
 
-        {/* The one thing about `order_val` a reader cannot work out from a number field: it, and not the
-            date, is what the bracket and every ordered listing sort by. */}
+        {/* Where the matchday lands is not a field, so the form says which fields decide it instead
+            (ADR-0064). Without this the reader has no way to know the list's order is not arbitrary. */}
         <Callout
           severity="info"
-          title="Die Reihenfolge entscheidet, nicht das Datum">
-          Spieltage tragen oft dieselben Daten. Der Turnierbaum und jede sortierte Liste lesen deshalb diese Zahl.
+          title="Die Position ergibt sich aus Phase und Beginn">
+          Der Spieltag wird automatisch dort einsortiert. Es gibt keine Reihenfolge einzutragen: um ihn zu verschieben, ändere sein Datum.
         </Callout>
-
-        {collides && (
-          <Callout
-            severity="warning"
-            title="Diese Reihenfolge ist schon vergeben">
-            Ein anderer Spieltag dieser Saison trägt sie bereits. Gespeichert wird es trotzdem, die beiden sortieren dann nach Beginn.
-          </Callout>
-        )}
       </div>
     </>
   );

@@ -9,8 +9,9 @@
  *   • A hand edit made directly in MongoDB goes around that and is served stale until the daily
  *     cacheLife expires or the container is recreated. There is no invalidation endpoint, by decision
  *     (ADR-0035).
- *   • Matchdays come back ordered by `order_val`, not by date. The bracket depends on that order, and
- *     matchdays routinely share dates.
+ *   • Matchdays come back in the order they are PLAYED, derived by the backend from `saison_phase` in
+ *     bracket order, then `beginn`, then `name` (ADR-0064). No consumer re-sorts them, and the playoff
+ *     bracket's column order depends on that arrival order being right.
  *   • Omitting `saison_id` yields the current season — the backend resolves it.
  *
  *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────

@@ -166,15 +166,18 @@ class TestSpieltag:
         with pytest.raises(ValidationError):
             FLSpieltag.model_validate(spieltag(anzahl_spiele=anzahl))
 
-    def test_rejects_a_negative_order_value(self, spieltag):
-        """`order_val` is the bracket's sort key, so it must be non-negative."""
-        with pytest.raises(ValidationError):
-            FLSpieltag.model_validate(spieltag(order_val=-1))
+    def test_carries_no_stored_position(self, spieltag):
+        """
+        A matchday's place in its season is derived, so the model holds no field for one (ADR-0064).
 
-    # order_val is a sort key, so 0 is a legitimate first entry.
-    def test_accepts_a_zero_order_value(self, spieltag):
-        """The boundary the rule above stops at: `0` is a legitimate first entry, not an unset value."""
-        assert FLSpieltag.model_validate(spieltag(order_val=0)).order_val == 0
+        Asserted rather than left to absence: a stored position is the shape this model is most likely to
+        grow back, and it would silently become a second answer to a question `order_spieltage` already
+        answers. Pydantic ignores an unknown key, so a document still carrying the retired `order_val`
+        validates and the value is dropped -- which is what makes the cleanup optional rather than a
+        migration the deploy waits on.
+        """
+        assert "order_val" not in FLSpieltag.model_fields
+        assert not hasattr(FLSpieltag.model_validate(spieltag(order_val=3)), "order_val")
 
     @pytest.mark.parametrize("field", ["beginn", "ende"])
     def test_rejects_a_date_that_does_not_exist(self, spieltag, field):
