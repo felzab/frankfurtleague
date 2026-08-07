@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `68ac42d`, 2026-08-07
+**Verified against:** `05ac046`, 2026-08-07
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -53,6 +53,7 @@ OPS-6 and OPS-7 are both retired here.
 | 25  | FE-10 | The match editor was a dialog with no URL, 311px of width and a round-trip per error message | FE          | L      | — (ADR-0048 landed on it)  | [`efed00a`](https://github.com/felzab/frankfurtleague/commit/efed00a) |
 | 26  | FE-11 | A toast could not be dismissed without a hover, and every message shared a four-second clock | FE          | S      | — (ADR-0051 shaped it)     | [`cc55487`](https://github.com/felzab/frankfurtleague/commit/cc55487) |
 | 27  | FE-12 | An eight-section accordion ordered by how the categories happened to be declared             | FE          | M      | — (its links had a target) | [`68ac42d`](https://github.com/felzab/frankfurtleague/commit/68ac42d) |
+| 28  | FB-2  | A team could only **be** disqualified, with no record of why or from when                    | FE, BE, DB  | M      | —                          | [`3669cc7`](https://github.com/felzab/frankfurtleague/commit/3669cc7) |
 
 ## What each one produced
 
@@ -198,3 +199,10 @@ no row here — its commit is the whole story.
   first knockout round from the standings, which the `gruppe` variant exists for) and **OPS-9** (nothing
   lints or tests the repository's own hooks). It unblocked nothing — FE-4 never depended on the
   pairings, only on who qualifies.
+- **FB-2** → [ADR-0059](../_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md),
+  the rule that a disqualification is an embedded record on the `saison_teams` junction carrying the
+  reason and the effective date, that its absence is the null, and that no boolean records the same
+  fact anywhere. The reason is free text and public, because this league publishes no disciplinary
+  code a closed set of offence categories could cite. It unblocked **FB-5** (the field shape it was
+  waiting on) and **FE-3** (the note it renders), and it left a three-step production data change the
+  ADR carries as a runbook. It opened nothing.
