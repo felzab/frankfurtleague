@@ -23,13 +23,16 @@ import { tv } from "tailwind-variants";
  * must use `static`, or it advertises an affordance it does not have.
  *
  * Named transition properties rather than `transition-all`: the reduced-motion escape lives once in
- * `globals.css`, not per card.
+ * `globals.css`, not per card. **The list names `scale`, not `transform`** — Tailwind v4 emits
+ * `scale-*` as the standalone `scale` property, so a list naming `transform` eased nothing and the
+ * card jumped to its hover size. Nothing in the toolchain catches that: the class is valid, the
+ * property is real, and the two simply never meet.
  */
 export const card = tv({
   base: "bg-surface border-border text-foreground rounded-2xl border shadow-sm",
   variants: {
     interactive: {
-      true: "hover:border-brand hover:scale-hover transition-[transform,border-color,box-shadow] duration-200",
+      true: "hover:border-brand hover:scale-hover transition-[scale,border-color,box-shadow] duration-200",
       false: "",
     },
   },

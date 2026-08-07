@@ -11,6 +11,12 @@
  *     gesture from acquiring several magnitudes across the app.
  *   • Transition properties are named individually. `transition-all` is not used here: the
  *     reduced-motion escape is declared once in `globals.css` and depends on knowing what moves.
+ *   • **A named list says `scale`, never `transform`.** Tailwind v4 emits `scale-*` as the standalone
+ *     `scale` property, so a list naming `transform` interpolates something that never changes and
+ *     both gestures — the hover lift and the press — snap instead of easing. Nothing in the toolchain
+ *     can see it: the class is valid, the property is real, and the two never meet. The
+ *     `transition-transform` SHORTHAND is safe, because v4 expands it to `transform,translate,scale,
+ *     rotate`; only a hand-written list has to name what actually moves.
  *   • Opaque fills carry their paired `-solid-foreground`, never `text-foreground`. `--fg-base` flips
  *     between themes and the fills do not, so a theme-flipping foreground on a fixed fill can only be
  *     legible in one of the two.
@@ -26,7 +32,7 @@ import { tv } from "tailwind-variants";
  * sites agreeing on height and hover feedback.
  */
 export const ctaButton = tv({
-  base: "fluid-sm hover:scale-hover flex h-12 items-center justify-center rounded-xl px-6 font-bold transition-[transform,background-color,border-color] duration-200 active:scale-95",
+  base: "fluid-sm hover:scale-hover flex h-12 items-center justify-center rounded-xl px-6 font-bold transition-[scale,background-color,border-color] duration-200 active:scale-95",
   variants: {
     intent: {
       primary: "bg-brand-solid hover:bg-brand-solid/90 text-brand-solid-foreground shadow-md",
@@ -39,7 +45,7 @@ export const ctaButton = tv({
 });
 
 export const formButton = tv({
-  base: "fluid-sm hover:scale-hover rounded-xl px-6 py-3 font-semibold transition-[transform,color,background-color,border-color,opacity,box-shadow] duration-200 active:scale-95 disabled:pointer-events-none disabled:opacity-50",
+  base: "fluid-sm hover:scale-hover rounded-xl px-6 py-3 font-semibold transition-[scale,color,background-color,border-color,opacity,box-shadow] duration-200 active:scale-95 disabled:pointer-events-none disabled:opacity-50",
   variants: {
     intent: {
       submit: "bg-brand-solid text-brand-solid-foreground tracking-wide",

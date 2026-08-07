@@ -108,7 +108,7 @@ export function KontaktView() {
                 href={channel.action}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="fluid-xs border-field-fg/30 bg-field-fg/10 text-field-fg hover:border-field-fg hover:bg-field-fg/25 flex w-full items-center justify-center rounded-xl border py-3 font-bold uppercase backdrop-blur-sm transition-[transform,background-color,border-color] duration-200 active:scale-95">
+                className="fluid-xs border-field-fg/30 bg-field-fg/10 text-field-fg hover:border-field-fg hover:bg-field-fg/25 flex w-full items-center justify-center rounded-xl border py-3 font-bold uppercase backdrop-blur-sm transition-[scale,background-color,border-color] duration-200 active:scale-95">
                 Jetzt kontaktieren
               </Link>
             </Card.Footer>
