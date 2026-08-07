@@ -535,7 +535,11 @@ html:has([data-app-shell]) {
 [data-slot="date-input-group"],
 [data-slot="autocomplete-trigger"],
 [data-slot="select-trigger"],
-[data-slot="combo-box-input-group"] {
+[data-slot="combo-box-input-group"],
+/* The one member matched by CLASS: HeroUI's TextArea root (v3.2.3, `textarea.js`) carries no
+   data-slot, only the `textarea` class, and react-aria supplies the same data-* focus states the
+   slots above key on. Re-check the class name on a HeroUI upgrade. */
+.textarea {
   /* `:not([data-invalid="true"])` matters: HeroUI marks a rejected field with a danger outline and
      upgrades it to a danger ring while focused. Without the guard this rule stripped both and
      painted the border brand — and it did so at the exact moment `useServerFieldErrors` moves focus

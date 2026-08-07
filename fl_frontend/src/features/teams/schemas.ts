@@ -51,7 +51,7 @@ export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
 export const FLDisqualifikationSchema = z.object({
   // German because the junction editor binds this schema to its inputs (ADR-0050); on a response
   // parse the message is only ever logged.
-  grund: z.string().nonempty({ error: "Bitte gib einen Grund an — er wird öffentlich angezeigt." }),
+  grund: z.string().nonempty({ error: "Bitte gib einen Grund an. Er wird öffentlich angezeigt." }),
   datum: CustomDateStringSchema,
 });
 export type FLDisqualifikation = z.infer<typeof FLDisqualifikationSchema>;
@@ -79,7 +79,7 @@ export const FLTeamSchema = z.object({
   // backend on every read, so it cannot go stale against a match document.
   disqualifikation: FLDisqualifikationSchema.nullable(),
   shorthand: z.string().length(2),
-  description: z.string(),
+  description: z.string().max(4096),
   full_name: z.string().nonempty(),
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
   website_url: ExternalUrlSchema,
@@ -145,7 +145,7 @@ const teamPayloadFields = {
   name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
   // Exactly two characters, held unique across every club — retired ones included (ADR-0032).
   shorthand: z.string().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
-  description: z.string(),
+  description: z.string().max(4096, { error: "Die Beschreibung darf höchstens 4096 Zeichen lang sein." }),
   full_name: z.string().nonempty({ error: "Bitte gib den vollständigen Namen ein." }),
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,
@@ -195,7 +195,7 @@ export const FLTeamRecordSchema = z.object({
 
   name: z.string().nonempty(),
   shorthand: z.string().length(2),
-  description: z.string(),
+  description: z.string().max(4096),
   full_name: z.string().nonempty(),
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,

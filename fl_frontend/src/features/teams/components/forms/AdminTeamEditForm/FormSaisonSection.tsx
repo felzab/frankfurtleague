@@ -77,20 +77,23 @@ export function FormSaisonSection({
   return (
     <section className={panel.root()}>
       <div className={panel.header()}>
-        <div className="flex flex-row flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1">
           <h2 className={panel.heading()}>
             Saison {saison.saisonId}
             <InfoHint label="Hinweis zur Saison-Zugehörigkeit">
-              <p>Dieser Bereich folgt der Saison im Saisonwähler der Seitenleiste.</p>
+              <p>Dieser Bereich zeigt und bearbeitet die im Seitenmenü gewählte Saison.</p>
               <ul>
-                <li>Eine Mannschaft verlässt eine Saison nie — der einzige Weg hinaus ist die Disqualifikation unten.</li>
+                <li>Um eine andere Saison zu bearbeiten, wähle sie im Seitenmenü aus.</li>
+                <li>Eine Mannschaft verlässt eine Saison nie. Der einzige Weg hinaus ist die Disqualifikation unten.</li>
                 <li>
                   Die <strong>Gruppe</strong> ist nur änderbar, solange die Saison nicht begonnen hat und keine Spiele angesetzt sind.
                 </li>
               </ul>
             </InfoHint>
           </h2>
-          <SaisonBadge status={saison.saisonStatus} />
+          <span className="ml-auto">
+            <SaisonBadge status={saison.saisonStatus} />
+          </span>
         </div>
       </div>
 
@@ -136,7 +139,7 @@ export function FormSaisonSection({
             <Callout
               severity="info"
               title={`Nicht in Saison ${saison.saisonId}`}>
-              Ohne Aufnahme erscheint die Mannschaft in dieser Saison auf keiner Seite — weder in einer Tabelle noch in einer Auswahlliste.
+              Ohne Aufnahme erscheint die Mannschaft in dieser Saison auf keiner Seite, weder in einer Tabelle noch in einer Auswahlliste.
             </Callout>
             <div className="grid w-full grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,15rem)_auto]">
               <GruppeSelect

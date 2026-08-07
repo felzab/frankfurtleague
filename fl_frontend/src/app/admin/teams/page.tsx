@@ -9,15 +9,13 @@ import { getTeams } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
+import type { AdminTeamRow } from "@/features/teams/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 // Not async, so the chrome never waits on the team list — the pattern of the two sibling pages.
-// The list follows the sidemenu selector's season (owner, 2026-08-07): `?saison_id=` narrows every
-// read here exactly as it narrows the public pages, and an absent parameter is the backend's own
-// current-season default (ADR-0002). The create modal needs the season list (one form creates the
-// club AND enters it into a season), so it gets its own boundary instead of making the whole page
-// async. `connection()` sits with each fetch it guards — ADR-0009 requires only that nothing
-// fetches at build time.
+// The create modal needs the season list (one form creates the club AND enters it into a season),
+// so it gets its own boundary instead of making the whole page async. `connection()` sits with each
+// fetch it guards — ADR-0009 requires only that nothing fetches at build time.
 export default function AdminTeamsPage(props: NextPageProps) {
   return (
     <AdminCrudShell
@@ -50,18 +48,63 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
   );
 }
 
+/**
+ * EVERY club across every season, each row carrying the SELECTED season's junction data (owner,
+ * 2026-08-07). The API's team reads are strictly season-scoped (I11), so the union is composed here
+ * from one cached read per season — the club document is season-independent, so any read's copy of
+ * the identity fields is current. A club in no season at all stays invisible, which the create
+ * makes unreachable by entering a season in the same action.
+ *
+ * The per-season sweep also answers the retire guard's question with no extra read: a club entered
+ * in an `active` or `future` season may not be retired (the write path refuses it too,
+ * `REQ-RETIRE-001`).
+ */
 async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const requestedSaisonId = await resolveSaisonId(searchParams);
 
-  // The SELECTED season's clubs — every team read is season-scoped with a strict junction join
-  // (I11), so this list is "who is in the season", not "every club ever". `include_inactive`
-  // because a retired club holding its shorthand is what explains a 409 from the create form, and
-  // the reactivate control lives on its row (ADR-0032).
-  const teamsRes = await getTeams({ saison_id: requestedSaisonId, include_inactive: true });
-  if (teamsRes.format !== "list") {
-    throw new Error("Expected a list, got something else");
+  const saisons = (await getSaisons()).saisons;
+  const selectedSaisonId = requestedSaisonId ?? saisons.find((saison) => saison.status === "active")?.id;
+
+  const perSaison = await Promise.all(
+    saisons.map(async (saison) => ({
+      saison,
+      // `include_inactive`, so a retired club holding its shorthand stays visible and reactivatable.
+      res: await getTeams({ saison_id: saison.id, include_inactive: true }),
+    })),
+  );
+
+  const rows = new Map<string, AdminTeamRow>();
+  for (const { saison, res } of perSaison) {
+    if (res.format !== "list") {
+      throw new Error("Expected a list, got something else");
+    }
+    for (const team of res.teams) {
+      const row = rows.get(team.id) ?? {
+        id: team.id,
+        name: team.name,
+        full_name: team.full_name,
+        shorthand: team.shorthand,
+        inactive_since: team.inactive_since,
+        selected: null,
+        isRetireable: true,
+      };
+      if (saison.id === selectedSaisonId) {
+        row.selected = { gruppe: team.gruppe, disqualifikation: team.disqualifikation };
+      }
+      if (saison.status === "active" || saison.status === "future") {
+        row.isRetireable = false;
+      }
+      rows.set(team.id, row);
+    }
   }
 
-  return <AdminTeamsView teams={teamsRes.teams} />;
+  const sortedRows = [...rows.values()].sort((a, b) => a.name.localeCompare(b.name, "de"));
+
+  return (
+    <AdminTeamsView
+      teams={sortedRows}
+      selectedSaisonId={selectedSaisonId ?? ""}
+    />
+  );
 }

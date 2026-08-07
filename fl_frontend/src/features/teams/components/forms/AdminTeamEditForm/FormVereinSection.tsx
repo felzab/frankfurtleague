@@ -52,7 +52,7 @@ export function FormVereinSection({
                 Eine Umbenennung wird in <strong>alle Spiele</strong> des Vereins übernommen.
               </li>
               <li>
-                Das <strong>Kürzel</strong> ist ligaweit eindeutig — auch stillgelegte Vereine behalten ihres.
+                Das <strong>Kürzel</strong> ist ligaweit eindeutig. Auch stillgelegte Vereine behalten ihres.
               </li>
             </ul>
           </InfoHint>
@@ -68,10 +68,7 @@ export function FormVereinSection({
             onChange={(next) => onChange({ ...draft, name: next })}
             onBlur={() => onFieldLeft(["name"])}>
             <TeamFieldLabel path="name">Name</TeamFieldLabel>
-            <Input
-              placeholder="z.B. FC Frankfurt"
-              className={FIELD_INPUT}
-            />
+            <Input className={FIELD_INPUT} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
 
@@ -85,10 +82,7 @@ export function FormVereinSection({
             onBlur={() => onFieldLeft(["shorthand"])}
             maxLength={2}>
             <TeamFieldLabel path="shorthand">Kürzel</TeamFieldLabel>
-            <Input
-              placeholder="FF"
-              className={`${FIELD_INPUT} font-extrabold tracking-widest uppercase`}
-            />
+            <Input className={`${FIELD_INPUT} font-extrabold tracking-widest uppercase`} />
             <FieldError className={FIELD_ERROR} />
           </TextField>
         </div>
@@ -100,10 +94,7 @@ export function FormVereinSection({
           onChange={(next) => onChange({ ...draft, full_name: next })}
           onBlur={() => onFieldLeft(["full_name"])}>
           <TeamFieldLabel path="full_name">Vollständiger Name</TeamFieldLabel>
-          <Input
-            placeholder="z.B. Fußballclub Frankfurt von 2026 e.V."
-            className={FIELD_INPUT}
-          />
+          <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR} />
         </TextField>
 
@@ -124,7 +115,7 @@ export function FormVereinSection({
             aria-label="Beschreibung bearbeiten"
             className="border-border bg-surface hover:border-brand/40 hover:bg-muted/40 group flex w-full cursor-pointer flex-row items-start justify-between gap-x-3 rounded-lg border px-3 py-2.5 text-left transition-colors">
             {draft.description.trim() === "" ? (
-              <span className="fluid-sm text-foreground-muted font-medium">Keine Beschreibung — hier klicken zum Verfassen.</span>
+              <span className="fluid-sm text-foreground-muted font-medium">Keine Beschreibung. Hier klicken zum Verfassen.</span>
             ) : (
               <span className="fluid-sm text-foreground line-clamp-3 min-w-0 leading-relaxed font-medium">{draft.description}</span>
             )}

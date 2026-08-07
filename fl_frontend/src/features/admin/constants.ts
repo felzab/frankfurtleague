@@ -113,13 +113,16 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         label: "Teams",
         iconName: "Persons",
         hint: {
-          lead: "Alle Vereine der laufenden Saison, mit Kürzel, Gruppe und Status.",
+          lead: "Alle Vereine über alle Saisons, mit Gruppe und Status der im Seitenmenü gewählten Saison.",
           points: [
-            { term: "Anlegen", detail: "über die Schaltfläche oben rechts — der Verein wird dabei direkt in eine Saison aufgenommen." },
+            { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Der Verein wird dabei direkt in eine Saison aufgenommen." },
             { term: "Bearbeiten", detail: "der Stift öffnet die Vereinsseite mit Stammdaten und Saison-Zugehörigkeit." },
-            { term: "Stilllegen", detail: "nimmt den Verein aus den Auswahllisten, ohne ihn zu löschen. Sein Kürzel bleibt reserviert." },
+            {
+              term: "Stilllegen",
+              detail: "nur möglich, solange der Verein in keiner laufenden oder geplanten Saison spielt. Sein Kürzel bleibt reserviert.",
+            },
           ],
-          note: "Eine Disqualifikation gilt für eine Saison und wird auf der Vereinsseite eingetragen — aus einer Saison entfernt wird nie.",
+          note: "Eine Disqualifikation gilt für eine Saison und wird auf der Vereinsseite eingetragen. Aus einer Saison entfernt wird nie.",
         },
       },
       {

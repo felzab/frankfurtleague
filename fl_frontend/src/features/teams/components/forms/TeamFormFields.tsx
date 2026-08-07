@@ -3,6 +3,7 @@
 import { FieldError, Input, Label, TextArea, TextField } from "@heroui/react";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
+import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
 
@@ -38,10 +39,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
           // See `SchiedsrichterFormFields` for why the value lives on the field, not the input.
           isInvalid={errors?.["name"] ? true : undefined}>
           <Label className={FIELD_LABEL}>Name</Label>
-          <Input
-            placeholder="z.B. FC Frankfurt"
-            className={FIELD_INPUT}
-          />
+          <Input className={FIELD_INPUT} />
           <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
         </TextField>
 
@@ -55,10 +53,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
           maxLength={2}
           isInvalid={errors?.["shorthand"] ? true : undefined}>
           <Label className={FIELD_LABEL}>Kürzel</Label>
-          <Input
-            placeholder="FF"
-            className={`${FIELD_INPUT} font-extrabold tracking-widest uppercase`}
-          />
+          <Input className={`${FIELD_INPUT} font-extrabold tracking-widest uppercase`} />
           <FieldError className={FIELD_ERROR}>{errors?.["shorthand"]}</FieldError>
         </TextField>
       </div>
@@ -70,10 +65,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         onChange={(next) => onChange({ ...draft, full_name: next })}
         isInvalid={errors?.["full_name"] ? true : undefined}>
         <Label className={FIELD_LABEL}>Vollständiger Name</Label>
-        <Input
-          placeholder="z.B. Fußballclub Frankfurt von 2026 e.V."
-          className={FIELD_INPUT}
-        />
+        <Input className={FIELD_INPUT} />
         <FieldError className={FIELD_ERROR}>{errors?.["full_name"]}</FieldError>
       </TextField>
 
@@ -87,6 +79,7 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         name="description"
         value={draft.description}
         onChange={(next) => onChange({ ...draft, description: next })}
+        maxLength={DESCRIPTION_MAX_LENGTH}
         isInvalid={errors?.["description"] ? true : undefined}>
         <Label className={FIELD_LABEL}>Beschreibung</Label>
         <TextArea

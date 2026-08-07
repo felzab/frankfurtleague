@@ -35,7 +35,7 @@ import type { TeamRailBanner } from "./TeamRail";
 
 /** The save toast's fan-out line — the half of `PATCH /teams/{team_id}` that fails silently. */
 function describeFanOut(count: number): string {
-  if (count === 0) return "Kein Spiel trägt eine Kopie von Name und Kürzel — nichts nachzuziehen.";
+  if (count === 0) return "Kein Spiel trägt eine Kopie von Name und Kürzel.";
   if (count === 1) return "Name und Kürzel wurden in 1 Spiel nachgezogen.";
   return `Name und Kürzel wurden in ${count} Spielen nachgezogen.`;
 }
@@ -196,7 +196,7 @@ export function AdminTeamEditForm({
     banners.push({
       severity: "danger",
       title: "Der Grund wird veröffentlicht",
-      body: "Er erscheint als eingegebener Text auf der Teamseite und an jedem Spiel der Mannschaft — sobald Du speicherst.",
+      body: "Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und an jedem Spiel der Mannschaft.",
     });
   }
   if (!isDisqualified && storedMembership?.disqualifikation != null) {
@@ -272,7 +272,13 @@ export function AdminTeamEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       const collectedErrors: FieldErrors = {};
-      const savedNotes: string[] = [];
+      // Only what the admin cannot see from the form itself earns a sentence (owner, 2026-08-07):
+      // the fan-out only when the name or Kürzel actually moved, the disqualification only when the
+      // record itself changed. An untouched half contributes nothing to the toast.
+      const renameTouched = isChanged("name") || isChanged("shorthand");
+      const disqualifikationTouched = isChanged("disqualifikation");
+      const consequenceNotes: string[] = [];
+      const savedParts: string[] = [];
       const failedNotes: string[] = [];
 
       // Club half first: it cannot depend on the season half, and its fan-out note belongs first in
@@ -280,7 +286,8 @@ export function AdminTeamEditForm({
       if (clubDirty) {
         const res = await patchTeamAction(buildClubPayload());
         if (res.success) {
-          savedNotes.push(`Stammdaten gespeichert. ${describeFanOut(res.fanned_out_to_spiele ?? 0)}`);
+          savedParts.push("Stammdaten gespeichert.");
+          if (renameTouched) consequenceNotes.push(describeFanOut(res.fanned_out_to_spiele ?? 0));
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
           failedNotes.push(res.fieldErrors?.shorthand ?? res.error ?? "Die Vereinsdaten konnten nicht gespeichert werden.");
@@ -290,11 +297,14 @@ export function AdminTeamEditForm({
       if (saisonDirty) {
         const res = await patchSaisonTeamAction(buildSaisonPayload());
         if (res.success) {
-          savedNotes.push(
-            res.saison_team?.disqualifikation != null
-              ? "Saison gespeichert. Die Disqualifikation ist sofort überall sichtbar."
-              : "Saison gespeichert.",
-          );
+          savedParts.push("Saison gespeichert.");
+          if (disqualifikationTouched) {
+            consequenceNotes.push(
+              res.saison_team?.disqualifikation != null
+                ? "Die Disqualifikation ist sofort überall sichtbar."
+                : "Die Disqualifikation ist aufgehoben.",
+            );
+          }
         } else {
           Object.assign(collectedErrors, res.fieldErrors ?? {});
           failedNotes.push(res.error ?? "Die Saison-Zugehörigkeit konnte nicht gespeichert werden.");
@@ -305,9 +315,9 @@ export function AdminTeamEditForm({
         setFieldErrors(collectedErrors);
         // ALWAYS toasted, field errors or not (owner, 2026-08-07, for the shorthand conflict): the
         // toast is what survives when a half that SUCCEEDED revalidates the route and remounts this
-        // form — an inline message alone would be gone before it was read.
-        appToast.danger(savedNotes.length > 0 ? "Nur teilweise gespeichert" : "Speichern fehlgeschlagen", {
-          description: [...savedNotes, ...failedNotes].join(" "),
+        // form. An inline message alone would be gone before it was read.
+        appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Speichern fehlgeschlagen", {
+          description: [...savedParts, ...failedNotes].join(" "),
         });
         return;
       }
@@ -317,7 +327,9 @@ export function AdminTeamEditForm({
       saisonValidation.clearVerdicts();
       setHasSaved(true);
 
-      appToast.success("Verein gespeichert", { description: savedNotes.join(" ") });
+      appToast.success("Verein gespeichert", {
+        description: consequenceNotes.length > 0 ? consequenceNotes.join(" ") : undefined,
+      });
       resetDraftToStored();
       leavePage();
     });

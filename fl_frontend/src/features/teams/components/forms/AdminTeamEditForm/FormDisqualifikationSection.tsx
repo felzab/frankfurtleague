@@ -55,15 +55,15 @@ export function FormDisqualifikationSection({
         <h2 className={styles.heading()}>
           Disqualifikation
           <InfoHint label="Hinweis zur Disqualifikation">
-            <p>Der einzige Weg aus einer Saison — eine Mannschaft verlässt sie nie anders.</p>
+            <p>Der einzige Weg aus einer Saison.</p>
             <ul>
               <li>
                 Der <strong>Grund ist öffentlich</strong> und erscheint wie eingegeben.
               </li>
               <li>
-                Die Tabelle <strong>überspringt</strong> die Mannschaft bei der Platzvergabe; ihre Ergebnisse bleiben gewertet.
+                Die Tabelle <strong>überspringt</strong> die Mannschaft bei der Platzvergabe. Ihre Ergebnisse bleiben gewertet.
               </li>
-              <li>Aufheben entfernt Grund und Datum ersatzlos — es gibt keinen Verlauf.</li>
+              <li>Aufheben entfernt Grund und Datum ersatzlos. Es gibt keinen Verlauf.</li>
             </ul>
           </InfoHint>
         </h2>
@@ -91,10 +91,7 @@ export function FormDisqualifikationSection({
               onChange={onGrundChange}
               onBlur={() => onValidateFields(["disqualifikation.grund"])}>
               <TeamFieldLabel path="disqualifikation">Grund</TeamFieldLabel>
-              <Input
-                placeholder="z.B. Rückzug nach dem 3. Spieltag"
-                className={FIELD_INPUT}
-              />
+              <Input className={FIELD_INPUT} />
               <FieldError className={FIELD_ERROR} />
             </TextField>
 
@@ -155,7 +152,7 @@ export function FormDisqualifikationSection({
             severity="danger"
             isAnnounced
             title="Der Grund wird veröffentlicht">
-            Er erscheint als eingegebener Text auf der Teamseite und als Hinweis an jedem Spiel der Mannschaft — sobald Du speicherst.
+            Sobald Du speicherst, erscheint er als eingegebener Text auf der Teamseite und als Hinweis an jedem Spiel der Mannschaft.
           </Callout>
         )}
 
@@ -164,7 +161,7 @@ export function FormDisqualifikationSection({
           <Callout
             severity="warning"
             title="Aufheben entfernt den Eintrag ersatzlos">
-            Der gespeicherte Grund und das Datum sind danach nicht wiederherstellbar — es gibt keinen Verlauf, der sie aufbewahrt.
+            Der gespeicherte Grund und das Datum sind danach nicht wiederherstellbar. Es gibt keinen Verlauf, der sie aufbewahrt.
           </Callout>
         )}
       </div>

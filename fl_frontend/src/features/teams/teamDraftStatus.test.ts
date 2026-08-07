@@ -77,11 +77,11 @@ describe("deriveTeamDraftStatus", () => {
     const status = deriveTeamDraftStatus({
       stored,
       draft: draftFrom({ membership: { gruppe: "A", disqualifikation: { grund: "", datum: "2026-03-14" } } }),
-      fieldErrors: { "disqualifikation.grund": "Bitte gib einen Grund an — er wird öffentlich angezeigt." },
+      fieldErrors: { "disqualifikation.grund": "Bitte gib einen Grund an. Er wird öffentlich angezeigt." },
     });
 
     const row = status.byPath.get("disqualifikation");
-    assert.equal(row?.error, "Bitte gib einen Grund an — er wird öffentlich angezeigt.");
+    assert.equal(row?.error, "Bitte gib einen Grund an. Er wird öffentlich angezeigt.");
     assert.deepEqual(
       status.invalid.map((field) => field.path),
       ["disqualifikation"],

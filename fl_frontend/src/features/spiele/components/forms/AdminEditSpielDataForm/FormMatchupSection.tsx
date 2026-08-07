@@ -142,7 +142,7 @@ export function FormMatchupSection({
           onValidateSelection={onValidateSelection}
         />
 
-        <Separator className="bg-border" />
+        <Separator className="bg-border h-px w-full" />
 
         <FormTeamPicker
           label="Team 2"

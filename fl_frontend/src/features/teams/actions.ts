@@ -56,7 +56,7 @@ const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 // The shorthand's unique index spans retired clubs (ADR-0032), and reviving is deliberately not the
 // create's job -- so the message names the one path that is.
 const SHORTHAND_TAKEN =
-  "Dieses Kürzel ist bereits vergeben — möglicherweise von einem stillgelegten Verein, der es behält. Reaktiviere diesen Verein, statt ihn neu anzulegen.";
+  "Dieses Kürzel ist bereits vergeben, möglicherweise von einem stillgelegten Verein. Reaktiviere diesen Verein, statt ihn neu anzulegen.";
 
 /** Both cache layers for one resource and one season (ADR-0001): the base tag serves the default reads. */
 function invalidateSeasonScoped(resource: "teams" | "spiele", saisonId: string): void {
@@ -109,7 +109,7 @@ export async function postTeamAction(
       return {
         success: false,
         error:
-          "Der Verein wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Er ist dadurch auf keiner Seite sichtbar — bitte melde dies dem Betreiber, bevor Du es erneut versuchst.",
+          "Der Verein wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Er ist dadurch auf keiner Seite sichtbar. Bitte melde dies dem Betreiber, bevor Du es erneut versuchst.",
       };
     }
 
@@ -187,7 +187,20 @@ export async function deleteTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const deleteOperation = await deleteTeam(validated.data);
+    // The backend refuses retiring a club that is entered in a running or planned season
+    // (REQ-RETIRE-001); the German answer names the rule instead of a generic conflict.
+    let deleteOperation;
+    try {
+      deleteOperation = await deleteTeam(validated.data);
+    } catch (error) {
+      if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-RETIRE-001") {
+        return {
+          success: false,
+          error: "Der Verein spielt in einer laufenden oder geplanten Saison und kann nicht stillgelegt werden.",
+        };
+      }
+      throw error;
+    }
     if (!deleteOperation.acknowledged) {
       return { success: false, error: "Beim Stilllegen des Vereins ist ein unerwarteter Fehler aufgetreten" };
     }

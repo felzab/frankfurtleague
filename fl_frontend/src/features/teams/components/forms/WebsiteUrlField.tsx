@@ -62,7 +62,9 @@ export function WebsiteUrlField({
         fullWidth
         className={`border-border bg-surface text-foreground ${FIELD_HEIGHT} rounded-lg border transition-colors`}>
         {/* Muted, because it is furniture: always there, never editable. */}
-        <InputGroup.Prefix className="text-foreground-muted fluid-sm select-none">https://</InputGroup.Prefix>
+        <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
+          https://
+        </InputGroup.Prefix>
         <InputGroup.Input
           placeholder="www.beispielverein.de"
           className="fluid-sm"
