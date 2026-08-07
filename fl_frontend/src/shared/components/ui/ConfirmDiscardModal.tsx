@@ -4,7 +4,7 @@ import { ArrowUturnCwLeft, TriangleExclamation } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
-import { formButton } from "./formButtons";
+import { formButton, MODAL_FOOTER } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 /**
@@ -54,7 +54,7 @@ export function ConfirmDiscardModal({
           <TriangleExclamation className="text-warning-strong size-5" />
         </div>
       }>
-      <div className="flex w-full min-w-0 flex-col px-1 pt-1">
+      <div className="flex w-full min-w-0 flex-col pt-1">
         <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
           <span className="bg-warning/15 text-warning-strong rounded-md px-1.5 py-0.5 font-bold whitespace-nowrap">
             {changeCount === 1 ? "1 Änderung" : `${changeCount} Änderungen`}
@@ -66,7 +66,9 @@ export function ConfirmDiscardModal({
         {/* One primary, one secondary — the same pair `ConfirmDeleteModal` and every two-button form
             on the site use: the action the dialog exists for is the solid one, the way back is the
             outline (owner, seventh review — two solid fills read as two primaries). */}
-        <div className="mt-6 flex w-full min-w-0 flex-col gap-2.5">
+        {/* The same footer band as every other modal (owner, 2026-08-07). Stacked rather than
+            side by side here, because this pair is not symmetrical: one discards work. */}
+        <div className={`${MODAL_FOOTER} mt-6 flex w-full min-w-0 flex-col gap-2.5`}>
           <Button
             type="button"
             variant="primary"

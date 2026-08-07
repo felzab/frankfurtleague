@@ -2,14 +2,12 @@
 
 import { useState, useTransition } from "react";
 
-import { Check } from "@gravity-ui/icons";
-
 import { Button, Form } from "@heroui/react";
 
 import { hasFieldErrors, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 
-import { formButton } from "./formButtons";
+import { formButton, MODAL_FOOTER } from "./formButtons";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
@@ -33,12 +31,22 @@ export function EntityForm<TDraft>({
   onSubmit,
   successMessage,
   onClose,
+  marksRequired = false,
 }: {
   initialDraft: TDraft;
   renderFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>) => ReactNode;
   onSubmit: (draft: TDraft) => Promise<SubmitResult>;
   successMessage: string;
   onClose: () => void;
+  /**
+   * Render the required asterisks. **Only a form that CREATES something sets it** (owner,
+   * 2026-08-07): on a create every required field is genuinely a question, while on an edit every
+   * value is already there and a column of red stars marks nothing the reader can act on.
+   *
+   * It governs the marks alone. `isRequired` still sits on the fields either way, because it is what
+   * makes the browser refuse an emptied one — with its own message, in the browser's language.
+   */
+  marksRequired?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
@@ -80,6 +88,11 @@ export function EntityForm<TDraft>({
     <Form
       ref={formRef}
       validationErrors={fieldErrors}
+      // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks.
+      // On the form rather than per field, because the rule is about what KIND of form this is, and
+      // emitted only when ON — that rule is an opt-in, so an absent attribute already means "no
+      // marks" and every editor gets the right behaviour without carrying anything.
+      data-required-marks={marksRequired ? "on" : undefined}
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
       action={handleSubmit}>
       {/* No entrance animation: this mounts inside a modal that is already animating in, so its own
@@ -87,30 +100,31 @@ export function EntityForm<TDraft>({
           for state changes the user triggers (see the inline-create panel swap). */}
       <div className="flex w-full flex-col gap-4 px-2">{renderFields(draft, setDraft)}</div>
 
-      <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3 pt-4">
-        {/* Disabled while the mutation is in flight: pressing it unmounted the modal out
-            from under a running transition, whose `toast.success` and draft reset then fired against
-            a dead tree — so the record was created and the user was never told. */}
-        <Button
-          type="button"
-          variant="secondary"
-          isDisabled={isPending}
-          className={formButton({ intent: "cancel" })}
-          onPress={onClose}>
-          Abbrechen
-        </Button>
-        <Button
-          type="submit"
-          variant="primary"
-          isDisabled={isPending}
-          className={formButton({ intent: "submit" })}>
-          <Check
-            className="m-0"
-            width={20}
-            height={20}
-          />
-          {isPending ? "Speichert..." : "Speichern"}
-        </Button>
+      {/* The separator reaches the DIALOG's edges, not the form's — see `MODAL_FOOTER`, which owns
+          the arithmetic against `ModalShell`'s padding. */}
+      <div className={MODAL_FOOTER}>
+        <div className="flex w-full flex-row items-center justify-evenly gap-3">
+          {/* Disabled while the mutation is in flight: pressing it unmounted the modal out
+              from under a running transition, whose `toast.success` and draft reset then fired against
+              a dead tree — so the record was created and the user was never told. */}
+          <Button
+            type="button"
+            variant="secondary"
+            isDisabled={isPending}
+            className={formButton({ intent: "cancel" })}
+            onPress={onClose}>
+            Abbrechen
+          </Button>
+          {/* No icon (owner, 2026-08-07). A checkmark on a button that has not yet done anything
+              reads as "done" rather than "do it", and the label already says which action this is. */}
+          <Button
+            type="submit"
+            variant="primary"
+            isDisabled={isPending}
+            className={formButton({ intent: "submit" })}>
+            {isPending ? "Speichert..." : "Speichern"}
+          </Button>
+        </div>
       </div>
     </Form>
   );

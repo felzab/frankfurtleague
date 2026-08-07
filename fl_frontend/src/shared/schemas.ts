@@ -56,6 +56,25 @@ export const ExternalUrlSchema = z.url({
   error: "Bitte gib eine gültige Adresse ein, die mit http:// oder https:// beginnt.",
 });
 
+/**
+ * A PERSON's name: letters, and the three separators a real name uses.
+ *
+ * Letters are matched by Unicode property, not `[A-Za-z]` — half this league's squads would fail an
+ * ASCII rule, and the live data already holds `Körner`, `El Damarawy` and `Anouar`. Space, hyphen and
+ * apostrophe are in because a double-barrelled or particled name is not a defect; digits and every
+ * other symbol are out, which is what stops a note being typed into a name field. The six `(C)`
+ * captain markers got there exactly that way (ADR-0061's sibling problem, fixed by `is_captain`).
+ *
+ * **On the WRITE path only.** A read model that refused a stored name would 500 the whole response
+ * for one bad row rather than showing it — the failure mode `GET /spieler` demonstrated twice this
+ * session. Every one of the 362 live names satisfies this, so it costs nothing today; the point is
+ * what it refuses tomorrow.
+ */
+export const PersonNameSchema = z
+  .string()
+  .nonempty({ error: "Bitte gib einen Namen ein." })
+  .regex(/^\p{L}[\p{L}\-' ]*$/u, { error: "Ein Name darf nur Buchstaben, Leerzeichen, Bindestriche und Apostrophe enthalten." });
+
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
   // `*` not `+`, so "optional" is expressed by the pattern rather than by a union. A union whose

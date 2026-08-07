@@ -61,6 +61,7 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
 
         return { ...res, success };
       }}
+      marksRequired
       successMessage="Spielort erfolgreich angelegt"
       onClose={onClose}
     />

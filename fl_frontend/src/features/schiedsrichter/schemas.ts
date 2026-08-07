@@ -12,10 +12,10 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, FLKontaktSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, FLKontaktSchema, PersonNameSchema } from "@/shared/schemas";
 
 export const FLPostSchiedsrichterPayloadSchema = z.object({
-  name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
+  name: PersonNameSchema,
   default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
   kontakt: FLKontaktSchema,
   schule: z.string().nullable(),
@@ -24,7 +24,7 @@ export type FLPostSchiedsrichterPayload = z.infer<typeof FLPostSchiedsrichterPay
 
 export const FLPatchSchiedsrichterPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
-  name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
+  name: PersonNameSchema,
   default_payment: z.int({ error: "Bitte gib ein Standard-Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
   kontakt: FLKontaktSchema,
   schule: z.string().nullable(),
