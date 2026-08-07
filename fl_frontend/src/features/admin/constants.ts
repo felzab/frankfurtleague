@@ -37,11 +37,12 @@ export const ADMIN_SIDEMENU_ICONS = {
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
-  // First, because everything below it is scoped by a season: the sidemenu's own season selector, the
-  // group a team holds, the squad a player is in, the matches a Spieltag groups. The season is the top
-  // of that tree, so the two pages that define one sit above the pages that read one.
+  // First, and DELIBERATELY UNNAMED (owner, 2026-08-07). Everything below it is scoped by a season --
+  // the selector at the top of this menu, the group a team holds, the squad a player is in, the matches
+  // a Spieltag groups -- so the season sits above them all, and a heading here would be naming the thing
+  // the whole menu is already about. `SidemenuNavLinks` renders no label for an empty name.
   {
-    category_name: "Wettbewerb",
+    category_name: "",
     sub_options: [
       {
         id: "saisons",
@@ -58,28 +59,28 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           note: "Eine Saison wird nie gelöscht. Eine gespielte Saison ist abgeschlossen und bleibt abrufbar.",
         },
       },
-      // Directly below Saisons, which is the order the two are reached in: a matchday belongs to a
-      // season and carries its id, so the season has to exist first.
-      {
-        id: "spieltage",
-        label: "Spieltage",
-        iconName: "Calendar",
-        hint: {
-          lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und Reihenfolge.",
-          points: [
-            { term: "Reihenfolge", detail: "die Zahl vor dem Namen. Danach sortiert der Turnierbaum, nicht nach Datum." },
-            { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
-            { term: "Stilllegen", detail: "nimmt den Spieltag aus den Listen. Seine Spiele bleiben erhalten." },
-          ],
-          note: "Zwei Spieltage dürfen dieselbe Reihenfolge tragen. Die Liste kennzeichnet das, verhindert es aber nicht.",
-        },
-      },
     ],
   },
 
   {
     category_name: "Spiele",
     sub_options: [
+      // First in this group, and above the queue: a Spieltag is the block the matches below it belong
+      // to, so the schedule comes before the fixtures that fill it (owner, 2026-08-07).
+      {
+        id: "spieltage",
+        label: "Spieltage",
+        iconName: "Calendar",
+        hint: {
+          lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und in der Reihenfolge, in der sie gespielt werden.",
+          points: [
+            { term: "Position", detail: "ergibt sich aus Phase und Beginn. Um einen Spieltag zu verschieben, ändere sein Datum." },
+            { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
+            { term: "Stilllegen", detail: "nimmt den Spieltag aus den Listen. Seine Spiele bleiben erhalten." },
+          ],
+          note: "Es gibt keine Reihenfolge einzutragen. Die Liste zeigt, an welcher Stelle ein Spieltag steht.",
+        },
+      },
       // "Handlungsbedarf", not "Übersicht": the page is a queue of the things needing an admin, ranked
       // by what each one blocks (ADR-0056) — an overview is what `spielsuche` below is. The label is
       // also the collapsed sidemenu's tooltip and the page's own title in the bar, so all three move

@@ -41,12 +41,18 @@ export function SidemenuNavLinks<TIcon extends string>({
     <div className="flex flex-col gap-5">
       {structure.map((group) => (
         <div
-          key={group.category_name}
+          // The first item's id, not the category name: a category may deliberately have no name (see
+          // `SidemenuStructureEntry`), and every id is a route segment, so it is unique across the
+          // whole structure where an empty name would not be.
+          key={group.sub_options[0]?.id ?? group.category_name}
           className="flex flex-col gap-1">
-          {!isDesktopCollapsed ? (
-            <span className="text-foreground-muted fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
-          ) : (
+          {/* An unnamed category renders neither a label nor a rule, and the `gap-5` between groups is
+              what still separates it. A heading with no text is a 4px box plus a line height of dead
+              space, and a rule above the first group would read as a divider from the bar above it. */}
+          {isDesktopCollapsed ? (
             <Separator className="bg-border my-1 w-1/2 self-center" />
+          ) : (
+            group.category_name !== "" && <span className="text-foreground-muted fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
           )}
 
           <div className="flex flex-col gap-[2px]">

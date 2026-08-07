@@ -56,6 +56,14 @@ export interface SidemenuStructureSubOption<TIcon extends string> {
 }
 
 export interface SidemenuStructureEntry<TIcon extends string> {
+  /**
+   * The heading above the group, or `""` for a group that needs none.
+   *
+   * **An empty name is a real option, not a missing value.** The admin menu's first group is the season
+   * and its matchdays, and everything below it is scoped by the season the selector holds — so a heading
+   * there would be naming the thing the whole menu is already about. `SidemenuNavLinks` renders no label
+   * and no rule for an empty name, and keys the group on its first item's id instead.
+   */
   category_name: string;
   sub_options: SidemenuStructureSubOption<TIcon>[];
 }
