@@ -50,6 +50,11 @@ that exists on two of three surfaces is a feature the admin cannot rely on, whic
 - The client holds every payload, because no admin write is recorded anywhere (BE-15); the offer is
   bounded to one page session.
 - The invalidation is the same tag set the editor's save uses, because an undo is a write.
+- **nginx must route the path to the frontend.** `/api` proxies to FastAPI, so a handler under it
+  reaches the wrong service and 404s — which the client reports as a transport failure naming
+  nothing. The third handler shipped without its block and did exactly that; both configs now carry
+  one `location /api/admin/` prefix covering every handler present and future, which is safe because
+  every backend route is mounted under `/api/v{API_VERSION}/`.
 
 **The boundary is now the PATTERN rather than a count: an undo belongs to a page-owned editor, and
 nothing else becomes a route handler.** Every other admin write is and stays a server action. A
