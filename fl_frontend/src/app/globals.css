@@ -491,6 +491,19 @@ html:has([data-app-shell]) {
    `scrollbar-gutter-stable`, so a consumer of this utility never inherits a gutter it did not ask
    for. No `!important` needed: @utility output lands in the utilities layer, which already beats
    HeroUI's base/scrollbar.css. */
+/* Reserves the scrollbar's strip on BOTH edges, so the content box stays centred inside the container.
+   The one-edge `scrollbar-gutter-stable` is right almost everywhere — a page's content is left-aligned,
+   so a reservation on the inline-end side costs nothing visible. It is wrong for a container whose
+   content is CENTRED and narrow: the collapsed sidemenu rail is 72px wide with `px-3`, leaving 48px, and
+   a ~15px reservation on one side alone put its 18px icons ~7px left of the rail's true centre while
+   every icon was correctly centred in the box it had. `both-edges` costs the same 15px twice, which at
+   this width is affordable and is the only value that keeps a centre a centre.
+
+   Only for a narrow, centred scroll container. Everywhere else the one-edge value is the right trade. */
+@utility scrollbar-gutter-stable-both {
+  scrollbar-gutter: stable both-edges;
+}
+
 @utility scrollbar-hide {
   &::-webkit-scrollbar {
     display: none;
