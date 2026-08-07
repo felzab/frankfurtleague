@@ -9,9 +9,11 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The search finds a
-// matchday by name or date; the phase is what the sections already group by, and narrowing to one is the
-// filter bar's job rather than something to type.
-const SEARCH_KEYS = ["name", "beginn", "ende"] as const;
+// matchday by its derived label -- "2. Spieltag", "Viertelfinale" -- or by either date. `label` is a field
+// of the ROW rather than of the document (ADR-0067), which is exactly why the row carries it: the search
+// has to match what a person reads. The phase is what the sections already group by, and narrowing to one
+// is the filter bar's job rather than something to type.
+const SEARCH_KEYS = ["label", "beginn", "ende"] as const;
 
 /**
  * The fifth declaration over `AdminCrudView` — and the first whose `renderTable` is not a table.

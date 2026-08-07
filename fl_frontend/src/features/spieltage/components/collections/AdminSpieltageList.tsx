@@ -117,13 +117,13 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     <RowActions>
       <RowActionEdit
         label="Bearbeiten"
-        ariaLabel={`Spieltag ${spieltag.name} bearbeiten`}
+        ariaLabel={`${spieltag.label} bearbeiten`}
         onPress={() => onEdit(spieltag)}
       />
       {spieltag.inactive_since !== null ? (
         <RowActionRestore
           label="Reaktivieren"
-          ariaLabel={`Spieltag ${spieltag.name} reaktivieren`}
+          ariaLabel={`${spieltag.label} reaktivieren`}
           onPress={() => handleReactivate(spieltag)}
         />
       ) : (
@@ -137,7 +137,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
               ? `Nicht möglich: ${spieltag.spieleGespielt === 1 ? "1 Spiel hat" : `${String(spieltag.spieleGespielt)} Spiele haben`} schon ein Ergebnis`
               : "Stilllegen"
           }
-          ariaLabel={`Spieltag ${spieltag.name} stilllegen`}
+          ariaLabel={`${spieltag.label} stilllegen`}
           onPress={() => onDelete(spieltag)}
         />
       )}
@@ -192,7 +192,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                     {/* The ordinal is decorative for a screen reader — the list order already carries it,
                         and reading "1" before every name is noise. The name is the row's accessible
                         identity, which is what the action labels name too. */}
-                    <span className="fluid-sm text-foreground truncate font-semibold">{spieltag.name}</span>
+                    <span className="fluid-sm text-foreground truncate font-semibold">{spieltag.label}</span>
                     {/* One date where the matchday is one day, which most are — a range repeating the same
                         date twice reads as two facts. */}
                     <span className="fluid-xs text-foreground-muted">

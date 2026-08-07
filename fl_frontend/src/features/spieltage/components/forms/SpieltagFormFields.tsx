@@ -2,29 +2,30 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { FieldError, Input, Label, ListBox, Select, TextField } from "@heroui/react";
+import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
 import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { Callout } from "@/shared/components/ui/Callout";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { Key } from "@heroui/react";
 
 /**
- * The four fields a matchday carries, shared by the create and edit dialogs.
+ * The three fields a matchday carries, shared by the create and edit dialogs.
  *
  * **A dialog rather than a page, and that is the decision this file rests on.** ADR-0050's threshold is a
- * form that OUTGREW a dialog: four scalar controls, no nested object, no junction row and no lookup list
+ * form that OUTGREW a dialog: three scalar controls, no nested object, no junction row and no lookup list
  * do not reach it, and the Spielort form beside it is the same size in the same container.
  *
- * **Neither the position nor the match count is a control, and adding either would be a regression**
- * (ADR-0064, ADR-0065). Where a matchday sits in its season is derived from `saison_phase` and `beginn`,
- * both of which are on this form; how many matches it expects is derived from the season's rules and that
- * same phase. So the fields that decide both are ones an admin was going to fill in anyway, and neither
- * derived value can be wrong without one of them being wrong.
+ * **The position, the match count and the NAME are all derived, and adding a control for any of them
+ * would be a regression** (ADR-0064, ADR-0065, ADR-0067). Where a matchday sits in its season comes from
+ * `saison_phase` and `beginn`, both on this form; how many matches it expects comes from the season's
+ * rules and that same phase; and what it is called comes from the phase and the position. So the fields
+ * that decide all three are ones an admin was going to fill in anyway, and no derived value can be wrong
+ * without one of them being wrong.
  *
  * **The date control is the season slice's**, imported rather than rewritten. A matchday's
  * `beginn`/`ende` pair and a season's `start_date`/`end_date` pair are the same control doing the same
@@ -38,7 +39,6 @@ import type { Key } from "@heroui/react";
 
 /** What both dialogs hold while editing, before either adds its own id or season. */
 export type SpieltagFormDraft = {
-  name: string;
   beginn: string;
   ende: string;
   saison_phase: FLSaisonPhase | null;
@@ -65,21 +65,6 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
 
   return (
     <>
-      <TextField
-        isRequired
-        name="name"
-        value={draft.name}
-        onChange={(next) => onChange({ ...draft, name: next })}
-        // See `SchiedsrichterFormFields` for why the invalid flag lives on the field, not the input.
-        isInvalid={errors?.["name"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Name</Label>
-        <Input
-          placeholder="z.B. 1. Spieltag"
-          className={FIELD_INPUT}
-        />
-        <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
-      </TextField>
-
       <Select
         isRequired
         name="saison_phase"
@@ -153,8 +138,9 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
           list's order is not arbitrary, or where the `x / y` count on each row comes from. */}
       <Callout
         severity="info"
-        title="Position und erwartete Spiele ergeben sich von selbst">
-        Einsortiert wird nach Phase und Beginn — um den Spieltag zu verschieben, ändere sein Datum. Wie viele Spiele er umfasst, folgt aus den
+        title="Name, Position und erwartete Spiele ergeben sich von selbst">
+        Der Spieltag heißt nach seiner Phase und seiner Position darin — in der Gruppenphase „1. Spieltag“, „2. Spieltag“, danach nach der
+        Runde. Einsortiert wird nach Phase und Beginn, also verschiebst Du ihn über sein Datum. Und wie viele Spiele er umfasst, folgt aus den
         Regeln der Saison: bei einer einfachen Hin-Runde pro Gruppe steht die Zahl fest.
       </Callout>
     </>

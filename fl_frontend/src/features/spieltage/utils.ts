@@ -1,8 +1,9 @@
 /**
  * SPIELTAGE · derivations
  *
- * Pure derivation over a season's playoff rounds — no I/O and no caching, which is why it stays out
- * of `queries.ts` rather than being folded in (ADR-0004).
+ * Pure derivation over a season's matchdays — no I/O and no caching, which is why it stays out of
+ * `queries.ts` rather than being folded in (ADR-0004). Two things live here: the bracket's column order,
+ * and the NAME a matchday is shown under, which no document stores (ADR-0067).
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -12,7 +13,7 @@
  *   • Rounds arrive in the order they are PLAYED, and the LAST round anchors the walk: each earlier round
  *     is ordered by the round after it, so the two feeders of one fixture sit adjacent and in the order
  *     that fixture's own sides name them. That arrival order is the backend's derived one —
- *     `saison_phase` in bracket order, then `beginn`, then `name` (ADR-0064) — and this walk is why it
+ *     `saison_phase` in bracket order, then `beginn`, then `_id` (ADR-0064) — and this walk is why it
  *     has to be right rather than merely plausible: anchoring on the wrong round mis-orders every
  *     column before it.
  *   • A fixture nothing references keeps its arrival order, after the referenced ones. A `gruppe`
@@ -24,6 +25,9 @@
  *   docs/glossary.md — Quelle, for the two variants and what they reference
  */
 
+import { PHASE_LABELS } from "@/features/saisons/constants";
+
+import type { FLSaisonPhase } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "./schemas";
 
@@ -73,3 +77,62 @@ export const orderRoundsByWiring = (rounds: readonly FLSpieltagWithSpiele[]): FL
 
   return ordered;
 };
+
+/**
+ * What one matchday is called, from its phase and its place within that phase.
+ *
+ * **A matchday stores no name** (ADR-0067). One carries no information: a group-phase matchday is its
+ * ordinal, a knockout matchday is its round. Both were already derivable — the ordinal from the order the
+ * backend returns, the round from `PHASE_LABELS` — so a stored name was a second statement of the same
+ * fact, and one nothing held consistent: two matchdays could share a name, and one called "Finale" could
+ * sit in the `gruppenphase`.
+ *
+ * **It is composed here rather than served by the API**, because it is German display text. `quelle` set
+ * that precedent: a reference carries no label, and what a reader sees is derived where it is shown
+ * (ADR-0042). The backend has no German vocabulary for the phases and gains none for this.
+ *
+ * `ordinal` is 1-based and counted per phase over the arrival order. `countInPhase` decides whether a
+ * knockout round needs distinguishing at all:
+ *
+ * - **Group phase** — always the ordinal. "1. Spieltag", "2. Spieltag".
+ * - **A knockout round the season plays once** — the round alone. "Viertelfinale".
+ * - **A round split across several matchdays** — the round plus its ordinal, because four quarter-finals
+ *   over two dates are two matchdays and a reader has to be able to tell them apart. "Viertelfinale (1)".
+ */
+export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): string {
+  if (phase === "gruppenphase") return `${String(ordinal)}. Spieltag`;
+
+  return countInPhase > 1 ? `${PHASE_LABELS[phase]} (${String(ordinal)})` : PHASE_LABELS[phase];
+}
+
+/**
+ * Every matchday's label and per-phase ordinal, keyed by id, for a caller holding the whole season.
+ *
+ * Built in one pass rather than per row: the label needs `countInPhase`, which is only knowable once the
+ * whole phase has been seen — so a component computing it per row would either be wrong on the first row
+ * or re-scan the list for every one.
+ *
+ * The input must be in the API's order, and nothing here re-sorts it: the backend already answered that
+ * question (ADR-0064).
+ */
+export function spieltagLabels(
+  spieltage: readonly { id: string; saison_phase: FLSaisonPhase }[],
+): Map<string, { label: string; ordinal: number }> {
+  const countByPhase = new Map<FLSaisonPhase, number>();
+  for (const spieltag of spieltage) {
+    countByPhase.set(spieltag.saison_phase, (countByPhase.get(spieltag.saison_phase) ?? 0) + 1);
+  }
+
+  const seenInPhase = new Map<FLSaisonPhase, number>();
+  const labels = new Map<string, { label: string; ordinal: number }>();
+  for (const spieltag of spieltage) {
+    const ordinal = (seenInPhase.get(spieltag.saison_phase) ?? 0) + 1;
+    seenInPhase.set(spieltag.saison_phase, ordinal);
+    labels.set(spieltag.id, {
+      ordinal,
+      label: spieltagLabel({ phase: spieltag.saison_phase, ordinal, countInPhase: countByPhase.get(spieltag.saison_phase) ?? 1 }),
+    });
+  }
+
+  return labels;
+}

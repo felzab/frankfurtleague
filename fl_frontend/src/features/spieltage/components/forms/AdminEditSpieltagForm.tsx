@@ -24,7 +24,6 @@ export function AdminEditSpieltagForm({ spieltag, onClose }: { spieltag: AdminSp
     <EntityForm<FLPatchSpieltagPayload>
       initialDraft={{
         id: spieltag.id,
-        name: spieltag.name,
         beginn: spieltag.beginn,
         ende: spieltag.ende,
         saison_phase: spieltag.saison_phase,

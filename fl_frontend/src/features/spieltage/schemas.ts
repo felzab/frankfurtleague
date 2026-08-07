@@ -3,9 +3,10 @@
  *
  * Mirrors `fl_backend/app/api/spieltage/schemas.py`.
  *
- * **A matchday carries no position and no field here holds one** (ADR-0064). The order is
- * `saison_phase` in bracket order, then `beginn`, then `name`, applied by the backend before the
- * response is built — so a list arrives in the order it is played and nothing on this side re-sorts it.
+ * **A matchday carries no position and no NAME, and no field here holds either** (ADR-0064, ADR-0067).
+ * The order is `saison_phase` in bracket order, then `beginn`, then `_id`, applied by the backend before
+ * the response is built — so a list arrives in the order it is played and nothing on this side re-sorts
+ * it. The name a reader sees is composed from that order by `spieltagLabel` in `utils.ts`.
  *
  * **`anzahl_spiele` is on the read shape and on neither payload** (ADR-0065). A single round robin per
  * group fixes how many matches a matchday of a given phase holds, so the backend derives it from the
@@ -26,7 +27,6 @@ import { FLSpielSchema } from "../spiele/schemas";
 export const FLSpieltagSchema = z.object({
   id: CustomObjectIdStringSchema,
 
-  name: z.string(),
   beginn: CustomDateStringSchema,
   ende: CustomDateStringSchema,
   // Derived from the season's rules and this matchday's phase, stored nowhere (ADR-0065). Zero is a
@@ -60,13 +60,12 @@ export type FLSpieltageListResponse = z.infer<typeof FLSpieltageListResponseSche
  * The fields both write payloads carry. German messages: these bind the matchday form's inputs
  * directly, judged in the browser with the schema the action parses (ADR-0050).
  *
- * **No position and no match count, on either payload** (ADR-0064, ADR-0065). Where a matchday sits in
- * its season and how many matches it expects both follow from its phase, its date and the season's
- * rules — so the fields that decide them are already here, and there is nothing separate to keep in
- * step with them.
+ * **No position, no match count and no name, on either payload** (ADR-0064, ADR-0065, ADR-0067). Where a
+ * matchday sits in its season, how many matches it expects and what it is called all follow from its
+ * phase, its date and the season's rules — so the fields that decide them are already here, and there is
+ * nothing separate to keep in step with them.
  */
 const spieltagPayloadFields = {
-  name: z.string().nonempty({ error: "Der Spieltag braucht einen Namen." }),
   beginn: CustomDateStringSchema,
   ende: CustomDateStringSchema,
   saison_phase: FLSaisonPhaseSchema,

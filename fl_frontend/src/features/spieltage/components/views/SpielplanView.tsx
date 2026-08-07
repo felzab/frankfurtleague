@@ -7,9 +7,14 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 
+import { spieltagLabels } from "../../utils";
+
 import type { FLSpielplan } from "../../schemas";
 
 export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
+  // Every matchday's label in one pass (ADR-0067). The list arrives in the backend's derived order, which
+  // is what the ordinal counts over -- so nothing here may re-sort it.
+  const labels = spieltagLabels(spielplanData?.spieltage ?? []);
   // Without this the empty case renders a bordered, empty 44px tab bar and no panels.
   if (!spielplanData?.spieltage?.length) {
     return (
@@ -61,7 +66,7 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
                        HeroUI's `w-full` on `.tabs__tab` — left at full width inside a `min-w-full`
                        list, six Spieltage share the rail as six equal slabs instead of six labels. */
                     className={`${TAB_ITEM} flex h-11 w-fit items-center px-5 whitespace-nowrap md:px-6`}>
-                    {spieltagData.name}
+                    {labels.get(spieltagData.id)?.label}
                     <Tabs.Indicator className={TAB_INDICATOR} />
                   </Tabs.Tab>
                 );

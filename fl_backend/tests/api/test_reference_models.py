@@ -155,10 +155,17 @@ class TestSpieltag:
         """Positive baseline for the matchday model."""
         assert FLSpieltag.model_validate(spieltag()).anzahl_spiele == 4
 
-    def test_rejects_an_empty_name(self, spieltag):
-        """A matchday is identified by name in the bracket heading."""
-        with pytest.raises(ValidationError):
-            FLSpieltag.model_validate(spieltag(name=""))
+    def test_carries_no_name(self):
+        """
+        A matchday has no name field, and the absence is asserted rather than left to be noticed.
+
+        The name a reader sees is composed from `saison_phase` and the matchday's position in its phase
+        (ADR-0067): a group matchday is its ordinal, a knockout matchday is its round. Both are already
+        derivable, so a stored name would be a second statement of the same fact -- and it was one nothing
+        held consistent, since two matchdays could share a name and a name could contradict its phase.
+        """
+
+        assert "name" not in FLSpieltag.model_fields
 
     def test_rejects_a_negative_match_count(self, spieltag):
         """

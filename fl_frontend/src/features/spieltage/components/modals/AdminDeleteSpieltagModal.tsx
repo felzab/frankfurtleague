@@ -38,7 +38,7 @@ export function AdminDeleteSpieltagModal({
       onClose={onClose}
       heading="Spieltag stilllegen"
       entityLabel="den Spieltag"
-      entityName={spieltag.name}
+      entityName={spieltag.label}
       consequence={
         spieltag.spieleAngelegt === 0
           ? "Der Spieltag verschwindet aus den Listen und aus dem Spielplan."

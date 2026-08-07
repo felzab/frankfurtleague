@@ -5,6 +5,7 @@ import { PencilToSquare } from "@gravity-ui/icons";
 import { Table } from "@heroui/react";
 
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle } from "@/features/spiele/utils";
+import { spieltagLabels } from "@/features/spieltage/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
@@ -131,6 +132,11 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
  * draw finds it.
  */
 export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiele[] }) {
+  // Every round's label in one pass (ADR-0067). `rounds` arrives in the played order here -- this view
+  // deliberately does NOT apply `orderRoundsByWiring`, which is the point it makes below -- so the
+  // ordinal counts the matchday's place in its phase, which is what the label means.
+  const labels = spieltagLabels(rounds);
+
   // The expected state for most of a season, exactly as on the public bracket: the playoff Spieltage
   // do not exist until the group phase finishes.
   if (rounds.length === 0) {
@@ -157,7 +163,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
         <div
           key={round.id}
           className={`${card()} flex w-full flex-col items-start gap-4 p-3 sm:p-6`}>
-          <h2 className="fluid-lg text-foreground font-black tracking-tight">{round.name}</h2>
+          <h2 className="fluid-lg text-foreground font-black tracking-tight">{labels.get(round.id)?.label}</h2>
 
           {round.spiele.length === 0 ? (
             <EmptyState
@@ -179,7 +185,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                   nothing is left over beside the edit button, which is where a fixed share had put a
                   fifth of the table as blank gutter. */}
               <Table.Content
-                aria-label={`Herkunft der Paarungen: ${round.name}`}
+                aria-label={`Herkunft der Paarungen: ${labels.get(round.id)?.label ?? ""}`}
                 className="table-fixed">
                 <Table.Header className="fluid-xxs text-foreground-muted font-semibold uppercase">
                   <Table.Column

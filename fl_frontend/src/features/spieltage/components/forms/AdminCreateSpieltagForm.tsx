@@ -17,7 +17,6 @@ export function AdminCreateSpieltagForm({ saisonId, onClose }: { saisonId: strin
   return (
     <EntityForm<SpieltagCreateDraft>
       initialDraft={{
-        name: "",
         beginn: "",
         ende: "",
         saison_phase: null,

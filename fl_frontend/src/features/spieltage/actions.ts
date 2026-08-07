@@ -96,7 +96,9 @@ export async function postSpieltagAction(
     return {
       success: true,
       spieltag_id: postOperation.spieltag_id,
-      message: `Spieltag „${validated.data.name}“ angelegt.`,
+      // No name to echo: one is composed by the reader from the phase and the position (ADR-0067), and
+      // the position is only known once this matchday is in the list beside its siblings.
+      message: "Spieltag angelegt.",
     };
   });
 }

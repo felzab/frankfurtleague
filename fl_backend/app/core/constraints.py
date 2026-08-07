@@ -452,14 +452,13 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
     },
     "spieltage": {
         "$jsonSchema": _object(
-            required=("_id", "name", "beginn", "ende", "saison_phase", "saison_id", "inactive_since"),
+            required=("_id", "beginn", "ende", "saison_phase", "saison_id", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
-                "name": {"bsonType": "string"},
                 "beginn": {"bsonType": "string"},
                 "ende": {"bsonType": "string"},
                 # NEITHER a position NOR a match count is stored here, and both absences are decisions.
-                # The position is `saison_phase` in bracket order, then `beginn`, then `name` (ADR-0064);
+                # The position is `saison_phase` in bracket order, then `beginn`, then `_id` (ADR-0064, ADR-0067);
                 # the match count follows from the season's `rules` and this matchday's phase, because a
                 # single round robin per group determines it exactly (ADR-0065). `FLSpieltag` serves
                 # `anzahl_spiele` as a derived field, which is why `MIRRORED_MODELS` lists it as

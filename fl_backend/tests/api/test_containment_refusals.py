@@ -14,6 +14,8 @@ outside", which is a second statement of the same fact with nothing holding the 
 Asserted on the CODE, never the message.
 """
 
+from typing import Literal
+
 import pytest
 
 from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED, find_referee_retire_refusal
@@ -152,7 +154,16 @@ class TestAMatchdayKeepsCoveringItsFixtures:
 
 
 class TestOneVenueAndOneRefereeAtATime:
-    def slot(self, uhrzeit: str, resource="Spielort", nr: int = 3, datum: str = "2026-03-07") -> BookedSlot:
+    # `resource` is annotated rather than left to inference: without the Literal, a plain `str` default
+    # widens the parameter and `BookedSlot` then refuses it, which Pylance reports and `pyright app` does
+    # not -- the gate's pyright pass covers `app` alone.
+    def slot(
+        self,
+        uhrzeit: str,
+        resource: Literal["Spielort", "Schiedsrichter"] = "Spielort",
+        nr: int = 3,
+        datum: str = "2026-03-07",
+    ) -> BookedSlot:
         return BookedSlot(spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource=resource)
 
     def test_the_buffer_is_four_hours(self):

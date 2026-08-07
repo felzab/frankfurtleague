@@ -58,7 +58,8 @@ export type SpieltagCreateDraft = Omit<FLPostSpieltagPayload, "saison_phase"> & 
  */
 export type AdminSpieltagRow = {
   id: string;
-  name: string;
+  /** Composed from the phase and `ordinal`, never stored (ADR-0067). See `spieltagLabels`. */
+  label: string;
   beginn: string;
   ende: string;
   anzahl_spiele: number;

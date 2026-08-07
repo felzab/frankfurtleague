@@ -12,5 +12,5 @@
 
 export const SPIELTAGE_CRUD_COPY = {
   searchLabel: "Spieltag suchen",
-  searchPlaceholder: "Suchen nach Name, Phase oder Datum...",
+  searchPlaceholder: "Suchen nach Spieltag, Runde oder Datum...",
 } as const;

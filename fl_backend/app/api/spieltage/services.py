@@ -9,9 +9,11 @@ lives, and it is the only place in the system that says what "the third matchday
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • The natural order is TOTAL: `PHASE_RANK[saison_phase]`, then `beginn`, then `name`. Two matchdays
-    can share a phase and a date -- nothing refuses that -- so the name is what keeps the order stable
-    across two calls rather than leaving Mongo's document order to decide.
+  • The natural order is TOTAL: `PHASE_RANK[saison_phase]`, then `beginn`, then `_id`. Two matchdays can
+    share a phase and a date -- nothing refuses that -- so the id is what keeps the order stable across
+    two calls rather than leaving Mongo's document order to decide. It is the id rather than the name
+    because a matchday HAS no name: the reader composes one from the phase and the position this order
+    produces, so ordering by it would be circular (ADR-0067).
   • The phase leads, and that is the correctness half. Ordering by date alone would let a Halbfinale
     dated before a Viertelfinale render ahead of it, which is exactly the defect a stored position used
     to make possible in the other direction.
@@ -45,22 +47,26 @@ def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
     direction = 1 if order == "asc" else -1
 
     if sort_by == "natural":
-        return [("beginn", direction), ("name", direction)]
+        return [("beginn", direction), ("_id", direction)]
 
     # An explicit field, tie-broken by the two that make any ordering here reproducible.
-    return [(sort_by, direction), ("beginn", 1), ("name", 1)]
+    return [(sort_by, direction), ("beginn", 1), ("_id", 1)]
 
 
 def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
     """
-    A season's matchdays in the order they are played: phase, then date, then name.
+    A season's matchdays in the order they are played: phase, then date, then id.
 
     This is the order every consumer means by "the matchdays". The public Spielplan renders its tabs in
     it, `orderRoundsByWiring` anchors its walk on the last element of it, and the admin list sections by
     the phase it leads with. Nothing stores it, so nothing can contradict it.
+
+    **It is also what the DISPLAYED NAME is composed from** (ADR-0067), which is why the final tie-break is
+    the id and not a name: a matchday has no name to break a tie with, and one derived from this order
+    could not also decide it.
     """
 
-    return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.beginn, spieltag.name))
+    return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.beginn, str(spieltag.id)))
 
 
 def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:

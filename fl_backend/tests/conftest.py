@@ -263,7 +263,8 @@ def spieltag() -> PayloadFactory:
     return _factory(
         {
             "_id": SPIELTAG_ID,
-            "name": "1. Spieltag",
+            # No `name`: a matchday's is composed by the reader from its phase and its position, and this
+            # model has no field for one (ADR-0067).
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "anzahl_spiele": 4,

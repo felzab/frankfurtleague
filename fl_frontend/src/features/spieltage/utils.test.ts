@@ -22,8 +22,10 @@ function makeSpiel(spielNr: number, team1Quelle: FLSpielQuelle | null = null, te
   return { spiel_nr: spielNr, team1_quelle: team1Quelle, team2_quelle: team2Quelle } as FLSpiel;
 }
 
-function makeRound(name: string, spiele: FLSpiel[]): FLSpieltagWithSpiele {
-  return { name, spiele } as FLSpieltagWithSpiele;
+// Keyed on `id` rather than a name: a matchday carries none, and the id is the handle every consumer
+// -- including `spieltagLabels` -- identifies one by (ADR-0067).
+function makeRound(id: string, spiele: FLSpiel[]): FLSpieltagWithSpiele {
+  return { id, spiele } as unknown as FLSpieltagWithSpiele;
 }
 
 const numbers = (round: FLSpieltagWithSpiele) => round.spiele.map((spiel) => spiel.spiel_nr);

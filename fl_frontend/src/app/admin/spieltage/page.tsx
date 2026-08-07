@@ -8,6 +8,7 @@ import { AdminCreateSpieltagModal } from "@/features/spieltage/components/modals
 import { AdminSpieltageView } from "@/features/spieltage/components/views/AdminSpieltageView";
 import { SPIELTAGE_CRUD_COPY } from "@/features/spieltage/constants";
 import { getSpieltage } from "@/features/spieltage/queries";
+import { spieltagLabels } from "@/features/spieltage/utils";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
@@ -117,17 +118,16 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     }
   }
 
-  // The ordinal, counted per phase over the order the API returned. A plain counter is enough precisely
-  // because the order is already correct — there is nothing to sort and no tie to break here.
-  const seenInPhase = new Map<string, number>();
+  // The ordinal and the label together, counted per phase over the order the API returned (ADR-0067). One
+  // pass rather than per row, because the label needs to know how many matchdays the phase holds.
+  const labels = spieltagLabels(spieltageRes.spieltage);
 
   const rows: AdminSpieltagRow[] = spieltageRes.spieltage.map((spieltag) => {
-    const ordinal = (seenInPhase.get(spieltag.saison_phase) ?? 0) + 1;
-    seenInPhase.set(spieltag.saison_phase, ordinal);
+    const derived = labels.get(spieltag.id);
 
     return {
       id: spieltag.id,
-      name: spieltag.name,
+      label: derived?.label ?? "",
       beginn: spieltag.beginn,
       ende: spieltag.ende,
       anzahl_spiele: spieltag.anzahl_spiele,
@@ -136,7 +136,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
       inactive_since: spieltag.inactive_since,
       spieleAngelegt: spieleBySpieltag.get(spieltag.id) ?? 0,
       spieleGespielt: gespieltBySpieltag.get(spieltag.id) ?? 0,
-      ordinal,
+      ordinal: derived?.ordinal ?? 1,
     };
   });
 
