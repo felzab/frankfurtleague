@@ -34,6 +34,7 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
+import { APIBadStatusError } from "@/core/errors";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -42,6 +43,7 @@ import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
 import { formatSpielUpdateMessage } from "./utils";
 
 import type { FormState } from "@/shared/types/types";
+import type { FieldErrors } from "@/shared/utils/validation";
 
 /**
  * No `prevState` parameter: the caller awaits this inside a transition rather than through
@@ -49,6 +51,28 @@ import type { FormState } from "@/shared/types/types";
  * into a toast and closes, so the reducer signature bought nothing and cost an effect. Matches
  * `patchSpielortAction` and the rest of the admin write path.
  */
+/**
+ * The two scheduling refusals a match write can answer with, or `null` when the 409 is neither.
+ *
+ * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`. `REQ-DATE-001` lands on
+ * `datum`, the field that caused it, and is one sentence about that value. `REQ-CLASH-001` is about
+ * ANOTHER fixture, which this form does not show, so it is two sentences with the action second.
+ */
+function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-DATE-001") {
+    return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Zeitraums seines Spieltags." } };
+  }
+  if (error.serverErrorCode === "REQ-CLASH-001") {
+    return {
+      error:
+        "Spielort oder Schiedsrichter sind zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand oder eine andere Zuordnung.",
+    };
+  }
+  return null;
+}
+
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<NonNullable<FormState>> {
   return runAdminMutation("patchAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
@@ -65,7 +89,17 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       };
     }
 
-    const patch_operation = await patchAdminSpielData(validated.data);
+    // The two scheduling refusals reach the form rather than the error page: both are about what was
+    // submitted, and the editor the admin is standing in is where the wrong value still sits.
+    let patch_operation;
+    try {
+      patch_operation = await patchAdminSpielData(validated.data);
+    } catch (error) {
+      const refusal = mapSpielRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? "Bitte überprüfe deine Eingaben!", fieldErrors: refusal.fieldErrors };
+      throw error;
+    }
+
     if (!patch_operation.acknowledged) {
       return { success: false, error: "Bei der Aktualisierung der Spieldaten ist ein unerwarteter Fehler aufgetreten" };
     }
@@ -132,7 +166,16 @@ export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<
       return { success: false, error: "Die Vorschau konnte nicht berechnet werden." };
     }
 
-    const preview = await previewAdminSpielData(validated.data);
+    // The two scheduling refusals reach the form rather than the error page: both are about what was
+    // submitted, and the editor the admin is standing in is where the wrong value still sits.
+    let preview;
+    try {
+      preview = await previewAdminSpielData(validated.data);
+    } catch (error) {
+      const refusal = mapSpielRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? "Bitte überprüfe deine Eingaben!", fieldErrors: refusal.fieldErrors };
+      throw error;
+    }
 
     return {
       success: true,

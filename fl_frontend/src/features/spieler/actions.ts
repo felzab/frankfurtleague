@@ -81,6 +81,24 @@ function invalidateSpieler(): void {
   updateTag("spieler");
 }
 
+/**
+ * The two squad refusals (`REQ-SQUAD-001`/`002`), or `null` when the 409 is neither.
+ *
+ * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`. Both land on the field
+ * that caused them -- the team picker and the number input -- so both are one sentence about that value.
+ */
+function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-SQUAD-001") {
+    return { fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
+  }
+  if (error.serverErrorCode === "REQ-SQUAD-002") {
+    return { fieldErrors: { nummer: "Diese Nummer trägt in diesem Kader schon jemand anderes." } };
+  }
+  return null;
+}
+
 export async function postSpielerAction(
   // The DRAFT shape, not the parsed payload: the form may submit `team_id: null` from an untouched
   // picker, and the schema below is what turns that into a field error rather than a type error.
@@ -260,6 +278,8 @@ export async function postSaisonSpielerAction(
     // it lands as a form error rather than a toast because it is about what was submitted.
     let saisonSpieler;
     try {
+      // The club has to be in the season and the number has to be free (`REQ-SQUAD-001`/`002`). Both
+      // land on the field that caused them, in the form that is still open.
       saisonSpieler = await postSaisonSpieler(validated.data);
     } catch (error) {
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
@@ -292,7 +312,15 @@ export async function patchSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const saisonSpieler = await patchSaisonSpieler(validated.data);
+    // The same two squad rules as on the create (`REQ-SQUAD-001`/`002`), reaching the same fields.
+    let saisonSpieler;
+    try {
+      saisonSpieler = await patchSaisonSpieler(validated.data);
+    } catch (error) {
+      const refusal = mapSquadRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      throw error;
+    }
 
     invalidateSpieler();
 

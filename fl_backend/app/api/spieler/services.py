@@ -19,8 +19,8 @@ does. The pipeline joins them and flattens the result into `FLSpieler`.
 from typing import Any, Iterable, Mapping
 
 from app.api.spieler.schemas import FLSpielerFilterParams
+from app.core.collections import Collection
 
-SAISON_SPIELER_COLLECTION_NAME = "saison_spieler"
 AS_NAME = "saison_data"
 
 
@@ -65,7 +65,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
     pipeline.append(
         {
             "$lookup": {
-                "from": SAISON_SPIELER_COLLECTION_NAME,
+                "from": Collection.SAISON_SPIELER,
                 "let": {"base_spieler_id": "$_id"},  # Pass the base player's _id into the sub-pipeline
                 "pipeline": lookup_pipeline,
                 "as": AS_NAME,
@@ -146,7 +146,7 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
     return [
         {
             "$lookup": {
-                "from": SAISON_SPIELER_COLLECTION_NAME,
+                "from": Collection.SAISON_SPIELER,
                 "localField": "_id",
                 "foreignField": "spieler_id",
                 "pipeline": [

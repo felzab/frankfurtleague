@@ -44,6 +44,8 @@ in this module and nothing calls it at request time.
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.core.collections import Collection
+
 
 class Action(StrEnum):
     """
@@ -111,8 +113,8 @@ class Aggregate:
     """
 
     name: str
-    root: str
-    members: tuple[str, ...]
+    root: Collection
+    members: tuple[Collection, ...]
     #: **THE INVARIANT, then what it means for membership.** One or two sentences: the first names the rule
     #: that holds root and members true together, the second (where there is one) says what that excludes.
     boundary: str
@@ -122,10 +124,10 @@ class Aggregate:
 class Reference:
     """One directed reference between two collections, and what the code does about it."""
 
-    source: str
+    source: Collection
     #: Every field path carrying this reference. Real paths, so the conformance test resolves them.
     fields: tuple[str, ...]
-    target: str
+    target: Collection
     on_target_change: Action
     on_target_removed: Action
     #: **WHAT THE CODE DOES, then what it deliberately does not.** The first sentence states the action in
@@ -137,7 +139,7 @@ class Reference:
 class FieldPolicy:
     """When one field may be written, and what enforces that."""
 
-    collection: str
+    collection: Collection
     field: str
     editability: Editability
     #: **WHEN, then WHY.** Opens with the timing word the editability turns on -- "frozen once", "never
@@ -197,8 +199,8 @@ class Unenforced:
 AGGREGATES: tuple[Aggregate, ...] = (
     Aggregate(
         name="Saison",
-        root="saisons",
-        members=("saison_teams", "saison_spieler"),
+        root=Collection.SAISONS,
+        members=(Collection.SAISON_TEAMS, Collection.SAISON_SPIELER),
         boundary=(
             "A season's `rules` bound its own entries: a junction row's group must be one the season runs "
             "and within its capacity, and both are checked against the root on every write from either "
@@ -208,7 +210,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
     ),
     Aggregate(
         name="Saison-Spielplan",
-        root="spiele",
+        root=Collection.SPIELE,
         members=(),
         boundary=(
             "One season's fixtures, as a set. Resolving the bracket reads every fixture of the season and "
@@ -217,7 +219,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
     ),
     Aggregate(
         name="Spieltag",
-        root="spieltage",
+        root=Collection.SPIELTAGE,
         members=(),
         boundary=(
             "A matchday alone. Nothing holds a matchday and its fixtures true together: its position and "
@@ -227,25 +229,25 @@ AGGREGATES: tuple[Aggregate, ...] = (
     ),
     Aggregate(
         name="Team",
-        root="teams",
+        root=Collection.TEAMS,
         members=(),
         boundary="A club, season-independent. Every season-scoped fact about it lives on `saison_teams`.",
     ),
     Aggregate(
         name="Spieler",
-        root="spieler",
+        root=Collection.SPIELER,
         members=(),
         boundary="A person, season-independent. Everything a squad list shows lives on `saison_spieler`.",
     ),
     Aggregate(
         name="Spielort",
-        root="spielorte",
+        root=Collection.SPIELORTE,
         members=(),
         boundary="A venue. Reached from a match through an embedded display copy beside the id.",
     ),
     Aggregate(
         name="Schiedsrichter",
-        root="schiedsrichter",
+        root=Collection.SCHIEDSRICHTER,
         members=(),
         boundary="A referee. Reached from a match the way a venue is.",
     ),
@@ -258,9 +260,9 @@ AGGREGATES: tuple[Aggregate, ...] = (
 
 REFERENCES: tuple[Reference, ...] = (
     Reference(
-        source="spiele",
+        source=Collection.SPIELE,
         fields=("team1.team_id", "team2.team_id"),
-        target="teams",
+        target=Collection.TEAMS,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
@@ -270,9 +272,9 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="spiele",
+        source=Collection.SPIELE,
         fields=("ort.spielort_id",),
-        target="spielorte",
+        target=Collection.SPIELORTE,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
@@ -281,17 +283,17 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="spiele",
+        source=Collection.SPIELE,
         fields=("schiedsrichter.schiedsrichter_id",),
-        target="schiedsrichter",
+        target=Collection.SCHIEDSRICHTER,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note="The name fans out; `payment` does not, for the reason `mietpreis` does not.",
     ),
     Reference(
-        source="spiele",
+        source=Collection.SPIELE,
         fields=("spieltag_id",),
-        target="spieltage",
+        target=Collection.SPIELTAGE,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note=(
@@ -300,9 +302,9 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="spiele",
+        source=Collection.SPIELE,
         fields=("saison_id",),
-        target="saisons",
+        target=Collection.SAISONS,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note=(
@@ -310,9 +312,9 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="spiele",
+        source=Collection.SPIELE,
         fields=("team1_quelle.spiel_nr", "team2_quelle.spiel_nr"),
-        target="spiele",
+        target=Collection.SPIELE,
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
@@ -322,17 +324,17 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="spieltage",
+        source=Collection.SPIELTAGE,
         fields=("saison_id",),
-        target="saisons",
+        target=Collection.SAISONS,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note="No season delete exists, and `saison_id` is absent from the matchday patch payload, so a matchday cannot change seasons either.",
     ),
     Reference(
-        source="saison_teams",
+        source=Collection.SAISON_TEAMS,
         fields=("team_id",),
-        target="teams",
+        target=Collection.TEAMS,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note=(
@@ -341,9 +343,9 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="saison_teams",
+        source=Collection.SAISON_TEAMS,
         fields=("saison_id",),
-        target="saisons",
+        target=Collection.SAISONS,
         on_target_change=Action.RESTRICT,
         on_target_removed=Action.RESTRICT,
         note=(
@@ -353,9 +355,9 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="saison_spieler",
+        source=Collection.SAISON_SPIELER,
         fields=("saison_id",),
-        target="saisons",
+        target=Collection.SAISONS,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note=(
@@ -364,9 +366,9 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="saison_spieler",
+        source=Collection.SAISON_SPIELER,
         fields=("team_id",),
-        target="teams",
+        target=Collection.TEAMS,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note=(
@@ -375,9 +377,9 @@ REFERENCES: tuple[Reference, ...] = (
         ),
     ),
     Reference(
-        source="saison_spieler",
+        source=Collection.SAISON_SPIELER,
         fields=("spieler_id",),
-        target="spieler",
+        target=Collection.SPIELER,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
         note="Retiring the person leaves every squad row intact -- the seasons they played still happened (ADR-0032).",
@@ -391,37 +393,37 @@ REFERENCES: tuple[Reference, ...] = (
 
 FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     # ── Saison ────────────────────────────────────────────────────────────────────────────────────────
-    FieldPolicy("saisons", "id", Editability.IMMUTABLE, "chosen at create; every `saison_id` in the database references this value"),
+    FieldPolicy(Collection.SAISONS, "id", Editability.IMMUTABLE, "chosen at create; every `saison_id` in the database references this value"),
     FieldPolicy(
-        "saisons",
+        Collection.SAISONS,
         "status",
         Editability.CONTROL_ONLY,
         "`POST /saisons/{saison_id}/activate`, which demotes the incumbent in the same transaction (ADR-0033)",
         "app.api.saisons.admin_router.activate_saison",
     ),
-    FieldPolicy("saisons", "start_date", Editability.EDITABLE),
+    FieldPolicy(Collection.SAISONS, "start_date", Editability.EDITABLE),
     FieldPolicy(
-        "saisons",
+        Collection.SAISONS,
         "end_date",
         Editability.EDITABLE,
         "editable even on a finished season -- correcting a mistyped date changes nothing anybody competed for",
     ),
     FieldPolicy(
-        "saisons",
+        Collection.SAISONS,
         "rules.win_points",
         Editability.CONDITIONAL,
         "frozen once the season is `past`: the table is scored from it on every read, so a change rewrites the result",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
-        "saisons",
+        Collection.SAISONS,
         "rules.draw_points",
         Editability.CONDITIONAL,
         "frozen once the season is `past`, for the reason `win_points` is",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
-        "saisons",
+        Collection.SAISONS,
         "rules.qualifiers_per_group",
         Editability.CONDITIONAL,
         "frozen on a `past` season; never below a placing a bracket slot already names; the product "
@@ -429,21 +431,21 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
-        "saisons",
+        Collection.SAISONS,
         "rules.number_of_groups",
         Editability.CONDITIONAL,
         "never below a group that still holds teams; the product with `qualifiers_per_group` must be a legal bracket",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
-        "saisons",
+        Collection.SAISONS,
         "rules.teams_per_group",
         Editability.CONDITIONAL,
         "never below the fullest group's occupancy",
         "app.api.saisons.services.find_rules_refusal",
     ),
     FieldPolicy(
-        "saisons",
+        Collection.SAISONS,
         "rules.erlaubte_stufen",
         Editability.EDITABLE,
         "narrowing is safe at any time, a finished season included: it bounds what a FORM offers and "
@@ -451,20 +453,20 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     # ── Spieltag ──────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(
-        "spieltage",
+        Collection.SPIELTAGE,
         "saison_id",
         Editability.IMMUTABLE,
         "absent from the patch payload: moving a matchday between seasons would strand its matches",
     ),
     FieldPolicy(
-        "spieltage",
+        Collection.SPIELTAGE,
         "anzahl_spiele",
         Editability.DERIVED,
         "computed from the season's `rules` and this matchday's phase (ADR-0065)",
         "app.api.saisons.schedule.expected_matches",
     ),
     FieldPolicy(
-        "spieltage",
+        Collection.SPIELTAGE,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it and `POST /reactivate` clears it (ADR-0032)",
@@ -472,69 +474,77 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
     # ── Team ──────────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(
-        "teams",
+        Collection.TEAMS,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it, and is refused while a running or planned season holds the club",
         "app.api.teams.services.find_retire_refusal",
     ),
-    FieldPolicy("teams", "statistik", Editability.DERIVED, "the league table, aggregated from the season's matches on every read (ADR-0026)"),
     FieldPolicy(
-        "teams",
+        Collection.TEAMS, "statistik", Editability.DERIVED, "the league table, aggregated from the season's matches on every read (ADR-0026)"
+    ),
+    FieldPolicy(
+        Collection.TEAMS,
         "gruppe",
         Editability.DERIVED,
         "joined from `saison_teams` for the season being read; the writable copy is the junction row's own field",
     ),
-    FieldPolicy("teams", "disqualifikation", Editability.DERIVED, "joined from `saison_teams`, like `gruppe`"),
+    FieldPolicy(Collection.TEAMS, "disqualifikation", Editability.DERIVED, "joined from `saison_teams`, like `gruppe`"),
     FieldPolicy(
-        "saison_teams",
+        Collection.SAISON_TEAMS,
         "gruppe",
         Editability.CONDITIONAL,
         "held to the groups the season runs and to their capacity on every write; a row is created only while the season is `future`",
         "app.api.teams.services.find_entry_refusal",
     ),
     FieldPolicy(
-        "saison_teams",
+        Collection.SAISON_TEAMS,
         "disqualifikation",
         Editability.EDITABLE,
         "required on the payload with no default, so an omitted one is a 422 rather than a team quietly reinstated (ADR-0059)",
     ),
     # ── Spieler ───────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(
-        "spieler",
+        Collection.SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "`DELETE` stamps it and `POST /reactivate` clears it; this is the PERSON leaving the league (ADR-0032)",
     ),
     FieldPolicy(
-        "saison_spieler",
+        Collection.SAISON_SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "the SQUAD ROW's own retirement, independent of the person's; creating never revives one, "
         "which is why 409 is the right answer (ADR-0032)",
     ),
     FieldPolicy(
-        "saison_spieler",
+        Collection.SAISON_SPIELER,
         "stufe",
         Editability.CONDITIONAL,
         "held to the league's closed set by the validator, and to the season's `erlaubte_stufen` by what the form offers (ADR-0061)",
     ),
     # ── Spiel ─────────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(
-        "spiele", "spiel_nr", Editability.IMMUTABLE, "a season's fixtures are created once; `/spiele` has no POST and no DELETE (ADR-0045)"
+        Collection.SPIELE,
+        "spiel_nr",
+        Editability.IMMUTABLE,
+        "a season's fixtures are created once; `/spiele` has no POST and no DELETE (ADR-0045)",
     ),
-    FieldPolicy("spiele", "saison_id", Editability.IMMUTABLE, "for the reason `spiel_nr` is"),
+    FieldPolicy(Collection.SPIELE, "saison_id", Editability.IMMUTABLE, "for the reason `spiel_nr` is"),
     FieldPolicy(
-        "spiele", "saison_phase", Editability.IMMUTABLE, "for the reason `spiel_nr` is; a fixture's phase is settled when the schedule is drawn"
+        Collection.SPIELE,
+        "saison_phase",
+        Editability.IMMUTABLE,
+        "for the reason `spiel_nr` is; a fixture's phase is settled when the schedule is drawn",
     ),
     FieldPolicy(
-        "spiele",
+        Collection.SPIELE,
         "spieltag_id",
         Editability.IMMUTABLE,
         "absent from the patch payload; a fixture is moved by editing the matchday's dates, not by reassigning the fixture",
     ),
     FieldPolicy(
-        "spiele",
+        Collection.SPIELE,
         "ergebnis",
         Editability.COMPOSED,
         "composed from `team1.tore` and `team2.tore` and never accepted from a client, so the stored "
@@ -542,7 +552,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "app.api.spiele.services.apply_payload_to_spiel",
     ),
     FieldPolicy(
-        "spiele",
+        Collection.SPIELE,
         "team1",
         Editability.CONDITIONAL,
         "a side carrying a `quelle` is maintained by the bracket resolution and is not the admin's to "
@@ -550,14 +560,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "app.api.spiele.services.find_wiring_refusal",
     ),
     FieldPolicy(
-        "spiele",
+        Collection.SPIELE,
         "team2",
         Editability.CONDITIONAL,
         "for the reason `team1` is",
         "app.api.spiele.services.find_wiring_refusal",
     ),
     FieldPolicy(
-        "spiele",
+        Collection.SPIELE,
         "elfmeterschiessen",
         Editability.CONDITIONAL,
         "discarded unless the goals it accompanies are level and the phase is a knockout, so a "
@@ -565,7 +575,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "app.api.spiele.services.apply_payload_to_spiel",
     ),
     FieldPolicy(
-        "spiele",
+        Collection.SPIELE,
         "team1_quelle",
         Editability.CONDITIONAL,
         "never on a group-phase fixture, never naming a later or missing match, and never feeding one "
@@ -573,7 +583,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "app.api.spiele.services.find_wiring_refusal",
     ),
     FieldPolicy(
-        "spiele",
+        Collection.SPIELE,
         "team2_quelle",
         Editability.CONDITIONAL,
         "for the reason `team1_quelle` is",

@@ -101,6 +101,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
+from app.core.collections import Collection
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -142,7 +143,6 @@ def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, 
     return query
 
 
-SAISON_TEAMS_COLLECTION_NAME = "saison_teams"
 # Where the junction rows land before the two sides are matched to them. Dropped again by the final
 # stage, so it never reaches a response and `FLSpielJoined` never has to declare it.
 SAISON_TEAMS_AS_NAME = "saison_teams_rows"
@@ -225,7 +225,7 @@ def build_spiele_pipeline(
     pipeline.append(
         {
             "$lookup": {
-                "from": SAISON_TEAMS_COLLECTION_NAME,
+                "from": Collection.SAISON_TEAMS,
                 "let": {
                     "spiel_saison_id": "$saison_id",
                     # `$ifNull` rather than the bare path: a null side makes `$teamN.team_id` MISSING,

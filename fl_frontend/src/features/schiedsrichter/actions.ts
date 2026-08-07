@@ -23,6 +23,7 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
+import { APIBadStatusError } from "@/core/errors";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -31,6 +32,23 @@ import { FLDeleteSchiedsrichterPayloadSchema, FLPatchSchiedsrichterPayloadSchema
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDeleteSchiedsrichterPayload, FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter } from "./schemas";
+
+/**
+ * The retirement refusal (`REQ-RETIRE-004`), or `null` when the 409 is something else.
+ *
+ * Two sentences to the shape in `fl_frontend/src/features/saisons/actions.ts`: the retire control is a
+ * dialog rather than a form, so there is no field for this to land on and the action goes second.
+ */
+function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-RETIRE-004") {
+    return {
+      error: "Diese Person ist noch für Spiele eingeteilt, die kein Ergebnis haben. Teile die Spiele jemand anderem zu oder sage sie ab.",
+    };
+  }
+  return null;
+}
 
 export async function postSchiedsrichterAction(
   rawPayload: FLPostSchiedsrichterPayload,
@@ -118,7 +136,17 @@ export async function deleteSchiedsrichterAction(
       };
     }
 
-    const postOperation = await deleteSchiedsrichter(validated.data);
+    // Refused while they are still assigned to an unplayed fixture (`REQ-RETIRE-004`), answered in the
+    // dialog that asked.
+    let postOperation;
+    try {
+      postOperation = await deleteSchiedsrichter(validated.data);
+    } catch (error) {
+      const refusal = mapRetireRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
     if (!postOperation.acknowledged) {
       return { success: false, error: "Beim Löschen der Schiedsrichter-Daten ist ein unerwarteter Fehler aufgetreten" };
     }

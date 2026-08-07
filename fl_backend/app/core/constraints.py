@@ -55,6 +55,8 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING
 from pymongo.errors import OperationFailure
 
+from app.core.collections import Collection
+
 # `collMod` against a collection that does not exist. Handled rather than re-raised in two places, for
 # two different reasons: a fresh database has no collections and creating them with the validator
 # already attached reaches the same end state, and the privilege probe below uses this code as its
@@ -247,8 +249,8 @@ _SPIEL_SCHIEDSRICHTER_FIELD = _object(
 )
 
 
-COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
-    "saisons": {
+COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
+    Collection.SAISONS: {
         "$jsonSchema": _object(
             required=("_id", "start_date", "end_date", "status", "rules"),
             properties={
@@ -296,7 +298,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             },
         )
     },
-    "teams": {
+    Collection.TEAMS: {
         "$jsonSchema": _object(
             # `gruppe`, `disqualifikation` and `statistik` are absent because a team document does not
             # carry them: the first two are season-scoped and live on `saison_teams`, and the third is
@@ -317,7 +319,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             },
         )
     },
-    "saison_teams": {
+    Collection.SAISON_TEAMS: {
         "$jsonSchema": _object(
             # Transcribed from the documents, not from a model: this junction is the one collection
             # with no Pydantic model of the ROW. The four fields are what the team pipeline reads, and
@@ -344,7 +346,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             },
         )
     },
-    "spieler": {
+    Collection.SPIELER: {
         "$jsonSchema": _object(
             # Two fields and a name. Everything else a squad list shows -- team, number, stufe,
             # position -- is season-scoped and lives on `saison_spieler`.
@@ -359,7 +361,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             },
         )
     },
-    "saison_spieler": {
+    Collection.SAISON_SPIELER: {
         "$jsonSchema": _object(
             required=(
                 "_id",
@@ -400,7 +402,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             },
         )
     },
-    "spiele": {
+    Collection.SPIELE: {
         "$jsonSchema": _object(
             required=(
                 "_id",
@@ -450,7 +452,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             },
         )
     },
-    "spieltage": {
+    Collection.SPIELTAGE: {
         "$jsonSchema": _object(
             required=("_id", "beginn", "ende", "saison_phase", "saison_id", "inactive_since"),
             properties={
@@ -471,7 +473,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             },
         )
     },
-    "spielorte": {
+    Collection.SPIELORTE: {
         "$jsonSchema": _object(
             required=("_id", "name", "address", "maps_link", "default_mietpreis", "inactive_since"),
             properties={
@@ -486,7 +488,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
             },
         )
     },
-    "schiedsrichter": {
+    Collection.SCHIEDSRICHTER: {
         "$jsonSchema": _object(
             required=("_id", "name", "schule", "default_payment", "kontakt", "inactive_since"),
             properties={
@@ -518,10 +520,10 @@ class UniqueIndex:
 # are deliberately absent: the whole database is about 130 KB, so one would be theatre with a
 # maintenance cost (ADR-0027).
 UNIQUE_INDEXES: Sequence[UniqueIndex] = (
-    UniqueIndex("saison_teams", "uniq_saison_id_team_id", ("saison_id", "team_id"), "one junction row per team per season"),
-    UniqueIndex("saison_spieler", "uniq_spieler_id_saison_id", ("spieler_id", "saison_id"), "one junction row per player per season"),
-    UniqueIndex("spiele", "uniq_saison_id_spiel_nr", ("saison_id", "spiel_nr"), "a spiel_nr identifies one match within a season"),
-    UniqueIndex("teams", "uniq_shorthand", ("shorthand",), "a shorthand identifies exactly one team"),
+    UniqueIndex(Collection.SAISON_TEAMS, "uniq_saison_id_team_id", ("saison_id", "team_id"), "one junction row per team per season"),
+    UniqueIndex(Collection.SAISON_SPIELER, "uniq_spieler_id_saison_id", ("spieler_id", "saison_id"), "one junction row per player per season"),
+    UniqueIndex(Collection.SPIELE, "uniq_saison_id_spiel_nr", ("saison_id", "spiel_nr"), "a spiel_nr identifies one match within a season"),
+    UniqueIndex(Collection.TEAMS, "uniq_shorthand", ("shorthand",), "a shorthand identifies exactly one team"),
 )
 
 

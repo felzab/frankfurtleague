@@ -67,9 +67,9 @@ from typing import AbstractSet, Any, Iterable, Mapping, Sequence, get_args
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
 from app.api.teams.schemas import FLGruppen, FLGruppenNames, FLTeam, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
+from app.core.collections import Collection
 from app.shared.schemas.custom import CustomObjectId
 
-SAISON_TEAMS_COLLECTION_NAME = "saison_teams"
 SPIELE_COLLECTION_NAME = "spiele"
 AS_NAME = "saison_data"
 STATISTIK_AS_NAME = "statistik_data"
@@ -229,7 +229,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     pipeline.append(
         {
             "$lookup": {
-                "from": SAISON_TEAMS_COLLECTION_NAME,
+                "from": Collection.SAISON_TEAMS,
                 "let": {"base_team_id": "$_id"},
                 "pipeline": lookup_pipeline,
                 "as": AS_NAME,
@@ -745,7 +745,7 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
     return [
         {
             "$lookup": {
-                "from": SAISON_TEAMS_COLLECTION_NAME,
+                "from": Collection.SAISON_TEAMS,
                 "localField": "_id",
                 "foreignField": "team_id",
                 "pipeline": [{"$project": {"_id": 0, "saison_id": 1, "gruppe": 1, "disqualifikation": 1}}],

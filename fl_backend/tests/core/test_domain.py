@@ -33,6 +33,7 @@ from app.api.spieler.schemas import FLSpieler
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLTeam
+from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENFORCED, UNUSED_ACTIONS, Action, Editability
 
@@ -42,14 +43,14 @@ APP_ROOT = BACKEND_ROOT / "app"
 # The READ model of each collection that has one. `saison_teams` and `saison_spieler` are absent because
 # neither has a model of the ROW -- their fields are declared only by their `$jsonSchema`, which is why
 # field resolution below consults both sources rather than either alone.
-ROOT_MODELS: Mapping[str, type[BaseModel]] = {
-    "saisons": FLSaison,
-    "spieltage": FLSpieltag,
-    "spiele": FLSpiel,
-    "teams": FLTeam,
-    "spieler": FLSpieler,
-    "spielorte": FLSpielort,
-    "schiedsrichter": FLSchiedsrichter,
+ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
+    Collection.SAISONS: FLSaison,
+    Collection.SPIELTAGE: FLSpieltag,
+    Collection.SPIELE: FLSpiel,
+    Collection.TEAMS: FLTeam,
+    Collection.SPIELER: FLSpieler,
+    Collection.SPIELORTE: FLSpielort,
+    Collection.SCHIEDSRICHTER: FLSchiedsrichter,
 }
 
 # Codes that are NOT domain rules and therefore have no row in `RULES`. Each is a property of the
@@ -77,11 +78,11 @@ def _codes_in(root: Path) -> set[str]:
     return found
 
 
-def _validator_properties(collection: str) -> Mapping[str, Any]:
+def _validator_properties(collection: Collection) -> Mapping[str, Any]:
     return COLLECTION_VALIDATORS[collection]["$jsonSchema"]["properties"]
 
 
-def _resolves_in_validator(collection: str, path: str) -> bool:
+def _resolves_in_validator(collection: Collection, path: str) -> bool:
     """Walk a dotted path through the collection's `$jsonSchema`."""
 
     properties = _validator_properties(collection)
@@ -94,7 +95,7 @@ def _resolves_in_validator(collection: str, path: str) -> bool:
     return leaf in properties
 
 
-def _resolves_in_model(collection: str, path: str) -> bool:
+def _resolves_in_model(collection: Collection, path: str) -> bool:
     """
     Whether a SINGLE-segment path is a field of the collection's read model.
 
@@ -109,7 +110,7 @@ def _resolves_in_model(collection: str, path: str) -> bool:
     return model is not None and "." not in path and path in model.model_fields
 
 
-def _resolves(collection: str, path: str) -> bool:
+def _resolves(collection: Collection, path: str) -> bool:
     return _resolves_in_validator(collection, path) or _resolves_in_model(collection, path)
 
 
@@ -173,6 +174,29 @@ def test_the_protocol_codes_are_the_ones_outside_the_api_layer():
     in_core = _codes_in(APP_ROOT / "core") - {rule.code for rule in RULES}
 
     assert in_core == PROTOCOL_CODES
+
+
+def test_every_collection_is_declared_once():
+    """
+    The nine names agree across the three places that need them, which is what `Collection` exists for.
+
+    They were written out separately in `db.py`'s accessors, in `constraints.py`'s validator keys and in
+    this model's tables, with nothing holding the three equal -- so a tenth collection could reach one and
+    not the others. Iterating the enum is the check a `Literal` could not have carried without `get_args`.
+    """
+
+    declared = {collection.value for collection in Collection}
+    validated = {str(collection) for collection in COLLECTION_VALIDATORS}
+    accessed = {
+        line.split("Collection.")[1].split("]")[0]
+        for line in (APP_ROOT / "core" / "db.py").read_text(encoding="utf-8").splitlines()
+        if "return db[Collection." in line
+    }
+
+    assert validated == declared, "a collection the database validates is missing from `Collection`, or the reverse"
+    assert {getattr(Collection, member).value for member in accessed} == declared, (
+        "a collection has no DI accessor, or one names a member nothing declares"
+    )
 
 
 def test_every_declared_value_is_used():
