@@ -86,9 +86,6 @@ const BACKEND_ONLY: Record<string, string> = {
   HTTPValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
   ValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
 
-  // The stored shape a write echoes back, deliberately distinct from the read shape `FLTeam`.
-  FLTeamRecord: "the stored club document; only ever nested inside a write response",
-
   // ADR-0034 gives every resource a GET /{id} for uniform addressability, and only /teams/{id} and
   // /spiele/{id} are called. Five single reads therefore have no mirror, which the backend spec records
   // as known-open.
@@ -97,8 +94,8 @@ const BACKEND_ONLY: Record<string, string> = {
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
   FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
 
-  // BE-4 built the whole write path; the admin pages that call it are FB-3 and FB-6, unbuilt. Each of
-  // these gains a mirror when the page that posts to it is written.
+  // BE-4 built the whole write path; the admin pages that call these are FB-3's spieler half and
+  // FB-6, unbuilt. Each entry gains a mirror when the page that posts to it is written.
   FLActivateSaisonResponse: "write path with no admin page yet (FB-6)",
   FLPatchSaisonPayload: "write path with no admin page yet (FB-6)",
   FLPatchSaisonResponse: "write path with no admin page yet (FB-6)",
@@ -107,20 +104,12 @@ const BACKEND_ONLY: Record<string, string> = {
   FLPatchSpieltagPayload: "write path with no admin page yet (FB-6)",
   FLPostSpieltagPayload: "write path with no admin page yet (FB-6)",
   FLSpieltagWriteResponse: "write path with no admin page yet (FB-6)",
-  FLPatchSaisonSpielerPayload: "write path with no admin page yet (FB-3)",
-  FLPostSaisonSpielerPayload: "write path with no admin page yet (FB-3)",
-  FLSaisonSpielerResponse: "write path with no admin page yet (FB-3)",
-  FLPatchSaisonTeamPayload: "write path with no admin page yet (FB-3)",
-  FLPostSaisonTeamPayload: "write path with no admin page yet (FB-3)",
-  FLSaisonTeamResponse: "write path with no admin page yet (FB-3)",
-  FLPatchSpielerPayload: "write path with no admin page yet (FB-3)",
-  FLPostSpielerPayload: "write path with no admin page yet (FB-3)",
-  FLSpielerWriteResponse: "write path with no admin page yet (FB-3)",
-  FLPatchTeamPayload: "write path with no admin page yet (FB-3)",
-  FLPatchTeamResponse: "write path with no admin page yet (FB-3)",
-  FLPostTeamPayload: "write path with no admin page yet (FB-3)",
-  FLPostTeamResponse: "write path with no admin page yet (FB-3)",
-  FLTeamWriteResponse: "write path with no admin page yet (FB-3)",
+  FLPatchSaisonSpielerPayload: "write path with no admin page yet (FB-3's spieler half)",
+  FLPostSaisonSpielerPayload: "write path with no admin page yet (FB-3's spieler half)",
+  FLSaisonSpielerResponse: "write path with no admin page yet (FB-3's spieler half)",
+  FLPatchSpielerPayload: "write path with no admin page yet (FB-3's spieler half)",
+  FLPostSpielerPayload: "write path with no admin page yet (FB-3's spieler half)",
+  FLSpielerWriteResponse: "write path with no admin page yet (FB-3's spieler half)",
 };
 
 /**
@@ -166,9 +155,16 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLBracketFault: "the discriminated union is published inline on each bracket_faults; all three variants are paired",
 
   // A DELETE carries its id in the path and has no request body, so these describe the server action's
-  // own argument rather than anything on the wire.
+  // own argument rather than anything on the wire. The reactivate POST is the same shape: an id in
+  // the path, an empty body.
   FLDeleteSchiedsrichterPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielortPayload: "a DELETE takes its id from the path and has no request body",
+  FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
+  FLReactivateTeamPayload: "the reactivate POST takes its id from the path and has no request body",
+
+  // One form creates the club AND enters it into a season — a club without a junction row would be
+  // invisible to every season-scoped read (I11) — so the action's argument spans two request bodies.
+  FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
 };
 
 /**
@@ -181,6 +177,10 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSchiedsrichterPayload: ["id"],
   FLPatchSpielortPayload: ["id"],
   FLPatchSpielDataPayload: ["spiel_id"],
+  FLPatchTeamPayload: ["id"],
+  // The junction row is addressed by its natural key, so BOTH ids live in the request URI.
+  FLPostSaisonTeamPayload: ["team_id"],
+  FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
 };
 
 type JsonSchema = Record<string, unknown>;
@@ -366,7 +366,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 52;
+const EXPECTED_PAIRS = 61;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

@@ -8,6 +8,8 @@
  * season, and `apiClient` drops undefined params rather than serialising them.
  */
 
+import type { FLCreateTeamFormPayload, FLDisqualifikation, FLGruppenNames, FLPatchSaisonTeamPayload, FLPostSaisonTeamPayload } from "./schemas";
+
 export type FLTeamsSortingOptions = "name";
 
 /**
@@ -40,4 +42,34 @@ export type FLTeamsFilterParams = {
 export type FLTeamSingleFilterParams = {
   saison_id?: string;
   statistik_scope?: FLTeamStatistikScope;
+};
+
+/**
+ * The create form's draft — the payload the action validates, with `gruppe` widened to `null` so the
+ * form can start with no group chosen instead of silently preselecting "A". The schema refuses the
+ * null, which is what turns an untouched picker into a field error rather than a wrong group.
+ */
+export type TeamCreateDraft = Omit<FLCreateTeamFormPayload, "gruppe"> & {
+  gruppe: FLGruppenNames | null;
+};
+
+/** The junction editor's enter-a-season draft — `gruppe` widened to null for the untouched picker. */
+export type SaisonTeamEnterDraft = Omit<FLPostSaisonTeamPayload, "gruppe"> & {
+  gruppe: FLGruppenNames | null;
+};
+
+/** The junction editor's membership draft, widened the same way. */
+export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe"> & {
+  gruppe: FLGruppenNames | null;
+};
+
+/**
+ * One season's membership state for one club, assembled by the team page: the junction row's two
+ * fields when the club is in the season, `null` when it is not — which is what the panel's
+ * "Aufnehmen" affordance keys off.
+ */
+export type TeamSaisonMembership = {
+  saisonId: string;
+  saisonStatus: "past" | "active" | "future";
+  membership: { gruppe: FLGruppenNames; disqualifikation: FLDisqualifikation | null } | null;
 };

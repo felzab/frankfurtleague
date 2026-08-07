@@ -21,6 +21,7 @@ export function AddressFields({
   onChange,
   namePrefix = "address",
   errors,
+  onFieldLeft,
 }: {
   value: FLAddress;
   onChange: (newValue: FLAddress) => void;
@@ -33,6 +34,11 @@ export function AddressFields({
    * the context does the work — both routes end at the same `<FieldError>` under the same input.
    */
   errors?: FieldErrors;
+  /**
+   * Called with a field's dotted payload path when the user leaves it, for a caller on a page that
+   * judges a typed field on blur (ADR-0050). The dialog callers pass nothing and judge on submit.
+   */
+  onFieldLeft?: (paths: readonly string[]) => void;
 }) {
   const updateField = (field: keyof FLAddress, newValue: string) => {
     onChange({ ...value, [field]: newValue });
@@ -46,6 +52,7 @@ export function AddressFields({
           name={`${namePrefix}.strasse`}
           value={value.strasse}
           onChange={(next) => updateField("strasse", next)}
+          onBlur={() => onFieldLeft?.([`${namePrefix}.strasse`])}
           isInvalid={errors?.[`${namePrefix}.strasse`] ? true : undefined}
           className="w-2/3">
           <Label className={FIELD_LABEL}>Straße</Label>
@@ -57,6 +64,7 @@ export function AddressFields({
           name={`${namePrefix}.hausnummer`}
           value={value.hausnummer}
           onChange={(next) => updateField("hausnummer", next)}
+          onBlur={() => onFieldLeft?.([`${namePrefix}.hausnummer`])}
           isInvalid={errors?.[`${namePrefix}.hausnummer`] ? true : undefined}
           className="w-1/3">
           <Label className={FIELD_LABEL}>Nr.</Label>
@@ -71,6 +79,7 @@ export function AddressFields({
           name={`${namePrefix}.plz`}
           value={value.plz}
           onChange={(next) => updateField("plz", next)}
+          onBlur={() => onFieldLeft?.([`${namePrefix}.plz`])}
           isInvalid={errors?.[`${namePrefix}.plz`] ? true : undefined}
           className="w-1/3">
           <Label className={FIELD_LABEL}>PLZ</Label>
@@ -82,6 +91,7 @@ export function AddressFields({
           name={`${namePrefix}.stadt`}
           value={value.stadt}
           onChange={(next) => updateField("stadt", next)}
+          onBlur={() => onFieldLeft?.([`${namePrefix}.stadt`])}
           isInvalid={errors?.[`${namePrefix}.stadt`] ? true : undefined}
           className="w-2/3">
           <Label className={FIELD_LABEL}>Stadt</Label>
@@ -95,6 +105,7 @@ export function AddressFields({
         name={`${namePrefix}.stadtteil`}
         value={value.stadtteil}
         onChange={(next) => updateField("stadtteil", next)}
+        onBlur={() => onFieldLeft?.([`${namePrefix}.stadtteil`])}
         isInvalid={errors?.[`${namePrefix}.stadtteil`] ? true : undefined}>
         <Label className={FIELD_LABEL}>Stadtteil</Label>
         <Input

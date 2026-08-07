@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `05ac046`, 2026-08-07
+**Verified against:** `cf88b87`, 2026-08-07
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -494,7 +494,8 @@ the cost of every cached page:
 docker compose up -d --force-recreate frontend
 ```
 
-The durable fix is FB-3 and FB-6: admin pages that invalidate as they save.
+The durable fix is FB-3's remaining spieler half and FB-6: admin pages that invalidate as they
+save, as the teams pages already do.
 
 ### Before any hand edit that a code change depends on
 
@@ -566,10 +567,12 @@ sign-out, which arms on the first press and ends the session on the second.
 
 ### Season rollover
 
-> **Derived from the data model, not from an observed rollover.** Every step below now has an
-> endpoint ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)) and
-> **no admin page calls one yet** — that is open item FB-6. So this is still done by hand, either
-> against the API or in Compass, and nothing prompts for a step that is forgotten.
+> **Derived from the data model, not from an observed rollover.** Every step below has an endpoint
+> ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)), and step 3
+> is the one with an admin page: a club's Saison-Zugehörigkeit panel on `/admin/teams/[team_id]`
+> enters it into a season while that season is still `future`. The rest is still done by hand,
+> either against the API or in Compass, and nothing prompts for a step that is forgotten — the
+> rollover control is open item FB-6.
 
 A new season needs, at minimum:
 
@@ -586,7 +589,8 @@ A new season needs, at minimum:
    admin control, where an operator can see what is incomplete and decide.
 
 3. A **`saison_teams` junction row per participating team**, carrying `gruppe` and `disqualifikation` —
-   `POST /api/v0/teams/{team_id}/saisons`, which seeds the record as `null`. A team with no row for the
+   `POST /api/v0/teams/{team_id}/saisons`, which seeds the record as `null`; the Saison-Zugehörigkeit
+   panel on `/admin/teams/[team_id]` calls it and invalidates the caches as it saves. A team with no row for the
    season disappears from that
    season's results entirely: the join is strict. No `statistik`, because the league table is derived
    from the season's matches ([ADR-0026](../_decisions/0026-team-statistics-are-derived-from-spiele.md)),
@@ -604,8 +608,10 @@ place ([ADR-0041](../_decisions/0041-a-bracket-slot-carries-its-own-provenance.m
 Then recreate the frontend container so the rollover is visible immediately, or accept the daily
 cache expiry — the command and the reasoning are under "After editing seasons, players or matchdays
 directly in MongoDB" above
-([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). Nothing
-in the app knows a rollover happened until FB-3 and FB-6 give these resources admin pages.
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). A team
+junction entered through the admin page invalidates its own caches as it saves; a hand edit to
+`saisons`, `spieler` or `spieltage` stays invisible until FB-3's spieler half and FB-6 give those
+resources admin pages.
 
 ### Certificate renewal
 

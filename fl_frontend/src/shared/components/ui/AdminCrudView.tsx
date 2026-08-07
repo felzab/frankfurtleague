@@ -45,7 +45,12 @@ export function AdminCrudView<TItem extends { id: string }>({
   /** Must be a module-scope constant, or `useFuzzySearch`'s memo is defeated. */
   searchKeys: readonly string[];
   renderTable: (args: { query: string; filteredItems: TItem[]; onEdit: (item: TItem) => void; onDelete: (item: TItem) => void }) => ReactNode;
-  renderEditModal: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
+  /**
+   * Optional, because an editor is not necessarily a dialog: a resource whose form outgrew one edits
+   * on a page instead (ADR-0050), and its table renders a link where the others wire `onEdit`. Teams
+   * is that case; Schiedsrichter and Spielorte pass a modal.
+   */
+  renderEditModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
   renderDeleteModal: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
 }) {
   const { urlValue: query, inputValue, setInputValue } = useDebouncedUrlQuery();
@@ -71,7 +76,7 @@ export function AdminCrudView<TItem extends { id: string }>({
 
       {renderTable({ query, filteredItems, onEdit: setEditingItem, onDelete: setDeletingItem })}
 
-      {renderEditModal({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
+      {renderEditModal?.({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
       {renderDeleteModal({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
     </div>
   );

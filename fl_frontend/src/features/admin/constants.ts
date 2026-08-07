@@ -5,7 +5,7 @@
  * the two cannot disagree.
  */
 
-import { ExclamationShape, Magnifier, MapPin, Medal, Person } from "@gravity-ui/icons";
+import { ExclamationShape, Magnifier, MapPin, Medal, Person, Persons } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
@@ -20,6 +20,7 @@ export const ADMIN_SIDEMENU_ICONS = {
   Magnifier,
   Medal,
   Person,
+  Persons,
   MapPin,
 } as const satisfies Record<string, React.ElementType>;
 
@@ -105,6 +106,22 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Beteiligte",
     sub_options: [
+      // Named AND iconed for the public team list's own entry (`DASHBOARD_SIDEMENU_ICONS`), for the
+      // finalrunden entry's reason: the same clubs seen for a different purpose.
+      {
+        id: "teams",
+        label: "Teams",
+        iconName: "Persons",
+        hint: {
+          lead: "Alle Vereine der laufenden Saison, mit Kürzel, Gruppe und Status.",
+          points: [
+            { term: "Anlegen", detail: "über die Schaltfläche oben rechts — der Verein wird dabei direkt in eine Saison aufgenommen." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Vereinsseite mit Stammdaten und Saison-Zugehörigkeit." },
+            { term: "Stilllegen", detail: "nimmt den Verein aus den Auswahllisten, ohne ihn zu löschen. Sein Kürzel bleibt reserviert." },
+          ],
+          note: "Eine Disqualifikation gilt für eine Saison und wird auf der Vereinsseite eingetragen — aus einer Saison entfernt wird nie.",
+        },
+      },
       {
         id: "schiedsrichter",
         label: "Schiedsrichter",

@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `e9577cd`, 2026-08-07
+**Verified against:** `cf88b87`, 2026-08-07
 **Scope:** `fl_backend/`
 
 ---
@@ -17,7 +17,7 @@ every endpoint in the router.
 | GET    | `/spiele`                  | `spiele/router.py`         | Filters below; omitted `saison_id` means the current season. **No POST** — see I26      |
 | GET    | `/spiele/{spiel_id}`       | `spiele/router.py`         | Read by the match editor page. **No DELETE** — see I26                                  |
 | GET    | `/teams`                   | `teams/router.py`          | Two response shapes, discriminated by `format`; `statistik_scope` picks the table (I1c) |
-| GET    | `/teams/{team_id}`         | `teams/router.py`          | `getTeam(id)` — the two team detail pages. `format: "single"`                           |
+| GET    | `/teams/{team_id}`         | `teams/router.py`          | `getTeam(id)` — the team detail pages and the admin team editor. `format: "single"`     |
 | GET    | `/spieler`                 | `spieler/router.py`        | **No current-season default** — see I4                                                  |
 | GET    | `/spieler/{spieler_id}`    | `spieler/router.py`        | Unused by the frontend                                                                  |
 | GET    | `/spieltage`               | `spieltage/router.py`      | Omitted `saison_id` means the current season                                            |
@@ -38,8 +38,9 @@ mirrors them.
 **Five of the seven single reads have no caller**, and that is deliberate: every resource is addressable
 the same way whether or not something currently uses it
 ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). `/teams/{team_id}`
-serves the two team detail pages, and `/spiele/{spiel_id}` serves the match editor, which is addressed by
-match id alone and reads the season off the match
+serves the two team detail pages and the admin team editor — which reads it once per season, because a
+404 is the read that answers "not in this season" (I11) — and `/spiele/{spiel_id}` serves the match
+editor, which is addressed by match id alone and reads the season off the match
 ([ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md)) — the case the uniform
 `GET /{id}` was kept for.
 

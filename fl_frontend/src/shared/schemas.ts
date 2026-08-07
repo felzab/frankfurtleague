@@ -48,7 +48,13 @@ export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 
  * Bare `z.url()` remains correct for values that are never rendered as a link, such as server
  * configuration in `src/core/config.ts`.
  */
-export const ExternalUrlSchema = z.url({ protocol: /^https?$/, hostname: z.regexes.domain });
+// German because the team form binds this schema to a text input; on a response parse the message
+// is only ever logged.
+export const ExternalUrlSchema = z.url({
+  protocol: /^https?$/,
+  hostname: z.regexes.domain,
+  error: "Bitte gib eine gültige Adresse ein, die mit http:// oder https:// beginnt.",
+});
 
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),

@@ -50,7 +50,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 6   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 7   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
 | 8   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
-| 9   | FB-3  | Admin pages for team and spieler data                   | FE, BE      | L      | Open     | — (ADR-0050's patterns)   |
+| 9   | FB-3  | Admin pages for spieler data; the teams half is built   | FE, BE      | L      | Open     | — (ADR-0050's patterns)   |
 | 10  | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
 | 11  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 12, 13)     |
 | 12  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 11, 13)     |
@@ -163,7 +163,7 @@ ADR carries.
 
 This section is an index over the string and states no dependency of its own — each entry's `Path`
 line governs. What is left of the string is one batch:
-**[FB-3](#9--fb-3--admin-panel-pages-for-team-and-spieler-data)** →
+**[FB-3](#9--fb-3--admin-panel-pages-for-spieler-data-the-teams-half-is-built)** →
 **[FB-6](#10--fb-6--admin-pages-for-saisons-and-spieltage-and-the-rollover-control)** — the
 remaining admin pages and the rollover control, adopting the edit page's patterns
 ([ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md)). The
@@ -409,65 +409,66 @@ than dependent: BE-12 becomes real only once FB-3 or FB-6 makes retiring a row p
 becomes real the moment a second person can write, and LOG-2 improves the fidelity of a logging
 convention that already works.
 
-### 9 · FB-3 — Admin panel pages for team and spieler data
+### 9 · FB-3 — Admin panel pages for spieler data; the teams half is built
 
 **Owner's item, 2026-08-02, with emphasis: make new admin panel pages for editing team and spieler
-data.**
+data. The teams half shipped 2026-08-07; what remains is the spieler half, and the split is at the
+resource.**
 
-What exists to build on: the generic `AdminCrudView` / `AdminCrudShell` pair was built precisely so
-"a third admin resource would otherwise be a third copy" — Schiedsrichter and Spielorte are
-per-entity declarations over it, and teams/spieler would be the third and fourth.
+**What the teams half built, which the spieler half copies rather than re-decides.** `/admin/teams`
+is the third declaration over the generic `AdminCrudView` / `AdminCrudShell` pair, and the spieler
+pages would be the fourth. The team editor is a page at `/admin/teams/[team_id]` with sections in
+panels and fields judged when they are left (ADR-0050's patterns, adopted as the entry planned);
+its Saison-Zugehörigkeit panel is the junction editor, one section per season, and is where the
+disqualification record is entered — one text input for `grund`, one date input for `datum`, `null`
+to lift it
+([ADR-0059](../_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)). The
+owner's decision of 2026-08-07 placed the junction editor on the team page rather than on a surface
+of its own, because that is what makes the rollover's team step cheap: a `future` season appears in
+the panel with a one-click Aufnehmen.
 
-**The backend is done.** BE-4 built full CRUD for both, resource-first with the id in the path
+**The spieler backend is done and nothing calls it.** BE-4 built full CRUD, resource-first with the
+id in the path
 ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)): `POST`,
-`PATCH`, `DELETE` and `POST /{id}/reactivate` on `/teams` and `/spieler`, plus the season junctions at
-`/teams/{team_id}/saisons/{saison_id}` and `/spieler/{spieler_id}/saisons/{saison_id}`. Nothing calls
-any of them. This item is the UI over an API that already exists.
+`PATCH`, `DELETE` and `POST /{id}/reactivate` on `/spieler`, plus the season junction at
+`/spieler/{spieler_id}/saisons/{saison_id}` — which, unlike the team junction, has a `DELETE` and a
+reactivate of its own, because a squad row can be retired (ADR-0032). The remaining half is UI over
+that API. The six spieler components sit in `fl_frontend/src/core/apiContract.test.ts ::
+BACKEND_ONLY` and each gains a Zod mirror as its page lands.
 
-Three things that API decided, which the pages inherit rather than choose:
+Decisions the teams half took that the spieler half inherits:
 
 - **Soft deletion is a date** ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
-  A list needs `include_inactive=true` to show retired rows at all, "delete" is a stamp rather than a
-  removal, and bringing something back is its own explicit action.
-- **A create can come back 409**, because a retired row keeps its slot in the unique index. The form
-  has to say so — "that shorthand belongs to a retired club, reactivate it instead" — rather than
-  reporting a generic failure.
-- **A team never leaves a season**; disqualification is the only way out (ADR-0033), so the junction
-  editor has no delete control to build.
-- **A junction save must invalidate `spiele`, not only `teams`.** Every side of every match carries
-  the team's `disqualifikation`, joined from the junction by
-  `fl_backend/app/api/spiele/services.py :: build_spiele_pipeline` — so writing
-  `PATCH /teams/{team_id}/saisons/{saison_id}` changes what `GET /spiele` returns. The action calling
-  it needs `updateTag("spiele")` and `updateTag(\`spiele:saison_id:${saisonId}\`)`beside the`teams`pair, exactly as`patchAdminSpielDataAction`invalidates both
-([ADR-0001](../_decisions/0001-two-granular-cache-tags.md)). Invalidating`teams` alone leaves every
-  Spiel card showing a badge the league table has already stopped showing.
+  The admin list passes `include_inactive=true`, retired rows are badged in place with the
+  reactivate control on the row, and a create 409 is answered specifically — the teams form says the
+  shorthand may belong to a retired club and names reactivation as the path.
+- **Every list read is season-scoped with a strict junction join** (backend spec I11), so a created
+  row without a junction row is invisible to every surface that could give it one. The teams create
+  therefore enters the club into a chosen season in the same action; the spieler create faces the
+  same question with `saison_spieler`.
+- **A junction save invalidates the joined resource's caches, not only its own** —
+  `patchSaisonTeamAction` invalidates the `spiele` pair beside the `teams` pair
+  ([ADR-0001](../_decisions/0001-two-granular-cache-tags.md)), because each side's
+  `disqualifikation` is joined from the junction (backend spec I32). The spieler junction joins into
+  no second resource today, so this transfers only if that changes.
 
-**Three things the 2026-08-02 database inspection hands this item:**
+**Two things the 2026-08-02 database inspection hands the remaining half:**
 
-- **A team rename must fan out into `spiele`, and nothing does that today.** Venues and referees have
-  a fan-out (`patch_spielort`, `patch_schiedsrichter`); teams do not, only because no endpoint can
-  rename a team yet. This page is that endpoint. Without a `patch_many_in_db` over `spiele` matching
-  `team1.team_id` / `team2.team_id`, every match card shows the old name indefinitely — measured
-  today at zero drift across all 31 matches, and that is the state to preserve. See
-  [ADR-0028](../_decisions/0028-store-what-was-true-then-derive-what-is-true-now.md), rule 3.
 - **`position` and `stufe` are free text and have already split.** Across 362 player rows:
   `Mittelfeld` 121, `Abwehr` 118, `Angriff` 86, `Tor` 29 — plus `Sturm` ×2, `TW` ×1 and `?` ×5, where
   `Sturm` and `Angriff` are the same position and so are `TW` and `Tor`. `stufe` has `??` ×2. Small
   today because nothing groups by position; it stops being small the moment this page offers a field
   to type into. Make both a closed set here — a `Literal` in Pydantic and a select in the form — and
   normalise the eight stray rows in the same change.
-- **`schiedsrichter.kontakt` is null on all seven referees**, both `email` and `telefon`, while the
-  model, the Zod mirror and the frontend all carry the shape. Either it is a field waiting for a use
-  or it is weight; this is the page that would give it one. It is personal data, so unused is the
-  safe state — decide deliberately rather than by default.
+- **`schiedsrichter.kontakt` is decided: it stays.** The owner's decision, 2026-08-07, taken when the
+  teams half raised it as its own question: the shape is a field whose data entry is pending, not
+  weight — the referee page exists to hold contact data, and the nulls mean nobody has typed it in
+  yet. No code changes on either side.
 
-**Path:** member of the admin-surface string. The patterns it adopts rather than reinvents are settled
-and built ([ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md)): a page
-where a form outgrows a dialog, sections in panels, a field judged when it is left, and
-`useDraftValidation` as the hook that judges it. Nothing blocks it — the API is built. Its junction
-editor is the UI home for the disqualification record: one text input for `grund` and one date input
-for `datum`, both required together by the payload
-([ADR-0059](../_decisions/0059-a-disqualification-is-a-record-and-its-absence-is-the-null.md)).
+**Path:** member of the admin-surface string. The team rename fan-out obligation this entry once
+carried is paid: `PATCH /teams/{team_id}` fans the rename into `spiele` and reports
+`fanned_out_to_spiele`, which the team page surfaces in its save toast (ADR-0028 rule 3). Nothing
+blocks the spieler half — the API is built, and the patterns are now twice-proven.
 
 ### 10 · FB-6 — Admin pages for saisons and spieltage, and the rollover control
 
