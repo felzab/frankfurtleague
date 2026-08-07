@@ -2,12 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Check } from "@gravity-ui/icons";
-
 import { Button, TextArea, TextField } from "@heroui/react";
 
 import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
-import { formButton } from "@/shared/components/ui/formButtons";
+import { formButton, MODAL_FOOTER } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 /**
@@ -81,7 +79,9 @@ export function DescriptionEditModal({
           </p>
         </div>
 
-        <div className="flex h-fit w-full flex-row items-center justify-evenly gap-3 pt-2">
+        {/* The same footer band as `EntityForm`'s, from the same constant, so every modal draws the
+            same boundary between what you fill in and what you press. */}
+        <div className={`${MODAL_FOOTER} flex h-fit flex-row items-center justify-evenly gap-3`}>
           <Button
             type="button"
             variant="secondary"
@@ -101,11 +101,6 @@ export function DescriptionEditModal({
               onApply(draft);
               onClose();
             }}>
-            <Check
-              className="m-0"
-              width={20}
-              height={20}
-            />
             Übernehmen
           </Button>
         </div>

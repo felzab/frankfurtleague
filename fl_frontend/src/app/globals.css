@@ -631,6 +631,48 @@ html:has([data-app-shell]) {
   outline: none;
 }
 
+/* A PICKER's trigger keeps the brand border only while its popover is open — never from focus alone.
+   The same rule the season selector opted into by hand with `data-border-on-open`, now the default
+   for every Select and Autocomplete, because the problem was never that selector's: react-aria
+   restores focus to the trigger when the popover dismisses, and it does so AFTER the exit animation,
+   so no blur scheduled at close time beats it. The trigger the user had just clicked away from kept
+   a brand border until something else took focus, on every picker in the app (owner, 2026-08-07).
+
+   The focus arms in the block above are skipped for these two slots rather than the whole rule: the
+   `aria-expanded` arms still apply, so an open picker still reads as active, and skipping the focus
+   arms also skips the ring suppression that rides with them — so a keyboard user gets HeroUI's own
+   focus-visible ring, which is the app's standard indicator. This is the identical trade
+   `data-border-on-open` documents, applied where it always belonged.
+
+   A TEXT field is untouched and must stay so: it has no open state, so focus is the only thing it
+   could speak with, and its border is genuinely the caret's indicator. */
+:is([data-slot="autocomplete-trigger"], [data-slot="select-trigger"]):is(
+    :focus,
+    :focus-visible,
+    :focus-within,
+    [data-focused="true"],
+    [data-focus-visible="true"],
+    [data-focus-within="true"]
+  ):not([aria-expanded="true"]):not(:has([aria-expanded="true"])):not([data-invalid="true"]) {
+  border-color: var(--border-base);
+}
+
+/* Required asterisks belong to a form that CREATES something (owner, 2026-08-07).
+   On an edit every value is already present, so a column of red stars marks nothing the reader can
+   act on; on a create each one is a genuine question.
+
+   Written as an OPT-IN — suppressed on every form that does not say `data-required-marks="on"` —
+   rather than as an opt-out keyed on `"off"`. The three page-owned editors are plain `<Form>`s that
+   carry no attribute at all, so an opt-out would have missed exactly the surfaces with the most
+   required fields, and would go on missing each new one.
+
+   Unlayered, because HeroUI declares the asterisk in `@layer components` and layer order beats
+   specificity. `isRequired` itself is untouched on every field either way — it is what makes the
+   BROWSER refuse an emptied one, with its own message in the user's own language. */
+form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
+  content: none;
+}
+
 /* The theme switch. HeroUI rings `.switch__control` off the Switch root's focus state, and that ring
    fired on a plain mouse press — react-aria's focus-visible modality is global, so a press that
    follows any earlier key press counts as keyboard focus. Rather than chase the modality, the switch

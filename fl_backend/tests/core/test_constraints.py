@@ -15,19 +15,25 @@ Three separate jobs, and the middle one is the reason this file matters more tha
      lengths. `test_no_validator_constrains_a_range_or_a_format` is that decision made enforceable,
      because widening it is a one-word edit that would otherwise pass review.
 
+Job 2 is really two checks, and the second was missing until ADR-0061 added two more hand-copied enums
+and had to rely on it. `test_every_mirrored_model_matches_its_validator` compares field NAMES and stops
+there, so a validator whose `enum` had drifted from its `Literal` passed every test in this file and
+failed against the live database instead. `test_every_validator_enum_matches_its_literal` closes that.
+
 The sibling `test_constraints_execution.py` asserts what MongoDB does with all of this. Neither
 replaces the other: this file fails when a rule is missing, that one when a rule is present and wrong.
 """
 
-from typing import Any, Mapping
+from typing import Any, Mapping, get_args
 
 import pytest
 from pydantic import BaseModel
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.schemas import FLSaison, FLSaisonRules
+from app.api.saisons.schemas import FLSaison, FLSaisonRules, FLSaisonStatus
 from app.api.schiedsrichter.schemas import FLSchiedsrichter
 from app.api.spiele.schemas import (
+    FLSaisonPhase,
     FLSpiel,
     FLSpielElfmeterschiessen,
     FLSpielOrtField,
@@ -36,11 +42,11 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterField,
     FLSpielTeamField,
 )
-from app.api.spieler.schemas import FLSpieler
+from app.api.spieler.schemas import FLSpieler, FLSpielerPosition, FLSpielerStufe
 from app.api.spieler.services import SAISON_SPIELER_COLLECTION_NAME
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
-from app.api.teams.schemas import FLDisqualifikation, FLTeam, FLTeamRecord
+from app.api.teams.schemas import FLDisqualifikation, FLGruppenNames, FLTeam, FLTeamRecord
 from app.api.teams.services import SAISON_TEAMS_COLLECTION_NAME
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose_failure
 from app.shared.schemas.addresses import FLAddress
@@ -122,10 +128,51 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[B
     ("teams", (), FLTeamRecord, frozenset()),
     ("teams", ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
-    ("spieler", (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen"})),
+    ("spieler", (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "is_captain"})),
     # The one sub-document of a modelless row that does have a model, so the drift check reaches it
     # (ADR-0059). `FLTeam` embeds it, which is how the record travels from the junction to the reader.
     ("saison_teams", ("disqualifikation",), FLDisqualifikation, frozenset()),
+]
+
+# (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
+#
+# Every `enum` any validator declares appears here, and the test below asserts that -- so a seventh
+# enum added to `constraints.py` without a row here fails rather than going unchecked.
+#
+# The two `quelle` entries read their members off a MODEL FIELD rather than a named alias, because
+# neither has one: `type` is the discriminator declared inline on each variant, and `ausgang` is
+# declared inline on the match-fed variant (ADR-0042). Naming them here would mean adding two aliases
+# to the spiele slice for a test's benefit, which is the tail wagging the dog.
+MIRRORED_ENUMS: list[tuple[str, tuple[str, ...], str, tuple[object, ...], bool]] = [
+    ("saisons", (), "status", get_args(FLSaisonStatus), False),
+    # An ARRAY of the league's set: which levels this season runs. Not nullable and not itself a
+    # Literal — the members are, which is what this row compares.
+    ("saisons", ("rules",), "erlaubte_stufen", get_args(FLSpielerStufe), False),
+    ("saison_teams", (), "gruppe", get_args(FLGruppenNames), False),
+    ("spiele", (), "saison_phase", get_args(FLSaisonPhase), False),
+    ("spieltage", (), "saison_phase", get_args(FLSaisonPhase), False),
+    (
+        "spiele",
+        ("team1_quelle",),
+        "type",
+        get_args(FLSpielQuelleGruppe.model_fields["type"].annotation) + get_args(FLSpielQuelleSpiel.model_fields["type"].annotation),
+        False,
+    ),
+    ("spiele", ("team1_quelle",), "gruppe", get_args(FLGruppenNames), False),
+    ("spiele", ("team1_quelle",), "ausgang", get_args(FLSpielQuelleSpiel.model_fields["ausgang"].annotation), False),
+    (
+        "spiele",
+        ("team2_quelle",),
+        "type",
+        get_args(FLSpielQuelleGruppe.model_fields["type"].annotation) + get_args(FLSpielQuelleSpiel.model_fields["type"].annotation),
+        False,
+    ),
+    ("spiele", ("team2_quelle",), "gruppe", get_args(FLGruppenNames), False),
+    ("spiele", ("team2_quelle",), "ausgang", get_args(FLSpielQuelleSpiel.model_fields["ausgang"].annotation), False),
+    # Nullable, because a squad entry is filled in over time (ADR-0061). `None` is a member of the
+    # validator's list, which is what lets `enum` stand beside a nullable `bsonType`.
+    ("saison_spieler", (), "position", get_args(FLSpielerPosition), True),
+    ("saison_spieler", (), "stufe", get_args(FLSpielerStufe), True),
 ]
 
 
@@ -209,6 +256,82 @@ def test_every_mirrored_model_matches_its_validator(
         f"{where} has drifted from {names}. "
         f"Only in the model: {sorted(expected - declared)}. Only in the validator: {sorted(declared - expected)}. "
         f"Update app/core/constraints.py in the same commit as the model."
+    )
+
+
+@pytest.mark.parametrize(("collection", "path", "field", "members", "nullable"), MIRRORED_ENUMS)
+def test_every_validator_enum_matches_its_literal(
+    collection: str,
+    path: tuple[str, ...],
+    field: str,
+    members: tuple[object, ...],
+    nullable: bool,
+):
+    """
+    A validator's `enum` holds exactly the members of the `Literal` it copies.
+
+    The sibling drift check compares field NAMES and reaches no further, so before this test a
+    renamed or dropped enum member passed the whole default tier and surfaced as a live write the
+    database refused for a value the models consider perfectly legal.
+
+    Compared as SETS: `enum` is an unordered membership rule, and MongoDB does not care what order the
+    list is in, so an ordering difference is not drift.
+    """
+
+    schema = properties_at(collection, path)[field]
+    # An array of a closed set carries its enum on `items`; the row names the property either way.
+    declared = schema.get("enum", schema.get("items", {}).get("enum"))
+    expected = set(members) | ({None} if nullable else set())
+
+    where = ".".join((collection, *path, field))
+    assert declared is not None, f"{where} declares no enum, but MIRRORED_ENUMS says it copies one"
+    assert set(declared) == expected, (
+        f"{where} has drifted from its Literal. "
+        f"Only in the Literal: {sorted(expected - set(declared), key=str)}. "
+        f"Only in the validator: {sorted(set(declared) - expected, key=str)}. "
+        f"Update app/core/constraints.py in the same commit as the model."
+    )
+
+
+def test_every_declared_enum_is_checked():
+    """
+    Every `enum` in every validator has a row in `MIRRORED_ENUMS`.
+
+    Without this, adding an eighth enum and no row would leave it unchecked while the test above went
+    on passing for the seven that have one — the same failure mode `test_only_the_two_junctions_are_unmirrored`
+    exists to prevent one level up.
+    """
+
+    def walk(schema: Mapping[str, Any], path: tuple[str, ...]) -> set[tuple[str, ...]]:
+        """
+        Descends `properties` AND `items`, because an enum can sit on either.
+
+        `items` was missed at first and `rules.erlaubte_stufen` is why it no longer is: an array of a
+        closed set declares its enum one level below the property, so a walker that only followed
+        `properties` reported the whole file checked while that one went unread.
+        """
+        found: set[tuple[str, ...]] = set()
+
+        for name, child in schema.get("properties", {}).items():
+            here = (*path, name)
+            # An array's members are the same field as far as MIRRORED_ENUMS is concerned, so the
+            # enum on `items` is recorded under the property's own path rather than a synthetic one.
+            if "enum" in child or "enum" in child.get("items", {}):
+                found.add(here)
+            found |= walk(child, here)
+            found |= walk(child.get("items", {}), here)
+
+        return found
+
+    declared: set[tuple[str, ...]] = set()
+    for collection, validator in COLLECTION_VALIDATORS.items():
+        declared |= {(collection, *rest) for rest in walk(validator["$jsonSchema"], ())}
+
+    checked = {(collection, *path, field) for collection, path, field, _, _ in MIRRORED_ENUMS}
+
+    assert declared == checked, (
+        f"Enums with no row in MIRRORED_ENUMS: {sorted(declared - checked)}. "
+        f"Rows naming an enum no validator declares: {sorted(checked - declared)}."
     )
 
 

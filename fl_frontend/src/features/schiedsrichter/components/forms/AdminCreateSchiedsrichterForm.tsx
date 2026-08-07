@@ -63,6 +63,7 @@ export function AdminCreateSchiedsrichterForm({
 
         return { ...res, success };
       }}
+      marksRequired
       successMessage="Schiedsrichter erfolgreich angelegt"
       onClose={onClose}
     />

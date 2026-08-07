@@ -90,7 +90,6 @@ const BACKEND_ONLY: Record<string, string> = {
   // /spiele/{id} are called. Five single reads therefore have no mirror, which the backend spec records
   // as known-open.
   FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
-  FLSpielerSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
   FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
   FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
 
@@ -104,12 +103,6 @@ const BACKEND_ONLY: Record<string, string> = {
   FLPatchSpieltagPayload: "write path with no admin page yet (FB-6)",
   FLPostSpieltagPayload: "write path with no admin page yet (FB-6)",
   FLSpieltagWriteResponse: "write path with no admin page yet (FB-6)",
-  FLPatchSaisonSpielerPayload: "write path with no admin page yet (FB-3's spieler half)",
-  FLPostSaisonSpielerPayload: "write path with no admin page yet (FB-3's spieler half)",
-  FLSaisonSpielerResponse: "write path with no admin page yet (FB-3's spieler half)",
-  FLPatchSpielerPayload: "write path with no admin page yet (FB-3's spieler half)",
-  FLPostSpielerPayload: "write path with no admin page yet (FB-3's spieler half)",
-  FLSpielerWriteResponse: "write path with no admin page yet (FB-3's spieler half)",
 };
 
 /**
@@ -130,11 +123,16 @@ const FRONTEND_ONLY: Record<string, string> = {
   CustomTimeString: "a Pydantic Annotated alias, inlined at each use site",
   CustomObjectIdString: "a Pydantic Annotated alias, inlined at each use site",
   ExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
+  // The backend's twin is `PERSON_NAME_PATTERN`, a bare `Field(pattern=...)` applied per field
+  // rather than a named model, so it is published as a `pattern` keyword and never as a component.
+  PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
 
   // Literal aliases, likewise inlined. Their members ARE compared, on every field that uses one.
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonPhase: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSaisonStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielerPosition: "a Pydantic Literal alias, inlined as an enum at each use site",
+  FLSpielerStufe: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielStatus: "a Pydantic Literal alias, inlined as an enum at each use site",
 
   // Assembled on the client from two responses; no endpoint returns either shape.
@@ -160,11 +158,18 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLDeleteSchiedsrichterPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteSpielortPayload: "a DELETE takes its id from the path and has no request body",
   FLDeleteTeamPayload: "a DELETE takes its id from the path and has no request body",
+  FLDeleteSpielerPayload: "a DELETE takes its id from the path and has no request body",
   FLReactivateTeamPayload: "the reactivate POST takes its id from the path and has no request body",
+  FLReactivateSpielerPayload: "the reactivate POST takes its id from the path and has no request body",
+  // The squad junction's DELETE and reactivate share one key shape, because both address the row by
+  // its natural key and neither carries a body.
+  FLSaisonSpielerKeyPayload: "the junction's DELETE and reactivate take both ids from the path, with no request body",
 
   // One form creates the club AND enters it into a season — a club without a junction row would be
   // invisible to every season-scoped read (I11) — so the action's argument spans two request bodies.
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
+  // The same shape for players, and the same reason: a player without a squad row is invisible.
+  FLCreateSpielerFormPayload: "the create action's own argument; the action splits it into two requests",
 };
 
 /**
@@ -178,9 +183,12 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpielortPayload: ["id"],
   FLPatchSpielDataPayload: ["spiel_id"],
   FLPatchTeamPayload: ["id"],
+  FLPatchSpielerPayload: ["id"],
   // The junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
+  FLPostSaisonSpielerPayload: ["spieler_id"],
+  FLPatchSaisonSpielerPayload: ["spieler_id", "saison_id"],
 };
 
 type JsonSchema = Record<string, unknown>;
@@ -366,7 +374,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 64;
+const EXPECTED_PAIRS = 74;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

@@ -114,6 +114,7 @@ export function AdminCreateTeamForm({
         // A create only counts if the backend echoed the new id back.
         return { ...res, success: res.success && !!res.created_id };
       }}
+      marksRequired
       successMessage="Team erfolgreich angelegt"
       onClose={onClose}
     />

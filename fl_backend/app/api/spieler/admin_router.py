@@ -15,14 +15,20 @@ same as a squad row ending.
     keeps indexing a retired one. Bringing a player back into a season they already have a row for is
     `POST .../saisons/{saison_id}/reactivate`, never a second create.
   • `nummer` is a STRING. Squad numbers are worn, not counted.
+  • `position` and `stufe` are CLOSED SETS (ADR-0061), enforced by the payload models here and by the
+    `saison_spieler` validator underneath them.
   • `/spieler/{spieler_id}/saisons/{saison_id}` addresses a JUNCTION ROW -- this player's team, number,
     position and stufe for that season -- and never the season document, which lives at
     `/saisons/{saison_id}`. A GET added here must return junction rows (ADR-0034).
+  • `GET /memberships` is the exception to the line above and is deliberate: it is player-centric, so it
+    returns PEOPLE carrying their junction rows rather than junction rows. It sits here because only the
+    admin surface asks it, exactly as `GET /teams/memberships` does.
 
  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
 
   ADR-0032  soft deletion is a date, and creating never revives
   ADR-0034  the junction is addressed by its natural key, under the entity
+  ADR-0061  position and stufe are closed sets
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -40,11 +46,14 @@ from app.api.spieler.schemas import (
     FLPostSaisonSpielerPayload,
     FLPostSpielerPayload,
     FLSaisonSpielerResponse,
+    FLSpielerMembershipsResponse,
     FLSpielerSingleResponse,
+    FLSpielerWithMemberships,
     FLSpielerWriteResponse,
 )
+from app.api.spieler.services import build_spieler_memberships_pipeline
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, post_one_to_db
+from app.core.crud import aggregate_many_from_db, patch_one_in_db, post_one_to_db
 from app.core.dependencies import SaisonSpielerCollection, SpielerCollection, get_german_date_str
 from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
@@ -75,8 +84,36 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         position=document.get("position"),
         stufe=document.get("stufe"),
         is_nachgetragen=document["is_nachgetragen"],
+        # `.get` with a default rather than a subscript: this echoes rows the reactivate and delete
+        # endpoints read back, and a row written before the field existed would otherwise KeyError on
+        # a request that changed nothing about it. The migration seeds every live row.
+        is_captain=document.get("is_captain", False),
         inactive_since=document.get("inactive_since"),
     )
+
+
+@router.get("/memberships", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
+async def get_spieler_memberships(spieler_collection: SpielerCollection) -> FLSpielerMembershipsResponse:
+    """
+    Every player, retired ones included, each with every squad row they hold. Sorted by name.
+
+    The admin list's one read. `GET /spieler` cannot answer it at any filter setting, and the reasons
+    are three separate ones: with a `saison_id` its junction join is strict, so a player with no row
+    for that season is invisible to the only list that could give them one; without a `saison_id` it
+    unwinds the junction and a player with no row at all comes back missing the `team_id` `FLSpieler`
+    requires; and `FLSpieler` carries no `saison_id`, so a player who has played two seasons comes
+    back as two rows nothing can tell apart. This is the player-centric question as one aggregation.
+
+    In the admin router rather than the read router because only the admin surface asks it — the same
+    split that puts `GET /teams/memberships` beside the team writes (ADR-0034).
+
+    A static path beside `by_id` routes: the id convertor takes 24 hex characters, so
+    `/spieler/memberships` can never be captured by an id route regardless of declaration order.
+    """
+
+    spieler_raw = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_spieler_memberships_pipeline())
+
+    return FLSpielerMembershipsResponse(spieler=[FLSpielerWithMemberships.model_validate(spieler) for spieler in spieler_raw])
 
 
 @router.post("", response_model=FLSpielerWriteResponse, status_code=201, summary="Create a Spieler")
@@ -220,9 +257,9 @@ async def patch_saison_spieler(
     Changing `team_id` here is how a transfer is recorded, and it is the whole reason the junction
     exists separately from the person.
 
-    `position` and `stufe` are free text and have already split in the live data — `Sturm` and
-    `Angriff` name the same position, `TW` and `Tor` likewise. Making them a closed set is FB-3's, in
-    the same change that normalises the stray rows; typing them here would reject rows that exist.
+    `position` and `stufe` are closed sets (ADR-0061), so a value outside either is a 422 rather than
+    a second spelling of a position the league already has. `nummer` stays free text: a squad number
+    is worn rather than counted, and it is not unique within a squad.
     """
 
     updated_raw = await patch_one_in_db(

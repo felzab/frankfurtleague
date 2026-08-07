@@ -8,7 +8,7 @@ import { Button } from "@heroui/react";
 
 import { appToast } from "@/shared/utils/appToast";
 
-import { formButton } from "./formButtons";
+import { formButton, MODAL_FOOTER } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 import type { ReactNode } from "react";
@@ -95,7 +95,7 @@ export function ConfirmDeleteModal({
           />
         </div>
       }>
-      <div className="flex min-h-[80px] flex-col justify-center gap-4 px-3 pt-2">
+      <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
         {confirmStep === 1 ? (
           <p className="fluid-sm text-foreground-muted leading-relaxed">
             Möchtest du {entityLabel}
@@ -126,7 +126,10 @@ export function ConfirmDeleteModal({
         )}
       </div>
 
-      <div className="mt-8 flex w-full flex-row items-center justify-end gap-3 px-2">
+      {/* The same footer band as every other modal, from the same constant (owner, 2026-08-07):
+          a separator that reaches the dialog's edges, then the buttons. `justify-evenly` rather than
+          the old `justify-end`, so the pair sits exactly as it does in the create and edit forms. */}
+      <div className={`${MODAL_FOOTER} mt-6 flex w-full flex-row items-center justify-evenly gap-3`}>
         <Button
           type="button"
           variant="secondary"
@@ -141,11 +144,6 @@ export function ConfirmDeleteModal({
           isDisabled={isPending}
           className={formButton({ intent: "destructive" })}
           onPress={handleDelete}>
-          <TrashBin
-            className="m-0"
-            width={18}
-            height={18}
-          />
           {isPending ? "Wird gelöscht..." : confirmStep === 1 ? "Löschen" : "Ja, endgültig löschen"}
         </Button>
       </div>

@@ -1115,6 +1115,14 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "E1",
+                    "E2",
+                    "Q1",
+                    "Q2",
+                    "Q3",
+                    "Q4"
+                  ],
                   "type": "string"
                 },
                 {
@@ -2455,6 +2463,30 @@
         }
       }
     },
+    "/api/v0/spieler/memberships": {
+      "get": {
+        "summary": "Every Spieler with their squad rows",
+        "description": "Every player, retired ones included, each with every squad row they hold. Sorted by name.\n\nThe admin list's one read. `GET /spieler` cannot answer it at any filter setting, and the reasons\nare three separate ones: with a `saison_id` its junction join is strict, so a player with no row\nfor that season is invisible to the only list that could give them one; without a `saison_id` it\nunwinds the junction and a player with no row at all comes back missing the `team_id` `FLSpieler`\nrequires; and `FLSpieler` carries no `saison_id`, so a player who has played two seasons comes\nback as two rows nothing can tell apart. This is the player-centric question as one aggregation.\n\nIn the admin router rather than the read router because only the admin surface asks it — the same\nsplit that puts `GET /teams/memberships` beside the team writes (ADR-0034).\n\nA static path beside `by_id` routes: the id convertor takes 24 hex characters, so\n`/spieler/memberships` can never be captured by an id route regardless of declaration order.",
+        "operationId": "get_spieler_memberships_api_v0_spieler_memberships_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSpielerMembershipsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v0/spieler/{spieler_id}/reactivate": {
       "post": {
         "summary": "Bring a retired Spieler back",
@@ -2558,7 +2590,7 @@
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Update a squad entry",
-        "description": "Update a player's squad entry — their team, number, position or stufe for that season.\n\nChanging `team_id` here is how a transfer is recorded, and it is the whole reason the junction\nexists separately from the person.\n\n`position` and `stufe` are free text and have already split in the live data — `Sturm` and\n`Angriff` name the same position, `TW` and `Tor` likewise. Making them a closed set is FB-3's, in\nthe same change that normalises the stray rows; typing them here would reject rows that exist.",
+        "description": "Update a player's squad entry — their team, number, position or stufe for that season.\n\nChanging `team_id` here is how a transfer is recorded, and it is the whole reason the junction\nexists separately from the person.\n\n`position` and `stufe` are closed sets (ADR-0061), so a value outside either is a 422 rather than\na second spelling of a position the league already has. `nummer` stays free text: a squad number\nis worn rather than counted, and it is not unique within a squad.",
         "operationId": "patch_saison_spieler_api_v0_spieler__spieler_id__saisons__saison_id__patch",
         "security": [
           {
@@ -3231,7 +3263,13 @@
           "position": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
               },
               {
                 "type": "null"
@@ -3242,7 +3280,15 @@
           "stufe": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
               },
               {
                 "type": "null"
@@ -3252,15 +3298,24 @@
           },
           "is_nachgetragen": {
             "type": "boolean",
-            "title": "Is Nachgetragen",
-            "default": false
+            "title": "Is Nachgetragen"
+          },
+          "is_captain": {
+            "type": "boolean",
+            "title": "Is Captain"
           }
         },
         "type": "object",
         "required": [
-          "team_id"
+          "team_id",
+          "nummer",
+          "position",
+          "stufe",
+          "is_nachgetragen",
+          "is_captain"
         ],
-        "title": "FLPatchSaisonSpielerPayload"
+        "title": "FLPatchSaisonSpielerPayload",
+        "description": "Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default."
       },
       "FLPatchSaisonTeamPayload": {
         "properties": {
@@ -3300,6 +3355,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Name"
           },
           "schule": {
@@ -3557,12 +3613,14 @@
           "vorname": {
             "type": "string",
             "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Vorname"
           },
           "nachname": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^\\p{L}[\\p{L}\\-' ]*$"
               },
               {
                 "type": "null"
@@ -3573,9 +3631,11 @@
         },
         "type": "object",
         "required": [
-          "vorname"
+          "vorname",
+          "nachname"
         ],
-        "title": "FLPatchSpielerPayload"
+        "title": "FLPatchSpielerPayload",
+        "description": "Replaces the person's names WHOLESALE.\n\nEvery field is required with no default (ADR-0059's rule, which the team junction states for the\nsame reason). The handler `$set`s this model's dump. A field with a default would therefore let a form that\nforgot it write that default over a stored value -- silently, because nothing distinguishes\n\"omitted\" from \"deliberately cleared\" once the dump is built. An omitted `nachname` is a 422."
       },
       "FLPatchSpielortPayload": {
         "properties": {
@@ -3818,7 +3878,13 @@
           "position": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
               },
               {
                 "type": "null"
@@ -3829,7 +3895,15 @@
           "stufe": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
               },
               {
                 "type": "null"
@@ -3839,17 +3913,25 @@
           },
           "is_nachgetragen": {
             "type": "boolean",
-            "title": "Is Nachgetragen",
-            "default": false
+            "title": "Is Nachgetragen"
+          },
+          "is_captain": {
+            "type": "boolean",
+            "title": "Is Captain"
           }
         },
         "type": "object",
         "required": [
           "saison_id",
-          "team_id"
+          "team_id",
+          "nummer",
+          "position",
+          "stufe",
+          "is_nachgetragen",
+          "is_captain"
         ],
         "title": "FLPostSaisonSpielerPayload",
-        "description": "One player's membership of one team's squad for one season. `spieler_id` comes from the path."
+        "description": "One player's membership of one team's squad for one season. `spieler_id` comes from the path.\n\nEvery field is required, including the three a squad often does not know yet: a caller states\n`null` rather than omitting, which is what keeps `is_nachgetragen` an answer rather than a\ndefault nobody chose. That flag decides whether a player reads as a late arrival, and the one\nthing it must not be is quietly `False` because a caller forgot it (owner, 2026-08-07)."
       },
       "FLPostSaisonTeamPayload": {
         "properties": {
@@ -3886,6 +3968,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Name"
           },
           "schule": {
@@ -3941,12 +4024,14 @@
           "vorname": {
             "type": "string",
             "minLength": 1,
+            "pattern": "^\\p{L}[\\p{L}\\-' ]*$",
             "title": "Vorname"
           },
           "nachname": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^\\p{L}[\\p{L}\\-' ]*$"
               },
               {
                 "type": "null"
@@ -4196,6 +4281,22 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Teams Per Group"
+          },
+          "erlaubte_stufen": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "E1",
+                "E2",
+                "Q1",
+                "Q2",
+                "Q3",
+                "Q4"
+              ]
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Erlaubte Stufen"
           }
         },
         "type": "object",
@@ -4204,7 +4305,8 @@
           "draw_points",
           "qualifiers_per_group",
           "number_of_groups",
-          "teams_per_group"
+          "teams_per_group",
+          "erlaubte_stufen"
         ],
         "title": "FLSaisonRules"
       },
@@ -4245,7 +4347,13 @@
           "position": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
               },
               {
                 "type": "null"
@@ -4256,7 +4364,15 @@
           "stufe": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
               },
               {
                 "type": "null"
@@ -4267,6 +4383,10 @@
           "is_nachgetragen": {
             "type": "boolean",
             "title": "Is Nachgetragen"
+          },
+          "is_captain": {
+            "type": "boolean",
+            "title": "Is Captain"
           },
           "inactive_since": {
             "anyOf": [
@@ -4289,6 +4409,7 @@
           "position",
           "stufe",
           "is_nachgetragen",
+          "is_captain",
           "inactive_since"
         ],
         "title": "FLSaisonSpielerResponse",
@@ -5165,7 +5286,15 @@
           "stufe": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
               },
               {
                 "type": "null"
@@ -5187,7 +5316,13 @@
           "position": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
               },
               {
                 "type": "null"
@@ -5198,6 +5333,11 @@
           "is_nachgetragen": {
             "type": "boolean",
             "title": "Is Nachgetragen",
+            "default": false
+          },
+          "is_captain": {
+            "type": "boolean",
+            "title": "Is Captain",
             "default": false
           },
           "team_id": {
@@ -5255,6 +5395,124 @@
         ],
         "title": "FLSpielerListResponse"
       },
+      "FLSpielerMembership": {
+        "properties": {
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "nummer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nummer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "Tor",
+                  "Abwehr",
+                  "Mittelfeld",
+                  "Angriff"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "stufe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "E1",
+                  "E2",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stufe"
+          },
+          "is_nachgetragen": {
+            "type": "boolean",
+            "title": "Is Nachgetragen"
+          },
+          "is_captain": {
+            "type": "boolean",
+            "title": "Is Captain"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team_id",
+          "nummer",
+          "position",
+          "stufe",
+          "is_nachgetragen",
+          "is_captain",
+          "inactive_since"
+        ],
+        "title": "FLSpielerMembership",
+        "description": "One squad row as seen from its player -- the season, the team, and what they wore and played.\n\nCarries `inactive_since`, which the team junction's equivalent does not and cannot: a squad row\nreally is retired when a player leaves a team mid-season, while a team never leaves a season at\nall (ADR-0033). The admin list badges a retired row in place and offers the reactivate beside it."
+      },
+      "FLSpielerMembershipsResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielerWithMemberships"
+            },
+            "type": "array",
+            "title": "Spieler"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spieler"
+        ],
+        "title": "FLSpielerMembershipsResponse",
+        "description": "Every player, retired ones included, each with their squad rows. Sorted by name."
+      },
       "FLSpielerSingleResponse": {
         "properties": {
           "acknowledged": {
@@ -5306,6 +5564,59 @@
         ],
         "title": "FLSpielerSingleResponse",
         "description": "One player, from `GET /spieler/{spieler_id}`.\n\nCarries only the person: `vorname`, `nachname` and whether they are retired. The squad fields on\n`FLSpieler` -- team, number, position, stufe -- are season-scoped, so a player addressed without a\nseason has none of them, and inventing a season here would make the answer depend on a default the\ncaller never stated."
+      },
+      "FLSpielerWithMemberships": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "vorname": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Vorname"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "inactive_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/FLSpielerMembership"
+            },
+            "type": "array",
+            "title": "Memberships"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "vorname",
+          "nachname",
+          "inactive_since",
+          "memberships"
+        ],
+        "title": "FLSpielerWithMemberships",
+        "description": "The person as stored, plus every squad row they hold -- the admin list's one read.\n\nA DIFFERENT question from `FLSpieler`, not a projection of it (ADR-0034). `FLSpieler` is one\nplayer FLATTENED against one season, which is why it carries a `team_id` and no `saison_id`: the\nread that produces it unwinds the junction, so a player in two seasons comes back as two\nindistinguishable rows and a player in none fails validation on the `team_id` they have not got.\nThe admin surface asks \"every player, and which squads hold them\", which that shape cannot answer\nat any filter setting."
       },
       "FLSpielerWriteResponse": {
         "properties": {

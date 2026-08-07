@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `cf88b87`, 2026-08-07
+**Verified against:** `445241b`, 2026-08-07
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -56,7 +56,8 @@ OPS-6 and OPS-7 are both retired here.
 | 28  | FB-2  | A team could only **be** disqualified, with no record of why or from when                    | FE, BE, DB  | M      | —                            | [`3669cc7`](https://github.com/felzab/frankfurtleague/commit/3669cc7) |
 | 29  | FB-5  | The Spiel cards were the one surface a disqualification could not reach                      | FE, BE      | S      | — (FB-2 shaped the field)    | [`3287df2`](https://github.com/felzab/frankfurtleague/commit/3287df2) |
 | 30  | FB-11 | A season's bracket wiring had no view, and was editable only one match at a time             | FE, BE      | L      | —                            | [`dfec0fa`](https://github.com/felzab/frankfurtleague/commit/dfec0fa) |
-| 31  | FE-13 | Two admin tables still scrolled sideways on a phone                                          | FE          | S      | — (teams table templated it) | in FB-3's teams PR                                                    |
+| 31  | FE-13 | Two admin tables still scrolled sideways on a phone                                          | FE          | S      | — (teams table templated it) | in FB-3's teams PR (row 32)                                           |
+| 32  | FB-3  | The admin panel could edit no team and no player; both were hand-edited in MongoDB           | FE, BE      | L      | — (ADR-0050's patterns)      | [`5518774`](https://github.com/felzab/frankfurtleague/commit/5518774) |
 
 ## What each one produced
 
@@ -222,3 +223,13 @@ no row here — its commit is the whole story.
   by the next edit. It closed no other item and opened none; it left **FB-3** an obligation, recorded
   in that entry — a junction write now changes what `GET /spiele` returns, so its action must
   invalidate `spiele` as well as `teams`.
+- **FB-3** → three ADRs and a runbook. [ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md) had already settled
+  the editor's shape, so the teams half proved it and the spieler half copied it. What was decided
+  here is [ADR-0061](../_decisions/0061-position-and-stufe-are-closed-sets.md) (a player's `position`
+  and `stufe` are closed sets, with the runbook that normalises the ten stray rows **before** the
+  deploy) and [ADR-0062](../_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md),
+  which supersedes ADR-0060: the undo-as-route-handler boundary moves from a count of two to the
+  pattern, so every page-owned editor may have one and nothing else may. The assistant recommended
+  against that third handler and the owner overruled it; ADR-0062 records the argument that lost.
+  It discharged FB-5's obligation, made **BE-12** real for the first time — a squad row can now be
+  retired — and left **FB-6** as the last of the admin-surface string.

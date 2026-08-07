@@ -11,6 +11,9 @@ does. The pipeline joins them and flattens the result into `FLSpieler`.
     Filtering afterwards would materialise every season's row for every player first.
   • Filter values keep their ObjectId type through `model_dump(context={"keep_oid": True})`. Dumping
     without that context turns ids into strings, which then match nothing.
+  • `build_spieler_pipeline` FLATTENS, and `build_spieler_memberships_pipeline` does not. One row per
+    player per season is what a squad list wants and is exactly what the admin list cannot use; the
+    two shapes are two questions and neither is derivable from the other (ADR-0034).
 """
 
 from typing import Any, Mapping
@@ -98,6 +101,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
                 "saison_id": f"${AS_NAME}.saison_id",
                 "team_id": f"${AS_NAME}.team_id",
                 "is_nachgetragen": f"${AS_NAME}.is_nachgetragen",
+                "is_captain": f"${AS_NAME}.is_captain",
                 "stufe": f"${AS_NAME}.stufe",
                 "position": f"${AS_NAME}.position",
                 "nummer": f"${AS_NAME}.nummer",
@@ -123,3 +127,45 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
         pipeline.append({"$limit": filters.limit})
 
     return pipeline
+
+
+def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
+    """
+    Every player with every squad row they hold, for the admin list (`GET /spieler/memberships`).
+
+    Deliberately UNLIKE `build_spieler_pipeline`: no filters, no `$unwind`, no strict join. The admin
+    surface asks a player-centric question, so retired people stay in, retired squad rows stay in --
+    the list badges them and offers the reactivate -- and a player with no squad row at all comes
+    back with an empty list rather than disappearing or failing to validate.
+
+    Sorted by FORENAME then surname (owner, 2026-08-07), which is how the admin list reads and how
+    the other admin lists are ordered. `nachname` is nullable and MongoDB sorts null before every
+    string, so two players sharing a forename put the surnameless one first rather than scattering.
+    """
+
+    return [
+        {
+            "$lookup": {
+                "from": SAISON_SPIELER_COLLECTION_NAME,
+                "localField": "_id",
+                "foreignField": "spieler_id",
+                "pipeline": [
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "saison_id": 1,
+                            "team_id": 1,
+                            "nummer": 1,
+                            "position": 1,
+                            "stufe": 1,
+                            "is_nachgetragen": 1,
+                            "is_captain": 1,
+                            "inactive_since": 1,
+                        }
+                    }
+                ],
+                "as": "memberships",
+            }
+        },
+        {"$sort": {"vorname": 1, "nachname": 1}},
+    ]

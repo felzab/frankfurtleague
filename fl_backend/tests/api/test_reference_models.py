@@ -72,9 +72,33 @@ class TestSchiedsrichter:
 
     def test_payload_accepts_a_valid_body(self, kontakt):
         """The referee payload's own baseline, for the same reason as the venue one above."""
-        parsed = FLPostSchiedsrichterPayload.model_validate({"kontakt": kontakt(), "name": "A. Referee", "schule": None, "default_payment": 20})
+        parsed = FLPostSchiedsrichterPayload.model_validate(
+            {"kontakt": kontakt(), "name": "Anna Referee", "schule": None, "default_payment": 20}
+        )
 
         assert parsed.default_payment == 20
+
+    # A referee is a PERSON, so their name takes the same rule the player payloads take: letters and
+    # the three separators a real name uses. The cost is named rather than hidden -- an initial or a
+    # title is refused, because "A." and "Dr." are not letters.
+    @pytest.mark.parametrize("name", ["A. Referee", "Referee (C)", "Referee 2"])
+    def test_payload_rejects_a_name_that_is_not_letters(self, kontakt, assert_rejects, name):
+        """The write path refuses it; the READ model still parses whatever is stored."""
+        assert_rejects(
+            FLPostSchiedsrichterPayload,
+            {"kontakt": kontakt(), "name": name, "schule": None, "default_payment": 20},
+            "name",
+        )
+
+    def test_the_read_model_still_accepts_a_stored_name_the_payload_would_refuse(self, schiedsrichter):
+        """
+        The asymmetry, pinned.
+
+        A read model that refused a stored name would answer 500 for the whole list because of one
+        row. The rule belongs on the way in, and this is the test that stops someone "tidying" it
+        onto `FLSchiedsrichter`.
+        """
+        assert FLSchiedsrichter.model_validate(schiedsrichter(name="A. Referee")).name == "A. Referee"
 
     def test_payload_shares_the_same_constraints(self, kontakt, assert_rejects):
         """The referee payload does not relax the read model's rules either, and names the offending field."""
@@ -100,6 +124,30 @@ class TestSpieler:
     def test_allows_every_other_name_field_to_be_absent(self, spieler, field):
         """The other four are nullable, because squads are filled in over time. Consumers must handle every one."""
         assert getattr(FLSpieler.model_validate(spieler(**{field: None})), field) is None
+
+    # ADR-0061 closed both sets. Nullable is not the same as open: a missing answer is null, and a
+    # value outside the set is a document nothing may store.
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            # The two spellings the live data had split into, and which the runbook normalised away.
+            ("position", "Sturm"),
+            ("position", "TW"),
+            # A placeholder somebody typed where null already meant the same thing.
+            ("position", "?"),
+            ("stufe", "??"),
+            # Outside the Oberstufe, which is where the set stops.
+            ("stufe", "10"),
+        ],
+    )
+    def test_rejects_a_position_or_stufe_outside_its_closed_set(self, spieler, field, value):
+        """A second spelling of a position the league already has is the failure mode ADR-0061 closes."""
+        with pytest.raises(ValidationError):
+            FLSpieler.model_validate(spieler(**{field: value}))
+
+    def test_accepts_the_stufe_no_row_holds_yet(self, spieler):
+        """`E2` is offered although the current season has nobody in it — the phases run in sequence."""
+        assert FLSpieler.model_validate(spieler(stufe="E2")).stufe == "E2"
 
 
 class TestSpieltag:
@@ -153,9 +201,45 @@ class TestSaison:
     # A draw being worth nothing is a legal rule set, unlike a win being worth nothing.
     def test_accepts_zero_draw_points(self, saison):
         """The asymmetry with wins: a draw worth nothing is a legal rule set."""
-        rules = {"win_points": 3, "draw_points": 0, "qualifiers_per_group": 2, "number_of_groups": 4, "teams_per_group": 4}
+        rules = {
+            "win_points": 3,
+            "draw_points": 0,
+            "qualifiers_per_group": 2,
+            "number_of_groups": 4,
+            "teams_per_group": 4,
+            "erlaubte_stufen": ["Q1"],
+        }
 
         assert FLSaison.model_validate(saison(rules=rules)).rules.draw_points == 0
+
+    # `erlaubte_stufen` names WHICH of the league's levels this season runs (ADR-0061). It is a
+    # subset of the vocabulary, never a redefinition of it, and never empty.
+    def test_rejects_a_stufe_the_league_does_not_have(self, saison):
+        """
+        A season may narrow the set, not extend it — `10` is outside `FLSpielerStufe`.
+
+        Asserted directly rather than through `assert_rejects`: that helper reads the LAST element of
+        the error location, and a rejected LIST ITEM ends its location with the index, so the field's
+        name sits one step up.
+        """
+        rules = {**saison()["rules"], "erlaubte_stufen": ["Q1", "10"]}
+
+        with pytest.raises(ValidationError) as failure:
+            FLSaison.model_validate(saison(rules=rules))
+
+        assert any("erlaubte_stufen" in error["loc"] for error in failure.value.errors())
+
+    def test_rejects_an_empty_stufen_list(self, saison, assert_rejects):
+        """A season offering no level at all would make every squad entry unfillable."""
+        rules = {**saison()["rules"], "erlaubte_stufen": []}
+
+        assert_rejects(FLSaison, saison(rules=rules), "erlaubte_stufen")
+
+    def test_rejects_a_season_missing_the_stufen_list(self, saison, assert_rejects):
+        """Required with no default, for the reason `qualifiers_per_group` is: no constant in a model."""
+        rules = {key: value for key, value in saison()["rules"].items() if key != "erlaubte_stufen"}
+
+        assert_rejects(FLSaison, saison(rules=rules), "erlaubte_stufen")
 
     def test_rejects_a_season_advancing_nobody(self, saison):
         """A group nobody comes out of is not a group phase, so the count is `gt=0` (ADR-0043)."""

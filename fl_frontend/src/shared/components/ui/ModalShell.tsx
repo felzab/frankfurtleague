@@ -11,12 +11,22 @@ import type { ReactNode } from "react";
  * copied to each of the five sites that need it — the way three unrelated modal looks arise, with
  * the only one the public ever sees being the odd one out.
  */
+/**
+ * **The horizontal padding lives on the HEADER and BODY, not on the dialog**, and that is what lets a
+ * footer separator reach the dialog's edges (owner, 2026-08-07).
+ *
+ * With `p-4` on the dialog, `Modal.Body` was a scroll container whose padding box sat 1rem inside the
+ * border — and `overflow-y: auto` computes `overflow-x` to `auto` too, so anything bleeding sideways
+ * was clipped or produced a horizontal scrollbar. No negative margin inside the body could ever cross
+ * that boundary. Moving the inset down one level puts the clip edge at the dialog's border instead,
+ * so `MODAL_FOOTER`'s negative margin lands exactly on it. The rendered padding is unchanged.
+ */
 const modalShell = tv({
   slots: {
-    dialog: "bg-background border-border text-foreground flex w-full flex-col rounded-2xl border p-4 shadow-2xl outline-none",
-    header: "shrink-0 pb-4",
+    dialog: "bg-background border-border text-foreground flex w-full flex-col rounded-2xl border px-0 py-4 shadow-2xl outline-none",
+    header: "shrink-0 px-4 pb-4",
     heading: "fluid-lg text-foreground font-extrabold tracking-tight",
-    body: "scrollbar-hide text-foreground px-0",
+    body: "scrollbar-hide text-foreground px-4",
   },
   variants: {
     size: {

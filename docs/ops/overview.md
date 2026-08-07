@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `5b71591`, 2026-08-04
+**Verified against:** `fca5849`, 2026-08-07
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no

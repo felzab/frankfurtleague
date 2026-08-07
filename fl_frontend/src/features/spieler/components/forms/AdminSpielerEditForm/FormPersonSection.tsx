@@ -1,0 +1,81 @@
+"use client";
+
+import { FieldError, Input, TextField } from "@heroui/react";
+
+import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { formPanel } from "@/shared/components/ui/formPanel";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
+
+import { SpielerFieldLabel } from "./SpielerFieldLabel";
+
+import type { SpielerPersonFields } from "@/features/spieler/types";
+
+/**
+ * The person, and only the person: the two names that stay the same whatever squad they are in.
+ *
+ * **Nothing here is season-scoped and nothing here fans out.** A player's name is embedded in no
+ * other document — squad lists read it through a join at request time — so a correction reaches every
+ * surface at once, which is the opposite of a club rename and worth saying because the two forms
+ * otherwise look alike.
+ *
+ * `nachname` submits `null` when emptied rather than `""`. The column is nullable because a team
+ * sheet often arrives with forenames first, and an empty string would be a surname nobody has.
+ */
+export function FormPersonSection({
+  draft,
+  onChange,
+  onFieldLeft,
+}: {
+  draft: SpielerPersonFields;
+  onChange: (updated: SpielerPersonFields) => void;
+  onFieldLeft: (paths: readonly string[]) => void;
+}) {
+  const panel = formPanel();
+
+  return (
+    <section className={panel.root()}>
+      <div className={panel.header()}>
+        <h2 className={panel.heading()}>
+          Person
+          <InfoHint label="Hinweis zu den Personendaten">
+            <p>Der Name gilt über alle Saisons hinweg.</p>
+            <ul>
+              <li>
+                Eine Korrektur ist <strong>sofort überall sichtbar</strong>, weil kein Spiel eine Kopie des Namens trägt.
+              </li>
+              <li>
+                Team, Nummer, Position und Stufe gehören zur Saison und stehen im Abschnitt <strong>Kader</strong>.
+              </li>
+            </ul>
+          </InfoHint>
+        </h2>
+      </div>
+
+      <div className={panel.body()}>
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+          <TextField
+            isRequired
+            name="vorname"
+            value={draft.vorname}
+            onChange={(next) => onChange({ ...draft, vorname: next })}
+            onBlur={() => onFieldLeft(["vorname"])}>
+            <SpielerFieldLabel path="vorname">Vorname</SpielerFieldLabel>
+            <Input className={FIELD_INPUT} />
+            <FieldError className={FIELD_ERROR} />
+          </TextField>
+
+          <TextField
+            name="nachname"
+            value={draft.nachname ?? ""}
+            // Emptied means absent, not an empty surname — the boundary where `""` becomes `null`.
+            onChange={(next) => onChange({ ...draft, nachname: next.trim() === "" ? null : next })}
+            onBlur={() => onFieldLeft(["nachname"])}>
+            <SpielerFieldLabel path="nachname">Nachname</SpielerFieldLabel>
+            <Input className={FIELD_INPUT} />
+            <FieldError className={FIELD_ERROR} />
+          </TextField>
+        </div>
+      </div>
+    </section>
+  );
+}

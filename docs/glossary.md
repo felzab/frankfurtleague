@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `9637a6f`, 2026-08-07
+**Verified against:** `445241b`, 2026-08-07
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -33,6 +33,7 @@ with a result still counts · `inactive_since` is a date, never a boolean.
 | `Ausgang`                         | Which side of a match a reference names      | Attributes and values |
 | `disqualifikation`                | Out of one season, with the reason and date  | Attributes and values |
 | `is_nachgetragen`                 | A squad entry added after the fact           | Attributes and values |
+| `is_captain`                      | The squad's captain, for one season          | Attributes and values |
 | `inactive_since`                  | Soft deletion, as a date                     | Attributes and values |
 | `Statistik`                       | The derived league-table figures             | Attributes and values |
 | `Mietpreis`                       | Venue cost, whole euros                      | Attributes and values |
@@ -70,6 +71,12 @@ every table for that season on the next read.
 is required with no default on either side, so a season without it fails to read rather than seeding a
 bracket from a number nobody chose. It reaches the frontend on the grouped teams response, beside the
 table whose qualifying prefix it measures.
+
+`erlaubte_stufen` is which school levels that season's squads may hold — a SUBSET of the league's own
+closed set (ADR-0061), never a redefinition of it, exactly as `number_of_groups` picks a prefix of the
+closed A–D group set. The squad forms offer these and nothing else. It binds the FORM rather than the
+data: a row's `stufe` is held to the league's set, so narrowing a season cannot retroactively
+invalidate the squads of a season already played.
 
 `number_of_groups` and `teams_per_group` bound the season's field: it runs the first
 `number_of_groups` of the closed A–D group set, and each group takes `teams_per_group` teams.
@@ -152,12 +159,22 @@ nothing to keep in step and nothing to back-fill.
 **Fields:** `vorname`, `nachname`, `stufe`, `nummer`, `position`, `is_nachgetragen`, `team_id`.
 
 **Pitfalls.** Only `vorname` is required; everything else may be null while a squad is being filled in.
-`nummer` is a **string**, not an int. `stufe` (level/tier) is free text, not an enum.
+`nummer` is a **string**, not an int, and stays free text — a squad number is worn rather than counted
+and is not unique within a squad. `position` and `stufe` are **closed sets**
+([ADR-0061](_decisions/0061-position-and-stufe-are-closed-sets.md)): `Tor · Abwehr · Mittelfeld ·
+Angriff` and `E1 · E2 · Q1 · Q2 · Q3 · Q4`. Both stay nullable, because a squad entry is filled in over
+time and an unanswered field is null rather than a placeholder.
 
 Players use the **same two-document shape as teams**: the `spieler` record holds what does not change
 between seasons, and a **`saison_spieler`** junction holds what does. `build_spieler_pipeline`
 (`fl_backend/app/api/spieler/services.py`) joins them and flattens the result, so `FLSpieler` again
 looks like one document and is two.
+
+**That flattening is why the admin list reads a different endpoint.** `FLSpieler` is one player
+against one season and carries no `saison_id`, so it can neither report a player who has played two
+seasons nor represent one who is in no squad at all. `GET /spieler/memberships`
+(`fl_backend/app/api/spieler/admin_router.py :: get_spieler_memberships`) returns the people carrying
+their squad rows instead, unflattened.
 
 ### `Schiedsrichter` — referee
 
@@ -386,8 +403,8 @@ A team with **no match that counts or still could** holds no placing at all — 
 `N/A` instead of a position for that row. So `platz: 2` names the second team that could actually
 advance, and the table's marker passes over exactly the same rows.
 
-**Pitfall.** Not the same as `position`, which is a player's position on the pitch and is free text on
-`FLSpieler`.
+**Pitfall.** Not the same as `position`, which is a player's position on the pitch — a closed set of
+four on `FLSpieler` ([ADR-0061](_decisions/0061-position-and-stufe-are-closed-sets.md)).
 
 ### `Ausgang` — which side of a match a reference names
 
@@ -433,9 +450,25 @@ writing `null` over it is how that is lifted.
 **`GET /teams?is_disqualified=` is a question, not this field.** It is a boolean the backend translates
 into a null test — nobody filters a list by the wording of a reason.
 
+### `is_captain` — the squad's captain for one season
+
+On the **`saison_spieler` junction**, not on the person, and that is the whole point: captaincy is a
+role within one team for one season, so a player who captains 2026 need not captain 2027 and a player
+who moves club does not carry it with them.
+
+Not unique by any rule the database enforces. A co-captaincy is a real arrangement, and no validator
+sees two documents at once anyway (backend spec I16).
+
+**The marker used to live inside the name.** Six squad rows carried a literal `(C)` in `vorname` or
+`nachname`, because there was nowhere else to put it; the field replaced them and the names were
+cleaned in the same change. `PERSON_NAME_PATTERN` on the write payloads is what stops the next one.
+
 ### `is_nachgetragen` — "entered later", retrospectively added
 
-On `FLSpieler`. Marks a squad entry added after the fact.
+On `FLSpieler`. Marks a squad entry added after the fact — the player joined a season that had already
+started. The admin create form derives it from the chosen season's status rather than asking (owner,
+2026-08-07), and every junction payload requires it with no default, so it is always an answer rather
+than a value nobody chose.
 
 ### `inactive_since` — the day something left
 

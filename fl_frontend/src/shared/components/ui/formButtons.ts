@@ -69,3 +69,18 @@ export const formButton = tv({
   },
   defaultVariants: { intent: "submit" },
 });
+
+/**
+ * The footer band under a modal form's fields: a separator that reaches the dialog's own edges, then
+ * the buttons back at the fields' inset.
+ *
+ * **The negative margin is the whole point and is measured against `ModalShell`.** That dialog draws
+ * `p-4`, and `EntityForm`'s field column adds `px-2`; a border drawn inside either stops short of the
+ * dialog's edges and reads as a stray line rather than as the boundary between what you fill in and
+ * what you press (owner, 2026-08-07). `-mx-6` cancels both (1rem + 0.5rem) and the width grows by the
+ * same 3rem, so the rule spans the dialog while the buttons stay aligned with the inputs above them.
+ *
+ * A constant rather than a class string at each site, because the number is derived from another
+ * component's padding: if `ModalShell`'s `p-4` ever moves, this is the one place that has to follow.
+ */
+export const MODAL_FOOTER = "border-border -mx-6 mt-2 w-[calc(100%+3rem)] border-t px-6 pt-4";

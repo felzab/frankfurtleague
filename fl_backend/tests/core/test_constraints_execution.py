@@ -64,7 +64,15 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "start_date": "2026-01-01",
             "end_date": "2026-06-30",
             "status": "active",
-            "rules": {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2, "number_of_groups": 4, "teams_per_group": 4},
+            "rules": {
+                "win_points": 3,
+                "draw_points": 1,
+                "qualifiers_per_group": 2,
+                "number_of_groups": 4,
+                "teams_per_group": 4,
+                # Which levels this season offers -- a subset of the league's set (ADR-0061).
+                "erlaubte_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
+            },
         },
         "teams": {
             "_id": TEAM_OID,
@@ -83,8 +91,11 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
             "is_nachgetragen": False,
+            "is_captain": False,
             "stufe": "Q2",
-            "position": "Sturm",
+            # `Angriff`, not `Sturm`: the two named the same position and the set closed on this one
+            # (ADR-0061). A "valid document" spelling it the other way is one the validator refuses.
+            "position": "Angriff",
             "nummer": "10",
             "inactive_since": None,
         },

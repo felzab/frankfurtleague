@@ -96,17 +96,24 @@ _INT_OR_NULL = ["int", "null"]
 # scheduled purge possible; the boolean alone could only say "eventually" (open item BE-12).
 _INACTIVE_SINCE = {"bsonType": _STRING_OR_NULL}
 
-# The three enumerations that are already closed sets in Python. Spelled out rather than derived from
-# the `Literal`s: importing the models here would make this module depend on every API slice, and the
+# The enumerations that are already closed sets in Python. Spelled out rather than derived from the
+# `Literal`s: importing the models here would make this module depend on every API slice, and the
 # values are stored strings whose spelling is the contract.
+#
+# What keeps each copy in step is `test_every_validator_enum_matches_its_literal`, which imports both
+# sides and compares them member by member -- the field-name drift check two doors down does NOT reach
+# enum values, so a renamed member would otherwise be caught by nothing until a live write was refused.
 _SAISON_PHASEN = ["gruppenphase", "viertelfinale", "halbfinale", "finale"]
 _SAISON_STATUS = ["past", "active", "future"]
 _GRUPPEN = ["A", "B", "C", "D"]
-# The two ways a bracket slot is fed, and the two outcomes a match-fed one can name. Spelled out here
-# rather than imported from `FLSpielQuelle`: this module imports nothing from `app.api` on purpose
-# (ADR-0031), so the drift check in the test suite is what keeps the two copies in step.
+# The two ways a bracket slot is fed, and the two outcomes a match-fed one can name.
 _QUELLE_TYPES = ["gruppe", "spiel"]
 _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
+# A squad row's position and school level (ADR-0061). Both are NULLABLE -- a squad is filled in over
+# time and an unanswered field is null rather than a placeholder string -- so `None` is a member of
+# each list, which is what lets the `enum` keyword stand beside a nullable `bsonType`.
+_POSITIONEN = ["Tor", "Abwehr", "Mittelfeld", "Angriff"]
+_STUFEN = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
 
 def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
@@ -257,7 +264,14 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # /admin/activate_saison` is the only path to the value and enforces it in one
                 # transaction (ADR-0033); nothing else may write `status` at all.
                 "rules": _object(
-                    required=("win_points", "draw_points", "qualifiers_per_group", "number_of_groups", "teams_per_group"),
+                    required=(
+                        "win_points",
+                        "draw_points",
+                        "qualifiers_per_group",
+                        "number_of_groups",
+                        "teams_per_group",
+                        "erlaubte_stufen",
+                    ),
                     properties={
                         "win_points": {"bsonType": "int"},
                         "draw_points": {"bsonType": "int"},
@@ -271,6 +285,12 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                         # `--check` again reports the documents still lacking the keys.
                         "number_of_groups": {"bsonType": "int"},
                         "teams_per_group": {"bsonType": "int"},
+                        # Which school levels this season's squads may hold -- a subset of the
+                        # league's own set, which `saison_spieler.stufe` is held to (ADR-0061). The
+                        # ITEMS are enumerated, so a season cannot offer a level the league lacks;
+                        # `minItems` is `FLSaisonRules`'s, because a length is a range and ADR-0027
+                        # leaves ranges to Pydantic.
+                        "erlaubte_stufen": {"bsonType": "array", "items": {"bsonType": "string", "enum": _STUFEN}},
                     },
                 ),
             },
@@ -341,7 +361,18 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
     },
     "saison_spieler": {
         "$jsonSchema": _object(
-            required=("_id", "spieler_id", "saison_id", "team_id", "is_nachgetragen", "stufe", "position", "nummer", "inactive_since"),
+            required=(
+                "_id",
+                "spieler_id",
+                "saison_id",
+                "team_id",
+                "is_nachgetragen",
+                "is_captain",
+                "stufe",
+                "position",
+                "nummer",
+                "inactive_since",
+            ),
             properties={
                 "_id": {"bsonType": "objectId"},
                 "spieler_id": {"bsonType": "objectId"},
@@ -350,12 +381,15 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # instead of this reference: unique, well-formed, and wrong.
                 "team_id": {"bsonType": "objectId"},
                 "is_nachgetragen": {"bsonType": "bool"},
-                # Typed, not enumerated. Both are free text and have already split -- `Sturm` and
-                # `Angriff` name the same position in the live data -- so a closed set here would
-                # reject rows that exist. FB-3 is where they become one, in the same change that
-                # normalises the strays.
-                "stufe": {"bsonType": _STRING_OR_NULL},
-                "position": {"bsonType": _STRING_OR_NULL},
+                # The squad's captain for this season. On the JUNCTION rather than the person: it is a
+                # role within one team for one season. Not unique by any rule the database can express
+                # -- a co-captaincy is a real arrangement, and no validator sees two documents (I16).
+                "is_captain": {"bsonType": "bool"},
+                # Closed sets, both nullable while a squad entry is still being filled in (ADR-0061).
+                # This validator is what makes the sets true of the DATA rather than only of the write
+                # path: squads are also hand-edited in MongoDB, where no Pydantic model runs.
+                "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
+                "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
                 # A STRING, not an int. Squad numbers are worn, not counted.
                 "nummer": {"bsonType": _STRING_OR_NULL},
                 # This row is retired, and `uniq_spieler_id_saison_id` keeps indexing it -- so a second

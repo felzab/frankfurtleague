@@ -12,6 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
+from app.api.spieler.schemas import PERSON_NAME_PATTERN
 from app.shared.schemas.custom import CustomObjectId, CustomOptionalDateString, CustomOptionalString
 from app.shared.schemas.kontakt import FLKontakt
 from app.shared.schemas.responses import BaseAPIResponse
@@ -21,20 +22,23 @@ from app.shared.schemas.responses import BaseAPIResponse
 # identifies the resource, the body describes the change).
 class FLPostSchiedsrichterPayload(BaseModel):
     kontakt: FLKontakt
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
     schule: CustomOptionalString
     default_payment: int = Field(ge=0)
 
 
 class FLPatchSchiedsrichterPayload(BaseModel):
     kontakt: FLKontakt
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=1, pattern=PERSON_NAME_PATTERN)
     schule: CustomOptionalString
     default_payment: int = Field(ge=0)
 
 
 class FLSchiedsrichter(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
+    # NO name pattern here, unlike the two payloads above, and the asymmetry is the point: a READ
+    # model that refused a stored name would answer 500 for the whole list because of one row rather
+    # than showing it. The rule belongs on the way IN.
     name: str = Field(min_length=1)
     schule: str | None
     default_payment: int = Field(ge=0)
