@@ -5,7 +5,7 @@
  * the two cannot disagree.
  */
 
-import { ExclamationShape, Magnifier, MapPin, Medal, Person } from "@gravity-ui/icons";
+import { ExclamationShape, Magnifier, MapPin, Medal, Person, Persons } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
@@ -20,6 +20,7 @@ export const ADMIN_SIDEMENU_ICONS = {
   Magnifier,
   Medal,
   Person,
+  Persons,
   MapPin,
 } as const satisfies Record<string, React.ElementType>;
 
@@ -44,7 +45,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "Ergebnis", detail: "Tabelle und Setzung warten darauf." },
             { term: "Datum, Uhrzeit, Ort, Schiedsrichter", detail: "Pflege, die nichts weiter aufhält." },
           ],
-          note: "Abgesagte Spiele stehen nur zum Nachschlagen dort — sie sind keine Aufgabe.",
+          note: "Abgesagte Spiele stehen nur zum Nachschlagen dort, sie sind keine Aufgabe.",
         },
       },
       // Below the queue and above the search box, which is the order the three are reached in: what
@@ -59,9 +60,9 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
         // The chip legend lives here rather than on the page, so the surface has ONE info glyph and
         // it is the shell's — a second one beside the title would be two answers to one question.
         hint: {
-          lead: "Woher jede Seite jedes KO-Spiels kommt und wer gerade darin steht — zum Prüfen der Auslosung, bevor sie gespielt wird.",
+          lead: "Woher jede Seite jedes KO-Spiels kommt und wer gerade darin steht. Zum Prüfen der Auslosung, bevor sie gespielt wird.",
           points: [
-            { term: "„1. der Gruppe A“", detail: "aus der Tabelle gesetzt. So wird die erste KO-Runde besetzt." },
+            { term: "„1. der Gruppe A“", detail: "aus der Tabelle gesetzt. So wird die erste KO.-Runde besetzt." },
             { term: "„Sieger 25.“", detail: "aus einem früheren Spiel. So wird jede spätere Runde besetzt." },
             { term: "„Manuell gesetzt“", detail: "diese Seite gehört Dir, keine Auflösung schreibt hinein." },
             { term: "„Ohne Herkunft“", detail: "weder Mannschaft noch Herkunft. Diese Seite füllt niemand." },
@@ -105,6 +106,25 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
   {
     category_name: "Beteiligte",
     sub_options: [
+      // Named AND iconed for the public team list's own entry (`DASHBOARD_SIDEMENU_ICONS`), for the
+      // finalrunden entry's reason: the same clubs seen for a different purpose.
+      {
+        id: "teams",
+        label: "Teams",
+        iconName: "Persons",
+        hint: {
+          lead: "Alle Teams über alle Saisons, mit Gruppe und Status der im Seitenmenü gewählten Saison.",
+          points: [
+            { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Das Team wird dabei direkt in eine Saison aufgenommen." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Teamseite mit Stammdaten und Saison-Zugehörigkeit." },
+            {
+              term: "Stilllegen",
+              detail: "nur möglich, solange das Team in keiner laufenden oder geplanten Saison spielt. Sein Kürzel bleibt reserviert.",
+            },
+          ],
+          note: "Eine Disqualifikation gilt für eine Saison und wird auf der Teamseite eingetragen. Aus einer Saison entfernt wird nie.",
+        },
+      },
       {
         id: "schiedsrichter",
         label: "Schiedsrichter",

@@ -141,6 +141,6 @@ export const QA_QUESTIONS: QaQuestion[] = [
   {
     id: "finale",
     q: "Gibt es ein großes Finale?",
-    a: "Nach der Gruppenphase folgen die Playoffs, welche vom Viertelfinale bis zum Finale gehen. Diese Spiele sind oft etwas breiter organisiert, als Gruppenspiele.",
+    a: "Nach der Gruppenphase folgt die KO.-Runde, welche vom Viertelfinale bis zum Finale geht. Diese Spiele sind oft etwas breiter organisiert, als Gruppenspiele.",
   },
 ];

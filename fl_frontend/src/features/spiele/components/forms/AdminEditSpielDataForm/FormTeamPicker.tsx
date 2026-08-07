@@ -96,7 +96,7 @@ const isComplete = (quelle: FLSpielQuelle | null): quelle is FLSpielQuelle =>
 const describeFeeder = (spiel: FLSpiel): string => {
   const side1 = spiel.team1?.name ?? formatQuelle(spiel.team1_quelle) ?? PLACEHOLDER.slot;
   const side2 = spiel.team2?.name ?? formatQuelle(spiel.team2_quelle) ?? PLACEHOLDER.slot;
-  return `Spiel ${spiel.spiel_nr} — ${PHASE_LABELS[spiel.saison_phase]}: ${side1} vs. ${side2}`;
+  return `Spiel ${spiel.spiel_nr}, ${PHASE_LABELS[spiel.saison_phase]}: ${side1} vs. ${side2}`;
 };
 
 /**
@@ -586,7 +586,7 @@ export function FormTeamPicker({
                   <ListBox.Item
                     key={spiel.id}
                     id={String(spiel.spiel_nr)}
-                    textValue={isDirectlyPrecedingRound(spiel, spielData) ? `${describeFeeder(spiel)} — empfohlen` : describeFeeder(spiel)}
+                    textValue={isDirectlyPrecedingRound(spiel, spielData) ? `${describeFeeder(spiel)}, empfohlen` : describeFeeder(spiel)}
                     className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                     <span className="min-w-0 truncate">{describeFeeder(spiel)}</span>
                     {isDirectlyPrecedingRound(spiel, spielData) && (

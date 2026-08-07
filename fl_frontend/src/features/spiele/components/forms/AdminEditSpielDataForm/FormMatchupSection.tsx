@@ -142,7 +142,10 @@ export function FormMatchupSection({
           onValidateSelection={onValidateSelection}
         />
 
-        <Separator className="bg-border" />
+        {/* Full-bleed across the body's own padding, so it reads like the header's border
+            rather than an inset rule between the two pickers (owner, 2026-08-07). `w-auto` because
+            negative margins and `w-full` overflow together. */}
+        <Separator className="bg-border -mx-4 h-px w-auto sm:-mx-5" />
 
         <FormTeamPicker
           label="Team 2"

@@ -32,8 +32,11 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, ExternalUrlSchema, FLAddressSchema } from "@/shared/schemas";
 
-/** Mirrors `FLGruppenNames`. A closed set, so a group outside it is a malformed response, not a name. */
-export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"]);
+/**
+ * Mirrors `FLGruppenNames`. A closed set, so a group outside it is a malformed response, not a name.
+ * German error because the group picker binds this schema too, and an untouched picker submits null.
+ */
+export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"], { error: "Bitte wähle eine Gruppe." });
 export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
 
 /**
@@ -46,7 +49,9 @@ export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
  * label, and never parsed for a category it does not carry.
  */
 export const FLDisqualifikationSchema = z.object({
-  grund: z.string().nonempty(),
+  // German because the junction editor binds this schema to its inputs (ADR-0050); on a response
+  // parse the message is only ever logged.
+  grund: z.string().nonempty({ error: "Bitte gib einen Grund an. Er wird öffentlich angezeigt." }),
   datum: CustomDateStringSchema,
 });
 export type FLDisqualifikation = z.infer<typeof FLDisqualifikationSchema>;
@@ -74,7 +79,7 @@ export const FLTeamSchema = z.object({
   // backend on every read, so it cannot go stale against a match document.
   disqualifikation: FLDisqualifikationSchema.nullable(),
   shorthand: z.string().length(2),
-  description: z.string(),
+  description: z.string().max(4096),
   full_name: z.string().nonempty(),
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
   website_url: ExternalUrlSchema,
@@ -128,3 +133,141 @@ export const FLTeamsSingleResponseSchema = BaseAPIResponseSchema.extend({
   team: FLTeamSchema,
 });
 export type FLTeamsSingleResponse = z.infer<typeof FLTeamsSingleResponseSchema>;
+
+// ── The write path (FB-3) ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The club's own fields, shared by create and patch — `PATCH /teams/{team_id}` replaces them
+ * wholesale, so the two payloads carry the same field set. German messages: these back the admin
+ * form's inputs directly.
+ */
+const teamPayloadFields = {
+  name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
+  // Exactly two characters, held unique across every club — retired ones included (ADR-0032).
+  shorthand: z.string().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
+  description: z.string().max(4096, { error: "Die Beschreibung darf höchstens 4096 Zeichen lang sein." }),
+  full_name: z.string().nonempty({ error: "Bitte gib den vollständigen Namen ein." }),
+  website_url: ExternalUrlSchema,
+  address: FLAddressSchema,
+};
+
+export const FLPostTeamPayloadSchema = z.object(teamPayloadFields);
+export type FLPostTeamPayload = z.infer<typeof FLPostTeamPayloadSchema>;
+
+export const FLPatchTeamPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  ...teamPayloadFields,
+});
+export type FLPatchTeamPayload = z.infer<typeof FLPatchTeamPayloadSchema>;
+
+export const FLDeleteTeamPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLDeleteTeamPayload = z.infer<typeof FLDeleteTeamPayloadSchema>;
+
+export const FLReactivateTeamPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+});
+export type FLReactivateTeamPayload = z.infer<typeof FLReactivateTeamPayloadSchema>;
+
+/**
+ * What one form submits to create a club AND enter it into a season, which the action splits into
+ * two requests (`POST /teams`, then `POST /teams/{id}/saisons`). One form on purpose: every list
+ * read is season-scoped with a strict junction join (I11), so a club created without a junction row
+ * would be invisible to every surface that could give it one.
+ */
+export const FLCreateTeamFormPayloadSchema = z.object({
+  ...teamPayloadFields,
+  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  gruppe: FLGruppenNamesSchema,
+});
+export type FLCreateTeamFormPayload = z.infer<typeof FLCreateTeamFormPayloadSchema>;
+
+/**
+ * Mirrors `FLTeamRecord` — the club document as it is STORED, which is what every write echoes.
+ *
+ * Distinct from `FLTeam` on purpose: a write changes nothing season-scoped, and re-reading the read
+ * shape would 404 for a club with no junction row in the current season — the normal state for a
+ * club being created, retired or reactivated.
+ */
+export const FLTeamRecordSchema = z.object({
+  id: CustomObjectIdStringSchema,
+
+  name: z.string().nonempty(),
+  shorthand: z.string().length(2),
+  description: z.string().max(4096),
+  full_name: z.string().nonempty(),
+  website_url: ExternalUrlSchema,
+  address: FLAddressSchema,
+  inactive_since: CustomDateStringSchema.nullable(),
+});
+export type FLTeamRecord = z.infer<typeof FLTeamRecordSchema>;
+
+/** Mirrors `FLTeamMembership` — one junction row as seen from its club. */
+export const FLTeamMembershipSchema = z.object({
+  saison_id: z.string(),
+  gruppe: FLGruppenNamesSchema,
+  disqualifikation: FLDisqualifikationSchema.nullable(),
+});
+export type FLTeamMembership = z.infer<typeof FLTeamMembershipSchema>;
+
+/**
+ * Mirrors `FLTeamWithMemberships` — the stored club record plus every season membership it holds.
+ * The admin list's one read; a different question from `FLTeam`, not a projection of it (ADR-0034).
+ */
+export const FLTeamWithMembershipsSchema = FLTeamRecordSchema.extend({
+  memberships: z.array(FLTeamMembershipSchema),
+});
+export type FLTeamWithMemberships = z.infer<typeof FLTeamWithMembershipsSchema>;
+
+export const FLTeamsMembershipsResponseSchema = BaseAPIResponseSchema.extend({
+  teams: z.array(FLTeamWithMembershipsSchema),
+});
+export type FLTeamsMembershipsResponse = z.infer<typeof FLTeamsMembershipsResponseSchema>;
+
+export const FLPostTeamResponseSchema = BaseAPIResponseSchema.extend({
+  created_id: CustomObjectIdStringSchema,
+});
+export type FLPostTeamResponse = z.infer<typeof FLPostTeamResponseSchema>;
+
+export const FLPatchTeamResponseSchema = BaseAPIResponseSchema.extend({
+  updated_document: FLTeamRecordSchema,
+  // How many embedded copies the rename reached (ADR-0028 rule 3). The fan-out is the half of the
+  // endpoint that fails silently, so the count is surfaced in the save toast rather than dropped.
+  fanned_out_to_spiele: z.int().nonnegative(),
+});
+export type FLPatchTeamResponse = z.infer<typeof FLPatchTeamResponseSchema>;
+
+/** What retire and reactivate echo — the stored record, for the reason stated on it. */
+export const FLTeamWriteResponseSchema = BaseAPIResponseSchema.extend({
+  updated_document: FLTeamRecordSchema,
+});
+export type FLTeamWriteResponse = z.infer<typeof FLTeamWriteResponseSchema>;
+
+export const FLPostSaisonTeamPayloadSchema = z.object({
+  // In the PATH on the wire; carried here because the form has to know which club it is entering.
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
+  gruppe: FLGruppenNamesSchema,
+});
+export type FLPostSaisonTeamPayload = z.infer<typeof FLPostSaisonTeamPayloadSchema>;
+
+export const FLPatchSaisonTeamPayloadSchema = z.object({
+  // Both ids are in the PATH on the wire — the junction row is addressed by its natural key.
+  team_id: CustomObjectIdStringSchema,
+  saison_id: z.string().length(4),
+  gruppe: FLGruppenNamesSchema,
+  // The whole record, or `null` to lift one. REQUIRED with no default on either side (ADR-0059): a
+  // form that omits it gets a 422, never a team quietly reinstated.
+  disqualifikation: FLDisqualifikationSchema.nullable(),
+});
+export type FLPatchSaisonTeamPayload = z.infer<typeof FLPatchSaisonTeamPayloadSchema>;
+
+/** A junction row, echoed as it was written — it has no read model of its own. */
+export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string(),
+  team_id: CustomObjectIdStringSchema,
+  gruppe: FLGruppenNamesSchema,
+  disqualifikation: FLDisqualifikationSchema.nullable(),
+});
+export type FLSaisonTeamResponse = z.infer<typeof FLSaisonTeamResponseSchema>;

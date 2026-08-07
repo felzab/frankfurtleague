@@ -24,9 +24,6 @@ export function AdminCrudFallback() {
       role="status"
       aria-label="Daten werden geladen"
       className="animate-in fade-in fill-mode-both flex flex-col gap-8 delay-200 duration-150">
-      {/* The search field's silhouette — same height, radius, border and width cap as `SearchBar`. */}
-      <div className="bg-surface border-border h-12 w-full max-w-md rounded-xl border shadow-sm lg:h-15" />
-
       <div className={`${card()} h-fit w-full overflow-hidden p-0`}>
         <div className="bg-muted border-border flex items-center gap-6 border-b px-6 py-4">
           {HEADER_CELL_WIDTHS.map((width) => (

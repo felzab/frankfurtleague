@@ -67,7 +67,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                 {qualifying.size > 0 && (
                   <p className="fluid-xxs text-foreground-muted font-medium">
                     Hervorgehoben {qualifying.size === 1 ? "ist das Team, das" : `sind die ${qualifying.size} Teams, die`} aktuell auf einem
-                    Playoff-Platz {qualifying.size === 1 ? "steht" : "stehen"}.
+                    KO.-Runden-Platz {qualifying.size === 1 ? "steht" : "stehen"}.
                   </p>
                 )}
               </div>
@@ -116,7 +116,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                           }`}>
                           {/* The colour is never the only carrier. A screen reader gets the same fact the
                             rule and the legend give a sighted reader, in the cell that states the place. */}
-                          {qualifying.has(teamData.id) && <span className="sr-only">Playoff-Platz: </span>}
+                          {qualifying.has(teamData.id) && <span className="sr-only">KO.-Runden-Platz: </span>}
                           {teamData.statistik.anzahl_gespielte_spiele === 0 ? "N/A" : (platzByTeamId.get(teamData.id) ?? "—")}
                         </Table.Cell>
 

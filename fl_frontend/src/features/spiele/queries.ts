@@ -21,6 +21,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
+import { APIBadStatusError } from "@/core/errors";
 
 import { FLSpieleListResponseSchema, FLSpieleSingleResponseSchema } from "./schemas";
 
@@ -52,14 +53,21 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
  * than `spiele` describes what one match write invalidates. The action invalidates `spiele`
  * unconditionally on every match write, so this entry can never outlive an edit (ADR-0001).
  *
- * Throws `APIBadStatusError` with `statusCode: 404` when the id matches no match — the edit page catches
- * exactly that and rethrows everything else, so a backend outage never reads as a missing fixture.
+ * **Resolves `null` when the id matches no match, and the 404 → null conversion must stay INSIDE this
+ * function.** In a production build, an error thrown out of a `"use cache"` scope reaches the awaiting
+ * caller redacted to a digest-only `Error` — `instanceof` and `statusCode` are gone — so a catch at
+ * the call site can never recognise the 404 and the edit page rendered the error page for an unknown
+ * id. Only the 404 becomes a value; everything else still throws, so a backend outage never reads as
+ * a missing fixture.
  */
-export async function getSpiel(spielId: string): Promise<FLSpieleSingleResponse> {
+export async function getSpiel(spielId: string): Promise<FLSpieleSingleResponse | null> {
   "use cache";
 
   cacheTag("spiele");
   cacheLife("hours");
 
-  return apiClient(`/spiele/${spielId}`, FLSpieleSingleResponseSchema);
+  return apiClient(`/spiele/${spielId}`, FLSpieleSingleResponseSchema).catch((error: unknown) => {
+    if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+    throw error;
+  });
 }

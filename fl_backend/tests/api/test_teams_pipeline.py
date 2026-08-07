@@ -24,7 +24,7 @@ from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import AS_NAME, STATISTIK_AS_NAME, build_team_pipeline
 
-STANDARD_RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2)
+STANDARD_RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
 
 Pipeline = list[Mapping[str, Any]]
 
@@ -133,7 +133,7 @@ def test_never_consults_is_canceled():
 
 def test_scores_with_the_seasons_own_points_rather_than_a_constant():
     """A 2/0/0 season, which shares no number with the 3/1/0 default — a hardcoded scheme cannot pass both."""
-    unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2)
+    unusual = FLSaisonRules(win_points=2, draw_points=0, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
 
     punkte = statistik_stage(build(rules=unusual))["pipeline"][-1]["$project"]["punkte"]
 

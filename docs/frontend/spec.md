@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `1c1e644`, 2026-08-07
+**Verified against:** `cf88b87`, 2026-08-07
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -9,20 +9,20 @@
 
 Twelve slices. The column shows which optional modules each actually has.
 
-| Slice            | queries | mutations | actions | schemas | Notes                                                         |
-| ---------------- | :-----: | :-------: | :-----: | :-----: | ------------------------------------------------------------- |
-| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `resolvers.ts`, `utils.ts` + tests |
-| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `utils.ts` + tests                                 |
-| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                                     |
-| `teams`          |   ✅    |     —     |    —    |   ✅    | `resolvers.ts`, `utils.ts` + tests                            |
-| `saisons`        |   ✅    |     —     |    —    |   ✅    | `resolvers.ts`                                                |
-| `spieler`        |   ✅    |     —     |    —    |   ✅    | Read-only                                                     |
-| `spieltage`      |   ✅    |     —     |    —    |   ✅    | Read-only                                                     |
-| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only                                                     |
-| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `utils.ts` + tests                |
-| `auth`           |    —    |     —     |   ✅    |    —    | `signOutAction` only                                          |
-| `dashboard`      |    —    |     —     |    —    |    —    | Components + constants only                                   |
-| `meta`           |    —    |     —     |    —    |    —    | Components + constants only                                   |
+| Slice            | queries | mutations | actions | schemas | Notes                                                           |
+| ---------------- | :-----: | :-------: | :-----: | :-----: | --------------------------------------------------------------- |
+| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `resolvers.ts`, `utils.ts` + tests   |
+| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `utils.ts` + tests                                   |
+| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                                       |
+| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `resolvers.ts`, `utils.ts` + tests |
+| `saisons`        |   ✅    |     —     |    —    |   ✅    | `resolvers.ts`                                                  |
+| `spieler`        |   ✅    |     —     |    —    |   ✅    | Read-only                                                       |
+| `spieltage`      |   ✅    |     —     |    —    |   ✅    | Read-only                                                       |
+| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only                                                       |
+| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `utils.ts` + tests                  |
+| `auth`           |    —    |     —     |   ✅    |    —    | `signOutAction` only                                            |
+| `dashboard`      |    —    |     —     |    —    |    —    | Components + constants only                                     |
+| `meta`           |    —    |     —     |    —    |    —    | Components + constants only                                     |
 
 `utils.ts` and `resolvers.ts` are sanctioned optional modules. They exist separately from `queries.ts`
 because they hold non-caching code, and folding them in would put pure functions inside a `"use cache"`
@@ -38,6 +38,7 @@ Thirteen `"use cache"` functions.
 | `getSpiel`                                     | spiele         | `hours`   | `spiele`                                         |
 | `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
 | `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
+| `getTeamMemberships`                           | teams          | `days`    | `teams` (admin-authed; every team action clears) |
 | `getSaisons`                                   | saisons        | `days`    | `saisons`                                        |
 | `getCurrentSaison`                             | saisons        | `days`    | `saisons`                                        |
 | `getSpieler`                                   | spieler        | `days`    | `spieler`                                        |
@@ -56,15 +57,19 @@ by match id with no season in the URL ([ADR-0050](../_decisions/0050-a-form-that
 so the season a granular tag would name is what this read exists to supply — and a season tag would be
 wrong even where one is available, because a match write resolves the whole bracket and rewrites fixtures
 the request never named ([ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md)). The
-patch action invalidates `spiele` unconditionally, so this entry cannot outlive an edit. It throws
-`APIBadStatusError` with `statusCode: 404` for an unknown id, which the editor page catches to reach
-`notFound()`; every other error is rethrown.
+patch action invalidates `spiele` unconditionally, so this entry cannot outlive an edit. It resolves
+`null` for an unknown id, which the editor page turns into `notFound()`; every other error is
+rethrown. The 404 → null conversion lives INSIDE the cached function, because a production build
+redacts an error thrown out of a `"use cache"` scope to a digest-only `Error` — a catch at the call
+site can never recognise it.
 
 **`getTeam` is `GET /teams/{team_id}` and is tagged exactly as `getTeams` is** — it reads the same
 documents through the same derivation, so a result edit moves it too
-([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). It throws
-`APIBadStatusError` with `statusCode: 404` for an unknown id, which the two team detail pages catch to reach
-`notFound()`; every other error is rethrown so it reaches `onRequestError`.
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). It resolves
+`null` for an unknown id — or a club with no junction row for the requested season, since the join is
+strict — for the same redaction reason as `getSpiel`; the detail pages and the admin team editor turn
+the null into `notFound()` or an absent membership. Every other error is rethrown so it reaches
+`onRequestError`.
 
 **`getTeams` caches two tables per season, not one.** `statistik_scope` is part of the cache key
 ([ADR-0029](../_decisions/0029-the-league-table-counts-the-gruppenphase.md)): the Saisontabelle asks
@@ -81,7 +86,7 @@ disagree about who finished second. That response also carries `qualifiers_per_g
 
 ## 3. Admin mutations
 
-Eight admin server actions plus one auth action, and **one route handler**. Every admin mutation
+Fourteen admin server actions plus one auth action, and **two route handlers**. Every admin mutation
 begins with `getAdminSession()` and returns an access-denied `FormState` rather than throwing, and
 every one runs inside
 `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`, which seeds the correlation-id
@@ -89,11 +94,13 @@ request scope and converts a thrown API error into the `FormState` the caller to
 409 (an ordinary create outcome, ADR-0032) crosses the server-action boundary redacted and replaces
 the admin page with the error page ([`docs/logging.md`](../logging.md)).
 
-**The route handler is `POST /api/admin/spiele/undo`, and it is the only one**
-([ADR-0055](../_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)). A server action
-is the right primitive for an admin mutation and stays so for the other eight; the undo is dispatched
-from a route other than the one that raised it, which makes Next re-render the editor segment and
-raise the I22 invariant mid-response. **Revert it to a server action once Next fixes E592.**
+**The route handlers are the two editors' undos — `POST /api/admin/spiele/undo` and
+`POST /api/admin/teams/undo` — and the boundary stops there**
+([ADR-0060](../_decisions/0060-an-editors-undo-is-a-route-handler-until-e592-is-fixed.md)). A server
+action is the right primitive for an admin mutation and stays so for every other one; an undo is
+dispatched from a route other than the one that raised it, which makes Next re-render the editor
+segment and raise the E592 invariant mid-response. **Revert both to server actions once Next fixes
+E592.**
 
 | Action                        | Slice          | Invalidates                                                          |
 | ----------------------------- | -------------- | -------------------------------------------------------------------- |
@@ -105,10 +112,36 @@ raise the I22 invariant mid-response. **Revert it to a server action once Next f
 | `postSchiedsrichterAction`    | schiedsrichter | `schiedsrichter`                                                     |
 | `patchSchiedsrichterAction`   | schiedsrichter | `schiedsrichter`, `spiele`                                           |
 | `deleteSchiedsrichterAction`  | schiedsrichter | `schiedsrichter`                                                     |
+| `postTeamAction`              | teams          | `teams`, + `teams:saison_id:{id}`                                    |
+| `patchTeamAction`             | teams          | `teams`, `spiele`                                                    |
+| `deleteTeamAction`            | teams          | `teams`                                                              |
+| `reactivateTeamAction`        | teams          | `teams`                                                              |
+| `postSaisonTeamAction`        | teams          | `teams`, + `teams:saison_id:{id}`                                    |
+| `patchSaisonTeamAction`       | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
 | `signOutAction`               | auth           | —                                                                    |
 
-The two patch actions also invalidate `spiele` because the backend fans a venue or referee rename out
-into every match document embedding it — so match data really has changed.
+The venue, referee and team patch actions also invalidate `spiele` because the backend fans a rename
+out into every match document embedding it — so match data really has changed. The team patch stays on
+base tags alone: a club is season-independent, so its rename touches every season's entries and no
+granular tag names them all. `patchSaisonTeamAction` invalidates the `spiele` pair for a different
+reason — no match document is written, but each side's `disqualifikation` is JOINED from the junction
+row at read time ([`docs/backend/spec.md`](../backend/spec.md) I32), so the junction write changes
+what `GET /spiele` returns for that season.
+
+The team create is **one action over two requests** — `POST /teams`, then
+`POST /teams/{team_id}/saisons` — because every team read is season-scoped with a strict junction
+join (I11 there): a club created without a junction row would be invisible to the very list the
+create form sits on, with no surface left that could give it one.
+
+**Season entry is offered only where the backend would take it.** The create form and the club
+editor's Aufnehmen affordance offer only `future` seasons, and their group picker
+(`fl_frontend/src/features/teams/components/forms/GruppeSelect.tsx :: offer`) shows each offered
+group's fill state with full ones disabled — derived by
+`fl_frontend/src/features/teams/utils.ts :: buildGruppeOffer` from the season's `rules` and the
+memberships read. The junction write's refusals (`REQ-ENTER-001..003`,
+[`docs/logging.md`](../logging.md)) stay authoritative;
+`fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal` turns each into its German answer, on
+the group field where the group is what was refused.
 
 **Every mutation addresses its resource with the id in the PATH** — `PATCH /spielorte/{id}`,
 `DELETE /schiedsrichter/{id}`, `PATCH /spiele/{spiel_id}`. There is no admin-prefixed route namespace,
@@ -118,9 +151,9 @@ schemas still carry `id`, because they back the admin forms, so each function in
 it off before sending the body. **A backend payload model that saw an `id` would drop it silently**,
 which is why the split is in one place per slice rather than at each call site.
 
-**Six of the seven resources have write endpoints no action calls yet.** Teams, players, seasons,
-matchdays and both season junctions are reachable from the API and have no admin page — that is FB-3
-and FB-6.
+**Three of the seven resources have write endpoints no action calls yet.** Players, seasons and
+matchdays — plus the player season junction — are reachable from the API and have no admin page. That
+is FB-3's spieler half and FB-6.
 
 ## 4. The cache tag design
 
@@ -130,10 +163,10 @@ A granular tag is worth having only if **(a)** its resource can be written from 
 
 Two granular tags satisfy both and exist:
 
-| Tag                  | Why it earns its place                                                                                                                                      |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `spiele:saison_id:*` | Editing one match in one season must not evict every other season's cached lists, and the patch action knows exactly which season it touched                |
-| `teams:saison_id:*`  | The same edit changes that season's league table, which `/teams` derives from the matches — so team caches must go too, though no team document was written |
+| Tag                  | Why it earns its place                                                                                                                                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spiele:saison_id:*` | Editing one match in one season must not evict every other season's cached lists, and the patch action knows exactly which season it touched                                                                                                   |
+| `teams:saison_id:*`  | The same edit changes that season's league table, which `/teams` derives from the matches — so team caches must go too, though no team document was written. The season-junction actions write exactly one season's membership and name it too |
 
 Twenty others were removed. The reasoning, by group:
 
@@ -164,7 +197,7 @@ the whole mechanism**
 ([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). There is
 no invalidation endpoint for these caches, and none may be added while the resources have no admin
 write surface; the durable fix is an admin page that invalidates as it saves (`updateTag` inside
-the action, ADR-0001), which is open items FB-3 and FB-6.
+the action, ADR-0001), which is FB-3's remaining spieler half and FB-6.
 
 To make an edit visible sooner, recreate the frontend container — the cache lives in its
 filesystem, so recreation starts empty at the cost of every cached page, not three tags. The

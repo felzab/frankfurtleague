@@ -5,7 +5,18 @@ import { Pencil, Plus, Xmark } from "@gravity-ui/icons";
 import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
-import type { FLSpielFieldGroup, FLSpielFieldStatus } from "@/features/spiele/draftStatus";
+/**
+ * The structural slice of a field status this list needs — `FLSpielFieldStatus` and
+ * `FLTeamFieldStatus` are both assignable, which is what lets one list serve both editors without
+ * `shared` importing a feature.
+ */
+export type DraftChangeRow = {
+  path: string;
+  label: string;
+  group: string;
+  storedText: string | null;
+  draftText: string | null;
+};
 
 /**
  * What kind of edit a changed field carries. Read off the two formatted values, so every surface
@@ -13,7 +24,7 @@ import type { FLSpielFieldGroup, FLSpielFieldStatus } from "@/features/spiele/dr
  */
 export type DraftOperation = "added" | "removed" | "altered";
 
-export const operationOf = (field: FLSpielFieldStatus): DraftOperation =>
+export const operationOf = (field: DraftChangeRow): DraftOperation =>
   field.storedText === null ? "added" : field.draftText === null ? "removed" : "altered";
 
 const OPERATION_PRESENTATION: Record<DraftOperation, { icon: typeof Plus; cls: string; word: string }> = {
@@ -38,13 +49,13 @@ const OPERATION_PRESENTATION: Record<DraftOperation, { icon: typeof Plus; cls: s
  * by filling its row. A row whose label IS its group name drops the label, so "Absage" is not said
  * twice one line apart.
  */
-export function DraftChangeList({ changed }: { changed: readonly FLSpielFieldStatus[] }) {
+export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[] }) {
   if (changed.length === 0) {
     return <p className="fluid-xs text-foreground-muted font-medium">Noch keine Änderungen.</p>;
   }
 
   // Insertion order follows `changed`, which follows the descriptor table — the panels' own order.
-  const grouped = new Map<FLSpielFieldGroup, FLSpielFieldStatus[]>();
+  const grouped = new Map<string, DraftChangeRow[]>();
   for (const field of changed) {
     const section = grouped.get(field.group);
     if (section) section.push(field);

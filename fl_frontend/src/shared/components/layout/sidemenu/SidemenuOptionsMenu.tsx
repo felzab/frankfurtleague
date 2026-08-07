@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ArrowRightFromSquare, Ellipsis, TriangleExclamation } from "@gravity-ui/icons";
+import { ArrowRightFromSquare, Ellipsis } from "@gravity-ui/icons";
 
 import { Dropdown, Label, Separator } from "@heroui/react";
 
@@ -80,7 +80,7 @@ export function SidemenuOptionsMenu({
            control. The popover is portalled, so overhanging the drawer costs nothing; react-aria keeps
            it on screen. From `lg` it matches the footer's content box again, which is what stops it
            spilling into the content area beside a permanent rail. */
-        className={`rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
+        className={`min-w-[250px] rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
         <Dropdown.Menu aria-label="Seitenmenü-Optionen">
           <Dropdown.Section aria-label="Einstellungen">
             {/* `shouldCloseOnSelect={false}`: this row is a container for a control, not a command,
@@ -145,7 +145,8 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
   return (
     <Dropdown.Item
       id="sign-out"
-      textValue={isConfirming ? "Wirklich abmelden?" : "Abmelden"}
+      textValue={isConfirming ? "Abmelden?" : "Abmelden"}
+      data-signout-control="true"
       isDisabled={isSigningOut}
       /* Without this the first press dismisses the menu and the second never happens — the escape
          hatch that makes an in-place confirm possible at all. Escaping stays deliberately easy:
@@ -169,17 +170,13 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
       className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
         isConfirming ? "bg-danger/20!" : "bg-danger/10!"
       }`}>
-      <Label className="fluid-sm text-danger min-w-0 flex-1 font-semibold">
-        {isSigningOut ? "Wird abgemeldet..." : isConfirming ? "Wirklich abmelden?" : "Abmelden"}
+      {/* Armed, the row is its QUESTION and nothing else (owner, 2026-08-07): the glyph goes and
+          the label centres — one thing to read, no icon to mis-align against it. The tint and the
+          label still both shift, so the state never rests on colour alone. */}
+      <Label className={`fluid-sm text-danger min-w-0 flex-1 font-semibold ${isConfirming ? "text-center" : ""}`}>
+        {isSigningOut ? "Wird abgemeldet..." : isConfirming ? "Abmelden?" : "Abmelden"}
       </Label>
-      {/* The icon changes with the state so the row does not rely on colour alone to say it is armed
-          — the tint and the label both shift, and so does the glyph. */}
-      {isConfirming ? (
-        <TriangleExclamation
-          aria-hidden="true"
-          className="text-danger size-4 shrink-0"
-        />
-      ) : (
+      {!isConfirming && (
         <ArrowRightFromSquare
           aria-hidden="true"
           className="text-danger size-4 shrink-0"

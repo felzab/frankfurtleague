@@ -27,7 +27,7 @@ from app.api.teams.services import build_decided_standings, build_gruppen
 TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 
-RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2)
+RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
 
 # What `disqualifikation` holds for a team that is out. Its CONTENTS do not reach this file's subject --
 # the standing walks past a team because the field is non-null, never because of what it says (ADR-0059)

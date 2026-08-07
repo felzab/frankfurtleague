@@ -449,7 +449,7 @@ describe("formatBracketFault", () => {
   it("names a platz the group will never produce", () => {
     assert.equal(
       formatBracketFault(gruppeFault("gruppe_too_small", "A", 5)),
-      "Spiel 25 verweist auf Platz 5 der Gruppe A — so weit reicht diese Gruppe nicht",
+      "Spiel 25 verweist auf Platz 5 der Gruppe A, doch so weit reicht diese Gruppe nicht",
     );
   });
 
@@ -470,7 +470,7 @@ describe("formatBracketFault", () => {
   it("says a chain closes on itself rather than that a number is missing", () => {
     assert.equal(
       formatBracketFault({ reason: "reference_cycle", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29, quelle_spiel_nr: 30 }),
-      "Spiel 29 verweist über Spiel 30 auf eine Verweiskette, die sich schließt — sie kann kein Ergebnis liefern",
+      "Spiel 29 verweist über Spiel 30 auf eine Verweiskette, die sich schließt und kein Ergebnis liefern kann",
     );
   });
 

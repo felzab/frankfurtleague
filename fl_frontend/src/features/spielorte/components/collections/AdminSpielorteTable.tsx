@@ -50,116 +50,153 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
   };
 
+  // One source for both layouts, the teams table's pattern: the `md+` table's cells and the phone
+  // cards render these, so the two presentations cannot disagree about a row or its controls.
+  const renderAddress = (ort: FLSpielort) => (
+    <div className="flex flex-col gap-0.5">
+      <span className="fluid-sm text-foreground">
+        {ort.address.strasse} {ort.address.hausnummer}
+      </span>
+      <span className="fluid-xs text-foreground-muted">
+        {ort.address.plz} {ort.address.stadt}
+        {ort.address.stadtteil && ` (${ort.address.stadtteil})`}
+      </span>
+    </div>
+  );
+
+  const renderMietpreis = (ort: FLSpielort) => (
+    <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
+      {formatEuro(ort.default_mietpreis)}
+    </span>
+  );
+
+  const renderActions = (ort: FLSpielort) => (
+    <RowActions>
+      <RowActionLink
+        href={formatMapsLink(ort)}
+        label="Auf Maps öffnen"
+        ariaLabel={`${ort.name} auf Google Maps öffnen`}
+        external>
+        <Globe
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
+      <RowActionLink
+        href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
+        label="Spiele anzeigen"
+        ariaLabel={`Spiele in ${ort.name} anzeigen`}>
+        <Calendar
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </RowActionLink>
+      <RowActionCopy
+        label="Adresse kopieren"
+        ariaLabel={`Adresse von ${ort.name} kopieren`}
+        onPress={() => handleCopyAddress(ort)}
+      />
+      <RowActionEdit
+        label="Bearbeiten"
+        ariaLabel={`Spielort ${ort.name} bearbeiten`}
+        onPress={() => setEditingOrt(ort)}
+      />
+      <RowActionDelete
+        label="Löschen"
+        ariaLabel={`Spielort ${ort.name} löschen`}
+        onPress={() => setDeletingOrt(ort)}
+      />
+    </RowActions>
+  );
+
+  const emptyState = (
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+      <p className="fluid-sm text-foreground-muted font-medium">
+        {spielortQuery ? "Keine Spielorte für diese Suche gefunden." : "Es wurden noch keine Spielorte angelegt."}
+      </p>
+    </div>
+  );
+
   return (
-    <Table className={`${card()} h-fit w-full p-0`}>
-      <Table.ScrollContainer className="scrollbar-hide">
-        <Table.Content aria-label="Tabelle aller Spielorte">
-          <Table.Header>
-            <Table.Column
-              isRowHeader
-              className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-              Name
-            </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-              Adresse
-            </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
-              Std. Mietpreis
-            </Table.Column>
-            <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
-              Aktionen
-            </Table.Column>
-          </Table.Header>
+    <>
+      {/* The phone layout: one card per venue, no horizontal scrolling anywhere (owner, 2026-08-07
+          — the teams table's card pattern, applied here as FE-13 asked). */}
+      <div className="flex w-full flex-col gap-3 md:hidden">
+        {filteredSpielorte.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
+        {filteredSpielorte.map((ort) => (
+          <div
+            key={ort.id}
+            className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
+            <div className="flex w-full flex-row items-center gap-3">
+              <MapPin
+                className="text-brand shrink-0"
+                width={18}
+                height={18}
+              />
+              <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{ort.name}</span>
+              <span className="ml-auto shrink-0">{renderMietpreis(ort)}</span>
+            </div>
+            {renderAddress(ort)}
+            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(ort)}</div>
+          </div>
+        ))}
+      </div>
 
-          {/* `items` + a render function, not mapped children: the static form stops committing its
-              row collection after a few client navigations away and back. */}
-          <Table.Body
-            items={filteredSpielorte}
-            renderEmptyState={() => (
-              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-                <p className="fluid-sm text-foreground-muted font-medium">
-                  {spielortQuery ? "Keine Spielorte für diese Suche gefunden." : "Es wurden noch keine Spielorte angelegt."}
-                </p>
-              </div>
-            )}>
-            {(ort: FLSpielort) => (
-              <Table.Row
-                id={ort.id}
-                className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
-                <Table.Cell className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <MapPin
-                      className="text-brand shrink-0"
-                      width={18}
-                      height={18}
-                    />
-                    <span className="fluid-sm text-foreground font-semibold">{ort.name}</span>
-                  </div>
-                </Table.Cell>
+      <div className="hidden w-full md:block">
+        <Table className={`${card()} h-fit w-full p-0`}>
+          <Table.ScrollContainer className="scrollbar-hide">
+            <Table.Content aria-label="Tabelle aller Spielorte">
+              <Table.Header>
+                <Table.Column
+                  isRowHeader
+                  className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Name
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Adresse
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 font-bold tracking-wider uppercase">
+                  Std. Mietpreis
+                </Table.Column>
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border border-b px-6 py-4 text-right font-bold tracking-wider uppercase">
+                  Aktionen
+                </Table.Column>
+              </Table.Header>
 
-                <Table.Cell className="px-6 py-4">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="fluid-sm text-foreground">
-                      {ort.address.strasse} {ort.address.hausnummer}
-                    </span>
-                    <span className="fluid-xs text-foreground-muted">
-                      {ort.address.plz} {ort.address.stadt}
-                      {ort.address.stadtteil && ` (${ort.address.stadtteil})`}
-                    </span>
-                  </div>
-                </Table.Cell>
+              {/* `items` + a render function, not mapped children: the static form stops committing its
+                  row collection after a few client navigations away and back. */}
+              <Table.Body
+                items={filteredSpielorte}
+                renderEmptyState={() => emptyState}>
+                {(ort: FLSpielort) => (
+                  <Table.Row
+                    id={ort.id}
+                    className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
+                    <Table.Cell className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <MapPin
+                          className="text-brand shrink-0"
+                          width={18}
+                          height={18}
+                        />
+                        <span className="fluid-sm text-foreground font-semibold">{ort.name}</span>
+                      </div>
+                    </Table.Cell>
 
-                <Table.Cell className="px-6 py-4">
-                  <span className="bg-muted text-foreground fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide">
-                    {formatEuro(ort.default_mietpreis)}
-                  </span>
-                </Table.Cell>
+                    <Table.Cell className="px-6 py-4">{renderAddress(ort)}</Table.Cell>
 
-                <Table.Cell className="px-6 py-4">
-                  <RowActions>
-                    <RowActionLink
-                      href={formatMapsLink(ort)}
-                      label="Auf Maps öffnen"
-                      ariaLabel={`${ort.name} auf Google Maps öffnen`}
-                      external>
-                      <Globe
-                        aria-hidden="true"
-                        width={18}
-                        height={18}
-                      />
-                    </RowActionLink>
-                    <RowActionLink
-                      href={`/admin/spielsuche?q=${encodeURIComponent(ort.name)}`}
-                      label="Spiele anzeigen"
-                      ariaLabel={`Spiele in ${ort.name} anzeigen`}>
-                      <Calendar
-                        aria-hidden="true"
-                        width={18}
-                        height={18}
-                      />
-                    </RowActionLink>
-                    <RowActionCopy
-                      label="Adresse kopieren"
-                      ariaLabel={`Adresse von ${ort.name} kopieren`}
-                      onPress={() => handleCopyAddress(ort)}
-                    />
-                    <RowActionEdit
-                      label="Bearbeiten"
-                      ariaLabel={`Spielort ${ort.name} bearbeiten`}
-                      onPress={() => setEditingOrt(ort)}
-                    />
-                    <RowActionDelete
-                      label="Löschen"
-                      ariaLabel={`Spielort ${ort.name} löschen`}
-                      onPress={() => setDeletingOrt(ort)}
-                    />
-                  </RowActions>
-                </Table.Cell>
-              </Table.Row>
-            )}
-          </Table.Body>
-        </Table.Content>
-      </Table.ScrollContainer>
-    </Table>
+                    <Table.Cell className="px-6 py-4">{renderMietpreis(ort)}</Table.Cell>
+
+                    <Table.Cell className="px-6 py-4">{renderActions(ort)}</Table.Cell>
+                  </Table.Row>
+                )}
+              </Table.Body>
+            </Table.Content>
+          </Table.ScrollContainer>
+        </Table>
+      </div>
+    </>
   );
 });

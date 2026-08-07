@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `e9577cd`, 2026-08-07
+**Verified against:** `9637a6f`, 2026-08-07
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -58,12 +58,12 @@ fail to parse on read.
 
 `status` is `past` · `active` · `future` — English, unlike almost everything else in the model.
 
-`rules` carries `win_points`, `draw_points` and `qualifiers_per_group` per season, so both the scoring
-and the size of the knockout round are season-configurable — and all three are live. `GET /teams` scores
-its derived league table with the two point values
-([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)); a defeat scores nothing, and
-there is deliberately no `loss_points` to say otherwise. Editing either changes every table for that
-season on the next read.
+`rules` carries `win_points`, `draw_points`, `qualifiers_per_group`, `number_of_groups` and
+`teams_per_group` per season, so the scoring, the size of the knockout round and the season's capacity
+are all season-configurable — and all five are live. `GET /teams` scores its derived league table with
+the two point values ([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)); a defeat
+scores nothing, and there is deliberately no `loss_points` to say otherwise. Editing either changes
+every table for that season on the next read.
 
 `qualifiers_per_group` is how many of each group's teams reach the first knockout round
 ([ADR-0043](_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)). It
@@ -71,7 +71,13 @@ is required with no default on either side, so a season without it fails to read
 bracket from a number nobody chose. It reaches the frontend on the grouped teams response, beside the
 table whose qualifying prefix it measures.
 
-**All three field names are English**, unlike almost everything else in the model: they configure the
+`number_of_groups` and `teams_per_group` bound the season's field: it runs the first
+`number_of_groups` of the closed A–D group set, and each group takes `teams_per_group` teams.
+`POST /teams/{team_id}/saisons` refuses an entry outside those bounds, and a group change is held to
+the same capacity (`REQ-ENTER-001..003` in [logging.md](logging.md)). Both are required with no
+default, for the same reason `qualifiers_per_group` is.
+
+**All five field names are English**, unlike almost everything else in the model: they configure the
 competition rather than naming anything in it.
 
 **Nothing edits `rules`.** No page calls `PATCH /saisons/{saison_id}`, so these values are set by hand

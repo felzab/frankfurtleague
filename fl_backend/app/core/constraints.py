@@ -257,7 +257,7 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                 # /admin/activate_saison` is the only path to the value and enforces it in one
                 # transaction (ADR-0033); nothing else may write `status` at all.
                 "rules": _object(
-                    required=("win_points", "draw_points", "qualifiers_per_group"),
+                    required=("win_points", "draw_points", "qualifiers_per_group", "number_of_groups", "teams_per_group"),
                     properties={
                         "win_points": {"bsonType": "int"},
                         "draw_points": {"bsonType": "int"},
@@ -266,6 +266,11 @@ COLLECTION_VALIDATORS: Mapping[str, Mapping[str, Any]] = {
                         # bracket and marks no qualifying place -- and `--check` is what reports
                         # which documents still lack it before the value can be relied on.
                         "qualifiers_per_group": {"bsonType": "int"},
+                        # The season's capacity, read by the junction write's refusals
+                        # (REQ-ENTER-001..003). Required for the same reason as the line above, and
+                        # `--check` again reports the documents still lacking the keys.
+                        "number_of_groups": {"bsonType": "int"},
+                        "teams_per_group": {"bsonType": "int"},
                     },
                 ),
             },

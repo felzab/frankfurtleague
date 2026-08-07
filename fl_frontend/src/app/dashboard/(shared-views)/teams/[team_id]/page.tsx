@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { APIBadStatusError } from "@/core/errors";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
 import { TeamDetailsView } from "@/features/teams/components/views/TeamDetailsView";
@@ -77,13 +76,10 @@ async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
     // "gesamt", not the default: this page shows the team's whole season, playoffs included, and it is
     // the only surface that does (ADR-0029). The timeline below already lists every phase, so a
     // Gruppenphase-only header would contradict the cards under it.
-    getTeam(team_id, { saison_id: specifiedSaisonId, statistik_scope: "gesamt" }).catch((error) => {
-      // Only a genuine 404 means "no such team". Swallowing everything here turned a backend
-      // outage into a 404 -- and because notFound() is not an error, onRequestError never fired,
-      // so the outage was never logged.
-      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
-      throw error;
-    }),
+    // Resolves null for "no such team" — the 404 → null conversion lives inside the query, because a
+    // production build redacts an error thrown out of a "use cache" scope and no call site can
+    // recognise it. Everything else still throws and reaches dashboard/error.tsx and onRequestError.
+    getTeam(team_id, { saison_id: specifiedSaisonId, statistik_scope: "gesamt" }),
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
 

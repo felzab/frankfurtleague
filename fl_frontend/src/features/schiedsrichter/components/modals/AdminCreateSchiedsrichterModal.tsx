@@ -21,7 +21,8 @@ export function AdminCreateSchiedsrichterModal() {
           width={18}
           height={18}
         />
-        Neuen Schiedsrichter anlegen
+        {/* Below `sm` the trigger is the bare plus continuing the search bar (owner, 2026-08-07). */}
+        <span className="hidden sm:inline">Neuen Schiedsrichter anlegen</span>
       </Button>
 
       <FormModal

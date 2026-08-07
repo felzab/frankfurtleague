@@ -92,11 +92,15 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
           // user the press landed — a season switch is a server round-trip, so without it the only
           // feedback is the page changing some time later.
           aria-busy={isSwitching}
+          // Brand border ONLY while open (owner, 2026-08-07): react-aria hands focus back to this
+          // trigger when the popover dismisses — after the exit animation — so the field-focus
+          // rule's focus arms kept the brand border on an outside click. The marker opts this one
+          // control out of those arms in `globals.css`; the open state still paints brand there.
+          data-border-on-open="true"
           // No `aria-expanded:border-brand` here: `select-trigger` is in the field-focus block in
-          // `globals.css`, which paints the brand border on focus AND on the open state for every
-          // field-shaped control in the app. A second copy of that gesture spelled at this one call
-          // site is how the app previously ended up with fields that had the treatment and fields
-          // that did not.
+          // `globals.css`, which paints the brand border on the open state for every field-shaped
+          // control in the app. A second copy of that gesture spelled at this one call site is how
+          // the app previously ended up with fields that had the treatment and fields that did not.
           className={`border-border/60 bg-surface/50 hover:bg-surface hover:border-border aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-200 ${
             isSwitching ? "opacity-60" : ""
           }`}>

@@ -105,7 +105,9 @@ class FLTeam(BaseModel):
     # disqualification entered here reaches every surface at once (ADR-0028, rule 4).
     disqualifikation: FLDisqualifikation | None
     shorthand: str = Field(min_length=2, max_length=2)
-    description: str  # May be empty -- not every team writes one.
+    # May be empty -- not every team writes one. Capped so the public page and the editor's
+    # textarea agree on what fits; the bound is Pydantic's and stays out of the validator (I16).
+    description: str = Field(max_length=4096)
     full_name: str = Field(min_length=1)
     # Rendered straight into an href on a public page, so the scheme is constrained here as well as
     # in the frontend. See validate_external_url for why this is not AnyHttpUrl.
@@ -135,7 +137,7 @@ class FLTeamRecord(BaseModel):
 
     name: str = Field(min_length=1)
     shorthand: str = Field(min_length=2, max_length=2)
-    description: str
+    description: str = Field(max_length=4096)
     full_name: str = Field(min_length=1)
     website_url: CustomExternalUrl
     address: FLAddress
@@ -160,10 +162,37 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLTeam]]]):
     """
 
 
+class FLTeamMembership(BaseModel):
+    """One junction row as seen from its club: which season, which group, and the record if any."""
+
+    saison_id: str
+    gruppe: FLGruppenNames
+    disqualifikation: FLDisqualifikation | None
+
+
+class FLTeamWithMemberships(FLTeamRecord):
+    """
+    The stored club document plus every season membership it holds — the admin list's one read.
+
+    A DIFFERENT question from `FLTeam`, not a projection of it (ADR-0034): `FLTeam` answers "this
+    club in one season" with a strict junction join and a derived `statistik`, which is why a club
+    outside the season is absent from it by design. The admin surface asks "every club, and which
+    seasons hold it", which no composition of season-scoped reads answers in one request.
+    """
+
+    memberships: list[FLTeamMembership]
+
+
+class FLTeamsMembershipsResponse(BaseAPIResponse):
+    """Every club, retired ones included, each with its memberships. Sorted by name."""
+
+    teams: list[FLTeamWithMemberships]
+
+
 class FLPostTeamPayload(BaseModel):
     name: str = Field(min_length=1)
     shorthand: str = Field(min_length=2, max_length=2)
-    description: str
+    description: str = Field(max_length=4096)
     full_name: str = Field(min_length=1)
     website_url: CustomExternalUrl
     address: FLAddress
@@ -172,7 +201,7 @@ class FLPostTeamPayload(BaseModel):
 class FLPatchTeamPayload(BaseModel):
     name: str = Field(min_length=1)
     shorthand: str = Field(min_length=2, max_length=2)
-    description: str
+    description: str = Field(max_length=4096)
     full_name: str = Field(min_length=1)
     website_url: CustomExternalUrl
     address: FLAddress

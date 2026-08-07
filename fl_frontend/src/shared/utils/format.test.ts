@@ -30,10 +30,10 @@ describe("formatAddress", () => {
     assert.equal(formatAddress(), "Keine Adresse hinterlegt");
   });
 
-  // hausnummer and stadtteil are both allowed to be "" by FLAddressSchema; this documents
-  // what the current implementation renders in that case rather than asserting it is nice.
-  it("renders empty optional parts verbatim", () => {
-    assert.equal(formatAddress({ ...address, hausnummer: "", stadtteil: "" }), "Hanauer Landstraße , 60314 Frankfurt am Main ()");
+  // Stadtteil is optional: an address without one is complete, so nothing may render an empty
+  // "()" tail. The hausnummer's trailing space stays — the street template keeps one slot for it.
+  it("drops the stadtteil parenthesis when it is empty", () => {
+    assert.equal(formatAddress({ ...address, hausnummer: "", stadtteil: "" }), "Hanauer Landstraße , 60314 Frankfurt am Main");
   });
 });
 
@@ -42,8 +42,8 @@ describe("formatAddressFull", () => {
     assert.equal(formatAddressFull(address), "Hanauer Landstraße 12a, 60314 Ostend Frankfurt am Main, Deutschland");
   });
 
-  it("renders an empty stadtteil as a double space", () => {
-    assert.equal(formatAddressFull({ ...address, stadtteil: "" }), "Hanauer Landstraße 12a, 60314  Frankfurt am Main, Deutschland");
+  it("renders an empty stadtteil without a double space", () => {
+    assert.equal(formatAddressFull({ ...address, stadtteil: "" }), "Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland");
   });
 });
 

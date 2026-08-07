@@ -17,6 +17,10 @@
 
 /* Forms */
 @import "@heroui/styles/components/number-field.css" layer(components);
+/* The description editors (create dialog and edit modal) — admin-only, so it stays out of
+   globals.css (ADR-0023). Position matches @heroui/styles/dist/components/index.css: after
+   number-field, before the calendar block. */
+@import "@heroui/styles/components/textarea.css" layer(components);
 
 /* Date & Time */
 @import "@heroui/styles/components/calendar.css" layer(components);

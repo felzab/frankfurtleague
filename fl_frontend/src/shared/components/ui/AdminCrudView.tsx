@@ -5,7 +5,6 @@ import { useState } from "react";
 import { useDebouncedUrlQuery } from "../../hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
 import { PAGE_RISE } from "./motion";
-import { SearchBar } from "./SearchBar";
 
 import type { ReactNode } from "react";
 
@@ -31,24 +30,27 @@ import type { ReactNode } from "react";
  * `items` form is the load-bearing half, not the memo.
  */
 export function AdminCrudView<TItem extends { id: string }>({
-  searchLabel,
-  searchPlaceholder,
   items,
   searchKeys,
   renderTable,
   renderEditModal,
   renderDeleteModal,
 }: {
-  searchLabel: string;
-  searchPlaceholder: string;
   items: TItem[];
   /** Must be a module-scope constant, or `useFuzzySearch`'s memo is defeated. */
   searchKeys: readonly string[];
   renderTable: (args: { query: string; filteredItems: TItem[]; onEdit: (item: TItem) => void; onDelete: (item: TItem) => void }) => ReactNode;
-  renderEditModal: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
+  /**
+   * Optional, because an editor is not necessarily a dialog: a resource whose form outgrew one edits
+   * on a page instead (ADR-0050), and its table renders a link where the others wire `onEdit`. Teams
+   * is that case; Schiedsrichter and Spielorte pass a modal.
+   */
+  renderEditModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
   renderDeleteModal: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
 }) {
-  const { urlValue: query, inputValue, setInputValue } = useDebouncedUrlQuery();
+  // The search FIELD is the shell's (`AdminCrudSearch`); the two meet in the URL, so this only
+  // reads the debounced value.
+  const { urlValue: query } = useDebouncedUrlQuery();
   const [editingItem, setEditingItem] = useState<TItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<TItem | null>(null);
 
@@ -61,17 +63,9 @@ export function AdminCrudView<TItem extends { id: string }>({
     // `gap-8` is repeated from `AdminCrudShell`'s column because this wrapper is the flex item;
     // without it the search field and table collapse together.
     <div className={`${PAGE_RISE} flex flex-col gap-8`}>
-      <SearchBar
-        label={searchLabel}
-        placeholder={searchPlaceholder}
-        value={inputValue}
-        onChange={setInputValue}
-        className="w-full max-w-md"
-      />
-
       {renderTable({ query, filteredItems, onEdit: setEditingItem, onDelete: setDeletingItem })}
 
-      {renderEditModal({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
+      {renderEditModal?.({ item: editingItem, isOpen: editingItem !== null, onClose: () => setEditingItem(null) })}
       {renderDeleteModal({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
     </div>
   );

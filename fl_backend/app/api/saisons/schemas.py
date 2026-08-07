@@ -37,6 +37,15 @@ class FLSaisonRules(BaseModel):
     # from a guess. See the runbook in ADR-0043.
     qualifiers_per_group: int = Field(gt=0)
 
+    # The season's capacity, read by `POST /teams/{team_id}/saisons` (owner, 2026-08-07): a team
+    # enters only a group the season offers -- the first `number_of_groups` of the closed A-D set,
+    # which is what bounds it at 4 -- and only while that group holds fewer than `teams_per_group`
+    # rows. REQUIRED with no default for exactly the reason `qualifiers_per_group` is; both keys are
+    # owed on every existing document before this deploys, and `--check` reports which still lack
+    # them.
+    number_of_groups: int = Field(gt=0, le=4)
+    teams_per_group: int = Field(gt=0)
+
 
 class FLSaison(BaseModel):
     # Exactly 4 characters, because FLSpiel.saison_id and FLSpieltag.saison_id both demand that of

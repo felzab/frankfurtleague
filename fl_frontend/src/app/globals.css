@@ -528,6 +528,19 @@ html:has([data-app-shell]) {
    Deliberately unlayered: unlayered rules outrank every @layer, including HeroUI's `components` and
    Tailwind's `utilities`, so neither a library default nor a stray per-site class can reintroduce a
    ring. That also means this is the ONE place either rule can be changed -- which is the point. */
+/* iOS Safari zooms the whole page into any focused control whose computed font-size is under
+   16px, and several field styles resolve below that on a phone (`fluid-sm` bottoms out around
+   14px). The cure is the control's font-size, never `maximum-scale` in the viewport tag — that
+   would disable pinch zoom for everyone, which is an accessibility failure. Scoped to touch-first
+   devices so desktop keeps the designed sizes; `max()` keeps any control that is already larger. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
 [data-slot="input"],
 [data-slot="input-group"],
 [data-slot="number-field-group"],
@@ -535,7 +548,11 @@ html:has([data-app-shell]) {
 [data-slot="date-input-group"],
 [data-slot="autocomplete-trigger"],
 [data-slot="select-trigger"],
-[data-slot="combo-box-input-group"] {
+[data-slot="combo-box-input-group"],
+/* The one member matched by CLASS: HeroUI's TextArea root (v3.2.3, `textarea.js`) carries no
+   data-slot, only the `textarea` class, and react-aria supplies the same data-* focus states the
+   slots above key on. Re-check the class name on a HeroUI upgrade. */
+.textarea {
   /* `:not([data-invalid="true"])` matters: HeroUI marks a rejected field with a danger outline and
      upgrades it to a danger ring while focused. Without the guard this rule stripped both and
      painted the border brand — and it did so at the exact moment `useServerFieldErrors` moves focus
@@ -552,15 +569,17 @@ html:has([data-app-shell]) {
      inside `:is()`, and because the list is forgiving the browser drops that one arm silently — the
      rule then compiles, ships and does nothing, which is exactly how this fix failed its first
      verification. */
-  &:is(
-      :focus,
-      :focus-visible,
-      :focus-within,
-      [data-focused="true"],
-      [data-focus-visible="true"],
-      [data-focus-within="true"],
-      [aria-expanded="true"]
-    ):not([data-invalid="true"]),
+  /* `[data-border-on-open="true"]` opts a trigger out of the FOCUS arms while keeping the
+     open-state arm: react-aria restores focus to a trigger when its popover dismisses — after the
+     exit animation, so no blur scheduled at close time can beat it — and the restored focus kept
+     the brand border on a control the user had just clicked away from. The season selector is the
+     one bearer (owner, 2026-08-07: brand only while open, the resting border always otherwise).
+     A keyboard user still gets an indicator: with these arms skipped, the ring suppression below
+     is skipped too, so HeroUI's own focus-visible ring shows — the app's standard one. */
+  &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
+      [data-invalid="true"]
+    ):not([data-border-on-open="true"]),
+  &[aria-expanded="true"]:not([data-invalid="true"]),
   &:has([aria-expanded="true"]):not([data-invalid="true"]) {
     --tw-ring-shadow: 0 0 #0000;
     border-color: var(--accent-brand);

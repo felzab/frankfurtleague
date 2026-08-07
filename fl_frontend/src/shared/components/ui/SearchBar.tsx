@@ -14,6 +14,9 @@ import { SearchField } from "@heroui/react";
  * the inner input would double it.
  *
  * `className` is the caller's outer width only — the chrome is deliberately not configurable.
+ * `attachEnd` is the one chrome exception, and it is a shape rather than a restyle: below `sm` the
+ * bar's right edge flattens and loses its border so an attached control (the CRUD header's create
+ * trigger) reads as its continuation (owner, 2026-08-07).
  */
 export function SearchBar({
   label,
@@ -21,6 +24,7 @@ export function SearchBar({
   value,
   onChange,
   className,
+  attachEnd = false,
 }: {
   /** Accessible name, in German — e.g. "Schiedsrichter suchen". */
   label: string;
@@ -28,6 +32,7 @@ export function SearchBar({
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  attachEnd?: boolean;
 }) {
   return (
     <SearchField
@@ -35,7 +40,10 @@ export function SearchBar({
       value={value}
       onChange={onChange}
       className={className}>
-      <SearchField.Group className="bg-surface border-border flex h-12 w-full items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors duration-200 lg:h-15">
+      <SearchField.Group
+        className={`bg-surface border-border flex h-12 w-full items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors duration-200 lg:h-15 ${
+          attachEnd ? "max-sm:rounded-r-none max-sm:border-r-0" : ""
+        }`}>
         <SearchField.SearchIcon className="text-foreground-muted shrink-0" />
         <SearchField.Input
           placeholder={placeholder}

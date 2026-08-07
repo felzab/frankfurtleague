@@ -1,6 +1,5 @@
 "use client";
 
-import { SCHIEDSRICHTER_CRUD_COPY } from "@/features/schiedsrichter/constants";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import { AdminSchiedsrichterTable } from "../collections/AdminSchiedsrichterTable";
@@ -15,8 +14,6 @@ const SEARCH_KEYS = ["name", "schule", "kontakt.email", "kontakt.telefon"] as co
 export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FLSchiedsrichter[] }) {
   return (
     <AdminCrudView<FLSchiedsrichter>
-      searchLabel={SCHIEDSRICHTER_CRUD_COPY.searchLabel}
-      searchPlaceholder={SCHIEDSRICHTER_CRUD_COPY.searchPlaceholder}
       items={schiedsrichter}
       searchKeys={SEARCH_KEYS}
       renderTable={({ query, filteredItems, onEdit, onDelete }) => (

@@ -85,7 +85,7 @@ export function InfoHint({ label, children, trigger }: { label: string; children
         aria-label={label}
         className={
           trigger
-            ? "hover:bg-muted -m-0.5 inline-flex shrink-0 cursor-help items-center justify-center rounded-md p-0.5 transition-colors"
+            ? "hover:bg-muted -m-0.5 inline-flex shrink-0 cursor-help items-center justify-center rounded-md p-0.5 align-middle transition-colors"
             : "text-foreground-muted hover:text-brand ms-1.5 inline-flex shrink-0 cursor-help align-middle transition-colors [--hint-icon-size:1em]"
         }
         onMouseEnter={openFromHover}>

@@ -20,18 +20,27 @@ import type { ReactNode } from "react";
  * be forgotten.
  */
 export function AdminCrudShell({
+  search,
   createModal,
   children,
 }: {
+  /** The slice's search field — an `AdminCrudSearch`, synced with the view through the URL. */
+  search: ReactNode;
   /** The slice's Create modal, which owns its own trigger button and overlay state. */
   createModal: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
-      {/* `justify-end` rather than `justify-between`: with the heading gone the trigger is the only
-          thing in this row, and left-aligned it would sit where a title used to be. */}
-      <div className="flex flex-row justify-end">{createModal}</div>
+      {/* One row at EVERY width (owner, 2026-08-07): neither half depends on the resource list, so
+          the whole row paints before the table streams in. Below `sm` the two are one joined
+          control — the search bar with the create trigger as its bare-plus continuation (no gap,
+          shared seam; the corner and label flattening live in `SearchBar` and `formButton`'s
+          trigger). From `sm` they separate into the familiar search-left, button-right row. */}
+      <div className="flex w-full flex-row items-center gap-0 sm:justify-between sm:gap-3">
+        {search}
+        {createModal}
+      </div>
 
       {children}
     </div>

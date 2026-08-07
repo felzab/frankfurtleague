@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Copy, Pencil, TrashBin } from "@gravity-ui/icons";
+import { ArrowRotateLeft, Copy, Pencil, TrashBin } from "@gravity-ui/icons";
 
 import { Button } from "@heroui/react";
 
@@ -91,6 +91,30 @@ export function RowActionEdit({ label, ariaLabel, onPress }: { label: string; ar
         className={ACTION_CLASS}
         onPress={onPress}>
         <Pencil
+          aria-hidden="true"
+          width={18}
+          height={18}
+        />
+      </Button>
+    </IconTooltip>
+  );
+}
+
+/**
+ * Brings a soft-deleted row back (ADR-0032) — the counterpart to `RowActionDelete`, shown in its
+ * place on a retired row. A single press, no confirmation step: unlike the delete it undoes, the
+ * action is reversed by one press of the delete beside it.
+ */
+export function RowActionRestore({ label, ariaLabel, onPress }: { label: string; ariaLabel: string; onPress: () => void }) {
+  return (
+    <IconTooltip label={label}>
+      <Button
+        isIconOnly
+        aria-label={ariaLabel}
+        variant="ghost"
+        className={ACTION_CLASS}
+        onPress={onPress}>
+        <ArrowRotateLeft
           aria-hidden="true"
           width={18}
           height={18}

@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `e9577cd`, 2026-08-07
+**Verified against:** `cf88b87`, 2026-08-07
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -24,37 +24,39 @@ OPS-6 and OPS-7 are both retired here.
 
 ## The log
 
-| #   | ID    | Item                                                                                         | Surfaces    | Effort | Depended on                | Closed in                                                             |
-| --- | ----- | -------------------------------------------------------------------------------------------- | ----------- | ------ | -------------------------- | --------------------------------------------------------------------- |
-| 1   | F5    | A backend module that was empty and imported by nothing                                      | BE          | S      | —                          | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
-| 2   | F6    | A comment deferring a granular cache tag to a route that already existed                     | FE          | S      | —                          | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
-| 3   | OPS-1 | Container images published to Docker Hub, and where they should live                         | Ops         | M      | —                          | [`b2e80f2`](https://github.com/felzab/frankfurtleague/commit/b2e80f2) |
-| 4   | DB-1  | Review the database structure against the models, and decide what is stored                  | DB, BE      | L      | —                          | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
-| 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`                         | BE, DB      | M      | DB-1                       | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
-| 6   | FB-1  | The Saisontabelle counted playoff results as league results                                  | FE, BE      | M      | —                          | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
-| 7   | BE-11 | Nothing executed the derived league table's pipeline against a database                      | BE          | S      | —                          | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
-| 8   | DB-3  | Seventeen `saison_teams` rows still carried the `statistik` the derivation orphaned          | DB          | S      | —                          | [`1acfc49`](https://github.com/felzab/frankfurtleague/commit/1acfc49) |
-| 9   | DB-2  | Nine collections with no validator and no index beyond `_id_`, hand-edited daily             | DB, BE, Ops | M      | —                          | [`5c017f8`](https://github.com/felzab/frankfurtleague/commit/5c017f8) |
-| 10  | BE-4  | Six reference collections could only be read; edits went straight into MongoDB               | BE, FE, Ops | L      | —                          | [`3d7f701`](https://github.com/felzab/frankfurtleague/commit/3d7f701) |
-| 11  | OPS-4 | Script terminal output varied by script, with no recorded standard                           | Ops         | M      | — (batched with OPS-5)     | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
-| 12  | OPS-5 | Every pull request ran the full gate and both CodeQL analyses, whatever it touched           | Ops         | M      | — (batched with OPS-4)     | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
-| 13  | OPS-6 | Whether a pull request body should index its commits, when their bodies say it               | Ops         | S      | —                          | [`e31d187`](https://github.com/felzab/frankfurtleague/commit/e31d187) |
-| 14  | OPS-7 | Nothing checked the gate scope a run was given against the diff it was given                 | Ops         | S      | —                          | [`501e450`](https://github.com/felzab/frankfurtleague/commit/501e450) |
-| 15  | LOG-1 | Logging was surveyed, then standardised: one correlation id, one stream per service          | FE, BE, Ops | L      | —                          | [`87ce77c`](https://github.com/felzab/frankfurtleague/commit/87ce77c) |
-| 16  | F2    | The Pydantic models and their Zod mirror were hand-maintained with nothing comparing them    | FE, BE      | M      | —                          | [`a9bbc71`](https://github.com/felzab/frankfurtleague/commit/a9bbc71) |
-| 17  | BE-9  | An unresolved playoff opponent was a real team document named "TBD"                          | BE, FE      | L      | —                          | [`ca63cd9`](https://github.com/felzab/frankfurtleague/commit/ca63cd9) |
-| 18  | FB-4  | The playoff bracket had no seeding check and advanced no winner when a result was entered    | FE, BE      | M      | — (slot model: ADR-0041)   | [`f023414`](https://github.com/felzab/frankfurtleague/commit/f023414) |
-| 19  | FB-10 | The first knockout round could not be seeded, because nothing could say who finished second  | FE, BE, DB  | L      | — (batched with FE-4)      | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
-| 20  | FE-4  | The Saisontabelle marked nobody as holding a playoff place                                   | FE, BE      | M      | — (batched with FB-10)     | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
-| 21  | FB-8  | A knockout that ended level had nowhere to record how it was decided, so the bracket stalled | FE, BE, DB  | M      | — (clock: the playoffs)    | [`ab20403`](https://github.com/felzab/frankfurtleague/commit/ab20403) |
-| 22  | FB-12 | A knockout slot with no team and no source was maintained by nobody and reported by nobody   | FE, BE      | S      | — (clock: the playoffs)    | [`6331791`](https://github.com/felzab/frankfurtleague/commit/6331791) |
-| 23  | FB-13 | Two bracket faults lived in one toast and three more were contained without a word           | FE, BE      | M      | — (surface: ADR-0046)      | [`125f1cc`](https://github.com/felzab/frankfurtleague/commit/125f1cc) |
-| 24  | FB-14 | The seeding, advancement, edit and feedback surfaces measured against established practice   | FE, BE, DB  | L      | — (owned FB-9's verdict)   | [`0fae7b4`](https://github.com/felzab/frankfurtleague/commit/0fae7b4) |
-| 25  | FE-10 | The match editor was a dialog with no URL, 311px of width and a round-trip per error message | FE          | L      | — (ADR-0048 landed on it)  | [`efed00a`](https://github.com/felzab/frankfurtleague/commit/efed00a) |
-| 26  | FE-11 | A toast could not be dismissed without a hover, and every message shared a four-second clock | FE          | S      | — (ADR-0051 shaped it)     | [`cc55487`](https://github.com/felzab/frankfurtleague/commit/cc55487) |
-| 27  | FE-12 | An eight-section accordion ordered by how the categories happened to be declared             | FE          | M      | — (its links had a target) | [`68ac42d`](https://github.com/felzab/frankfurtleague/commit/68ac42d) |
-| 28  | FB-2  | A team could only **be** disqualified, with no record of why or from when                    | FE, BE, DB  | M      | —                          | [`3669cc7`](https://github.com/felzab/frankfurtleague/commit/3669cc7) |
-| 29  | FB-5  | The Spiel cards were the one surface a disqualification could not reach                      | FE, BE      | S      | — (FB-2 shaped the field)  | [`3287df2`](https://github.com/felzab/frankfurtleague/commit/3287df2) |
+| #   | ID    | Item                                                                                         | Surfaces    | Effort | Depended on                  | Closed in                                                             |
+| --- | ----- | -------------------------------------------------------------------------------------------- | ----------- | ------ | ---------------------------- | --------------------------------------------------------------------- |
+| 1   | F5    | A backend module that was empty and imported by nothing                                      | BE          | S      | —                            | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
+| 2   | F6    | A comment deferring a granular cache tag to a route that already existed                     | FE          | S      | —                            | [`6535247`](https://github.com/felzab/frankfurtleague/commit/6535247) |
+| 3   | OPS-1 | Container images published to Docker Hub, and where they should live                         | Ops         | M      | —                            | [`b2e80f2`](https://github.com/felzab/frankfurtleague/commit/b2e80f2) |
+| 4   | DB-1  | Review the database structure against the models, and decide what is stored                  | DB, BE      | L      | —                            | [`75c0ce4`](https://github.com/felzab/frankfurtleague/commit/75c0ce4) |
+| 5   | F4    | Team statistics were written to `teams` and read from `saison_teams`                         | BE, DB      | M      | DB-1                         | [`65be39a`](https://github.com/felzab/frankfurtleague/commit/65be39a) |
+| 6   | FB-1  | The Saisontabelle counted playoff results as league results                                  | FE, BE      | M      | —                            | [`3a460d7`](https://github.com/felzab/frankfurtleague/commit/3a460d7) |
+| 7   | BE-11 | Nothing executed the derived league table's pipeline against a database                      | BE          | S      | —                            | [`e506762`](https://github.com/felzab/frankfurtleague/commit/e506762) |
+| 8   | DB-3  | Seventeen `saison_teams` rows still carried the `statistik` the derivation orphaned          | DB          | S      | —                            | [`1acfc49`](https://github.com/felzab/frankfurtleague/commit/1acfc49) |
+| 9   | DB-2  | Nine collections with no validator and no index beyond `_id_`, hand-edited daily             | DB, BE, Ops | M      | —                            | [`5c017f8`](https://github.com/felzab/frankfurtleague/commit/5c017f8) |
+| 10  | BE-4  | Six reference collections could only be read; edits went straight into MongoDB               | BE, FE, Ops | L      | —                            | [`3d7f701`](https://github.com/felzab/frankfurtleague/commit/3d7f701) |
+| 11  | OPS-4 | Script terminal output varied by script, with no recorded standard                           | Ops         | M      | — (batched with OPS-5)       | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
+| 12  | OPS-5 | Every pull request ran the full gate and both CodeQL analyses, whatever it touched           | Ops         | M      | — (batched with OPS-4)       | [`f4b99ae`](https://github.com/felzab/frankfurtleague/commit/f4b99ae) |
+| 13  | OPS-6 | Whether a pull request body should index its commits, when their bodies say it               | Ops         | S      | —                            | [`e31d187`](https://github.com/felzab/frankfurtleague/commit/e31d187) |
+| 14  | OPS-7 | Nothing checked the gate scope a run was given against the diff it was given                 | Ops         | S      | —                            | [`501e450`](https://github.com/felzab/frankfurtleague/commit/501e450) |
+| 15  | LOG-1 | Logging was surveyed, then standardised: one correlation id, one stream per service          | FE, BE, Ops | L      | —                            | [`87ce77c`](https://github.com/felzab/frankfurtleague/commit/87ce77c) |
+| 16  | F2    | The Pydantic models and their Zod mirror were hand-maintained with nothing comparing them    | FE, BE      | M      | —                            | [`a9bbc71`](https://github.com/felzab/frankfurtleague/commit/a9bbc71) |
+| 17  | BE-9  | An unresolved playoff opponent was a real team document named "TBD"                          | BE, FE      | L      | —                            | [`ca63cd9`](https://github.com/felzab/frankfurtleague/commit/ca63cd9) |
+| 18  | FB-4  | The playoff bracket had no seeding check and advanced no winner when a result was entered    | FE, BE      | M      | — (slot model: ADR-0041)     | [`f023414`](https://github.com/felzab/frankfurtleague/commit/f023414) |
+| 19  | FB-10 | The first knockout round could not be seeded, because nothing could say who finished second  | FE, BE, DB  | L      | — (batched with FE-4)        | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
+| 20  | FE-4  | The Saisontabelle marked nobody as holding a playoff place                                   | FE, BE      | M      | — (batched with FB-10)       | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
+| 21  | FB-8  | A knockout that ended level had nowhere to record how it was decided, so the bracket stalled | FE, BE, DB  | M      | — (clock: the playoffs)      | [`ab20403`](https://github.com/felzab/frankfurtleague/commit/ab20403) |
+| 22  | FB-12 | A knockout slot with no team and no source was maintained by nobody and reported by nobody   | FE, BE      | S      | — (clock: the playoffs)      | [`6331791`](https://github.com/felzab/frankfurtleague/commit/6331791) |
+| 23  | FB-13 | Two bracket faults lived in one toast and three more were contained without a word           | FE, BE      | M      | — (surface: ADR-0046)        | [`125f1cc`](https://github.com/felzab/frankfurtleague/commit/125f1cc) |
+| 24  | FB-14 | The seeding, advancement, edit and feedback surfaces measured against established practice   | FE, BE, DB  | L      | — (owned FB-9's verdict)     | [`0fae7b4`](https://github.com/felzab/frankfurtleague/commit/0fae7b4) |
+| 25  | FE-10 | The match editor was a dialog with no URL, 311px of width and a round-trip per error message | FE          | L      | — (ADR-0048 landed on it)    | [`efed00a`](https://github.com/felzab/frankfurtleague/commit/efed00a) |
+| 26  | FE-11 | A toast could not be dismissed without a hover, and every message shared a four-second clock | FE          | S      | — (ADR-0051 shaped it)       | [`cc55487`](https://github.com/felzab/frankfurtleague/commit/cc55487) |
+| 27  | FE-12 | An eight-section accordion ordered by how the categories happened to be declared             | FE          | M      | — (its links had a target)   | [`68ac42d`](https://github.com/felzab/frankfurtleague/commit/68ac42d) |
+| 28  | FB-2  | A team could only **be** disqualified, with no record of why or from when                    | FE, BE, DB  | M      | —                            | [`3669cc7`](https://github.com/felzab/frankfurtleague/commit/3669cc7) |
+| 29  | FB-5  | The Spiel cards were the one surface a disqualification could not reach                      | FE, BE      | S      | — (FB-2 shaped the field)    | [`3287df2`](https://github.com/felzab/frankfurtleague/commit/3287df2) |
+| 30  | FB-11 | A season's bracket wiring had no view, and was editable only one match at a time             | FE, BE      | L      | —                            | [`dfec0fa`](https://github.com/felzab/frankfurtleague/commit/dfec0fa) |
+| 31  | FE-13 | Two admin tables still scrolled sideways on a phone                                          | FE          | S      | — (teams table templated it) | in FB-3's teams PR                                                    |
 
 ## What each one produced
 
@@ -207,6 +209,12 @@ no row here — its commit is the whole story.
   code a closed set of offence categories could cite. It unblocked **FB-5** (the field shape it was
   waiting on) and **FE-3** (the note it renders), and it left a three-step production data change the
   ADR carries as a runbook. It opened nothing.
+- **FB-11** → [ADR-0057](../_decisions/0057-a-draw-is-reviewed-as-a-table-of-provenance.md): a draw is
+  reviewed as a table of provenance — `/admin/finalrunden`, one row per knockout fixture, each side
+  stating its source over its occupant. The read view shipped alone, which the entry's own evaluation
+  had already argued for; the editor half is deliberately unscheduled, because a whole-draw save needs
+  a transaction over several fixtures that `PATCH /spiele/{spiel_id}` does not offer. It opened
+  nothing and unblocked nothing — FB-3 and FB-6 never depended on it.
 - **FB-5** → no ADR: ADR-0028 rule 4 had already settled that the state is joined rather than embedded,
   and ADR-0059 had settled its shape, so what was left was the build. It carried one decision worth
   naming, and the models carry it: `spiele` now has a stored shape and a served shape, because one
