@@ -55,7 +55,10 @@ export function SidemenuNavLinks<TIcon extends string>({
             group.category_name !== "" && <span className="text-foreground-muted fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
           )}
 
-          <div className="flex flex-col gap-[2px]">
+          {/* `items-center` while collapsed, so the 36x36 squares sit on the column's centre — the
+              footer's own container does exactly this, and the two have to agree or the rail reads as
+              two columns of different widths. Expanded, the rows are full width and stretch is right. */}
+          <div className={`flex flex-col gap-[2px] ${isDesktopCollapsed ? "items-center" : ""}`}>
             {group.sub_options.map((sub_option) => {
               const targetPath = `${linkPrefix}/${sub_option.id}`;
               const finalHref = queryString ? `${targetPath}?${queryString}` : targetPath;
