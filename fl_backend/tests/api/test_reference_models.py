@@ -153,7 +153,7 @@ class TestSaison:
     # A draw being worth nothing is a legal rule set, unlike a win being worth nothing.
     def test_accepts_zero_draw_points(self, saison):
         """The asymmetry with wins: a draw worth nothing is a legal rule set."""
-        rules = {"win_points": 3, "draw_points": 0, "qualifiers_per_group": 2}
+        rules = {"win_points": 3, "draw_points": 0, "qualifiers_per_group": 2, "number_of_groups": 4, "teams_per_group": 4}
 
         assert FLSaison.model_validate(saison(rules=rules)).rules.draw_points == 0
 
@@ -169,6 +169,24 @@ class TestSaison:
         """Required, so a season predating the field is refused rather than silently given a number."""
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1}))
+
+    # The capacity pair is required for the same reason as the qualifier count above: absent keys must
+    # fail loudly, not read as a bound nobody chose.
+    @pytest.mark.parametrize("field", ["number_of_groups", "teams_per_group"])
+    def test_rejects_rules_with_no_capacity(self, saison, field):
+        """Required, so a season predating the capacity fields is refused rather than silently bounded."""
+        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2, "number_of_groups": 4, "teams_per_group": 4}
+        del rules[field]
+
+        with pytest.raises(ValidationError):
+            FLSaison.model_validate(saison(rules=rules))
+
+    def test_rejects_more_groups_than_the_closed_set_holds(self, saison):
+        """`FLGruppenNames` is the closed A-D set, so a season cannot run a fifth group."""
+        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2, "number_of_groups": 5, "teams_per_group": 4}
+
+        with pytest.raises(ValidationError):
+            FLSaison.model_validate(saison(rules=rules))
 
     @pytest.mark.parametrize("field", ["start_date", "end_date"])
     def test_rejects_a_date_that_does_not_exist(self, saison, field):

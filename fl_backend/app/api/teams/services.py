@@ -757,6 +757,49 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
 
 
 # =====================================================================================================
+# ENTERING A SEASON
+# =====================================================================================================
+
+# The season is not `future`. A season's field is settled before it starts (owner, 2026-08-07): once
+# it is running its fixtures exist, and once it is past its table is history -- a team enters neither.
+ENTRY_SAISON_NOT_FUTURE = "REQ-ENTER-001"
+# The group is outside the first `number_of_groups` of the closed A-D set, so this season never runs it.
+ENTRY_GRUPPE_NOT_OFFERED = "REQ-ENTER-002"
+# The group already holds `teams_per_group` rows. A disqualified team still counts towards that: it
+# never leaves the season (ADR-0033), so its place stays taken.
+ENTRY_GRUPPE_FULL = "REQ-ENTER-003"
+
+
+def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
+    """The groups a season runs: the first `number_of_groups` of the closed A-D set, in order."""
+
+    return get_args(FLGruppenNames)[:number_of_groups]
+
+
+def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSaisonRules, occupied: int) -> tuple[str, str] | None:
+    """
+    Why entering this team into the season must be refused, as `(error_code, detail)` -- or `None`.
+
+    Three rules, checked in the order an admin can act on them (owner, 2026-08-07): the season must
+    be `future`, the group must be one the season offers, and the group must have space. `occupied`
+    is the group's current row count, disqualified rows included -- a team never leaves a season
+    (ADR-0033), so its place stays taken. The detail is the English log line; the code is what the
+    client maps to German (docs/logging.md).
+    """
+
+    if saison_status != "future":
+        return (ENTRY_SAISON_NOT_FUTURE, f"season is {saison_status}; a team enters a season only while it is future")
+
+    if gruppe not in offered_gruppen(rules.number_of_groups):
+        return (ENTRY_GRUPPE_NOT_OFFERED, f"gruppe {gruppe} is not offered; this season runs {rules.number_of_groups} group(s)")
+
+    if occupied >= rules.teams_per_group:
+        return (ENTRY_GRUPPE_FULL, f"gruppe {gruppe} is full ({occupied}/{rules.teams_per_group} teams)")
+
+    return None
+
+
+# =====================================================================================================
 # RETIRING A CLUB
 # =====================================================================================================
 

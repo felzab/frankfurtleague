@@ -2294,7 +2294,7 @@
     "/api/v0/teams/{team_id}/saisons": {
       "post": {
         "summary": "Enter a team into a season",
-        "description": "Enter a team into a season, in a group.\n\nA team with no row here is **absent from that season entirely** — the join is strict, so it appears\nin no table, no group and no statistics. Entering every participating team is therefore the\nsubstantive step in setting a season up.\n\nOne row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a\nplain insert rather than a revive, because no row here is ever retired — a team leaves a season\nonly by disqualification (ADR-0033).",
+        "description": "Enter a team into a season, in a group.\n\nA team with no row here is **absent from that season entirely** — the join is strict, so it appears\nin no table, no group and no statistics. Entering every participating team is therefore the\nsubstantive step in setting a season up.\n\n**Refused with a 409 unless the season is `future`, the group is one it offers and that group has\nspace** (`REQ-ENTER-001..003`, owner 2026-08-07). The bounds are the season's own\n`rules.number_of_groups` and `rules.teams_per_group`. The count-then-insert is not transactional;\nthe single-admin surface makes the race a non-concern, and the cost of losing it is one team over\na planning bound rather than corrupt data.\n\nOne row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a\nplain insert rather than a revive, because no row here is ever retired — a team leaves a season\nonly by disqualification (ADR-0033).",
         "operationId": "post_saison_team_api_v0_teams__team_id__saisons_post",
         "security": [
           {
@@ -2349,7 +2349,7 @@
     "/api/v0/teams/{team_id}/saisons/{saison_id}": {
       "patch": {
         "summary": "Change a team's group or disqualify it",
-        "description": "Change which group a team is in for a season, or disqualify it.\n\nDisqualification is how a team leaves a season; there is no delete here (ADR-0033). It is a RECORD\ncarrying the reason and the effective date, and `null` is what lifting one looks like — there is no\nboolean beside it to contradict it (ADR-0059). The record is read by `GET /teams` and joined into\nmatch data rather than copied (ADR-0028), so entering it here reaches every surface that shows a DQ\nbadge with no second write to keep in step.\n\nBoth writable fields are required on the payload, so this replaces them wholesale. An omitted\n`disqualifikation` is a 422 rather than a team quietly reinstated by a form that forgot the field.",
+        "description": "Change which group a team is in for a season, or disqualify it.\n\nDisqualification is how a team leaves a season; there is no delete here (ADR-0033). It is a RECORD\ncarrying the reason and the effective date, and `null` is what lifting one looks like — there is no\nboolean beside it to contradict it (ADR-0059). The record is read by `GET /teams` and joined into\nmatch data rather than copied (ADR-0028), so entering it here reaches every surface that shows a DQ\nbadge with no second write to keep in step.\n\nBoth writable fields are required on the payload, so this replaces them wholesale. An omitted\n`disqualifikation` is a 422 rather than a team quietly reinstated by a form that forgot the field.\n\n**A group CHANGE is held to the season's capacity** (`REQ-ENTER-002`/`003`): the target group must\nbe one the season offers and must have space, or the move is a 409. Only the change is checked —\na disqualification writes the same row without moving anyone, and the season-status gate stays\nthe entry endpoint's alone, because the legal window for a group change (\"future, or no fixture\nyet\") is the page's `gruppeLock` rule rather than a status test.",
         "operationId": "patch_saison_team_api_v0_teams__team_id__saisons__saison_id__patch",
         "security": [
           {
@@ -4185,13 +4185,26 @@
             "type": "integer",
             "exclusiveMinimum": 0.0,
             "title": "Qualifiers Per Group"
+          },
+          "number_of_groups": {
+            "type": "integer",
+            "maximum": 4.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Number Of Groups"
+          },
+          "teams_per_group": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Teams Per Group"
           }
         },
         "type": "object",
         "required": [
           "win_points",
           "draw_points",
-          "qualifiers_per_group"
+          "qualifiers_per_group",
+          "number_of_groups",
+          "teams_per_group"
         ],
         "title": "FLSaisonRules"
       },

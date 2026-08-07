@@ -14,7 +14,7 @@ from app.api.teams.services import build_gruppen
 
 # Ordinary scoring. Every case below is decided on points or goals, so the head-to-head criterion these
 # rules also feed is exercised in `test_standings.py` rather than here.
-RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2)
+RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4)
 
 # 20 hex characters plus a four-digit suffix, so each club in a multi-team case gets its own valid
 # 24-character ObjectId and a failing assertion names the club it came from.

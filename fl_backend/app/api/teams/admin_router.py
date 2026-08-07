@@ -41,6 +41,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.teams.schemas import (
     FLPatchSaisonTeamPayload,
     FLPatchTeamPayload,
@@ -54,9 +55,9 @@ from app.api.teams.schemas import (
     FLTeamWithMemberships,
     FLTeamWriteResponse,
 )
-from app.api.teams.services import RETIRE_BLOCKED, build_team_memberships_pipeline, find_retire_refusal
+from app.api.teams.services import RETIRE_BLOCKED, build_team_memberships_pipeline, find_entry_refusal, find_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
+from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     SaisonsCollection,
     SaisonTeamsCollection,
@@ -259,6 +260,7 @@ async def post_saison_team(
     team_id: CustomRouteObjectId,
     saison_team_data: Annotated[FLPostSaisonTeamPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
 ) -> FLSaisonTeamResponse:
     """
     Enter a team into a season, in a group.
@@ -267,10 +269,35 @@ async def post_saison_team(
     in no table, no group and no statistics. Entering every participating team is therefore the
     substantive step in setting a season up.
 
+    **Refused with a 409 unless the season is `future`, the group is one it offers and that group has
+    space** (`REQ-ENTER-001..003`, owner 2026-08-07). The bounds are the season's own
+    `rules.number_of_groups` and `rules.teams_per_group`. The count-then-insert is not transactional;
+    the single-admin surface makes the race a non-concern, and the cost of losing it is one team over
+    a planning bound rather than corrupt data.
+
     One row per team per season, enforced by a unique index; a second attempt is a 409. Creating is a
     plain insert rather than a revive, because no row here is ever retired — a team leaves a season
     only by disqualification (ADR-0033).
     """
+
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_team_data.saison_id})
+    occupied_rows = await pull_many_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_team_data.saison_id, "gruppe": saison_team_data.gruppe},
+        projection=["_id"],
+    )
+
+    refusal = find_entry_refusal(
+        saison_status=str(saison_raw["status"]),
+        gruppe=saison_team_data.gruppe,
+        # Validated rather than read raw, so a season document still missing the two capacity keys
+        # fails loudly here instead of entering a team against a bound nobody chose (ADR-0043's rule).
+        rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+        occupied=len(occupied_rows),
+    )
+    if refusal is not None:
+        error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     await post_one_to_db(
         collection=saison_teams_collection,
@@ -302,6 +329,7 @@ async def patch_saison_team(
     saison_id: str,
     saison_team_data: Annotated[FLPatchSaisonTeamPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
+    saisons_collection: SaisonsCollection,
 ) -> FLSaisonTeamResponse:
     """
     Change which group a team is in for a season, or disqualify it.
@@ -314,7 +342,36 @@ async def patch_saison_team(
 
     Both writable fields are required on the payload, so this replaces them wholesale. An omitted
     `disqualifikation` is a 422 rather than a team quietly reinstated by a form that forgot the field.
+
+    **A group CHANGE is held to the season's capacity** (`REQ-ENTER-002`/`003`): the target group must
+    be one the season offers and must have space, or the move is a 409. Only the change is checked —
+    a disqualification writes the same row without moving anyone, and the season-status gate stays
+    the entry endpoint's alone, because the legal window for a group change ("future, or no fixture
+    yet") is the page's `gruppeLock` rule rather than a status test.
     """
+
+    existing_raw = await pull_one_from_db(
+        collection=saison_teams_collection,
+        db_filter={"team_id": team_id, "saison_id": saison_id},
+        projection=["gruppe"],
+    )
+    if saison_team_data.gruppe != existing_raw["gruppe"]:
+        saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+        occupied_rows = await pull_many_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id, "gruppe": saison_team_data.gruppe},
+            projection=["_id"],
+        )
+        refusal = find_entry_refusal(
+            # The status gate does not apply to a move, so the check is fed the one status it accepts.
+            saison_status="future",
+            gruppe=saison_team_data.gruppe,
+            rules=FLSaisonRules.model_validate(saison_raw["rules"]),
+            occupied=len(occupied_rows),
+        )
+        if refusal is not None:
+            error_code, detail = refusal
+            raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_raw = await patch_one_in_db(
         collection=saison_teams_collection,
