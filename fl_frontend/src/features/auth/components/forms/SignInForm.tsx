@@ -2,13 +2,12 @@
 
 import { useActionState, useEffect, useState } from "react";
 
-import { Ban } from "@gravity-ui/icons";
-
-import { Button, FieldError, Form, Input, Label, Tabs, TextField, toast } from "@heroui/react";
+import { Button, FieldError, Form, Input, Label, Tabs, TextField } from "@heroui/react";
 
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { appToast } from "@/shared/utils/appToast";
 
 import { handleSignIn } from "../../actions";
 
@@ -34,15 +33,11 @@ export function SignInForm() {
     // form in the app. The toast is kept for failures that belong to no field.
     if (hasFieldErrors(state.fieldErrors)) return;
 
-    toast.danger("Anmeldung fehlgeschlagen", {
-      actionProps: {
-        children: "Schließen",
-        onPress: () => toast.clear(),
-        variant: "danger",
-      },
+    // No "Schließen" action and no hand-set timeout any more: the close control is now permanently
+    // visible and hittable on the frontmost toast (ADR-0053), so a button whose only job was to
+    // dismiss duplicated it — and the duration follows the message length rather than a constant.
+    appToast.danger("Anmeldung fehlgeschlagen", {
       description: state.error ?? "Ein unerwarteter Fehler ist aufgetreten.",
-      indicator: <Ban />,
-      timeout: 6000,
     });
   }, [state]);
 

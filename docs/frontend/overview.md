@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `fca0c45`, 2026-08-06
+**Verified against:** `dfec0fa`, 2026-08-07
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -151,6 +151,20 @@ check, not one**: `src/app/globals.css` loads everywhere, `src/app/admin/admin.c
    padding and a background that are not the browser defaults. For an `admin.css` entry that means
    signing in and opening the admin page, because no public route will show the mistake.
 
+### Restyling one you already have
+
+**Reach for the component's own composition API before a stylesheet.** Several HeroUI components take a
+render function or per-slot `className`, and anything expressed that way is type-checked, linted and
+covered by `better-tailwindcss/no-unknown-classes`. A `.<component>__<slot>` rule in `globals.css` is
+none of those: those class names are vendored implementation detail, and a release that renames one
+takes the styling with it and reports nothing.
+
+The toast is the worked example — `Toast.Provider`'s `children` gives this app the whole composition,
+and CSS keeps only the two things markup cannot reach
+([ADR-0053](../_decisions/0053-a-toast-is-built-in-tsx-not-patched-in-css.md)). Where a stylesheet is
+genuinely the only route, **name the HeroUI version the rule was written against at the rule**, so the
+next upgrade knows what to re-read.
+
 ## Metadata and indexing
 
 Every route sets its own `title`, `description` and canonical; `metadataBase` in the root layout is what
@@ -179,8 +193,14 @@ and again when the session is built. `getAdminSession()` is the single definitio
 note that it neither throws nor redirects, so calling it without checking the return value guards
 nothing.
 
-Sessions last 8 hours and magic links 15 minutes, both shortened from the library defaults. There is no
-in-app sign-out, so session lifetime is the only revocation mechanism.
+Sessions last 8 hours and magic links 15 minutes, both shortened from the library defaults. **Two
+mechanisms end a session before that, and they belong to different people.** The signed-in admin has
+the shell's own sign-out (`fl_frontend/src/features/auth/actions.ts :: signOutAction`), offered in two
+places — inline at the end of the top bar and as a row in the sidemenu footer's options menu — and
+arming on the first press to end the session on the second. An operator revoking somebody else
+removes the address from `ALLOWED_ADMIN_EMAILS`: the `session` callback re-derives `role` on every
+read, so the row survives and stops authorizing anything on the next request after the restart that
+change already needs.
 
 Route protection is layered: `proxy.ts` guards `/admin/:path*`, and `app/admin/layout.tsx` checks
 independently, so rendering fails closed even if the matcher stops matching.

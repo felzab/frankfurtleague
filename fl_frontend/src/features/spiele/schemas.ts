@@ -293,12 +293,56 @@ export const FLBracketFaultSchema = z.discriminatedUnion("reason", [
 export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
 
 /**
- * What the admin patch returns: the envelope, plus the bracket fixtures the write moved.
+ * One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
  *
- * `advanced_to` holds the `spiel_nr` of every fixture the result entry resolved — the semi-final that
- * gained its winner, and, after a correction, the later fixture that lost an occupant it should never
- * have had (ADR-0042). It reports what happened, so a fixture that was emptied is named as readily as
- * one that was filled, and the toast that quotes it says "aktualisiert" rather than naming a winner.
+ * The two are separate facts and the second is the one an admin needs: a slot filling from empty costs
+ * nothing, while a slot whose occupant changed while the fixture already held a scoreline loses that
+ * scoreline in the same transaction (ADR-0042, ADR-0044). Both voided fields are `null` on the harmless
+ * case, so "was anything destroyed here" is a null check rather than a comparison against a state the
+ * client no longer holds (ADR-0051).
+ */
+export const FLSpielAdvancementSchema = z.object({
+  spiel_nr: z.int().positive(),
+  voided_ergebnis: z
+    .string()
+    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
+    .nullable(),
+  voided_elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
+});
+export type FLSpielAdvancement = z.infer<typeof FLSpielAdvancementSchema>;
+
+/**
+ * One side another fixture gave up so a team could be fielded on the same Spieltag (ADR-0052).
+ *
+ * A team plays at most one match per matchday, so fielding it here takes it out of there — and the
+ * fixture it leaves loses its own result for the same reason an advancement does. Only a side the admin
+ * owns is moved this way; a side carrying a `quelle` is refused instead, because emptying it would be
+ * undone by the next resolution.
+ */
+export const FLSpielReleasedSideSchema = z.object({
+  spiel_nr: z.int().positive(),
+  side: z.enum(["team1", "team2"]),
+  team_name: z.string().nonempty(),
+  voided_ergebnis: z
+    .string()
+    .regex(/^[0-9]+:[0-9]+$/, "Ergebnis muss die Form 'Tore:Tore' haben, z. B. '3:1'")
+    .nullable(),
+  voided_elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
+});
+export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
+
+/**
+ * What the admin patch returns: the envelope, plus every fixture the write moved and what that cost.
+ *
+ * `advanced_to` holds one entry per fixture the result entry resolved — the semi-final that gained its
+ * winner, and, after a correction, the later fixture that lost an occupant it should never have had
+ * (ADR-0042). It reports what happened, so a fixture that was emptied is named as readily as one that
+ * was filled, and each entry carries the result the rewrite destroyed rather than leaving the reader to
+ * infer it (ADR-0051). `released_sides` is the other write this endpoint can make (ADR-0052).
+ *
+ * **`dry_run=true` answers with this same shape and writes nothing**, which is what lets the edit
+ * surface name the fixtures a save would take a result from before the admin commits to it. One schema,
+ * because a preview parsed differently from the save it previews is a preview that can lie.
  *
  * **Declared here rather than parsed as a bare `BaseAPIResponseSchema`.** Zod's default `strip` mode
  * discards an undeclared key silently, so a response field with no entry in a schema never reaches the
@@ -308,7 +352,8 @@ export type FLBracketFault = z.infer<typeof FLBracketFaultSchema>;
  * list, but every declared property of a response model is on the wire, so it always arrives.
  */
 export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
-  advanced_to: z.array(z.int()),
+  advanced_to: z.array(FLSpielAdvancementSchema),
+  released_sides: z.array(FLSpielReleasedSideSchema),
   bracket_faults: z.array(FLBracketFaultSchema),
 });
 

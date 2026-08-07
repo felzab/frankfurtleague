@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `88fbfd4`, 2026-08-05
+**Verified against:** `2b69c68`, 2026-08-07
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -164,5 +164,5 @@ wave runs the full form regardless of what it touched, unless it changed documen
 | Backend healthcheck hardcodes `/api/v0/`      | Works today; breaks silently on an API version bump                                                 |
 | Registry tag pruning is manual                | Deliberate — a botched delete destroys rollback history. Keep ~5 `sha-` tags per package (ADR-0017) |
 | Local sha tags accumulate ~750 MB per publish | Handled: `publish.sh` deletes local sha tags after a successful push                                |
-| No in-app sign-out                            | Session lifetime (8h) is the only revocation mechanism                                              |
+| Revoking admin access needs a restart         | The allowlist is validated at boot; after it, `role` is re-derived per request and the session dies |
 | Certificates                                  | Mounted from `./certs`; renewal is outside this repo                                                |

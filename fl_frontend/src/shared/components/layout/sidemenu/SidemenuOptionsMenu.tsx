@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { ArrowRightFromSquare, Ellipsis, TriangleExclamation } from "@gravity-ui/icons";
 
-import { Dropdown, Label, Separator, toast } from "@heroui/react";
+import { Dropdown, Label, Separator } from "@heroui/react";
 
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
+import { useSignOut } from "@/shared/hooks/useSignOut";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
@@ -17,20 +17,20 @@ import type { FormState } from "@/shared/types/types";
 /**
  * The sidemenu's options menu, opening upward from the footer.
  *
- * Dashboard and admin have no topnav, so the theme switch that lives in `TopNavLinksDropdown` was
- * unreachable on those routes entirely. This is a menu rather than a bare switch because the footer
- * is the natural home for several of these — it now also carries the admin sign-out — and
- * the item markup matches the topnav dropdown so they stay one pattern.
+ * The shell's bar offers the same two controls inline (ADR-0058); this is a second placement, and the
+ * sign-out's behaviour is `useSignOut`'s so the two cannot come to mean different things. **The
+ * appearance is not shared, deliberately**: a full-width row in a 220px menu and a compact button on
+ * a 54px bar are different shapes for the same action, and forcing one component to be both is what
+ * makes a control look wrong in one of its homes.
  *
  * Layout follows the standard sidebar-footer menu (shadcn's `SidebarFooter` + dropdown, as used in
- * Vercel's dashboard template): expanded, the trigger is a full-width row and the menu opens above
- * it at the row's own width, so it is contained by construction. Collapsed, the rail is 72px and no
+ * Vercel's dashboard template): expanded, the trigger is a full-width row and the menu opens above it
+ * at the row's own width, so it is contained by construction. Collapsed, the rail is 72px and no
  * useful menu fits inside it, so the menu opens beside the rail instead — also the standard.
  *
  * `Dropdown.Trigger` renders the button itself (it wraps react-aria's `Button`), so the styling and
- * the accessible name go on it directly — nesting a `<button>` inside would be invalid HTML and
- * would swallow the press. It therefore reports `aria-expanded` for free, which the topnav's
- * raw-`<svg>` trigger does not.
+ * the accessible name go on it directly — nesting a `<button>` inside would be invalid HTML and would
+ * swallow the press. It therefore reports `aria-expanded` for free.
  */
 export function SidemenuOptionsMenu({
   isDesktopCollapsed,
@@ -38,52 +38,12 @@ export function SidemenuOptionsMenu({
 }: {
   isDesktopCollapsed: boolean;
   /**
-   * Injected by the shell that has a session to end — `shared` cannot import from `features`, and
-   * its presence is the gate: the dashboard shell passes nothing and gets no sign-out item.
+   * Injected by the shell that has a session to end — `shared` cannot import from `features`, and its
+   * presence is the gate: the dashboard shell passes nothing and gets no sign-out item.
    */
   onSignOut?: () => Promise<FormState>;
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
-  const [isSigningOut, startSignOut] = useTransition();
-  const [isConfirmingSignOut, setIsConfirmingSignOut] = useState(false);
-  const [wasOpen, setWasOpen] = useState(isOpen);
-  const router = useRouter();
-
-  // Arming is per-visit, not sticky: a menu reopened later must not still be one press away from
-  // ending the session.
-  // Adjusted during render rather than in an effect — React's documented pattern for resetting state
-  // when something changes, and the one `react-hooks/set-state-in-effect` exists to push you toward.
-  // It also covers both directions at once, which an `onOpenChange` handler would not:
-  // `useNavigationClosedOverlay` closes the menu on a route change by setting its own state, so that
-  // path never reaches the handler.
-  if (isOpen !== wasOpen) {
-    setWasOpen(isOpen);
-    setIsConfirmingSignOut(false);
-  }
-
-  // The action returns rather than redirecting, so the navigation happens here — see the note on
-  // `signOutAction`. The toast is fired BEFORE navigating: `Toast.Provider` is mounted once above
-  // the router in `RootProviders`, so it survives the transition, whereas a toast queued after
-  // `push()` races the unmount of this menu and was simply never seen.
-  const handleSignOut = () => {
-    startSignOut(async () => {
-      try {
-        const result = await onSignOut?.();
-
-        if (result && !result.success) {
-          toast.danger(result.error ?? "Abmelden fehlgeschlagen. Bitte versuche es erneut.");
-          return;
-        }
-
-        toast.success(result?.message ?? "Erfolgreich abgemeldet.");
-        // `refresh()` drops the cached server render of the admin shell just left behind.
-        router.push("/");
-        router.refresh();
-      } catch {
-        toast.danger("Abmelden fehlgeschlagen. Bitte versuche es erneut.");
-      }
-    });
-  };
 
   return (
     <Dropdown
@@ -107,83 +67,124 @@ export function SidemenuOptionsMenu({
         </Dropdown.Trigger>
       </IconTooltip>
 
-      {/* Expanded: `top` centres the menu on a trigger that already spans the sidemenu, and the
-          width matches the footer's content box (sidemenu minus its p-3), so the menu cannot spill
-          into the content area. Collapsed: no 220px menu fits in a 72px rail, so it opens beside it. */}
+      {/* Expanded: `top` centres the menu on a trigger that already spans the sidemenu, and the width
+          matches the footer's content box (sidemenu minus its p-3), so the menu cannot spill into the
+          content area. Collapsed: no 220px menu fits in a 72px rail, so it opens beside it. */}
       {/* `offset` rather than a margin class: it feeds react-aria's positioning maths, so the gap is
           measured from the trigger in whichever direction the menu ends up opening. */}
       <Dropdown.Popover
         offset={8}
         placement={isDesktopCollapsed ? "right bottom" : "top"}
-        className={`rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
+        /* Below `lg` the menu takes the viewport less a 1rem margin each side (owner), rather than
+           matching the 310px drawer it opens from — which left both rows cramped around a segmented
+           control. The popover is portalled, so overhanging the drawer costs nothing; react-aria keeps
+           it on screen. From `lg` it matches the footer's content box again, which is what stops it
+           spilling into the content area beside a permanent rail. */
+        className={`rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
         <Dropdown.Menu aria-label="Seitenmenü-Optionen">
           <Dropdown.Section aria-label="Einstellungen">
             {/* `shouldCloseOnSelect={false}`: this row is a container for a control, not a command,
-                so pressing it must not dismiss the menu the switch lives in. */}
+                so pressing it must not dismiss the menu the switch lives in.
+
+                **`bg-transparent!` with no state variant at all, which is the only spelling that
+                holds.** Cancelling `data-hovered` left the row tinting through `data-focused` — a menu
+                moves focus with the pointer, so `globals.css`'s unlayered
+                `[data-slot="menu-item"][data-focused="true"]` fill arrived by an attribute the
+                override never named — and cancelling both still leaves whatever attribute the next
+                HeroUI release paints on. This row is a container for a control, never a command being
+                chosen, so its background is a constant rather than a list of states to keep chasing.
+                The `!` is what outranks the unlayered rule. */}
             <Dropdown.Item
               id="theme-switch"
               textValue="Modus"
               shouldCloseOnSelect={false}
-              className="flex w-full cursor-default items-center justify-between px-2 py-1.5 data-hovered:bg-transparent!">
+              className="flex w-full cursor-default items-center justify-between bg-transparent! px-2 py-1.5">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
               <ThemeSwitch />
             </Dropdown.Item>
           </Dropdown.Section>
 
-          {/* Admin only — the dashboard shell has no session to end. Until this
-              existed, `core/auth.ts`'s exported `signOut` had zero call sites and the only way to
-              revoke a session was deleting its row from the `authjs` collection by hand. */}
+          {/* Admin only — the dashboard shell has no session to end. */}
           {onSignOut && (
             <>
               <Separator className="my-1" />
               <Dropdown.Section aria-label="Konto">
-                {/* Confirms in place rather than in a modal (owner decision 2026-07-31): the first
-                    press arms the row and the second signs out, so the question is answered where
-                    the eye already is instead of in a dialog somewhere else on the screen.
-                    `shouldCloseOnSelect={false}` is what makes it possible — without it the first
-                    press dismisses the menu and the second never happens. The theme row above uses
-                    the same escape hatch for the same structural reason.
-                    Escaping is deliberately easy and undocumented-to-the-user: closing the menu,
-                    pressing Escape or clicking away all reset it (see the render-time reset above). The only
-                    path to signing out is a second, deliberate press on a row that has visibly
-                    changed. */}
-                <Dropdown.Item
-                  id="sign-out"
-                  textValue={isConfirmingSignOut ? "Wirklich abmelden?" : "Abmelden"}
-                  isDisabled={isSigningOut}
-                  shouldCloseOnSelect={false}
-                  onAction={() => {
-                    if (!isConfirmingSignOut) {
-                      setIsConfirmingSignOut(true);
-                      return;
-                    }
-                    handleSignOut();
-                  }}
-                  className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
-                    isConfirmingSignOut ? "bg-danger/10 data-hovered:bg-danger/20" : "data-hovered:bg-danger/10"
-                  }`}>
-                  <Label className="fluid-sm text-danger min-w-0 flex-1 font-semibold">
-                    {isSigningOut ? "Wird abgemeldet..." : isConfirmingSignOut ? "Wirklich abmelden?" : "Abmelden"}
-                  </Label>
-                  {/* The icon changes with the state so the row does not rely on colour alone to say
-                      it is armed — the tint and the label both shift, and so does the glyph. */}
-                  {isConfirmingSignOut ? (
-                    <TriangleExclamation
-                      aria-hidden="true"
-                      className="text-danger size-4 shrink-0"
-                    />
-                  ) : (
-                    <ArrowRightFromSquare
-                      aria-hidden="true"
-                      className="text-danger size-4 shrink-0"
-                    />
-                  )}
-                </Dropdown.Item>
+                <SignOutItem
+                  onSignOut={onSignOut}
+                  isMenuOpen={isOpen}
+                />
               </Dropdown.Section>
             </>
           )}
         </Dropdown.Menu>
       </Dropdown.Popover>
     </Dropdown>
+  );
+}
+
+/**
+ * The sign-out as one menu row: the whole row IS the control, which is what keeps the menu compact.
+ *
+ * Its own component only so the hook can live beside the state that resets it — arming is per-visit,
+ * not sticky, and a menu reopened later must not still be one press away from ending the session.
+ */
+function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormState>; isMenuOpen: boolean }) {
+  const { isConfirming, isSigningOut, press, disarm } = useSignOut(onSignOut);
+  const [wasOpen, setWasOpen] = useState(isMenuOpen);
+
+  // Adjusted during render rather than in an effect — React's documented pattern for resetting state
+  // when something changes, and the one `react-hooks/set-state-in-effect` exists to push you toward.
+  // It also covers both directions at once, which an `onOpenChange` handler would not:
+  // `useNavigationClosedOverlay` closes the menu on a route change by setting its own state, so that
+  // path never reaches the handler.
+  if (isMenuOpen !== wasOpen) {
+    setWasOpen(isMenuOpen);
+    disarm();
+  }
+
+  return (
+    <Dropdown.Item
+      id="sign-out"
+      textValue={isConfirming ? "Wirklich abmelden?" : "Abmelden"}
+      isDisabled={isSigningOut}
+      /* Without this the first press dismisses the menu and the second never happens — the escape
+         hatch that makes an in-place confirm possible at all. Escaping stays deliberately easy:
+         closing the menu, pressing Escape or clicking away all reset it, per the reset above. */
+      shouldCloseOnSelect={false}
+      onAction={press}
+      /* **One red at rest, one red when armed, and nothing in between** (owner). The fill does not
+         brighten on approach: a hover step on the one destructive command in the menu made the row
+         look like it was reacting when nothing had happened yet, and the state that matters — armed
+         or not — was then competing with it. Both are `!`, because `globals.css`'s unlayered
+         `data-focused` fill would otherwise paint grey straight over either.
+
+         **`data-focused`, and important, or the row goes grey under the pointer.** `globals.css`
+         paints `--bg-muted` on `[data-slot="menu-item"][data-focused="true"]` to give a keyboard user
+         an indicator inside an open menu, and a menu moves focus with the pointer: react-aria's
+         `useMenuItem` hook calls `setFocusedKey` from its own hover-start handler, so hovering this
+         row sets `data-focused` as well. That rule is UNLAYERED and a Tailwind utility is not, which
+         decides a tie the two selectors would otherwise draw on specificity, so a plain
+         `data-hovered:` class loses and the danger tint is overpainted. `!` wins it back, because an
+         important declaration outranks a normal one whatever the layer. */
+      className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
+        isConfirming ? "bg-danger/20!" : "bg-danger/10!"
+      }`}>
+      <Label className="fluid-sm text-danger min-w-0 flex-1 font-semibold">
+        {isSigningOut ? "Wird abgemeldet..." : isConfirming ? "Wirklich abmelden?" : "Abmelden"}
+      </Label>
+      {/* The icon changes with the state so the row does not rely on colour alone to say it is armed
+          — the tint and the label both shift, and so does the glyph. */}
+      {isConfirming ? (
+        <TriangleExclamation
+          aria-hidden="true"
+          className="text-danger size-4 shrink-0"
+        />
+      ) : (
+        <ArrowRightFromSquare
+          aria-hidden="true"
+          className="text-danger size-4 shrink-0"
+        />
+      )}
+    </Dropdown.Item>
   );
 }

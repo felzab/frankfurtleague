@@ -334,18 +334,68 @@ class FLSpieleActionRequiredResponse(BaseAPIResponse):
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
 
 
+class FLSpielAdvancement(BaseModel):
+    """
+    One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
+
+    **The two are separate facts and the second is the one an admin needs.** A slot filling from empty
+    is the ordinary, harmless case; a slot whose occupant changed while the fixture already held a
+    scoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044), and until this model
+    existed the response said only that a `Paarung` had been updated (ADR-0051).
+
+    Both voided fields are `None` on the harmless case, so "was anything destroyed here" is a null
+    check rather than a comparison against the fixture's earlier state — which the caller does not
+    have.
+    """
+
+    spiel_nr: int = Field(gt=0)
+    # The scoreline the fixture held at the moment the resolution ran, copied out before the write
+    # cleared it. Same pattern as `FLSpiel.ergebnis`, because that is exactly what this is.
+    voided_ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
+    voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
+
+
+class FLSpielReleasedSide(BaseModel):
+    """
+    One side another fixture gave up so a team could be fielded on the same Spieltag (ADR-0052).
+
+    A team plays at most one match per matchday, so fielding it here takes it out of there. Only a
+    side the admin owns is moved this way: a side carrying a `quelle` is the resolution's, emptying it
+    would be undone on the next pass, and that case is refused instead.
+
+    `team_name` rather than an id, because the message quoting this has no `spiele` list to join
+    against. It cannot go stale — the rename fan-out maintains the copy it is read from (ADR-0028,
+    rule 3) and this is derived per request.
+    """
+
+    spiel_nr: int = Field(gt=0)
+    # English, like `type` on a quelle: it names a field of the document rather than anything in the
+    # competition.
+    side: Literal["team1", "team2"]
+    team_name: str = Field(min_length=1)
+    voided_ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
+    voided_elfmeterschiessen: FLSpielElfmeterschiessen | None
+
+
 class FLPatchSpielDataResponse(BaseAPIResponse):
     """
-    What `patch_spiel_data` returns: the envelope, plus the fixtures it moved.
+    What `patch_spiel_data` returns: the envelope, plus every fixture it moved and what that cost.
 
-    `advanced_to` carries the `spiel_nr` of every bracket fixture whose sides the result entry
-    resolved — a semi-final that gained its winner, and, when a result was corrected, a later fixture
-    that lost an occupant it should never have had (ADR-0042). It reports what happened rather than
-    what was asked for, so it names a fixture that was emptied as readily as one that was filled.
+    `advanced_to` carries one entry per bracket fixture whose sides the result entry resolved — a
+    semi-final that gained its winner, and, when a result was corrected, a later fixture that lost an
+    occupant it should never have had (ADR-0042). It reports what happened rather than what was asked
+    for, so it names a fixture that was emptied as readily as one that was filled, and each entry
+    carries the result the rewrite destroyed rather than leaving the reader to infer it (ADR-0051).
+
+    `released_sides` carries the other kind of write this endpoint can make: a side of another fixture
+    on the same Spieltag, emptied because the team it held is now fielded here (ADR-0052).
 
     Reported for the same reason `PATCH /teams/{team_id}` reports `fanned_out_to_spiele`: a write that
-    silently changes documents the caller did not name is one whose failures are invisible. An empty
-    list is the ordinary answer for a group-phase edit.
+    silently changes documents the caller did not name is one whose failures are invisible. Both lists
+    are empty for the ordinary group-phase edit.
+
+    **`dry_run=true` returns this same shape and writes nothing.** One model, because a preview that
+    could disagree with the save it previews is worse than no preview (ADR-0051).
 
     `bracket_faults` carries every stored contradiction the resolution walked past in this season: a
     `gruppe` reference that cannot be honoured and will not become honourable by waiting (ADR-0043), a
@@ -358,5 +408,6 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
     is known.
     """
 
-    advanced_to: list[int] = Field(default_factory=list)
+    advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
+    released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)

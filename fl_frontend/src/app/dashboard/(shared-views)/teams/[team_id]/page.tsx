@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -7,6 +8,7 @@ import { getSpiele } from "@/features/spiele/queries";
 import { TeamDetailsView } from "@/features/teams/components/views/TeamDetailsView";
 import { getTeam } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
+import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { openGraphFor } from "@/shared/utils/metadata";
 
@@ -41,7 +43,32 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   };
 }
 
-export default async function TeamDetailsPage(props: NextPageProps<{ team_id: string }>) {
+/**
+ * The page resolves nothing itself; every await happens inside the boundary below.
+ *
+ * `cacheComponents` builds an App Shell per route, and a dynamic segment with no
+ * `generateStaticParams` (ADR-0011) gets one built with FALLBACK params. Awaiting `params` at the
+ * page's top level ties that shell to a single URL, and the two states contradict each other the
+ * moment a server action's `updateTag` revalidates the route from somewhere else — Next raises
+ * `Invariant: postponed state should not be provided when fallback params are provided`, truncates
+ * the action's response, and leaves the route serving its stale payload.
+ *
+ * This page depends on the `teams` tag, which `patchAdminSpielDataAction` invalidates on every match
+ * write, so it is reachable the same way `/admin/spiele/[spiel_id]` was.
+ *
+ * `generateMetadata` above keeps its top-level await: it is not part of the shell.
+ *
+ * See: https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
+ */
+export default function TeamDetailsPage(props: NextPageProps<{ team_id: string }>) {
+  return (
+    <Suspense fallback={<ContentLoader />}>
+      <TeamDetailsContent {...props} />
+    </Suspense>
+  );
+}
+
+async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
   await connection();
   const team_id = await resolveTeamId(props.params);
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);

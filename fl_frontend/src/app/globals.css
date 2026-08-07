@@ -47,6 +47,11 @@
 
 /* Buttons */
 @import "@heroui/styles/components/button.css" layer(components);
+/* Both, and in this order: `ToggleButtonGroup` composes `ToggleButton`, and HeroUI's own index.css
+   puts the two here — after `button`, before the collections. The theme control is the consumer, and
+   it is reachable from `TopNav` on every public route, so this is `globals.css` and not `admin.css`. */
+@import "@heroui/styles/components/toggle-button.css" layer(components);
+@import "@heroui/styles/components/toggle-button-group.css" layer(components);
 
 /* Collections */
 @import "@heroui/styles/components/dropdown.css" layer(components);
@@ -250,9 +255,17 @@
      <a>, <button> or [tabindex] an outline with the same width, offset and colour, so the app has
      ONE focus appearance rather than three (owner, 2026-07-31).
 
-     Why this cannot double up on HeroUI's components: every one of them also declares
-     `outline-style: none` in @layer components, which outranks this @layer base rule. And why it
-     beats the browser's own focus ring: any author style does.
+     Why it beats the browser's own focus ring: any author style does.
+
+     **It CAN double up on HeroUI's components, and the unlayered rule below is what stops it.**
+     HeroUI opts its own controls out with `.button:focus-visible:not(:focus), .button[data-focus-visible="true"]`
+     in @layer components, which does outrank this rule — but only where it matches, and its first arm
+     never can: an element that is focused always matches `:focus`, so `:not(:focus)` excludes exactly
+     the state it was written for. The opt-out therefore rests entirely on the second arm, which
+     react-aria sets from its own modality tracking. Wherever that tracking and the browser's
+     `:focus-visible` heuristic disagree — see the switch's note below, the modality is global and
+     survives an earlier key press — this rule painted a 2px white outline over a control HeroUI was
+     already indicating.
 
      Form fields are absent from the selector by element type, and the field-shaped HeroUI triggers
      (autocomplete, select, search field) are handled by the unlayered exception block below. */
@@ -396,12 +409,25 @@
   }
 }
 
-/* PROJECT RULE (no CSS here -- applied at the call sites): every scroll container reserves its
-   gutter with Tailwind's `scrollbar-gutter-stable`, so a scrollbar appearing (an accordion
-   expanding, an overlay locking the page) can never resize the content box and shift the layout.
-   `scrollbar-gutter` only applies to scroll containers -- for the viewport that is <html>, not
-   <body>, so the declaration belongs on <html>. Consumers: <html> in layout.tsx, both
+/* PROJECT RULE (applied at the call sites; the one rule below is the exception): every scroll
+   container reserves its gutter with Tailwind's `scrollbar-gutter-stable`, so a scrollbar appearing
+   (an accordion expanding, an overlay locking the page) can never resize the content box and shift
+   the layout. `scrollbar-gutter` only applies to scroll containers -- for the viewport that is
+   <html>, not <body>, so the declaration belongs on <html>. Consumers: <html> in layout.tsx, both
    dashboard/admin <main>s, the sidemenu nav scroller, ModalShell's body. */
+
+/* THE EXCEPTION: a route rendering `AppShell` gives the gutter back.
+   That shell is `h-dvh` with its own scroll container inside (`main`), so the viewport itself can
+   never scroll there -- and `scrollbar-gutter: stable` on a container that cannot scroll still
+   reserves the strip, which is ~15px of dead rail down the right of every dashboard and admin page.
+   It is visible as the top bar stopping short of the window edge, which is the one element that has
+   to reach it.
+   Keyed on the shell's own marker with `:has()`, so the public routes -- which DO scroll the
+   viewport and DO need the reservation -- are untouched, and nothing has to reach up and mutate
+   <html> imperatively. Unlayered, so it outranks the utility on the element. */
+html:has([data-app-shell]) {
+  scrollbar-gutter: auto;
+}
 
 /* THE app's type scale, and the only way to spell it: `fluid-sm`, never `text-fluid-sm`.
  *
@@ -549,13 +575,41 @@
     outline: none;
   }
 
-  /* The indicator chevron inside a picker is a real react-aria Button and is the field's own focus
-     target, so it drew the base-layer outline as a floating box in the middle of the field while
-     the field border was already brand — two indicators for one control. The field owns the
-     affordance; its inner trigger must not add a second. */
-  & :is([data-slot$="-indicator"], [data-slot$="-default-indicator"]):focus-visible {
+  /* Any BUTTON inside a field group is the field's own focus target, so it drew the base-layer
+     outline as a floating box in the middle of the field while the field border was already brand —
+     two indicators for one control. The field owns the affordance; its inner controls must not add a
+     second.
+
+     Scoped to every inner button rather than to the indicator slots alone, because the two clear
+     controls on Spieldatum and Anpfiff are plain `<button>`s carrying no HeroUI slot at all: the
+     slot-suffix selector matched the chevron beside them and missed them, so completing a time lit a
+     white box around the control that had just appeared. Position, not markup, is what decides this
+     — anything focusable inside a field group is inside a control that already says it is focused. */
+  & button:focus-visible {
     outline: none;
   }
+}
+
+/* HeroUI's own controls keep HeroUI's ring and take no outline on top of it.
+
+   The @layer base rule above cannot be trusted to lose this race on its own: HeroUI's opt-out is
+   `.button:focus-visible:not(:focus)`, whose `:not(:focus)` arm can never match a focused element, so
+   the opt-out survives only through `[data-focus-visible]` — an attribute react-aria sets from a
+   modality that is global and diverges from the browser's `:focus-visible` heuristic. Unlayered, so
+   it outranks both the base rule and anything HeroUI ships.
+
+   The ring is NOT removed with it: `.button` still draws `--tw-ring-shadow` in var(--focus) from
+   `[data-focus-visible]`, so a keyboard user keeps an indicator with the same colour and offset.
+   What goes is the second one.
+
+   The one case this leaves without any indicator is a focus the BROWSER calls focus-visible and
+   react-aria does not flag. That direction is the unlikely one — react-aria's modality is global and
+   sticky, so it errs towards flagging more focus as keyboard, not less — and it is the trade for
+   removing an indicator that appears on a plain mouse press. Revisit here if a keyboard-only pass
+   ever finds a HeroUI control with no visible focus state. */
+:is(button, a).button:focus-visible,
+:is(button, a).link:focus-visible {
+  outline: none;
 }
 
 /* The theme switch. HeroUI rings `.switch__control` off the Switch root's focus state, and that ring
@@ -624,12 +678,22 @@
    onto the first match as you type and depends on no modality at all (verified in
    react-aria-components 1.19, `private/ListBox.mjs`, which writes both).
 
-   So the highlight is keyed on `data-focused`: it appears on the option Enter would pick, it appears
-   for the same reason every time, and it cannot come and go with the pointer/keyboard mode. The fill is
-   `--bg-muted`, the same background hovering gives — deliberately no more than that, and no ring, which
-   the rule above still suppresses. This closes the WCAG 2.4.7 gap that block recorded: a keyboard user
-   arrowing through an open list now has an indicator inside the popover. */
-[data-slot="list-box-item"][data-focused="true"],
+   The fill is `--bg-muted`, the same background hovering gives — deliberately no more than that, and
+   no ring, which the rule above still suppresses. This closes the WCAG 2.4.7 gap that block recorded:
+   a keyboard user arrowing through an open list has an indicator inside the popover. Which attribute
+   carries it differs by collection, and the rule below says why. */
+/* A MENU item keys on `data-focused`, because a menu moves focus with the pointer — react-aria's
+   `useMenuItem` calls `setFocusedKey` from its hover-start handler — so this is the hover indicator
+   and the keyboard indicator at once.
+
+   A LIST-BOX item keys on `data-focus-visible`, and the difference is not cosmetic. A `Select` focuses
+   its SELECTED option the moment the popover opens, whatever opened it, so `data-focused` painted a
+   fill on one row before anybody had pressed a key — read as "these items have a background" rather
+   than as "you are here" (owner, 2026-08-07). `data-focus-visible` is react-aria's keyboard-modality
+   flag, so the fill now appears when a key actually moves the selection, which is the WCAG 2.4.7 case
+   this rule exists for. What a pointer user gets instead is the call site's own `hover:` pair — see
+   `SaisonSelector`, which tints the row and turns its text brand. */
+[data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
   background-color: var(--bg-muted);
 }
@@ -735,20 +799,88 @@
     @apply border-b-0!;
   }
 
+  /* THE TOAST — and this block is deliberately small, because most of a toast is not styled here.
+   *
+   * `AppToaster` supplies `Toast.Provider`'s `children` render function, so the tile, the text
+   * hierarchy, the action button and the close button are ordinary TSX carrying ordinary utility
+   * classes (ADR-0053). What is left below is the part that has no element in that file to hang a
+   * class on: HeroUI writes the shell's own `class`, and the close button's visibility has to stay
+   * keyed on an attribute only the library sets.
+   *
+   * **Written against HeroUI 3.2.3.** Every selector below is vendored implementation detail —
+   * `.toast`, its `--<variant>` modifiers, `.toast__close-button` and `[data-frontmost]` come from
+   * `@heroui/styles/dist/components/toast.css`, not from any public API. A release that renames one
+   * takes this styling with it and reports nothing, so **re-read that file on every HeroUI upgrade**;
+   * the render function in `AppToaster` is type-checked and will fail loudly instead, which is why as
+   * little as possible lives here.
+   *
+   * Utilities beat components in this app's layer order, so anything `AppToaster` sets on an element
+   * already outranks both HeroUI's rules and these. */
+  /* Opaque, and deliberately NOT `backdrop-blur`. A blurred backdrop has to be re-rasterised on every
+     frame anything above it changes, and the timer bar below changes on every frame for its whole
+     life — which made a 3px bar cost a full-surface blur pass and drain in visible steps rather than
+     smoothly. An opaque surface costs nothing per frame, and at 95% opacity the blur was buying
+     almost no visible depth anyway. */
   .toast {
-    @apply bg-surface border-border border whitespace-normal;
+    @apply bg-surface border-border rounded-xl border p-3.5 shadow-lg;
+    /* `overflow-hidden` is what clips the timer bar to the rounded bottom corners. */
+    @apply items-start gap-2.5 overflow-hidden whitespace-normal;
+  }
+
+  /* Severity is the border and the timer bar, and with the icon tile gone (owner, 2026-08-06) the
+     border is the one mark a settled toast carries. `/60` rather than the `/30` it ran at beside a
+     tinted tile: it is now doing that work alone and has to read at a glance. */
+  .toast--accent {
+    @apply border-info/60;
+  }
+
+  .toast--success {
+    @apply border-success/60;
+  }
+
+  .toast--warning {
+    @apply border-warning/60;
   }
 
   .toast--danger {
-    @apply border-danger border-1 border-solid;
+    @apply border-danger/60;
   }
 
-  .toast__description {
-    @apply fluid-xs text-foreground-muted opacity-90;
+  /* THE DISMISS CONTROL, and this rule is the WCAG 2.2.1 fix rather than a preference.
+   *
+   * HeroUI 3.2.3 gives `.toast__close-button` `opacity-0` **and** `pointer-events-none`, restoring
+   * both only under `.toast[data-frontmost="true"]:hover`. On a touch screen there is no hover, so
+   * the control is not merely invisible — it is unhittable, and a timed message carrying information
+   * can only be waited out. The undo offer is the worst case of it: fifteen seconds whose entire
+   * point is a decision the reader cannot dismiss.
+   *
+   * Scoped to the frontmost toast on purpose. The stacked ones behind it are inert by design
+   * (`.toast:not([data-frontmost="true"])` also drops their pointer events), and that rule is more
+   * specific than this one, so a queued toast keeps its hidden close button and only the toast the
+   * reader is actually looking at gains a permanent one. */
+  .toast[data-frontmost="true"] .toast__close-button {
+    @apply pointer-events-auto opacity-100;
   }
 
-  .toast__action {
-    @apply fluid-xs;
+  /* The remaining time, drawn rather than guessed at.
+   *
+   * `animation-duration` is set inline from the toast's own `timeout`, so the bar drains in step with
+   * the timer that will actually close it. `react-aria`'s `useToastRegion` pauses every visible
+   * toast's timer while the region is hovered or focused, so the bar has to pause with it — without
+   * these three selectors it would keep draining against a clock that had stopped, which is a worse
+   * failure than showing nothing. */
+  .toast__timer {
+    animation: toast-timer linear forwards;
+    /* Promotes the bar to its own compositor layer, so the fifteen seconds it animates cost no
+       repaint of the toast behind it. Named on `transform` rather than left as `auto` because this
+       element animates for its whole life — the case the hint exists for. */
+    will-change: transform;
+  }
+
+  .toast-region:hover .toast__timer,
+  .toast-region:focus-within .toast__timer,
+  .toast:hover .toast__timer {
+    animation-play-state: paused;
   }
 
   .accordion__item:after {
@@ -869,5 +1001,18 @@
   from {
     opacity: 0;
     transform: translateY(var(--card-enter-shift, 0.5rem));
+  }
+}
+
+/* The toast timer bar draining. `transform` rather than `width` so it runs on the compositor and
+   cannot reflow the toast's contents mid-message. Deliberately NOT stopped under reduced motion: it
+   is a timer readout rather than decoration, and the policy there is "remove movement, keep meaning"
+   — a 3px bar shortening in place is neither a slide nor a loop. */
+@keyframes toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
   }
 }

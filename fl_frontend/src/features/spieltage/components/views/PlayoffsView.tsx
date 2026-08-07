@@ -30,14 +30,9 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
   // Was `return null`, which rendered a completely blank content area — and this is the expected
   // state for most of a season, because the playoff Spieltage do not exist until the group phase
   // finishes.
-  /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
-     `h1` whether or not the season has data. */
-  const pageHeading = <h1 className="sr-only">Finalrunden</h1>;
-
   if (!playoffsSpieltage || playoffsSpieltage.length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        {pageHeading}
         <EmptyState
           title="Noch keine Finalrunden"
           hint="Die Playoff-Paarungen werden festgelegt, sobald die Gruppenphase abgeschlossen ist."
@@ -57,8 +52,6 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
     // a bracket is a tree read column by column, and its cards are joined by CSS bracket lines that do
     // not animate. Staggering the cards would slide them away from lines that stay put.
     <div className={`${PAGE_RISE} flex w-full min-w-0 flex-1 flex-col items-center pt-4 pb-12`}>
-      {pageHeading}
-
       {/* Viewport scroller. `@container` + `cqw` below, never `vw`: a `vw` column claims a share of
           the VIEWPORT, which the content area does not have once the sidebar appears, so the bracket
           overflows its own scroller. `cqw` measures this element instead. */}

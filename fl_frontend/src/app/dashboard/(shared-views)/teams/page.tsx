@@ -31,8 +31,6 @@ export default async function TeamDetailsSelectionPage(props: NextPageProps) {
   return (
     <TeamSelectionView
       teams={teamsRes.teams}
-      title="Teams der Frankfurt-League"
-      description="Wähle ein Team aus, um Teamdaten, Statistiken etc. zu sehen."
       urlPrefix="/dashboard/teams"
     />
   );

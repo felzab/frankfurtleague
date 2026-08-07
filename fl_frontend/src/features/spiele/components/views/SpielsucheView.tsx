@@ -15,7 +15,7 @@ import type { FLSpiel } from "../../schemas";
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
 // The two `searchable_quelle` keys are here because a `quelle` is a reference and holds no text at all,
 // while the label DERIVED from it is what a bracket fixture shows while its sides are unresolved —
-// without them, searching for what is on screen ("Sieger 25.", "Gruppensieger A") finds nothing.
+// without them, searching for what is on screen ("Sieger 25.", "1. der Gruppe A") finds nothing.
 const SEARCH_KEYS = [
   "team1.name",
   "team2.name",
@@ -67,10 +67,6 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center">
-      {/* These routes have no visible page title by design, so the `h1` that anchors the heading
-          list is visually hidden. The text matches the route's own `metadata.title`. */}
-      <h1 className="sr-only">Spielsuche</h1>
-
       {/** Search Bar */}
       <div className="bg-background sticky top-0 z-20 flex w-full justify-center px-4 py-4 sm:px-8 lg:py-8">
         <SearchBar

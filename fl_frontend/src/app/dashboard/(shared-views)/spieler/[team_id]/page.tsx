@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -7,6 +8,7 @@ import { TeamSpielerView } from "@/features/spieler/components/views/TeamSpieler
 import { getSpieler } from "@/features/spieler/queries";
 import { getTeam } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
+import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
@@ -31,7 +33,20 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   };
 }
 
-export default async function TeamSpielerPage(props: NextPageProps<{ team_id: string }>) {
+/**
+ * The page resolves nothing itself — see `teams/[team_id]/page.tsx` for why every await belongs
+ * inside the boundary. Same segment shape, same `teams` tag, same crash if it were left at the top
+ * level.
+ */
+export default function TeamSpielerPage(props: NextPageProps<{ team_id: string }>) {
+  return (
+    <Suspense fallback={<ContentLoader />}>
+      <TeamSpielerContent {...props} />
+    </Suspense>
+  );
+}
+
+async function TeamSpielerContent(props: NextPageProps<{ team_id: string }>) {
   await connection();
   const team_id = await resolveTeamId(props.params);
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);

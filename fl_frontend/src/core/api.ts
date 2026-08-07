@@ -114,7 +114,7 @@ const handleFetchResponse = async ({
 
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
   // The current request's id where a scope exists (server actions and route handlers seed one,
-  // shared/utils/serverAction.ts), a freshly minted id otherwise. The unseeded case is the
+  // shared/utils/adminMutation.ts), a freshly minted id otherwise. The unseeded case is the
   // `"use cache"` fill: a cached execution is shared across requests by construction, so Next
   // refuses request APIs there and no page-request id can exist -- the fill's outbound request gets
   // an id of its own instead (docs/logging.md). Minting inside cached functions is deliberately

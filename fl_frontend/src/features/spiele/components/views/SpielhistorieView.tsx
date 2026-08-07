@@ -6,16 +6,9 @@ import { SpielCardsList } from "../collections/SpielCardsList";
 import type { FLSpiel } from "../../schemas";
 
 export function SpielhistorieView({ spielhistorieData, today }: { spielhistorieData: FLSpiel[]; today: string }) {
-  /* Rendered in both branches, not just the populated one: the route must keep its only `h1`
-     whether or not the season has data — losing it in the empty state takes the heading away
-     exactly when there is least else to orient by. Visually hidden because the design has no page
-     title; the text matches the route's own `metadata.title`. */
-  const pageHeading = <h1 className="sr-only">Spielhistorie</h1>;
-
   if (spielhistorieData.length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        {pageHeading}
         <EmptyState
           title="Für diese Saison sind noch keine Spiele gewertet."
           hint="Sobald ein Spiel abgeschlossen und eingetragen ist, erscheint es hier."
@@ -26,8 +19,6 @@ export function SpielhistorieView({ spielhistorieData, today }: { spielhistorieD
 
   return (
     <>
-      {pageHeading}
-
       {/* A grid of `SpielCard`s is tier 2 in `motion.ts`, so it cascades rather than fading in as one
           block — the spielplan renders an identical grid one nav click away and must arrive the
           same way. */}

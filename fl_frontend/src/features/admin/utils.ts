@@ -1,17 +1,28 @@
 /**
  * ADMIN · action-required derivation
  *
- * Sorts matches into the categories the action-required view renders. Pure derivation, no I/O — it is
- * a separate module from `queries.ts` so that non-caching code stays out of a `"use cache"` file
- * (ADR-0004).
+ * Sorts matches into the categories the action-required view renders, ranks those categories by how
+ * much each blocks the competition, and says the one thing about an entry that its category cannot.
+ * Pure derivation, no I/O — it is a separate module from `queries.ts` so that non-caching code stays
+ * out of a `"use cache"` file (ADR-0004).
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
- *   • Declaration order in `ACTION_REQUIRED_LABELS` is render order; the view maps its entries
- *     straight into the accordion.
+ *   • Declaration order in `ACTION_REQUIRED_LABELS` is render order, and that order is **urgency**:
+ *     what stops the competition proceeding comes first (ADR-0056). `buildActionRequiredSections`
+ *     walks the label table rather than the categorised record, so a reordering of one cannot leave
+ *     the other behind.
  *   • The category union stays a literal union, not an index signature. The accumulator below is
  *     fully keyed, so a mistyped category is a compile error rather than a crash on `undefined`.
+ *   • `categorizeActionRequired` is read by two surfaces — this list and the match editor — so its
+ *     rules live here once and nothing re-implements them.
+ *   • The one rule it does NOT own is what fills a bracket slot: `deriveSlotHerkunft` answers that in
+ *     `spiele`, beside the reference it reads, because the wiring review asks the same question of the
+ *     same two fields.
  */
+
+import { deriveSlotHerkunft } from "@/features/spiele/utils";
+import { typedObjectEntries } from "@/shared/utils/type";
 
 import type { FLBracketFault, FLSpiel } from "../spiele/schemas";
 import type { ActionRequiredCategory } from "../spiele/types";
@@ -22,26 +33,77 @@ import type { ActionRequiredCategory } from "../spiele/types";
 export type { ActionRequiredCategory };
 
 /**
- * Declaration order is render order — the view maps `typedObjectEntries` straight into the accordion.
+ * How far a category is from stopping the competition, which is the order the triage list works in
+ * (ADR-0056). The three working grades also carry the colour, so a section's rank and its tint can
+ * never disagree.
+ *
+ * - `blocking` — a later fixture cannot resolve at all until somebody acts.
+ * - `results` — every standing and every group-seeded slot below this fixture is waiting on it.
+ * - `details` — administrative tidying. Nothing downstream is held up.
+ * - `none` — not a problem. `is_canceled` is the only member: it is a filter over the season, offered
+ *   here so an admin can look it up, and never a queue an admin is expected to empty.
  */
-export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: string; desc: string }> = {
-  ergebnis_pending: {
-    name: "Ergebnis ausstehend",
-    desc: "Spiele, die bereits gespielt wurden, aber kein eingetragenes Ergebnis haben",
+export type FLActionUrgency = "blocking" | "results" | "details" | "none";
+
+/**
+ * Declaration order is render order, and it is urgency rather than the data model's grouping —
+ * established platforms order an organiser's queue by what blocks play, and that is the order below.
+ *
+ * **`short` is what the page shows and `name` is what it is called.** Eight tabs are rendered at all
+ * times (ADR-0056), and eight full names do not fit one row at any width — the one-word form does, at
+ * desktop width, which is what lets the strip be a strip rather than a scroller. `name` stays because
+ * a category needs a full spelling somewhere a reader can find it, and `desc` is the line under the
+ * strip that says what the one word covers.
+ */
+export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: string; short: string; desc: string; urgency: FLActionUrgency }> = {
+  bracket_fault: {
+    name: "Fehlerhafte Verweise",
+    short: "Verweise",
+    desc: "KO-Spiele, deren Herkunft sich nicht auflösen lässt. Der Grund steht auf der Karte",
+    urgency: "blocking",
   },
   besetzung_missing: {
     name: "Offene Besetzung",
+    short: "Besetzung",
     desc: "KO-Spiele mit einer Seite ohne Mannschaft und ohne Herkunft. Diese Seite wird von niemandem gepflegt",
+    urgency: "blocking",
   },
-  bracket_fault: {
-    name: "Fehlerhafte Verweise",
-    desc: "KO-Spiele, deren Herkunft sich nicht auflösen lässt. Die Gründe stehen über den Karten",
+  ergebnis_pending: {
+    name: "Ergebnis ausstehend",
+    short: "Ergebnis",
+    desc: "Spiele, die bereits gespielt wurden, aber kein eingetragenes Ergebnis haben",
+    urgency: "results",
   },
-  datum_missing: { name: "Fehlendes Datum", desc: "Spiele ohne eingetragenes Datum" },
-  uhrzeit_missing: { name: "Fehlende Uhrzeit", desc: "Spiele ohne eingetragene Uhrzeit" },
-  ort_missing: { name: "Fehlender Ort", desc: "Spiele ohne eingetragenen Ort" },
-  schiedsrichter_missing: { name: "Fehlender Schiedsrichter", desc: "Spiele ohne eingetragenen Schiedsrichter" },
-  is_canceled: { name: "Abgesagt", desc: "Abgesagte Spiele" },
+  datum_missing: {
+    name: "Fehlendes Datum",
+    short: "Datum",
+    desc: "Spiele ohne eingetragenes Datum",
+    urgency: "details",
+  },
+  uhrzeit_missing: {
+    name: "Fehlende Uhrzeit",
+    short: "Uhrzeit",
+    desc: "Spiele ohne eingetragene Uhrzeit",
+    urgency: "details",
+  },
+  ort_missing: {
+    name: "Fehlender Ort",
+    short: "Ort",
+    desc: "Spiele ohne eingetragenen Ort",
+    urgency: "details",
+  },
+  schiedsrichter_missing: {
+    name: "Fehlender Schiedsrichter",
+    short: "Schiedsrichter",
+    desc: "Spiele ohne eingetragenen Schiedsrichter",
+    urgency: "details",
+  },
+  is_canceled: {
+    name: "Abgesagt",
+    short: "Abgesagt",
+    desc: "Abgesagte Spiele. Nichts zu erledigen — sie stehen hier zum Nachschlagen",
+    urgency: "none",
+  },
 };
 
 /**
@@ -62,10 +124,12 @@ export function categorizeActionRequired(
   today: string,
   bracketFaults: readonly FLBracketFault[] = [],
 ): Record<ActionRequiredCategory, FLSpiel[]> {
+  // Keyed in the label table's order, so `Object.keys` on the result and on the table agree — the
+  // property one test asserts, and what lets a caller walk either one.
   const categorized: Record<ActionRequiredCategory, FLSpiel[]> = {
-    ergebnis_pending: [],
-    besetzung_missing: [],
     bracket_fault: [],
+    besetzung_missing: [],
+    ergebnis_pending: [],
     datum_missing: [],
     uhrzeit_missing: [],
     ort_missing: [],
@@ -101,13 +165,68 @@ export function categorizeActionRequired(
     // (ADR-0046). A Gruppenphase fixture is exempt: an unfilled schedule is not an orphaned slot,
     // and every group fixture legitimately carries no source forever. Mirrors the backend arm in
     // `get_spiele_action_required`.
+    //
+    // `deriveSlotHerkunft` rather than the two null checks spelled out here: the wiring review badges
+    // the same three states per slot, and two spellings of `offen` is how that page and this one come
+    // to disagree about which fixtures need somebody.
     if (
       spiel.saison_phase !== "gruppenphase" &&
-      ((spiel.team1 === null && spiel.team1_quelle === null) || (spiel.team2 === null && spiel.team2_quelle === null))
+      (deriveSlotHerkunft(spiel.team1, spiel.team1_quelle) === "offen" || deriveSlotHerkunft(spiel.team2, spiel.team2_quelle) === "offen")
     ) {
       categorized.besetzung_missing.push(spiel);
     }
   }
 
   return categorized;
+}
+
+/** One category and the matches under it, ranked. Every category is returned, empty ones included. */
+export type FLActionRequiredSection = {
+  category: ActionRequiredCategory;
+  spiele: readonly FLSpiel[];
+};
+
+/**
+ * Within a section, the fixture whose clock has run longest comes first.
+ *
+ * One rule serves every category because the same comparison means the right thing in each: for an
+ * outstanding result the earliest date is the most overdue, for a fixture still to be played it is the
+ * one arriving soonest, and where no fixture has a date at all — the whole `datum_missing` section —
+ * the tie-break carries it and the order is the bracket's own. Nulls sort last for the reason
+ * `sortByDate` gives: an unscheduled match belongs at the end of a fixture list, not at the top.
+ */
+const compareByUrgencyWithin = (a: FLSpiel, b: FLSpiel): number => {
+  if (a.datum !== b.datum) {
+    if (a.datum === null) return 1;
+    if (b.datum === null) return -1;
+    return a.datum < b.datum ? -1 : 1;
+  }
+
+  return a.spiel_nr - b.spiel_nr;
+};
+
+/**
+ * Every category as a section, in urgency order, with the matches inside each one ranked.
+ *
+ * **It walks `ACTION_REQUIRED_LABELS`, never the categorised record**, so the render order has exactly
+ * one declaration. The two are keyed identically today and this does not depend on that staying true.
+ *
+ * Every category is returned, including the empty ones: the strip shows all eight at all times
+ * (ADR-0056), so a section with nothing in it is a tab with a zero rather than something to omit.
+ */
+export function buildActionRequiredSections({
+  spiele,
+  today,
+  bracketFaults,
+}: {
+  spiele: FLSpiel[];
+  today: string;
+  bracketFaults: readonly FLBracketFault[];
+}): readonly FLActionRequiredSection[] {
+  const categorized = categorizeActionRequired(spiele, today, bracketFaults);
+
+  return typedObjectEntries(ACTION_REQUIRED_LABELS).map(([category]) => ({
+    category,
+    spiele: [...categorized[category]].sort(compareByUrgencyWithin),
+  }));
 }

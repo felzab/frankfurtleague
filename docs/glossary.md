@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `125f1cc`, 2026-08-05
+**Verified against:** `2b69c68`, 2026-08-07
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -296,7 +296,7 @@ the bracket, never display text. It is a tagged union with two variants and no t
 
 | Variant  | Stored                                             | Reads as          |
 | -------- | -------------------------------------------------- | ----------------- |
-| `gruppe` | `{type: "gruppe", gruppe: "A", platz: 1}`          | `Gruppensieger A` |
+| `gruppe` | `{type: "gruppe", gruppe: "A", platz: 1}`          | `1. der Gruppe A` |
 | `spiel`  | `{type: "spiel", spiel_nr: 25, ausgang: "sieger"}` | `Sieger 25.`      |
 
 `null` on a group-phase fixture, whose sides come from the schedule and from no earlier match — and on

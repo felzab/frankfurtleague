@@ -23,7 +23,7 @@
  *     call as the admin's own view and no per-match tag is wanted here (ADR-0001, ADR-0042).
  *   • Every action here starts with `getAdminSession()` and checks its return value — it neither
  *     throws nor redirects.
- *   • The action body runs inside `runAdminAction`, which seeds the correlation-id request scope
+ *   • The action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
  *     and converts a thrown API error into the returned result -- a 409 must reach the form's toast,
  *     not the error page (docs/logging.md).
  *
@@ -34,10 +34,10 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
-import { runAdminAction } from "@/shared/utils/serverAction";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { patchAdminSpielData } from "./mutations";
+import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
 import { FLPatchSpielDataPayloadSchema, FLSpielSchema } from "./schemas";
 import { formatSpielUpdateMessage } from "./utils";
 
@@ -50,7 +50,7 @@ import type { FormState } from "@/shared/types/types";
  * `patchSpielortAction` and the rest of the admin write path.
  */
 export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId: unknown): Promise<NonNullable<FormState>> {
-  return runAdminAction("patchAdminSpielDataAction", async () => {
+  return runAdminMutation("patchAdminSpielDataAction", async () => {
     if (!(await getAdminSession())) {
       return { success: false, error: "Access Denied: Admin privileges missing" };
     }
@@ -89,12 +89,55 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
 
     // The bracket fixtures the backend resolved are named in the toast, so a result entry that moved
     // nothing is distinguishable from one that did -- which is the whole reason the endpoint reports
-    // them (ADR-0042). The faults it walked past ride along, because the save that introduces one is
-    // the moment its cause is known -- and they are re-askable on the action-required list, so a
-    // missed toast no longer loses them (ADR-0047).
+    // them (ADR-0042). Each names the result it destroyed, so a deleted scoreline gets its own
+    // sentence rather than hiding behind "die Paarung wurde aktualisiert" (ADR-0051). The faults it
+    // walked past ride along, because the save that introduces one is the moment its cause is known --
+    // and they are re-askable on the action-required list, so a missed toast no longer loses them
+    // (ADR-0047).
     return {
       success: Boolean(patch_operation.acknowledged),
-      message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.bracket_faults),
+      message: formatSpielUpdateMessage(patch_operation.advanced_to, patch_operation.bracket_faults, patch_operation.released_sides),
+      // Handed back whole, because the undo toast has to know WHICH fixtures lost a result before it
+      // can offer to put them back (ADR-0051).
+      voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
+      releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
+    };
+  });
+}
+
+/**
+ * What saving this payload would move and destroy — asked before the admin commits to it (ADR-0051).
+ *
+ * `dry_run=true` writes nothing: the backend applies the payload in memory through the same
+ * `apply_payload_to_spiel` the save uses and resolves the bracket against the result. So this is not a
+ * prediction of the save, it is the save's own answer computed without the write.
+ *
+ * **No `updateTag` here, and there must never be one.** Nothing changed, so invalidating a cache would
+ * evict every cached match list on each keystroke of a debounced preview.
+ *
+ * A failure returns an unsuccessful `FormState` and the form simply shows no warning. That is the
+ * honest degradation: a preview is an extra, and an admin must never be blocked from saving because
+ * the question could not be answered.
+ */
+export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<NonNullable<FormState>> {
+  return runAdminMutation("previewAdminSpielDataAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
+    if (!validated.success) {
+      // Silent by design: the draft is mid-edit and its own field validation already says so. A toast
+      // about an incomplete payload would fire while somebody was still typing into it.
+      return { success: false, error: "Die Vorschau konnte nicht berechnet werden." };
+    }
+
+    const preview = await previewAdminSpielData(validated.data);
+
+    return {
+      success: true,
+      voidedFixtures: preview.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
+      releasedFixtures: preview.released_sides.map((released) => released.spiel_nr),
     };
   });
 }

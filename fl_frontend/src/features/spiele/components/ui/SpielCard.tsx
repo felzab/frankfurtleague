@@ -7,6 +7,7 @@ import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
+import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { computeSpielStatus, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
@@ -50,9 +51,7 @@ export function SpielCard({
   return (
     <div
       role="listitem"
-      className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4 ${
-        spielStatus === "vergangen" ? "opacity-90" : ""
-      }`}>
+      className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4`}>
       <div className="flex w-full flex-row items-center justify-between">
         {/* Datum/Uhrzeit */}
         <div className="flex flex-col">
@@ -65,23 +64,38 @@ export function SpielCard({
           {/* The two controls sit in one row and must read as one pair, so the radius is spelled on
               BOTH rather than left to HeroUI on the button and guessed on the link. `rounded-xl` is
               the app's icon-target radius — the same one `RowActions` uses for its 40×40 targets. */}
+          {/* Both controls are icon-only, so both say in a tooltip what their glyph means. `IconTooltip`
+              rather than a `title` attribute: it opens on focus as well as hover, it is the one tooltip
+              appearance in the app, and its trigger is deliberately `role="presentation"` with
+              `tabIndex={-1}` so wrapping an already-labelled control adds no second tab stop. The
+              `aria-label`s stay — they carry the match number, which a tooltip repeated on every card
+              in a grid should not. */}
           {adminEditHref && (
-            <Link
-              href={adminEditHref}
-              aria-label={`Spiel Nr.${spielData.spiel_nr} bearbeiten`}
-              className="bg-muted text-foreground hover:bg-muted/80 flex h-[35px] w-[35px] items-center justify-center rounded-xl transition-colors duration-200 md:h-[38px] md:w-[38px]">
-              <PencilToSquare className="m-0 size-5" />
-            </Link>
+            <IconTooltip label="Spiel bearbeiten">
+              <Link
+                href={adminEditHref}
+                aria-label={`Spiel Nr.${spielData.spiel_nr} bearbeiten`}
+                /* The brand fill rather than `bg-muted`, and it is the ONLY difference from the info
+                   button beside it: same box, same radius, same position, so no layout moves. Editing
+                   is the reason an admin is on these pages at all, and as a second grey square it read
+                   as the info button's twin. The pairing is `-solid` plus its own foreground, like
+                   every other opaque fill — `--fg-base` flips between themes and the fill does not. */
+                className="bg-brand-solid text-brand-solid-foreground hover:bg-brand-solid/90 flex h-[35px] w-[35px] items-center justify-center rounded-xl shadow-sm transition-colors duration-200 md:h-[38px] md:w-[38px]">
+                <PencilToSquare className="m-0 size-5" />
+              </Link>
+            </IconTooltip>
           )}
-          <Button
-            isIconOnly
-            aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
-            onPress={onOpenInfoModal}
-            size="md"
-            variant="tertiary"
-            className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
-            <CircleExclamation className="m-0 size-5" />
-          </Button>
+          <IconTooltip label="Spielinfo">
+            <Button
+              isIconOnly
+              aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
+              onPress={onOpenInfoModal}
+              size="md"
+              variant="tertiary"
+              className="bg-muted text-foreground hover:bg-muted/80 h-[35px] w-[35px] rounded-xl p-0 transition-colors duration-200 md:h-[38px] md:w-[38px]">
+              <CircleExclamation className="m-0 size-5" />
+            </Button>
+          </IconTooltip>
         </div>
       </div>
 

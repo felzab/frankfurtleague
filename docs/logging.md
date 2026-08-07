@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `3efa0c0`, 2026-08-05
+**Verified against:** `2893522`, 2026-08-06
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
@@ -137,22 +137,25 @@ request was wrong; `DB-*` — the database refused or failed; `SRV-*` — the se
 Backend codes (`fl_backend/app/core/exceptions.py`, handlers in
 `fl_backend/app/core/exception_handlers.py`):
 
-| Code             | Status | Meaning                                                                                      |
-| ---------------- | ------ | -------------------------------------------------------------------------------------------- |
-| `REQ-AUTH-001`   | 401    | No bearer credentials presented                                                              |
-| `REQ-AUTH-002`   | 401    | `base` key invalid                                                                           |
-| `REQ-AUTH-003`   | 401    | `system` key invalid                                                                         |
-| `REQ-AUTH-004`   | 401    | `admin` key invalid                                                                          |
-| `REQ-VAL-001`    | 422    | Request payload or parameters failed validation                                              |
-| `REQ-WIRING-001` | 409    | Bracket wiring the season cannot hold reached the match write path (ADR-0046)                |
-| `REQ-OID-001`    | 400    | A malformed ObjectId reached a handler                                                       |
-| `DB-CONN-001`    | 503    | Database client unavailable                                                                  |
-| `DB-CONN-002`    | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                              |
-| `DB-COMMON-001`  | 404    | No document matched the filter                                                               |
-| `DB-COMMON-002`  | 409    | A unique index refused the write                                                             |
-| `DB-FAIL-001`    | 500    | A database operation crashed                                                                 |
-| `SRV-VAL-001`    | 500    | A server-side model failed validation outside request parsing — a data bug, not a caller bug |
-| `SRV-FAIL-001`   | 500    | Unhandled crash                                                                              |
+| Code                  | Status | Meaning                                                                                      |
+| --------------------- | ------ | -------------------------------------------------------------------------------------------- |
+| `REQ-AUTH-001`        | 401    | No bearer credentials presented                                                              |
+| `REQ-AUTH-002`        | 401    | `base` key invalid                                                                           |
+| `REQ-AUTH-003`        | 401    | `system` key invalid                                                                         |
+| `REQ-AUTH-004`        | 401    | `admin` key invalid                                                                          |
+| `REQ-VAL-001`         | 422    | Request payload or parameters failed validation                                              |
+| `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path (ADR-0046)                |
+| `REQ-ELIGIBILITY-001` | 409    | A disqualified team was newly fielded on a match (ADR-0052)                                  |
+| `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season (ADR-0052)         |
+| `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved (ADR-0052)     |
+| `REQ-OID-001`         | 400    | A malformed ObjectId reached a handler                                                       |
+| `DB-CONN-001`         | 503    | Database client unavailable                                                                  |
+| `DB-CONN-002`         | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                              |
+| `DB-COMMON-001`       | 404    | No document matched the filter                                                               |
+| `DB-COMMON-002`       | 409    | A unique index refused the write                                                             |
+| `DB-FAIL-001`         | 500    | A database operation crashed                                                                 |
+| `SRV-VAL-001`         | 500    | A server-side model failed validation outside request parsing — a data bug, not a caller bug |
+| `SRV-FAIL-001`        | 500    | Unhandled crash                                                                              |
 
 Frontend codes (`fl_frontend/src/core/errors.ts`, plus the call sites named):
 
@@ -162,14 +165,17 @@ Frontend codes (`fl_frontend/src/core/errors.ts`, plus the call sites named):
 | `FE-API-002`    | The API answered with an unparseable or schema-violating body (`APIMalformedDataError`)                |
 | `FE-NET-001`    | The network did not answer, timeout included (`APINetworkError`, `isTimeout` distinguishes)            |
 | `FE-RSC-001`    | Unhandled server-side error, logged by `fl_frontend/src/core/instrumentation.ts :: onRequestError`     |
-| `FE-ACT-001`    | A server action threw something that is not a typed API error (`shared/utils/serverAction.ts`)         |
+| `FE-ACT-001`    | An admin mutation threw something that is not a typed API error (`shared/utils/adminMutation.ts`)      |
+| `FE-ACT-002`    | A write committed and its cache invalidation did not — a stale read, never a failed write (ADR-0051)   |
 | `FE-AUTH-001`   | Auth.js reported an access denial (`fl_frontend/src/core/auth.ts`)                                     |
 | `FE-AUTH-002`   | Auth.js reported any other error (`fl_frontend/src/core/auth.ts`)                                      |
 | `FE-CLIENT-001` | A browser-side crash reported through the ingest route (`src/app/api/client-error/route.ts`)           |
 
-**A server action never lets a typed API error escape.** `runAdminAction` logs the failure with its
-codes and returns the `FormState` the form toasts — a 409 is an ordinary outcome of a create
+**An admin mutation never lets a typed API error escape.** `runAdminMutation` logs the failure with
+its codes and returns the `FormState` the caller toasts — a 409 is an ordinary outcome of a create
 (ADR-0032), and before this boundary existed it escalated past the toast into the whole error page.
+It wraps both entry points: the eight server actions and the undo route handler
+([ADR-0055](_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)).
 
 ## Finding an incident
 

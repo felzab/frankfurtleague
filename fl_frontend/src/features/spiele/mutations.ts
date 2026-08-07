@@ -34,3 +34,20 @@ export const patchAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielD
     body: JSON.stringify(fields),
   });
 };
+
+/**
+ * The same call with `dry_run=true`: the backend reports what saving this payload would move and
+ * destroy, and writes nothing (ADR-0051).
+ *
+ * **Deliberately the same endpoint, the same payload and the same response schema.** A preview built
+ * as its own endpoint would be a second implementation of the write path's normalisation and refusal
+ * rules, and the day the two disagreed the warning would name the wrong fixtures — which is worse than
+ * showing none, because an admin who has learned to trust it will not check.
+ */
+export const previewAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielDataPayload): Promise<FLPatchSpielDataResponse> => {
+  return apiClient<FLPatchSpielDataResponse>(`/spiele/${spiel_id}?dry_run=true`, FLPatchSpielDataResponseSchema, {
+    method: "PATCH",
+    authType: "admin",
+    body: JSON.stringify(fields),
+  });
+};

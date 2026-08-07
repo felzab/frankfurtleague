@@ -1,6 +1,6 @@
 # `roadmap` — open items and future ideas
 
-**Verified against:** `7e5b7d7`, 2026-08-05
+**Verified against:** `68ac42d`, 2026-08-07
 
 What this folder holds, and the boundary that keeps it honest:
 

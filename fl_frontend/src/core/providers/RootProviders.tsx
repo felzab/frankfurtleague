@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 
 import { ThemeProvider } from "next-themes";
 
-import { RouterProvider, Toast } from "@heroui/react";
+import { RouterProvider } from "@heroui/react";
+
+import { AppToaster } from "./AppToaster";
 
 interface AppProvidersProps {
   children: React.ReactNode;
@@ -21,7 +23,7 @@ export function RootProviders({ children }: AppProvidersProps) {
       <ThemeProvider
         enableSystem={true}
         defaultTheme="dark">
-        <Toast.Provider />
+        <AppToaster />
         {children}
       </ThemeProvider>
     </RouterProvider>

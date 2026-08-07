@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-**Verified against:** `55966d7`, 2026-08-04
+**Verified against:** `dcc4c47`, 2026-08-06
 
 Governs `docs/_decisions/`. Template: [`templates/adr.md`](templates/adr.md).
 

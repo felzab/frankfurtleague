@@ -1,6 +1,6 @@
 # Decisions about the documentation standard
 
-**Verified against:** `7f695ac`, 2026-08-05
+**Verified against:** `68ac42d`, 2026-08-07
 
 `DS` decisions are about **how this repository is documented**, which is why they live here rather
 than in `docs/_decisions/` alongside ADRs about the software itself. The same discipline applies:

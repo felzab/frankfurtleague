@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { ArrowRight } from "@gravity-ui/icons";
 
+import { COUNT_BADGE, LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
-import { COUNT_BADGE, LABEL_BADGE } from "./badges";
 import { DraftChangeList, operationOf } from "./DraftChangeList";
 import { useDraftStatus } from "./DraftStatusContext";
 import { RailSection } from "./RailSection";
@@ -42,40 +42,24 @@ export type RailBanner = { severity: "info" | "warning" | "danger"; title: strin
 export function DraftRail({
   previewSpiel,
   today,
-  dependentSpiele,
   extraBanners,
 }: {
   /** The fixture as it will stand once saved, from `applyDraftToSpiel`. */
   previewSpiel: FLSpiel;
   today: string;
-  /** Fixtures whose occupants this one's result decides (ADR-0048). */
-  dependentSpiele: readonly FLSpiel[];
   /** The form's inline warnings, mirrored — see `RailBanner`. */
   extraBanners: readonly RailBanner[];
 }) {
   const status = useDraftStatus();
 
-  // ONE list, then one sort: the card's own two banners join the form's mirrored ones, and the
-  // whole set renders ranked by severity — danger first, informational last (owner, eighth review).
+  // ONE list, then one sort: the card's own banner joins the form's mirrored ones, and the whole set
+  // renders ranked by severity — danger first, informational last (owner, eighth review).
+  //
+  // **The void warning is the FORM's, not this card's** (ADR-0051). It comes from a read-only dry run
+  // that resolves the bracket against the current draft, so it names the fixtures a save actually
+  // takes a result from; deriving it here from the stored wiring could only ever name the fixtures
+  // that might lose one, which is a different and much larger set.
   const banners: RailBanner[] = [...extraBanners];
-
-  // The note a fixture carries when saving it can clear a result somebody entered elsewhere
-  // (ADR-0048): the resolution cascades, so it names the direct dependents and then says "and the
-  // fixtures below them" — naming only the direct ones would read as the complete list, and it is
-  // not. German puts "und" before the last item with no serial comma; the runtime knows that.
-  if (dependentSpiele.length > 0) {
-    const spielNummern = new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(
-      dependentSpiele.map((spiel) => String(spiel.spiel_nr)),
-    );
-    banners.push({
-      severity: "warning",
-      title:
-        dependentSpiele.length === 1
-          ? `Spiel ${spielNummern} ist von diesem Spiel abhängig`
-          : `Die Spiele ${spielNummern} sind von diesem Spiel abhängig`,
-      body: "Speichern kann dort und in den Spielen darunter ein eingetragenes Ergebnis löschen.",
-    });
-  }
 
   // A standing fact, so informational — and one sentence: what a reschedule needs becomes visible
   // by itself the moment the Absage switch goes off (owner, fourth review).

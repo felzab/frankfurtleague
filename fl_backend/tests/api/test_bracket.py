@@ -601,6 +601,90 @@ class TestResolveBracket:
         assert resolved(spiele) == {}
 
 
+class TestNamingWhatWasVoided:
+    """
+    Which advancements destroyed a stored result, and which merely filled a slot (ADR-0051).
+
+    The distinction is the whole point: both write the same fields, and a report that named only the
+    fixtures would describe an admin's deleted scoreline in the same words as an empty semi-final
+    gaining its winner. Every case here asserts the harmless side too, because a report that always
+    claimed a loss would be exactly as useless as one that never did.
+    """
+
+    def test_a_slot_filling_from_empty_voids_nothing(self, fixture_at: FixtureFactory, side: SideFactory):
+        """The ordinary case, and the majority of them: the semi-final held no result to lose."""
+
+        spiele = [
+            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
+            fixture_at(29, quelle1=sieger(25)),
+        ]
+        (advancement,) = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements
+
+        assert advancement.spiel_nr == 29
+        assert advancement.voided_ergebnis is None
+        assert advancement.voided_elfmeterschiessen is None
+
+    def test_a_corrected_result_names_the_scoreline_it_destroys(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        The case the whole report exists for.
+
+        Match 25 is corrected after the semi-final it feeds has been played, so the semi-final's 2:0 is
+        deleted by a save the admin made against a different fixture. The response names it rather than
+        leaving the admin to notice.
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1, 1), team2=side(2, 3), ergebnis="1:3"),
+            fixture_at(29, team1=side(1, 2), team2=side(3, 0), ergebnis="2:0", quelle1=sieger(25)),
+        ]
+        (advancement,) = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements
+
+        assert advancement.spiel_nr == 29
+        assert advancement.voided_ergebnis == "2:0"
+
+    def test_a_shoot_out_is_named_beside_the_goals_it_settled(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        The shoot-out goes with the result (spec I25b), so it is the other half of what was lost.
+
+        Reported separately rather than folded into the scoreline, for the reason it is stored
+        separately: `2:2` and `4:3 i. E.` are two scorelines about one fixture (ADR-0044).
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1, 1), team2=side(2, 3), ergebnis="1:3"),
+            fixture_at(
+                29,
+                team1=side(1, 2),
+                team2=side(3, 2),
+                ergebnis="2:2",
+                elfmeterschiessen={"team1": 4, "team2": 3},
+                quelle1=sieger(25),
+            ),
+        ]
+        (advancement,) = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements
+
+        assert advancement.voided_ergebnis == "2:2"
+        assert advancement.voided_elfmeterschiessen is not None
+        assert (advancement.voided_elfmeterschiessen.team1, advancement.voided_elfmeterschiessen.team2) == (4, 3)
+
+    def test_an_emptied_slot_still_names_what_it_held(self, fixture_at: FixtureFactory, side: SideFactory):
+        """
+        Deleting a quarter-final's result empties the semi-final below it, result included.
+
+        The advancement reports no occupant at all, which is a state the old bare list could not
+        distinguish from a slot that filled — and this is the one where something was destroyed.
+        """
+
+        spiele = [
+            fixture_at(25, team1=side(1), team2=side(2)),
+            fixture_at(29, team1=side(1, 2), team2=side(3, 0), ergebnis="2:0", quelle1=sieger(25)),
+        ]
+        (advancement,) = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements
+
+        assert advancement.team1 is None
+        assert advancement.voided_ergebnis == "2:0"
+
+
 class TestReportingAFault:
     """
     The three shapes the resolution used to contain in silence, now reported as well (ADR-0047).

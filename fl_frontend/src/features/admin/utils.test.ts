@@ -2,13 +2,14 @@
  * ADMIN · action-required tests
  *
  * Covers the categorisation behind the admin action-required view, including that one match can land
- * in several categories at once and that the label map stays exhaustive over the category union.
+ * in several categories at once and that the label map stays exhaustive over the category union; the
+ * and the urgency order the triage list renders its sections in.
  */
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ACTION_REQUIRED_LABELS, categorizeActionRequired } from "./utils.ts";
+import { ACTION_REQUIRED_LABELS, buildActionRequiredSections, categorizeActionRequired } from "./utils.ts";
 
 import type { FLSpiel } from "../spiele/schemas.ts";
 
@@ -169,5 +170,78 @@ describe("categorizeActionRequired", () => {
     ]);
 
     assert.deepEqual(result.bracket_fault, []);
+  });
+});
+
+describe("buildActionRequiredSections", () => {
+  const build = (spiele: FLSpiel[], bracketFaults: Parameters<typeof categorizeActionRequired>[2] = []) =>
+    buildActionRequiredSections({ spiele, today: TODAY, bracketFaults: bracketFaults ?? [] });
+
+  // The order this page exists to change: what stops the competition proceeding comes before
+  // administrative tidying, and the label table is the single declaration of it.
+  it("returns every category, in the label table's order", () => {
+    const sections = build([]);
+
+    assert.deepEqual(
+      sections.map((section) => section.category),
+      Object.keys(ACTION_REQUIRED_LABELS),
+    );
+  });
+
+  it("leads with the blocking categories and ends with the cancellations", () => {
+    const order = Object.keys(ACTION_REQUIRED_LABELS);
+
+    assert.deepEqual(order.slice(0, 3), ["bracket_fault", "besetzung_missing", "ergebnis_pending"]);
+    assert.equal(order.at(-1), "is_canceled");
+  });
+
+  // Empty sections are returned rather than dropped: the strip shows all eight tabs at all times, so
+  // a category with nothing in it is a tab with a zero rather than something to omit.
+  it("returns an empty section rather than omitting it", () => {
+    const sections = build([makeSpiel({ ort: null })]);
+
+    assert.deepEqual(sections.find((section) => section.category === "ergebnis_pending")?.spiele, []);
+  });
+
+  // Within a section the longest-waiting fixture comes first, which for an outstanding result is the
+  // most overdue one and for a scheduled fixture is the one arriving soonest.
+  it("orders matches by date, earliest first", () => {
+    const sections = build([
+      makeSpiel({ id: "a", spiel_nr: 3, datum: "2026-07-28", ergebnis: null }),
+      makeSpiel({ id: "b", spiel_nr: 1, datum: "2026-07-10", ergebnis: null }),
+    ]);
+
+    assert.deepEqual(
+      sections.find((section) => section.category === "ergebnis_pending")?.spiele.map((spiel) => spiel.id),
+      ["b", "a"],
+    );
+  });
+
+  // Nulls last, and the bracket's own order carries the tie — which is the whole `datum_missing`
+  // section, where no fixture has a date to sort by.
+  it("falls back to the match number when dates tie, and sorts dateless matches last", () => {
+    const sections = build([
+      makeSpiel({ id: "late", spiel_nr: 9, ort: null, datum: null }),
+      makeSpiel({ id: "early", spiel_nr: 2, ort: null, datum: null }),
+      makeSpiel({ id: "dated", spiel_nr: 7, ort: null, datum: "2026-08-01" }),
+    ]);
+
+    assert.deepEqual(
+      sections.find((section) => section.category === "ort_missing")?.spiele.map((spiel) => spiel.id),
+      ["dated", "early", "late"],
+    );
+  });
+
+  it("does not mutate the categorised arrays it sorts", () => {
+    const spiele = [
+      makeSpiel({ id: "b", spiel_nr: 2, ort: null, datum: "2026-08-02" }),
+      makeSpiel({ id: "a", spiel_nr: 1, ort: null, datum: "2026-08-01" }),
+    ];
+    build(spiele);
+
+    assert.deepEqual(
+      spiele.map((spiel) => spiel.id),
+      ["b", "a"],
+    );
   });
 });

@@ -18,14 +18,9 @@ import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 import type { FLGruppen } from "../../schemas";
 
 export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppenData: FLGruppen; qualifiersPerGroup: number }) {
-  /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
-     `h1` whether or not the season has data. */
-  const pageHeading = <h1 className="sr-only">Saisontabelle</h1>;
-
   if (typedObjectEntries(gruppenData).length === 0) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        {pageHeading}
         <EmptyState
           title="Für diese Saison gibt es noch keine Tabelle."
           hint="Sobald Gruppen eingeteilt und Spiele gewertet sind, erscheint hier der Tabellenstand."
@@ -42,8 +37,6 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
         collection, and staggering two or three full-width tables reads as the page assembling
         itself rather than arriving. */
     <div className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center px-3 pt-6 sm:px-8`}>
-      {pageHeading}
-
       {
         /** One Table generated for each group */
         typedObjectEntries(gruppenData).map(([gruppe, teamsData]) => {

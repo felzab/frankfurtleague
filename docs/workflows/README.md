@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `a1dddec`, 2026-08-05
+**Verified against:** `2b69c68`, 2026-08-07
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -555,8 +555,14 @@ and the icons drift apart.
 Admin is an **email allowlist**, not a stored role: `ALLOWED_ADMIN_EMAILS` in `fl_frontend/.env`.
 Changing it requires a restart, because the environment is validated at boot.
 
-**Revocation is not immediate.** There is no in-app sign-out, so an existing session survives until it
-expires — 8 hours. To revoke now, delete the session row from the `authjs` database.
+**Revocation takes one restart, not eight hours.** `getAdminSession()` demands `role === "admin"`, and
+the `session` callback derives that from the allowlist on **every** session read — so once the
+container comes back up with the address removed, the next request from that session is refused. The
+row stays in the `authjs` database and authorizes nothing; deleting it by hand is tidying, not
+revocation.
+
+**An admin ending their own session needs none of that**: the sidemenu's options menu carries a
+sign-out, which arms on the first press and ends the session on the second.
 
 ### Season rollover
 

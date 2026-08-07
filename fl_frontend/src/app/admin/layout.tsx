@@ -6,35 +6,26 @@ import { Suspense } from "react";
 
 import { AdminAuthGuard } from "@/features/admin/components/providers/AdminAuthGuard";
 import { AdminLocaleProvider } from "@/features/admin/components/providers/AdminLocaleProvider";
-import { AdminSidemenu } from "@/features/admin/components/ui/AdminSidemenu";
+import { AdminShell } from "@/features/admin/components/ui/AdminShell";
 import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { SkipToContentLink } from "@/shared/components/ui/SkipToContentLink";
 
 // Not async, and that is the point. Awaiting the auth guard here, before any JSX, would make the
-// entire admin shell — sidemenu, nav, chrome — a dynamic hole. It lives in AdminAuthGuard below the
+// entire admin shell — bar, sidemenu, chrome — a dynamic hole. It lives in AdminAuthGuard below the
 // Suspense boundary instead, so this layout prerenders and only the session check and the page's own
 // data are resolved per request. See AdminAuthGuard for the security note.
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex h-dvh w-full flex-col lg:flex-row">
-      <SkipToContentLink />
-
-      <AdminSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
-
-      <main
-        id="main-content"
-        className="bg-background relative flex flex-1 scrollbar-gutter-stable flex-col overflow-y-auto">
-        {/* NOT redundant with `loading.tsx`: Next nests that fallback around the page segment only,
-            i.e. INSIDE this boundary. This one covers the guard's session round-trip, which sits
-            above the page segment and would otherwise have nothing between it and the shell. */}
-        <Suspense fallback={<ContentLoader />}>
-          {/* Why the locale is pinned, and why through a client wrapper, is on the provider. */}
-          <AdminLocaleProvider>
-            <AdminAuthGuard>{children}</AdminAuthGuard>
-          </AdminLocaleProvider>
-        </Suspense>
-      </main>
-    </div>
+    <AdminShell saisonMetadataDisplay={<SaisonMetadataDisplay />}>
+      {/* NOT redundant with `loading.tsx`: Next nests that fallback around the page segment only,
+          i.e. INSIDE this boundary. This one covers the guard's session round-trip, which sits above
+          the page segment and would otherwise have nothing between it and the shell. */}
+      <Suspense fallback={<ContentLoader />}>
+        {/* Why the locale is pinned, and why through a client wrapper, is on the provider. */}
+        <AdminLocaleProvider>
+          <AdminAuthGuard>{children}</AdminAuthGuard>
+        </AdminLocaleProvider>
+      </Suspense>
+    </AdminShell>
   );
 }

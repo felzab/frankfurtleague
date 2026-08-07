@@ -106,7 +106,7 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
 
       {/* Header Info Card */}
       <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4`}>
-        <h1 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h1>
+        <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h2>
 
         {/* Offizieller Schulname. No emptiness guard: both schemas now require it. */}
         <p className="fluid-xs text-foreground-muted -mt-1.5 font-semibold">{teamData.full_name}</p>

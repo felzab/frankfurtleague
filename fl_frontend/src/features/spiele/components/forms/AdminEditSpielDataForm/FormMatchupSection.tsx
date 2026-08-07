@@ -5,7 +5,7 @@ import { Separator } from "@heroui/react";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
-import { collectSpieltagTeamOccupancy, collectUsedQuelleKeys } from "../../../utils";
+import { collectUsedQuelleKeys } from "../../../utils";
 import { FormTeamPicker } from "./FormTeamPicker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
@@ -33,6 +33,7 @@ export function FormMatchupSection({
   saisonSpiele,
   teams,
   knockoutTeamIds,
+  spieltagOccupancy,
   team1Payload,
   onTeam1Change,
   team2Payload,
@@ -50,6 +51,15 @@ export function FormMatchupSection({
   teams: FLTeam[];
   /** Teams the bracket already fields — the qualification proxy, computed by the form. */
   knockoutTeamIds: ReadonlySet<string>;
+  /**
+   * Which fixture of the same Spieltag already fields each team, computed by the form.
+   *
+   * Lifted rather than derived here, because the form reads it too: a save refused for fielding a
+   * team twice has to land on the same side the picker would have disabled (ADR-0052), and two
+   * derivations of "who is already playing" would eventually put the chip on one side and the error
+   * on the other.
+   */
+  spieltagOccupancy: ReadonlyMap<string, number>;
   team1Payload: FLSpielTeamField | null;
   onTeam1Change: (payload: FLSpielTeamField | null) => void;
   team2Payload: FLSpielTeamField | null;
@@ -66,14 +76,6 @@ export function FormMatchupSection({
   // is deliberately off (see `next.config.ts`): the set is rebuilt from ~30 fixtures otherwise on
   // every keystroke anywhere in the form.
   const usedQuelleKeys = useMemo(() => collectUsedQuelleKeys(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
-
-  // Which fixture of the same Spieltag already fields each team. A team plays once per matchday, so a
-  // pick that would field it twice is refused in the list, with the occupying fixture named — before
-  // this, the pick went through and nothing said the team stays in the other fixture too.
-  const spieltagOccupancy = useMemo(
-    () => collectSpieltagTeamOccupancy(saisonSpiele, { id: spielData.id, spieltag_id: spielData.spieltag_id }),
-    [saisonSpiele, spielData.id, spielData.spieltag_id],
-  );
 
   const isKnockout = spielData.saison_phase !== "gruppenphase";
 

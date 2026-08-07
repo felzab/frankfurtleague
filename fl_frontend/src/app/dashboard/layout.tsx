@@ -1,6 +1,5 @@
-import { DashboardSidemenu } from "@/features/dashboard/components/ui/DashboardSidemenu";
+import { DashboardShell } from "@/features/dashboard/components/ui/DashboardShell";
 import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
-import { SkipToContentLink } from "@/shared/components/ui/SkipToContentLink";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
@@ -15,22 +14,15 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * No Suspense boundary here on purpose: Next nests `loading.tsx` INSIDE the layout, so that fallback
+ * is strictly closer to the page and always wins the race. Nothing else in this layout suspends —
+ * `SaisonMetadataDisplay` has its own boundary inside the sidemenu — so one here would be dead code.
+ * `admin/layout.tsx` is the opposite case; see the note there.
+ *
+ * The shell owns the whole frame now, `<main>` and the skip link included, so both signed-in
+ * layouts declare their navigation and their metadata and nothing about their geometry.
+ */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="relative flex h-dvh w-full flex-col lg:flex-row">
-      <SkipToContentLink />
-
-      <DashboardSidemenu saisonMetadataDisplay={<SaisonMetadataDisplay />} />
-
-      {/* No boundary here on purpose: Next nests `loading.tsx` INSIDE the layout, so that
-          fallback is strictly closer to the page and always wins the race. Nothing else in this
-          layout suspends -- SaisonMetadataDisplay has its own boundary inside Sidemenu -- so one
-          here would be dead code. `admin/layout.tsx` is the opposite case; see the note there. */}
-      <main
-        id="main-content"
-        className="bg-background relative flex flex-1 scrollbar-gutter-stable flex-col overflow-y-auto">
-        {children}
-      </main>
-    </div>
-  );
+  return <DashboardShell saisonMetadataDisplay={<SaisonMetadataDisplay />}>{children}</DashboardShell>;
 }

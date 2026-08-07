@@ -52,6 +52,13 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["@heroui/react", "@gravity-ui/icons"],
   },
   output: "standalone",
+  // No `partialPrefetching`. Next's ISR guide presents it as `cacheComponents`' partner — Cache
+  // Components produces the App Shell, Partial Prefetching upgrades it once the params are known —
+  // and enabling it here was measured to change nothing this app needed. What it does change is how
+  // aggressively a route's payload is prefetched and retained on the client, which is the subsystem
+  // behind an admin opening the match editor on values that have since moved. **Turn it on only with
+  // a measurement showing what it buys, and re-check the editor's freshness in the same pass.**
+  // https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
   cacheComponents: true,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written (ADR-0020).

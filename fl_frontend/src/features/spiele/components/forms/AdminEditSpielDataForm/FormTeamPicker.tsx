@@ -3,13 +3,13 @@
 import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
 
 import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
+import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { PHASE_LABELS } from "../../ui/SaisonPhaseChip";
-import { LABEL_BADGE } from "./badges";
 import { FieldLabel } from "./FieldLabel";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -521,15 +521,23 @@ export function FormTeamPicker({
                   (_, index) => index + 1,
                 )
                   .filter((platz) => platz === quelle.platz || !blockedKeys.has(`gruppe:${quelle.gruppe}:${platz}`))
-                  .map((platz) => (
-                    <ListBox.Item
-                      key={platz}
-                      id={String(platz)}
-                      textValue={platz === 1 ? `Gruppensieger ${quelle.gruppe}` : `${platz}. der Gruppe ${quelle.gruppe}`}
-                      className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
-                      {platz === 1 ? `Gruppensieger ${quelle.gruppe}` : `${platz}. der Gruppe ${quelle.gruppe}`}
-                    </ListBox.Item>
-                  ))}
+                  .map((platz) => {
+                    // `formatQuelle` and not a second spelling of the same rule. This list had its
+                    // own copy, so the placing an admin PICKED and the placing every card, preview
+                    // and review page DERIVED were two independent strings that agreed only by
+                    // coincidence — and stopped agreeing the moment the wording changed.
+                    const label = formatQuelle({ type: "gruppe", gruppe: quelle.gruppe, platz }) ?? String(platz);
+
+                    return (
+                      <ListBox.Item
+                        key={platz}
+                        id={String(platz)}
+                        textValue={label}
+                        className="fluid-xs hover:bg-muted cursor-pointer rounded-lg px-3 py-2">
+                        {label}
+                      </ListBox.Item>
+                    );
+                  })}
               </ListBox>
             </Autocomplete.Popover>
             <FieldError className={FIELD_ERROR} />

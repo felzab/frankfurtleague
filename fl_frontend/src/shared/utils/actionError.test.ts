@@ -23,6 +23,37 @@ describe("toActionErrorResult", () => {
     assert.match(result.error ?? "", /Konflikt/);
   });
 
+  it("gives each occupant refusal its own advice, and hands the code back", () => {
+    // The code is the only channel a failure body has (`docs/logging.md`, L4), so it has to survive
+    // the mapping: the form is what turns it into a message on a specific side (ADR-0052). A refusal
+    // whose code was dropped here would fall back to a toast naming no field at all.
+    const refusals: [string, RegExp][] = [
+      ["REQ-ELIGIBILITY-001", /disqualifiziert/],
+      ["REQ-ELIGIBILITY-002", /nimmt nicht an dieser Saison teil/],
+      ["REQ-SPIELTAG-001", /selben Spieltag/],
+    ];
+
+    for (const [serverErrorCode, expected] of refusals) {
+      const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode }));
+
+      assert.equal(result.success, false, serverErrorCode);
+      assert.match(result.error ?? "", expected, serverErrorCode);
+      assert.equal(result.errorCode, serverErrorCode);
+    }
+  });
+
+  it("does not send an occupant refusal to reload the page, as a wiring refusal does", () => {
+    // The two are both 409s on the same endpoint and the advice is opposite: the season has moved
+    // under a wiring refusal, and has not moved at all under an occupant one (ADR-0052).
+    const wiring = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-WIRING-001" }));
+    const occupant = toActionErrorResult(
+      new APIBadStatusError({ ...base, message: "bad", statusCode: 409, serverErrorCode: "REQ-ELIGIBILITY-001" }),
+    );
+
+    assert.match(wiring.error ?? "", /neu/);
+    assert.doesNotMatch(occupant.error ?? "", /lade die Seite neu/);
+  });
+
   it("maps a 404 onto the vanished-record message", () => {
     const result = toActionErrorResult(new APIBadStatusError({ ...base, message: "bad", statusCode: 404 }));
 

@@ -19,10 +19,12 @@ import { describe, it } from "node:test";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   adminSpielEditHref,
+  buildUndoPayloads,
   collectSpieltagTeamOccupancy,
   collectUsedQuelleKeys,
   computeErgebnisFor,
   computeSpielStatus,
+  deriveSlotHerkunft,
   formatBracketFault,
   formatElfmeterschiessen,
   formatQuelle,
@@ -31,9 +33,11 @@ import {
   listDependentSpiele,
   listFeederSpiele,
   quelleKey,
+  spielStateKey,
+  toPatchPayload,
 } from "./utils.ts";
 
-import type { FLBracketFault, FLSpiel } from "./schemas.ts";
+import type { FLBracketFault, FLSpiel, FLSpielAdvancement } from "./schemas.ts";
 
 const TODAY = "2026-07-29";
 
@@ -212,12 +216,12 @@ describe("formatQuelle", () => {
     assert.equal(formatQuelle({ type: "spiel", spiel_nr: 29, ausgang: "verlierer" }), "Verlierer 29.");
   });
 
-  it("calls first place in a group what the competition calls it, rather than an ordinal", () => {
-    assert.equal(formatQuelle({ type: "gruppe", gruppe: "A", platz: 1 }), "Gruppensieger A");
-  });
-
-  it("reads every other placing as an ordinal", () => {
+  // One form for the whole set, first place included, so two slots compare at a glance on the
+  // Finalrunden review and the picker's list reads exactly as the cards do.
+  it("reads every placing as an ordinal, first included", () => {
+    assert.equal(formatQuelle({ type: "gruppe", gruppe: "A", platz: 1 }), "1. der Gruppe A");
     assert.equal(formatQuelle({ type: "gruppe", gruppe: "C", platz: 2 }), "2. der Gruppe C");
+    assert.equal(formatQuelle({ type: "gruppe", gruppe: "B", platz: 4 }), "4. der Gruppe B");
   });
 
   // The defect this fixed: a source mid-edit drafts `NaN` where its number is unpicked, and every
@@ -231,29 +235,103 @@ describe("formatQuelle", () => {
   });
 });
 
+describe("deriveSlotHerkunft", () => {
+  const team = { team_id: TEAM_1, name: "Team A", tore: null, shorthand: "TA" };
+  const quelle = { type: "spiel", spiel_nr: 25, ausgang: "sieger" } as const;
+
+  it("reads a slot with a source as the resolution's, whether or not the winner has arrived", () => {
+    assert.equal(deriveSlotHerkunft(null, quelle), "quelle");
+    assert.equal(deriveSlotHerkunft(team, quelle), "quelle");
+  });
+
+  it("reads an occupied slot with no source as the admin's own", () => {
+    assert.equal(deriveSlotHerkunft(team, null), "manuell");
+  });
+
+  // The state both surfaces exist to surface: nothing fills this side, and no later result will.
+  it("reads a slot with neither a team nor a source as maintained by nobody", () => {
+    assert.equal(deriveSlotHerkunft(null, null), "offen");
+  });
+
+  // The source wins over the team, which is the rule the write path enforces: while a source stands,
+  // a hand-set team is reverted or refused (ADR-0046). Flipping this precedence would report a
+  // resolution-owned slot as manual on both surfaces at once.
+  it("takes the source over the occupant, because the source is what maintains the slot", () => {
+    assert.equal(deriveSlotHerkunft(team, { type: "gruppe", gruppe: "A", platz: 1 }), "quelle");
+  });
+});
+
 describe("formatSpielUpdateMessage", () => {
+  /** A fixture that moved and lost nothing — the ordinary case, and the majority of them. */
+  const moved = (spielNr: number): FLSpielAdvancement => ({ spiel_nr: spielNr, voided_ergebnis: null, voided_elfmeterschiessen: null });
+
+  /** A fixture whose stored scoreline the same save deleted (ADR-0051). */
+  const voided = (spielNr: number, ergebnis: string): FLSpielAdvancement => ({
+    spiel_nr: spielNr,
+    voided_ergebnis: ergebnis,
+    voided_elfmeterschiessen: null,
+  });
+
   it("says only that the match was saved when the bracket did not move", () => {
     assert.equal(formatSpielUpdateMessage([]), "Die Spieldaten wurden erfolgreich aktualisiert");
   });
 
   it("names one advanced fixture in the singular", () => {
     assert.equal(
-      formatSpielUpdateMessage([29]),
+      formatSpielUpdateMessage([moved(29)]),
       "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarung in Spiel 29 wurde ebenfalls aktualisiert",
     );
   });
 
   it("joins several with und, as German does and a hand-rolled join would not", () => {
     assert.equal(
-      formatSpielUpdateMessage([29, 30, 31]),
+      formatSpielUpdateMessage([moved(29), moved(30), moved(31)]),
       "Die Spieldaten wurden erfolgreich aktualisiert. Die Paarungen in den Spielen 29, 30 und 31 wurden ebenfalls aktualisiert",
     );
   });
 
   it("reports an advancement and a bracket fault in the same message", () => {
-    const message = formatSpielUpdateMessage([30], [gruppeFault("gruppe_too_small", "A", 5)]);
+    const message = formatSpielUpdateMessage([moved(30)], [gruppeFault("gruppe_too_small", "A", 5)]);
 
     assert.match(message, /Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. Spiel 25 verweist/);
+  });
+
+  it("says nothing about a deleted result when a slot merely filled", () => {
+    // The half that makes the sentence below worth reading: a warning that always fires is not one.
+    assert.doesNotMatch(formatSpielUpdateMessage([moved(29)]), /gelöscht/);
+  });
+
+  it("gives a destroyed scoreline its own sentence, naming the fixture", () => {
+    assert.match(
+      formatSpielUpdateMessage([voided(30, "2:0")]),
+      /Die Paarung in Spiel 30 wurde ebenfalls aktualisiert\. Das eingetragene Ergebnis in Spiel 30 wurde dabei gelöscht/,
+    );
+  });
+
+  it("names only the fixtures that actually lost a result", () => {
+    const message = formatSpielUpdateMessage([moved(29), voided(30, "2:0"), voided(31, "1:1")]);
+
+    assert.match(message, /Die eingetragenen Ergebnisse in den Spielen 30 und 31 wurden dabei gelöscht/);
+  });
+
+  it("names a team released from another fixture of the same Spieltag", () => {
+    const message = formatSpielUpdateMessage(
+      [],
+      [],
+      [{ spiel_nr: 12, side: "team1", team_name: "Adler", voided_ergebnis: null, voided_elfmeterschiessen: null }],
+    );
+
+    assert.match(message, /Adler wurde aus Spiel 12 entfernt, da beide am selben Spieltag stattfinden/);
+  });
+
+  it("names the result a release destroyed, where there was one", () => {
+    const message = formatSpielUpdateMessage(
+      [],
+      [],
+      [{ spiel_nr: 12, side: "team2", team_name: "Adler", voided_ergebnis: "3:1", voided_elfmeterschiessen: null }],
+    );
+
+    assert.match(message, /dessen Ergebnis 3:1 damit gelöscht wurde/);
   });
 });
 
@@ -261,6 +339,109 @@ describe("formatSpielUpdateMessage", () => {
 function gruppeFault(reason: "gruppe_too_small" | "tie_unresolved", gruppe: "A" | "B", platz: number): FLBracketFault {
   return { reason, spiel_id: "6890a1b2c3d4e5f607180025", spiel_nr: 25, gruppe, platz };
 }
+
+describe("toPatchPayload and buildUndoPayloads", () => {
+  const fixture = (spielNr: number, ergebnis: string | null): FLSpiel =>
+    ({
+      id: `6890a1b2c3d4e5f6071800${String(spielNr).padStart(2, "0")}`,
+      spiel_nr: spielNr,
+      is_canceled: false,
+      team1: { team_id: TEAM_1, name: "Team A", tore: ergebnis === null ? null : Number(ergebnis.split(":")[0]), shorthand: "TA" },
+      team2: { team_id: TEAM_2, name: "Team B", tore: ergebnis === null ? null : Number(ergebnis.split(":")[1]), shorthand: "TB" },
+      team1_quelle: null,
+      team2_quelle: null,
+      elfmeterschiessen: null,
+      datum: "2026-03-15",
+      uhrzeit: "18:00:00",
+      ort: null,
+      schiedsrichter: null,
+      ergebnis,
+    }) as FLSpiel;
+
+  it("carries every field the write path would otherwise overwrite with nothing", () => {
+    // The payload is `$set` wholesale, so an omitted field is erased by the very request meant to
+    // restore it. Asserted as a key set, because that is exactly the failure: a value nobody notices.
+    assert.deepEqual(Object.keys(toPatchPayload(fixture(29, "2:0"))).sort(), [
+      "datum",
+      "elfmeterschiessen",
+      "is_canceled",
+      "ort",
+      "schiedsrichter",
+      "spiel_id",
+      "team1",
+      "team1_quelle",
+      "team2",
+      "team2_quelle",
+      "uhrzeit",
+    ]);
+  });
+
+  it("keys a fixture by its stored values, not by its id alone", () => {
+    // The regression this guards is the undo's: reopening the SAME fixture after its values changed
+    // must remount the editor, or every field keeps what its `useState` initialiser was seeded with.
+    const before = fixture(29, null);
+    const after = { ...before, uhrzeit: "20:15:00" } as FLSpiel;
+
+    assert.notEqual(spielStateKey(before), spielStateKey(after));
+  });
+
+  it("keys two readings of an unchanged fixture identically, so re-entry does not thrash", () => {
+    assert.equal(spielStateKey(fixture(29, null)), spielStateKey(fixture(29, null)));
+  });
+
+  it("keys two fixtures apart even when every stored value matches", () => {
+    // The id leads the key precisely so identical values cannot collapse two fixtures into one.
+    assert.notEqual(spielStateKey(fixture(29, null)), spielStateKey(fixture(30, null)));
+  });
+
+  it("ignores a change to a field no draft atom holds", () => {
+    // `ergebnis` is derived by the backend and is on no payload, so it cannot reset a form that never
+    // showed it as editable state — the key is the draft's mirror, not the whole document.
+    const played = { ...fixture(29, null), ergebnis: "2:0" } as FLSpiel;
+
+    assert.equal(spielStateKey(fixture(29, null)), spielStateKey(played));
+  });
+
+  it("does not carry ergebnis, which the backend derives and refuses to accept", () => {
+    assert.equal("ergebnis" in toPatchPayload(fixture(29, "2:0")), false);
+  });
+
+  it("puts the edited fixture first, so the resolution runs before the results go back", () => {
+    // The whole correctness argument: restoring a downstream result first would have the resolution
+    // triggered by the edited fixture clear it again, and the undo would report a success it did not
+    // achieve.
+    const edited = fixture(25, "1:3");
+    const later = fixture(30, "0:0");
+    const semi = fixture(29, "2:0");
+    // Deliberately not in bracket order: the season list's order must not decide the replay's.
+    const season = [later, edited, semi];
+
+    assert.deepEqual(
+      buildUndoPayloads(edited, season, [29, 30]).map((payload) => payload.spiel_id),
+      [edited.id, later.id, semi.id],
+    );
+  });
+
+  it("restores only the fixtures the save actually reported", () => {
+    const edited = fixture(25, "1:3");
+    const semi = fixture(29, "2:0");
+    const season = [edited, semi, fixture(30, "0:0")];
+
+    assert.deepEqual(
+      buildUndoPayloads(edited, season, [29]).map((payload) => payload.spiel_id),
+      [edited.id, semi.id],
+    );
+  });
+
+  it("never lists the edited fixture twice when the save also reported it", () => {
+    const edited = fixture(25, "1:3");
+
+    assert.deepEqual(
+      buildUndoPayloads(edited, [edited], [25]).map((payload) => payload.spiel_id),
+      [edited.id],
+    );
+  });
+});
 
 describe("formatBracketFault", () => {
   // Every reason gets a case: this is the only place either codebase turns a fault into words, and a

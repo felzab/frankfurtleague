@@ -17,10 +17,10 @@
  * `SpielplanView` is the one such case, where the root rises at mount and the panels cascade on
  * every later tab press.
  *
- * `InlineCreateAutocomplete` and `ConfirmDeleteModal` spell this same string out by hand and are
- * deliberately **not** wired to this constant. They are panels revealing inside an already-open
- * modal, not routes arriving — a different class of motion that happens to look the same today.
- * Binding them here would mean a future change to the page rise silently moved them too.
+ * `ConfirmDeleteModal` spells this same string out by hand and is deliberately **not** wired to this
+ * constant. Its step-2 alert panel reveals inside an already-open modal rather than arriving as a
+ * route — a different class of motion that happens to look the same today. Binding it here would mean
+ * a future change to the page rise silently moved it too.
  */
 export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-4 duration-400";
 

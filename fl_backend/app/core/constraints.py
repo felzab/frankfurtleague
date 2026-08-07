@@ -5,6 +5,10 @@ The nine `$jsonSchema` validators and the four unique indexes the database enfor
 routine that applies them on every boot (ADR-0027). Declared here rather than clicked into the Atlas
 console, so they are versioned, reviewable in a diff, and restored with the cluster.
 
+`--check` additionally reports the CROSS-DOCUMENT rules the write path enforces and the database
+cannot (`report_relations`). They are reported and never applied: the two mechanisms above each see
+one document, and the rules there are relations between several.
+
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
   • The validators assert BSON TYPES, REQUIRED FIELDS and the enumerations that are already `Literal`s
@@ -529,6 +533,15 @@ class DuplicateReport:
     examples: list[Any]
 
 
+@dataclass(frozen=True)
+class RelationReport:
+    """One cross-document rule's answer to "how many stored groups of documents break it?"."""
+
+    rule: str
+    groups: int
+    examples: list[Any]
+
+
 async def report_violations(db: AsyncIOMotorDatabase) -> list[ViolationReport]:
     """
     Count the documents each validator would reject, writing nothing.
@@ -575,6 +588,47 @@ async def report_duplicates(db: AsyncIOMotorDatabase) -> list[DuplicateReport]:
         )
 
     return reports
+
+
+async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
+    """
+    Count the stored groups of documents each cross-document rule is broken by, writing nothing.
+
+    **These rules are enforced by the write path and by nothing in the database** (ADR-0052), which is
+    why they are reported here rather than declared above. Neither mechanism this module applies can
+    express one: a `$jsonSchema` validator sees exactly one document, and a unique index reads one key
+    per document, while the team a fixture fields sits in EITHER of two embedded fields -- so a club in
+    `team1` of one match and in `team2` of another is a collision no index can be built to refuse.
+
+    Reported all the same, because the question they answer is the one `--check` exists for: whether
+    the stored data already satisfies a rule that is about to start being enforced. A rule enforced at
+    the write path leaves whatever predates it in place, and nothing else would ever name it.
+    """
+
+    # A team plays at most one match per Spieltag. Both sides are unwound into one stream first, so a
+    # club fielded in `team1` of Spiel 12 and in `team2` of Spiel 13 of the same Spieltag is one group
+    # of two -- the shape the collision actually takes, and the one a per-field grouping would miss.
+    both_sides = [{"$ifNull": ["$team1.team_id", None]}, {"$ifNull": ["$team2.team_id", None]}]
+    spieltag_occupancy: list[Mapping[str, Any]] = [
+        {"$project": {"spiel_nr": 1, "spieltag_id": 1, "sides": both_sides}},
+        {"$unwind": "$sides"},
+        {"$match": {"sides": {"$ne": None}}},
+        {"$group": {"_id": {"spieltag_id": "$spieltag_id", "team_id": "$sides"}, "n": {"$sum": 1}, "spiele": {"$addToSet": "$spiel_nr"}}},
+        # `n`, not the size of `spiele`: a club fielded on BOTH sides of one fixture is the same
+        # violation of the same rule, and it collapses to a single `spiel_nr`.
+        {"$match": {"n": {"$gt": 1}}},
+    ]
+
+    counted = await db["spiele"].aggregate([*spieltag_occupancy, {"$count": "groups"}]).to_list(length=1)
+    examples = await db["spiele"].aggregate([*spieltag_occupancy, {"$limit": 5}]).to_list(length=5)
+
+    return [
+        RelationReport(
+            rule="a team is fielded at most once per Spieltag (spiele)",
+            groups=counted[0]["groups"] if counted else 0,
+            examples=[{**doc["_id"], "spiele": sorted(doc["spiele"])} for doc in examples],
+        )
+    ]
 
 
 async def probe_collmod_privilege(db: AsyncIOMotorDatabase) -> str:
@@ -797,6 +851,18 @@ async def _run(check: bool) -> int:
             if duplicate.groups:
                 blocking += duplicate.groups
                 print(f"          first offenders: {duplicate.examples}")
+
+        # Counted into `blocking` exactly as the two above are: the rule is enforced by the write path
+        # rather than by the database (ADR-0052), so an offender does not stop a validator or an index
+        # from being applied -- but it does stop the enforcement from being turned on, which is the
+        # decision this command is run to inform.
+        print("\n  Cross-document rules — relations no validator and no index can express")
+        for relation in await report_relations(database):
+            marker = "ok " if relation.groups == 0 else "FAIL"
+            print(f"    {marker}  {relation.rule:<46} {relation.groups:>4}")
+            if relation.groups:
+                blocking += relation.groups
+                print(f"          first offenders: {relation.examples}")
 
         print("\n  Clean — safe to apply.\n" if blocking == 0 else "\n  NOT clean. Correct the data above before applying.\n")
         return 0 if blocking == 0 else 1

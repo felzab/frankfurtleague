@@ -2,11 +2,12 @@ import { memo } from "react";
 
 import { Calendar, Globe, MapPin } from "@gravity-ui/icons";
 
-import { Table, toast } from "@heroui/react";
+import { Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionDelete, RowActionEdit, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
-import { CLIPBOARD_ERROR_MESSAGE, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { appToast } from "@/shared/utils/appToast";
+import { CLIPBOARD_ERROR_DETAIL, CLIPBOARD_ERROR_TITLE, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
@@ -45,8 +46,8 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   const handleCopyAddress = async (ort: FLSpielort) => {
     const copied = await copyTextToClipboard(`${ort.name}, ${formatAddressFull(ort.address)}`);
 
-    if (copied) toast.success("Adresse in die Zwischenablage kopiert!");
-    else toast.danger(CLIPBOARD_ERROR_MESSAGE);
+    if (copied) appToast.success("Adresse kopiert");
+    else appToast.danger(CLIPBOARD_ERROR_TITLE, { description: CLIPBOARD_ERROR_DETAIL });
   };
 
   return (

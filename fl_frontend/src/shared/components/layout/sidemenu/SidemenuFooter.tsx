@@ -21,7 +21,9 @@ export function SidemenuFooter({
   return (
     <div className={`border-border flex flex-col border-t p-3 ${isDesktopCollapsed ? "items-center gap-3" : "gap-1"}`}>
       {/* Options first: expanded it is a full-width row whose menu opens above it at the same
-          width, which is what keeps the menu inside the sidemenu (standard sidebar-footer pattern). */}
+          width, which is what keeps the menu inside the sidemenu (standard sidebar-footer pattern).
+          The bar carries the same two controls inline (ADR-0058); this is a second placement of the
+          same components, not a second implementation. */}
       <SidemenuOptionsMenu
         isDesktopCollapsed={isDesktopCollapsed}
         onSignOut={onSignOut}
@@ -43,10 +45,13 @@ export function SidemenuFooter({
         </Link>
       </IconTooltip>
 
-      {/* Desktop Collapse Toggle — always tooltipped, because its label is the state itself */}
+      {/* Desktop Collapse Toggle. Tooltipped only while collapsed, like the two controls above it:
+          expanded, the button already carries "Menü einklappen" as visible text, so the tooltip was
+          repeating a label the user could read — the one case a tooltip is noise rather than help. */}
       <IconTooltip
         label={isDesktopCollapsed ? "Menü ausklappen" : "Menü einklappen"}
-        placement="right">
+        placement="right"
+        isEnabled={isDesktopCollapsed}>
         <button
           onClick={onToggleDesktopMenu}
           className={`text-foreground-muted hover:bg-muted hover:text-foreground hidden h-9 shrink-0 items-center rounded-md transition-colors lg:flex ${
