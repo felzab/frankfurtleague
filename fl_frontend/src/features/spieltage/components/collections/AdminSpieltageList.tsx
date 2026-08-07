@@ -5,7 +5,8 @@ import Link from "next/link";
 
 import { Globe } from "@gravity-ui/icons";
 
-import { PHASE_LABELS, SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
+import { PHASE_LABELS } from "@/features/saisons/constants";
+import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
 import { reactivateSpieltagAction } from "@/features/spieltage/actions";
 import { SAISON_PHASE_OPTIONS } from "@/features/spieltage/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";

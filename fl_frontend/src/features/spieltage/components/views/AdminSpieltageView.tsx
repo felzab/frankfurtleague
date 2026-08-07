@@ -3,6 +3,7 @@
 import { AdminSpieltageList } from "@/features/spieltage/components/collections/AdminSpieltageList";
 import { AdminDeleteSpieltagModal } from "@/features/spieltage/components/modals/AdminDeleteSpieltagModal";
 import { AdminEditSpieltagModal } from "@/features/spieltage/components/modals/AdminEditSpieltagModal";
+import { SPIELTAG_FACETS } from "@/features/spieltage/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
@@ -20,13 +21,14 @@ const SEARCH_KEYS = ["name", "beginn", "ende"] as const;
  * and the retire overlay are unchanged from the four resources before it.
  *
  * **The editor is a dialog rather than a page**, which is where this differs from Teams, Spieler and
- * Saisons: six scalar fields with no nested object and no junction row do not reach ADR-0050's threshold.
+ * Saisons: five scalar fields with no nested object and no junction row do not reach ADR-0050's threshold.
  */
 export function AdminSpieltageView({ spieltage, saisonId }: { spieltage: AdminSpieltagRow[]; saisonId: string | null }) {
   return (
     <AdminCrudView<AdminSpieltagRow>
       items={spieltage}
       searchKeys={SEARCH_KEYS}
+      facets={SPIELTAG_FACETS}
       renderTable={({ query, filteredItems, onEdit, onDelete }) => (
         <AdminSpieltageList
           spieltageQuery={query}

@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminSaisonsTable } from "@/features/saisons/components/collections/AdminSaisonsTable";
+import { SAISON_FACETS } from "@/features/saisons/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminSaisonRow } from "@/features/saisons/types";
@@ -22,6 +23,7 @@ export function AdminSaisonsView({ saisons }: { saisons: AdminSaisonRow[] }) {
     <AdminCrudView<AdminSaisonRow>
       items={saisons}
       searchKeys={SEARCH_KEYS}
+      facets={SAISON_FACETS}
       renderTable={({ query, filteredItems }) => (
         <AdminSaisonsTable
           saisonsQuery={query}

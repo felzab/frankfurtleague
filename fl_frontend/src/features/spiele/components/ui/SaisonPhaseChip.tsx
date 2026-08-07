@@ -1,5 +1,7 @@
 import { Chip } from "@heroui/react";
 
+import { PHASE_LABELS } from "@/features/saisons/constants";
+
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
 // See SpielStatusChip for why all three maps live at module scope. This one mattered more: the icon
@@ -109,15 +111,6 @@ const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {
       <path d="M17 7h2a2 2 0 0 0 0-4h-2" />
     </svg>
   ),
-};
-
-// Exported for the match picker in `FormTeamPicker`, which names a feeder match by its round: one
-// German spelling of the phases, not two.
-export const PHASE_LABELS: Record<FLSaisonPhase, string> = {
-  gruppenphase: "Gruppenphase",
-  viertelfinale: "Viertelfinale",
-  halbfinale: "Halbfinale",
-  finale: "Finale",
 };
 
 export function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase }) {

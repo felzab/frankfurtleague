@@ -1,5 +1,5 @@
 /**
- * SAISONS · search copy and the season id's shape
+ * SAISONS · search copy, the season id's shape, and the phases' German names
  *
  * Its own module, not an export from a view: those files are `"use client"`, and every export of a
  * client module becomes a client reference on the server side.
@@ -8,10 +8,28 @@
  * shell's bar renders, so the title an admin reads is the nav item they clicked (ADR-0058).
  */
 
+import type { FLSaisonPhase } from "./schemas";
+
 export const SAISONS_CRUD_COPY = {
   searchLabel: "Saison suchen",
   searchPlaceholder: "Suchen nach Saison-ID oder Zeitraum...",
 } as const;
+
+/**
+ * What each `saison_phase` is called on screen — one German spelling of the four, for every surface.
+ *
+ * **In this slice because `FLSaisonPhaseSchema` is**, and a label belongs beside the set it labels: both
+ * `spiele` and `spieltage` already import the phase type from here, so reading its names from the same
+ * place adds no edge to the import graph. It lived in `SaisonPhaseChip.tsx` until 2026-08-07 and moved
+ * for a concrete reason rather than tidiness — a `.tsx` module cannot be loaded by the node test runner,
+ * so nothing importing it could be unit-tested.
+ */
+export const PHASE_LABELS: Record<FLSaisonPhase, string> = {
+  gruppenphase: "Gruppenphase",
+  viertelfinale: "Viertelfinale",
+  halbfinale: "Halbfinale",
+  finale: "Finale",
+};
 
 /**
  * Exactly four characters, and the create form carries the bound so the browser refuses a fifth

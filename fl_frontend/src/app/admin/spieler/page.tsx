@@ -134,6 +134,9 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   return (
     <AdminSpielerView
       spieler={rows}
+      // The same list the create modal offers, for the team facet's options: a filter naming a club that
+      // plays in another season would narrow to nothing.
+      teams={teamsInSaison(teamsRes.teams, selectedSaisonId)}
       selectedSaisonId={selectedSaisonId}
       selectedSaisonStatus={selectedSaisonStatus}
     />

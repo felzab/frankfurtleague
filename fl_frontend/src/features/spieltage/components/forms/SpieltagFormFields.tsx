@@ -5,7 +5,7 @@ import { parseDate } from "@internationalized/date";
 import { FieldError, Input, Label, ListBox, Select, TextField } from "@heroui/react";
 
 import { SaisonDateField, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
-import { PHASE_LABELS } from "@/features/spiele/components/ui/SaisonPhaseChip";
+import { PHASE_LABELS } from "@/features/saisons/constants";
 import { SAISON_PHASE_OPTIONS } from "@/features/spieltage/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
