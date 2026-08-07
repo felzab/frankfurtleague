@@ -17,12 +17,22 @@ import { FLLogo } from "./FLLogo";
  */
 export function BrandLink({
   title = "Startseite",
-  /** The collapsed sidemenu rail is 72px — the mark alone, centred. */
+  /** Drops the wordmark at every width, for a rail too narrow to hold it. */
   hideName = false,
+  /**
+   * Classes for the wordmark alone, so a caller can hide it at some widths and not others —
+   * `AppTopBar` passes `hidden lg:inline`, because on a phone the page title needs the room the
+   * wordmark would take.
+   *
+   * **One link either way, rather than two rendered at different breakpoints.** A second copy of the
+   * mark would be a second stop in the tab order and a second announcement of the same destination.
+   */
+  nameClassName = "",
   className = "",
 }: {
   title?: string;
   hideName?: boolean;
+  nameClassName?: string;
   className?: string;
 }) {
   return (
@@ -33,7 +43,7 @@ export function BrandLink({
         hideName ? "justify-center" : "gap-2"
       } ${className}`}>
       <FLLogo />
-      {!hideName && "Frankfurt-League"}
+      {!hideName && <span className={nameClassName}>Frankfurt-League</span>}
     </Link>
   );
 }

@@ -31,24 +31,93 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     sub_options: [
       // "Handlungsbedarf", not "Übersicht": the page is a queue of the things needing an admin, ranked
       // by what each one blocks (ADR-0056) — an overview is what `spielsuche` below is. The label is
-      // also the collapsed sidemenu's tooltip and the page's own `h1`, so all three move together.
-      { id: "action_required", label: "Handlungsbedarf", iconName: "ExclamationShape" },
+      // also the collapsed sidemenu's tooltip and the page's own title in the bar, so all three move
+      // together.
+      {
+        id: "action_required",
+        label: "Handlungsbedarf",
+        iconName: "ExclamationShape",
+        hint: {
+          lead: "Jedes Spiel, das gerade eine Eingabe braucht, sortiert nach dem, was es aufhält.",
+          points: [
+            { term: "Verweise und Besetzung", detail: "ohne diese Angaben löst sich kein späteres KO-Spiel auf." },
+            { term: "Ergebnis", detail: "Tabelle und Setzung warten darauf." },
+            { term: "Datum, Uhrzeit, Ort, Schiedsrichter", detail: "Pflege, die nichts weiter aufhält." },
+          ],
+          note: "Abgesagte Spiele stehen nur zum Nachschlagen dort — sie sind keine Aufgabe.",
+        },
+      },
       // Below the queue and above the search box, which is the order the three are reached in: what
       // needs doing, then the draw that decides what will need doing, then looking one fixture up.
       // Named AND iconed for the public bracket's own entry (`DASHBOARD_SIDEMENU_ICONS`), because it
       // is the same rounds seen for a different purpose — a second word and a second glyph for one
       // stage are two more things to learn for nothing.
-      { id: "finalrunden", label: "Finalrunden", iconName: "Medal" },
-      { id: "spielsuche", label: "Spielsuche", iconName: "Magnifier" },
+      {
+        id: "finalrunden",
+        label: "Finalrunden",
+        iconName: "Medal",
+        // The chip legend lives here rather than on the page, so the surface has ONE info glyph and
+        // it is the shell's — a second one beside the title would be two answers to one question.
+        hint: {
+          lead: "Woher jede Seite jedes KO-Spiels kommt und wer gerade darin steht — zum Prüfen der Auslosung, bevor sie gespielt wird.",
+          points: [
+            { term: "„1. der Gruppe A“", detail: "aus der Tabelle gesetzt. So wird die erste KO-Runde besetzt." },
+            { term: "„Sieger 25.“", detail: "aus einem früheren Spiel. So wird jede spätere Runde besetzt." },
+            { term: "„Manuell gesetzt“", detail: "diese Seite gehört Dir, keine Auflösung schreibt hinein." },
+            { term: "„Ohne Herkunft“", detail: "weder Mannschaft noch Herkunft. Diese Seite füllt niemand." },
+          ],
+          note: "Die Gruppenphase steht nicht dort: ihre Paarungen kommen aus dem Spielplan und haben keine Herkunft.",
+        },
+      },
+      {
+        id: "spielsuche",
+        label: "Spielsuche",
+        iconName: "Magnifier",
+        hint: {
+          lead: "Durchsucht alle Spiele der Saison, um eines gezielt zu öffnen.",
+          points: [
+            { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
+            { term: "Bearbeiten", detail: "der Stift auf einer Karte öffnet das Spiel." },
+          ],
+        },
+      },
     ],
   },
 
   {
     category_name: "Infrastruktur",
-    sub_options: [{ id: "spielorte", label: "Spielorte", iconName: "MapPin" }],
+    sub_options: [
+      {
+        id: "spielorte",
+        label: "Spielorte",
+        iconName: "MapPin",
+        hint: {
+          lead: "Alle Austragungsorte, mit Adresse und Mietpreis.",
+          points: [
+            { term: "Anlegen", detail: "über die Schaltfläche oben rechts." },
+            { term: "Stilllegen", detail: "nimmt den Ort aus den Auswahllisten, ohne ihn zu löschen." },
+          ],
+          note: "Ein stillgelegter Ort bleibt in jedem Spiel stehen, das ihn schon nennt.",
+        },
+      },
+    ],
   },
   {
     category_name: "Beteiligte",
-    sub_options: [{ id: "schiedsrichter", label: "Schiedsrichter", iconName: "Person" }],
+    sub_options: [
+      {
+        id: "schiedsrichter",
+        label: "Schiedsrichter",
+        iconName: "Person",
+        hint: {
+          lead: "Alle Schiedsrichter, mit Kontaktdaten und Entschädigung.",
+          points: [
+            { term: "Anlegen", detail: "über die Schaltfläche oben rechts." },
+            { term: "Stilllegen", detail: "nimmt die Person aus den Auswahllisten, ohne sie zu löschen." },
+          ],
+          note: "Eine stillgelegte Person bleibt in jedem Spiel stehen, das sie schon nennt.",
+        },
+      },
+    ],
   },
 ];

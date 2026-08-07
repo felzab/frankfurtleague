@@ -10,15 +10,10 @@ import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
 import type { FLSpielplan } from "../../schemas";
 
 export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
-  /* Rendered in both branches — see the note in `SpielhistorieView`: the route must keep its only
-     `h1` whether or not the season has data. */
-  const pageHeading = <h1 className="sr-only">Spielplan</h1>;
-
   // Without this the empty case renders a bordered, empty 44px tab bar and no panels.
   if (!spielplanData?.spieltage?.length) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        {pageHeading}
         <EmptyState
           title="Für diese Saison steht noch kein Spielplan fest."
           hint="Sobald die Spieltage angelegt sind, erscheinen sie hier."
@@ -39,8 +34,6 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
     // ever runs at mount, when the scroller is still at the top and nothing is stuck yet — measured
     // at rest, the root's `transform` is `none` with zero live animations.
     <Tabs className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
-      {pageHeading}
-
       {/* The sticky bar is an ordinary element and `Tabs.ListContainer` sits inside it holding only the
           track, which is what its chevron buttons position against — see the fuller note in
           `AdminSpieleActionRequiredView`, the other strip in the app. The width boundaries for mobile

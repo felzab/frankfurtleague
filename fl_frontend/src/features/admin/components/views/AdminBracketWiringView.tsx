@@ -9,7 +9,6 @@ import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -132,45 +131,11 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
  * draw finds it.
  */
 export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiele[] }) {
-  /* The title carries its own explanation and no second line of prose (owner, 2026-08-07): a
-     description under the heading and a hint behind the glyph say the same thing twice, and the hint
-     is the one that can afford to be long enough to be useful. */
-  const pageHeading = (
-    <h1 className="fluid-xl text-foreground font-extrabold tracking-tight">
-      Finalrunden
-      {/* `InfoHint` and not `IconTooltip`, for the reason the triage list records: react-aria's
-          tooltip opens on hover and focus and deliberately never on tap, so on the phone this page is
-          worked from it would be unreachable. It doubles as the legend for the four chips. */}
-      <InfoHint label="Was die Herkunft einer Seite bedeutet">
-        <p>
-          <strong>Herkunft und Besetzung</strong>
-        </p>
-        <p>Jede Seite eines KO-Spiels steht hier als Herkunft und darunter die Mannschaft, die gerade darin steht.</p>
-        <ul>
-          <li>
-            <strong>1. der Gruppe A</strong> — aus der Tabelle gesetzt. Die erste KO-Runde wird so besetzt.
-          </li>
-          <li>
-            <strong>Sieger 25.</strong> — aus einem früheren Spiel. Jede spätere Runde wird so besetzt.
-          </li>
-          <li>
-            <strong>Manuell gesetzt</strong> — diese Seite gehört Dir. Keine Auflösung schreibt sie.
-          </li>
-          <li>
-            <strong>Ohne Herkunft</strong> — weder Mannschaft noch Herkunft. Diese Seite füllt niemand.
-          </li>
-        </ul>
-        <p>Die Gruppenphase steht nicht hier: ihre Paarungen kommen aus dem Spielplan und haben keine Herkunft.</p>
-      </InfoHint>
-    </h1>
-  );
-
   // The expected state for most of a season, exactly as on the public bracket: the playoff Spieltage
   // do not exist until the group phase finishes.
   if (rounds.length === 0) {
     return (
       <div className="max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8">
-        {pageHeading}
         <EmptyState
           title="Noch keine Finalrunden"
           hint="Sobald die Playoff-Spieltage angelegt sind, steht hier ihre Verweisstruktur."
@@ -188,8 +153,6 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
        container rather than on each panel — a short stack of full-width tables staggering in reads as
        the page assembling itself rather than arriving. */
     <div className={`${PAGE_RISE} max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8`}>
-      {pageHeading}
-
       {rounds.map((round) => (
         <div
           key={round.id}

@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 
 /**
- * The static half of an admin CRUD page: heading, description, create trigger.
+ * The static half of an admin CRUD page: the page frame and the create trigger.
  *
- * Separate from `AdminCrudView` because none of it depends on the resource list. Passing these as
- * props to a client element the page builds *after* `await getSchiedsrichter()` puts the page title
- * behind a FastAPI round-trip it has no need of. Rendered above the data boundary, it paints as soon
- * as the session check resolves and the table streams in behind it.
+ * Separate from `AdminCrudView` because neither depends on the resource list. Rendered above the
+ * data boundary, the trigger paints as soon as the session check resolves and the table streams in
+ * behind it.
+ *
+ * **It carries no heading.** The route's name and its explanation are declared once, in
+ * `ADMIN_SIDEMENU_STRUCTURE`, and rendered by the shell's bar — so the title an admin reads and the
+ * nav item they clicked cannot say different things.
  *
  * A server component, and deliberately hook-free: it is rendered outside the `Suspense` that covers
  * the data, so anything dynamic in here would pull the whole page back into one hole.
@@ -17,26 +20,18 @@ import type { ReactNode } from "react";
  * be forgotten.
  */
 export function AdminCrudShell({
-  title,
-  description,
   createModal,
   children,
 }: {
-  title: string;
-  description: string;
   /** The slice's Create modal, which owns its own trigger button and overlay state. */
   createModal: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
-      <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col">
-          <h1 className="fluid-xl text-foreground font-extrabold tracking-tight">{title}</h1>
-          <p className="fluid-sm text-foreground-muted mt-1 font-medium">{description}</p>
-        </div>
-        {createModal}
-      </div>
+      {/* `justify-end` rather than `justify-between`: with the heading gone the trigger is the only
+          thing in this row, and left-aligned it would sit where a title used to be. */}
+      <div className="flex flex-row justify-end">{createModal}</div>
 
       {children}
     </div>

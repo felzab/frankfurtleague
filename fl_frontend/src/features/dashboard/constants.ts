@@ -27,25 +27,104 @@ export const DASHBOARD_SIDEMENU_ICONS = {
 
 export type DashboardIconName = keyof typeof DASHBOARD_SIDEMENU_ICONS;
 
+/**
+ * `label` is what the nav item and the shell's page title both read, and `hint` is what the info
+ * glyph beside that title says — so a route's name and its explanation are declared once, together,
+ * rather than at the top of whichever view happens to render it.
+ */
 export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> = [
   {
     category_name: "Spiele",
     sub_options: [
-      { id: "spielsuche", label: "Spielsuche", iconName: "Magnifier" },
-      { id: "spielhistorie", label: "Spielhistorie", iconName: "ClockArrowRotateLeft" },
-      { id: "spielplan", label: "Spielplan", iconName: "Calendar" },
-      { id: "playoffs", label: "Finalrunden", iconName: "Medal" },
+      {
+        id: "spielsuche",
+        label: "Spielsuche",
+        iconName: "Magnifier",
+        hint: {
+          lead: "Durchsucht alle Spiele der ausgewählten Saison.",
+          points: [
+            { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
+            { term: "Sofort", detail: "die Liste filtert beim Tippen, es gibt nichts abzuschicken." },
+          ],
+          note: "Gesucht wird nur innerhalb der gewählten Saison.",
+        },
+      },
+      {
+        id: "spielhistorie",
+        label: "Spielhistorie",
+        iconName: "ClockArrowRotateLeft",
+        hint: {
+          lead: "Alle bereits gespielten Begegnungen der Saison.",
+          points: [{ term: "Reihenfolge", detail: "die zuletzt gespielten zuerst." }],
+          note: "Was noch aussteht, steht im Spielplan.",
+        },
+      },
+      {
+        id: "spielplan",
+        label: "Spielplan",
+        iconName: "Calendar",
+        hint: {
+          lead: "Der komplette Spielplan der Saison.",
+          points: [
+            { term: "Spieltage", detail: "jeder Reiter oben ist ein Spieltag." },
+            { term: "Je Begegnung", detail: "Datum, Uhrzeit, Ort und — sobald gewertet — das Ergebnis." },
+          ],
+        },
+      },
+      {
+        id: "playoffs",
+        label: "Finalrunden",
+        iconName: "Medal",
+        hint: {
+          lead: "Der Turnierbaum der Finalrunden, von der ersten KO-Runde bis zum Finale.",
+          points: [
+            { term: "Linien", detail: "verbinden ein Spiel mit dem, aus dem sein Sieger kommt." },
+            { term: "Offene Seiten", detail: "zeigen ihre Herkunft statt einer Mannschaft, etwa „Sieger 25.“." },
+          ],
+          note: "Die Runden entstehen erst, wenn die Gruppenphase abgeschlossen ist.",
+        },
+      },
     ],
   },
   {
     category_name: "Tabellen",
-    sub_options: [{ id: "saisontabelle", label: "Saisontabelle", iconName: "LayoutHeaderCells" }],
+    sub_options: [
+      {
+        id: "saisontabelle",
+        label: "Saisontabelle",
+        iconName: "LayoutHeaderCells",
+        hint: {
+          lead: "Der Tabellenstand jeder Gruppe der Saison.",
+          points: [
+            { term: "Gewertet", detail: "werden ausschließlich Spiele der Gruppenphase." },
+            { term: "Hervorgehoben", detail: "sind die Mannschaften, die aktuell auf einem Playoff-Platz stehen." },
+          ],
+          note: "Die Gesamtbilanz einer Mannschaft steht auf ihrer eigenen Seite.",
+        },
+      },
+    ],
   },
   {
     category_name: "Teams",
     sub_options: [
-      { id: "teams", label: "Teams", iconName: "Persons" },
-      { id: "spieler", label: "Spieler", iconName: "Person" },
+      {
+        id: "teams",
+        label: "Teams",
+        iconName: "Persons",
+        hint: {
+          lead: "Alle Mannschaften der laufenden Saison.",
+          points: [{ term: "Eine Mannschaft öffnen", detail: "zeigt ihre Bilanz, ihren Kader und ihren Saisonverlauf." }],
+        },
+      },
+      {
+        id: "spieler",
+        label: "Spieler",
+        iconName: "Person",
+        hint: {
+          lead: "Die Kader aller Mannschaften der Saison.",
+          points: [{ term: "Eine Mannschaft öffnen", detail: "zeigt die Spielerinnen und Spieler mit Position und Stufe." }],
+        },
+      },
     ],
   },
 ];

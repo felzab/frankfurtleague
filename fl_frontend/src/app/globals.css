@@ -47,6 +47,11 @@
 
 /* Buttons */
 @import "@heroui/styles/components/button.css" layer(components);
+/* Both, and in this order: `ToggleButtonGroup` composes `ToggleButton`, and HeroUI's own index.css
+   puts the two here — after `button`, before the collections. The theme control is the consumer, and
+   it is reachable from `TopNav` on every public route, so this is `globals.css` and not `admin.css`. */
+@import "@heroui/styles/components/toggle-button.css" layer(components);
+@import "@heroui/styles/components/toggle-button-group.css" layer(components);
 
 /* Collections */
 @import "@heroui/styles/components/dropdown.css" layer(components);
@@ -404,12 +409,25 @@
   }
 }
 
-/* PROJECT RULE (no CSS here -- applied at the call sites): every scroll container reserves its
-   gutter with Tailwind's `scrollbar-gutter-stable`, so a scrollbar appearing (an accordion
-   expanding, an overlay locking the page) can never resize the content box and shift the layout.
-   `scrollbar-gutter` only applies to scroll containers -- for the viewport that is <html>, not
-   <body>, so the declaration belongs on <html>. Consumers: <html> in layout.tsx, both
+/* PROJECT RULE (applied at the call sites; the one rule below is the exception): every scroll
+   container reserves its gutter with Tailwind's `scrollbar-gutter-stable`, so a scrollbar appearing
+   (an accordion expanding, an overlay locking the page) can never resize the content box and shift
+   the layout. `scrollbar-gutter` only applies to scroll containers -- for the viewport that is
+   <html>, not <body>, so the declaration belongs on <html>. Consumers: <html> in layout.tsx, both
    dashboard/admin <main>s, the sidemenu nav scroller, ModalShell's body. */
+
+/* THE EXCEPTION: a route rendering `AppShell` gives the gutter back.
+   That shell is `h-dvh` with its own scroll container inside (`main`), so the viewport itself can
+   never scroll there -- and `scrollbar-gutter: stable` on a container that cannot scroll still
+   reserves the strip, which is ~15px of dead rail down the right of every dashboard and admin page.
+   It is visible as the top bar stopping short of the window edge, which is the one element that has
+   to reach it.
+   Keyed on the shell's own marker with `:has()`, so the public routes -- which DO scroll the
+   viewport and DO need the reservation -- are untouched, and nothing has to reach up and mutate
+   <html> imperatively. Unlayered, so it outranks the utility on the element. */
+html:has([data-app-shell]) {
+  scrollbar-gutter: auto;
+}
 
 /* THE app's type scale, and the only way to spell it: `fluid-sm`, never `text-fluid-sm`.
  *
@@ -660,12 +678,22 @@
    onto the first match as you type and depends on no modality at all (verified in
    react-aria-components 1.19, `private/ListBox.mjs`, which writes both).
 
-   So the highlight is keyed on `data-focused`: it appears on the option Enter would pick, it appears
-   for the same reason every time, and it cannot come and go with the pointer/keyboard mode. The fill is
-   `--bg-muted`, the same background hovering gives — deliberately no more than that, and no ring, which
-   the rule above still suppresses. This closes the WCAG 2.4.7 gap that block recorded: a keyboard user
-   arrowing through an open list now has an indicator inside the popover. */
-[data-slot="list-box-item"][data-focused="true"],
+   The fill is `--bg-muted`, the same background hovering gives — deliberately no more than that, and
+   no ring, which the rule above still suppresses. This closes the WCAG 2.4.7 gap that block recorded:
+   a keyboard user arrowing through an open list has an indicator inside the popover. Which attribute
+   carries it differs by collection, and the rule below says why. */
+/* A MENU item keys on `data-focused`, because a menu moves focus with the pointer — react-aria's
+   `useMenuItem` calls `setFocusedKey` from its hover-start handler — so this is the hover indicator
+   and the keyboard indicator at once.
+
+   A LIST-BOX item keys on `data-focus-visible`, and the difference is not cosmetic. A `Select` focuses
+   its SELECTED option the moment the popover opens, whatever opened it, so `data-focused` painted a
+   fill on one row before anybody had pressed a key — read as "these items have a background" rather
+   than as "you are here" (owner, 2026-08-07). `data-focus-visible` is react-aria's keyboard-modality
+   flag, so the fill now appears when a key actually moves the selection, which is the WCAG 2.4.7 case
+   this rule exists for. What a pointer user gets instead is the call site's own `hover:` pair — see
+   `SaisonSelector`, which tints the row and turns its text brand. */
+[data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
   background-color: var(--bg-muted);
 }

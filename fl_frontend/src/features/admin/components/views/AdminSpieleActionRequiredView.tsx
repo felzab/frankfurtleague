@@ -125,18 +125,11 @@ export function AdminSpieleActionRequiredView({
     window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
   };
 
-  /* Rendered in both branches — see the note in `SpielplanView`: the route must keep its only `h1`
-     whether or not there is anything to show. This route's design has no visible page title, so the
-     `h1` that anchors the heading list is visually hidden, and its text matches the sidemenu entry
-     that leads here. */
-  const pageHeading = <h1 className="sr-only">Handlungsbedarf</h1>;
-
   // Only when the whole response is empty, which is a season nobody has created fixtures for yet.
   // Without this the page renders a bordered, empty 44px tab bar and eight zero-panels.
   if (activeSection === undefined) {
     return (
       <div className="flex w-full flex-1 items-start justify-center p-6">
-        {pageHeading}
         <EmptyState
           tone="positive"
           title="Alles erledigt!"
@@ -162,8 +155,6 @@ export function AdminSpieleActionRequiredView({
       selectedKey={activeSection.category}
       onSelectionChange={(key: Key) => selectSection(String(key))}
       className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
-      {pageHeading}
-
       {/* The sticky bar is an ordinary element, and `Tabs.ListContainer` sits INSIDE it holding only
           the track. Two reasons, both structural. The container is a collection-slot injector rather
           than a wrapper — a sibling passed to it is swallowed, so the hint could not live there — and

@@ -20,10 +20,39 @@ import type { FieldErrors } from "../utils/validation";
  * producing exactly the silent missing icon this type exists to prevent. Requiring the argument
  * makes the guarantee structural rather than a convention.
  */
+/**
+ * What one route's info glyph says, in the two levels every one of them has.
+ *
+ * **The shape is the hierarchy**, rather than a paragraph list that each author structures their own
+ * way: `lead` answers "what is this page" in one sentence, and each `points` entry names one thing on
+ * it and then explains that thing. Rendered, the term is bold and the detail is not, so a reader
+ * scans the terms and stops at the one they came for — which a run of equal-weight paragraphs cannot
+ * support however well each is written.
+ *
+ * `points` is optional because a page with nothing to enumerate should not invent entries to fill a
+ * shape; the lead alone is a complete hint.
+ */
+export interface SidemenuHint {
+  /** One sentence: what the page is for. Never a list, never two sentences of setup. */
+  lead: string;
+  /** One entry per thing worth naming — a control, a state, a rule the page applies. */
+  points?: readonly { term: string; detail: string }[];
+  /** A closing caveat, for the one thing a reader would otherwise look for here and not find. */
+  note?: string;
+}
+
 export interface SidemenuStructureSubOption<TIcon extends string> {
   id: string;
   label: string;
   iconName: TIcon;
+  /**
+   * What the route is for, shown behind the info glyph beside the shell's page title.
+   *
+   * **Required, so a new route cannot ship without one** — an optional field here would be filled in
+   * for the first few entries and forgotten after that, and a hint that exists on five pages out of
+   * twelve is worse than none, because its absence then reads as "this page has nothing to explain".
+   */
+  hint: SidemenuHint;
 }
 
 export interface SidemenuStructureEntry<TIcon extends string> {

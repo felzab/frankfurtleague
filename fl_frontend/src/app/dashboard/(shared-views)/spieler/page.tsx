@@ -31,8 +31,6 @@ export default async function TeamSpielerPage(props: NextPageProps) {
   return (
     <TeamSelectionView
       teams={teamsRes.teams}
-      title="Spieler der Frankfurt-League"
-      description="Wähle ein Team aus, um den aktuellen Kader zu sehen."
       urlPrefix="/dashboard/spieler"
     />
   );

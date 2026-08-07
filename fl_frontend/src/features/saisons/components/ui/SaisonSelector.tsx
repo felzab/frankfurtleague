@@ -122,7 +122,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
                 key={saison.id}
                 id={saison.id}
                 textValue={`Saison ${saison.id}`}
-                className="text-foreground-muted hover:bg-muted/40 hover:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+                className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
                 Saison {saison.id}
               </ListBox.Item>
             ))}

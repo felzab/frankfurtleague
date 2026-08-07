@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `2b69c68`, 2026-08-07
+**Verified against:** `dfec0fa`, 2026-08-07
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -195,8 +195,9 @@ nothing.
 
 Sessions last 8 hours and magic links 15 minutes, both shortened from the library defaults. **Two
 mechanisms end a session before that, and they belong to different people.** The signed-in admin has
-the sidemenu's own sign-out (`fl_frontend/src/features/auth/actions.ts :: signOutAction`), which
-arms on the first press and ends the session on the second. An operator revoking somebody else
+the shell's own sign-out (`fl_frontend/src/features/auth/actions.ts :: signOutAction`), offered in two
+places — inline at the end of the top bar and as a row in the sidemenu footer's options menu — and
+arming on the first press to end the session on the second. An operator revoking somebody else
 removes the address from `ALLOWED_ADMIN_EMAILS`: the `session` callback re-derives `role` on every
 read, so the row survives and stops authorizing anything on the next request after the restart that
 change already needs.

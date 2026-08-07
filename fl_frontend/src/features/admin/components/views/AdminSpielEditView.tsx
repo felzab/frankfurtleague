@@ -100,7 +100,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
                     so: on those pages the title tops a single card or grid, while here it has to
                     outrank four `fluid-base` panel titles and a rail of them — at `fluid-xl` it
                     differed from a panel title in nothing but a few pixels of size. */}
-                <h1 className="fluid-2xl text-foreground font-extrabold tracking-tight">Spiel {spielData.spiel_nr}</h1>
+                <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">Spiel {spielData.spiel_nr}</h2>
                 <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
               </div>
               {/* One sentence. The second ("the preview shows…") explained a card that explains itself. */}

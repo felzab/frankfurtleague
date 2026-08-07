@@ -67,10 +67,6 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center">
-      {/* These routes have no visible page title by design, so the `h1` that anchors the heading
-          list is visually hidden. The text matches the route's own `metadata.title`. */}
-      <h1 className="sr-only">Spielsuche</h1>
-
       {/** Search Bar */}
       <div className="bg-background sticky top-0 z-20 flex w-full justify-center px-4 py-4 sm:px-8 lg:py-8">
         <SearchBar

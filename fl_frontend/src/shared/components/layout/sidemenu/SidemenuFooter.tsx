@@ -21,7 +21,9 @@ export function SidemenuFooter({
   return (
     <div className={`border-border flex flex-col border-t p-3 ${isDesktopCollapsed ? "items-center gap-3" : "gap-1"}`}>
       {/* Options first: expanded it is a full-width row whose menu opens above it at the same
-          width, which is what keeps the menu inside the sidemenu (standard sidebar-footer pattern). */}
+          width, which is what keeps the menu inside the sidemenu (standard sidebar-footer pattern).
+          The bar carries the same two controls inline (ADR-0058); this is a second placement of the
+          same components, not a second implementation. */}
       <SidemenuOptionsMenu
         isDesktopCollapsed={isDesktopCollapsed}
         onSignOut={onSignOut}
