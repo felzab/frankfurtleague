@@ -85,7 +85,7 @@ disagree about who finished second. That response also carries `qualifiers_per_g
 
 ## 3. Admin mutations
 
-Fourteen admin server actions plus one auth action, and **one route handler**. Every admin mutation
+Fourteen admin server actions plus one auth action, and **two route handlers**. Every admin mutation
 begins with `getAdminSession()` and returns an access-denied `FormState` rather than throwing, and
 every one runs inside
 `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`, which seeds the correlation-id
@@ -93,11 +93,13 @@ request scope and converts a thrown API error into the `FormState` the caller to
 409 (an ordinary create outcome, ADR-0032) crosses the server-action boundary redacted and replaces
 the admin page with the error page ([`docs/logging.md`](../logging.md)).
 
-**The route handler is `POST /api/admin/spiele/undo`, and it is the only one**
-([ADR-0055](../_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)). A server action
-is the right primitive for an admin mutation and stays so for the other eight; the undo is dispatched
-from a route other than the one that raised it, which makes Next re-render the editor segment and
-raise the I22 invariant mid-response. **Revert it to a server action once Next fixes E592.**
+**The route handlers are the two editors' undos — `POST /api/admin/spiele/undo` and
+`POST /api/admin/teams/undo` — and the boundary stops there**
+([ADR-0060](../_decisions/0060-an-editors-undo-is-a-route-handler-until-e592-is-fixed.md)). A server
+action is the right primitive for an admin mutation and stays so for every other one; an undo is
+dispatched from a route other than the one that raised it, which makes Next re-render the editor
+segment and raise the E592 invariant mid-response. **Revert both to server actions once Next fixes
+E592.**
 
 | Action                        | Slice          | Invalidates                                                          |
 | ----------------------------- | -------------- | -------------------------------------------------------------------- |

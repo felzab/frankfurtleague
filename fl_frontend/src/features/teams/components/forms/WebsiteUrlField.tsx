@@ -67,7 +67,7 @@ export function WebsiteUrlField({
         </InputGroup.Prefix>
         <InputGroup.Input
           placeholder="www.beispielverein.de"
-          className="fluid-sm"
+          className="fluid-sm ps-2"
         />
         <InputGroup.Suffix>
           <IconTooltip label={isFollowable ? "Link in neuem Tab öffnen" : "Erst eine gültige Adresse eingeben"}>

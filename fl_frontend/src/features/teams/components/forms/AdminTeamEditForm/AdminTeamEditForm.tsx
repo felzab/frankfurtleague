@@ -25,13 +25,48 @@ import { TeamActionBar } from "./TeamActionBar";
 import { TeamDraftStatusProvider } from "./TeamDraftStatusContext";
 import { TeamRail } from "./TeamRail";
 
-import type { FLGruppenNames, FLPostTeamPayload, FLTeam } from "@/features/teams/schemas";
+import type { FLGruppenNames, FLPatchSaisonTeamPayload, FLPatchTeamPayload, FLPostTeamPayload, FLTeam } from "@/features/teams/schemas";
 import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
 import type { TeamRailBanner } from "./TeamRail";
+
+/**
+ * How long the undo offer stands after a save (ADR-0051's window, ADR-0060's transport). There is no
+ * confirmation dialog on this page for the same reason as the match editor: confirmation and undo
+ * are alternatives, and undo is the one that helps the admin who was not paying attention.
+ */
+const UNDO_TIMEOUT_MS = 15000;
+
+/** What the undo replays: the halves the save actually wrote, holding their PRE-SAVE values. */
+type TeamUndoPayloads = {
+  club?: FLPatchTeamPayload;
+  saison?: FLPatchSaisonTeamPayload;
+};
+
+/**
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0060): by the
+ * time the offer is pressed this component is unmounted and the browser is on another route, and a
+ * server action dispatched from there trips Next's E592 invariant and is truncated mid-response.
+ * **Revert this to a server action once E592 is fixed upstream**; the ADR names that condition.
+ */
+async function postTeamUndo(payloads: TeamUndoPayloads): Promise<{ success: boolean; message?: string; error?: string }> {
+  const response = await fetch("/api/admin/teams/undo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    // The route answers 200 with the outcome in the body for every reportable case, so a non-2xx is
+    // a genuine transport failure and belongs in the rejection branch.
+    body: JSON.stringify(payloads),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${String(response.status)}`);
+  }
+
+  return response.json() as Promise<{ success: boolean; message?: string; error?: string }>;
+}
 
 /** The save toast's fan-out line — the half of `PATCH /teams/{team_id}` that fails silently. */
 function describeFanOut(count: number): string {
@@ -327,11 +362,105 @@ export function AdminTeamEditForm({
       saisonValidation.clearVerdicts();
       setHasSaved(true);
 
-      appToast.success("Verein gespeichert", {
-        description: consequenceNotes.length > 0 ? consequenceNotes.join(" ") : undefined,
-      });
+      // The halves the save wrote, holding their pre-save values — `team` and `storedMembership`
+      // are this render's props, so they still carry what was stored before the write. Built BEFORE
+      // leaving, because the toast outlives the page (ADR-0051, ADR-0060).
+      const undoPayloads: TeamUndoPayloads = {
+        ...(clubDirty
+          ? {
+              club: {
+                id: team.id,
+                name: team.name,
+                shorthand: team.shorthand,
+                full_name: team.full_name,
+                website_url: team.website_url,
+                description: team.description,
+                address: team.address,
+              },
+            }
+          : {}),
+        ...(saisonDirty && storedMembership !== null
+          ? {
+              saison: {
+                team_id: team.id,
+                saison_id: saison.saisonId,
+                gruppe: storedMembership.gruppe,
+                disqualifikation: storedMembership.disqualifikation,
+              },
+            }
+          : {}),
+      };
+      // A lifted disqualification is the one thing this save can destroy that nothing else holds a
+      // copy of (ADR-0059), so that grade is a warning; an ordinary save is a success that happens
+      // to be reversible.
+      const destroyedSomething = disqualifikationTouched && draftDisqualifikation === null && storedMembership?.disqualifikation != null;
+      offerUndo(undoPayloads, consequenceNotes.join(" ") || undefined, destroyedSomething);
+
+      // AFTER the undo payloads are built, which read the props rather than these atoms — see the
+      // match editor: leaving with typed values still in state is what let a save-then-undo reopen
+      // on values the club no longer holds.
       resetDraftToStored();
       leavePage();
+    });
+  };
+
+  /**
+   * The undo toast: fifteen seconds to take the save back (ADR-0051's window over ADR-0060's
+   * transport). The pitfalls the match editor documents all apply and are all mirrored here: the
+   * toast outlives this component, so the press runs in a detached closure — `router.refresh()` is
+   * what re-renders a screen the action's own revalidation can no longer reach (the router instance
+   * is a stable singleton, legal after unmount); the replay uses the TWO-ARGUMENT `then`, so a
+   * failure downstream of a committed restore is never blamed on the transport; and the pending
+   * spinner is `appToast.pending`, closed by its own key, because a toast without an explicit
+   * timeout inherits a four-second default that would retire it mid-flight.
+   *
+   * One deliberate difference from the match editor: a dispatch failure here reports generic German
+   * plus a console line, not the raw error text — ADR-0053 reviewed and kept the raw detail for
+   * exactly one call site, and this is not it.
+   */
+  const offerUndo = (payloads: TeamUndoPayloads, message?: string, destroyedSomething = false) => {
+    const raise = destroyedSomething ? appToast.warning : appToast.success;
+
+    raise("Änderung gespeichert", {
+      description: message ?? "Die Vereinsdaten wurden aktualisiert.",
+      // A decision window, not a reading time — the one case where the text's length does not
+      // govern the toast's duration.
+      timeout: UNDO_TIMEOUT_MS,
+      actionProps: {
+        children: "Rückgängig",
+        onPress: () => {
+          appToast.clear();
+          const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
+
+          void postTeamUndo(payloads).then(
+            (result) => {
+              appToast.close(pendingKey);
+              if (!result.success) {
+                appToast.danger("Rücknahme fehlgeschlagen", { description: result.error ?? "Die Änderung steht weiterhin." });
+                return;
+              }
+
+              // Reported BEFORE the refresh: the restore is committed and nothing below changes that.
+              appToast.success("Änderung zurückgenommen", { description: result.message });
+
+              // Best-effort, never allowed to fail the undo — a refresh that cannot run costs a
+              // stale screen until the next navigation, not the restore.
+              try {
+                router.refresh();
+              } catch (refreshError) {
+                console.warn("Undo committed, refresh failed", refreshError);
+              }
+            },
+            (dispatchError) => {
+              appToast.close(pendingKey);
+              console.warn("Undo dispatch failed", dispatchError);
+              appToast.danger("Rücknahme konnte nicht gesendet werden", {
+                description: "Die Änderung steht weiterhin. Bitte prüfe die Verbindung und den Verein.",
+              });
+            },
+          );
+        },
+      },
     });
   };
 

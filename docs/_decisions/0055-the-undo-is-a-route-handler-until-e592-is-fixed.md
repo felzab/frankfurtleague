@@ -1,10 +1,10 @@
 # ADR-0055 — The undo is a route handler, until Next.js fixes E592
 
-**Status:** Accepted
+**Status:** Superseded
 **Date:** 2026-08-06
 **Surface:** frontend
 **Supersedes:** —
-**Superseded by:** —
+**Superseded by:** [ADR-0060](0060-an-editors-undo-is-a-route-handler-until-e592-is-fixed.md)
 **Source:** The undo offer reporting "An unexpected response was received from the server" while its
 write never reached the backend, reproduced by the owner on Next 16.2.12, 16.3.0 and 16.3.1-canary.4.
 

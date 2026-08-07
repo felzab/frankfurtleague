@@ -76,25 +76,26 @@ export function FormSaisonSection({
 
   return (
     <section className={panel.root()}>
-      <div className={panel.header()}>
-        <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1">
-          <h2 className={panel.heading()}>
-            Saison {saison.saisonId}
-            <InfoHint label="Hinweis zur Saison-Zugehörigkeit">
-              <p>Dieser Bereich zeigt und bearbeitet die im Seitenmenü gewählte Saison.</p>
-              <ul>
-                <li>Um eine andere Saison zu bearbeiten, wähle sie im Seitenmenü aus.</li>
-                <li>Eine Mannschaft verlässt eine Saison nie. Der einzige Weg hinaus ist die Disqualifikation unten.</li>
-                <li>
-                  Die <strong>Gruppe</strong> ist nur änderbar, solange die Saison nicht begonnen hat und keine Spiele angesetzt sind.
-                </li>
-              </ul>
-            </InfoHint>
-          </h2>
-          <span className="ml-auto">
-            <SaisonBadge status={saison.saisonStatus} />
-          </span>
-        </div>
+      {/* `relative` + an absolutely placed badge, so the h2 keeps the exact flow every other panel
+          heading has — wrapping it in a flex row is what pushed the info glyph off the text's
+          baseline (owner, 2026-08-07). */}
+      <div className={`${panel.header()} relative`}>
+        <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
+          <SaisonBadge status={saison.saisonStatus} />
+        </span>
+        <h2 className={panel.heading()}>
+          Saison {saison.saisonId}
+          <InfoHint label="Hinweis zur Saison-Zugehörigkeit">
+            <p>Dieser Bereich zeigt und bearbeitet die im Seitenmenü gewählte Saison.</p>
+            <ul>
+              <li>Um eine andere Saison zu bearbeiten, wähle sie im Seitenmenü aus.</li>
+              <li>Eine Mannschaft verlässt eine Saison nie. Der einzige Weg hinaus ist die Disqualifikation unten.</li>
+              <li>
+                Die <strong>Gruppe</strong> ist nur änderbar, solange die Saison nicht begonnen hat und keine Spiele angesetzt sind.
+              </li>
+            </ul>
+          </InfoHint>
+        </h2>
       </div>
 
       <div className={panel.body()}>
