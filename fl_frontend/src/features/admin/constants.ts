@@ -5,7 +5,7 @@
  * the two cannot disagree.
  */
 
-import { ExclamationShape, Magnifier, MapPin, Medal, Person, Persons } from "@gravity-ui/icons";
+import { ExclamationShape, Magnifier, MapPin, Medal, Person, PersonPencil, Persons } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
@@ -20,6 +20,9 @@ export const ADMIN_SIDEMENU_ICONS = {
   Magnifier,
   Medal,
   Person,
+  // The player list's own glyph: a person with a pencil, distinct from Schiedsrichter's bare Person
+  // and from Teams' Persons, so the three entries under Beteiligte are told apart at a glance.
+  PersonPencil,
   Persons,
   MapPin,
 } as const satisfies Record<string, React.ElementType>;
@@ -123,6 +126,26 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             },
           ],
           note: "Eine Disqualifikation gilt für eine Saison und wird auf der Teamseite eingetragen. Aus einer Saison entfernt wird nie.",
+        },
+      },
+      // Directly below Teams, which is the order the two are reached in: a player is entered into a
+      // team's squad, so the team has to exist first.
+      {
+        id: "spieler",
+        label: "Spieler",
+        iconName: "PersonPencil",
+        hint: {
+          lead: "Alle Spieler über alle Saisons, mit Team, Nummer und Status der im Seitenmenü gewählten Saison.",
+          points: [
+            { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Der Spieler wird dabei direkt in einen Kader aufgenommen." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Spielerseite mit Person und Kadereintrag." },
+            { term: "Teamwechsel", detail: "wird auf der Spielerseite eingetragen. Der Spieler bleibt dieselbe Person." },
+            {
+              term: "Stilllegen",
+              detail: "nimmt die Person aus den Auswahllisten. Ihre Kadereinträge bleiben in jeder gespielten Saison erhalten.",
+            },
+          ],
+          note: "Ein Kadereintrag wird getrennt davon ausgetragen und behält dabei Nummer, Position und Stufe.",
         },
       },
       {

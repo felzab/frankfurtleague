@@ -1,10 +1,10 @@
 # ADR-0060 — An editor's undo is a route handler, until Next.js fixes E592
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)
 **Date:** 2026-08-07
 **Surface:** frontend
 **Supersedes:** [ADR-0055](0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)
-**Superseded by:** —
+**Superseded by:** [ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)
 **Source:** The owner's instruction of 2026-08-07: the club editor gets the same Rückgängig offer as
 the match editor, through the same mechanism, documented as the deviation it is and reverted when the
 upstream bug is fixed.

@@ -1,0 +1,358 @@
+"use server";
+
+/**
+ * SPIELER · server actions
+ *
+ * Full CRUD over people, plus the squad junction. The `"use server"` directive stays the first line,
+ * above this block.
+ *
+ *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
+ *     and converts a thrown API error into the returned result -- a 409 must reach the form, not the
+ *     error page (docs/logging.md).
+ *   • Every action begins with `getAdminSession()` and CHECKS the result.
+ *   • Base tag only, on every action here. Both admin reads span every season, and the public squad
+ *     read is narrowed by team rather than by season, so no granular tag names what a save changes
+ *     -- and a granular tag nothing invalidates is decoration (ADR-0001).
+ *   • `spieler` is the ONLY resource invalidated. A squad row joins into no second resource: unlike
+ *     the team junction, whose `disqualifikation` is joined into every match (I32), nothing under
+ *     `spiele` or `teams` reads a squad row.
+ *   • A junction create 409 is answered SPECIFICALLY. `uniq_spieler_id_saison_id` keeps indexing a
+ *     RETIRED row, so the honest answer names reactivation rather than reporting a generic conflict
+ *     (ADR-0032) -- creating never revives, because it would overwrite the number and position the
+ *     retired row still carries.
+ *   • Creating a player and putting them in a squad is ONE action over two requests, person first. A
+ *     player with no junction row is invisible to every season-scoped read (I11), so a create that
+ *     stopped after the first request would succeed into a state no page can show.
+ *
+ *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ *   docs/frontend/spec.md — section 3, the action inventory
+ */
+import { updateTag } from "next/cache";
+
+import { getAdminSession } from "@/core/auth";
+import { APIBadStatusError } from "@/core/errors";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { toFieldErrors } from "@/shared/utils/validation";
+
+import {
+  deleteSaisonSpieler,
+  deleteSpieler,
+  patchSaisonSpieler,
+  patchSpieler,
+  postSaisonSpieler,
+  postSpieler,
+  reactivateSaisonSpieler,
+  reactivateSpieler,
+} from "./mutations";
+import {
+  FLCreateSpielerFormPayloadSchema,
+  FLDeleteSpielerPayloadSchema,
+  FLPatchSaisonSpielerPayloadSchema,
+  FLPatchSpielerPayloadSchema,
+  FLPostSaisonSpielerPayloadSchema,
+  FLReactivateSpielerPayloadSchema,
+  FLSaisonSpielerKeyPayloadSchema,
+} from "./schemas";
+
+import type { FieldErrors } from "@/shared/utils/validation";
+import type {
+  FLDeleteSpielerPayload,
+  FLPatchSpielerPayload,
+  FLReactivateSpielerPayload,
+  FLSaisonSpielerKeyPayload,
+  FLSaisonSpielerResponse,
+  FLSpielerSingleResponse,
+} from "./schemas";
+import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
+
+const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
+
+// The index spans retired rows (ADR-0032), and reviving is deliberately not the create's job -- so
+// the message names the one path that is.
+const ALREADY_IN_SAISON =
+  "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen. " +
+  "Reaktiviere den Eintrag, statt einen neuen anzulegen.";
+
+/** Every spieler read, in one call. Base tag only, for the reason in this module's invariants. */
+function invalidateSpieler(): void {
+  updateTag("spieler");
+}
+
+export async function postSpielerAction(
+  // The DRAFT shape, not the parsed payload: the form may submit `team_id: null` from an untouched
+  // picker, and the schema below is what turns that into a field error rather than a type error.
+  rawPayload: SpielerCreateDraft,
+): Promise<{ success: boolean; spieler_id?: string; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("postSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLCreateSpielerFormPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, ...personFields } = validated.data;
+
+    // No 409 branch on the person: there is deliberately no uniqueness rule on a name, because two
+    // people genuinely can share one and a league that refused the second would be wrong about the
+    // world rather than careful.
+    const postOperation = await postSpieler(personFields);
+    if (!postOperation.acknowledged) {
+      return { success: false, error: "Beim Anlegen des neuen Spielers ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    // The junction row, in the same action: without one the player is invisible to every
+    // season-scoped read (I11), including the list this form sits on. If this second request fails,
+    // the player EXISTS -- the error says so plainly rather than pretending nothing happened.
+    try {
+      await postSaisonSpieler({
+        spieler_id: postOperation.spieler_id,
+        saison_id,
+        team_id,
+        nummer,
+        position,
+        stufe,
+        is_nachgetragen,
+      });
+    } catch {
+      invalidateSpieler();
+      // Swallowed without inspecting it: a 409 here cannot be the player's own row -- they were
+      // created one request ago -- so no status distinguishes a reason the admin could act on, and
+      // `runAdminMutation` has already logged the error with the correlation id. Either way the
+      // player now EXISTS without a squad, so the message says so rather than pretending nothing
+      // happened.
+      return {
+        success: false,
+        error:
+          "Der Spieler wurde angelegt, konnte aber nicht in den Kader aufgenommen werden. " +
+          "Er ist dadurch auf keiner Seite sichtbar. Bitte nimm ihn über die Spielerseite in eine Saison auf.",
+      };
+    }
+
+    invalidateSpieler();
+
+    return {
+      success: Boolean(postOperation.acknowledged),
+      spieler_id: postOperation.spieler_id,
+      message: "Spieler erfolgreich angelegt!",
+    };
+  });
+}
+
+export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Promise<{
+  success: boolean;
+  spieler?: FLSpielerSingleResponse;
+  message?: string;
+  error?: string;
+  fieldErrors?: FieldErrors;
+}> {
+  return runAdminMutation("patchSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLPatchSpielerPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    const patchOperation = await patchSpieler(validated.data);
+    if (!patchOperation.acknowledged) {
+      return { success: false, error: "Beim Bearbeiten der Spielerdaten ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    invalidateSpieler();
+
+    return {
+      success: Boolean(patchOperation.acknowledged),
+      spieler: patchOperation,
+      message: "Spieler erfolgreich bearbeitet!",
+    };
+  });
+}
+
+// A soft delete: the backend stamps `inactive_since` (ADR-0032). The player's squad rows are left
+// alone -- the seasons they played still happened, and those squad lists should still name them.
+export async function deleteSpielerAction(
+  rawPayload: FLDeleteSpielerPayload,
+): Promise<{ success: boolean; spieler?: FLSpielerSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("deleteSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLDeleteSpielerPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    const deleteOperation = await deleteSpieler(validated.data);
+    if (!deleteOperation.acknowledged) {
+      return { success: false, error: "Beim Stilllegen des Spielers ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    invalidateSpieler();
+
+    return {
+      success: Boolean(deleteOperation.acknowledged),
+      spieler: deleteOperation,
+      message: "Spieler stillgelegt. Seine Kadereinträge bleiben erhalten.",
+    };
+  });
+}
+
+export async function reactivateSpielerAction(
+  rawPayload: FLReactivateSpielerPayload,
+): Promise<{ success: boolean; spieler?: FLSpielerSingleResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("reactivateSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLReactivateSpielerPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    const reactivateOperation = await reactivateSpieler(validated.data);
+    if (!reactivateOperation.acknowledged) {
+      return { success: false, error: "Beim Reaktivieren des Spielers ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    invalidateSpieler();
+
+    return {
+      success: Boolean(reactivateOperation.acknowledged),
+      spieler: reactivateOperation,
+      message: "Spieler reaktiviert!",
+    };
+  });
+}
+
+export async function postSaisonSpielerAction(
+  // Draft-shaped for the same reason as the create: an untouched team picker submits null, and the
+  // schema turns that into the field error.
+  rawPayload: SaisonSpielerEnterDraft,
+): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("postSaisonSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLPostSaisonSpielerPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // The 409 that matters on this surface: the unique index spans RETIRED rows, so "already there"
+    // includes a row the admin cannot currently see. Naming reactivation is the honest answer, and
+    // it lands as a form error rather than a toast because it is about what was submitted.
+    let saisonSpieler;
+    try {
+      saisonSpieler = await postSaisonSpieler(validated.data);
+    } catch (error) {
+      if (error instanceof APIBadStatusError && error.statusCode === 409) {
+        return { success: false, error: ALREADY_IN_SAISON };
+      }
+      throw error;
+    }
+
+    invalidateSpieler();
+
+    return {
+      success: true,
+      saison_spieler: saisonSpieler,
+      message: `Spieler in die Saison ${validated.data.saison_id} aufgenommen!`,
+    };
+  });
+}
+
+export async function patchSaisonSpielerAction(
+  rawPayload: SaisonSpielerMembershipDraft,
+): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("patchSaisonSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLPatchSaisonSpielerPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    const saisonSpieler = await patchSaisonSpieler(validated.data);
+
+    invalidateSpieler();
+
+    return {
+      success: true,
+      saison_spieler: saisonSpieler,
+      message: "Kadereintrag gespeichert!",
+    };
+  });
+}
+
+// Soft, and independent of the person's own retirement: this takes the player out of ONE season's
+// squad and says nothing about whether they are still in the league (ADR-0032).
+export async function deleteSaisonSpielerAction(
+  rawPayload: FLSaisonSpielerKeyPayload,
+): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("deleteSaisonSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLSaisonSpielerKeyPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    const deleteOperation = await deleteSaisonSpieler(validated.data);
+
+    invalidateSpieler();
+
+    return {
+      success: true,
+      saison_spieler: deleteOperation,
+      message: "Spieler aus dem Kader ausgetragen. Nummer und Position bleiben erhalten.",
+    };
+  });
+}
+
+export async function reactivateSaisonSpielerAction(
+  rawPayload: FLSaisonSpielerKeyPayload,
+): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {
+  return runAdminMutation("reactivateSaisonSpielerAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLSaisonSpielerKeyPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    const reactivateOperation = await reactivateSaisonSpieler(validated.data);
+
+    invalidateSpieler();
+
+    return {
+      success: true,
+      saison_spieler: reactivateOperation,
+      message: "Kadereintrag reaktiviert. Nummer, Position und Stufe sind wiederhergestellt.",
+    };
+  });
+}

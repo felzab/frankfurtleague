@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `cf88b87`, 2026-08-07
+**Verified against:** `445241b`, 2026-08-07
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -9,20 +9,20 @@
 
 Twelve slices. The column shows which optional modules each actually has.
 
-| Slice            | queries | mutations | actions | schemas | Notes                                                           |
-| ---------------- | :-----: | :-------: | :-----: | :-----: | --------------------------------------------------------------- |
-| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `resolvers.ts`, `utils.ts` + tests   |
-| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `utils.ts` + tests                                   |
-| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                                       |
-| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `resolvers.ts`, `utils.ts` + tests |
-| `saisons`        |   ✅    |     —     |    —    |   ✅    | `resolvers.ts`                                                  |
-| `spieler`        |   ✅    |     —     |    —    |   ✅    | Read-only                                                       |
-| `spieltage`      |   ✅    |     —     |    —    |   ✅    | Read-only                                                       |
-| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only                                                       |
-| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `utils.ts` + tests                  |
-| `auth`           |    —    |     —     |   ✅    |    —    | `signOutAction` only                                            |
-| `dashboard`      |    —    |     —     |    —    |    —    | Components + constants only                                     |
-| `meta`           |    —    |     —     |    —    |    —    | Components + constants only                                     |
+| Slice            | queries | mutations | actions | schemas | Notes                                                              |
+| ---------------- | :-----: | :-------: | :-----: | :-----: | ------------------------------------------------------------------ |
+| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `resolvers.ts`, `utils.ts` + tests      |
+| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `utils.ts` + tests                                      |
+| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD                                                          |
+| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `resolvers.ts`, `utils.ts` + tests    |
+| `saisons`        |   ✅    |     —     |    —    |   ✅    | `resolvers.ts`                                                     |
+| `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction; `resolvers.ts`, `constants.ts` + tests |
+| `spieltage`      |   ✅    |     —     |    —    |   ✅    | Read-only                                                          |
+| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only                                                          |
+| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `utils.ts` + tests                     |
+| `auth`           |    —    |     —     |   ✅    |    —    | `signOutAction` only                                               |
+| `dashboard`      |    —    |     —     |    —    |    —    | Components + constants only                                        |
+| `meta`           |    —    |     —     |    —    |    —    | Components + constants only                                        |
 
 `utils.ts` and `resolvers.ts` are sanctioned optional modules. They exist separately from `queries.ts`
 because they hold non-caching code, and folding them in would put pure functions inside a `"use cache"`
@@ -30,22 +30,23 @@ module. (ADR-0004.)
 
 ## 2. Cached reads
 
-Thirteen `"use cache"` functions.
+Fourteen `"use cache"` functions.
 
-| Function                                       | Slice          | Lifetime  | Tags                                             |
-| ---------------------------------------------- | -------------- | --------- | ------------------------------------------------ |
-| `getSpiele`                                    | spiele         | `hours`   | `spiele` + `spiele:saison_id:{id}` when filtered |
-| `getSpiel`                                     | spiele         | `hours`   | `spiele`                                         |
-| `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
-| `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered   |
-| `getTeamMemberships`                           | teams          | `days`    | `teams` (admin-authed; every team action clears) |
-| `getSaisons`                                   | saisons        | `days`    | `saisons`                                        |
-| `getCurrentSaison`                             | saisons        | `days`    | `saisons`                                        |
-| `getSpieler`                                   | spieler        | `days`    | `spieler`                                        |
-| `getSpieltage`                                 | spieltage      | `days`    | `spieltage`                                      |
-| `getSpielorte`                                 | spielorte      | `days`    | `spielorte`                                      |
-| `getSchiedsrichter`                            | schiedsrichter | `days`    | `schiedsrichter`                                 |
-| `checkIsLive`, `checkIsReady`, `getSystemInfo` | system         | `minutes` | `system`                                         |
+| Function                                       | Slice          | Lifetime  | Tags                                                  |
+| ---------------------------------------------- | -------------- | --------- | ----------------------------------------------------- |
+| `getSpiele`                                    | spiele         | `hours`   | `spiele` + `spiele:saison_id:{id}` when filtered      |
+| `getSpiel`                                     | spiele         | `hours`   | `spiele`                                              |
+| `getTeams`                                     | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered        |
+| `getTeam`                                      | teams          | `days`    | `teams` + `teams:saison_id:{id}` when filtered        |
+| `getTeamMemberships`                           | teams          | `days`    | `teams` (admin-authed; every team action clears)      |
+| `getSaisons`                                   | saisons        | `days`    | `saisons`                                             |
+| `getCurrentSaison`                             | saisons        | `days`    | `saisons`                                             |
+| `getSpieler`                                   | spieler        | `days`    | `spieler`                                             |
+| `getSpielerMemberships`                        | spieler        | `days`    | `spieler` (admin-authed; every spieler action clears) |
+| `getSpieltage`                                 | spieltage      | `days`    | `spieltage`                                           |
+| `getSpielorte`                                 | spielorte      | `days`    | `spielorte`                                           |
+| `getSchiedsrichter`                            | schiedsrichter | `days`    | `schiedsrichter`                                      |
+| `checkIsLive`, `checkIsReady`, `getSystemInfo` | system         | `minutes` | `system`                                              |
 
 **Uncached, deliberately:** `getAdminSpieleActionRequired` (admin). Admin-authorized data does not
 belong in a shared cache, and its `bracket_faults` are derived per request over the stored bracket
@@ -86,7 +87,7 @@ disagree about who finished second. That response also carries `qualifiers_per_g
 
 ## 3. Admin mutations
 
-Fourteen admin server actions plus one auth action, and **two route handlers**. Every admin mutation
+Twenty-two admin server actions plus one auth action, and **three route handlers**. Every admin mutation
 begins with `getAdminSession()` and returns an access-denied `FormState` rather than throwing, and
 every one runs inside
 `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`, which seeds the correlation-id
@@ -94,31 +95,41 @@ request scope and converts a thrown API error into the `FormState` the caller to
 409 (an ordinary create outcome, ADR-0032) crosses the server-action boundary redacted and replaces
 the admin page with the error page ([`docs/logging.md`](../logging.md)).
 
-**The route handlers are the two editors' undos — `POST /api/admin/spiele/undo` and
-`POST /api/admin/teams/undo` — and the boundary stops there**
-([ADR-0060](../_decisions/0060-an-editors-undo-is-a-route-handler-until-e592-is-fixed.md)). A server
-action is the right primitive for an admin mutation and stays so for every other one; an undo is
-dispatched from a route other than the one that raised it, which makes Next re-render the editor
-segment and raise the E592 invariant mid-response. **Revert both to server actions once Next fixes
-E592.**
+**The route handlers are the three page-owned editors' undos — `POST /api/admin/spiele/undo`,
+`POST /api/admin/teams/undo` and `POST /api/admin/spieler/undo` — and the boundary is the PATTERN
+rather than a count**
+([ADR-0062](../_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md)). A server action
+is the right primitive for an admin mutation and stays so for every other one; an undo is dispatched
+from a route other than the one that raised it, which makes Next re-render the editor segment and
+raise the E592 invariant mid-response. A fourth page-owned editor may have one; a dialog, a row
+control or a bulk action may not. **Revert all three to server actions once Next fixes E592** — they
+are enumerated here and in the ADR precisely so none is missed.
 
-| Action                        | Slice          | Invalidates                                                          |
-| ----------------------------- | -------------- | -------------------------------------------------------------------- |
-| `patchAdminSpielDataAction`   | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
-| `previewAdminSpielDataAction` | spiele         | **nothing** — it writes nothing (`dry_run=true`)                     |
-| `postSpielortAction`          | spielorte      | `spielorte`                                                          |
-| `patchSpielortAction`         | spielorte      | `spielorte`, `spiele`                                                |
-| `deleteSpielortAction`        | spielorte      | `spielorte`                                                          |
-| `postSchiedsrichterAction`    | schiedsrichter | `schiedsrichter`                                                     |
-| `patchSchiedsrichterAction`   | schiedsrichter | `schiedsrichter`, `spiele`                                           |
-| `deleteSchiedsrichterAction`  | schiedsrichter | `schiedsrichter`                                                     |
-| `postTeamAction`              | teams          | `teams`, + `teams:saison_id:{id}`                                    |
-| `patchTeamAction`             | teams          | `teams`, `spiele`                                                    |
-| `deleteTeamAction`            | teams          | `teams`                                                              |
-| `reactivateTeamAction`        | teams          | `teams`                                                              |
-| `postSaisonTeamAction`        | teams          | `teams`, + `teams:saison_id:{id}`                                    |
-| `patchSaisonTeamAction`       | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
-| `signOutAction`               | auth           | —                                                                    |
+| Action                          | Slice          | Invalidates                                                          |
+| ------------------------------- | -------------- | -------------------------------------------------------------------- |
+| `patchAdminSpielDataAction`     | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
+| `previewAdminSpielDataAction`   | spiele         | **nothing** — it writes nothing (`dry_run=true`)                     |
+| `postSpielortAction`            | spielorte      | `spielorte`                                                          |
+| `patchSpielortAction`           | spielorte      | `spielorte`, `spiele`                                                |
+| `deleteSpielortAction`          | spielorte      | `spielorte`                                                          |
+| `postSchiedsrichterAction`      | schiedsrichter | `schiedsrichter`                                                     |
+| `patchSchiedsrichterAction`     | schiedsrichter | `schiedsrichter`, `spiele`                                           |
+| `deleteSchiedsrichterAction`    | schiedsrichter | `schiedsrichter`                                                     |
+| `postTeamAction`                | teams          | `teams`, + `teams:saison_id:{id}`                                    |
+| `patchTeamAction`               | teams          | `teams`, `spiele`                                                    |
+| `deleteTeamAction`              | teams          | `teams`                                                              |
+| `reactivateTeamAction`          | teams          | `teams`                                                              |
+| `postSaisonTeamAction`          | teams          | `teams`, + `teams:saison_id:{id}`                                    |
+| `patchSaisonTeamAction`         | teams          | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
+| `postSpielerAction`             | spieler        | `spieler`                                                            |
+| `patchSpielerAction`            | spieler        | `spieler`                                                            |
+| `deleteSpielerAction`           | spieler        | `spieler`                                                            |
+| `reactivateSpielerAction`       | spieler        | `spieler`                                                            |
+| `postSaisonSpielerAction`       | spieler        | `spieler`                                                            |
+| `patchSaisonSpielerAction`      | spieler        | `spieler`                                                            |
+| `deleteSaisonSpielerAction`     | spieler        | `spieler`                                                            |
+| `reactivateSaisonSpielerAction` | spieler        | `spieler`                                                            |
+| `signOutAction`                 | auth           | —                                                                    |
 
 The venue, referee and team patch actions also invalidate `spiele` because the backend fans a rename
 out into every match document embedding it — so match data really has changed. The team patch stays on
@@ -128,10 +139,21 @@ reason — no match document is written, but each side's `disqualifikation` is J
 row at read time ([`docs/backend/spec.md`](../backend/spec.md) I32), so the junction write changes
 what `GET /spiele` returns for that season.
 
+**Every spieler action invalidates the base tag alone, and no granular one exists to add.** Both
+admin reads span every season, and the public squad read is narrowed by team rather than by season,
+so no `spieler:saison_id:` tag would name what a save changes — and a granular tag nothing
+invalidates is decoration ([ADR-0001](../_decisions/0001-two-granular-cache-tags.md)). `spieler` is
+also the whole set: a squad row joins into no second resource, unlike the team junction whose
+`disqualifikation` reaches every match (I32 there).
+
 The team create is **one action over two requests** — `POST /teams`, then
 `POST /teams/{team_id}/saisons` — because every team read is season-scoped with a strict junction
 join (I11 there): a club created without a junction row would be invisible to the very list the
-create form sits on, with no surface left that could give it one.
+create form sits on, with no surface left that could give it one. **The player create is the same
+shape for the same reason**, `POST /spieler` then `POST /spieler/{spieler_id}/saisons`, and differs
+in which seasons it offers: `active` and `future` both, because a squad is filled in during its
+season. The chosen season's status decides `is_nachgetragen`, which the form derives rather than asks
+(owner, 2026-08-07).
 
 **Season entry is offered only where the backend would take it.** The create form and the club
 editor's Aufnehmen affordance offer only `future` seasons, and their group picker
@@ -151,9 +173,8 @@ schemas still carry `id`, because they back the admin forms, so each function in
 it off before sending the body. **A backend payload model that saw an `id` would drop it silently**,
 which is why the split is in one place per slice rather than at each call site.
 
-**Three of the seven resources have write endpoints no action calls yet.** Players, seasons and
-matchdays — plus the player season junction — are reachable from the API and have no admin page. That
-is FB-3's spieler half and FB-6.
+**Two of the seven resources have write endpoints no action calls yet.** Seasons and matchdays are
+reachable from the API and have no admin page. That is FB-6.
 
 ## 4. The cache tag design
 
@@ -197,7 +218,9 @@ the whole mechanism**
 ([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). There is
 no invalidation endpoint for these caches, and none may be added while the resources have no admin
 write surface; the durable fix is an admin page that invalidates as it saves (`updateTag` inside
-the action, ADR-0001), which is FB-3's remaining spieler half and FB-6.
+the action, ADR-0001), which is FB-6. **`spieler` has that page and is out of the window**: every
+spieler action clears the `spieler` tag, so a squad edit made through the admin pages is visible at
+once, and only a hand edit made directly in MongoDB is served stale.
 
 To make an edit visible sooner, recreate the frontend container — the cache lives in its
 filesystem, so recreation starts empty at the cost of every cached page, not three tags. The
@@ -308,7 +331,7 @@ is covered without an edit, and `core` gains no static import of `features` (I9)
 | I11 | Named exports under `src/`, defaults only where Next.js requires                                                                                                                                                                        | review                                                                                                                                                                                                       | A filename/export mismatch becomes a silent rename instead of a compile error                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | I12 | `AdminEditSpielDataForm` takes lookup lists as props, never `useAdmin()`; `AdminSpielEditView` is what supplies them                                                                                                                    | props signature                                                                                                                                                                                              | `spiele` would depend on `admin`, undoing the write-path move                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | I13 | Before deleting a `"use client"` directive, check for render props                                                                                                                                                                      | review                                                                                                                                                                                                       | A Server Component may not pass a function to a Client Component. Neither `tsc` nor `next build` catches it on a dynamic route — it throws at request time                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| I14 | `revalidateTag(tag, profile)` in route handlers, `updateTag(tag)` in server actions — the undo handler is the one route-handler caller, and passes `{ expire: 0 }` because an undo tolerates no staleness                               | route/action split                                                                                                                                                                                           | `updateTag` throws in a route handler                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| I14 | `revalidateTag(tag, profile)` in route handlers, `updateTag(tag)` in server actions — the three undo handlers are the only route-handler callers, and each passes `{ expire: 0 }` because an undo tolerates no staleness                | route/action split                                                                                                                                                                                           | `updateTag` throws in a route handler                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | I15 | The three `SpielCard` variants stay separate                                                                                                                                                                                            | review                                                                                                                                                                                                       | See §6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | I16 | No invalidation endpoint for the reference caches (ADR-0035)                                                                                                                                                                            | absence under `src/app/api/`                                                                                                                                                                                 | A second out-of-band mechanism would re-carry the security posture and tag mapping the removal retired; staleness under 24 h is the documented cost                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | I17 | Every Zod schema agrees with the component that publishes it on presence, required, nullable, type and enum members                                                                                                                     | `fl_frontend/src/core/apiContract.test.ts` ([ADR-0040](../_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md))                                                                      | Zod's strip mode discards a field the backend sends with no error at all, and a nullable the mirror does not declare throws `APIMalformedDataError` on a public page                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |

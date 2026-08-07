@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `cf88b87`, 2026-08-07
+**Verified against:** `445241b`, 2026-08-07
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -50,7 +50,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 6   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 7   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
 | 8   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
-| 9   | FB-3  | Admin pages for spieler data; the teams half is built   | FE, BE      | L      | Open     | — (ADR-0050's patterns)   |
+| 9   | FB-3  | Admin pages for spieler data; the teams half is built   | FE, BE      | L      | Closed   | — (ADR-0050's patterns)   |
 | 10  | FB-6  | Admin pages for saisons and spieltage, and the rollover | FE, BE      | L      | Decided  | — (ADR-0033 settles it)   |
 | 11  | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with 12, 13)     |
 | 12  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 11, 13)     |
@@ -474,6 +474,36 @@ Decisions the teams half took that the spieler half inherits:
 carried is paid: `PATCH /teams/{team_id}` fans the rename into `spiele` and reports
 `fanned_out_to_spiele`, which the team page surfaces in its save toast (ADR-0028 rule 3). Nothing
 blocks the spieler half — the API is built, and the patterns are now twice-proven.
+
+**Closed.** `/admin/spieler` is the fourth declaration over the `AdminCrudView` / `AdminCrudShell`
+pair and `/admin/spieler/[spieler_id]` is the third page-owned editor, both copying the teams half
+rather than re-deciding it. Three ADRs concluded it, and one of them was the owner's overrule:
+
+- **[ADR-0061](../_decisions/0061-position-and-stufe-are-closed-sets.md)** closes `position` and
+  `stufe`, with the runbook that normalises the ten stray rows before the deploy. `stufe` is
+  `E1 · E2 · Q1 · Q2 · Q3 · Q4` — E2 offered although no row holds it, because the phases run in
+  sequence — and the single `10` normalises to null rather than widening the set to twelve members
+  for one row.
+- **[ADR-0062](../_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md)** supersedes
+  ADR-0060, moving its two-handler boundary to the PATTERN: every page-owned editor's undo is a
+  route handler, nothing else becomes one. The assistant recommended no undo here — this editor's
+  save destroys nothing without another copy — and the owner overruled it on consistency, which
+  ADR-0062 records as the rejected alternative.
+- **The tailored read the entry left open is `GET /spieler/memberships`** (backend spec I33), on the
+  same argument as `GET /teams/memberships` plus one the club side did not have: `GET /spieler`
+  unwinds the junction, so the admin create would have made the unscoped read 500 for a player who
+  has no squad row yet.
+
+Two findings were fixed rather than filed, both inside the change's own scope. The two spieler PATCH
+payloads carried Pydantic defaults while their handlers `$set` the whole model dump, so an omitted
+field silently erased a stored surname or squad number (now spec I34). And nothing compared a
+validator's `enum` to the `Literal` it copies — the field-name drift check stops at names — which
+this change had to rely on for two new enums, so `test_every_validator_enum_matches_its_literal` and
+its completeness sibling now cover all eight, one of which had been unchecked.
+
+The seasons a create may target are `active` and `future`, not `future` alone as the club create
+allows (owner, 2026-08-07): a squad is filled in during its season, and `is_nachgetragen` is derived
+from the chosen season's status rather than asked.
 
 ### 10 · FB-6 — Admin pages for saisons and spieltage, and the rollover control
 

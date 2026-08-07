@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `cf88b87`, 2026-08-07
+**Verified against:** `445241b`, 2026-08-07
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -480,22 +480,25 @@ the machine is outside the repo.
 
 ### After editing seasons, players or matchdays directly in MongoDB
 
-`saisons`, `spieler` and `spieltage` are cached for a day, and **no code path observes a change to
-them** — the write endpoints exist
+`saisons`, `spieler` and `spieltage` are cached for a day, and **no code path observes a HAND edit to
+them** — a change made directly in MongoDB invalidates nothing, so it is invisible until the cache
+expires. For `saisons` and `spieltage` that is the only way in: the write endpoints exist
 ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)) and nothing in
-the app calls one yet, so an edit is invisible until the cache expires. That staleness is bounded by
-design ([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)):
-24 hours at worst, and there is no invalidation endpoint. To make the edit visible sooner, recreate
-the frontend container — its cache lives in the container filesystem, so recreation starts empty at
-the cost of every cached page:
+the app calls one yet. For `spieler` it is now the exception rather than the rule — the admin pages
+clear the `spieler` tag as they save, so only an edit that goes around them is stale. That staleness
+is bounded by design
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)): 24 hours at
+worst, and there is no invalidation endpoint. To make the edit visible sooner, recreate the frontend
+container — its cache lives in the container filesystem, so recreation starts empty at the cost of
+every cached page:
 
 ```bash
 # prod (Linux)
 docker compose up -d --force-recreate frontend
 ```
 
-The durable fix is FB-3's remaining spieler half and FB-6: admin pages that invalidate as they
-save, as the teams pages already do.
+The durable fix is FB-6: admin pages that invalidate as they save, as the teams and spieler pages
+already do.
 
 ### Before any hand edit that a code change depends on
 
@@ -609,9 +612,9 @@ Then recreate the frontend container so the rollover is visible immediately, or 
 cache expiry — the command and the reasoning are under "After editing seasons, players or matchdays
 directly in MongoDB" above
 ([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)). A team
-junction entered through the admin page invalidates its own caches as it saves; a hand edit to
-`saisons`, `spieler` or `spieltage` stays invisible until FB-3's spieler half and FB-6 give those
-resources admin pages.
+junction entered through the admin page invalidates its own caches as it saves, and so does a squad
+edit; a hand edit to `saisons` or `spieltage` stays invisible until FB-6 gives those two resources
+admin pages.
 
 ### Certificate renewal
 
