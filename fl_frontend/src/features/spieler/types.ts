@@ -36,8 +36,11 @@ export type FLSpielerFilterParams = {
  * schema accepts the nulls for `position` and `stufe`, which are genuinely optional, and refuses one
  * for `team_id` and `saison_id`, which turns an untouched picker into a field error.
  */
-export type SpielerCreateDraft = Omit<FLCreateSpielerFormPayload, "team_id"> & {
+export type SpielerCreateDraft = Omit<FLCreateSpielerFormPayload, "team_id" | "nachname"> & {
   team_id: string | null;
+  // Widened for the same reason `team_id` is: the form starts empty and the schema is what turns
+  // that into a field error rather than a type error.
+  nachname: string | null;
 };
 
 /** The squad editor's enter-a-season draft, widened the same way. */
@@ -76,6 +79,8 @@ export type SpielerSquadFields = {
   position: FLSpielerPosition | null;
   stufe: FLSpielerStufe | null;
   is_nachgetragen: boolean;
+  /** Captain of this team for this season. A role on the junction, not a property of the person. */
+  is_captain: boolean;
   /** The day the ROW was retired, or null. Not editable — the retire and reactivate controls own it. */
   inactive_since: string | null;
 };
@@ -89,6 +94,8 @@ export type SpielerSaisonMembership = {
   saisonId: string;
   saisonStatus: "past" | "active" | "future";
   membership: SpielerSquadFields | null;
+  /** `rules.erlaubte_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
+  erlaubteStufen: FLSpielerStufe[];
 };
 
 /** The season the editor addresses — the sidemenu selector's, resolved by the page. */
@@ -112,6 +119,8 @@ export type SpielerCreateSaisonOption = {
   saisonId: string;
   isNachgetragen: boolean;
   teams: SpielerTeamOption[];
+  /** `rules.erlaubte_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
+  erlaubteStufen: FLSpielerStufe[];
 };
 
 /**

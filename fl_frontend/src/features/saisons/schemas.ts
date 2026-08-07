@@ -14,6 +14,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
+import { FLSpielerStufeSchema } from "@/features/spieler/schemas";
 import { CustomDateStringSchema } from "@/shared/schemas";
 
 export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error: "FLSaisonStatus is invalid" });
@@ -33,6 +34,11 @@ export const FLSaisonRulesSchema = z.object({
   // (REQ-ENTER-001..003).
   number_of_groups: z.int().positive().max(4),
   teams_per_group: z.int().positive(),
+  // Which school levels this season's squads may hold (owner, 2026-08-07). A SUBSET of the league's
+  // own closed set (ADR-0061) — the season picks from the vocabulary rather than redefining it — and
+  // never empty, because a season offering no level makes every squad entry unfillable. Required
+  // with no default, for the same reason the two above are.
+  erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1),
 });
 
 export const FLSaisonSchema = z.object({

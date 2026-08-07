@@ -28,7 +28,7 @@
 import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
-import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } from "@/shared/schemas";
 
 /**
  * Mirrors `FLSpielerPosition`. German error because the squad editor's picker binds this schema too,
@@ -52,6 +52,7 @@ export const FLSpielerSchema = z.object({
   nummer: z.string().nullable(),
   position: FLSpielerPositionSchema.nullable(),
   is_nachgetragen: z.boolean(),
+  is_captain: z.boolean(),
   team_id: CustomObjectIdStringSchema,
   // The day this player left the club, null while they are on a squad (ADR-0032). Declared because
   // the backend sends it: zod's default strip mode discards an undeclared field with no error.
@@ -79,6 +80,7 @@ export const FLSpielerMembershipSchema = z.object({
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   is_nachgetragen: z.boolean(),
+  is_captain: z.boolean(),
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSpielerMembership = z.infer<typeof FLSpielerMembershipSchema>;
@@ -115,10 +117,12 @@ export type FLSpielerMembershipsResponse = z.infer<typeof FLSpielerMembershipsRe
  * There is deliberately no uniqueness rule on a name. Two people genuinely can share one.
  */
 const spielerPayloadFields = {
-  vorname: z.string().nonempty({ error: "Bitte gib einen Vornamen ein." }),
+  // Letters and the three separators a real name uses — see `PersonNameSchema`, which carries the
+  // reasoning and the reason it binds the write path alone.
+  vorname: PersonNameSchema,
   // Nullable, because a squad is filled in over time and a surname often arrives later than a name
   // on a team sheet. The form submits null for an empty box rather than an empty string.
-  nachname: z.string().nonempty({ error: "Bitte gib einen Nachnamen ein." }).nullable(),
+  nachname: PersonNameSchema.nullable(),
 };
 
 // `nachname` is OPTIONAL on the create and required on the patch, mirroring the backend's own
@@ -156,12 +160,22 @@ export type FLReactivateSpielerPayload = z.infer<typeof FLReactivateSpielerPaylo
  */
 const saisonSpielerPayloadFields = {
   team_id: CustomObjectIdStringSchema,
-  nummer: z.string().nullable(),
+  // Digits only, at most four. A squad number is free text on the wire — it is worn rather than
+  // counted, and stays a string (ADR-0061) — but "free text" was never meant to admit a name: the
+  // one row that read `NaN` got there exactly that way. The message is German like every other
+  // payload message in the app, because the ACTION is what reports it and it lands on the field.
+  nummer: z
+    .string()
+    .regex(/^\d{1,4}$/, { error: "Die Nummer besteht aus 1 bis 4 Ziffern." })
+    .nullable(),
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   // True when the player joined a season already under way. The create form derives it from the
   // season's status (owner, 2026-08-07) rather than asking, so it cannot be forgotten.
   is_nachgetragen: z.boolean(),
+  // The squad's captain for this season. On the junction, because captaincy is a role within one
+  // team for one season rather than a property of the person.
+  is_captain: z.boolean(),
 };
 
 export const FLPostSaisonSpielerPayloadSchema = z.object({
@@ -195,6 +209,12 @@ export type FLSaisonSpielerKeyPayload = z.infer<typeof FLSaisonSpielerKeyPayload
  */
 export const FLCreateSpielerFormPayloadSchema = z.object({
   ...spielerPayloadFields,
+  // Required HERE and nullable everywhere else (owner, 2026-08-07). The column stays nullable and
+  // the patch payload still accepts null, because squads imported before this form existed hold
+  // surnameless rows and the league is not going to invent names for them — but a player entered
+  // through this form always has one. The browser refuses the empty field first; this is the guard
+  // behind it, for a submit that never went through the form.
+  nachname: PersonNameSchema,
   saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,
 });
@@ -229,6 +249,7 @@ export const FLSaisonSpielerResponseSchema = BaseAPIResponseSchema.extend({
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   is_nachgetragen: z.boolean(),
+  is_captain: z.boolean(),
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLSaisonSpielerResponse = z.infer<typeof FLSaisonSpielerResponseSchema>;

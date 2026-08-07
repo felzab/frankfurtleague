@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import { getSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminSpielerEditView";
+import { orderStufen } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
 import { getTeamMemberships } from "@/features/teams/queries";
@@ -66,6 +67,8 @@ async function AdminSpielerEditContent({
   const saison: SpielerSaisonMembership = {
     saisonId: selectedSaison.id,
     saisonStatus: selectedSaison.status,
+    // The season's own list, in the league's order — what the Stufe picker offers.
+    erlaubteStufen: orderStufen(selectedSaison.rules.erlaubte_stufen),
     membership:
       membership === null
         ? null
@@ -76,6 +79,7 @@ async function AdminSpielerEditContent({
             position: membership.position,
             stufe: membership.stufe,
             is_nachgetragen: membership.is_nachgetragen,
+            is_captain: membership.is_captain,
             inactive_since: membership.inactive_since,
           },
   };

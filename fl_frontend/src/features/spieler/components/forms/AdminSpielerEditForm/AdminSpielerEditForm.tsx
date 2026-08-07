@@ -14,6 +14,7 @@ import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 
+import { FormAustragenSection } from "./FormAustragenSection";
 import { FormKaderSection } from "./FormKaderSection";
 import { FormPersonSection } from "./FormPersonSection";
 import { SpielerActionBar } from "./SpielerActionBar";
@@ -103,7 +104,11 @@ export function AdminSpielerEditForm({
   const [nummer, setNummer] = useState(storedMembership?.nummer ?? "");
   const [position, setPosition] = useState<FLSpielerPosition | null>(storedMembership?.position ?? null);
   const [stufe, setStufe] = useState<FLSpielerStufe | null>(storedMembership?.stufe ?? null);
+  // Read-only on this page (owner, 2026-08-07): it records how the entry came about and the create
+  // form derives it. Held in state anyway, because the patch replaces the row wholesale and must send
+  // the stored value back unchanged — dropping it from the payload would clear it.
   const [isNachgetragen, setIsNachgetragen] = useState(storedMembership?.is_nachgetragen ?? false);
+  const [isCaptain, setIsCaptain] = useState(storedMembership?.is_captain ?? false);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
@@ -135,12 +140,14 @@ export function AdminSpielerEditForm({
     position,
     stufe,
     is_nachgetragen: isNachgetragen,
+    is_captain: isCaptain,
   });
 
   const draftFields: FLSpielerDraftFields = {
     vorname: personDraft.vorname,
     nachname: personDraft.nachname ?? "",
-    membership: storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, is_nachgetragen: isNachgetragen },
+    membership:
+      storedMembership === null ? null : { team_id: teamId, nummer, position, stufe, is_nachgetragen: isNachgetragen, is_captain: isCaptain },
   };
   const storedFields: FLSpielerDraftFields = {
     vorname: spieler.vorname,
@@ -156,6 +163,7 @@ export function AdminSpielerEditForm({
             position: storedMembership.position,
             stufe: storedMembership.stufe,
             is_nachgetragen: storedMembership.is_nachgetragen,
+            is_captain: storedMembership.is_captain,
           },
   };
 
@@ -222,6 +230,16 @@ export function AdminSpielerEditForm({
       body: "Der Spieler zählt in dieser Saison zu keinem Kader. Nummer, Position und Stufe bleiben erhalten.",
     });
   }
+  // The nachgetragen note lives in the rail, which is what the rail is FOR (owner, 2026-08-07):
+  // every standing remark about this player in one place, rather than a row inside a panel of
+  // editable fields where it read as a control somebody had disabled.
+  if (isNachgetragen) {
+    banners.push({
+      severity: "info",
+      title: "Nachgetragen",
+      body: `Der Spieler kam erst nach dem Start der Saison ${saison.saisonId} dazu.`,
+    });
+  }
   if (isChanged("team_id")) {
     banners.push({
       severity: "warning",
@@ -259,6 +277,7 @@ export function AdminSpielerEditForm({
     setPosition(storedMembership?.position ?? null);
     setStufe(storedMembership?.stufe ?? null);
     setIsNachgetragen(storedMembership?.is_nachgetragen ?? false);
+    setIsCaptain(storedMembership?.is_captain ?? false);
 
     setFieldErrors({});
     personValidation.clearVerdicts();
@@ -336,6 +355,7 @@ export function AdminSpielerEditForm({
                 position: storedMembership.position,
                 stufe: storedMembership.stufe,
                 is_nachgetragen: storedMembership.is_nachgetragen,
+                is_captain: storedMembership.is_captain,
               },
             }
           : {}),
@@ -434,7 +454,7 @@ export function AdminSpielerEditForm({
                 />
 
                 <FormKaderSection
-                  saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus }}
+                  saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus, erlaubteStufen: saison.erlaubteStufen }}
                   teams={teams}
                   isMember={storedMembership !== null}
                   teamId={teamId}
@@ -445,13 +465,24 @@ export function AdminSpielerEditForm({
                   onPositionChange={setPosition}
                   stufe={stufe}
                   onStufeChange={setStufe}
-                  isNachgetragen={isNachgetragen}
-                  onIsNachgetragenChange={setIsNachgetragen}
-                  rowInactiveSince={storedMembership?.inactive_since ?? null}
+                  isCaptain={isCaptain}
+                  onIsCaptainChange={setIsCaptain}
                   onValidateFields={validateSaisonFields}
                   onValidateSelection={validateTeamSelection}
                   spielerId={spieler.id}
                 />
+
+                {/* Last on the page and in the danger tone, beside the season it belongs to — the
+                    club editor's Disqualifikation panel in the same position (owner, 2026-08-07).
+                    Only where a row exists: there is nothing to take out of a squad the player is
+                    not in, and the Kader panel above offers the entry instead. */}
+                {storedMembership !== null && (
+                  <FormAustragenSection
+                    spielerId={spieler.id}
+                    saisonId={saison.saisonId}
+                    rowInactiveSince={storedMembership.inactive_since}
+                  />
+                )}
               </div>
             </div>
           </div>

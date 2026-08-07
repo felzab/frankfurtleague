@@ -19,6 +19,7 @@ const stored: FLSpielerDraftFields = {
     position: "Mittelfeld",
     stufe: "Q1",
     is_nachgetragen: false,
+    is_captain: false,
   },
 };
 
@@ -34,7 +35,8 @@ describe("deriveSpielerDraftStatus", () => {
 
     assert.equal(status.isDirty, false);
     assert.equal(status.changed.length, 0);
-    // Two person fields plus the five squad rows.
+    // Two person fields plus the five squad rows. `is_nachgetragen` is deliberately not one:
+    // the editor renders it as a note, so it can never differ from stored.
     assert.equal(status.fields.length, 7);
   });
 
@@ -108,7 +110,9 @@ describe("deriveSpielerDraftStatus", () => {
     assert.equal(row.storedText, "Mittelfeld");
   });
 
-  it("reads the nachgetragen switch as words, not as a boolean", () => {
+  it("ignores is_nachgetragen entirely, because nothing on the page edits it", () => {
+    // It still travels on the payload — the patch replaces the row wholesale — but it is a note
+    // rather than a control, so a draft that differs on it is not a change the save bar counts.
     const status = deriveSpielerDraftStatus({
       stored,
       draft: draftFrom(squad({ is_nachgetragen: true })),
@@ -116,9 +120,23 @@ describe("deriveSpielerDraftStatus", () => {
       teams: TEAMS,
     });
 
-    const row = status.byPath.get("is_nachgetragen");
-    assert.equal(row?.storedText, "Nein");
-    assert.equal(row?.draftText, "Ja");
+    assert.equal(status.byPath.get("is_nachgetragen"), undefined);
+    assert.equal(status.isDirty, false);
+  });
+
+  it("reads a captaincy as a value gained and losing it as a removal", () => {
+    const gained = deriveSpielerDraftStatus({ stored, draft: draftFrom(squad({ is_captain: true })), fieldErrors: {}, teams: TEAMS });
+    assert.equal(gained.byPath.get("is_captain")?.storedText, null);
+    assert.equal(gained.byPath.get("is_captain")?.draftText, "Ja");
+
+    // The other direction renders as a removal in the change list, which is what losing it is.
+    const lost = deriveSpielerDraftStatus({
+      stored: draftFrom(squad({ is_captain: true })),
+      draft: draftFrom(squad({ is_captain: false })),
+      fieldErrors: {},
+      teams: TEAMS,
+    });
+    assert.equal(lost.byPath.get("is_captain")?.draftText, null);
   });
 
   it("carries a field error onto its own row and into invalid", () => {

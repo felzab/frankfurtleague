@@ -123,6 +123,9 @@ const FRONTEND_ONLY: Record<string, string> = {
   CustomTimeString: "a Pydantic Annotated alias, inlined at each use site",
   CustomObjectIdString: "a Pydantic Annotated alias, inlined at each use site",
   ExternalUrl: "a Pydantic Annotated alias, inlined at each use site",
+  // The backend's twin is `PERSON_NAME_PATTERN`, a bare `Field(pattern=...)` applied per field
+  // rather than a named model, so it is published as a `pattern` keyword and never as a component.
+  PersonName: "a shared validator applied per field; the backend spells it as a Field pattern",
 
   // Literal aliases, likewise inlined. Their members ARE compared, on every field that uses one.
   FLGruppenNames: "a Pydantic Literal alias, inlined as an enum at each use site",

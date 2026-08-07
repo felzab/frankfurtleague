@@ -97,7 +97,7 @@ export async function postSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, ...personFields } = validated.data;
+    const { saison_id, team_id, nummer, position, stufe, is_nachgetragen, is_captain, ...personFields } = validated.data;
 
     // No 409 branch on the person: there is deliberately no uniqueness rule on a name, because two
     // people genuinely can share one and a league that refused the second would be wrong about the
@@ -119,6 +119,7 @@ export async function postSpielerAction(
         position,
         stufe,
         is_nachgetragen,
+        is_captain,
       });
     } catch {
       invalidateSpieler();

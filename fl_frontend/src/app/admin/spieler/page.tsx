@@ -5,7 +5,7 @@ import { getSaisons } from "@/features/saisons/queries";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { AdminCreateSpielerModal } from "@/features/spieler/components/modals/AdminCreateSpielerModal";
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
-import { SPIELER_CRUD_COPY } from "@/features/spieler/constants";
+import { orderStufen, SPIELER_CRUD_COPY } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
@@ -65,6 +65,9 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
       saisonId: saison.id,
       isNachgetragen: saison.status === "active",
       teams: teamsInSaison(teamsRes.teams, saison.id),
+      // The season's own list, ordered by the league's (`orderStufen`), so two seasons never present
+      // the same levels in a different sequence.
+      erlaubteStufen: orderStufen(saison.rules.erlaubte_stufen),
     }));
 
   // The viewed season when it takes players, else the first that does.
@@ -118,6 +121,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
               position: selected.position,
               stufe: selected.stufe,
               is_nachgetragen: selected.is_nachgetragen,
+              is_captain: selected.is_captain,
               inactive_since: selected.inactive_since,
               // A team the read cannot resolve is a squad row pointing at a deleted club — null
               // rather than a crash, and the row still lists so the state is visible.

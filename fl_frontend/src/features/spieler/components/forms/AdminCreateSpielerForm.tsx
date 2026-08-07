@@ -5,7 +5,7 @@ import { FieldError, Input, Label, ListBox, Select, TextField } from "@heroui/re
 import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { NUMMER_MAX_LENGTH, POSITION_OPTIONS, STUFE_OPTIONS } from "@/features/spieler/constants";
+import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -20,6 +20,9 @@ const EMPTY_DRAFT_BASE = {
   nummer: null,
   position: null,
   stufe: null,
+  // A new entry is never the captain: that is a decision about an existing squad, made on the
+  // player's own page once they are in one.
+  is_captain: false,
 } as const;
 
 /**
@@ -70,7 +73,11 @@ export function AdminCreateSpielerForm({
                 <FieldError className={FIELD_ERROR} />
               </TextField>
 
+              {/* Required on the CREATE only (owner, 2026-08-07). The column stays nullable and the
+                  patch payload still accepts null, because squads imported before this form existed
+                  have surnameless rows — but a player entered here always has one. */}
               <TextField
+                isRequired
                 name="nachname"
                 value={draft.nachname ?? ""}
                 // Emptied means absent, not an empty surname — the boundary where `""` becomes null.
@@ -83,6 +90,7 @@ export function AdminCreateSpielerForm({
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
               <Select
+                isRequired
                 name="saison_id"
                 aria-label="Saison"
                 value={draft.saison_id}
@@ -102,6 +110,9 @@ export function AdminCreateSpielerForm({
                       current.team_id !== null && (nextOption?.teams ?? []).some((team) => team.teamId === current.team_id)
                         ? current.team_id
                         : null,
+                    // Same rule for the level: a season that does not offer it must not carry it
+                    // along silently, or the form would submit a value its own picker never showed.
+                    stufe: current.stufe !== null && (nextOption?.erlaubteStufen ?? []).includes(current.stufe) ? current.stufe : null,
                   }));
                 }}
                 className="w-full">
@@ -127,6 +138,7 @@ export function AdminCreateSpielerForm({
               </Select>
 
               <TeamSelect
+                isRequired
                 value={draft.team_id}
                 onChange={(teamId) => setDraft((current) => ({ ...current, team_id: teamId }))}
                 teams={teams}
@@ -139,7 +151,9 @@ export function AdminCreateSpielerForm({
                 value={draft.nummer ?? ""}
                 // Emptied means absent, not a number nobody wears — the same boundary rule as `nachname`.
                 onChange={(next) => setDraft((current) => ({ ...current, nummer: next.trim() === "" ? null : next }))}
-                maxLength={NUMMER_MAX_LENGTH}>
+                maxLength={NUMMER_MAX_LENGTH}
+                inputMode="numeric"
+                pattern="[0-9]*">
                 <Label className={FIELD_LABEL}>Nummer</Label>
                 <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
                 <FieldError className={FIELD_ERROR} />
@@ -157,7 +171,7 @@ export function AdminCreateSpielerForm({
               <ClosedSetSelect
                 value={draft.stufe}
                 onChange={(stufe) => setDraft((current) => ({ ...current, stufe }))}
-                options={STUFE_OPTIONS}
+                options={selectedOption?.erlaubteStufen ?? []}
                 name="stufe"
                 label="Stufe"
                 placeholder="Keine Angabe"
@@ -179,6 +193,7 @@ export function AdminCreateSpielerForm({
         // A create only counts if the backend echoed the new id back.
         return { ...res, success: res.success && !!res.spieler_id };
       }}
+      marksRequired
       successMessage="Spieler erfolgreich angelegt"
       onClose={onClose}
     />

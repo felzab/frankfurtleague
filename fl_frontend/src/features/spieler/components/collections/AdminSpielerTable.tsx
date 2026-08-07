@@ -18,6 +18,13 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { AdminSpielerRow } from "../../types";
 
 /**
+ * The team Kürzel chip. Declared once because the phone layout's captain marker has to be the exact
+ * same box (owner, 2026-08-07) — two hand-written copies would drift the moment either is touched.
+ */
+const SHORTHAND_CHIP =
+  "bg-brand/50 text-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide";
+
+/**
  * Memoised, and load-bearing — see the collection-identity note in `AdminCrudView`: the `items` +
  * render-function form of `Table.Body` is what keeps the rows alive across hidden re-renders, and
  * `memo` is the cheap second layer.
@@ -140,6 +147,24 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     </RowActions>
   );
 
+  /**
+   * The captain's armband, as a chip beside the name (owner, 2026-08-07).
+   *
+   * `C` rather than "Kapitän": it is the marker the squad sheets already used — the six live rows
+   * carried it inside the name field for want of anywhere else to put it — and the tooltip carries
+   * the word for anyone who does not know the convention.
+   */
+  const renderCaptain = (spieler: AdminSpielerRow) =>
+    spieler.selected?.is_captain === true ? <span className={`${LABEL_BADGE} bg-brand/50 text-foreground shrink-0`}>Kapitän</span> : null;
+
+  /** The phone layout's marker: the Kürzel chip's exact box, carrying the armband's letter. */
+  const renderCaptainCompact = (spieler: AdminSpielerRow) =>
+    spieler.selected?.is_captain === true ? (
+      <IconTooltip label="Kapitän dieser Mannschaft">
+        <span className={`${SHORTHAND_CHIP} cursor-help`}>C</span>
+      </IconTooltip>
+    ) : null;
+
   const emptyState = (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
       <p className="fluid-sm text-foreground-muted font-medium">
@@ -148,13 +173,24 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     </div>
   );
 
-  /** The squad number's chip, or nothing — a player without one is normal, not an error. */
-  const renderNummer = (spieler: AdminSpielerRow) =>
-    spieler.selected?.nummer ? (
-      <span className="bg-muted text-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide">
-        {spieler.selected.nummer}
-      </span>
-    ) : null;
+  /**
+   * The squad number's chip — EMPTY rather than absent when the player has none (owner, 2026-08-07).
+   * A player without a number is normal, not an error, and a missing chip left a ragged hole in the
+   * column while every neighbouring row had one. The empty chip holds the column's rhythm and reads
+   * as "not filled in" rather than as a rendering fault.
+   */
+  const renderNummer = (spieler: AdminSpielerRow) => (
+    <span
+      aria-label={spieler.selected?.nummer ? undefined : "Keine Nummer"}
+      // A FIXED height rather than padding, so the empty chip is the same box as a filled one
+      // (owner, 2026-08-07). `py-1.5` sized the chip from its line box, and an empty span has none —
+      // the two differed by the line height whatever character stood in for the number.
+      className={`fluid-xs inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide ${
+        spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
+      }`}>
+      {spieler.selected?.nummer ?? ""}
+    </span>
+  );
 
   return (
     <>
@@ -174,7 +210,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                   aria-hidden="true"
                 />
               )}
-              <div className="flex min-w-0 flex-col">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="fluid-sm text-foreground truncate font-semibold">{spieler.fullName}</span>
                 <span className="fluid-xs text-foreground-muted truncate">
                   {spieler.selected?.teamName ?? "Kein Team in dieser Saison"}
@@ -182,6 +218,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                   {spieler.selected?.stufe ? ` · ${spieler.selected.stufe}` : ""}
                 </span>
               </div>
+              {renderCaptainCompact(spieler)}
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">{renderStatusBadges(spieler)}</div>
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(spieler)}</div>
@@ -207,7 +244,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                 </Table.Column>
                 {/* Season-scoped columns; WHICH season is the sidemenu selector's, stated by the page
                 context rather than repeated per header. */}
-                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-3 py-4 font-bold tracking-wider uppercase">
+                <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-44 border-b px-3 py-4 pr-6 font-bold tracking-wider uppercase lg:pr-10">
                   Team
                 </Table.Column>
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-32 border-b px-3 py-4 font-bold tracking-wider uppercase">
@@ -235,19 +272,20 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                       id={spieler.id}
                       className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
                       <Table.Cell className="px-6 py-4">
-                        <div className={`flex items-center gap-3 ${isRetired ? "opacity-60" : ""}`}>
+                        <div className={`flex min-w-0 items-center gap-3 ${isRetired ? "opacity-60" : ""}`}>
                           <Person
                             className="text-brand shrink-0"
                             width={18}
                             height={18}
                           />
-                          <span className="fluid-sm text-foreground font-semibold">{spieler.fullName}</span>
+                          <span className="fluid-sm text-foreground truncate font-semibold">{spieler.fullName}</span>
+                          {renderCaptain(spieler)}
                         </div>
                       </Table.Cell>
 
                       <Table.Cell className="px-3 py-4">{renderNummer(spieler)}</Table.Cell>
 
-                      <Table.Cell className="px-3 py-4">
+                      <Table.Cell className="px-3 py-4 pr-6 lg:pr-10">
                         {spieler.selected?.teamName ? (
                           <div className="flex items-center gap-2">
                             {/* The TeamCard's chip colour, so a Kürzel wears one tint everywhere. */}

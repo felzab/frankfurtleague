@@ -26,6 +26,7 @@ export function TeamSelect({
   name = "team_id",
   error,
   withOwnLabel = true,
+  isRequired = false,
 }: {
   value: string | null;
   onChange: (teamId: string) => void;
@@ -37,6 +38,15 @@ export function TeamSelect({
   error?: string;
   /** Off for the caller whose label is a marker-carrying `SpielerFieldLabel` rendered outside. */
   withOwnLabel?: boolean;
+  /**
+   * Refuse an empty pick, and let the BROWSER say so.
+   *
+   * react-aria runs native constraint validation on submit, so the message is the user agent's own
+   * and arrives in the user's language — where letting the value reach the action instead surfaced
+   * Zod's English "expected string, received null" (owner, 2026-08-07). It also renders the required
+   * asterisk, which `globals.css` then shows only inside a create form.
+   */
+  isRequired?: boolean;
 }) {
   const handleChange = (key: Key | null) => {
     if (!key) return;
@@ -50,6 +60,7 @@ export function TeamSelect({
 
   return (
     <Select
+      isRequired={isRequired}
       name={name}
       aria-label="Team"
       value={value ?? undefined}

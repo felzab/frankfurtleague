@@ -17,6 +17,9 @@
  *     row has no number to change and no team to move between.
  *   • `inactive_since` is NOT a descriptor on either surface. Retiring is a control, not a field: it
  *     writes immediately through its own endpoint and is never part of a draft the save bar counts.
+ *   • `is_nachgetragen` is not one either, and for a different reason: the editor renders it as a
+ *     NOTE (owner, 2026-08-07). Nothing on the page can change it, so a change row for it could never
+ *     fire — it still travels on the payload, because the patch replaces the row wholesale.
  */
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -37,6 +40,7 @@ export type FLSpielerDraftFields = {
     position: FLSpielerPosition | null;
     stufe: FLSpielerStufe | null;
     is_nachgetragen: boolean;
+    is_captain: boolean;
   } | null;
 };
 
@@ -132,13 +136,14 @@ function squadDescriptors(teams: readonly SpielerTeamOption[]): readonly FieldDe
       read: (source) => source.membership?.stufe ?? null,
     },
     {
-      path: "is_nachgetragen",
-      label: "Nachgetragen",
+      path: "is_captain",
+      label: "Kapitän",
       group: "Kader",
       appliesTo: (source) => source.membership !== null,
-      // A boolean read as the words the switch shows, so the change row says what moved rather than
-      // "true → false".
-      read: (source) => (source.membership?.is_nachgetragen ? "Ja" : "Nein"),
+      // Read as the words the switch shows, so the change row says what moved rather than
+      // "true → false". `null` when the flag is off, which makes losing the captaincy render as a
+      // REMOVAL in the change list — which is what it is.
+      read: (source) => (source.membership?.is_captain ? "Ja" : null),
     },
   ];
 }

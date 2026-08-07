@@ -7,7 +7,7 @@ import { Button, FieldError, Input, Switch, TextField } from "@heroui/react";
 import { postSaisonSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
-import { NUMMER_MAX_LENGTH, POSITION_OPTIONS, STUFE_OPTIONS } from "@/features/spieler/constants";
+import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -15,7 +15,6 @@ import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { appToast } from "@/shared/utils/appToast";
-import { formatSpielDatum } from "@/shared/utils/format";
 
 import { SpielerFieldLabel } from "./SpielerFieldLabel";
 
@@ -58,14 +57,13 @@ export function FormKaderSection({
   onPositionChange,
   stufe,
   onStufeChange,
-  isNachgetragen,
-  onIsNachgetragenChange,
-  rowInactiveSince,
+  isCaptain,
+  onIsCaptainChange,
   onValidateFields,
   onValidateSelection,
   spielerId,
 }: {
-  saison: SpielerSaisonContext;
+  saison: SpielerSaisonContext & { erlaubteStufen: readonly FLSpielerStufe[] };
   /** The selected season's teams — what the picker may offer. */
   teams: readonly SpielerTeamOption[];
   isMember: boolean;
@@ -77,10 +75,8 @@ export function FormKaderSection({
   onPositionChange: (next: FLSpielerPosition | null) => void;
   stufe: FLSpielerStufe | null;
   onStufeChange: (next: FLSpielerStufe | null) => void;
-  isNachgetragen: boolean;
-  onIsNachgetragenChange: (next: boolean) => void;
-  /** The day the ROW was retired, or null — the person's own retirement is the page header's. */
-  rowInactiveSince: string | null;
+  isCaptain: boolean;
+  onIsCaptainChange: (next: boolean) => void;
   onValidateFields: (paths: readonly string[]) => void;
   onValidateSelection: (paths: readonly string[], selected: { team_id: string }) => void;
   spielerId: string;
@@ -102,6 +98,7 @@ export function FormKaderSection({
         position,
         stufe,
         is_nachgetragen: entryIsNachgetragen,
+        is_captain: false,
       });
       if (res.success) appToast.success(res.message ?? "Spieler aufgenommen!");
       else appToast.danger("Aufnehmen fehlgeschlagen", { description: res.error || "Ein unerwarteter Fehler ist aufgetreten." });
@@ -136,15 +133,6 @@ export function FormKaderSection({
       <div className={panel.body()}>
         {isMember ? (
           <>
-            {rowInactiveSince !== null && (
-              <Callout
-                severity="info"
-                title={`Ausgetragen seit ${formatSpielDatum(rowInactiveSince)}`}>
-                Der Eintrag zählt in dieser Saison zu keinem Kader mehr. Nummer, Position und Stufe bleiben erhalten und kehren beim
-                Reaktivieren zurück.
-              </Callout>
-            )}
-
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex w-full flex-col gap-y-1">
                 <SpielerFieldLabel path="team_id">Team</SpielerFieldLabel>
@@ -164,11 +152,32 @@ export function FormKaderSection({
                 value={nummer}
                 onChange={onNummerChange}
                 onBlur={() => onValidateFields(["nummer"])}
-                maxLength={NUMMER_MAX_LENGTH}>
+                maxLength={NUMMER_MAX_LENGTH}
+                inputMode="numeric"
+                pattern="[0-9]*">
                 <SpielerFieldLabel path="nummer">Nummer</SpielerFieldLabel>
                 <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
                 <FieldError className={FIELD_ERROR} />
               </TextField>
+            </div>
+
+            {/* The captaincy, as a switch rather than a note: unlike `is_nachgetragen` — which records
+                how an entry came about — this is a decision somebody makes and changes, and it is a
+                role within THIS season's squad rather than a property of the person. */}
+            <div className="flex w-full flex-col gap-y-1">
+              <SpielerFieldLabel path="is_captain">Kapitän</SpielerFieldLabel>
+              <Switch
+                name="is_captain"
+                isSelected={isCaptain}
+                onChange={onIsCaptainChange}
+                className="border-border bg-surface hover:bg-muted/40 w-full rounded-lg border px-3 py-2.5 transition-colors">
+                <Switch.Content className="fluid-sm text-foreground flex w-full flex-row items-center justify-between gap-x-3 font-medium">
+                  <span>Führt das Team in der Saison {saison.saisonId} als Kapitän an.</span>
+                  <Switch.Control className={isCaptain ? "bg-brand-solid" : ""}>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                </Switch.Content>
+              </Switch>
             </div>
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
@@ -190,24 +199,13 @@ export function FormKaderSection({
                 <ClosedSetSelect
                   value={stufe}
                   onChange={onStufeChange}
-                  options={STUFE_OPTIONS}
+                  options={saison.erlaubteStufen}
                   name="stufe"
                   label="Stufe"
                   placeholder="Keine Angabe"
                   withOwnLabel={false}
                 />
               </div>
-            </div>
-
-            <div className="flex w-full flex-col gap-y-1">
-              <SpielerFieldLabel path="is_nachgetragen">Nachgetragen</SpielerFieldLabel>
-              <Switch
-                name="is_nachgetragen"
-                isSelected={isNachgetragen}
-                onChange={onIsNachgetragenChange}
-                className="fluid-sm text-foreground flex flex-row items-center gap-x-3 font-medium">
-                Der Spieler kam erst nach dem Start der Saison dazu.
-              </Switch>
             </div>
           </>
         ) : (
@@ -235,10 +233,15 @@ export function FormKaderSection({
               </Button>
             </div>
 
+            {/* Coloured rather than muted (owner, 2026-08-07): it announces a value the form is
+                choosing on the admin's behalf, which is exactly the kind of thing that must not read
+                as fine print. */}
             {entryIsNachgetragen && (
-              <p className="fluid-xxs text-foreground-muted font-medium">
-                Die Saison läuft bereits, der Eintrag wird deshalb als nachgetragen markiert.
-              </p>
+              <Callout
+                severity="info"
+                title="Wird als nachgetragen markiert">
+                Die Saison {saison.saisonId} läuft bereits, der Eintrag wird deshalb als nachgetragen gekennzeichnet.
+              </Callout>
             )}
           </div>
         )}
