@@ -29,6 +29,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
+import { APIBadStatusError } from "@/core/errors";
 
 import { FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
 
@@ -59,10 +60,15 @@ export async function getTeams(filters: FLTeamsFilterParams = {}): Promise<FLTea
  * Tagged exactly as `getTeams` is, because it reads the same documents through the same derivation —
  * a result edit moves this response too, and it is the `teams` tag that clears it.
  *
- * Throws `APIBadStatusError` with `statusCode: 404` when the id matches no team — the two detail pages
- * catch exactly that and rethrow everything else, so a backend outage never reads as a missing team.
+ * **Resolves `null` on a 404 — no such team, or no junction row for the requested season (the join is
+ * strict) — and the conversion must stay INSIDE this function.** In a production build, an error
+ * thrown out of a `"use cache"` scope reaches the awaiting caller redacted to a digest-only `Error`,
+ * so a catch at the call site can never recognise the 404: both detail pages rendered the error page
+ * for an unknown id. Only the 404 becomes a value; everything else still throws, so a backend outage
+ * never reads as a missing team. The cached `null` is cleared by the same `teams` tag as any hit —
+ * entering a club into a season invalidates it in the same action.
  */
-export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams = {}): Promise<FLTeamsSingleResponse> {
+export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams = {}): Promise<FLTeamsSingleResponse | null> {
   "use cache";
 
   const tags: string[] = ["teams"];
@@ -72,5 +78,8 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
 
   return apiClient<FLTeamsSingleResponse>(`/teams/${teamId}`, FLTeamsSingleResponseSchema, {
     params: filters,
+  }).catch((error: unknown) => {
+    if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+    throw error;
   });
 }

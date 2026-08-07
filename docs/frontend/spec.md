@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `1c1e644`, 2026-08-07
+**Verified against:** `cf88b87`, 2026-08-07
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -56,15 +56,18 @@ by match id with no season in the URL ([ADR-0050](../_decisions/0050-a-form-that
 so the season a granular tag would name is what this read exists to supply — and a season tag would be
 wrong even where one is available, because a match write resolves the whole bracket and rewrites fixtures
 the request never named ([ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md)). The
-patch action invalidates `spiele` unconditionally, so this entry cannot outlive an edit. It throws
-`APIBadStatusError` with `statusCode: 404` for an unknown id, which the editor page catches to reach
-`notFound()`; every other error is rethrown.
+patch action invalidates `spiele` unconditionally, so this entry cannot outlive an edit. It resolves
+`null` for an unknown id, which the editor page turns into `notFound()`; every other error is
+rethrown. The 404 → null conversion lives INSIDE the cached function, because a production build
+redacts an error thrown out of a `"use cache"` scope to a digest-only `Error` — a catch at the call
+site can never recognise it.
 
 **`getTeam` is `GET /teams/{team_id}` and is tagged exactly as `getTeams` is** — it reads the same
 documents through the same derivation, so a result edit moves it too
-([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). It throws
-`APIBadStatusError` with `statusCode: 404` for an unknown id, which the two team detail pages catch to reach
-`notFound()`; every other error is rethrown so it reaches `onRequestError`.
+([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)). It resolves
+`null` for an unknown id — or a club with no junction row for the requested season, since the join is
+strict — for the same redaction reason as `getSpiel`; the detail pages turn the null into
+`notFound()`. Every other error is rethrown so it reaches `onRequestError`.
 
 **`getTeams` caches two tables per season, not one.** `statistik_scope` is part of the cache key
 ([ADR-0029](../_decisions/0029-the-league-table-counts-the-gruppenphase.md)): the Saisontabelle asks

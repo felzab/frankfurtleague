@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { APIBadStatusError } from "@/core/errors";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
 import { getSpiel } from "@/features/spiele/queries";
@@ -60,13 +59,10 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   await connection();
   const spielId = await resolveSpielId(params);
 
-  const spielRes = await getSpiel(spielId).catch((error: unknown) => {
-    // Only a genuine 404 means "no such fixture". Swallowing everything would turn a backend outage
-    // into a not-found page — and because `notFound()` is not an error, `onRequestError` would never
-    // fire and the outage would go unlogged.
-    if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
-    throw error;
-  });
+  // Resolves null for "no such fixture" — the 404 → null conversion lives inside the query, because
+  // a production build redacts an error thrown out of a "use cache" scope and no call site can
+  // recognise it. Everything else still throws, so a backend outage never reads as a missing match.
+  const spielRes = await getSpiel(spielId);
 
   if (!spielRes) {
     notFound();

@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { APIBadStatusError } from "@/core/errors";
 import { resolveSaisonId } from "@/features/saisons/resolvers";
 import { TeamSpielerView } from "@/features/spieler/components/views/TeamSpielerView";
 import { getSpieler } from "@/features/spieler/queries";
@@ -52,12 +51,10 @@ async function TeamSpielerContent(props: NextPageProps<{ team_id: string }>) {
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   const [teamRes, spielerRes] = await Promise.all([
-    getTeam(team_id, { saison_id: specifiedSaisonId }).catch((error) => {
-      // See teams/[team_id]/page.tsx: only a 404 is "no such team", everything else is a real
-      // failure that must reach dashboard/error.tsx and onRequestError.
-      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
-      throw error;
-    }),
+    // Resolves null for "no such team" — the 404 → null conversion lives inside the query (see the
+    // note on `getTeam`); everything else still throws and reaches dashboard/error.tsx and
+    // onRequestError.
+    getTeam(team_id, { saison_id: specifiedSaisonId }),
     getSpieler({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
 
