@@ -6,7 +6,8 @@ Three pure functions, so every case runs in the default tier with no container:
 - `apply_payload_to_spiel` — the normalisation the save and the `dry_run=true` preview both apply
   (ADR-0051). Tested here because a drift between the two would be invisible everywhere else: both
   would simply agree on the wrong answer.
-- `find_eligibility_refusal` — a disqualified team, and a team with no row for the season (ADR-0052).
+- `find_eligibility_refusal` — a disqualified team, keyed on the fixture's DATE, and a team with no row
+  for the season (ADR-0052).
 - `judge_spieltag_occupancy` — a team fielded twice on one matchday, moved or refused (ADR-0052).
 
 Refusals are asserted on their CODE, never on their message. The code is the API contract and is what
@@ -23,12 +24,13 @@ from typing import Any, Callable
 import pytest
 from bson import ObjectId
 
-from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielListAdapter
+from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedListAdapter, FLSpielListAdapter
 from app.api.spiele.services import (
     ELIGIBILITY_DISQUALIFIED,
     ELIGIBILITY_NO_MEMBERSHIP,
     SPIELTAG_OCCUPIED,
     apply_payload_to_spiel,
+    find_disqualified_occupants,
     find_eligibility_refusal,
     judge_spieltag_occupancy,
 )
@@ -118,15 +120,20 @@ def payload_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
     )
 
 
-def eligibility_for(season_docs: list[dict[str, Any]], nr: int, membership: dict[str, bool], **overrides: Any) -> str | None:
-    """The eligibility refusal's CODE for an edit of match `nr`, or `None` when it is legal."""
+def eligibility_for(season_docs: list[dict[str, Any]], nr: int, membership: dict[str, str | None], **overrides: Any) -> str | None:
+    """
+    The eligibility refusal's CODE for an edit of match `nr`, or `None` when it is legal.
+
+    `membership` maps a club to the DAY it is disqualified from, or `None` while it competes — the shape
+    `pull_saison_membership` returns, because the rule compares that day against the fixture's own date.
+    """
 
     stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
     refusal = find_eligibility_refusal(
         ObjectId(stored["_id"]),
         payload_for(season_docs, nr, **overrides),
         FLSpielListAdapter.validate_python(season_docs),
-        {ObjectId(team_id): disqualified for team_id, disqualified in membership.items()},
+        {ObjectId(team_id): disqualified_from for team_id, disqualified_from in membership.items()},
     )
 
     return None if refusal is None else refusal.error_code
@@ -145,7 +152,14 @@ def occupancy_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any):
 
 
 # Every club in the season, none disqualified — the base each eligibility case departs from.
-ALL_ELIGIBLE = {ADLER: False, BIEBER: False, CRONBERG: False, DORNBUSCH: False}
+ALL_ELIGIBLE: dict[str, str | None] = {ADLER: None, BIEBER: None, CRONBERG: None, DORNBUSCH: None}
+
+# Every fixture in the shared factory is dated 2026-03-15, so these three straddle it: one day before it,
+# the day itself, and one day after. The boundary is what the rule turns on, so it is named rather than
+# spelled out at each call site.
+BEFORE_THE_FIXTURE = "2026-03-14"
+ON_THE_FIXTURE_DAY = "2026-03-15"
+AFTER_THE_FIXTURE = "2026-03-16"
 
 
 class TestApplyingThePayload:
@@ -229,31 +243,84 @@ class TestApplyingThePayload:
 
 
 class TestEligibility:
-    """A team the season records as unable to be there (ADR-0052)."""
+    """A team the season records as unable to be there (ADR-0052), judged against the fixture's date."""
 
     def test_saving_a_fixture_unchanged_is_legal(self, season):
         assert eligibility_for(season, 1, ALL_ELIGIBLE) is None
 
-    def test_newly_fielding_a_disqualified_team_is_refused(self, season):
-        assert eligibility_for(season, 30, {**ALL_ELIGIBLE, CRONBERG: True}, team1=team(CRONBERG, "Cronberg")) == ELIGIBILITY_DISQUALIFIED
+    def test_newly_fielding_a_team_disqualified_before_the_fixture_is_refused(self, season):
+        """The straightforward case: the team was already out on the day this match is played."""
+
+        assert (
+            eligibility_for(season, 30, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"))
+            == ELIGIBILITY_DISQUALIFIED
+        )
+
+    def test_the_day_itself_is_refused(self, season):
+        """
+        `datum` is "the day the disqualification took effect", so a match that day is already affected.
+
+        Asserted rather than left to the comparison operator: an off-by-one here is the difference
+        between a team playing a match it was banned from and being refused one it was entitled to.
+        """
+
+        assert (
+            eligibility_for(season, 30, {**ALL_ELIGIBLE, CRONBERG: ON_THE_FIXTURE_DAY}, team1=team(CRONBERG, "Cronberg"))
+            == ELIGIBILITY_DISQUALIFIED
+        )
+
+    def test_a_fixture_played_before_the_disqualification_stays_fillable(self, season):
+        """
+        The case the date makes possible (owner, 2026-08-08), and the reason a boolean was not enough.
+
+        A match played in March, entered in April, by a team disqualified in between: recording what
+        happened is not the same act as putting an ineligible team into a match still to come. A blanket
+        refusal made the league's own history unenterable.
+        """
+
+        assert eligibility_for(season, 30, {**ALL_ELIGIBLE, CRONBERG: AFTER_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg")) is None
+
+    def test_a_fixture_with_no_date_is_refused(self, season):
+        """
+        Refuse-by-default: "we cannot tell when this was played" is not evidence it was played in time.
+
+        An undated fixture is one nobody has scheduled, which is far more likely to be a future match
+        than a past one somebody forgot to date.
+        """
+
+        assert (
+            eligibility_for(season, 30, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"), datum=None)
+            == ELIGIBILITY_DISQUALIFIED
+        )
 
     def test_a_disqualified_team_already_stored_stays_editable(self, season):
         """
         The clause without which the one fixture needing an admin is the one nobody can open.
 
-        A team disqualified AFTER being placed is reported as a bracket fault (ADR-0047) and resolving
-        it means editing that very fixture — so resubmitting the stored occupant has to pass.
+        A team disqualified AFTER being placed is reported as a fault (ADR-0047) and resolving it means
+        editing that very fixture — so resubmitting the stored occupant has to pass, on any date.
         """
-        assert eligibility_for(season, 1, {**ALL_ELIGIBLE, ADLER: True}) is None
+        assert eligibility_for(season, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}) is None
 
     def test_a_disqualified_team_can_still_be_removed(self, season):
         """Clearing the side is the correction, and refusing it would trap the fixture."""
-        assert eligibility_for(season, 1, {**ALL_ELIGIBLE, ADLER: True}, team1=None) is None
+        assert eligibility_for(season, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, team1=None) is None
 
     def test_a_team_with_no_row_for_the_season_is_refused(self, season):
         """A dangling reference rather than an odd draw: the form offers only the season's teams."""
-        missing = {team_id: False for team_id in (ADLER, BIEBER, DORNBUSCH)}
+        missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
         assert eligibility_for(season, 30, missing, team1=team(CRONBERG, "Cronberg")) == ELIGIBILITY_NO_MEMBERSHIP
+
+    def test_a_missing_row_is_refused_whatever_the_date(self, season):
+        """
+        The date narrows the DISQUALIFICATION rule and not this one, which is a different fact.
+
+        A club with no junction row was never in the season, so no date makes fielding it legal — and the
+        two are checked in this order because "you are not in this competition" is the stronger answer.
+        """
+
+        missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
+        assert eligibility_for(season, 30, missing, team1=team(CRONBERG, "Cronberg"), datum="2020-01-01") == ELIGIBILITY_NO_MEMBERSHIP
 
     def test_the_two_refusals_are_distinct(self, season):
         """A missing row and a disqualification need different advice, so they carry different codes."""
@@ -334,3 +401,143 @@ class TestSpieltagOccupancy:
         verdict = occupancy_for(occupied, 30, team1=team(CRONBERG, "Cronberg"))
 
         assert verdict.refusal is not None and verdict.releases == []
+
+
+# =====================================================================================================
+# THE SIXTH DERIVED FAULT
+# =====================================================================================================
+
+
+def joined(*, nr: int, datum: str | None, side_disqualified_from: str | None, side: str = "team1") -> dict[str, Any]:
+    """
+    One JOINED fixture, which is the shape `build_spiele_pipeline` returns.
+
+    The joined side carries the whole `disqualifikation` record rather than a flag, so the fault can name
+    the day it took effect without a second read (ADR-0059).
+    """
+
+    def occupant(team_id: str, name: str, disqualified_from: str | None) -> dict[str, Any]:
+        return {
+            **team(team_id, name),
+            "disqualifikation": None if disqualified_from is None else {"grund": "Nicht angetreten", "datum": disqualified_from},
+        }
+
+    return {
+        "_id": MATCH_ID.format(nr),
+        "team1": occupant(ADLER, "Adler", side_disqualified_from if side == "team1" else None),
+        "team2": occupant(BIEBER, "Bieber", side_disqualified_from if side == "team2" else None),
+        "team1_quelle": None,
+        "team2_quelle": None,
+        "datum": datum,
+        "uhrzeit": None,
+        "ort": None,
+        "schiedsrichter": None,
+        "ergebnis": None,
+        "elfmeterschiessen": None,
+        "spieltag_id": SPIELTAG_ONE,
+        "spiel_nr": nr,
+        "is_canceled": False,
+        "saison_phase": "gruppenphase",
+        "saison_id": "2026",
+    }
+
+
+def occupant_faults(*fixtures: dict[str, Any]) -> list:
+    return find_disqualified_occupants(FLSpielJoinedListAdapter.validate_python(list(fixtures)))
+
+
+class TestTheDisqualifiedOccupantFault:
+    """
+    A fixture fielding a team the season disqualified before the day it is played (owner, 2026-08-08).
+
+    Derived, never stored, and it empties nothing: what to do about the fixture — cancel it, award it, or
+    replace the team — is a competition decision (ADR-0047, roadmap FB-9).
+    """
+
+    def test_a_fixture_with_no_disqualified_side_is_clean(self):
+        assert occupant_faults(joined(nr=1, datum="2026-03-15", side_disqualified_from=None)) == []
+
+    def test_a_fixture_played_before_the_disqualification_is_clean(self):
+        """
+        The whole reason the date is compared rather than a flag.
+
+        The team was eligible on the day, so the match happened legally and its result stands. Reporting
+        it would be reporting the league's own history as a defect.
+        """
+
+        assert occupant_faults(joined(nr=1, datum="2026-03-15", side_disqualified_from="2026-03-16")) == []
+
+    def test_a_fixture_on_the_effective_day_is_reported(self):
+        """`datum` is the day the disqualification took effect, so that day's fixtures are affected."""
+
+        faults = occupant_faults(joined(nr=1, datum="2026-03-15", side_disqualified_from="2026-03-15"))
+
+        assert [fault.reason for fault in faults] == ["disqualified_occupant"]
+
+    def test_a_fixture_after_the_disqualification_is_reported(self):
+        faults = occupant_faults(joined(nr=4, datum="2026-04-01", side_disqualified_from="2026-03-15"))
+
+        assert len(faults) == 1
+        assert faults[0].spiel_nr == 4
+        assert faults[0].side == "team1"
+        assert faults[0].disqualifiziert_seit == "2026-03-15"
+        assert faults[0].spiel_datum == "2026-04-01"
+
+    def test_an_undated_fixture_is_reported(self):
+        """
+        Refuse-by-default, matching the write path.
+
+        An undated fixture cannot be shown to have been played in time, and one nobody has scheduled is
+        far more often ahead than behind.
+        """
+
+        faults = occupant_faults(joined(nr=9, datum=None, side_disqualified_from="2026-03-15"))
+
+        assert len(faults) == 1
+        assert faults[0].spiel_datum is None
+
+    def test_either_side_is_reported(self):
+        """A `quelle` sits on either side (ADR-0041) and so does an occupant, so both are walked."""
+
+        faults = occupant_faults(joined(nr=2, datum="2026-04-01", side_disqualified_from="2026-03-15", side="team2"))
+
+        assert [fault.side for fault in faults] == ["team2"]
+        assert faults[0].team_name == "Bieber"
+
+    def test_a_group_phase_fixture_is_covered(self):
+        """
+        Unlike the five bracket faults, this one is not about the bracket at all.
+
+        A group fixture dated after the disqualification is exactly as wrong as a knockout slot, and no
+        bracket rule looks at the group phase — which is why this is derived beside the walk, not in it.
+        """
+
+        faults = occupant_faults(joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15"))
+
+        assert len(faults) == 1
+
+    def test_every_affected_fixture_is_reported(self):
+        """
+        A team disqualified mid-season produces one fault per remaining fixture.
+
+        That is the honest count rather than noise: each of those fixtures needs the same decision taken
+        separately.
+        """
+
+        faults = occupant_faults(
+            joined(nr=1, datum="2026-03-01", side_disqualified_from="2026-03-15"),
+            joined(nr=2, datum="2026-04-01", side_disqualified_from="2026-03-15"),
+            joined(nr=3, datum="2026-05-01", side_disqualified_from="2026-03-15"),
+        )
+
+        assert [fault.spiel_nr for fault in faults] == [2, 3]
+
+    def test_the_report_is_ordered_by_season_then_fixture(self):
+        """So the triage list reads in a stable order rather than in whatever order the read returned."""
+
+        faults = occupant_faults(
+            joined(nr=7, datum="2026-04-01", side_disqualified_from="2026-03-15"),
+            joined(nr=2, datum="2026-04-01", side_disqualified_from="2026-03-15"),
+        )
+
+        assert [fault.spiel_nr for fault in faults] == [2, 7]

@@ -12,8 +12,12 @@ Matchdays: named blocks of fixtures inside a season.
     there is nothing to set and no two matchdays can claim the same place.
   • Deletion is SOFT. `spiele.spieltag_id` points here and nothing cascades, so a hard delete would
     leave matches referencing a matchday that no longer exists.
-  • `anzahl_spiele` is a hand-maintained count of something countable. It is written as given and never
-    derived, which is the state ADR-0026 pointedly did not extend to it.
+  • **Soft is not harmless.** A retired matchday leaves `GET /spieltage`, and the public Spielplan joins
+    fixtures onto the matchdays it received -- so retiring one takes its matches off that page with it.
+    `REQ-RETIRE-002` refuses the retirement while any of them carries a result (owner, 2026-08-08).
+  • `anzahl_spiele` is on no payload here. It is derived from the season's rules and this matchday's
+    phase (ADR-0065), so the PHASE is what a write can get wrong -- and `REQ-SPIELTAG-002` refuses one
+    accounting for fewer fixtures than the matchday already holds.
 """
 
 from typing import Annotated
@@ -21,16 +25,19 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 
+from app.api.saisons.schedule import expected_matches
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
     FLPostSpieltagPayload,
     FLSpieltag,
     FLSpieltagWriteResponse,
 )
+from app.api.spieltage.services import find_spieltag_phase_refusal, find_spieltag_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, post_one_to_db
-from app.core.dependencies import SpieltageCollection, get_german_date_str
-from app.core.exceptions import DocumentNotFoundException
+from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db
+from app.core.dependencies import SaisonsCollection, SpieleCollection, SpieltageCollection, get_german_date_str
+from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -70,13 +77,36 @@ async def patch_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltag_data: Annotated[FLPatchSpieltagPayload, Body()],
     spieltage_collection: SpieltageCollection,
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
 ) -> FLSpieltagWriteResponse:
     """
     Update a matchday.
 
     No fan-out: matches reference a matchday by id and embed no copy of it, so a renamed or re-dated
     matchday is picked up by every consumer on the next read.
+
+    **The phase is refused if the matchday already holds more fixtures than it accounts for**
+    (`REQ-SPIELTAG-002`, ADR-0065). A single round robin per group fixes that number, so moving a matchday
+    of eight group fixtures into a Finale would leave seven of them with nowhere to be played. The other
+    direction -- fewer fixtures than expected -- is left alone, because that is every season part-way
+    through being set up.
     """
+
+    stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
+
+    # The season's rules decide what the PROPOSED phase accounts for, so the refusal needs both. A
+    # matchday whose season document is missing is left to the write below: 404 on the matchday is the
+    # honest answer, and inventing an expected count from a default nobody chose is not (ADR-0043).
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
+    attached = await spiele_collection.count_documents({"spieltag_id": spieltag_id})
+    refusal = find_spieltag_phase_refusal(
+        attached_count=attached,
+        expected_count=expected_matches(FLSaisonRules.model_validate(saison_raw["rules"]), spieltag_data.saison_phase),
+    )
+    if refusal is not None:
+        error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_raw = await patch_one_in_db(
         collection=spieltage_collection,
@@ -94,15 +124,27 @@ async def patch_spieltag(
 async def delete_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageCollection,
+    spiele_collection: SpieleCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSpieltagWriteResponse:
     """
     Retire a matchday. SOFT: it stamps `inactive_since` and the document stays.
 
-    Its matches are **not** touched and stay fully readable — `GET /spiele` never joins `spieltage`, so
-    they keep resolving. That is the reason this is soft rather than a delete: a hard one would leave
-    every one of those matches pointing at nothing.
+    Its matches are **not** touched and stay resolvable — `GET /spiele` never joins `spieltage`. That is
+    the reason this is soft rather than a delete: a hard one would leave every one of those matches
+    pointing at nothing.
+
+    **It is refused while any of them carries a result** (`REQ-RETIRE-002`, owner, 2026-08-08). Resolvable
+    is not the same as visible: a retired matchday leaves `GET /spieltage`, and the public Spielplan joins
+    fixtures onto the matchdays it received — so this retirement takes played results off that page. An
+    unplayed matchday retires freely, which is the one somebody created by mistake.
     """
+
+    played = await spiele_collection.count_documents({"spieltag_id": spieltag_id, "ergebnis": {"$ne": None}})
+    refusal = find_spieltag_retire_refusal(played_count=played)
+    if refusal is not None:
+        error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_raw = await patch_one_in_db(
         collection=spieltage_collection,

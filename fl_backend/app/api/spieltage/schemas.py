@@ -13,10 +13,10 @@ and its ordering cannot drift from the rules that refuse a feeder played too lat
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 from app.api.spiele.schemas import FLSaisonPhase
-from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString, refuse_reversed_span
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -63,6 +63,12 @@ class FLPostSpieltagPayload(BaseModel):
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=4, max_length=4)
 
+    @model_validator(mode="after")
+    def the_matchday_ends_after_it_begins(self) -> "FLPostSpieltagPayload":
+        refuse_reversed_span(start=self.beginn, end=self.ende, start_label="dem Beginn", end_label="Das Ende")
+
+        return self
+
 
 class FLPatchSpieltagPayload(BaseModel):
     name: str = Field(min_length=1)
@@ -71,6 +77,19 @@ class FLPatchSpieltagPayload(BaseModel):
     saison_phase: FLSaisonPhase
     # `saison_id` is absent: moving a matchday between seasons would strand its matches, which carry
     # their own `saison_id` and are not rewritten here.
+
+    @model_validator(mode="after")
+    def the_matchday_ends_after_it_begins(self) -> "FLPatchSpieltagPayload":
+        """
+        The same rule as on the create -- and here it also protects the ORDER of the season's list.
+
+        Matchdays are sorted by `beginn` within a phase (ADR-0064), so a span running backwards is a
+        matchday whose own two dates disagree about where it sits.
+        """
+
+        refuse_reversed_span(start=self.beginn, end=self.ende, start_label="dem Beginn", end_label="Das Ende")
+
+        return self
 
 
 class FLSpieltageListResponse(BaseAPIResponse):

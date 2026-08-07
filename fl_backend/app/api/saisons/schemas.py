@@ -15,13 +15,13 @@ old one is `past`, which is what "gone" means here.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
 # The league's school-level vocabulary, imported rather than restated: `rules.erlaubte_stufen` names
 # WHICH of it a season runs and must not be able to name a level the league does not have (ADR-0061).
 # Acyclic -- the spieler slice imports nothing from this one.
 from app.api.spieler.schemas import FLSpielerStufe
-from app.shared.schemas.custom import CustomDateString
+from app.shared.schemas.custom import CustomDateString, refuse_reversed_span
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonStatus = Literal["past", "active", "future"]
@@ -99,11 +99,31 @@ class FLPostSaisonPayload(BaseModel):
     end_date: CustomDateString
     rules: FLSaisonRules
 
+    @model_validator(mode="after")
+    def the_season_ends_after_it_starts(self) -> "FLPostSaisonPayload":
+        refuse_reversed_span(start=self.start_date, end=self.end_date, start_label="dem Startdatum", end_label="Das Enddatum")
+
+        return self
+
 
 class FLPatchSaisonPayload(BaseModel):
     start_date: CustomDateString
     end_date: CustomDateString
     rules: FLSaisonRules
+
+    @model_validator(mode="after")
+    def the_season_ends_after_it_starts(self) -> "FLPatchSaisonPayload":
+        """
+        The same rule as on the create, and it is the one rule a `past` season's edit can still fail.
+
+        `find_rules_refusal` freezes the competitive fields of a finished season and leaves the dates
+        editable precisely so a mistyped one can be repaired (ADR-0065) -- so this is what makes that
+        repair land on a value that is actually in order rather than on a second wrong one.
+        """
+
+        refuse_reversed_span(start=self.start_date, end=self.end_date, start_label="dem Startdatum", end_label="Das Enddatum")
+
+        return self
 
 
 class FLSaisonsListResponse(BaseAPIResponse):

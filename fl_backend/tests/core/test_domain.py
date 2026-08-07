@@ -34,14 +34,7 @@ from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.constraints import COLLECTION_VALIDATORS
-from app.core.domain import (
-    AGGREGATES,
-    FIELD_POLICIES,
-    REFERENCES,
-    RULES,
-    UNENFORCED,
-    Editability,
-)
+from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENFORCED, UNUSED_ACTIONS, Action, Editability
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
@@ -182,6 +175,22 @@ def test_the_protocol_codes_are_the_ones_outside_the_api_layer():
     assert in_core == PROTOCOL_CODES
 
 
+def test_every_declared_value_is_used():
+    """
+    A vocabulary member no row uses is either a gap in the model or a word that should not be there.
+
+    `UNUSED_ACTIONS` is the exception list and it is asserted to be EXACT, not a floor: adding a member
+    without using it fails here, and using one that is listed as unused fails here too. That is the check
+    the enum exists for -- iterating the members is what a `Literal` could not do without `get_args`.
+    """
+
+    used_actions = {reference.on_target_change for reference in REFERENCES} | {reference.on_target_removed for reference in REFERENCES}
+    used_editability = {policy.editability for policy in FIELD_POLICIES}
+
+    assert set(Action) - used_actions == UNUSED_ACTIONS
+    assert set(Editability) - used_editability == set(), "an editability nothing uses describes no field in this system"
+
+
 def test_no_rule_code_is_declared_twice():
     codes = [rule.code for rule in RULES]
 
@@ -290,7 +299,7 @@ def test_every_declaration_carries_its_reason():
         assert reference.note.strip(), f"{reference.source}.{reference.fields[0]} states no reason"
     for policy in FIELD_POLICIES:
         if policy.editability is not Editability.EDITABLE:
-            assert policy.condition.strip(), f"{policy.collection}.{policy.field} is {policy.editability.value} and says nothing about when"
+            assert policy.condition.strip(), f"{policy.collection}.{policy.field} is {policy.editability} and says nothing about when"
     for entry in UNENFORCED:
         assert entry.reason.strip(), f"'{entry.subject}' is unenforced and states no reason"
 

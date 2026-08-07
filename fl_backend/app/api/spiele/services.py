@@ -85,16 +85,19 @@ from app.api.spiele.schemas import (
     PHASE_RANK,
     FLBracketFault,
     FLBracketFaultGruppe,
+    FLBracketFaultOccupant,
     FLBracketFaultQuelle,
     FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
+    FLSpielJoined,
     FLSpielQuelle,
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
     FLSpielTeamField,
+    FLSpielTeamFieldJoined,
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
@@ -732,8 +735,9 @@ class WriteRefusal:
     message: str
 
 
-# A team the season records as disqualified was newly fielded. Declared state, set by a person and
-# changed by no result, so a payload fielding one contradicts the season as it stands at the write.
+# A team the season records as disqualified was newly fielded on a fixture played on or after the day
+# that took effect. Declared state, set by a person and changed by no result -- but it takes effect on a
+# DAY, so a fixture dated before it was played legally and may still be edited (owner, 2026-08-08).
 ELIGIBILITY_DISQUALIFIED = "REQ-ELIGIBILITY-001"
 
 # A team newly fielded on a fixture of a season it holds no `saison_teams` row for. A dangling
@@ -750,7 +754,7 @@ def find_eligibility_refusal(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
-    membership: Mapping[CustomObjectId, bool],
+    membership: Mapping[CustomObjectId, str | None],
 ) -> WriteRefusal | None:
     """
     Why this patch's OCCUPANTS must be refused, or `None` when they are legal (ADR-0052).
@@ -760,9 +764,18 @@ def find_eligibility_refusal(
     different codes, because the advice differs -- "reload the page" is right for a raced bracket and
     wrong for a team somebody disqualified.
 
-    `membership` maps a team id to whether it is disqualified for THIS season, read from `saison_teams`
-    inside the caller's transaction. A team absent from it holds no row for the season at all, which is
-    the second rule below.
+    `membership` maps a team id to the DAY it is disqualified from THIS season, or `None` while it
+    competes, read from `saison_teams` inside the caller's transaction. A team absent from it holds no row
+    for the season at all, which is the second rule below.
+
+    **The disqualification rule is keyed on the fixture's date** (owner, 2026-08-08). A match played
+    before the disqualification took effect was played legally, so fielding that team on it stays
+    permitted -- recording the result of a match that happened is not the same act as putting an
+    ineligible team into one that has not. The comparison uses the PAYLOAD's `datum`, because that is the
+    date the fixture will carry after this write.
+
+    A fixture with NO date is refused, and that is the refuse-by-default posture rather than an oversight:
+    "we cannot tell when this was played" is not evidence that it was played in time.
 
     Both rules apply only to a team this payload NEWLY fields. Resubmitting the stored occupant
     unchanged passes, and it has to: without that clause a fixture already holding such a team becomes
@@ -787,13 +800,66 @@ def find_eligibility_refusal(
                 message=f"{label}: {submitted.name} has no saison_teams row for season {stored.saison_id}",
             )
 
-        if membership[submitted.team_id]:
+        disqualified_from = membership[submitted.team_id]
+        if disqualified_from is not None and not (payload.datum is not None and payload.datum < disqualified_from):
+            played_on = payload.datum or "no date"
+
             return WriteRefusal(
                 error_code=ELIGIBILITY_DISQUALIFIED,
-                message=f"{label}: {submitted.name} is disqualified from season {stored.saison_id} and cannot be fielded",
+                message=(
+                    f"{label}: {submitted.name} is disqualified from season {stored.saison_id} as of {disqualified_from} "
+                    f"and this fixture is dated {played_on}"
+                ),
             )
 
     return None
+
+
+def find_disqualified_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFaultOccupant]:
+    """
+    Every fixture fielding a team the season disqualified before the day it is played (owner, 2026-08-08).
+
+    Derived on demand and stored nowhere, like the five bracket faults beside it (ADR-0047). It needs no
+    read of its own: `build_spiele_pipeline` already joins each side's `disqualifikation` record with its
+    date, so the whole rule is a comparison between two fields of one document.
+
+    **A fixture dated BEFORE the effective day is not reported.** The team was eligible when it played, so
+    the match and its result stand -- which is the same line `find_eligibility_refusal` draws when it
+    permits that result being entered. Reporting it would be reporting history as a defect.
+
+    **An undated fixture IS reported.** It cannot be shown to have been played in time, and an undated
+    fixture is far more often one nobody has scheduled than one somebody forgot to date.
+
+    Applies to every phase. A group fixture dated after the disqualification is exactly as wrong as a
+    bracket slot, and a season that disqualifies a team mid-way reports one of these per remaining
+    fixture -- which is the honest count, because each of them needs the same decision.
+    """
+
+    faults: list[FLBracketFaultOccupant] = []
+    for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
+        for side in ("team1", "team2"):
+            occupant: FLSpielTeamFieldJoined | None = getattr(spiel, side)
+            if occupant is None or occupant.disqualifikation is None:
+                continue
+
+            effective = occupant.disqualifikation.datum
+            if spiel.datum is not None and spiel.datum < effective:
+                continue
+
+            faults.append(
+                FLBracketFaultOccupant(
+                    reason="disqualified_occupant",
+                    spiel_id=spiel.id,
+                    spiel_nr=spiel.spiel_nr,
+                    side=side,
+                    team_id=occupant.team_id,
+                    team_name=occupant.name,
+                    disqualifiziert_seit=effective,
+                    spiel_datum=spiel.datum,
+                )
+            )
+
+    return faults
 
 
 @dataclass(frozen=True)

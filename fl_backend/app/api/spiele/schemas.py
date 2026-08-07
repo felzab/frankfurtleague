@@ -287,11 +287,48 @@ class FLBracketFaultSpiel(BaseModel):
     spiel_nr: int = Field(gt=0)
 
 
-# The five stored bracket faults, tagged on `reason` so each variant carries exactly the fields its own
-# fault needs and no reader has to know which of them are meaningful together. Discriminated rather than
+class FLBracketFaultOccupant(BaseModel):
+    """
+    One fixture that fields a team the season disqualified before the day it is played.
+
+    **Not a fault of the bracket, and the only one here that is not.** The other five are contradictions
+    between a slot's references and what the season can produce; this one is a contradiction between a
+    fixture's DATE and a decision recorded on the junction row, and it applies to a group-phase fixture
+    exactly as much as to a knockout slot. It shares this union because it shares the channel: a derived
+    contradiction that needs a person, reported on the same triage list (ADR-0047, ADR-0056).
+
+    **A fixture played BEFORE the disqualification is not a fault.** The team was eligible on the day, so
+    the match and its result stand -- `find_eligibility_refusal` permits entering that result for the same
+    reason (owner, 2026-08-08). What is reported is a fixture on or after the effective day.
+
+    `spiel_datum` is null where the fixture carries no date, which is reported: an undated fixture cannot
+    be shown to have been played in time, and that is the same refuse-by-default reading the write path
+    takes.
+
+    Nothing is emptied. The fixture keeps both sides, because the answer -- cancel it, award it, or
+    replace the team -- is a competition decision and not one a derivation may take (roadmap FB-9).
+    """
+
+    reason: Literal["disqualified_occupant"]
+    spiel_id: CustomObjectId
+    spiel_nr: int = Field(gt=0)
+    side: Literal["team1", "team2"]
+    team_id: CustomObjectId
+    team_name: str = Field(min_length=1)
+    # The day the disqualification took effect, and the day this fixture is played, so a reader can see
+    # the ordering that makes it a fault without opening either document.
+    disqualifiziert_seit: CustomDateString
+    spiel_datum: CustomOptionalDateString
+
+
+# The six derived faults, tagged on `reason` so each variant carries exactly the fields its own fault
+# needs and no reader has to know which of them are meaningful together. Discriminated rather than
 # flattened with optional fields, for the same reason `FLSpielQuelle` is: a flat model can express a
 # cycle carrying a `platz`, which means nothing, and no validator here could refuse it (ADR-0047).
-FLBracketFault = Annotated[FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel, Field(discriminator="reason")]
+FLBracketFault = Annotated[
+    FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultOccupant,
+    Field(discriminator="reason"),
+]
 
 
 class FLPatchSpielDataPayload(BaseModel):

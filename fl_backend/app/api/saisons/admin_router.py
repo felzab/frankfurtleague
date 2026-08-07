@@ -36,10 +36,11 @@ from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonRules,
 )
-from app.api.saisons.services import find_rules_refusal
+from app.api.saisons.services import find_activation_refusal, find_rules_refusal, unplayed_spiel_nrs
+from app.api.spiele.schemas import FLSpielListAdapter
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db
-from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
+from app.core.dependencies import DBClient, SaisonsCollection, SaisonTeamsCollection, SpieleCollection, SpieltageCollection
 from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.security import verify_access_admin
 
@@ -99,6 +100,7 @@ async def patch_saison(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
+    spieltage_collection: SpieltageCollection,
 ) -> FLPatchSaisonResponse:
     """
     Update a season's dates and scoring rules. `status` is deliberately not part of the payload.
@@ -109,11 +111,12 @@ async def patch_saison(
     `past` season freezes them: `REQ-RULES-005` refuses the edit rather than silently rewriting who won a
     finished competition.
 
-    **Five refusals, and three of them read the season's own data** (ADR-0065, docs/domain.md). The rules
+    **Six refusals, and four of them read the season's own data** (ADR-0065, docs/domain.md). The rules
     decide the shape of the competition, so narrowing one below what already exists strands it: a group the
-    season stops running while teams are still entered in it, a group left over its own capacity, or a
-    bracket slot naming a placing that can no longer be reached. Each of those is legal at every layer and
-    invisible until something downstream reads it.
+    season stops running while teams are still entered in it, a group left over its own capacity, a bracket
+    slot naming a placing that can no longer be reached, or a matchday left holding more fixtures than its
+    phase accounts for. Each of those is legal at every layer and invisible until something downstream
+    reads it.
     """
 
     stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
@@ -138,6 +141,25 @@ async def patch_saison(
             if isinstance(quelle, dict) and quelle.get("type") == "gruppe":
                 highest_platz = max(highest_platz, int(quelle.get("platz", 0)))
 
+    # The fullest matchday of each phase, by attached fixtures. The MAXIMUM rather than the total, because
+    # the expected count these rules imply is per matchday -- and one matchday over its phase's count is
+    # what `REQ-RULES-006` refuses, whatever its neighbours hold. Keyed on the matchday's phase rather than
+    # the fixture's: the two can disagree, and it is the matchday whose count is being checked.
+    attached_by_phase: dict[Any, int] = {}
+    phase_of_spieltag: dict[Any, Any] = {}
+    async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}):
+        phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
+
+    per_spieltag: dict[Any, int] = {}
+    async for spiel in spiele_collection.find({"saison_id": saison_id}, {"spieltag_id": 1}):
+        per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
+    for spieltag_id, attached in per_spieltag.items():
+        phase = phase_of_spieltag.get(spieltag_id)
+        # A fixture pointing at a matchday of another season, or at none at all, is not this rule's
+        # business -- there is no matchday here whose count it could exceed.
+        if phase is not None:
+            attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
+
     refusal = find_rules_refusal(
         saison_status=str(stored_raw["status"]),
         # Validated rather than read raw, so a season document still missing a rules key fails loudly here
@@ -146,6 +168,7 @@ async def patch_saison(
         proposed=saison_data.rules,
         occupancy_by_gruppe=occupancy,
         highest_wired_platz=highest_platz,
+        attached_by_phase=attached_by_phase,
     )
     if refusal is not None:
         error_code, detail = refusal
@@ -167,6 +190,7 @@ async def patch_saison(
 async def activate_saison(
     saison_id: str,
     saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
     db: DBClient,
 ) -> FLActivateSaisonResponse:
     """
@@ -179,15 +203,37 @@ async def activate_saison(
     Both writes run in one transaction, so the league is never briefly without an active season and
     never briefly with two.
 
-    It does **not** check that the outgoing season's matches are all played. An early rollover is a
-    legitimate decision, and refusing one here would put the backend in the way of it; the admin page
-    is where that precondition is presented to a person.
+    **The outgoing season has to be finished** (`REQ-ACTIVATE-001`, owner, 2026-08-08). Demoting it to
+    `past` freezes its competitive rules and makes its derived table the record of what happened, so
+    rolling over across unplayed fixtures closes a competition that is not over. Entering the missing
+    results or cancelling the fixtures is the way through; cancelling is what turns a match nobody will
+    play into a settled one.
     """
 
     # A read first, so a bad id is a 404 rather than a rollover that deactivates the live season and
     # then promotes nothing. Inside the transaction it would roll back, but the ordering makes the
     # failure legible without relying on that.
     target_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+
+    # The incumbent's own fixtures, read BEFORE the transaction: this refuses rather than writes, so
+    # there is nothing to roll back and a 409 needs no session. `$ne` on the target for the reason the
+    # demotion below uses it -- re-activating the current season must not be blocked by its own fixtures.
+    outgoing = await pull_many_from_db(
+        collection=saisons_collection,
+        db_filter={"status": "active", "_id": {"$ne": saison_id}},
+        projection={"_id": 1},
+    )
+    outgoing_ids = [row["_id"] for row in outgoing]
+    if outgoing_ids:
+        unplayed = unplayed_spiel_nrs(
+            FLSpielListAdapter.validate_python(
+                await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}})
+            )
+        )
+        refusal = find_activation_refusal(outgoing_unplayed=unplayed)
+        if refusal is not None:
+            error_code, detail = refusal
+            raise DocumentConflictException(error_code=error_code, message=detail)
 
     async with await db.start_session() as session:
         async with session.start_transaction():

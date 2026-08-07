@@ -42,29 +42,41 @@ in this module and nothing calls it at request time.
 """
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class Action(str, Enum):
+class Action(StrEnum):
     """
     What happens to a referencing row when its target changes or goes away.
 
     SQL's own vocabulary, because it is precise and widely understood -- and because MongoDB enforces none
     of it, so naming the intended behaviour is the only way the intention is written down at all.
+
+    **An enum rather than a `Literal`, which is the other way round from every closed set in
+    `app/api/*/schemas.py`, and the difference is what the value IS.** `FLSaisonStatus` is a `Literal`
+    because the string is DATA: it is stored in MongoDB, enumerated in a `$jsonSchema` validator and
+    published in `openapi.json`, so the wire format needs the bare value. This is internal vocabulary that
+    is never stored, never serialised and never leaves the process -- so it wants the three things an enum
+    gives and a `Literal` cannot: a namespace at the call site, per-member documentation attached to the
+    member, and iteration, which `test_every_declared_value_is_used` needs.
+
+    `StrEnum` and not the `(str, Enum)` mixin: on Python 3.12+ the mixin renders as `Action.RESTRICT`
+    inside an f-string, so a test failure message names the enum instead of the value. `StrEnum` renders
+    as `RESTRICT` and still compares equal to the plain string.
     """
 
     #: The operation is refused while a reference exists, by a `find_*_refusal` at the write.
     RESTRICT = "RESTRICT"
     #: The change is propagated into the referencing rows.
     CASCADE = "CASCADE"
-    #: The reference is emptied and the referencing row survives.
+    #: The reference is emptied and the referencing row survives. Declared vocabulary; see `UNUSED_ACTIONS`.
     SET_NULL = "SET_NULL"
     #: Nothing happens, deliberately. The reference is left alone and stays resolvable.
     NO_ACTION = "NO_ACTION"
 
 
-class Editability(str, Enum):
-    """When a field may be written."""
+class Editability(StrEnum):
+    """When a field may be written. Six answers, and the last three are where the distinctions earn their keep."""
 
     #: Writable through a payload whenever the aggregate's state allows it.
     EDITABLE = "EDITABLE"
@@ -78,6 +90,14 @@ class Editability(str, Enum):
     DERIVED = "DERIVED"
     #: Written once, at create, and never again.
     IMMUTABLE = "IMMUTABLE"
+
+
+# `SET_NULL` is declared and used by no reference, and that is a statement rather than an oversight: no
+# reference in this system is ever emptied because its target moved. A bracket slot whose feeder cannot be
+# resolved KEEPS its occupant and is reported as a fault (ADR-0047), which is the case that would most
+# obviously have taken the other answer. Keeping the member costs nothing and makes the absence legible;
+# `test_every_declared_value_is_used` holds this list to exactly what is unused.
+UNUSED_ACTIONS: frozenset[Action] = frozenset({Action.SET_NULL})
 
 
 @dataclass(frozen=True)
@@ -600,6 +620,24 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_rules_refusal.py::TestAFinishedSeasonFreezes",
     ),
     Rule(
+        code="REQ-RULES-006",
+        operation="PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="a narrowing may not leave a matchday holding more fixtures than its phase accounts for",
+        implemented_by="app.api.saisons.services.find_rules_refusal",
+        tested_by="tests/api/test_rules_refusal.py::TestNarrowingBelowAMatchdaysFixtures",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-ACTIVATE-001",
+        operation="POST /saisons/{saison_id}/activate",
+        aggregate="Saison",
+        summary="the outgoing season's fixtures must all be played or cancelled before it is closed",
+        implemented_by="app.api.saisons.services.find_activation_refusal",
+        tested_by="tests/api/test_activation_refusal.py::TestTheOutgoingSeasonMustBeFinished",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-ENTER-001",
         operation="POST /teams/{team_id}/saisons",
         aggregate="Saison",
@@ -634,6 +672,24 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-RETIRE-002",
+        operation="DELETE /spieltage/{spieltag_id}",
+        aggregate="Spieltag",
+        summary="a matchday holding a played match may not be retired, because retiring it unpublishes the result",
+        implemented_by="app.api.spieltage.services.find_spieltag_retire_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestRetiringAMatchday",
+        multi_document=True,
+    ),
+    Rule(
+        code="REQ-SPIELTAG-002",
+        operation="PATCH /spieltage/{spieltag_id}",
+        aggregate="Spieltag",
+        summary="a matchday's phase may not account for fewer matches than the matchday already holds",
+        implemented_by="app.api.spieltage.services.find_spieltag_phase_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestChangingThePhase",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-WIRING-001",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
@@ -649,7 +705,7 @@ RULES: tuple[Rule, ...] = (
         code="REQ-ELIGIBILITY-001",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",
-        summary="a disqualified team may not be NEWLY fielded",
+        summary="a disqualified team may not be NEWLY fielded on a fixture dated on or after the disqualification",
         implemented_by="app.api.spiele.services.find_eligibility_refusal",
         tested_by="tests/api/test_occupant_refusal.py::TestEligibility",
         multi_document=True,

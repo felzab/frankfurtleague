@@ -1,10 +1,11 @@
 """
 What a season's rules edit refuses — `find_rules_refusal`, pure and therefore in the default tier.
 
-Five rules, and each guards a state that no other layer refuses. Four of the five are NARROWINGS: the
-rules decide the shape of the competition, so lowering one below what already exists strands data that
-was entered legally under the wider value. The fifth is the freeze on a finished season, which is a
-different kind of protection — nothing is stranded, the result is rewritten.
+Six rules, and each guards a state that no other layer refuses. Four of them are NARROWINGS: the rules
+decide the shape of the competition, so lowering one below what already exists strands data that was
+entered legally under the wider value — a group, a group's capacity, a wired placing, or a matchday's
+fixtures. One is the bracket's own shape, which is a property of the proposed rules alone. And one is the
+freeze on a finished season, a different kind of protection: nothing is stranded, the result is rewritten.
 
 The order the checks run in is asserted here too, because it is the order an admin can act on: telling
 somebody their group count strands a team is noise when the whole edit is refused for being on a past
@@ -18,6 +19,7 @@ from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
     RULES_CAPACITY_BELOW_USE,
     RULES_GROUPS_IN_USE,
+    RULES_MATCHDAY_OVER_ITS_PHASE,
     RULES_QUALIFIERS_BELOW_WIRING,
     RULES_SAISON_FINISHED,
     find_rules_refusal,
@@ -44,6 +46,7 @@ def judge(
     proposed: FLSaisonRules | None = None,
     occupancy: dict[str, int] | None = None,
     platz: int = 0,
+    attached: dict[str, int] | None = None,
 ) -> tuple[str, str] | None:
     return find_rules_refusal(
         saison_status=status,
@@ -51,6 +54,7 @@ def judge(
         proposed=rules() if proposed is None else proposed,
         occupancy_by_gruppe=occupancy or {},  # type: ignore[arg-type]
         highest_wired_platz=platz,
+        attached_by_phase=attached,  # type: ignore[arg-type]
     )
 
 
@@ -261,3 +265,90 @@ class TestAFinishedSeasonFreezes:
 
         assert refusal is not None
         assert refusal[0] == RULES_SAISON_FINISHED
+
+
+class TestNarrowingBelowAMatchdaysFixtures:
+    """
+    The sixth rule, and the one that reaches furthest (owner, 2026-08-08).
+
+    A matchday's expected match count is derived from these rules (ADR-0065), so lowering
+    `number_of_groups` or `teams_per_group` lowers it for every group-phase matchday of the season at
+    once, and lowering `qualifiers_per_group` shortens the knockout ladder. Either can leave a matchday
+    holding more fixtures than its own phase accounts for — which is the direction no season setup passes
+    through, unlike holding fewer.
+
+    The input is the LARGEST count any single matchday of each phase holds, because the expected number is
+    per matchday rather than per season.
+    """
+
+    def test_the_rules_the_season_already_plays_are_accepted(self):
+        """4 groups of 4 gives 8 group matches per matchday, which is what the live season holds."""
+
+        assert judge(stored=rules(), proposed=rules(), attached={"gruppenphase": 8}) is None
+
+    def test_narrowing_the_group_count_below_an_existing_matchday_is_refused(self):
+        """
+        2 groups of 4 accounts for 4 matches a matchday, and this season's matchdays hold 8.
+
+        Nothing else refuses this: the groups are empty, so `REQ-RULES-002` passes, and 2 x 4 is a legal
+        bracket, so `REQ-RULES-001` passes too. Without this rule the season saves and every matchday is
+        then over its own count.
+        """
+
+        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
+
+        assert refusal is not None
+        assert refusal[0] == RULES_MATCHDAY_OVER_ITS_PHASE
+
+    def test_shortening_the_ladder_strands_a_knockout_matchday(self):
+        """
+        4 groups x 1 qualifier is 4 teams: a semi-final and a final, and no Viertelfinale at all.
+
+        So a Viertelfinale matchday still holding fixtures is left in a phase this season does not reach,
+        where the expected count is 0 — the case that shows the rule has to check every phase rather than
+        only the group phase.
+        """
+
+        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), attached={"viertelfinale": 4})
+
+        assert refusal is not None
+        assert refusal[0] == RULES_MATCHDAY_OVER_ITS_PHASE
+
+    def test_widening_is_always_accepted(self):
+        """More matches expected than are attached is a season still being set up, which is legal."""
+
+        assert judge(stored=rules(groups=2, qualifiers=4), proposed=rules(groups=4, qualifiers=2), attached={"gruppenphase": 4}) is None
+
+    def test_a_season_with_no_matchdays_yet_is_unaffected(self):
+        """An empty mapping, which is also what a create passes."""
+
+        assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={}) is None
+
+    def test_the_refusal_names_the_phase_and_both_counts(self):
+        """All three are what an admin needs: which matchday to look at, and by how much it is over."""
+
+        refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
+
+        assert refusal is not None
+        assert "gruppenphase" in refusal[1]
+        assert "8" in refusal[1]
+        assert "4" in refusal[1]
+
+    def test_a_stranding_narrowing_is_reported_before_this_one(self):
+        """
+        Both apply; the group that still holds teams is the more concrete answer.
+
+        `REQ-RULES-002` names a group and its teams, which is a thing an admin can look at. This rule
+        names an arithmetic consequence of the same edit, so reporting it first would describe the
+        symptom while the cause sat one screen away.
+        """
+
+        refusal = judge(
+            stored=rules(groups=4, qualifiers=2),
+            proposed=rules(groups=2, qualifiers=4),
+            occupancy={"C": 4},
+            attached={"gruppenphase": 8},
+        )
+
+        assert refusal is not None
+        assert refusal[0] == RULES_GROUPS_IN_USE

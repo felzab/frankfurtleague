@@ -76,3 +76,66 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
         query["inactive_since"] = None
 
     return query
+
+
+# =====================================================================================================
+# WHAT A MATCHDAY WRITE REFUSES
+# =====================================================================================================
+
+# Retiring a matchday that holds a match with a result. A retired matchday is excluded from
+# `GET /spieltage`, and the public Spielplan joins fixtures onto the matchdays it received -- so this
+# retirement does not merely hide a container, it unpublishes results the league actually produced
+# (owner, 2026-08-08).
+SPIELTAG_HOLDS_PLAYED = "REQ-RETIRE-002"
+
+# The matchday would hold more fixtures than its phase accounts for. Too FEW is legal and stays legal --
+# a season being set up passes through every count on the way to being complete -- but too many is a
+# state no setup passes through, because a single round robin fixes the number exactly (ADR-0065).
+SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
+
+
+def find_spieltag_retire_refusal(*, played_count: int) -> tuple[str, str] | None:
+    """
+    Why retiring this matchday must be refused, as `(error_code, detail)` -- or `None`.
+
+    `played_count` is how many of its fixtures carry an `ergebnis`, counted by the caller inside its own
+    read. A fixture with no result does not block: an empty or unplayed matchday is exactly the one
+    somebody created by mistake, and retiring it hides nothing anybody competed for.
+
+    Cancelled counts as played when a result was entered, and that is deliberate: a cancelled match with
+    a result still counts for the league table (docs/glossary.md), so its scoreline is as public as any
+    other. The caller decides that by what it counts, and it counts `ergebnis`.
+    """
+
+    if played_count > 0:
+        subject = (
+            "1 played match; retiring it would remove its result"
+            if played_count == 1
+            else f"{played_count} played matches; retiring it would remove their results"
+        )
+
+        return (SPIELTAG_HOLDS_PLAYED, f"the matchday holds {subject} from the public Spielplan")
+
+    return None
+
+
+def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int) -> tuple[str, str] | None:
+    """
+    Why this matchday's phase must be refused, as `(error_code, detail)` -- or `None`.
+
+    `expected_count` is `schedule_for`'s answer for the PROPOSED phase, and `attached_count` is how many
+    fixtures already carry this matchday's id. Only the over-full direction is refused, so a phase edit
+    that leaves a matchday still being filled in passes.
+
+    A phase whose expected count is 0 -- one this season's bracket does not reach -- therefore refuses
+    any attached fixture at all, which is the right answer: those fixtures have nowhere to be played.
+    """
+
+    if attached_count > expected_count:
+        return (
+            SPIELTAG_OVER_ITS_PHASE,
+            f"the matchday holds {attached_count} fixtures and this phase accounts for {expected_count}; "
+            "a single round robin per group fixes that number",
+        )
+
+    return None

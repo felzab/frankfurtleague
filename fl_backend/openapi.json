@@ -955,7 +955,7 @@
       },
       "patch": {
         "summary": "Update a Spieltag",
-        "description": "Update a matchday.\n\nNo fan-out: matches reference a matchday by id and embed no copy of it, so a renamed or re-dated\nmatchday is picked up by every consumer on the next read.",
+        "description": "Update a matchday.\n\nNo fan-out: matches reference a matchday by id and embed no copy of it, so a renamed or re-dated\nmatchday is picked up by every consumer on the next read.\n\n**The phase is refused if the matchday already holds more fixtures than it accounts for**\n(`REQ-SPIELTAG-002`, ADR-0065). A single round robin per group fixes that number, so moving a matchday\nof eight group fixtures into a Finale would leave seven of them with nowhere to be played. The other\ndirection -- fewer fixtures than expected -- is left alone, because that is every season part-way\nthrough being set up.",
         "operationId": "patch_spieltag_api_v0_spieltage__spieltag_id__patch",
         "security": [
           {
@@ -1008,7 +1008,7 @@
       },
       "delete": {
         "summary": "Retire a Spieltag (soft delete)",
-        "description": "Retire a matchday. SOFT: it stamps `inactive_since` and the document stays.\n\nIts matches are **not** touched and stay fully readable — `GET /spiele` never joins `spieltage`, so\nthey keep resolving. That is the reason this is soft rather than a delete: a hard one would leave\nevery one of those matches pointing at nothing.",
+        "description": "Retire a matchday. SOFT: it stamps `inactive_since` and the document stays.\n\nIts matches are **not** touched and stay resolvable — `GET /spiele` never joins `spieltage`. That is\nthe reason this is soft rather than a delete: a hard one would leave every one of those matches\npointing at nothing.\n\n**It is refused while any of them carries a result** (`REQ-RETIRE-002`, owner, 2026-08-08). Resolvable\nis not the same as visible: a retired matchday leaves `GET /spieltage`, and the public Spielplan joins\nfixtures onto the matchdays it received — so this retirement takes played results off that page. An\nunplayed matchday retires freely, which is the one somebody created by mistake.",
         "operationId": "delete_spieltag_api_v0_spieltage__spieltag_id__delete",
         "security": [
           {
@@ -1604,7 +1604,7 @@
       },
       "patch": {
         "summary": "Update a Saison's dates and rules",
-        "description": "Update a season's dates and scoring rules. `status` is deliberately not part of the payload.\n\nEditing `rules.win_points` or `draw_points` changes **every league table for this season on the\nnext read** — the standings are derived from the matches rather than stored (ADR-0026), so there is\nno migration to run and equally nothing to announce that the numbers moved. Which is exactly why a\n`past` season freezes them: `REQ-RULES-005` refuses the edit rather than silently rewriting who won a\nfinished competition.\n\n**Five refusals, and three of them read the season's own data** (ADR-0065, docs/domain.md). The rules\ndecide the shape of the competition, so narrowing one below what already exists strands it: a group the\nseason stops running while teams are still entered in it, a group left over its own capacity, or a\nbracket slot naming a placing that can no longer be reached. Each of those is legal at every layer and\ninvisible until something downstream reads it.",
+        "description": "Update a season's dates and scoring rules. `status` is deliberately not part of the payload.\n\nEditing `rules.win_points` or `draw_points` changes **every league table for this season on the\nnext read** — the standings are derived from the matches rather than stored (ADR-0026), so there is\nno migration to run and equally nothing to announce that the numbers moved. Which is exactly why a\n`past` season freezes them: `REQ-RULES-005` refuses the edit rather than silently rewriting who won a\nfinished competition.\n\n**Six refusals, and four of them read the season's own data** (ADR-0065, docs/domain.md). The rules\ndecide the shape of the competition, so narrowing one below what already exists strands it: a group the\nseason stops running while teams are still entered in it, a group left over its own capacity, a bracket\nslot naming a placing that can no longer be reached, or a matchday left holding more fixtures than its\nphase accounts for. Each of those is legal at every layer and invisible until something downstream\nreads it.",
         "operationId": "patch_saison_api_v0_saisons__saison_id__patch",
         "security": [
           {
@@ -2761,7 +2761,7 @@
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
         "summary": "Make this the active Saison",
-        "description": "Make this the active season, moving whichever season currently holds `active` to `past`.\n\nThis is the **only** path to `status: \"active\"` — no other endpoint writes the field, so \"exactly\none active season\" holds by construction rather than by convention. `pull_current_saison` and every\nendpoint defaulting an omitted `saison_id` (ADR-0002) depend on it.\n\nBoth writes run in one transaction, so the league is never briefly without an active season and\nnever briefly with two.\n\nIt does **not** check that the outgoing season's matches are all played. An early rollover is a\nlegitimate decision, and refusing one here would put the backend in the way of it; the admin page\nis where that precondition is presented to a person.",
+        "description": "Make this the active season, moving whichever season currently holds `active` to `past`.\n\nThis is the **only** path to `status: \"active\"` — no other endpoint writes the field, so \"exactly\none active season\" holds by construction rather than by convention. `pull_current_saison` and every\nendpoint defaulting an omitted `saison_id` (ADR-0002) depend on it.\n\nBoth writes run in one transaction, so the league is never briefly without an active season and\nnever briefly with two.\n\n**The outgoing season has to be finished** (`REQ-ACTIVATE-001`, owner, 2026-08-08). Demoting it to\n`past` freezes its competitive rules and makes its derived table the record of what happened, so\nrolling over across unplayed fixtures closes a competition that is not over. Entering the missing\nresults or cancelling the fixtures is the way through; cancelling is what turns a match nobody will\nplay into a settled one.",
         "operationId": "activate_saison_api_v0_saisons__saison_id__activate_post",
         "security": [
           {
@@ -3063,6 +3063,71 @@
         ],
         "title": "FLBracketFaultGruppe",
         "description": "One bracket slot whose `gruppe` reference names a placing the standings will never hand it.\n\nBoth reasons need a person, which is what separates them from the ordinary state of a group that is\nsimply still being played -- that one is reported by nobody, because \"not yet\" is not a problem\n(ADR-0043).\n\n`gruppe_too_small` is a data-entry mistake: the group holds fewer teams that can hold a placing than\nthe `platz` asks for, so no result will ever produce it. Like a `spiel_nr` naming no match, the slot\nis left exactly as it stands -- erasing a team over a typo destroys more than it reports (ADR-0042).\n\n`tie_unresolved` is a real outcome: the group is played out and the tiebreak chain still cannot\nseparate two teams at that placing. The slot IS emptied, because naming either team would be a\nguess, and clearing the `quelle` and entering a side by hand is the route past it."
+      },
+      "FLBracketFaultOccupant": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "const": "disqualified_occupant",
+            "title": "Reason"
+          },
+          "spiel_id": {
+            "type": "string",
+            "title": "Spiel Id"
+          },
+          "spiel_nr": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Spiel Nr"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "team1",
+              "team2"
+            ],
+            "title": "Side"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id"
+          },
+          "team_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Team Name"
+          },
+          "disqualifiziert_seit": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Disqualifiziert Seit"
+          },
+          "spiel_datum": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spiel Datum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "spiel_id",
+          "spiel_nr",
+          "side",
+          "team_id",
+          "team_name",
+          "disqualifiziert_seit",
+          "spiel_datum"
+        ],
+        "title": "FLBracketFaultOccupant",
+        "description": "One fixture that fields a team the season disqualified before the day it is played.\n\n**Not a fault of the bracket, and the only one here that is not.** The other five are contradictions\nbetween a slot's references and what the season can produce; this one is a contradiction between a\nfixture's DATE and a decision recorded on the junction row, and it applies to a group-phase fixture\nexactly as much as to a knockout slot. It shares this union because it shares the channel: a derived\ncontradiction that needs a person, reported on the same triage list (ADR-0047, ADR-0056).\n\n**A fixture played BEFORE the disqualification is not a fault.** The team was eligible on the day, so\nthe match and its result stand -- `find_eligibility_refusal` permits entering that result for the same\nreason (owner, 2026-08-08). What is reported is a fixture on or after the effective day.\n\n`spiel_datum` is null where the fixture carries no date, which is reported: an undated fixture cannot\nbe shown to have been played in time, and that is the same refuse-by-default reading the write path\ntakes.\n\nNothing is emptied. The fixture keeps both sides, because the answer -- cancel it, award it, or\nreplace the team -- is a competition decision and not one a derivation may take (roadmap FB-9)."
       },
       "FLBracketFaultQuelle": {
         "properties": {
@@ -3588,11 +3653,15 @@
                 },
                 {
                   "$ref": "#/components/schemas/FLBracketFaultSpiel"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultOccupant"
                 }
               ],
               "discriminator": {
                 "propertyName": "reason",
                 "mapping": {
+                  "disqualified_occupant": "#/components/schemas/FLBracketFaultOccupant",
                   "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",
@@ -5171,11 +5240,15 @@
                 },
                 {
                   "$ref": "#/components/schemas/FLBracketFaultSpiel"
+                },
+                {
+                  "$ref": "#/components/schemas/FLBracketFaultOccupant"
                 }
               ],
               "discriminator": {
                 "propertyName": "reason",
                 "mapping": {
+                  "disqualified_occupant": "#/components/schemas/FLBracketFaultOccupant",
                   "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
                   "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
                   "same_team": "#/components/schemas/FLBracketFaultSpiel",

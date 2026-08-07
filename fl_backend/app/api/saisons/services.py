@@ -32,11 +32,11 @@ Two halves: `build_saisons_*` translate `FLSaisonsFilterOptions` into a Mongo fi
   docs/_decisions/0065-a-seasons-schedule-is-derived-from-its-rules.md
 """
 
-from typing import Any
+from typing import Any, Iterable, Mapping, Sequence
 
-from app.api.saisons.schedule import knockout_phases_for
+from app.api.saisons.schedule import expected_matches, knockout_phases_for
 from app.api.saisons.schemas import FLSaisonRules, FLSaisonsFilterOptions
-from app.api.spiele.schemas import MAX_QUALIFIERS
+from app.api.spiele.schemas import MAX_QUALIFIERS, FLSaisonPhase, FLSpiel
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
 
@@ -82,6 +82,12 @@ RULES_QUALIFIERS_BELOW_WIRING = "REQ-RULES-004"
 # finished competition's result and nothing records the previous one.
 RULES_SAISON_FINISHED = "REQ-RULES-005"
 
+# The narrowing would leave one of the season's matchdays holding more fixtures than its phase accounts
+# for (owner, 2026-08-08). The matchday's expected count is derived from these rules (ADR-0065), so
+# lowering `number_of_groups` or `teams_per_group` lowers it for every group-phase matchday at once --
+# and a matchday over its own count is a state no season setup passes through, unlike being under it.
+RULES_MATCHDAY_OVER_ITS_PHASE = "REQ-RULES-006"
+
 # The three fields a finished season freezes. The dates stay editable -- correcting a mistyped end date on
 # a closed season changes nothing anybody competed for -- and so does `erlaubte_stufen`, which bounds what
 # a form OFFERS and never what a stored squad row holds (ADR-0061).
@@ -95,6 +101,7 @@ def find_rules_refusal(
     proposed: FLSaisonRules,
     occupancy_by_gruppe: dict[FLGruppenNames, int],
     highest_wired_platz: int,
+    attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
 ) -> tuple[str, str] | None:
     """
     Why these rules must be refused, as `(error_code, detail)` -- or `None`.
@@ -103,6 +110,10 @@ def find_rules_refusal(
     rule applies. `occupancy_by_gruppe` counts `saison_teams` rows per group, disqualified rows included,
     because a team never leaves a season (ADR-0033) and its place stays taken. `highest_wired_platz` is
     the largest `platz` any of the season's bracket slots names, or 0 where none does.
+
+    `attached_by_phase` is the LARGEST fixture count any single matchday of each phase already holds --
+    the maximum rather than the sum, because the expected count is per matchday. `None` on a create,
+    where the season has no matchdays yet.
     """
 
     # A season that is over freezes first: there is no point telling an admin their group count strands a
@@ -151,4 +162,74 @@ def find_rules_refusal(
             f"a bracket slot names platz {highest_wired_platz}; qualifiers_per_group cannot drop below a placing already wired",
         )
 
+    # Last, because it is the only one that has to compute the whole schedule to answer. Every phase is
+    # checked rather than just the group phase: lowering the qualifier count shortens the KNOCKOUT ladder,
+    # so a phase the season no longer reaches drops to an expected 0 while its matchdays keep their
+    # fixtures.
+    for phase, attached in sorted((attached_by_phase or {}).items()):
+        expected = expected_matches(proposed, phase)
+        if attached > expected:
+            return (
+                RULES_MATCHDAY_OVER_ITS_PHASE,
+                f"a {phase} matchday holds {attached} fixtures and these rules account for {expected}; "
+                "the count follows from the rules, so lowering them would strand fixtures",
+            )
+
     return None
+
+
+# =====================================================================================================
+# WHAT THE ROLLOVER REFUSES
+# =====================================================================================================
+
+# The outgoing season still has fixtures nobody has played (owner, 2026-08-08). Activating a season
+# demotes the incumbent to `past`, and a `past` season's competitive rules freeze (REQ-RULES-005) while
+# its table becomes the record of what happened -- so a rollover over unplayed fixtures closes a
+# competition that is not finished, and does it in the one transaction that cannot be undone by editing
+# the season afterwards.
+ACTIVATE_SAISON_UNFINISHED = "REQ-ACTIVATE-001"
+
+# How many `spiel_nr` values a refusal names before it stops counting. The panel lists them all; this is
+# the log line, and a season's worth of numbers in it buries the rest of the message.
+_NAMED_UNPLAYED = 5
+
+
+def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
+    """
+    The fixture numbers of every match still waiting to be played, in order.
+
+    Unplayed means **no result and not cancelled**. Cancelling is what makes a fixture nobody will ever
+    play into a settled one, which is the route past the refusal below -- and a cancelled match that DOES
+    carry a result still counts for the league table (docs/glossary.md), so it is settled either way.
+
+    A fixture with no occupants yet counts as unplayed. That is a bracket slot the group phase never
+    filled, and a season leaving one open is exactly as unfinished as one leaving a match unscored.
+    """
+
+    return sorted(spiel.spiel_nr for spiel in spiele if spiel.ergebnis is None and not spiel.is_canceled)
+
+
+def find_activation_refusal(*, outgoing_unplayed: Sequence[int]) -> tuple[str, str] | None:
+    """
+    Why this rollover must be refused, as `(error_code, detail)` -- or `None`.
+
+    `outgoing_unplayed` is `unplayed_spiel_nrs` over the fixtures of the season currently holding
+    `active`, empty where there is no incumbent at all -- the first rollover of a fresh database, which
+    nothing blocks.
+
+    Re-activating the season that already holds `active` is a no-op the endpoint reports as such
+    (`deactivated: 0`), and it reaches this rule like any other call: a season cannot be its own outgoing
+    incumbent and also have unplayed fixtures without those fixtures being the ones it is about to close.
+    """
+
+    if not outgoing_unplayed:
+        return None
+
+    named = ", ".join(str(nr) for nr in outgoing_unplayed[:_NAMED_UNPLAYED])
+    rest = f" and {len(outgoing_unplayed) - _NAMED_UNPLAYED} more" if len(outgoing_unplayed) > _NAMED_UNPLAYED else ""
+
+    return (
+        ACTIVATE_SAISON_UNFINISHED,
+        f"the outgoing season has {len(outgoing_unplayed)} unplayed fixtures (spiel_nr {named}{rest}); "
+        "enter their results or cancel them before closing the season",
+    )
