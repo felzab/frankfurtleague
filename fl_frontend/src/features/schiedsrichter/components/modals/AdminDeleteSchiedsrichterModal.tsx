@@ -24,11 +24,11 @@ export function AdminDeleteSchiedsrichterModal({
     <ConfirmDeleteModal
       isOpen={isOpen}
       onClose={onClose}
-      heading="Schiedsrichter löschen"
+      heading="Schiedsrichter stilllegen"
       entityLabel="den Schiedsrichter"
       entityName={schiedsrichter.name}
       consequence="Bereits eingetragene Spiele behalten den hier hinterlegten Schiedsrichter. Er steht künftig nur nicht mehr zur Auswahl."
-      successMessage="Schiedsrichter erfolgreich gelöscht"
+      successMessage="Schiedsrichter stillgelegt"
       onConfirm={() => deleteSchiedsrichterAction({ id: schiedsrichter.id })}
     />
   );
