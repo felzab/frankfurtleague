@@ -55,12 +55,20 @@ what the documents currently hold, so the order is not a preference.
 
 Run against the live database **before** deploying the image that carries this ADR's models.
 
-**The reverse order was measured rather than predicted.** Running the local stack against the live
-data with these models in place, `GET /spieler?team_id=…` answers **500** for the five teams holding
-a stray row — Carl-Schurz, Gagern, Gymnasium Nord, Riedberg and Ziehen — because `FLSpielerListAdapter`
-refuses the document before the response is built, and `/dashboard/spieler/{team_id}` never leaves its
-loading state. The other eleven teams answer 200 and render in full, so the blast radius is those five
-public squad pages until step 2 has run.
+**The reverse order was measured rather than predicted, and it costs more than the public pages.**
+Running the local stack against the live data with these models in place:
+
+- `GET /spieler?team_id=…` answers **500** for the five teams holding a stray row — Carl-Schurz,
+  Gagern, Gymnasium Nord, Riedberg and Ziehen — so those five `/dashboard/spieler/{team_id}` pages
+  fail. The other eleven answer 200 and render in full.
+- **`GET /spieler/memberships` answers 500 outright**, and with it the whole of `/admin/spieler`. That
+  read returns every player with every squad row, so one stray anywhere in the collection fails all of
+  it — there is no per-team blast radius to hide behind.
+
+The second is the one that decides the ordering. **The admin list is the surface an operator would
+reach for to repair the data, and it is down until the data is repaired**, so the runbook is not a
+tidy-up that can follow the deploy at leisure — it is the only way in. Widening the admin read to
+tolerate a value the write path refuses was considered and rejected below.
 
 1. **The two spellings become the value they already mean.** Two `updateMany`s on `saison_spieler`:
    `{"position": "Sturm"}` → `Angriff` (2 rows), `{"position": "TW"}` → `Tor` (1 row).
@@ -115,6 +123,16 @@ tomorrow's, and it is strictly more work than this decision for a subset of the 
 **A reference collection of positions, joined at read time.** Rejected as disproportionate: four
 values that change on a scale of years do not need a collection, a join and an admin surface of their
 own. That shape earns its place when the set is data; here it is vocabulary.
+
+**Let the admin read tolerate a value the write path refuses**, typing `position` and `stufe` as bare
+strings on `FLSpielerMembership` alone, so `/admin/spieler` could display and repair a stray row
+instead of failing on it. Genuinely tempting, because the alternative is an admin surface that cannot
+show the data it exists to fix. Rejected on scope: the tolerance would be permanent and would exist
+for a state that lasts from the deploy until step 2 of a runbook — after which the validator makes it
+unreachable, since it refuses a bad value on update as well as on insert. A second shape of the same
+field, kept forever to serve a window measured in minutes, is the more expensive mistake. It is also
+the shape ADR-0041 and ADR-0059 both declined for the same reason: the data is ordered against the
+deploy, not accommodated by it.
 
 **Include the Mittelstufe years (5–10) in `stufe`.** Rejected by the owner: twelve members to
 represent one row, in a set otherwise decided by the Oberstufe's two phases. The single row
