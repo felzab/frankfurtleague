@@ -2,15 +2,15 @@
  * APP · the club edit's undo
  *
  * Puts a club's own fields, its selected season's junction row, or both back the way they were —
- * the second of the two admin mutations that are route handlers rather than server actions, and the
- * boundary stops here
- * ([ADR-0060](../../../../../../../docs/_decisions/0060-an-editors-undo-is-a-route-handler-until-e592-is-fixed.md)).
+ * one of the admin mutations that are route handlers rather than server actions
+ * ([ADR-0062](../../../../../../../docs/_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md):
+ * an undo belongs to a page-owned editor, and nothing else becomes a route handler).
  *
  * **The short version.** The undo is offered by a toast that outlives the page that raised it, so by
  * the time it is pressed the browser has left `/admin/teams/[team_id]`. A server action dispatched
  * from the route it landed on makes Next re-render the editor segment it still holds in the router
  * tree, which raises Next's E592 invariant mid-stream and truncates the response — the whole
- * diagnosis is ADR-0055's. **Revert this to a server action when E592 is fixed upstream.**
+ * diagnosis is ADR-0062's. **Revert this to a server action when E592 is fixed upstream.**
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *

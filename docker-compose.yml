@@ -19,7 +19,6 @@
 #  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────
 #
 #   docs/ops/spec.md -- the service table and invariants
-#   docs/_decisions/0015-backend-triggered-revalidation-route.md -- why the topology is the gate
 
 # Capped so a chatty container cannot fill the server's disk: 30 MB per service, worst case.
 x-logging: &default-logging

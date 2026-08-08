@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `fca5849`, 2026-08-07
+**Verified against:** `0ceefab`, 2026-08-08
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no
@@ -66,8 +66,8 @@ rest of this surface's documentation was written as though requests arrive at ng
 - **Cloudflare compresses what arrives uncompressed and passes through everything else**, and its
   own compression is _worse_ than nginx's gzip on the same file — measured at 38.7 KB (zstd, what
   Chrome negotiates) against 35.9 KB. So the origin keeps compressing and passthrough is the wanted
-  behaviour, not a problem to route around. (ADR-0022, reversing ADR-0021 — the passthrough mechanism
-  described there is real; only the conclusion drawn from it was wrong.)
+  behaviour, not a problem to route around. (ADR-0022 — the passthrough mechanism is real; only the
+  conclusion the reverted edge experiment drew from it was wrong.)
 
 The origin remains the authority for routing, rate limiting and the security headers; Cloudflare is a
 layer above it that this repository does not configure. Nothing here manages the Cloudflare account,

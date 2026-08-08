@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `fb70ee0`, 2026-08-08
+**Verified against:** `0ceefab`, 2026-08-08
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
@@ -47,7 +47,7 @@ consequences, stated plainly:
 - An **uncached read inside a page render** runs under the real request id, because it seeds the
   scope explicitly. One query is in this position —
   `fl_frontend/src/features/admin/queries.ts :: getAdminSpieleActionRequired`, uncached by
-  [ADR-0013](_decisions/0013-admin-action-required-uncached.md) — and being uncached is exactly
+  [ADR-0013](_decisions/0013-admin-scoped-reads-are-never-cached.md) — and being uncached is exactly
   what makes the seeding legal: `headers()` is a request API, so the same call inside a `"use cache"`
   scope raises `next-request-in-use-cache` rather than failing quietly.
 - A **server action** (every admin write) and a **route handler** likewise run with the real request
@@ -212,8 +212,8 @@ Frontend codes (`fl_frontend/src/core/errors.ts`, plus the call sites named):
 **An admin mutation never lets a typed API error escape.** `runAdminMutation` logs the failure with
 its codes and returns the `FormState` the caller toasts — a 409 is an ordinary outcome of a create
 (ADR-0032), and before this boundary existed it escalated past the toast into the whole error page.
-It wraps both entry points: the eight server actions and the undo route handler
-([ADR-0055](_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)).
+It wraps both entry points: the admin server actions and the page-owned editors' undo route handlers
+([ADR-0062](_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md)).
 
 ## Finding an incident
 

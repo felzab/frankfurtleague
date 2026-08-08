@@ -3,22 +3,29 @@
 **Status:** Accepted
 **Date:** 2026-08-04
 **Surface:** frontend, ops
-**Supersedes:** [ADR-0015](0015-backend-triggered-revalidation-route.md)
+**Supersedes:** —
 **Superseded by:** —
-**Source:** owner's decision, 2026-08-04
+**Source:** Decision of 2026-08-04, removing the interim revalidation route (retired number 0015).
 
 ## Context
 
-`saisons`, `spieler` and `spieltage` have no frontend write surface and are cached with
-`cacheLife("days")`, so an edit made directly in MongoDB is served stale until the cache entry
-expires. ADR-0015 answered that with `POST /api/revalidate` — an in-network, key-authenticated
-route that cleared the affected base tags, invoked by hand from inside the frontend container.
+`saisons`, `spieler` and `spieltage` have no frontend write surface — they are edited directly in
+MongoDB, through Compass or an ad-hoc script — and are cached with `cacheLife("days")`, so an edit
+made that way is served stale until the cache entry expires: up to 24 hours.
 
-The route carried real weight for its size: a fixed resource enum, constant-time key comparison, a
-resource→tags mapping that had to mirror the read paths' season resolution, a topology-dependent
-security posture ("adding an nginx location publishes it") repeated across three documents, and an
-operational procedure nobody could run without reading it up. Its only caller was an operator,
-occasionally, and its entire benefit was compressing a staleness window of at most 24 hours.
+An earlier decision (retired as 0015) answered that with `POST /api/revalidate` — an in-network
+route on the Next side that took a resource name from a fixed enum, authenticated with
+`INTERNAL_API_KEY_SYSTEM` compared in constant time, and cleared the affected base tags. It was
+invoked by hand from inside the frontend container; no code path called it. Its security rested on
+network topology — nginx routes `/api` to FastAPI and carves out only `/api/auth` for Next, so no
+external request could reach it — which meant the warning "adding an nginx location for this path
+would publish it" had to be repeated across three documents.
+
+The route carried real weight for its size: the enum, the constant-time comparison, a
+resource→tags mapping that had to mirror the read paths' season resolution, the topology-dependent
+security posture, and an operational procedure nobody could run without reading it up. Its only
+caller was an operator, occasionally, and its entire benefit was compressing a staleness window of
+at most 24 hours.
 
 ## Decision
 
@@ -46,9 +53,9 @@ rebuild from the backend in seconds.
 
 ## Consequences
 
-- The frontend has no route handlers outside `/api/auth`, so nginx's routing table
-  (`/api` → FastAPI, `/api/auth` → Next) no longer protects anything on the Next side beyond
-  Auth.js itself.
+- The frontend has no route handlers outside `/api/auth` and the page-owned editors' undo handlers
+  ([ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)), so nginx's routing table
+  (`/api` → FastAPI, with carve-outs for Next) no longer protects a revalidation surface.
 - A season rollover performed by hand is either followed by a container recreation or becomes fully
   visible within a day (`docs/workflows/README.md`, season rollover).
 - `INTERNAL_API_KEY_SYSTEM` stays: the frontend still uses it to call the backend's system
@@ -57,10 +64,13 @@ rebuild from the backend in seconds.
 
 ## Alternatives considered
 
-**Keep the route until FB-3/FB-6 land** — ADR-0015's own retirement plan. Rejected by the owner:
-the interim mechanism costs documentation, security posture and an operational procedure to
-compress a 24-hour window that a container recreation compresses too.
+**Keep the route until FB-3/FB-6 land** — the retired decision's own retirement plan. Rejected: the
+interim mechanism costs documentation, security posture and an operational procedure to compress a
+24-hour window that a container recreation compresses too.
 
-**Shorten the cache lifetimes.** Rejected for the same reason ADR-0015 rejected it: it discards the
-caching benefit on the most stable data in the system every day of the year, for an event that
-happens a few times a year.
+**Shorten the cache lifetimes.** Rejected when the route was built and rejected again here, for the
+same reason: it discards the caching benefit on the most stable data in the system every day of the
+year, for an event that happens a few times a year.
+
+**Expose a revalidation route publicly with a stronger secret.** Rejected when the route was built:
+a secret is a weaker guarantee than unreachability, and no caller outside the network needs it.

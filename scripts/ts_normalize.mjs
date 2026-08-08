@@ -39,13 +39,15 @@ const printer = ts.createPrinter({ removeComments: true });
 
 function normalize(path) {
   const text = readFileSync(path, "utf8");
-  // setParentNodes: true, because the printer walks parents when it emits.
+  // setParentNodes: true, because the printer walks parents when it emits. The script kind must
+  // follow the extension: a .tsx parsed as plain TS reads its JSX as syntax errors, and the parse
+  // refusal below would then count every comment-only .tsx edit as code.
   const source = ts.createSourceFile(
     path,
     text,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.TS,
+    path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   // A version that does not parse cleanly may lose content in the printed form, which would make
   // two different files compare equal. Refuse rather than answer from a damaged tree.

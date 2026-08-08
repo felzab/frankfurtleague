@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `7a18d8c`, 2026-08-08
+**Verified against:** `0ceefab`, 2026-08-08
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -206,9 +206,9 @@ lets the canonicals be paths. Two consequences worth knowing before editing meta
 - **`openGraph` is inherited or replaced whole, never merged field-by-field.** The root layout therefore
   declares only the genuinely site-wide parts (`siteName`, `images`, `locale`, `type`); og:title and
   og:description resolve from each page's own title and description.
-- **No route ships a `keywords` array.** Google has ignored the tag since 2009 and Bing reads an
-  overstuffed one as a spam signal, so the twelve arrays that existed were maintenance with no reader.
-  Ranking terms belong in the title and description. (ADR-0018.)
+- **No route ships a `keywords` array, and none is added for a new route.** Google has ignored the
+  tag since 2009, Bing reads an overstuffed one as a spam signal, and no engine confirms a benefit —
+  so the tag is maintenance with no reader. Ranking terms belong in the title and description.
 
 ## Authentication
 

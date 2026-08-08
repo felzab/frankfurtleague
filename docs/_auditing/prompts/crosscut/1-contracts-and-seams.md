@@ -92,7 +92,7 @@ THE CHECKS, in priority order:
    consumed by one surface and supplied by neither compose file, a name that differs by surface, a
    value whose format one side assumes and the other does not validate. Then the topology half:
    every control that exists only because of where things sit in the network, cross-checked against
-   the nginx configs — ADR-0015 is the pattern. **State what breaks each control**, because that
+   the nginx configs — the retired revalidation route (ADR-0035) is the pattern. **State what breaks each control**, because that
    list is what a future nginx or compose edit gets checked against.
 
 8. **CONTRACT ENFORCEMENT.** For each seam above, name what would catch a regression today: a test,

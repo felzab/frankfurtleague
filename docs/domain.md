@@ -1,6 +1,6 @@
 # The domain model
 
-**Verified against:** `b5324b8`, 2026-08-08
+**Verified against:** `0ceefab`, 2026-08-08
 
 **What the league's data is, what depends on what, when each thing may be edited, and what a write has to do
 about its neighbours.** Four questions, one page.
@@ -220,11 +220,11 @@ same: refusing would block a legitimate act rather than a mistake.
 | An end date before its start date                   | No schema or endpoint holds the two in order, so no page may either      |
 
 Where a state is permitted **and reported**, the report is a page, never a stored flag: no bracket fault is
-stored (ADR-0047), and the count mismatch is computed on the admin read (ADR-0065).
+stored (ADR-0047) — a slot whose occupant was disqualified after the resolution filled it is one of the
+derived faults (ADR-0052) — and the count mismatch is computed on the admin read (ADR-0065).
 
-The two that are not reported anywhere are named as such — a bracket slot whose occupant was disqualified
-after the resolution filled it (roadmap FB-9) and the eventual purge of retired rows (roadmap BE-12). Both
-are open items, not decisions.
+The one that is not reported anywhere is named as such — the eventual purge of retired rows
+(roadmap BE-12), an open item, not a decision.
 
 ---
 

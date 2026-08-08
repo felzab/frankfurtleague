@@ -39,7 +39,7 @@ is the only thing preventing it, so the reason is recorded at the component.
 
 `admin` keeps: `AdminContext`, `AdminSidemenu`, the aggregator views, and `admin/queries.ts` — which
 cannot move, because it is admin-authorized data rather than Spiel data
-([ADR-0013](0013-admin-action-required-uncached.md)).
+([ADR-0013](0013-admin-scoped-reads-are-never-cached.md)).
 
 ## Alternatives considered
 

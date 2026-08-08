@@ -16,7 +16,7 @@ import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
   // connection() for the same reason the page has one: the Docker builder stage has no reachable
-  // FastAPI, so an unguarded getTeam() here would fail `docker compose build` (ADR-0009, ADR-0011).
+  // FastAPI, so an unguarded getTeam() here would fail `docker compose build` (ADR-0009).
   await connection();
   const team_id = await resolveTeamId(props.params);
 
@@ -46,7 +46,8 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
  * The page resolves nothing itself; every await happens inside the boundary below.
  *
  * `cacheComponents` builds an App Shell per route, and a dynamic segment with no
- * `generateStaticParams` (ADR-0011) gets one built with FALLBACK params. Awaiting `params` at the
+ * `generateStaticParams` (deliberate — `docs/frontend/spec.md :: I28`) gets one built with FALLBACK
+ * params. Awaiting `params` at the
  * page's top level ties that shell to a single URL, and the two states contradict each other the
  * moment a server action's `updateTag` revalidates the route from somewhere else — Next raises
  * `Invariant: postponed state should not be provided when fallback params are provided`, truncates

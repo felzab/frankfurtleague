@@ -42,7 +42,8 @@ THE CHECKS, in priority order:
 2. **TOPOLOGY-ONLY CONTROLS.** Merge b3's inventory (if present) with your own from check 1: every
    control that is purely an absence or a network boundary, each with — what it protects, what
    breaks it (an added location, a compose network change, a port publish), and where it is
-   documented (ADR-0015 is the model; an undocumented one is a finding). This list is the
+   documented (the retired revalidation route, recorded in ADR-0035, is the model; an undocumented
+   one is a finding). This list is the
    deliverable a future nginx edit gets checked against.
 
 3. **HEADER POSTURE.** The served security headers versus the committed configs (on the running

@@ -29,8 +29,8 @@ which is the right half of the job and not the half being asked for.
 **No URL state.** The edited match was not addressable, not restorable on refresh, and Back closed
 nothing.
 
-Two decided rules were also waiting on a surface to land on: the destructive-edit warning (ADR-0048) and
-FB-9's eligibility feedback (ADR-0049, implementation deferred by the owner).
+Two decided rules were also waiting on a surface to land on: the destructive-edit warning (now carried
+by ADR-0051) and FB-9's eligibility feedback (now ADR-0052, implementation deferred at the time).
 
 ## Decision
 
@@ -111,8 +111,8 @@ reaches them statically from this route rather than through the `next/dynamic` i
 as the reason to follow dynamic edges. That ADR's reasoning stands unedited, as this folder requires, and
 `docs/frontend/overview.md` carries the current state.
 
-**FB-9's frontend half has a home and is still not built.** ADR-0049's disabled picker entries and
-eligibility warning belong on this page; the owner's deferral of that work stands.
+**FB-9's frontend half found its home here.** ADR-0052's disabled picker entries and eligibility
+warning belong on this page, and landed on it once the deferral ended.
 
 ## Alternatives considered
 
@@ -130,9 +130,10 @@ worse than either surface alone.
 recorded here rather than silently: the owner has not been asked to re-confirm the departure, so the
 disagreement is on the record where a reader will find it.
 
-**Simulate the resolution to say exactly which results a save would destroy.** Already refused by
-ADR-0048 and not reopened. The warning states the wiring and the mechanism; it does not predict the loss.
+**Simulate the resolution to say exactly which results a save would destroy.** Refused at the time
+(retired decision 0048); [ADR-0051](0051-a-voided-result-is-named-before-it-is-lost.md) later reversed
+exactly this — its dry run is that simulation, run read-only through the write path itself.
 
-**A confirmation step before a save that would advance something.** Also ADR-0048's, and refused there
-for the reason that holds here too: it fires mostly on harmless saves and is dismissed unread by the
-second week.
+**A confirmation step before a save that would advance something.** Refused by ADR-0051 (as by the
+retired decision before it), for the reason that holds here too: it fires mostly on harmless saves and
+is dismissed unread by the second week.

@@ -13,10 +13,10 @@
  *      ordinary, expected outcome (ADR-0032). The failure is logged HERE, with its codes and id,
  *      because a handled error never reaches `onRequestError`.
  *
- * **Named for the mutation rather than the transport**, because it now wraps both: nine server
- * actions and one route handler. That handler is the match edit's undo, which is a route handler for
- * a reason recorded in [ADR-0055](../../../../docs/_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)
- * — everything in this wrapper applies to it unchanged, which is part of why that shape was chosen.
+ * **Named for the mutation rather than the transport**, because it wraps both: the admin server
+ * actions and the page-owned editors' undo route handlers. The handlers are handlers for a reason
+ * recorded in [ADR-0062](../../../../docs/_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md)
+ * — everything in this wrapper applies to them unchanged, which is part of why that shape was chosen.
  */
 
 import { unstable_rethrow } from "next/navigation";

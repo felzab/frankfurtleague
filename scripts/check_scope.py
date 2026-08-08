@@ -135,12 +135,14 @@ def toml_same(old: str, new: str) -> bool:
     return tomllib.loads(old) == tomllib.loads(new)
 
 
-def typescript_same(old: str, new: str) -> bool:
+def typescript_same(suffix: str, old: str, new: str) -> bool:
     """Delegated to TypeScript's own parser - see scripts/ts_normalize.mjs for why not a regex."""
     if shutil.which("node") is None:
         raise RuntimeError("node is not on PATH")
     with tempfile.TemporaryDirectory() as tmp:
-        old_path, new_path = Path(tmp) / "old.ts", Path(tmp) / "new.ts"
+        # The real suffix, because ts_normalize.mjs picks its script kind from the extension -- a
+        # .tsx written out as .ts parses its JSX as syntax errors and the answer degrades to "code".
+        old_path, new_path = Path(tmp) / f"old{suffix}", Path(tmp) / f"new{suffix}"
         old_path.write_text(old, encoding="utf-8")
         new_path.write_text(new, encoding="utf-8")
         result = subprocess.run(
@@ -165,7 +167,7 @@ def same_but_for_comments(suffix: str, old: str, new: str) -> bool:
             return python_same(old, new)
         if suffix == ".toml":
             return toml_same(old, new)
-        return typescript_same(old, new)
+        return typescript_same(suffix, old, new)
     except SyntaxError, ValueError, ImportError, RuntimeError, OSError:
         # A version that does not parse, a missing toolchain, a tomllib that is not there: none of
         # these is proof of anything, so the change counts as code.
@@ -191,19 +193,19 @@ def ci_scopes(files: list[str]) -> dict[str, bool] | None:
     bash = shutil.which("bash")
     if bash is None:
         return None
+    # Bytes on purpose: text mode translates "\n" to os.linesep on the way in, so on Windows every
+    # path but the last reaches the shell with a trailing "\r" -- and a CR-suffixed name matches no
+    # exact-name case arm, which turns every scope on via the conservative fallback.
     result = subprocess.run(
         [bash, "scripts/ci_scopes.sh", "--stdin"],
         cwd=REPO_ROOT,
-        input="\n".join(files),
+        input="\n".join(files).encode("utf-8"),
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
     )
     if result.returncode != 0:
         return None
     scopes: dict[str, bool] = {}
-    for line in result.stdout.split("\n"):
+    for line in result.stdout.decode("utf-8", errors="replace").split("\n"):
         if "=" in line:
             name, value = line.split("=", 1)
             scopes[name.strip()] = value.strip() == "true"

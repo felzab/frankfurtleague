@@ -99,11 +99,11 @@ page and the triage category cannot describe one slot differently.
 **The page writes nothing, and every row links into the match editor** with the same brand-filled
 control `SpielCard` uses wherever `adminEditHref` is passed. One save path, so there is no second
 write surface to keep in step with the endpoint's four refusal rules (ADR-0046), and Next's E592 stays
-out of reach ([ADR-0055](0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)).
+out of reach ([ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)).
 
 **It reads the app's cached public queries, not the admin route.** A season's fixtures are public —
 `/dashboard/playoffs` renders the same two reads and the same join — so nothing here is
-admin-authorized and [ADR-0013](0013-admin-action-required-uncached.md)'s no-cache rule does not reach
+admin-authorized and [ADR-0013](0013-admin-scoped-reads-are-never-cached.md)'s no-cache rule does not reach
 it. What makes the page admin-only is the layout's session guard, which every route under `/admin`
 inherits.
 

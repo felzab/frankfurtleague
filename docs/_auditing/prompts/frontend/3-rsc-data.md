@@ -15,8 +15,9 @@ DELIVERABLE: three required tables — the mutation→invalidation map (A1), the
 CONTEXT — derive, do not assume: `cacheComponents` is on; data reaches the frontend exclusively
 through `src/core/api.ts` against FastAPI. The caching design is ratified — two granular tags with
 unconditional base tags (ADR-0001), the season default server-side (ADR-0002), `connection()`
-preceding every page fetch (ADR-0009), no `generateStaticParams` (ADR-0011), the uncached admin
-query (ADR-0013). This pass audits **conformance to those decisions**, not the decisions.
+preceding every page fetch (ADR-0009), no `generateStaticParams` (`docs/frontend/spec.md :: I28`),
+the uncached admin query (ADR-0013). This pass audits **conformance to those decisions**, not the
+decisions.
 
 SECTION A — CACHING, RSC, DATA FLOW
 

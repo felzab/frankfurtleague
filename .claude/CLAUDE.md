@@ -261,6 +261,9 @@ is in `/docs`; match the surrounding code.
   function to a Client Component; neither `tsc` nor the build catches it on a dynamic route.
 - **Every granular cache tag needs a matching `updateTag` in the same change.** A tag nothing
   invalidates is decoration.
+- **An admin-scoped API read never takes `"use cache"`** (ADR-0013). The cache keys on arguments, not
+  caller identity, so a cached admin read is a shared slot of authorized data — and adding the
+  directive type-checks, lints, builds and passes every test.
 
 ## 7. Ratified decisions — never "fix" these
 
@@ -283,9 +286,8 @@ the ADR.
 | 0008 | Use a default export outside the files Next.js requires one in                                      |
 | 0009 | Remove an `await connection()` before a page fetch — the image build fails                          |
 | 0010 | Add a second direct `MongoClient`; Auth.js owns the only one                                        |
-| 0011 | Add `generateStaticParams` to a dynamic segment                                                     |
 | 0012 | Scope a cross-feature import lint to anything but `core` and `shared`                               |
-| 0013 | Cache `getAdminSpieleActionRequired`                                                                |
+| 0013 | Cache an admin-scoped API read — `getAdminSpieleActionRequired` is the governing instance           |
 | 0014 | Remove `checkIsReady`, `getSystemInfo`, or the system key while its branch stands                   |
 | 0016 | Disable `react/no-danger`, or add a second CSP                                                      |
 | 0025 | Write `text-fluid-*` — the scale is `fluid-sm`, and no such utility exists                          |
@@ -306,7 +308,7 @@ the ADR.
 | 0045 | Add a POST or a DELETE to `/spiele` — a season's fixtures are created once, then cancelled or moved |
 | 0047 | Store a bracket fault; report a placing that is merely undecided; let reporting one resolve it      |
 | 0053 | Style a toast from CSS beyond the two rules named there; call HeroUI's `toast` at a call site       |
-| 0060 | Add a third admin mutation as a route handler; revert the two undos to actions before E592 is fixed |
+| 0062 | Give anything but a page-owned editor's undo a route handler; revert the undos before E592 is fixed |
 | 0063 | Add a reorder endpoint for `spieltage`, or move the rollover off the season editor's page           |
 | 0064 | Give a `Spieltag` a stored position, or order matchdays by date without the phase leading           |
 | 0065 | Store `anzahl_spiele`; hardcode the qualifier cap instead of deriving it from `KNOCKOUT_PHASES`     |
@@ -318,7 +320,8 @@ the ADR.
 ## 8. Documentation
 
 **The standard is `docs/_standard/`, starting at `1-principles.md`. Read it before writing or changing
-any documentation.** These four are the ones that bind every session:
+any documentation.** Any edit under `docs/_standard/` needs the owner's explicit approval — a
+PreToolUse hook surfaces the permission prompt on every write there (owner rule, 2026-08-08). These four are the ones that bind every session:
 
 1. **Same commit.** A change invalidating a documented claim updates that document in the same commit.
 2. **Anchored citations** — `` `<file> :: <symbol>` `` or an ADR number, never a line number.

@@ -1,9 +1,10 @@
 /**
  * APP · the match edit's undo
  *
- * Puts a batch of fixtures back the way they were, in the order given (ADR-0051). It is the one
- * admin mutation in this app that is NOT a server action, and the reason is an upstream Next.js bug
- * rather than a preference — [ADR-0055](../../../../../../../docs/_decisions/0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)
+ * Puts a batch of fixtures back the way they were, in the order given (ADR-0051). It is one of the
+ * admin mutations that are route handlers rather than server actions, and the reason is an upstream
+ * Next.js bug rather than a preference —
+ * [ADR-0062](../../../../../../../docs/_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md)
  * carries the argument and the condition for reverting it.
  *
  * **The short version.** The undo is offered by a toast that outlives the page that raised it, so by

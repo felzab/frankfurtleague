@@ -9,8 +9,8 @@
  * (ADR-0042) — nothing else would notice the wording changing. The wiring derivations are tested
  * because what they exclude is what the form cannot offer (ADR-0046) — a wrong filter here silently
  * reopens an illegal pick. `listDependentSpiele` is tested for the opposite reason: what it INCLUDES is
- * what the edit page warns about before destroying a result (ADR-0048), and a missed case is a warning
- * that never appears.
+ * what enables the edit page's dry-run preview before a result is destroyed (ADR-0051), and a missed
+ * case is a warning that never appears.
  */
 
 import assert from "node:assert/strict";
