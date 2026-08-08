@@ -25,7 +25,16 @@ const SEARCH_KEYS = ["label", "beginn", "ende"] as const;
  * **The editor is a dialog rather than a page**, which is where this differs from Teams, Spieler and
  * Saisons: five scalar fields with no nested object and no junction row do not reach ADR-0050's threshold.
  */
-export function AdminSpieltageView({ spieltage, saisonId }: { spieltage: AdminSpieltagRow[]; saisonId: string | null }) {
+export function AdminSpieltageView({
+  spieltage,
+  saisonId,
+  saisonSpan,
+}: {
+  spieltage: AdminSpieltagRow[];
+  saisonId: string | null;
+  /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
+  saisonSpan?: { start: string; end: string };
+}) {
   return (
     <AdminCrudView<AdminSpieltagRow>
       items={spieltage}
@@ -43,6 +52,7 @@ export function AdminSpieltageView({ spieltage, saisonId }: { spieltage: AdminSp
       renderEditModal={({ item, isOpen, onClose }) => (
         <AdminEditSpieltagModal
           spieltagData={item}
+          saisonSpan={saisonSpan}
           isOpen={isOpen}
           onClose={onClose}
         />

@@ -35,6 +35,7 @@ export function FormRegelnSection({
   onStufenChange,
   stufenError,
   isLiveSaison,
+  isFinishedSaison,
 }: {
   rules: FLSaisonRules;
   onRulesChange: (next: FLSaisonRules) => void;
@@ -44,6 +45,11 @@ export function FormRegelnSection({
   stufenError?: string;
   /** Whether this season is the one currently being played, which is what makes a rules edit visible. */
   isLiveSaison: boolean;
+  /**
+   * Whether this season is over, which freezes the three fields the league table is scored from
+   * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
+   */
+  isFinishedSaison: boolean;
 }) {
   const panel = formPanel();
 
@@ -78,6 +84,7 @@ export function FormRegelnSection({
           <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
             <SaisonRuleNumberField
               name="rules.win_points"
+              isReadOnly={isFinishedSaison}
               label={<SaisonFieldLabel path="rules.win_points">Sieg</SaisonFieldLabel>}
               minValue={1}
               value={rules.win_points}
@@ -86,6 +93,7 @@ export function FormRegelnSection({
             />
             <SaisonRuleNumberField
               name="rules.draw_points"
+              isReadOnly={isFinishedSaison}
               label={<SaisonFieldLabel path="rules.draw_points">Unentschieden</SaisonFieldLabel>}
               minValue={0}
               value={rules.draw_points}
@@ -119,6 +127,7 @@ export function FormRegelnSection({
             />
             <SaisonRuleNumberField
               name="rules.qualifiers_per_group"
+              isReadOnly={isFinishedSaison}
               label={<SaisonFieldLabel path="rules.qualifiers_per_group">Qualifikanten</SaisonFieldLabel>}
               minValue={1}
               value={rules.qualifiers_per_group}
@@ -156,6 +165,19 @@ export function FormRegelnSection({
             severity="info"
             title="Diese Saison läuft">
             Eine Änderung an den Punkten ist sofort in jeder Tabelle sichtbar, weil die Tabelle bei jedem Aufruf neu gerechnet wird.
+          </Callout>
+        )}
+
+        {/* The other side of the same fact. The table is computed from these three on every read, so on a
+            finished season a change would rewrite who won it — which `REQ-RULES-005` refuses. Said here
+            because the three fields are directly above and now read-only; without this the reader sees
+            three inputs that will not take a value and no reason why. */}
+        {isFinishedSaison && (
+          <Callout
+            severity="info"
+            title="Diese Saison ist abgeschlossen">
+            Punkte und Qualifikanten sind festgeschrieben, weil die Tabelle daraus berechnet wird — eine Änderung würde das Ergebnis der Saison
+            nachträglich verändern. Gruppen, Teams pro Gruppe, Stufen und der Zeitraum bleiben änderbar.
           </Callout>
         )}
       </div>

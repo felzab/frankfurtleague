@@ -8,10 +8,13 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
 export function AdminEditSpieltagModal({
   spieltagData,
+  saisonSpan,
   isOpen,
   onClose,
 }: {
   spieltagData: AdminSpieltagRow | null;
+  /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
+  saisonSpan?: { start: string; end: string };
   isOpen: boolean;
   onClose: () => void;
 }) {
@@ -26,6 +29,7 @@ export function AdminEditSpieltagModal({
       onClose={onClose}
       heading="Spieltag bearbeiten">
       <AdminEditSpieltagForm
+        saisonSpan={saisonSpan}
         key={spieltag.id}
         spieltag={spieltag}
         onClose={onClose}

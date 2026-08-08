@@ -13,7 +13,16 @@ import type { SpieltagCreateDraft } from "@/features/spieltage/types";
  * lands follows from the phase and the date the admin enters, so the form opens empty and the row appears
  * in its place — rather than opening on a guessed number the admin then has to check.
  */
-export function AdminCreateSpieltagForm({ saisonId, onClose }: { saisonId: string; onClose: () => void }) {
+export function AdminCreateSpieltagForm({
+  saisonId,
+  onClose,
+  saisonSpan,
+}: {
+  saisonId: string;
+  onClose: () => void;
+  /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
+  saisonSpan?: { start: string; end: string };
+}) {
   return (
     <EntityForm<SpieltagCreateDraft>
       initialDraft={{
@@ -26,6 +35,7 @@ export function AdminCreateSpieltagForm({ saisonId, onClose }: { saisonId: strin
         <SpieltagFormFields
           draft={draft}
           onChange={setDraft}
+          saisonSpan={saisonSpan}
         />
       )}
       onSubmit={async (draft) => {

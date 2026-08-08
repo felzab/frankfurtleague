@@ -738,6 +738,11 @@ class WriteRefusal:
 # A team the season records as disqualified was newly fielded on a fixture played on or after the day
 # that took effect. Declared state, set by a person and changed by no result -- but it takes effect on a
 # DAY, so a fixture dated before it was played legally and may still be edited (owner, 2026-08-08).
+#
+# Two carve-outs, both narrow. A team already stored on the fixture may be resubmitted, or the fixture that
+# needs fixing would be the one nobody can open. And a CANCELLED GROUP fixture may hold one outright: that
+# is what cancelling a group match records, and the knockout phase gets no such exemption because a bracket
+# slot is a place to advance from rather than a record of an absence.
 ELIGIBILITY_DISQUALIFIED = "REQ-ELIGIBILITY-001"
 
 # A team newly fielded on a fixture of a season it holds no `saison_teams` row for. A dangling
@@ -777,6 +782,14 @@ def find_eligibility_refusal(
     A fixture with NO date is refused, and that is the refuse-by-default posture rather than an oversight:
     "we cannot tell when this was played" is not evidence that it was played in time.
 
+    **A CANCELLED GROUP-PHASE fixture may hold a disqualified team whatever the dates say** (owner,
+    2026-08-08). That is what cancelling a group fixture records: the team was not there, and the match did
+    not happen. The row exists so the group's schedule stays complete and the table can account for it, so
+    refusing the team on it would refuse the very entry that documents the absence.
+    **The carve-out stops at the group phase.** A knockout slot is not a record of a fixture that did not
+    happen -- it is a place in a bracket, and a cancelled one still has to say who advances. Putting a
+    disqualified team in it decides nothing and reads as a bracket somebody forgot to rewire.
+
     Both rules apply only to a team this payload NEWLY fields. Resubmitting the stored occupant
     unchanged passes, and it has to: without that clause a fixture already holding such a team becomes
     uneditable, including by the very edit that would resolve it -- and the fixture whose occupant was
@@ -800,8 +813,13 @@ def find_eligibility_refusal(
                 message=f"{label}: {submitted.name} has no saison_teams row for season {stored.saison_id}",
             )
 
+        # A cancelled GROUP fixture is a record of a match that did not happen, so a disqualified team is
+        # exactly who belongs on it (owner, 2026-08-08). The phase is the stored fixture's: `saison_phase`
+        # is on no payload, so this write cannot move a knockout slot into the group phase to get past it.
+        records_an_absence = payload.is_canceled and stored.saison_phase == "gruppenphase"
+
         disqualified_from = membership[submitted.team_id]
-        if disqualified_from is not None and not (payload.datum is not None and payload.datum < disqualified_from):
+        if disqualified_from is not None and not records_an_absence and not (payload.datum is not None and payload.datum < disqualified_from):
             played_on = payload.datum or "no date"
 
             return WriteRefusal(

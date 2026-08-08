@@ -293,6 +293,74 @@ class TestEligibility:
             == ELIGIBILITY_DISQUALIFIED
         )
 
+    def test_a_cancelled_group_fixture_may_hold_a_disqualified_team(self, season):
+        """
+        The carve-out (owner, 2026-08-08), and the one case where the fixture's date is irrelevant.
+
+        Cancelling a group fixture RECORDS that the match did not happen, so a disqualified team is exactly
+        who belongs on it — the row keeps the group's schedule complete and lets the table account for the
+        absence. Refusing here would refuse the very entry that documents it. Fixture 1 is a group fixture.
+        """
+
+        assert (
+            eligibility_for(
+                season,
+                1,
+                {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE},
+                team1=team(CRONBERG, "Cronberg"),
+                is_canceled=True,
+            )
+            is None
+        )
+
+    def test_a_cancelled_knockout_fixture_is_still_refused(self, season):
+        """
+        Where the carve-out stops, and why it has to.
+
+        Fixture 30 is a `halbfinale`. A bracket slot is not a record of a match that did not happen — it is
+        a place somebody advances from, and a cancelled one still has to say who. A disqualified team there
+        decides nothing and reads as a bracket nobody rewired.
+
+        The pair with the test above also pins that the phase comes from the STORED fixture: `saison_phase`
+        is on no payload, so a request cannot claim a semi-final is a group fixture to get past the rule.
+        """
+
+        assert (
+            eligibility_for(
+                season,
+                30,
+                {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE},
+                team1=team(CRONBERG, "Cronberg"),
+                is_canceled=True,
+            )
+            == ELIGIBILITY_DISQUALIFIED
+        )
+
+    def test_an_uncancelled_group_fixture_is_refused(self, season):
+        """
+        The carve-out turns on the CANCELLATION, not on the phase alone.
+
+        The same group fixture, the same disqualified team, not cancelled: refused, because now the row
+        claims a match that will be played rather than one that was called off.
+        """
+
+        assert (
+            eligibility_for(season, 1, {**ALL_ELIGIBLE, CRONBERG: BEFORE_THE_FIXTURE}, team1=team(CRONBERG, "Cronberg"))
+            == ELIGIBILITY_DISQUALIFIED
+        )
+
+    def test_a_cancelled_group_fixture_still_needs_a_membership(self, season):
+        """
+        The carve-out reaches the DISQUALIFICATION rule alone.
+
+        A club with no junction row was never in the season, so cancelling a fixture says nothing about it
+        — `REQ-ELIGIBILITY-002` is a different fact and still applies.
+        """
+
+        missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
+
+        assert eligibility_for(season, 1, missing, team1=team(CRONBERG, "Cronberg"), is_canceled=True) == ELIGIBILITY_NO_MEMBERSHIP
+
     def test_a_disqualified_team_already_stored_stays_editable(self, season):
         """
         The clause without which the one fixture needing an admin is the one nobody can open.

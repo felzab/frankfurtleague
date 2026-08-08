@@ -19,7 +19,16 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
  * either, and for a different reason: the order is derived, so moving a matchday is editing its date
  * (ADR-0064).
  */
-export function AdminEditSpieltagForm({ spieltag, onClose }: { spieltag: AdminSpieltagRow; onClose: () => void }) {
+export function AdminEditSpieltagForm({
+  spieltag,
+  onClose,
+  saisonSpan,
+}: {
+  spieltag: AdminSpieltagRow;
+  onClose: () => void;
+  /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
+  saisonSpan?: { start: string; end: string };
+}) {
   return (
     <EntityForm<FLPatchSpieltagPayload>
       initialDraft={{
@@ -32,6 +41,7 @@ export function AdminEditSpieltagForm({ spieltag, onClose }: { spieltag: AdminSp
         <SpieltagFormFields
           draft={draft}
           onChange={setDraft}
+          saisonSpan={saisonSpan}
         />
       )}
       onSubmit={async (draft) => {

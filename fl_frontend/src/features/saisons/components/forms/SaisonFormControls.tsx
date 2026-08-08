@@ -33,6 +33,8 @@ export function SaisonDateField({
   onChange,
   onBlur,
   isRequired = false,
+  minValue,
+  maxValue,
 }: {
   /** The field's path in the payload, so `Form`'s `validationErrors` reach it by name. */
   name: string;
@@ -43,6 +45,16 @@ export function SaisonDateField({
   onChange: (next: CalendarDate | null) => void;
   onBlur?: () => void;
   isRequired?: boolean;
+  /**
+   * The range this date may fall in, where the caller knows one. Days outside it are greyed out in the
+   * calendar and refused by the field, so the illegal value is UNPICKABLE rather than reported after the
+   * fact — which is the strongest form of refusing before the request (owner, 2026-08-08).
+   *
+   * Used by the matchday form for its season's span (`REQ-DATE-002`). The season editor's own dates take
+   * neither bound: a season is the outermost container and has nothing to sit inside.
+   */
+  minValue?: CalendarDate;
+  maxValue?: CalendarDate;
 }) {
   return (
     <DatePicker
@@ -50,6 +62,8 @@ export function SaisonDateField({
       value={value}
       onChange={onChange}
       onBlur={onBlur}
+      minValue={minValue}
+      maxValue={maxValue}
       name={name}
       className="w-full">
       {label}
@@ -113,6 +127,7 @@ export function SaisonRuleNumberField({
   onBlur,
   minValue,
   maxValue,
+  isReadOnly,
 }: {
   name: string;
   label: ReactNode;
@@ -121,6 +136,14 @@ export function SaisonRuleNumberField({
   onBlur?: () => void;
   minValue: number;
   maxValue?: number;
+  /**
+   * For a value this season may no longer change. READ-ONLY rather than disabled, deliberately: a disabled
+   * `NumberField` is skipped by keyboard navigation and its value is announced as unavailable, when the
+   * value is the point -- somebody reading a finished season needs to see what it was scored with. It also
+   * keeps the field in the form, so the payload still carries it and the backend's own freeze compares
+   * equal values rather than receiving a gap (`REQ-RULES-005`).
+   */
+  isReadOnly?: boolean;
 }) {
   return (
     <NumberField
@@ -129,6 +152,7 @@ export function SaisonRuleNumberField({
       minValue={minValue}
       maxValue={maxValue}
       value={value}
+      isReadOnly={isReadOnly}
       onChange={(next) => onChange(Number.isNaN(next) ? minValue : next)}
       onBlur={onBlur}>
       {label}

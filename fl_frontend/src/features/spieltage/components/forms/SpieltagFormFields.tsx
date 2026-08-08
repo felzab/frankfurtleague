@@ -32,6 +32,10 @@ import type { Key } from "@heroui/react";
  * job, and writing a second picker is how two date fields in one admin acquire two different popovers.
  * The cross-feature import is legal: that lint is scoped to `core` and `shared` (ADR-0012).
  *
+ * **Both pickers are BOUNDED to the season's span** (`REQ-DATE-002`, owner, 2026-08-08). A matchday is a
+ * block of that season's fixtures, so a span reaching outside it is refused at the endpoint — and greying
+ * those days out is the strongest answer available, because the admin never picks one to be told about.
+ *
  * `saison_id` is NOT here. The create form supplies it from the page's selected season, and the patch
  * payload does not carry it at all: moving a matchday between seasons would strand its matches, which
  * hold their own `saison_id` and are not rewritten.
@@ -51,9 +55,16 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
   draft,
   onChange,
   errors,
+  saisonSpan,
 }: {
   draft: T;
   onChange: (updatedDraft: T) => void;
+  /**
+   * The season's own `start_date`/`end_date`, which bound both pickers below (`REQ-DATE-002`). A matchday
+   * is a block of that season's fixtures, so a span outside it is refused at the endpoint — and greying the
+   * days out here means the admin never picks one.
+   */
+  saisonSpan?: { start: string; end: string };
   /**
    * Server messages keyed by payload path, for a caller outside a `<Form>` context. Left undefined by
    * the `EntityForm` callers, where the context supplies the same messages to the same `<FieldError>`s —
@@ -62,6 +73,11 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
   errors?: Record<string, string | undefined>;
 }) {
   const isEndBeforeStart = draft.beginn !== "" && draft.ende !== "" && draft.ende < draft.beginn;
+
+  // Parsed once for both pickers. `undefined` where the caller passed no span, which leaves the calendar
+  // unbounded rather than bounded to nothing.
+  const spanStart = saisonSpan ? parseDate(saisonSpan.start) : undefined;
+  const spanEnd = saisonSpan ? parseDate(saisonSpan.end) : undefined;
 
   return (
     <>
@@ -107,6 +123,8 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
           <SaisonDateField
             isRequired
             name="beginn"
+            minValue={spanStart}
+            maxValue={spanEnd}
             ariaLabel="Beginn auswählen"
             label={<Label className={FIELD_LABEL}>Beginn</Label>}
             value={asCalendarDate(draft.beginn)}
@@ -115,6 +133,8 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
           <SaisonDateField
             isRequired
             name="ende"
+            minValue={spanStart}
+            maxValue={spanEnd}
             ariaLabel="Ende auswählen"
             label={<Label className={FIELD_LABEL}>Ende</Label>}
             value={asCalendarDate(draft.ende)}

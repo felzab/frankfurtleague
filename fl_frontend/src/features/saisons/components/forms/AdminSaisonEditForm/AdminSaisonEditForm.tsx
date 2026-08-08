@@ -406,6 +406,7 @@ export function AdminSaisonEditForm({
                   }}
                   stufenError={fieldErrors["rules.erlaubte_stufen"]}
                   isLiveSaison={saison.status === "active"}
+                  isFinishedSaison={saison.status === "past"}
                 />
 
                 {/* Last on the page, the position the club editor's Disqualifikation panel holds: the

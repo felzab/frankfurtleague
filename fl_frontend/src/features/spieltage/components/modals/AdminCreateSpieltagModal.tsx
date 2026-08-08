@@ -25,10 +25,13 @@ import { FormModal } from "@/shared/components/ui/FormModal";
  */
 export function AdminCreateSpieltagModal({
   saisonId,
+  saisonSpan,
   knockoutBeginn,
   today,
 }: {
   saisonId: string | null;
+  /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
+  saisonSpan?: { start: string; end: string };
   /** The earliest non-group matchday's `beginn`, or null where the season has none. */
   knockoutBeginn: string | null;
   today: string;
@@ -78,6 +81,7 @@ export function AdminCreateSpieltagModal({
         ) : (
           <AdminCreateSpieltagForm
             saisonId={saisonId}
+            saisonSpan={saisonSpan}
             onClose={modalState.close}
           />
         )}

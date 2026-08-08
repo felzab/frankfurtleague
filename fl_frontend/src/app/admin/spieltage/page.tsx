@@ -14,6 +14,7 @@ import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
+import type { FLSaison } from "@/features/saisons/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -50,16 +51,19 @@ export default function AdminSpieltagePage(props: NextPageProps) {
  * The season is the sidemenu selector's — a matchday is created into the season the page is showing, so
  * there is no season picker in the form. `null` only where the league has no seasons at all.
  */
-async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]): Promise<string | null> {
+async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]): Promise<FLSaison | null> {
   const requestedSaisonId = await resolveSaisonId(searchParams);
   const saisonsRes = await getSaisons();
 
   // The requested season when it exists, else the active one, else the first — the same fallback chain the
   // club and player lists use, so the four admin surfaces agree about which season they are showing.
+  //
+  // The whole season rather than its id: its `start_date`/`end_date` bound both matchday date pickers
+  // (`REQ-DATE-002`), and this read already had them.
   return (
-    saisonsRes.saisons.find((saison) => saison.id === requestedSaisonId)?.id ??
-    saisonsRes.saisons.find((saison) => saison.status === "active")?.id ??
-    saisonsRes.saisons[0]?.id ??
+    saisonsRes.saisons.find((saison) => saison.id === requestedSaisonId) ??
+    saisonsRes.saisons.find((saison) => saison.status === "active") ??
+    saisonsRes.saisons[0] ??
     null
   );
 }
@@ -77,7 +81,8 @@ async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]
  */
 async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const saisonId = await resolveSelectedSaison(searchParams);
+  const saison = await resolveSelectedSaison(searchParams);
+  const saisonId = saison?.id ?? null;
 
   // Retired matchdays INCLUDED, matching the endpoint: a retired knockout matchday is still a date the
   // bracket was scheduled to start on, and hiding it from a list does not un-start the phase.
@@ -91,6 +96,7 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
   return (
     <AdminCreateSpieltagModal
       saisonId={saisonId}
+      saisonSpan={saison === null ? undefined : { start: saison.start_date, end: saison.end_date }}
       knockoutBeginn={knockoutBeginn ?? null}
       today={getGermanTodayStr()}
     />
@@ -113,7 +119,8 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const saisonId = await resolveSelectedSaison(searchParams);
+  const saison = await resolveSelectedSaison(searchParams);
+  const saisonId = saison?.id ?? null;
 
   if (saisonId === null) {
     return (
@@ -169,6 +176,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     <AdminSpieltageView
       spieltage={rows}
       saisonId={saisonId}
+      saisonSpan={saison === null ? undefined : { start: saison.start_date, end: saison.end_date }}
     />
   );
 }
