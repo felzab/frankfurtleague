@@ -57,13 +57,15 @@ the parameter the selector validated — or there is no parameter and both take 
 **The address bar stops asserting something false.** A shared or bookmarked link to a season that has since
 been removed now lands on the current season with a clean URL, rather than on a page-shaped emptiness.
 
-**Where the redirect happens depends on the route, and both are correct.** The public dashboard pages await
-`resolveSaisonId` at the page root, so they answer a 307 before any markup is sent. The admin lists call it
-inside a `Suspense` boundary — the shape that keeps their chrome out of the request-time hole — so there the
-redirect is streamed as a meta tag plus a client-side `router.replace`, and the shell is on screen for the
-moment it takes. **No wrong data is rendered on either path**: the subtree that would have queried the
-missing season throws before it returns anything. This is the same trade `AdminAuthGuard` documents for its
-own redirect, and for the same reason.
+**The redirect is streamed, on every route.** `cacheComponents` serves each route's prerendered shell with
+a 200 before any dynamic code runs, so there is no path on which this can be an HTTP 307 — whether the page
+awaits `resolveSaisonId` at its root or inside a `Suspense` boundary, the redirect arrives inside the
+stream, as Next's `__next-page-redirect` meta tag plus a client-side `router.replace`, and the shell is on
+screen for the moment it takes. Measured against the local stack, 2026-08-08:
+`GET /dashboard/spielplan?saison_id=2077` answers 200 carrying
+`<meta id="__next-page-redirect" http-equiv="refresh" content="1;url=?">`. **No wrong data is rendered**:
+the subtree that would have queried the missing season throws before it returns anything. This is the same
+trade `AdminAuthGuard` documents for its own redirect, and for the same reason.
 
 **`SaisonSelector`'s own fallback stays.** It is what the control shows during that streamed window, and it
 is what keeps the component correct read on its own. Deleting either check because the other exists
