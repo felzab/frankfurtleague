@@ -1,6 +1,6 @@
 # Currency
 
-**Verified against:** `09f903d`, 2026-08-08\
+**Verified against:** `3014d32`, 2026-08-08\
 **Applies to:** every stamped page, and every change that touches what a documented claim
 describes.
 
@@ -131,7 +131,9 @@ combination.
 
 **Rule:** the gate holds a branch to what that branch touched, and nothing else. What no change
 has touched — a page drifting quietly, a fact stated twice, a sentence a stranger cannot act on —
-is `/docs:audit`'s job: invoked, never scheduled, a way of catching up rather than a defence.
+is `/docs:audit`'s job: invoked, never scheduled, a way of catching up rather than a defence. The
+slice between the two — one branch's documentation, judged before its pull request — is
+`/docs:audit-pr`'s.
 
 **Why:** a gate that fails branches over pages they never touched trains people to override it,
 and treating the sweep as a defence would weaken the mechanisms that hold without anyone

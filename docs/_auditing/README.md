@@ -340,7 +340,9 @@ citation that resolves but is not evidence for the claim beside it.
 it goes stops looking at the point it starts repairing, and then grades its own work. The report goes
 to `docs/audit/documentation-<yyyy-mm-dd>.md` — beside `programme/`, never inside it, because
 `/audit:finish` deletes that folder and a sweep is not part of any programme's lifecycle. Behaviour
-is in `.claude/commands/docs/audit.md`.
+is in `.claude/commands/docs/audit.md`. **`/docs:audit-pr` is the sweep's opposite in scope and in
+manner**: it audits only what one branch changed, before that branch's pull request, and repairs in
+place rather than reporting — behaviour in `.claude/commands/docs/audit-pr.md`.
 
 ## 6. Prompt hygiene
 
