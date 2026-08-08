@@ -1,5 +1,7 @@
 "use client";
 
+import { parseDate } from "@internationalized/date";
+
 import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { Callout } from "@/shared/components/ui/Callout";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -12,10 +14,12 @@ import type { CalendarDate } from "@internationalized/date";
 /**
  * When the season runs.
  *
- * **Nothing in the app holds these two dates against anything.** A match's own `datum` is not required to
- * fall inside them, a matchday's `beginn` is not either, and the rollover is a deliberate act rather than
- * something the end date triggers — so this pair describes the season rather than constraining it, and the
- * callout below says what it is instead of implying a guard exists.
+ * **The season contains its matchdays, and both directions are enforced** (owner, 2026-08-08): a matchday
+ * cannot reach outside the season (`REQ-DATE-002`), and the season cannot shrink under a live matchday
+ * (`REQ-DATE-004`) — which is what `spieltagBound` greys out in the pickers below, so the illegal day is
+ * unpickable rather than a 409. What the dates deliberately do NOT constrain is a match: a fixture is
+ * held to its MATCHDAY's span (`REQ-DATE-001`), never to the season directly, and the rollover stays a
+ * deliberate act rather than something the end date triggers.
  */
 export function FormZeitraumSection({
   startDate,
@@ -24,6 +28,7 @@ export function FormZeitraumSection({
   onEndDateChange,
   onFieldLeft,
   isEndBeforeStart,
+  spieltagBound,
 }: {
   startDate: CalendarDate | null;
   onStartDateChange: (next: CalendarDate | null) => void;
@@ -32,8 +37,19 @@ export function FormZeitraumSection({
   onFieldLeft: (paths: readonly string[]) => void;
   /** Whether the drafted end date falls before the drafted start date. */
   isEndBeforeStart: boolean;
+  /**
+   * The span the live matchdays already occupy (`REQ-DATE-004`): the start picker closes past
+   * `startMax`, the end picker before `endMin`. Absent while the season has no live matchday, which
+   * leaves both pickers unbounded — a fresh season has nothing to sit above.
+   */
+  spieltagBound?: { startMax: string; endMin: string };
 }) {
   const panel = formPanel();
+
+  // Parsed once for both pickers, `undefined` where no matchday binds — the same shape the matchday
+  // form gives its season span.
+  const startMax = spieltagBound ? parseDate(spieltagBound.startMax) : undefined;
+  const endMin = spieltagBound ? parseDate(spieltagBound.endMin) : undefined;
 
   return (
     <section className={panel.root()}>
@@ -41,10 +57,14 @@ export function FormZeitraumSection({
         <h2 className={panel.heading()}>
           Zeitraum
           <InfoHint label="Hinweis zum Zeitraum">
-            <p>Der Zeitraum beschreibt die Saison, er begrenzt sie nicht.</p>
+            <p>Der Zeitraum umschließt die Spieltage der Saison.</p>
             <ul>
               <li>
-                Ein Spiel darf <strong>außerhalb</strong> liegen, ohne dass etwas widerspricht.
+                Alle <strong>Spieltage</strong> müssen im Zeitraum liegen — Tage, die einen Spieltag ausschließen würden, sind im Kalender
+                gesperrt.
+              </li>
+              <li>
+                Ein <strong>Spiel</strong> richtet sich nach seinem Spieltag, nicht direkt nach der Saison.
               </li>
               <li>
                 Die Umstellung auf eine neue Saison passiert <strong>von Hand</strong>, nicht am Enddatum.
@@ -64,6 +84,7 @@ export function FormZeitraumSection({
             value={startDate}
             onChange={onStartDateChange}
             onBlur={() => onFieldLeft(["start_date"])}
+            maxValue={startMax}
           />
           <SaisonDateField
             isRequired
@@ -73,6 +94,7 @@ export function FormZeitraumSection({
             value={endDate}
             onChange={onEndDateChange}
             onBlur={() => onFieldLeft(["end_date"])}
+            minValue={endMin}
           />
         </div>
 

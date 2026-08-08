@@ -6,7 +6,7 @@
 about its neighbours.** Four questions, one page.
 
 **The authority is `fl_backend/app/core/domain.py`, not this page.** That module states the model as data —
-seven aggregates, twelve references, thirty-three field policies, twenty-nine refusal rules, eight deliberate
+seven aggregates, twelve references, thirty-three field policies, thirty refusal rules, eight deliberate
 absences — and `fl_backend/tests/core/test_domain.py` checks every claim in it against the code on every test
 run. This page is the narrative: it explains the shape and points at the tables, and it deliberately does
 not repeat them, because a second copy of a table is a second thing to be wrong.
@@ -170,16 +170,16 @@ unchanged and passes, which is precisely what keeps the dates repairable.
 
 ## What a write must do
 
-`domain.py :: RULES` lists twenty-nine refusals with their code, the operations that perform them, the symbol
+`domain.py :: RULES` lists thirty refusals with their code, the operations that perform them, the symbol
 that implements them and the test that covers them. Every one of them:
 
 - is a **pure function** returning `(error_code, detail)` or `None` — no I/O, so it is testable without a
-  database, which is why all twenty-nine sit in the default test tier
+  database, which is why all thirty sit in the default test tier
 - is called by **the endpoint that owns the write**, not by a shared evaluator
 - answers with a **code** the client maps to German, and an English `detail` for the log
   ([`logging.md`](logging.md))
 
-Twenty-four of the twenty-nine are marked `multi_document`: they need the aggregate, not just the payload and
+Twenty-five of the thirty are marked `multi_document`: they need the aggregate, not just the payload and
 its own row. That is the count that explains why the boundaries above matter — five rules in six cannot be
 answered from a single document.
 
@@ -199,7 +199,7 @@ it is the only one that has to compute the season's whole schedule to answer.
 
 ### Some rules act rather than refuse
 
-Two of the twenty-nine do not return a verdict at all, and they are the reason a uniform "is this valid" layer
+Two of the thirty do not return a verdict at all, and they are the reason a uniform "is this valid" layer
 would not have worked. `judge_spieltag_occupancy` **moves** a manual side out of a clash and refuses only
 against a maintained one. The bracket resolution **rewrites** fixtures the request never named. An
 `is_valid(operation) -> bool` shape cannot express either outcome.

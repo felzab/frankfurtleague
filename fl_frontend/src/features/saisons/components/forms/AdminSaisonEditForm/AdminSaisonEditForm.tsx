@@ -78,11 +78,14 @@ async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success:
 export function AdminSaisonEditForm({
   saison,
   rollover,
+  spieltagBound,
   registerRequestLeave,
   pageHeader,
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
   rollover: SaisonRolloverContext;
+  /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
+  spieltagBound?: { startMax: string; endMin: string };
   registerRequestLeave?: (requestLeave: () => void) => void;
   pageHeader?: ReactNode;
 }) {
@@ -394,6 +397,7 @@ export function AdminSaisonEditForm({
                   onEndDateChange={setEndDate}
                   onFieldLeft={validateFields}
                   isEndBeforeStart={isEndBeforeStart}
+                  spieltagBound={spieltagBound}
                 />
 
                 <FormRegelnSection

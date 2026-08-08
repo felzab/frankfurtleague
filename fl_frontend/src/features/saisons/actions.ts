@@ -31,7 +31,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { activateSaison, patchSaison, postSaison } from "./mutations";
@@ -45,8 +45,6 @@ import type {
   FLPatchSaisonResponse,
   FLPostSaisonPayload,
 } from "./schemas";
-
-const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 
 // `saisons._id` is the document key, so a reused id is refused by the index rather than silently
 // overwriting a season -- and the honest answer names the one thing the admin can do about it.
@@ -68,8 +66,8 @@ const SAISON_ID_TAKEN = "Diese Saison-ID ist bereits vergeben. Wähle eine ander
 /**
  * The rules edit's seven refusals (`REQ-RULES-001..007`), or `null` when the 409 is none of them.
  *
- * Five land on a field and two do not: the freeze is about the whole season, and the matchday overflow is
- * about a document this form does not show.
+ * Five land on a field and three do not: the freeze is about the whole season, and the matchday overflow
+ * and the span shrink are about documents this form does not show.
  */
 function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -97,6 +95,10 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
       return {
         error:
           "Mindestens ein Spieltag enthält mehr Spiele, als diese Regeln vorsehen. Erhöhe die Zahlen wieder oder verschiebe die überzähligen Spiele.",
+      };
+    case "REQ-DATE-004":
+      return {
+        error: "Mindestens ein Spieltag liegt außerhalb des neuen Zeitraums. Erweitere den Zeitraum wieder oder verschiebe diese Spieltage.",
       };
     default:
       return null;

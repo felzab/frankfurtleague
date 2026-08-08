@@ -667,6 +667,15 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-DATE-004",
+        operation="PATCH /saisons/{saison_id}",
+        aggregate="Saison",
+        summary="a season's span may not shrink below a live matchday's own",
+        implemented_by="app.api.saisons.services.find_saison_span_refusal",
+        tested_by="tests/api/test_containment_refusals.py::TestASeasonKeepsCoveringItsMatchdays",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-ACTIVATE-001",
         operation="POST /saisons/{saison_id}/activate",
         aggregate="Saison",

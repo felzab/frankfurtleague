@@ -212,6 +212,42 @@ def find_rules_refusal(
 
 
 # =====================================================================================================
+# WHAT CONTAINS WHAT: THE SEASON'S OWN SPAN
+# =====================================================================================================
+
+# The season's span would no longer cover one of its own matchdays. The fourth member of the containment
+# family (owner, 2026-08-08): `REQ-DATE-002` refuses a matchday reaching outside its season, and without
+# this the same state stayed reachable from the container's side by shrinking the season -- exactly the
+# pair `REQ-DATE-001` and `REQ-DATE-003` already form one level down.
+SAISON_SPAN_BELOW_SPIELTAGE = "REQ-DATE-004"
+
+
+def find_saison_span_refusal(
+    *,
+    start_date: str,
+    end_date: str,
+    spieltag_spans: Sequence[tuple[str, str]],
+) -> tuple[str, str] | None:
+    """
+    Why this season's span must be refused, as `(error_code, detail)` -- or `None`.
+
+    `spieltag_spans` is each LIVE matchday's `(beginn, ende)`. Retired matchdays are the caller's to
+    exclude: retiring is how a mis-dated matchday is taken out of the schedule, so one blocking the
+    repair of the very dates it was retired over would leave the season uneditable.
+    """
+
+    outside = sorted(span for span in spieltag_spans if span[0] < start_date or span[1] > end_date)
+    if outside:
+        return (
+            SAISON_SPAN_BELOW_SPIELTAGE,
+            f"{len(outside)} of the season's matchdays fall outside {start_date} to {end_date} "
+            f"(first: {outside[0][0]} to {outside[0][1]}); widen the span or move those matchdays",
+        )
+
+    return None
+
+
+# =====================================================================================================
 # WHAT THE ROLLOVER REFUSES
 # =====================================================================================================
 

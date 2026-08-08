@@ -18,6 +18,7 @@ from typing import Literal
 
 import pytest
 
+from app.api.saisons.services import SAISON_SPAN_BELOW_SPIELTAGE, find_saison_span_refusal
 from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED, find_referee_retire_refusal
 from app.api.spiele.services import (
     CLASH_BUFFER_MINUTES,
@@ -111,6 +112,66 @@ class TestAMatchdaySitsInsideItsSeason:
 
         assert refusal is not None
         assert refusal[0] == SPIELTAG_OUTSIDE_SAISON
+
+
+class TestASeasonKeepsCoveringItsMatchdays:
+    """
+    `REQ-DATE-004`, the fourth member of the containment family.
+
+    The same season-contains-matchday rule as `REQ-DATE-002`, refused from the CONTAINER's side, because
+    shrinking the season is the other way to break it — exactly the pair -001 and -003 already form one
+    level down.
+    """
+
+    def test_a_span_covering_every_matchday_passes(self):
+        assert (
+            find_saison_span_refusal(
+                start_date="2026-03-01",
+                end_date="2026-09-30",
+                spieltag_spans=[("2026-03-07", "2026-03-09"), ("2026-09-28", "2026-09-30")],
+            )
+            is None
+        )
+
+    def test_shrinking_below_a_matchday_is_refused(self):
+        refusal = find_saison_span_refusal(
+            start_date="2026-03-01",
+            end_date="2026-09-01",
+            spieltag_spans=[("2026-09-28", "2026-09-30")],
+        )
+
+        assert refusal is not None
+        assert refusal[0] == SAISON_SPAN_BELOW_SPIELTAGE
+
+    def test_a_matchday_starting_before_the_season_is_refused(self):
+        """Both edges count: a matchday reaching out at the front is as stranded as one at the back."""
+
+        refusal = find_saison_span_refusal(
+            start_date="2026-03-08",
+            end_date="2026-09-30",
+            spieltag_spans=[("2026-03-07", "2026-03-09")],
+        )
+
+        assert refusal is not None
+        assert refusal[0] == SAISON_SPAN_BELOW_SPIELTAGE
+
+    def test_the_refusal_counts_them_and_names_the_first(self):
+        """The count says how much work the repair is; the dates say where to start looking."""
+
+        refusal = find_saison_span_refusal(
+            start_date="2026-04-01",
+            end_date="2026-09-30",
+            spieltag_spans=[("2026-03-20", "2026-03-21"), ("2026-03-07", "2026-03-09")],
+        )
+
+        assert refusal is not None
+        assert "2" in refusal[1]
+        assert "2026-03-07" in refusal[1]
+
+    def test_a_season_with_no_matchdays_passes_any_span(self):
+        """Which is every season at the moment it is created — and the reason the create needs no call."""
+
+        assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-02", spieltag_spans=[]) is None
 
 
 class TestAMatchdayKeepsCoveringItsFixtures:

@@ -86,6 +86,22 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
 
   const rollover: SaisonRolloverContext = { outgoingSaisonId, offeneSpiele };
 
+  // The INNER bound on the season's own dates (`REQ-DATE-004`): the start may not move past the first
+  // live matchday's beginn, the end not before the last one's ende. Retired matchdays do not bind —
+  // retiring is how a mis-dated one leaves the schedule, so it must not block the repair of the dates
+  // it was retired over. `undefined` while the season has no live matchday, which leaves both pickers
+  // unbounded exactly as a fresh season should be.
+  const liveBeginne = spieltageRes.spieltage.filter((spieltag) => spieltag.inactive_since === null).map((spieltag) => spieltag.beginn);
+  const liveEnden = spieltageRes.spieltage.filter((spieltag) => spieltag.inactive_since === null).map((spieltag) => spieltag.ende);
+  const spieltagBound =
+    liveBeginne.length === 0
+      ? undefined
+      : {
+          // Lexicographic min/max is date order on YYYY-MM-DD, the comparison every span rule uses.
+          startMax: [...liveBeginne].sort()[0] ?? "",
+          endMin: [...liveEnden].sort().at(-1) ?? "",
+        };
+
   return (
     // Keyed by the state the drafts mirror — the match editor's reason: the same route pattern reconciles
     // in place, and a saved season must reopen with its saved values.
@@ -100,6 +116,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       }}
       rollover={rollover}
       spieltageCount={spieltageRes.spieltage.length}
+      spieltagBound={spieltagBound}
     />
   );
 }

@@ -174,6 +174,7 @@ the same request would have succeeded against a different state of the database
 | `REQ-SPIELTAG-003`    | 409    | A season whose knockout phase has started was asked for a new matchday                                    |
 | `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                              |
 | `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                 |
+| `REQ-DATE-004`        | 409    | A season's span would shrink below a live matchday's own                                                  |
 | `REQ-RETIRE-002`      | 409    | A matchday holding a played match was asked to retire, which would unpublish that result                  |
 | `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                     |
 | `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                  |

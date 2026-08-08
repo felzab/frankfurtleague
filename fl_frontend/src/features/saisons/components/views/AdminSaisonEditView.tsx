@@ -37,9 +37,12 @@ export function AdminSaisonEditView({
   saison,
   rollover,
   spieltageCount,
+  spieltagBound,
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
   rollover: SaisonRolloverContext;
+  /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
+  spieltagBound?: { startMax: string; endMin: string };
   /** How many matchdays this season has, so the link to them says whether there is anything there. */
   spieltageCount: number;
 }) {
@@ -53,6 +56,7 @@ export function AdminSaisonEditView({
       <AdminSaisonEditForm
         saison={saison}
         rollover={rollover}
+        spieltagBound={spieltagBound}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;
         }}

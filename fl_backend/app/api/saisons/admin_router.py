@@ -36,7 +36,7 @@ from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonRules,
 )
-from app.api.saisons.services import find_activation_refusal, find_rules_refusal, unplayed_spiel_nrs, with_schedule
+from app.api.saisons.services import find_activation_refusal, find_rules_refusal, find_saison_span_refusal, unplayed_spiel_nrs, with_schedule
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
@@ -111,12 +111,13 @@ async def patch_saison(
     `past` season freezes them: `REQ-RULES-005` refuses the edit rather than silently rewriting who won a
     finished competition.
 
-    **Six refusals, and four of them read the season's own data** (ADR-0065, docs/domain.md). The rules
+    **Seven refusals, and five of them read the season's own data** (ADR-0065, docs/domain.md). The rules
     decide the shape of the competition, so narrowing one below what already exists strands it: a group the
     season stops running while teams are still entered in it, a group left over its own capacity, a bracket
     slot naming a placing that can no longer be reached, or a matchday left holding more fixtures than its
-    phase accounts for. Each of those is legal at every layer and invisible until something downstream
-    reads it.
+    phase accounts for. The DATES obey the same principle (`REQ-DATE-004`): a span cannot shrink below a
+    live matchday's own, which is `REQ-DATE-002`'s containment refused from the container's side. Each of
+    those states is legal at every layer and invisible until something downstream reads it.
     """
 
     stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
@@ -172,6 +173,23 @@ async def patch_saison(
     )
     if refusal is not None:
         error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
+
+    # The span, against the season's own matchdays (`REQ-DATE-004`). Retired ones are excluded: retiring
+    # is how a mis-dated matchday leaves the schedule, so one must not block the repair of the dates it
+    # was retired over. The mirror of `REQ-DATE-002`, which refuses the same containment from the
+    # matchday's side.
+    spieltag_spans = [
+        (str(row["beginn"]), str(row["ende"]))
+        async for row in spieltage_collection.find({"saison_id": saison_id, "inactive_since": None}, {"beginn": 1, "ende": 1})
+    ]
+    span_refusal = find_saison_span_refusal(
+        start_date=saison_data.start_date,
+        end_date=saison_data.end_date,
+        spieltag_spans=spieltag_spans,
+    )
+    if span_refusal is not None:
+        error_code, detail = span_refusal
         raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_document_raw = await patch_one_in_db(
