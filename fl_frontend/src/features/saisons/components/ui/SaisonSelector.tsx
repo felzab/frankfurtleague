@@ -38,6 +38,12 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
   // id absent from `saisons` would otherwise leave the two halves of this component disagreeing: the
   // `Select` would hold a `value` matching no item in its collection and show nothing selected, while
   // `activeSaisonData` fell back to the current season for the date range beneath it.
+  //
+  // `resolveSaisonId` applies the same check on the server and strips an unknown id from the URL
+  // (ADR-0069), which is what stops the PAGE below from disagreeing with this control. That does not
+  // make this line redundant: on the admin lists the check runs inside a Suspense boundary, so the
+  // shell holding this selector is already on screen while the redirect is in flight, and this is
+  // what the control shows for that window.
   const requestedSaisonId = searchParams.get("saison_id");
   const activeSaisonData = saisons.find((saison) => saison.id === requestedSaisonId) ?? currentSaison;
   const activeSaisonId = activeSaisonData.id;

@@ -26,7 +26,7 @@ project's thinking. Full reasoning in
 
 ## Index
 
-Sixty-eight decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
+Sixty-nine decisions. The first sixteen were extracted 2026-08-01 from material that already existed in argued form — CLAUDE.md §9
 and the remediation ledger. **The dates are when each decision was taken**, not when the file was
 written.
 
@@ -99,6 +99,7 @@ written.
 | [0066](0066-the-domain-model-is-declared-and-conformance-checked.md)              | The domain model is declared as data and conformance-checked, not evaluated | backend                | Accepted           | 2026-08-07 |
 | [0067](0067-a-matchdays-name-is-composed-by-the-reader.md)                        | A matchday's name is composed by the reader, not stored beside it           | backend, frontend      | Accepted           | 2026-08-08 |
 | [0068](0068-one-declaration-of-the-collection-names.md)                           | One declaration of the collection names, as a `StrEnum`                     | backend                | Accepted           | 2026-08-08 |
+| [0069](0069-an-unknown-season-is-stripped-from-the-url.md)                        | A `?saison_id=` naming no season is stripped from the URL                   | frontend               | Accepted           | 2026-08-08 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.
