@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `9a0f3b5`, 2026-08-08
+**Verified against:** `9cb426d`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -60,6 +60,7 @@ OPS-6 and OPS-7 are both retired here.
 | 32  | FB-3  | The admin panel could edit no team and no player; both were hand-edited in MongoDB             | FE, BE      | L      | — (ADR-0050's patterns)      | [`5518774`](https://github.com/felzab/frankfurtleague/commit/5518774) |
 | 33  | FB-6  | The rollover was done by hand against endpoints that already existed, with no page calling one | FE, BE      | L      | — (ADR-0033 settled it)      | [`fa5832a`](https://github.com/felzab/frankfurtleague/commit/fa5832a) |
 | 34  | FE-5  | The Spielsuche could only be searched, not narrowed, and Spielhistorie duplicated it           | FE          | M      | — (F1 informed it)           | [`9a0f3b5`](https://github.com/felzab/frankfurtleague/commit/9a0f3b5) |
+| 35  | F7    | The landing page's season badge was a literal that no rollover would have moved                | FE          | S      | — (clock: the rollover)      | [`9cb426d`](https://github.com/felzab/frankfurtleague/commit/9cb426d) |
 
 ## What each one produced
 
