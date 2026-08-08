@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLSchiedsrichter
+from app.api.spiele.schemas import FLSpielBooking
 from app.api.spieler.schemas import FLSpieler
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
@@ -301,3 +302,44 @@ class TestSaison:
         """Both season boundaries get the calendar check — 2026-04-31 passes the regex and is not a real day."""
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(**{field: "2026-04-31"}))
+
+
+class TestSpielBooking:
+    """
+    The clash rule's projection, which is validated rather than read as a raw dict (owner, 2026-08-08).
+
+    `find_clash_refusal` ACTS on these values — it splits `uhrzeit` into three parts to compare times — and
+    the read behind them is a bare projection over every season rather than a validated fixture list. The
+    database is hand-edited, which is the whole reason `constraints.py` exists, so a malformed time reached
+    the comparison and raised `ValueError`: a 500 on a legitimate match edit.
+    """
+
+    def booking(self, **overrides):
+        return {"spiel_nr": 3, "datum": "2026-03-15", "uhrzeit": "18:00:00", **overrides}
+
+    def test_accepts_a_well_formed_booking(self):
+        assert FLSpielBooking.model_validate(self.booking()).uhrzeit == "18:00:00"
+
+    @pytest.mark.parametrize("uhrzeit", ["18:00", "18", "abend", "25:00:00"])
+    def test_rejects_a_time_the_comparison_could_not_read(self, uhrzeit):
+        """
+        `18:00` is the one that mattered: three-part unpacking raised `ValueError` on it, not a 422.
+
+        The others are here because a hand edit is a hand edit — nothing about the two-part case makes it
+        more likely than a word or an impossible hour.
+        """
+
+        with pytest.raises(ValidationError):
+            FLSpielBooking.model_validate(self.booking(uhrzeit=uhrzeit))
+
+    def test_rejects_a_malformed_date(self):
+        """The date is compared too, so it needs the same guarantee as the time."""
+
+        with pytest.raises(ValidationError):
+            FLSpielBooking.model_validate(self.booking(datum="15.03.2026"))
+
+    def test_rejects_a_non_positive_fixture_number(self):
+        """`spiel_nr` is named back to the admin in the refusal, so a zero would be nonsense to act on."""
+
+        with pytest.raises(ValidationError):
+            FLSpielBooking.model_validate(self.booking(spiel_nr=0))

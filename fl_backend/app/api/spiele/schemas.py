@@ -331,6 +331,28 @@ FLBracketFault = Annotated[
 ]
 
 
+class FLSpielBooking(BaseModel):
+    """
+    The three fields the clash rule reads off ANOTHER fixture, validated (owner, 2026-08-08).
+
+    Its own model rather than `FLSpiel`, because the clash read spans every season and projects three keys
+    -- validating whole fixtures there would read every field of every match in the database to compare two
+    times. And a validated model rather than raw dict access, because `find_clash_refusal` ACTS on these
+    values: `uhrzeit` is split into three parts to compare, so a hand-edited `18:00` raised `ValueError` and
+    answered 500 on a legitimate edit. `CustomTimeString` refuses it at the boundary with a loud, specific
+    error instead -- which is the reason every other Mongo read on this path is validated too.
+
+    Neither field is nullable: the query filters both out, so a document reaching this model has them.
+    """
+
+    spiel_nr: int = Field(gt=0)
+    datum: CustomDateString
+    uhrzeit: CustomTimeString
+
+
+FLSpielBookingListAdapter = TypeAdapter(list[FLSpielBooking])
+
+
 class FLPatchSpielDataPayload(BaseModel):
     # No `spiel_id`: the match being changed is named by the path (RFC 5789 -- the Request-URI
     # identifies the resource, the body describes the change).
