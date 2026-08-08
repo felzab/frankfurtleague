@@ -55,7 +55,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 11  | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with 11, 13)     |
 | 12  | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with 11, 12)     |
 | 13  | FE-3  | TeamDetailsView rework                                  | FE          | M      | Open     | — (ADR-0059 settles it)   |
-| 14  | FE-5  | Filters for the Spielsuche                              | FE          | M      | Open     | — (F1 informs it)         |
+| 14  | FE-5  | Filters for the Spielsuche                              | FE          | M      | Closed   | — (F1 informs it)         |
 | 15  | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | —                         |
 | 16  | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
 | 17  | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
@@ -595,6 +595,30 @@ Three things to settle when it is worked:
   decision as much as a UI one: a redirect keeps the URL working, deleting the route does not.
 
 **Path:** independent. Inherits whatever F1 decides.
+
+**Concluded 2026-08-08.** The Spielsuche has a facet bar — Status, Phase, Team and Ort in public, three
+more for an admin — and all three questions above are answered.
+
+**Where a filter runs: in memory, over the season already fetched.** `applyFacets` narrows the same list
+the fuzzy search does, which is what keeps it instant and why it still cannot reach outside the selected
+season. F1's disagreement is resolved rather than inherited: the Status facet reads `computeSpielStatus`,
+the function the cards label themselves with, so a chip reading „VERGANGEN" and the facet that finds it
+cannot disagree. The backend's own `spiel_status` defines `ausstehend` differently and is not consulted
+here, so the definition on screen is the one that applies.
+
+**What the URL carries: the selection, one readable parameter per facet.** `useUrlFilters` writes it
+beside the search text `useDebouncedUrlQuery` already put there, so a filtered view survives being shared.
+
+**Whether Spielhistorie stays: it does not.** The page was a server-side filter and a sort order over the
+same card list, and `?status=vergangen` is now that filter — so the route is deleted and 308s to
+`/dashboard/spielsuche?status=vergangen`. A redirect rather than a deletion, because the route was in the
+sitemap and carried its own canonical URL: a 404 would discard the search equity a 308 hands on. The nav
+entry and the sitemap row are gone with it, and the Spielsuche's own hint now names the filters.
+
+**One behaviour did not survive, and it is named rather than quietly dropped**: the Spielhistorie sorted
+by date descending — "die zuletzt gespielten zuerst", as its nav hint promised. The Spielsuche has no sort
+control and lists a season in its own ascending date order. That promise belonged to a page that no longer
+exists; a sort control on the search surface is a separate piece of work nobody has asked for.
 
 ### 15 · FE-6 — A way to report an error from the error page
 

@@ -16,6 +16,19 @@ const nextConfig: NextConfig = {
         destination: "/admin/action_required#top",
         permanent: true, // HTTP 308 (permanent, method-preserving) -- not 301
       },
+      {
+        // The Spielhistorie was its own page and is now a filter on the Spielsuche (FE-5, owner,
+        // 2026-08-08). A REDIRECT rather than a deletion, because the route was in the sitemap, carried
+        // its own canonical URL and has been linked: dropping it would answer 404 to every one of those,
+        // where a 308 hands the accumulated search equity to the page that replaced it.
+        //
+        // `?status=vergangen` is the Status facet's own parameter and value, and it is what makes this a
+        // fold rather than a redirect to a blank search: `SpielsucheView` renders results as soon as a
+        // filter is active, without anything typed.
+        source: "/dashboard/spielhistorie",
+        destination: "/dashboard/spielsuche?status=vergangen",
+        permanent: true,
+      },
     ];
   },
   async headers() {

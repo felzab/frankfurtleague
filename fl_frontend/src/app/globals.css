@@ -1031,7 +1031,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    * what fixes it: the eye follows a sequence instead of catching a single flash.
    *
    * It is the entrance for **every card collection**: the spielplan's panels, the landing page's two
-   * grids, spielhistorie, spielsuche, the admin action-required panels, and `TeamsGrid`. Grids of
+   * grids, spielsuche, the admin action-required panels, and `TeamsGrid`. Grids of
    * cards one nav click apart must arrive the same way, which is why this is keyed off
    * `role="listitem"` rather than off a card type. Spielsuche leans on it hardest — it re-renders on
    * every debounced keystroke, the same land-where-the-last-one-was situation as a tab switch.
@@ -1046,7 +1046,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    * `display: contents` does not change parentage.
    *
    * Eight steps, then a shared delay for the rest: the largest Spieltag holds eight matches, and the
-   * unbounded lists (spielhistorie, spielsuche) must not stagger a hundredth card by two and a half
+   * an unbounded list (spielsuche) must not stagger a hundredth card by two and a half
    * seconds. The last step starts at 175ms, so any grid has settled inside half a second.
    */
   .cards-cascade [role="listitem"] {
