@@ -27,6 +27,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLPatchSaisonPayload,
@@ -86,6 +87,10 @@ async def post_saison(
         # back through a `_id` validation alias.
         document={**saison_data.model_dump(mode="json", exclude={"id"}), "_id": saison_data.id, "status": "future"},
     )
+
+    # A created season is `future`, so no cached answer is strictly wrong yet -- dropped anyway,
+    # because "every season write drops the cache" is a rule worth keeping unconditional (ADR-0070).
+    invalidate_saison_cache()
 
     return FLPostSaisonResponse(
         acknowledged=1 if post_operation.acknowledged else 0,
@@ -201,6 +206,10 @@ async def patch_saison(
     if updated_document_raw is None:
         raise DocumentNotFoundException(filter={"_id": saison_id}, error_code="DB-COMMON-001")
 
+    # After the write has landed: the cached copy of this season -- and of "current", if this is the
+    # running season -- now describes rules or dates the database no longer holds (ADR-0070).
+    invalidate_saison_cache()
+
     return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))
 
 
@@ -273,6 +282,11 @@ async def activate_saison(
                 session=session,
                 return_document=ReturnDocument.AFTER,
             )
+
+    # Outside the transaction blocks, so the drop happens only once the commit has: an aborted
+    # rollover leaves the database unchanged and the cache with nothing to unlearn. This write is the
+    # one that moves WHICH season "current" names, which is the entry the cache exists for (ADR-0070).
+    invalidate_saison_cache()
 
     # The read above already proved the row exists, so this is a type narrowing rather than a branch
     # anything is expected to reach.

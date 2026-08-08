@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `4ff9af6`, 2026-08-08
+**Verified against:** `b123022`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -44,7 +44,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
 | 2   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
-| 3   | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Open     | —                         |
+| 3   | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Closed   | —                         |
 | 4   | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
 | 5   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 6   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
@@ -283,6 +283,16 @@ admin page calling them
 points change goes through the hook and the cache drops with no staleness. What the TTL would still buy is
 coverage of a hand edit in Compass, which is the same residual case the frontend's own caches carry and is
 bounded there by a day rather than by minutes.
+
+**Closed, 2026-08-08**, as
+[ADR-0070](../_decisions/0070-the-season-document-is-cached-in-process.md): season documents are
+cached in-process (`app/api/saisons/cache.py`), every resolver reads through the cache, all three
+season write endpoints drop it as they save, and a ten-minute TTL bounds the one edit the drop
+cannot see. The entry's two candidates resolved as both rather than either: the drop alone would
+have left a Compass edit stale for the life of the process — unbounded, which is the property
+ADR-0035 exists to refuse — and the TTL alone would have let a rollover serve the old season to the
+page that performed it. `tests/api/test_saison_cache.py` pins the contract, and the hand-edit
+runbook in `docs/workflows/README.md` now names the extra ten minutes.
 
 **Path:** independent. Nothing blocks it.
 

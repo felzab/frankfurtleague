@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `3b74b5f`, 2026-08-07
+**Verified against:** `b123022`, 2026-08-08
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -499,6 +499,14 @@ docker compose up -d --force-recreate frontend
 **A hand edit to a season is the one that leaves the most stale**, because a season decides what an omitted
 `saison_id` means: the season's own reads, plus `spiele`, `spieltage` and `teams`. Making it through
 `/admin/saisons/[saison_id]` clears all four; making it in Compass clears none.
+
+**The backend holds its own season cache on top of that**
+([ADR-0070](../_decisions/0070-the-season-document-is-cached-in-process.md)): season documents are
+cached in-process for up to ten minutes, dropped by the season write endpoints as they save. An edit
+through `/admin` is still visible at once — the write path drops the cache before it answers. A
+Compass edit to a season adds up to ten minutes of backend staleness on top of the frontend's day,
+and recreating the frontend container alone can therefore still serve the pre-edit season for those
+minutes; recreate the backend container too if that matters.
 
 ### Before any hand edit that a code change depends on
 
