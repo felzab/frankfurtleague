@@ -69,6 +69,10 @@ import renders a component unstyled while every check passes — now has a secon
 import in the wrong file. The mitigation is procedural and repeated in four places: the headers of both
 CSS files, `docs/frontend/overview.md`, and CLAUDE.md's repo-specific traps.
 
+[ADR-0019](0019-per-component-heroui-css.md) is why HeroUI is imported per component at all.
+The two lists live in `fl_frontend/src/app/globals.css` and `fl_frontend/src/app/admin/admin.css`;
+the checklist is [`docs/frontend/overview.md`](../frontend/overview.md#adding-a-heroui-component)'s.
+
 ## Alternatives considered
 
 **Leave it as one stylesheet.** Simplest, and it cannot break. Rejected on the measurement: a quarter of
@@ -81,9 +85,3 @@ the routing, so it needs no new concept. Slicing the public routes against each 
 
 **Lazy-load the admin CSS at runtime instead.** Rejected: it reintroduces a flash of unstyled form on
 the pages that need it most, to save nothing the layout-level import does not already save.
-
-## See also
-
-- [ADR-0019](0019-per-component-heroui-css.md) — why HeroUI is imported per component at all
-- `fl_frontend/src/app/globals.css` and `fl_frontend/src/app/admin/admin.css` — the two lists
-- [`docs/frontend/overview.md`](../frontend/overview.md#adding-a-heroui-component) — the checklist

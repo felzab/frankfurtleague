@@ -8,7 +8,7 @@ from the season's rules, because a single round robin per group determines it ex
 `anzahl_spiele` is on the read model and on neither payload: it is served, never written. And the name
 carries no information at all -- a group matchday is its ordinal and a knockout matchday is its round --
 so it is composed by the reader from `saison_phase` and the position, and this model has no field for it
-(ADR-0067).
+(ADR-0064).
 
 **The name is composed on the FRONTEND rather than served from here**, because it is German display text.
 `quelle` set the same precedent: a reference carries no label, and what a card shows is derived where it is

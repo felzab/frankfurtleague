@@ -5,7 +5,7 @@
 **Surface:** frontend, backend, ops
 **Supersedes:** —
 **Superseded by:** —
-**Source:** remediation ledger decision D1
+**Source:** Remediation-ledger decision D1, 2026-07-29
 
 ## Context
 

@@ -210,7 +210,7 @@ _SPIEL_ELFMETERSCHIESSEN = _object(
 
 _SPIEL_TEAM_FIELD = _object(
     # Nullable: a playoff slot the group phase has not filled yet has no occupant, and the fixture says
-    # so rather than pointing at a stand-in team (ADR-0041). Where that occupant will come from is
+    # so rather than pointing at a stand-in team (ADR-0042). Where that occupant will come from is
     # `teamN_quelle` on the match, which is a sibling of this field and never a key inside it.
     nullable=True,
     required=("team_id", "name", "tore", "shorthand"),
@@ -429,7 +429,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Where each side comes from, or null for a fixture whose sides were never drawn from
                 # anywhere -- every group-phase match, and every slot an admin has taken manual charge
                 # of. Nothing here pairs it with the team field beside it: all four combinations are
-                # legitimate (ADR-0041), and a cross-field rule is outside what these validators may
+                # legitimate (ADR-0042), and a cross-field rule is outside what these validators may
                 # assert anyway (ADR-0027).
                 "team1_quelle": _SPIEL_QUELLE,
                 "team2_quelle": _SPIEL_QUELLE,
@@ -466,7 +466,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "beginn": {"bsonType": "string"},
                 "ende": {"bsonType": "string"},
                 # NEITHER a position NOR a match count is stored here, and both absences are decisions.
-                # The position is `saison_phase` in bracket order, then `beginn`, then `_id` (ADR-0064, ADR-0067);
+                # The position is `saison_phase` in bracket order, then `beginn`, then `_id` (ADR-0064);
                 # the match count follows from the season's `rules` and this matchday's phase, because a
                 # single round robin per group determines it exactly (ADR-0065). `FLSpieltag` serves
                 # `anzahl_spiele` as a derived field, which is why `MIRRORED_MODELS` lists it as

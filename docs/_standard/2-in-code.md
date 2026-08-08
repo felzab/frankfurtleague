@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `893cd4a`, 2026-08-08
+**Verified against:** `50c87e8`, 2026-08-08
 
 Applies to `fl_frontend/src` and `fl_backend/app`. The principles in
 [`1-principles.md`](1-principles.md) apply here too; this chapter adds what is specific to source
@@ -131,7 +131,7 @@ no ADR governs the module, omit `DECISIONS` and let `SEE ALSO` point at the spec
 /**
  * SPIELE · derivations
  *
- * Pure derivation over a Spiel — no I/O, no caching, so it stays out of `queries.ts` (ADR-0004).
+ * Pure derivation over a Spiel — no I/O, no caching, so it stays out of `queries.ts` (ADR-0003).
  * Parsing `ergebnis` lives here because its format is declared by `FLSpielSchema`: it is Spiel domain
  * knowledge, not something a `teams` view should re-implement.
  */

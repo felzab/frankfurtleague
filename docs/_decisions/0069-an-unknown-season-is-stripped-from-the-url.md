@@ -75,6 +75,19 @@ reintroduces the disagreement in one of the two directions.
 selector offers — but it is worth stating, because it means the season list is now load-bearing for
 navigation and not only for a dropdown.
 
+**Why this does not contradict [ADR-0002](0002-omitted-season-means-current.md).** It reads as
+a reversal, so the boundary is worth stating exactly. [ADR-0002](0002-omitted-season-means-current.md) removed a lookup from the path where the parameter is
+**absent**: `getCurrentSaison()` ran before every page query on eight routes, and the page could not issue
+its real request until the answer came back. Its rejected alternative — "keep resolving in the frontend" —
+is about _resolving what the current season is_, and this decision does not do that. The default is still
+the backend's, still applied in the handler, and `resolveSaisonId` still returns `undefined` for an absent
+parameter without fetching anything at all. **That measured path is byte-for-byte unchanged.**
+
+What is added is input validation on a value the user supplied, which ADR-0002 does not address, on the
+path where the parameter is present. It costs nothing measurable there either: `getSaisons` is `"use cache"`
+and the sidemenu issues the same call on every one of these routes, so the check resolves against a cache
+entry the render already has rather than a round trip.
+
 ## Alternatives considered
 
 **Validate in each page, where the list is already in hand.** Six admin pages already fetch `getSaisons()`
@@ -96,19 +109,3 @@ bookmark reproduces the report.
 **Resolve it client-side, in the selector, by rewriting the URL after hydration.** Rejected: the wrong page
 has already been requested, rendered and streamed by then, so the reader sees the empty state before it is
 corrected — and with JavaScript unavailable it is never corrected at all.
-
-## Why this does not contradict ADR-0002
-
-It reads as a reversal, so the boundary is worth stating exactly.
-
-[ADR-0002](0002-omitted-season-means-current.md) removed a lookup from the path where the parameter is
-**absent**: `getCurrentSaison()` ran before every page query on eight routes, and the page could not issue
-its real request until the answer came back. Its rejected alternative — "keep resolving in the frontend" —
-is about _resolving what the current season is_, and this decision does not do that. The default is still
-the backend's, still applied in the handler, and `resolveSaisonId` still returns `undefined` for an absent
-parameter without fetching anything at all. **That measured path is byte-for-byte unchanged.**
-
-What is added is input validation on a value the user supplied, which ADR-0002 does not address, on the
-path where the parameter is present. It costs nothing measurable there either: `getSaisons` is `"use cache"`
-and the sidemenu issues the same call on every one of these routes, so the check resolves against a cache
-entry the render already has rather than a round trip.

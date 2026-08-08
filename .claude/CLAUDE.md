@@ -274,48 +274,44 @@ The argument, the alternatives and the measurements are in `docs/_decisions/` �
 proposing any change. **The ADR is the source; this list is only an index**, so correct the list, never
 the ADR.
 
-| ADR  | Never                                                                                               |
-| ---- | --------------------------------------------------------------------------------------------------- |
-| 0001 | Add a granular cache tag with no `updateTag`; make base tags conditional                            |
-| 0002 | Give `saison_id` a field default — an omitted one means the current season, in the handler          |
-| 0003 | Add a barrel file                                                                                   |
-| 0004 | Fold `utils.ts` or `resolvers.ts` into `queries.ts`                                                 |
-| 0005 | Move the Spiel write path to `admin`, or let its form read `useAdmin()`                             |
-| 0006 | Nest components deeper than one level, or leave them flat in `components/`                          |
-| 0007 | Merge the three `SpielCard` variants                                                                |
-| 0008 | Use a default export outside the files Next.js requires one in                                      |
-| 0009 | Remove an `await connection()` before a page fetch — the image build fails                          |
-| 0010 | Add a second direct `MongoClient`; Auth.js owns the only one                                        |
-| 0012 | Scope a cross-feature import lint to anything but `core` and `shared`                               |
-| 0013 | Cache an admin-scoped API read — `getAdminSpieleActionRequired` is the governing instance           |
-| 0014 | Remove `checkIsReady`, `getSystemInfo`, or the system key while its branch stands                   |
-| 0016 | Disable `react/no-danger`, or add a second CSP                                                      |
-| 0025 | Write `text-fluid-*` — the scale is `fluid-sm`, and no such utility exists                          |
-| 0026 | Store or cache team statistics; hardcode 3/1/0; consult `is_canceled` for the table                 |
-| 0027 | Let a failed validator or index be caught and ignored; widen one past types/presence/enums          |
-| 0028 | Treat `mietpreis` / `payment` as stale copies of the defaults                                       |
-| 0029 | Change the league table's default scope away from `gruppenphase`                                    |
-| 0030 | Move db-marked tests out of the gate                                                                |
-| 0031 | Generate the `$jsonSchema` validators from the models                                               |
-| 0032 | Make `inactive_since` a boolean; revive a retired row by creating it — 409 is correct               |
-| 0033 | Write `status` outside `POST /saisons/{id}/activate`; add a DELETE to `saisons` or `saison_teams`   |
-| 0034 | Move a guard onto an endpoint, merge the two routers, or delete an uncalled `GET /{id}`             |
-| 0035 | Re-add a reference-data invalidation endpoint; treat sub-24h reference staleness as a defect        |
-| 0037 | Let the comment classifier shrink a CI job; add a flag that suppresses the images refusal           |
-| 0038 | Pin `type=gha`'s cache version; give the two images one cache scope; re-add an `actions/cache` step |
-| 0042 | Store the bracket's German label; add an override flag beside `quelle`; advance one match's feeds   |
-| 0044 | Put the shoot-out inside `ergebnis`; store its winner; let the league table read it                 |
-| 0045 | Add a POST or a DELETE to `/spiele` — a season's fixtures are created once, then cancelled or moved |
-| 0047 | Store a bracket fault; report a placing that is merely undecided; let reporting one resolve it      |
-| 0053 | Style a toast from CSS beyond the two rules named there; call HeroUI's `toast` at a call site       |
-| 0062 | Give anything but a page-owned editor's undo a route handler; revert the undos before E592 is fixed |
-| 0063 | Add a reorder endpoint for `spieltage`, or move the rollover off the season editor's page           |
-| 0064 | Give a `Spieltag` a stored position, or order matchdays by date without the phase leading           |
-| 0065 | Store `anzahl_spiele`; hardcode the qualifier cap instead of deriving it from `KNOCKOUT_PHASES`     |
-| 0066 | Import `app/core/domain.py` from `app/`; generate it; make it the path a write is checked against   |
-| 0067 | Store a `Spieltag` name, or serve the German label from the API; order matchdays by the label       |
-| 0068 | Spell a collection name as a literal; give FIELD names the same treatment                           |
-| 0069 | Fetch the season list when `?saison_id=` is absent; drop either half of the two-sided validation    |
+| ADR  | Never                                                                                                                                                                                            |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0001 | Add a granular cache tag with no `updateTag`; make base tags conditional                                                                                                                         |
+| 0002 | Give `saison_id` a field default — an omitted one means the current season, in the handler                                                                                                       |
+| 0003 | Add a barrel file; fold `utils.ts` or `resolvers.ts` into `queries.ts`; use a default export outside the files Next.js requires one in; nest components deeper than one level or leave them flat |
+| 0005 | Move the Spiel write path to `admin`, or let its form read `useAdmin()`                                                                                                                          |
+| 0007 | Merge the three `SpielCard` variants                                                                                                                                                             |
+| 0009 | Remove an `await connection()` before a page fetch — the image build fails                                                                                                                       |
+| 0010 | Add a second direct `MongoClient`; Auth.js owns the only one                                                                                                                                     |
+| 0012 | Scope a cross-feature import lint to anything but `core` and `shared`                                                                                                                            |
+| 0013 | Cache an admin-scoped API read — `getAdminSpieleActionRequired` is the governing instance                                                                                                        |
+| 0014 | Remove `checkIsReady`, `getSystemInfo`, or the system key while its branch stands                                                                                                                |
+| 0016 | Disable `react/no-danger`, or add a second CSP                                                                                                                                                   |
+| 0025 | Write `text-fluid-*` — the scale is `fluid-sm`, and no such utility exists                                                                                                                       |
+| 0026 | Store or cache team statistics; hardcode 3/1/0; consult `is_canceled` for the table                                                                                                              |
+| 0027 | Let a failed validator or index be caught and ignored; widen one past types/presence/enums                                                                                                       |
+| 0028 | Treat `mietpreis` / `payment` as stale copies of the defaults                                                                                                                                    |
+| 0029 | Change the league table's default scope away from `gruppenphase`                                                                                                                                 |
+| 0030 | Move db-marked tests out of the gate                                                                                                                                                             |
+| 0031 | Generate the `$jsonSchema` validators from the models                                                                                                                                            |
+| 0032 | Make `inactive_since` a boolean; revive a retired row by creating it — 409 is correct                                                                                                            |
+| 0033 | Write `status` outside `POST /saisons/{id}/activate`; add a DELETE to `saisons` or `saison_teams`                                                                                                |
+| 0034 | Move a guard onto an endpoint, merge the two routers, or delete an uncalled `GET /{id}`                                                                                                          |
+| 0035 | Re-add a reference-data invalidation endpoint; treat sub-24h reference staleness as a defect                                                                                                     |
+| 0037 | Let the comment classifier shrink a CI job; add a flag that suppresses the images refusal                                                                                                        |
+| 0038 | Pin `type=gha`'s cache version; give the two images one cache scope; re-add an `actions/cache` step                                                                                              |
+| 0042 | Store the bracket's German label; add an override flag beside `quelle`; advance one match's feeds                                                                                                |
+| 0044 | Put the shoot-out inside `ergebnis`; store its winner; let the league table read it                                                                                                              |
+| 0045 | Add a POST or a DELETE to `/spiele` — a season's fixtures are created once, then cancelled or moved                                                                                              |
+| 0047 | Store a bracket fault; report a placing that is merely undecided; let reporting one resolve it                                                                                                   |
+| 0053 | Style a toast from CSS beyond the two rules named there; call HeroUI's `toast` at a call site                                                                                                    |
+| 0062 | Give anything but a page-owned editor's undo a route handler; revert the undos before E592 is fixed                                                                                              |
+| 0063 | Add a reorder endpoint for `spieltage`, or move the rollover off the season editor's page                                                                                                        |
+| 0064 | Give a `Spieltag` a stored position or name; serve the German label from the API; order matchdays by date without the phase leading                                                              |
+| 0065 | Store `anzahl_spiele`; hardcode the qualifier cap instead of deriving it from `KNOCKOUT_PHASES`                                                                                                  |
+| 0066 | Import `app/core/domain.py` from `app/`; generate it; make it the path a write is checked against                                                                                                |
+| 0068 | Spell a collection name as a literal; give FIELD names the same treatment                                                                                                                        |
+| 0069 | Fetch the season list when `?saison_id=` is absent; drop either half of the two-sided validation                                                                                                 |
 
 ## 8. Documentation
 

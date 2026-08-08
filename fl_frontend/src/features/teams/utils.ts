@@ -2,7 +2,7 @@
  * TEAMS · derivations
  *
  * Pure derivation over a group's standing — no I/O and no caching, which is why it stays out of
- * `queries.ts` rather than being folded in (ADR-0004).
+ * `queries.ts` rather than being folded in (ADR-0003).
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *

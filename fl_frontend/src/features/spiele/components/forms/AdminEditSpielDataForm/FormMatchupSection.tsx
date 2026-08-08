@@ -17,12 +17,12 @@ import type { FLTeam } from "@/features/teams/schemas";
  *
  * **Before Ergebnis, and the Ergebnis panel's own hint is the argument.** It reads "Erst wenn beide
  * Seiten feststehen", because `PATCH /spiele/{spiel_id}` reads through an absent side as no goals at all
- * and a fixture with an unresolved slot can never carry a result (ADR-0041). A panel that states its own
+ * and a fixture with an unresolved slot can never carry a result (ADR-0042). A panel that states its own
  * precondition cannot sit above it.
  *
  * Each picker disables whichever team the other side already holds, so a match cannot be a team against
  * itself. The rule is unconditional because two unresolved sides are two nulls rather than one team
- * document occupying both (ADR-0041), and `null` disables nothing. The other side's DRAFT source rides
+ * document occupying both (ADR-0042), and `null` disables nothing. The other side's DRAFT source rides
  * along the same way, so the two sides cannot pick one outcome.
  *
  * A Gruppenphase fixture shows two team pickers and no source controls at all — its sides are drawn by

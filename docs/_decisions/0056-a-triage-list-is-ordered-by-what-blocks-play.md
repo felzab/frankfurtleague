@@ -124,6 +124,14 @@ navigation to the editor, and a future inline mutation reads that ADR first.
 fixture an admin last opened needs an anchor on its card, and the card is not this page's to change. The
 section survives a round trip to the editor; the scroll position within it does not.
 
+[ADR-0047](0047-a-bracket-fault-is-derived-on-demand.md) is the derivation this renders and
+the fault panel's placement, both unchanged;
+[ADR-0050](0050-a-form-that-outgrows-a-dialog-becomes-a-page.md) is the page every card links
+into; [ADR-0013](0013-admin-scoped-reads-are-never-cached.md) is why the read is uncached,
+which decides the transport; [ADR-0007](0007-three-spiel-cards-stay-separate.md) is why this
+page renders an existing card rather than a fourth. The URL-state rule and the sibling hazard
+are `docs/frontend/spec.md`'s, invariant I24 and section 12.
+
 ## Alternatives considered
 
 **Keep the accordion, reorder it and hide the empty sections.** The smallest change, and it keeps eight
@@ -148,13 +156,3 @@ cost a FastAPI round trip over the whole archive to re-render data the browser a
 **A hand-rolled scroll button on the tab strip.** Considered when the strip's overflow proved
 undiscoverable. Unnecessary: the component ships the documented affordance and the app was suppressing
 it.
-
-## See also
-
-- [ADR-0047](0047-a-bracket-fault-is-derived-on-demand.md) — the derivation this renders, and the fault
-  panel's placement, both unchanged
-- [ADR-0050](0050-a-form-that-outgrows-a-dialog-becomes-a-page.md) — the page every card links into
-- [ADR-0013](0013-admin-scoped-reads-are-never-cached.md) — why the read is uncached, which decides the transport
-- [ADR-0007](0007-three-spiel-cards-stay-separate.md) — why this page renders an existing card rather
-  than a fourth
-- `docs/frontend/spec.md`, invariant I24 and section 12 — the URL-state rule and the sibling hazard

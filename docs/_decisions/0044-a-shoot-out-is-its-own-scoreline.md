@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-08-05
 **Surface:** backend, frontend
+**Supersedes:** —
+**Superseded by:** —
 **Source:** Open item FB-8, the last behavioural gap in the bracket
 [ADR-0042](0042-a-result-entry-resolves-the-whole-bracket.md) and
 [ADR-0043](0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md) built.
@@ -171,4 +173,4 @@ rule that never applies to the table it changed.
 **Refuse a shoot-out on a fixture the goals already decided, rather than discarding it.** Rejected
 because the check is a cross-field rule between `elfmeterschiessen` and two `tore` values, and matches
 are hand-created — so it would fail on READ and take the bracket page down over a document that is
-merely contradictory, which is the trap ADR-0041 recorded for pairing `quelle` with its team field.
+merely contradictory, which is the trap ADR-0042 records for pairing `quelle` with its team field.

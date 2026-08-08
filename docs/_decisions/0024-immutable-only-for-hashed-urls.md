@@ -68,6 +68,9 @@ changes will not.
 **The general rule to carry forward:** a long `max-age` is a guess that can be corrected; `immutable`
 is a promise that cannot. Only make it where the URL changes with the content.
 
+The scoped rule lives in `fl_frontend/next.config.ts`; what rewrites these files in place is
+`fl_frontend/scripts/generate-brand-assets.mjs`.
+
 ## Alternatives considered
 
 **Content-hash the brand assets** — `opengraph.<hash>.png` emitted by `pnpm brand`, with the metadata
@@ -80,8 +83,3 @@ Browsers and third-party scrapers hold their own copies for the same 30 days and
 
 **Shorten `max-age` but keep `immutable`.** Rejected as incoherent: the directive would still forbid
 revalidation, so the two would contradict each other for the shortened window.
-
-## See also
-
-- `fl_frontend/next.config.ts` — the scoped rule
-- `fl_frontend/scripts/generate-brand-assets.mjs` — what rewrites these files in place

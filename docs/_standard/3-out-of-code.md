@@ -1,6 +1,6 @@
 # Out-of-code documentation
 
-**Verified against:** `d888879`, 2026-08-08
+**Verified against:** `cfc46da`, 2026-08-08
 
 Governs everything under `/docs`. The principles in [`1-principles.md`](1-principles.md) apply here
 too; this chapter adds the shapes.

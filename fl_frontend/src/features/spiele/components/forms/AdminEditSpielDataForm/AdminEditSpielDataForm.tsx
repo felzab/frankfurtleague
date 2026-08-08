@@ -173,7 +173,7 @@ export function AdminEditSpielDataForm({
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
   // Held beside the team rather than inside it: provenance survives the slot being filled, so the two
-  // move independently (ADR-0041).
+  // move independently (ADR-0042).
   const [team1Quelle, setTeam1Quelle] = useState<FLSpielQuelle | null>(spielData.team1_quelle);
   const [team2Quelle, setTeam2Quelle] = useState<FLSpielQuelle | null>(spielData.team2_quelle);
 
@@ -233,7 +233,7 @@ export function AdminEditSpielDataForm({
   };
 
   // An empty picker is a legitimate answer, and it is how a bracket slot the group phase has not
-  // filled yet is recorded (ADR-0041) — so both sides submit as they stand, `null` included.
+  // filled yet is recorded (ADR-0042) — so both sides submit as they stand, `null` included.
   const buildPayload = (): FLPatchSpielDataPayload => ({ ...draft, spiel_id: spielData.id }) as FLPatchSpielDataPayload;
 
   // The fixture as it will stand once saved. Built once and read three times — the preview renders it,

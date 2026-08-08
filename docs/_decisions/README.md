@@ -38,12 +38,9 @@ was taken**, not when the file was written.
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------- | -------- | ---------- |
 | [0001](0001-two-granular-cache-tags.md)                                           | Keep two granular cache tags, delete twenty                                  | frontend, backend      | Accepted | 2026-07-29 |
 | [0002](0002-omitted-season-means-current.md)                                      | An omitted `saison_id` means the current season                              | backend, frontend      | Accepted | 2026-07-31 |
-| [0003](0003-no-barrel-files.md)                                                   | No barrel files, anywhere                                                    | frontend               | Accepted | 2026-07-29 |
-| [0004](0004-optional-slice-modules.md)                                            | `utils.ts` and `resolvers.ts` are sanctioned slice modules                   | frontend               | Accepted | 2026-07-29 |
+| [0003](0003-no-barrel-files.md)                                                   | The frontend file layout: no barrels, named exports, categories              | frontend               | Accepted | 2026-07-29 |
 | [0005](0005-spiel-write-path-belongs-to-spiele.md)                                | The Spiel write path belongs to `spiele`, not `admin`                        | frontend               | Accepted | 2026-07-31 |
-| [0006](0006-component-category-folders.md)                                        | Component category folders, one extra level for forms                        | frontend               | Accepted | 2026-07-29 |
 | [0007](0007-three-spiel-cards-stay-separate.md)                                   | Three Spiel cards stay three components                                      | frontend               | Accepted | 2026-07-29 |
-| [0008](0008-named-exports.md)                                                     | Named exports; defaults only where Next.js requires                          | frontend               | Accepted | 2026-07-29 |
 | [0009](0009-connection-guards-every-data-fetch.md)                                | `await connection()` guards every page data fetch                            | frontend, ops          | Accepted | 2026-07-29 |
 | [0010](0010-authjs-owns-a-direct-mongoclient.md)                                  | Auth.js owns a direct `MongoClient`                                          | frontend               | Accepted | 2026-07-29 |
 | [0012](0012-admin-is-an-aggregator-slice.md)                                      | `admin` is an aggregator; cross-feature lints must be scoped                 | frontend               | Accepted | 2026-07-29 |
@@ -72,7 +69,6 @@ was taken**, not when the file was written.
 | [0038](0038-the-image-cache-is-the-actions-cache-service.md)                      | The image build cache is the Actions cache service                           | ops                    | Accepted | 2026-08-05 |
 | [0039](0039-one-correlation-id-per-request-one-document-per-line.md)              | One correlation id per request, one JSON document per line                   | frontend, backend, ops | Accepted | 2026-08-05 |
 | [0040](0040-the-zod-mirror-is-checked-against-the-published-document.md)          | The Zod mirror is checked against a committed OpenAPI document               | frontend, backend, ops | Accepted | 2026-08-05 |
-| [0041](0041-a-bracket-slot-carries-its-own-provenance.md)                         | A bracket slot carries its own provenance, beside the team                   | frontend, backend      | Accepted | 2026-08-05 |
 | [0042](0042-a-result-entry-resolves-the-whole-bracket.md)                         | A bracket slot stores a reference; a result resolves the bracket             | frontend, backend      | Accepted | 2026-08-05 |
 | [0043](0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md) | One tiebreak chain, and a placing is seeded only once it is final            | frontend, backend      | Accepted | 2026-08-05 |
 | [0044](0044-a-shoot-out-is-its-own-scoreline.md)                                  | A shoot-out is its own scoreline, read by the bracket alone                  | frontend, backend      | Accepted | 2026-08-05 |
@@ -90,10 +86,9 @@ was taken**, not when the file was written.
 | [0061](0061-position-and-stufe-are-closed-sets.md)                                | A player's position and stufe are closed sets                                | backend                | Accepted | 2026-08-07 |
 | [0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)                  | Every page-owned editor's undo is a route handler, until E592 is fixed       | frontend               | Accepted | 2026-08-07 |
 | [0063](0063-a-matchday-list-is-the-seasons-skeleton.md)                           | A matchday list is the season's skeleton, and the rollover is on its page    | frontend               | Accepted | 2026-08-07 |
-| [0064](0064-a-matchdays-position-is-derived-not-stored.md)                        | A matchday's position is derived from what it is, not stored beside it       | backend, frontend      | Accepted | 2026-08-07 |
+| [0064](0064-a-matchdays-position-is-derived-not-stored.md)                        | A matchday's position and name are derived, not stored                       | backend, frontend      | Accepted | 2026-08-07 |
 | [0065](0065-a-seasons-schedule-is-derived-from-its-rules.md)                      | A season's schedule is derived from its rules, and the rules hold a shape    | backend, frontend      | Accepted | 2026-08-07 |
 | [0066](0066-the-domain-model-is-declared-and-conformance-checked.md)              | The domain model is declared as data and conformance-checked, not evaluated  | backend                | Accepted | 2026-08-07 |
-| [0067](0067-a-matchdays-name-is-composed-by-the-reader.md)                        | A matchday's name is composed by the reader, not stored beside it            | backend, frontend      | Accepted | 2026-08-08 |
 | [0068](0068-one-declaration-of-the-collection-names.md)                           | One declaration of the collection names, as a `StrEnum`                      | backend                | Accepted | 2026-08-08 |
 | [0069](0069-an-unknown-season-is-stripped-from-the-url.md)                        | A `?saison_id=` naming no season is stripped from the URL                    | frontend               | Accepted | 2026-08-08 |
 | [0070](0070-the-season-document-is-cached-in-process.md)                          | The season document is cached in-process, dropped by its writes, TTL-bounded | backend                | Accepted | 2026-08-08 |
@@ -110,15 +105,20 @@ lives where the row says.
 
 | Number | Where the content went                                                           |
 | ------ | -------------------------------------------------------------------------------- |
+| 0004   | [ADR-0003](0003-no-barrel-files.md)                                              |
+| 0006   | [ADR-0003](0003-no-barrel-files.md)                                              |
+| 0008   | [ADR-0003](0003-no-barrel-files.md)                                              |
 | 0011   | `docs/frontend/spec.md`, invariant I28 (no `generateStaticParams`)               |
 | 0015   | [ADR-0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)        |
 | 0018   | `docs/frontend/overview.md`, the metadata rules (no `keywords` tag)              |
 | 0021   | [ADR-0022](0022-origin-keeps-compressing.md)                                     |
+| 0041   | [ADR-0042](0042-a-result-entry-resolves-the-whole-bracket.md)                    |
 | 0048   | [ADR-0051](0051-a-voided-result-is-named-before-it-is-lost.md)                   |
 | 0049   | [ADR-0052](0052-a-team-is-fielded-once-per-spieltag.md)                          |
 | 0054   | Nowhere — written 2026-08-07 and reverted the same day, before anything cited it |
 | 0055   | [ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)             |
 | 0060   | [ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)             |
+| 0067   | [ADR-0064](0064-a-matchdays-position-is-derived-not-stored.md)                   |
 
 ## Considered, and deliberately not made an ADR
 

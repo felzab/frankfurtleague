@@ -191,7 +191,7 @@ def spiel(
             "team1": spiel_team_field(),
             "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LE", tore=1),
             # A group-phase fixture: both sides are drawn by the schedule rather than fed by the
-            # standings or by an earlier match, so neither carries a source (ADR-0041, ADR-0042).
+            # standings or by an earlier match, so neither carries a source (ADR-0042).
             "team1_quelle": None,
             "team2_quelle": None,
             "datum": "2026-03-15",
@@ -264,7 +264,7 @@ def spieltag() -> PayloadFactory:
         {
             "_id": SPIELTAG_ID,
             # No `name`: a matchday's is composed by the reader from its phase and its position, and this
-            # model has no field for one (ADR-0067).
+            # model has no field for one (ADR-0064).
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "anzahl_spiele": 4,

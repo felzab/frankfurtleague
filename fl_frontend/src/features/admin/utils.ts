@@ -4,7 +4,7 @@
  * Sorts matches into the categories the action-required view renders, ranks those categories by how
  * much each blocks the competition, and says the one thing about an entry that its category cannot.
  * Pure derivation, no I/O — it is a separate module from `queries.ts` so that non-caching code stays
- * out of a `"use cache"` file (ADR-0004).
+ * out of a `"use cache"` file (ADR-0003).
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *

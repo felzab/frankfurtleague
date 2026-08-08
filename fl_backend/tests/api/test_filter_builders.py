@@ -131,7 +131,7 @@ class TestSpieltageFilter:
 
 class TestSpieltageOrder:
     """
-    The derived order (ADR-0064), which is also what the displayed name is composed from (ADR-0067).
+    The derived order, which is also what the displayed name is composed from (ADR-0064).
 
     These are the tests a stored position never had: with the value written by hand there was nothing to
     assert but its type, and every ordering defect it permitted was invisible to the suite.
@@ -208,7 +208,7 @@ class TestSpieltageOrder:
 
         Without a final tie-break two calls can disagree, and the public Spielplan's tabs then move between
         reloads. The tie-break is the id rather than a name for two reasons: a matchday has none, and the
-        name a reader sees is composed FROM this order, so using it here would be circular (ADR-0067).
+        name a reader sees is composed FROM this order, so using it here would be circular (ADR-0064).
         """
         same_day = [
             self._spieltag(oid=self.B, phase="gruppenphase", beginn="2026-03-07"),

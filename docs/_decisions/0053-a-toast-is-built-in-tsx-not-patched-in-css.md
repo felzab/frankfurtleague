@@ -128,6 +128,13 @@ where `document.timeline.currentTime` never advances, so no CSS animation progre
 configuration was verified (`15s`, `linear`, `forwards`, `origin: left`, `running`) and its dismissal
 fires, but its visual drain needs one glance in a real browser.
 
+[ADR-0051](0051-a-voided-result-is-named-before-it-is-lost.md) is the undo toast whose
+structure this brings the other producers to; [ADR-0023](0023-admin-only-css-split.md) is why
+`toast.css` stays in `globals.css` and `admin.css` must not gain a second copy;
+[ADR-0019](0019-per-component-heroui-css.md) is the per-component import rule and the
+silent-failure class this decision avoids. The two halves are
+`fl_frontend/src/core/providers/AppToaster.tsx` and `fl_frontend/src/shared/utils/appToast.ts`.
+
 ## Alternatives considered
 
 **Override HeroUI's default composition from `globals.css`.** The route FE-11 originally assumed, and
@@ -146,14 +153,3 @@ redesign needed to read, and a second queue would strand `toast.clear()` calls a
 **Leave durations at each call site and simply pass longer ones.** Rejected: twenty producers each
 remembering is how the four-second default came to sit under a five-sentence fault report. Deriving it
 once is what makes the convention hold without anybody remembering it.
-
-## See also
-
-- [ADR-0051](0051-a-voided-result-is-named-before-it-is-lost.md) — the undo toast, whose structure this
-  brings the other producers to
-- [ADR-0023](0023-admin-only-css-split.md) — why `toast.css` stays in `globals.css` and `admin.css`
-  must not gain a second copy
-- [ADR-0019](0019-per-component-heroui-css.md) — the per-component import rule and the silent-failure
-  class this decision is avoiding
-- `fl_frontend/src/core/providers/AppToaster.tsx` and `fl_frontend/src/shared/utils/appToast.ts` — the
-  two halves

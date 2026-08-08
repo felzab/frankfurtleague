@@ -136,7 +136,7 @@ async def patch_saison(
             occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
     # The highest group placing any of this season's bracket slots names. Read from both sides, because a
-    # `quelle` sits on either (ADR-0041), and 0 where the season has no group-seeded slot at all.
+    # `quelle` sits on either (ADR-0042), and 0 where the season has no group-seeded slot at all.
     highest_platz = 0
     async for spiel in spiele_collection.find(
         {"saison_id": saison_id, "$or": [{"team1_quelle.type": "gruppe"}, {"team2_quelle.type": "gruppe"}]},

@@ -2,8 +2,8 @@
  * SPIELTAGE · derivations
  *
  * Pure derivation over a season's matchdays — no I/O and no caching, which is why it stays out of
- * `queries.ts` rather than being folded in (ADR-0004). Two things live here: the bracket's column order,
- * and the NAME a matchday is shown under, which no document stores (ADR-0067).
+ * `queries.ts` rather than being folded in (ADR-0003). Two things live here: the bracket's column order,
+ * and the NAME a matchday is shown under, which no document stores (ADR-0064).
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
@@ -81,7 +81,7 @@ export const orderRoundsByWiring = (rounds: readonly FLSpieltagWithSpiele[]): FL
 /**
  * What one matchday is called, from its phase and its place within that phase.
  *
- * **A matchday stores no name** (ADR-0067). One carries no information: a group-phase matchday is its
+ * **A matchday stores no name** (ADR-0064). One carries no information: a group-phase matchday is its
  * ordinal, a knockout matchday is its round. Both were already derivable — the ordinal from the order the
  * backend returns, the round from `PHASE_LABELS` — so a stored name was a second statement of the same
  * fact, and one nothing held consistent: two matchdays could share a name, and one called "Finale" could

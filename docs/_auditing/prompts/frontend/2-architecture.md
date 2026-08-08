@@ -20,9 +20,9 @@ would catch is already impossible, so this pass hunts what they cannot see.
 THE CHECKS:
 
 1. **Feature-slice conformance.** The conventions are ratified: slice module layout (queries/
-   mutations/actions/schemas/types/constants + the sanctioned optional `utils.ts`/`resolvers.ts`,
-   ADR-0004), component category folders with one allowed nesting level (ADR-0006), named exports
-   (ADR-0008), the aggregator exception (ADR-0012), the Spiel write path's home (ADR-0005). Which
+   mutations/actions/schemas/types/constants + the sanctioned optional `utils.ts`/`resolvers.ts`),
+   component category folders with one allowed nesting level, named exports (all three ADR-0003),
+   the aggregator exception (ADR-0012), the Spiel write path's home (ADR-0005). Which
    slices deviate — and which put data fetching, business logic or schema definitions inside
    component files instead of the designated module?
 

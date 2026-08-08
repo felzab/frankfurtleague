@@ -12,7 +12,7 @@ import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
  *
  * A resolved side is its own text behind a `TeamPopoverMenu`. A side whose occupant the group phase
  * has not produced yet renders its derived source label — "Sieger 25.", "1. der Gruppe A" — as plain text and mounts no
- * popover at all: there is no team page and no squad to link to (ADR-0041).
+ * popover at all: there is no team page and no squad to link to (ADR-0042).
  *
  * **This is the one place the three cards get their DQ badge**, because it is the one place they mount
  * the popover. The side arrives carrying its season's `disqualifikation`, joined onto the match by the

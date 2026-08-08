@@ -5,6 +5,8 @@
 **Surface:** ops
 **Supersedes:** —
 **Superseded by:** —
+**Source:** CI measurement of 2026-08-05 — both runs of pull request 50 showed the actions/cache
+path restoring perfectly and saving nothing.
 
 ## Context
 

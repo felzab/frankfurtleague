@@ -121,7 +121,7 @@ def _spiel(
     `team1.tore` / `team2.tore` filters exist to survive.
 
     A team name of `None` is a bracket slot whose occupant is not decided yet, which is a legal and
-    permanent-by-default state (ADR-0041) and the one the spiele pipeline's join has to survive.
+    permanent-by-default state (ADR-0042) and the one the spiele pipeline's join has to survive.
     """
     return {
         "spiel_nr": nr,
@@ -193,7 +193,7 @@ def league(mongo_database: Database) -> SeededLeague:
             # point of the spiele suite, though: both its sides are teams whose 2026 junction rows say
             # something the 2025 fixture must not pick up.
             _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
-            # A bracket slot the group phase has not filled (ADR-0041). Carries no result, so it counts
+            # A bracket slot the group phase has not filled (ADR-0042). Carries no result, so it counts
             # towards nothing here and exists only so the spiele join is proved against a null side.
             _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
         ]

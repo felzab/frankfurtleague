@@ -161,7 +161,7 @@ class TestSpieltag:
         A matchday has no name field, and the absence is asserted rather than left to be noticed.
 
         The name a reader sees is composed from `saison_phase` and the matchday's position in its phase
-        (ADR-0067): a group matchday is its ordinal, a knockout matchday is its round. Both are already
+        (ADR-0064): a group matchday is its ordinal, a knockout matchday is its round. Both are already
         derivable, so a stored name would be a second statement of the same fact -- and it was one nothing
         held consistent, since two matchdays could share a name and a name could contradict its phase.
         """

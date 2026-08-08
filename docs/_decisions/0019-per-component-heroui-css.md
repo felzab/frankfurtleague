@@ -65,6 +65,11 @@ with no automated net.
 **Upgrading HeroUI now needs a diff of its `components/index.css`.** A new shared primitive, or a
 reordering, is a change this block has to absorb by hand. This did not exist as a task before.
 
+The import block and its three editing rules live in `fl_frontend/src/app/globals.css`, the
+per-component checklist in
+[`docs/frontend/overview.md`](../frontend/overview.md#adding-a-heroui-component), and the
+documented mechanism in [HeroUI's v3 release notes](https://heroui.com/docs/react/releases/v3-0-0).
+
 ## Alternatives considered
 
 **Keep the single import and accept the size.** Simplest, and it cannot break. Rejected on the
@@ -84,9 +89,3 @@ maintenance burden this decision is paying for.
 disproportionate. It would need HeroUI's internal component graph to know that `Select` renders a
 listbox and a popover, and that graph is not published — it would have to be hand-maintained, which
 is the same problem one level removed.
-
-## See also
-
-- `fl_frontend/src/app/globals.css` — the import block and its three editing rules
-- [`docs/frontend/overview.md`](../frontend/overview.md#adding-a-heroui-component) — the checklist
-- [HeroUI v3 release notes](https://heroui.com/docs/react/releases/v3-0-0) — the documented mechanism

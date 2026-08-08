@@ -94,7 +94,7 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
       <span className={`${LABEL_BADGE} ${chip} max-w-full whitespace-normal`}>{label}</span>
 
       {/* The occupant, in the two spellings every card uses: the club's own name, or the shared
-          placeholder for a side nobody stands in yet (ADR-0041). `break-words` and not `truncate` — a
+          placeholder for a side nobody stands in yet (ADR-0042). `break-words` and not `truncate` — a
           review surface that hides half a club's name is one an admin cannot finish, and the row is
           free to grow. */}
       {team === null ? (
@@ -132,7 +132,7 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
  * draw finds it.
  */
 export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiele[] }) {
-  // Every round's label in one pass (ADR-0067). `rounds` arrives in the played order here -- this view
+  // Every round's label in one pass (ADR-0064). `rounds` arrives in the played order here -- this view
   // deliberately does NOT apply `orderRoundsByWiring`, which is the point it makes below -- so the
   // ordinal counts the matchday's place in its phase, which is what the label means.
   const labels = spieltagLabels(rounds);

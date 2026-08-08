@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** The owner's instruction to give the signed-in shells one header in the shape of the
+**Source:** The owner's instruction of 2026-08-07 to give the signed-in shells one header in the shape of the
 Cloudflare dashboard, with the page title shown only there and an info glyph on every page saying what
 can be found or done on it — plus the instruction to verify the cleanest implementation rather than
 assume the reference's, and a dozen rounds of review on the result.

@@ -82,7 +82,11 @@ candidates on the substring `-sha-`, which no longer appears now that the tag is
 is anchored on the tag instead. Left unfixed it would have reported "none pinned locally" forever —
 silently, and only noticed when a rollback was needed.
 
-## Alternatives rejected
+The single definition of the registry and repository names is `scripts/_lib.sh`; the publish
+and deploy procedures and the retention policy are documented in `scripts/README.md`; the
+services contract and its invariants are [`docs/ops/spec.md`](../ops/spec.md)'s.
+
+## Alternatives considered
 
 **Stay on Docker Hub.** Free, working, and independent of GitHub. Rejected because it keeps a second
 account and credential story for no benefit now that the code is public, keeps the tag-multiplexing
@@ -100,9 +104,3 @@ almost immediately, and the alternative is paying for storage to hide source tha
 means pulling roughly 2 GB, retagging and pushing — and those images carry OCI `revision` labels
 pointing at commits that no longer exist after the 2026-08-01 history rewrite, so the rollback
 targets would be unidentifiable anyway. Continuity would have been cosmetic.
-
-## See also
-
-- `scripts/_lib.sh` — the single definition of registry and repository names
-- `scripts/README.md` — the publish/deploy procedures and the retention policy
-- [`docs/ops/spec.md`](../ops/spec.md) — the services contract and its invariants

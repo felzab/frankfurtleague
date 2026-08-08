@@ -1,29 +1,21 @@
 <!--
-TEMPLATE — copy to docs/_decisions/NNNN-short-slug.md and fill in. Delete this comment block.
-Guidance: ../4-adr-guide.md
-
-BEFORE WRITING, apply the test: would someone reasonably propose the opposite, and would you have to
-re-derive the argument to refuse? If no, this is not an ADR — it is documentation, and it belongs in
-a spec sheet or a module header.
-
-THREE THINGS THAT MAKE THE LOG WORTH KEEPING:
-
-  1. AN ACCEPTED ADR IS NEVER REWRITTEN. Reversing a decision means writing the next number and
-     changing exactly two lines here: Status, and Superseded by. Fix a typo, never a rationale.
-  2. CONTEXT IS THE ONE PLACE PAST TENSE IS ALLOWED, because it has to describe the state the
-     decision replaced. Decision and Consequences are present tense, aimed at the reader about to
-     break the rule.
-  3. NUMBERS ARE NEVER REUSED, and only an ADR that exists may be cited — the documentation gate
-     fails on a number resolving to no file, so writing this is part of the change that cites it.
+TEMPLATE — copy to docs/_decisions/NNNN-short-slug.md; delete this block.
+Rules: ../4-adr-guide.md
+  - Apply the trigger test first: would someone reasonably propose the opposite, and would you
+    have to re-derive the argument to refuse? If not, it is documentation, not an ADR.
+  - An accepted ADR is never rewritten. Reversal is the next number plus two line edits here
+    (Status, Superseded by). Numbers are never reused, and only an ADR that exists may be cited.
 -->
 
-# ADR-NNNN — \<the decision, as a short statement, not a question\>
+# ADR-NNNN — <the decision, as a short statement, not a question>
 
 **Status:** Accepted
-**Date:** \<when the decision was taken, not when this file was written\>
-**Surface:** \<frontend | backend | ops — every one it touches; several is normal\>
+**Date:** <when the decision was taken, not when this file was written>
+**Surface:** <frontend | backend | ops — every one it touches; several is normal>
 **Supersedes:** —
 **Superseded by:** —
+**Source:** <what prompted this — a roadmap item, or a dated owner instruction; the value must
+resolve, or be a plain sentence carrying its date>
 
 ## Context
 
@@ -45,7 +37,7 @@ trip over.
 
 ## Alternatives considered
 
-**\<Alternative\>.** Why it lost.
+**<Alternative>.** Why it lost.
 
 This is the section that actually gets read. One paragraph per alternative is plenty — what matters
 is that the reason is recorded, not that the list is exhaustive.

@@ -568,7 +568,7 @@ class TestTheDisqualifiedOccupantFault:
         assert faults[0].spiel_datum is None
 
     def test_either_side_is_reported(self):
-        """A `quelle` sits on either side (ADR-0041) and so does an occupant, so both are walked."""
+        """A `quelle` sits on either side (ADR-0042) and so does an occupant, so both are walked."""
 
         faults = occupant_faults(joined(nr=2, datum="2026-04-01", side_disqualified_from="2026-03-15", side="team2"))
 

@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `7d3a797`, 2026-08-08
+**Verified against:** `80534e2`, 2026-08-08
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -157,7 +157,7 @@ fixtures actually attached.
 
 **No name.** A group matchday is its ordinal and a knockout matchday is its round, so the label is composed
 by the reader from `saison_phase` and the derived position
-([ADR-0067](_decisions/0067-a-matchdays-name-is-composed-by-the-reader.md)) —
+([ADR-0064](_decisions/0064-a-matchdays-position-is-derived-not-stored.md)) —
 `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel`, on the frontend because it is German
 display text. A round split across several matchdays gets a `(1)`/`(2)` suffix; one played once does not.
 
@@ -406,8 +406,7 @@ re-derived over every season by `GET /spiele/action_required`, so a missed toast
 
 **In code:** `FLSpielQuelle` (`fl_backend/app/api/spiele/schemas.py`) · `FLSpielQuelleSchema`
 (`fl_frontend/src/features/spiele/schemas.ts`) · `fl_backend/app/api/spiele/services.py ::
-resolve_bracket` · [ADR-0041](_decisions/0041-a-bracket-slot-carries-its-own-provenance.md) ·
-[ADR-0042](_decisions/0042-a-result-entry-resolves-the-whole-bracket.md).
+resolve_bracket` · [ADR-0042](_decisions/0042-a-result-entry-resolves-the-whole-bracket.md).
 
 **Pitfalls.** It is **not** paired with the team field beside it: no model and no validator relates
 the two, a side is `null` while its occupant is unknown, and the derived label is what a card renders

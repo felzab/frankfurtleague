@@ -328,8 +328,8 @@ documents.
 ### 3.9 Cleanup
 
 Named exports everywhere under `src` (59 conversions + 82 import rewrites by codemod; defaults only
-where Next requires them — ADR-0008), one component-category folder convention with a single
-allowed nesting level (ADR-0006, twelve files moved), dead code deleted (an unwired provider, three
+where Next requires them — ADR-0003), one component-category folder convention with a single
+allowed nesting level (ADR-0003, twelve files moved), dead code deleted (an unwired provider, three
 unreferenced schemas, dead config keys and globs), English identifiers with German domain nouns
 enforced across both packages (`getCurrentSaison`, phase-token spellings, collection-name
 constants; the wire contract deliberately untouched), and the config/tsconfig/prettier tidy —
