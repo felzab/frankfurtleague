@@ -151,7 +151,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     }
   }
 
-  // The ordinal and the label together, counted per phase over the order the API returned (ADR-0067). One
+  // The ordinal and the label together, counted per phase over the order the API returned (ADR-0064). One
   // pass rather than per row, because the label needs to know how many matchdays the phase holds.
   const labels = spieltagLabels(spieltageRes.spieltage);
 

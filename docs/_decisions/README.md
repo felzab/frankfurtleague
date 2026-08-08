@@ -89,10 +89,9 @@ was taken**, not when the file was written.
 | [0061](0061-position-and-stufe-are-closed-sets.md)                                | A player's position and stufe are closed sets                                | backend                | Accepted | 2026-08-07 |
 | [0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)                  | Every page-owned editor's undo is a route handler, until E592 is fixed       | frontend               | Accepted | 2026-08-07 |
 | [0063](0063-a-matchday-list-is-the-seasons-skeleton.md)                           | A matchday list is the season's skeleton, and the rollover is on its page    | frontend               | Accepted | 2026-08-07 |
-| [0064](0064-a-matchdays-position-is-derived-not-stored.md)                        | A matchday's position is derived from what it is, not stored beside it       | backend, frontend      | Accepted | 2026-08-07 |
+| [0064](0064-a-matchdays-position-is-derived-not-stored.md)                        | A matchday's position and name are derived, not stored                       | backend, frontend      | Accepted | 2026-08-07 |
 | [0065](0065-a-seasons-schedule-is-derived-from-its-rules.md)                      | A season's schedule is derived from its rules, and the rules hold a shape    | backend, frontend      | Accepted | 2026-08-07 |
 | [0066](0066-the-domain-model-is-declared-and-conformance-checked.md)              | The domain model is declared as data and conformance-checked, not evaluated  | backend                | Accepted | 2026-08-07 |
-| [0067](0067-a-matchdays-name-is-composed-by-the-reader.md)                        | A matchday's name is composed by the reader, not stored beside it            | backend, frontend      | Accepted | 2026-08-08 |
 | [0068](0068-one-declaration-of-the-collection-names.md)                           | One declaration of the collection names, as a `StrEnum`                      | backend                | Accepted | 2026-08-08 |
 | [0069](0069-an-unknown-season-is-stripped-from-the-url.md)                        | A `?saison_id=` naming no season is stripped from the URL                    | frontend               | Accepted | 2026-08-08 |
 | [0070](0070-the-season-document-is-cached-in-process.md)                          | The season document is cached in-process, dropped by its writes, TTL-bounded | backend                | Accepted | 2026-08-08 |
@@ -119,6 +118,7 @@ lives where the row says.
 | 0054   | Nowhere — written 2026-08-07 and reverted the same day, before anything cited it |
 | 0055   | [ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)             |
 | 0060   | [ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)             |
+| 0067   | [ADR-0064](0064-a-matchdays-position-is-derived-not-stored.md)                   |
 
 ## Considered, and deliberately not made an ADR
 

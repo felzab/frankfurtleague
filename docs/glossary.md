@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `787fedf`, 2026-08-08
+**Verified against:** `80534e2`, 2026-08-08
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -157,7 +157,7 @@ fixtures actually attached.
 
 **No name.** A group matchday is its ordinal and a knockout matchday is its round, so the label is composed
 by the reader from `saison_phase` and the derived position
-([ADR-0067](_decisions/0067-a-matchdays-name-is-composed-by-the-reader.md)) —
+([ADR-0064](_decisions/0064-a-matchdays-position-is-derived-not-stored.md)) —
 `fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel`, on the frontend because it is German
 display text. A round split across several matchdays gets a `(1)`/`(2)` suffix; one played once does not.
 

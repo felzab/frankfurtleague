@@ -23,7 +23,7 @@ function makeSpiel(spielNr: number, team1Quelle: FLSpielQuelle | null = null, te
 }
 
 // Keyed on `id` rather than a name: a matchday carries none, and the id is the handle every consumer
-// -- including `spieltagLabels` -- identifies one by (ADR-0067).
+// -- including `spieltagLabels` -- identifies one by (ADR-0064).
 function makeRound(id: string, spiele: FLSpiel[]): FLSpieltagWithSpiele {
   return { id, spiele } as unknown as FLSpieltagWithSpiele;
 }

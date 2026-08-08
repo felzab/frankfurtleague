@@ -868,7 +868,7 @@
       },
       "post": {
         "summary": "Create a Spieltag",
-        "description": "Create a matchday.\n\nWhere it sits in the season follows from what it is: the phase in bracket order, then `beginn`. So a\nmatchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date\nis wrong, and correcting either moves it (ADR-0064). Its NAME follows from the same two facts, which is\nwhy the payload carries none (ADR-0067).\n\n**Two refusals.** A season whose knockout phase is already under way takes no new matchdays at all\n(`REQ-SPIELTAG-003`, owner, 2026-08-08) — \"under way\" meaning its earliest non-group matchday begins\ntoday or began earlier, which is a date rather than a result. And the span has to sit inside the\nseason's own (`REQ-DATE-002`).",
+        "description": "Create a matchday.\n\nWhere it sits in the season follows from what it is: the phase in bracket order, then `beginn`. So a\nmatchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date\nis wrong, and correcting either moves it (ADR-0064). Its NAME follows from the same two facts, which is\nwhy the payload carries none (ADR-0064).\n\n**Two refusals.** A season whose knockout phase is already under way takes no new matchdays at all\n(`REQ-SPIELTAG-003`, owner, 2026-08-08) — \"under way\" meaning its earliest non-group matchday begins\ntoday or began earlier, which is a date rather than a result. And the span has to sit inside the\nseason's own (`REQ-DATE-002`).",
         "operationId": "post_spieltag_api_v0_spieltage_post",
         "security": [
           {

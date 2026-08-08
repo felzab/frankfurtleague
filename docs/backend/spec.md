@@ -1,6 +1,6 @@
 # Backend — spec
 
-**Verified against:** `787fedf`, 2026-08-08
+**Verified against:** `80534e2`, 2026-08-08
 **Scope:** `fl_backend/`
 
 ---
@@ -77,7 +77,7 @@ across seven slices**, each addressed resource-first with the id in the path.
 | PATCH  | `/saisons/{saison_id}`                                 | Dates and scoring rules. `status` is on no payload                                                                                                                                 |
 | POST   | `/saisons/{saison_id}/activate`                        | **The only path that writes `status`** — see I18                                                                                                                                   |
 | POST   | `/spieltage`                                           | Creates a matchday                                                                                                                                                                 |
-| PATCH  | `/spieltage/{spieltag_id}`                             | Updates a matchday. Neither payload carries a position, a match count or a name: the first two are derived (ADR-0064, ADR-0065) and the third is composed by the reader (ADR-0067) |
+| PATCH  | `/spieltage/{spieltag_id}`                             | Updates a matchday. Neither payload carries a position, a match count or a name: the position and the name are derived and composed by the reader (ADR-0064), the count from the season's rules (ADR-0065) |
 | DELETE | `/spieltage/{spieltag_id}`                             | Soft delete                                                                                                                                                                        |
 | POST   | `/spieltage/{spieltag_id}/reactivate`                  | Clears `inactive_since`                                                                                                                                                            |
 | POST   | `/spielorte`                                           | Creates a venue; builds `maps_link` server-side                                                                                                                                    |

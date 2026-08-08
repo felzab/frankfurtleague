@@ -67,7 +67,7 @@ async def post_spieltag(
     Where it sits in the season follows from what it is: the phase in bracket order, then `beginn`. So a
     matchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date
     is wrong, and correcting either moves it (ADR-0064). Its NAME follows from the same two facts, which is
-    why the payload carries none (ADR-0067).
+    why the payload carries none (ADR-0064).
 
     **Two refusals.** A season whose knockout phase is already under way takes no new matchdays at all
     (`REQ-SPIELTAG-003`, owner, 2026-08-08) — "under way" meaning its earliest non-group matchday begins

@@ -119,7 +119,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         "spieltage": {
             "_id": SPIELTAG_OID,
-            # No `name` and no `anzahl_spiele`: the first is composed by the reader (ADR-0067) and the
+            # No `name` and no `anzahl_spiele`: the first is composed by the reader (ADR-0064) and the
             # second is derived from the season's rules (ADR-0065). Neither is on a document, so neither
             # belongs in one the validator is asked to accept.
             "beginn": "2026-03-15",

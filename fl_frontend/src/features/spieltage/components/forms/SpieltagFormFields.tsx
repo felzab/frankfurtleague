@@ -22,7 +22,7 @@ import type { Key } from "@heroui/react";
  * do not reach it, and the Spielort form beside it is the same size in the same container.
  *
  * **The position, the match count and the NAME are all derived, and adding a control for any of them
- * would be a regression** (ADR-0064, ADR-0065, ADR-0067). Where a matchday sits in its season comes from
+ * would be a regression** (ADR-0064, ADR-0065). Where a matchday sits in its season comes from
  * `saison_phase` and `beginn`, both on this form; how many matches it expects comes from the season's
  * rules and that same phase; and what it is called comes from the phase and the position. So the fields
  * that decide all three are ones an admin was going to fill in anyway, and no derived value can be wrong

@@ -132,7 +132,7 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
  * draw finds it.
  */
 export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiele[] }) {
-  // Every round's label in one pass (ADR-0067). `rounds` arrives in the played order here -- this view
+  // Every round's label in one pass (ADR-0064). `rounds` arrives in the played order here -- this view
   // deliberately does NOT apply `orderRoundsByWiring`, which is the point it makes below -- so the
   // ordinal counts the matchday's place in its phase, which is what the label means.
   const labels = spieltagLabels(rounds);

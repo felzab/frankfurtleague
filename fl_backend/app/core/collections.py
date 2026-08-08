@@ -44,7 +44,7 @@ class Collection(StrEnum):
     SAISON_SPIELER = "saison_spieler"
     #: Fixtures. One aggregate per SEASON rather than per match, because a result resolves the bracket.
     SPIELE = "spiele"
-    #: Matchdays: named blocks of a season's fixtures, though the name itself is derived (ADR-0067).
+    #: Matchdays: named blocks of a season's fixtures, though the name itself is derived (ADR-0064).
     SPIELTAGE = "spieltage"
     #: Clubs, season-independent.
     TEAMS = "teams"

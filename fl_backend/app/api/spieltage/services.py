@@ -13,7 +13,7 @@ lives, and it is the only place in the system that says what "the third matchday
     share a phase and a date -- nothing refuses that -- so the id is what keeps the order stable across
     two calls rather than leaving Mongo's document order to decide. It is the id rather than the name
     because a matchday HAS no name: the reader composes one from the phase and the position this order
-    produces, so ordering by it would be circular (ADR-0067).
+    produces, so ordering by it would be circular (ADR-0064).
   • The phase leads, and that is the correctness half. Ordering by date alone would let a Halbfinale
     dated before a Viertelfinale render ahead of it, which is exactly the defect a stored position used
     to make possible in the other direction.
@@ -61,7 +61,7 @@ def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
     it, `orderRoundsByWiring` anchors its walk on the last element of it, and the admin list sections by
     the phase it leads with. Nothing stores it, so nothing can contradict it.
 
-    **It is also what the DISPLAYED NAME is composed from** (ADR-0067), which is why the final tie-break is
+    **It is also what the DISPLAYED NAME is composed from** (ADR-0064), which is why the final tie-break is
     the id and not a name: a matchday has no name to break a tie with, and one derived from this order
     could not also decide it.
     """

@@ -17,7 +17,7 @@
  *   • `spieltage` is the ONLY resource invalidated. A matchday joins into no second resource:
  *     `GET /spiele` never joins `spieltage`, which is the same fact that makes retirement safe.
  *   • **Five 409s, and not one is about a unique index.** No field of a matchday is unique and none needs
- *     to be -- its place in the season is derived and so is its name (ADR-0064, ADR-0067), so there is
+ *     to be -- its place in the season is derived and so is its name (ADR-0064), so there is
  *     nothing to claim. Three are about the matchday's own CONTENTS, which it does not know about:
  *     retiring one that holds a played result would take that result off the public Spielplan
  *     (`REQ-RETIRE-002`), a phase accounting for fewer matches than are attached would strand them
@@ -127,7 +127,7 @@ export async function postSpieltagAction(
     return {
       success: true,
       spieltag_id: postOperation.spieltag_id,
-      // No name to echo: one is composed by the reader from the phase and the position (ADR-0067), and
+      // No name to echo: one is composed by the reader from the phase and the position (ADR-0064), and
       // the position is only known once this matchday is in the list beside its siblings.
       message: "Spieltag angelegt.",
     };
