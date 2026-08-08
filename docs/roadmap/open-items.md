@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `9a0f3b5`, 2026-08-08
+**Verified against:** `01886d9`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -42,7 +42,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 
 | #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
-| 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Open     | — (clock: the rollover)   |
+| 1   | F7    | Hardcoded season badge on the landing page              | FE          | S      | Closed   | — (clock: the rollover)   |
 | 2   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
 | 3   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
 | 4   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
@@ -199,6 +199,13 @@ below it — which _are_ season-aware — already show the new one.
 Low severity and cosmetic, but it fails silently and on a date nobody will be watching. Documented
 at the line; wiring it to `getCurrentSaison()` would give this page a data fetch it does not
 currently have — a real trade-off rather than an obvious fix.
+
+**Closed, 2026-08-08.** The badge is derived: an in-file async child awaits `connection()` and reads
+`getCurrentSaison()` behind its own `Suspense` boundary, so the hero chrome stays prerendered and
+the label streams from the same daily `saisons` cache the fixtures use — a rollover through
+`/admin` moves both together (ADR-0002, ADR-0035). The trade-off resolved in favour of the fetch
+because ADR-0009's split — static shell, suspended data hole — was already this page's structure,
+so the fetch costs the shell nothing. No ADR: no new pattern was decided.
 
 **Path:** independent, but deadline-bound — decide before the next season rollover.
 
