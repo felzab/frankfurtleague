@@ -923,9 +923,11 @@ UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="a bracket slot the resolution filled with a team later disqualified",
         reason=(
-            "`REQ-ELIGIBILITY-001` covers a team being NEWLY fielded by a request, and nothing re-checks a "
-            "slot after the fact. The design is ratified and the implementation deferred (roadmap FB-9)."
+            "`REQ-ELIGIBILITY-001` covers a team being NEWLY fielded by a request; a slot already holding "
+            "a since-disqualified team is reported as a derived fault and never rewritten -- only a person "
+            "chooses between a forfeit and a replacement (ADR-0052)."
         ),
+        surfaced_by="`/admin/action_required`, as a derived fault",
     ),
     Unenforced(
         subject="a stored bracket fault",

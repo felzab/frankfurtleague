@@ -50,7 +50,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 6   | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
 | 7   | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
 | 8   | FB-15 | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —                         |
-| 9   | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0052 settles it)   |
+| 9   | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Closed   | — (ADR-0052 settles it)   |
 | 10  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
 | 11  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
 | 12  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
@@ -513,7 +513,17 @@ because no pass covers a constant that is correct at today's group size and wron
 
 ### 9 · FB-9 — A manual knockout slot accepts a disqualified team, and nothing says a word
 
-**Owner's item, 2026-08-06, reported as a reproduction — and deferred the same day, by the owner:**
+**Closed 2026-08-08.** Everything this entry specifies is built, and the deferral it records ended
+without the file noticing: the write path refuses a newly fielded ineligible team and the Spieltag
+clash (`REQ-ELIGIBILITY-001`, `REQ-ELIGIBILITY-002`, `REQ-SPIELTAG-001` — landed in `4d35788`), a
+since-disqualified occupant reports as a derived fault, and the picker disables, labels and warns
+(`7597374`, with the dry-run banner in `ce92261`).
+[ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md) carries the design as
+implemented; where the spec below names other codes or function names, the implementation refined
+them and the ADR is the record. Nothing needs rehoming — every test and trigger the spec asks for
+exists in `fl_backend/tests/api/test_occupant_refusal.py` and the constraint checker.
+
+**Owner's item, 2026-08-06, reported as a reproduction — and deferred the same day:**
 the site has exactly one admin, who is the person who found the hole, so the interim risk is priced
 at nil and fixing ahead of the evaluation buys nothing.
 

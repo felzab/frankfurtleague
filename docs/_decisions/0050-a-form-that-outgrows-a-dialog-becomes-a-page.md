@@ -111,8 +111,8 @@ reaches them statically from this route rather than through the `next/dynamic` i
 as the reason to follow dynamic edges. That ADR's reasoning stands unedited, as this folder requires, and
 `docs/frontend/overview.md` carries the current state.
 
-**FB-9's frontend half has a home and is still not built.** ADR-0052's disabled picker entries and
-eligibility warning belong on this page; the deferral of that work stands.
+**FB-9's frontend half found its home here.** ADR-0052's disabled picker entries and eligibility
+warning belong on this page, and landed on it once the deferral ended.
 
 ## Alternatives considered
 
