@@ -327,6 +327,7 @@ export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
   uhrzeit: spiel.uhrzeit,
   ort: spiel.ort,
   schiedsrichter: spiel.schiedsrichter,
+  notiz: spiel.notiz,
 });
 
 /**

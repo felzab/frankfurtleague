@@ -449,6 +449,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "is_canceled": {"bsonType": "bool"},
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
+                # An optional free-text note. A property but NOT a required key, unlike
+                # `elfmeterschiessen`: a missing key and a stored null both mean "no note", nothing
+                # consumes the difference, and requiring the key would put a backfill of every live
+                # document behind a field that is decoration. `FLSpiel.notiz` defaults for the same
+                # reason.
+                "notiz": {"bsonType": _STRING_OR_NULL},
             },
         )
     },

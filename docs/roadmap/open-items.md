@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `1d98034`, 2026-08-08
+**Verified against:** `7d3a797`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -44,7 +44,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
 | 2   | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with FE-2, FE-1) |
-| 3   | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with FB-7, FE-1) |
+| 3   | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Closed   | — (batch with FB-7, FE-1) |
 | 4   | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with FB-7, FE-2) |
 | 5   | FE-3  | TeamDetailsView rework                                  | FE          | M      | Open     | — (ADR-0059 settles it)   |
 | 6   | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | —                         |
@@ -286,6 +286,18 @@ information about the game such as exciting moments. **Editable in the admin for
 
 An optional field on `FLSpiel` in both mirrors, a form section, and a display decision (where the
 note appears — `SpielDetailsModal` is the obvious candidate) that is deliberately left open here.
+
+**Closed, 2026-08-08.** `notiz` exists end to end: on `FLSpiel` and the patch payload, in the
+hand-mirrored `spiele` validator (a property but not a required key — a missing key and a stored
+null both mean "no note", so no live document owes a backfill), in the Zod mirror against the
+regenerated `openapi.json`, and through `apply_payload_to_spiel` into the wholesale `$set`. The
+form gained its own Notiz panel between Ergebnis and Absage — outside the result unlock, because
+prose is not a score — with the draft rail's change tracking behind a descriptor that treats an
+emptied textarea and a stored null as one answer. The display candidate the entry named is the one
+built: `SpielDetailsModal` renders the note, public, only when one exists. The batch note with
+FB-7/FE-1 was overridden by the owner's instruction to close the S items now; both stay open and
+their schema passes stand alone. No FIELD_POLICIES row: the note is plainly editable, and that
+table lists only the fields whose editability is not.
 
 **Path:** batch with FB-7 and FE-1 — same form, same schemas, one mirror pass. The form is
 `/admin/spiele/[spiel_id]`, and the display decision is untouched by that.

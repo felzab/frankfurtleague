@@ -98,6 +98,7 @@ def refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
             "uhrzeit": stored["uhrzeit"],
             "ort": stored["ort"],
             "schiedsrichter": stored["schiedsrichter"],
+            "notiz": stored.get("notiz"),
             **overrides,
         }
     )
@@ -149,6 +150,7 @@ class TestLegalEdits:
                 "uhrzeit": None,
                 "ort": None,
                 "schiedsrichter": None,
+                "notiz": None,
             }
         )
         assert find_wiring_refusal(ObjectId(foreign["_id"]), payload, FLSpielListAdapter.validate_python(season)) is None

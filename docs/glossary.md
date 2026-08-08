@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `0242240`, 2026-08-08
+**Verified against:** `7d3a797`, 2026-08-08
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -121,6 +121,10 @@ Either side is **null while its occupant is unknown** — a bracket slot the gro
 filled yet. What a card shows in its place is derived from `team1_quelle` / `team2_quelle`; see `Quelle`.
 
 A knockout that finished level carries its `Elfmeterschießen` beside the score rather than inside it.
+
+A fixture may carry an optional public **`notiz`** — free text entered in the match editor and shown
+in the match details dialog; null on almost every match, and absent from documents older than the
+field, which the read model tolerates by defaulting it.
 
 **A season's matches are all created at its start, and the set never changes.** A match can be called
 off (`is_canceled`) or moved to another date (`datum`); it is never deleted, and none is ever added

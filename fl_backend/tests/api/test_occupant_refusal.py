@@ -117,6 +117,7 @@ def payload_for(season_docs: list[dict[str, Any]], nr: int, **overrides: Any) ->
             "uhrzeit": stored["uhrzeit"],
             "ort": stored["ort"],
             "schiedsrichter": stored["schiedsrichter"],
+            "notiz": stored.get("notiz"),
             **overrides,
         }
     )

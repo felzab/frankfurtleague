@@ -717,6 +717,7 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload) ->
             "ergebnis": ergebnis,
             "elfmeterschiessen": payload.elfmeterschiessen if keeps_shoot_out else None,
             "is_canceled": payload.is_canceled,
+            "notiz": payload.notiz,
         }
     )
 

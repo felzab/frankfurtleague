@@ -164,6 +164,17 @@ export function SpielDetailsModal({
                     <h4 className="text-foreground-muted font-semibold">Schiedsrichter</h4>
                     <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? PLACEHOLDER.entity}</p>
                   </div>
+
+                  {/** Notiz — only when one exists: an empty "Notiz —" row would tell every visitor
+                       about a field that is blank on almost every match. Spans both columns, because
+                       prose does not belong in a half-width cell. `whitespace-pre-line` keeps the
+                       admin's line breaks without honouring stray indentation. */}
+                  {spielData.notiz !== null && spielData.notiz !== "" && (
+                    <div className="col-span-2">
+                      <h4 className="text-foreground-muted font-semibold">Notiz</h4>
+                      <p className="text-foreground font-medium whitespace-pre-line">{spielData.notiz}</p>
+                    </div>
+                  )}
                 </div>
               </Modal.Body>
             </>

@@ -60,6 +60,7 @@ export type FLSpielDraftFields = {
   team2_quelle: FLSpielQuelle | null;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
   is_canceled: boolean;
+  notiz: string | null;
 };
 
 /**
@@ -108,6 +109,7 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
     is_canceled: draft.is_canceled,
     ergebnis: hasBothTore ? `${team1Tore}:${team2Tore}` : null,
     elfmeterschiessen: storableShootOut,
+    notiz: draft.notiz,
   };
 }
 
@@ -115,7 +117,7 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
  * The panel a field renders in, carried on the descriptor so surfaces that group by panel — the
  * change list — read it from the table instead of keeping a second path→panel mapping to drift.
  */
-export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Absage";
+export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Absage";
 
 /**
  * How urgently an expected field is waited on. The split is the owner's (fourth review): a fixture
@@ -379,6 +381,19 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     read: (source) => source.elfmeterschiessen?.team2 ?? null,
     equals: sameCount,
     format: formatCount,
+  }),
+  describeField({
+    path: "notiz",
+    group: "Notiz",
+    label: "Notiz",
+    expectedWhen: null,
+    // `""` and `null` are one answer. The stored field is `null` when empty, while a textarea's
+    // in-flight value can be whitespace; compared raw, typing a space and deleting it would read
+    // as an unsaved edit.
+    read: (source) => (source.notiz === null || source.notiz.trim() === "" ? null : source.notiz),
+    // The rail's change list is a summary, not a reading pane — a note can run to sentences, and
+    // the full text is on the panel right beside it.
+    format: (value: string | null) => (value === null ? null : value.length > 60 ? `${value.slice(0, 59)}…` : value),
   }),
   describeField({
     path: "is_canceled",
