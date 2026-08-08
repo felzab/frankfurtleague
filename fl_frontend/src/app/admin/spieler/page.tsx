@@ -7,6 +7,7 @@ import { AdminCreateSpielerModal } from "@/features/spieler/components/modals/Ad
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
 import { orderStufen, SPIELER_CRUD_COPY } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
+import { collectTakenSquadNummern } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
@@ -16,11 +17,16 @@ import type { AdminSpielerRow, SpielerCreateSaisonOption, SpielerTeamOption } fr
 import type { FLTeamWithMemberships } from "@/features/teams/schemas";
 import type { NextPageProps } from "@/shared/types/types";
 
-/** The teams entered in one season, as the pickers offer them: by name, with their Kürzel. */
-function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string): SpielerTeamOption[] {
+/**
+ * The teams entered in one season, as the pickers offer them: by name, with their Kürzel.
+ *
+ * `takenByTeam` carries which shirts are already worn in each of them, so the create form refuses a
+ * duplicate number before the request (`REQ-SQUAD-002`) rather than explaining a 409 afterwards.
+ */
+function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string, takenByTeam: Record<string, string[]>): SpielerTeamOption[] {
   return teams
     .filter((team) => team.memberships.some((membership) => membership.saison_id === saisonId))
-    .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand }));
+    .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand, takenNummern: takenByTeam[team.id] ?? [] }));
 }
 
 // Not async, so the chrome never waits on the player list — the pattern of the three sibling pages.
@@ -53,7 +59,9 @@ export default function AdminSpielerPage(props: NextPageProps) {
 async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const requestedSaisonId = await resolveSaisonId(searchParams);
-  const [saisonsRes, teamsRes] = await Promise.all([getSaisons(), getTeamMemberships()]);
+  // `getSpielerMemberships` is the same `"use cache"` read the list below this modal already makes on
+  // every render of this page, so the squad numbers cost a cache hit rather than a round trip.
+  const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getSaisons(), getTeamMemberships(), getSpielerMemberships()]);
 
   // RUNNING and planned seasons both (owner, 2026-08-07), unlike the club create's planned-only
   // rule: a squad is filled in during its season, so adding a player to one already under way is
@@ -64,7 +72,12 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
     .map((saison) => ({
       saisonId: saison.id,
       isNachgetragen: saison.status === "active",
-      teams: teamsInSaison(teamsRes.teams, saison.id),
+      // No player to exclude: the create form's subject does not exist yet, so every live row counts.
+      teams: teamsInSaison(
+        teamsRes.teams,
+        saison.id,
+        collectTakenSquadNummern({ spieler: spielerRes.spieler, saisonId: saison.id, exceptSpielerId: "" }),
+      ),
       // The season's own list, ordered by the league's (`orderStufen`), so two seasons never present
       // the same levels in a different sequence.
       erlaubteStufen: orderStufen(saison.rules.erlaubte_stufen),
@@ -136,7 +149,9 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
       spieler={rows}
       // The same list the create modal offers, for the team facet's options: a filter naming a club that
       // plays in another season would narrow to nothing.
-      teams={teamsInSaison(teamsRes.teams, selectedSaisonId)}
+      // No squad numbers: this list feeds the team FACET, which filters rows by club and never judges
+      // a shirt. `teamsInSaison` takes them for the create modal above, which does.
+      teams={teamsInSaison(teamsRes.teams, selectedSaisonId, {})}
       selectedSaisonId={selectedSaisonId}
       selectedSaisonStatus={selectedSaisonStatus}
     />

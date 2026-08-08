@@ -460,6 +460,7 @@ export function AdminSpielerEditForm({
                   teamId={teamId}
                   onTeamIdChange={setTeamId}
                   nummer={nummer}
+                  storedNummer={storedMembership?.nummer ?? null}
                   onNummerChange={setNummer}
                   position={position}
                   onPositionChange={setPosition}

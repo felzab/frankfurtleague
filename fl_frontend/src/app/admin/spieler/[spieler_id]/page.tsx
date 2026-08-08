@@ -8,6 +8,7 @@ import { AdminSpielerEditView } from "@/features/spieler/components/views/AdminS
 import { orderStufen } from "@/features/spieler/constants";
 import { getSpielerMemberships } from "@/features/spieler/queries";
 import { resolveSpielerId } from "@/features/spieler/resolvers";
+import { collectTakenSquadNummern } from "@/features/spieler/utils";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
@@ -84,11 +85,16 @@ async function AdminSpielerEditContent({
           },
   };
 
+  // Which shirts are already worn in each team this season, from the read above — so the form can refuse
+  // `REQ-SQUAD-002` before the request rather than explain a 409 after it. The edited player's own rows
+  // are excluded, because resubmitting their stored number is not a collision.
+  const takenNummern = collectTakenSquadNummern({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
+
   // What the team picker may offer: the selected season's own teams. A transfer is only meaningful
   // within the season the squad row belongs to.
   const teams: SpielerTeamOption[] = teamsRes.teams
     .filter((team) => team.memberships.some((candidate) => candidate.saison_id === selectedSaison.id))
-    .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand }));
+    .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand, takenNummern: takenNummern[team.id] ?? [] }));
 
   return (
     // Keyed by the state the drafts mirror — the match editor's reason: the same route pattern

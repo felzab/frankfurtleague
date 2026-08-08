@@ -6,6 +6,7 @@ import { postSpielerAction } from "@/features/spieler/actions";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
 import { TeamSelect } from "@/features/spieler/components/forms/TeamSelect";
 import { NUMMER_MAX_LENGTH, POSITION_OPTIONS } from "@/features/spieler/constants";
+import { isSquadNummerTaken } from "@/features/spieler/utils";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -59,6 +60,15 @@ export function AdminCreateSpielerForm({
       renderFields={(draft, setDraft) => {
         const selectedOption = saisonOptions.find((option) => option.saisonId === draft.saison_id) ?? saisonOptions[0];
         const teams = selectedOption?.teams ?? [];
+
+        // `stored` is null: this player has no squad row yet, so every number the form offers is one the
+        // write would introduce (`REQ-SQUAD-002`). It re-answers when the season or the team changes,
+        // because the same shirt is free in one squad and taken in another.
+        const nummerIsTaken = isSquadNummerTaken({
+          proposed: draft.nummer,
+          stored: null,
+          taken: teams.find((team) => team.teamId === draft.team_id)?.takenNummern ?? [],
+        });
 
         return (
           <>
@@ -157,6 +167,9 @@ export function AdminCreateSpielerForm({
                 <Label className={FIELD_LABEL}>Nummer</Label>
                 <Input className={`${FIELD_INPUT} font-extrabold tracking-wider`} />
                 <FieldError className={FIELD_ERROR} />
+                {/* One sentence about the value, which is the FIELD message shape — the remedy is this
+                    input, and the endpoint's own refusal says the same words. */}
+                {nummerIsTaken && <p className={FIELD_ERROR}>Diese Nummer trägt in diesem Kader schon jemand anderes.</p>}
               </TextField>
 
               <ClosedSetSelect
