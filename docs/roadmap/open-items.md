@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `c26c3e3`, 2026-08-08
+**Verified against:** `a588162`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -43,7 +43,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
-| 2   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
+| 2   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Closed   | — (overlaps FE-3)         |
 | 3   | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
 | 4   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 5   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
@@ -240,6 +240,15 @@ radius of a fix and also means this and FE-3 touch the same screen.
 **Not diagnosed further**, and the width at which it first breaks is not recorded. Verify against the
 local stack at a real mobile viewport rather than a dev server, and record the breakpoint before
 changing classes.
+
+**Closed, 2026-08-08.** Diagnosed against the local stack at 375×812 before any class changed:
+inside the timeline rail the metadata row gets 259px while its content needs 319, so flex crushed
+the one child that could give — the 32px info button, measured at 16px — and still pushed 26px past
+the card's edge; the deficit puts the first break near a 435px viewport. The fix lets the row wrap
+instead of deform: `flex-wrap` with a row gap, the date group and the button `shrink-0` — a tap
+target wraps, never narrows — and the decorative `w-full` on the date spans is gone. The teams grid
+below was already built for this and is untouched, as is `TeamDetailsView` itself: FE-3's rework
+now inherits a card that survives its narrowest consumer. No ADR: classes, not architecture.
 
 **Path:** independent. FE-3 reworks the view this card renders in, so doing them in either order is
 fine, but doing them together avoids reading the same layout twice.
