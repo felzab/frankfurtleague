@@ -22,6 +22,20 @@ export type FLSaisonStatus = z.infer<typeof FLSaisonStatusSchema>;
 export const FLSaisonPhaseSchema = z.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"], {
   error: "FLSaisonPhase is invalid",
 });
+
+/**
+ * How many teams a season may send into the bracket: `2 ** (knockout rounds)`.
+ *
+ * Mirrors `MAX_QUALIFIERS` in `fl_backend/app/api/spiele/schemas.py`, and derived from the same STRUCTURE
+ * rather than copied as a number -- the knockout rounds are every phase but the group phase, so adding a
+ * round of 32 to the enum above raises this at both ends at once (ADR-0065). A hardcoded 16 would compile,
+ * pass, and refuse the seasons the new round was added for.
+ *
+ * Read off the schema's own members rather than `SAISON_PHASE_OPTIONS`, which would make this module import
+ * `constants.ts` while that one imports this file's `FLSaisonPhase` type -- a cycle for no gain. The COUNT
+ * is a property of the closed set, which is this file's; the ORDER is the constant's.
+ */
+export const MAX_QUALIFIERS = 2 ** (FLSaisonPhaseSchema.options.length - 1);
 export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
 
 /**
@@ -93,6 +107,37 @@ export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSche
 // Mirrors the model validator on both season payloads. The message goes on `end_date`, because that is
 // the field a person changes to fix it: a season starting later than it ends is almost always a
 // mistyped end, and react-aria renders a server or client message under the input whose path it names.
+/**
+ * The two rules the SEASON'S RULES have to satisfy on their own, mirroring `find_rules_refusal`'s first
+ * two checks (`REQ-RULES-007` and `REQ-RULES-001`, ADR-0065).
+ *
+ * **Here rather than only at the endpoint because the page holds everything they need** -- both are pure
+ * arithmetic over two fields of this payload, so refusing in the browser costs nothing and the admin never
+ * sends a request that cannot succeed. The other five rules read the season's teams, its bracket wiring or
+ * its matchdays, which this form does not have, so those stay the endpoint's and come back as a 409.
+ *
+ * The order matches the backend's: a group cannot qualify more teams than it holds is the narrower
+ * statement, so it is checked before the bracket's shape.
+ */
+const groupCannotOverQualify = {
+  error: "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.",
+  path: ["rules", "qualifiers_per_group"],
+};
+
+const bracketMustHaveAShape = {
+  error: `Gruppen mal Qualifizierte muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
+  path: ["rules", "qualifiers_per_group"],
+};
+
+/** `n` is a power of two, and `n & (n - 1)` is the standard test for it. Zero is not one. */
+const isPowerOfTwo = (n: number) => n > 0 && (n & (n - 1)) === 0;
+
+const hasPlayableBracket = (rules: { number_of_groups: number; qualifiers_per_group: number }) => {
+  const qualifiers = rules.number_of_groups * rules.qualifiers_per_group;
+
+  return qualifiers >= 2 && qualifiers <= MAX_QUALIFIERS && isPowerOfTwo(qualifiers);
+};
+
 const endsAfterItStarts = {
   error: "Das Enddatum darf nicht vor dem Startdatum liegen.",
   path: ["end_date"],
@@ -110,7 +155,9 @@ export const FLPostSaisonPayloadSchema = z
     end_date: CustomDateStringSchema,
     rules: FLSaisonRulesSchema,
   })
-  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts);
+  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
+  .refine((saison) => saison.rules.qualifiers_per_group <= saison.rules.teams_per_group, groupCannotOverQualify)
+  .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
 export type FLPostSaisonPayload = z.infer<typeof FLPostSaisonPayloadSchema>;
 
 export const FLPatchSaisonPayloadSchema = z
@@ -122,7 +169,9 @@ export const FLPatchSaisonPayloadSchema = z
     end_date: CustomDateStringSchema,
     rules: FLSaisonRulesSchema,
   })
-  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts);
+  .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
+  .refine((saison) => saison.rules.qualifiers_per_group <= saison.rules.teams_per_group, groupCannotOverQualify)
+  .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
 export type FLPatchSaisonPayload = z.infer<typeof FLPatchSaisonPayloadSchema>;
 
 /** The rollover's argument: an id in the path and no request body at all. */

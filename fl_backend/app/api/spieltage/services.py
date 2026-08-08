@@ -209,3 +209,42 @@ def find_spieltag_span_refusal(
         )
 
     return None
+
+
+# A matchday created once the season's knockout phase has started (owner, 2026-08-08). A season's schedule
+# is settled before the bracket is under way: a group matchday created afterwards belongs to a phase nobody
+# can still play, and the group table is by then being read as final.
+#
+# **"Started" is a DATE, not a result** (owner, 2026-08-08): the earliest non-group matchday of the season
+# begins today or has already begun. Deliberately NOT "a knockout fixture carries a result", which is the
+# definition `unplayed_spiel_nrs` and `REQ-RETIRE-002` use for their own questions -- those ask whether a
+# match has been played, and this one asks whether the phase is under way. A bracket that kicked off this
+# morning with nothing entered yet has started; one drawn for next month has not, however complete it looks.
+SPIELTAG_KNOCKOUT_STARTED = "REQ-SPIELTAG-003"
+
+
+def find_spieltag_create_refusal(*, earliest_knockout_beginn: str | None, today: str) -> tuple[str, str] | None:
+    """
+    Why creating a matchday in this season must be refused, as `(error_code, detail)` -- or `None`.
+
+    `earliest_knockout_beginn` is the lowest `beginn` among the season's matchdays whose phase is not
+    `gruppenphase`, or `None` where it has none -- a season still in its group phase, or one not drawn yet.
+    Both pass: there is no knockout phase to have started.
+
+    Today COUNTS as started, which is the inclusive reading and the safer one: a bracket beginning this
+    morning is under way, and a rule that waited until tomorrow would permit a matchday for a round already
+    being played.
+
+    The refusal covers every phase rather than only the knockout ones, which is the stricter reading the
+    owner asked for. **The way past it is to move the knockout matchday's date**, which is a real change to
+    the schedule rather than a step in setting one up.
+    """
+
+    if earliest_knockout_beginn is None or earliest_knockout_beginn > today:
+        return None
+
+    return (
+        SPIELTAG_KNOCKOUT_STARTED,
+        f"the knockout phase began on {earliest_knockout_beginn} and today is {today}; "
+        "a season's matchdays are created before its bracket is under way",
+    )

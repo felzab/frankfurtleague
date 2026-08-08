@@ -12,6 +12,7 @@ import { spieltagLabels } from "@/features/spieltage/utils";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
+import { getGermanTodayStr } from "@/shared/utils/date";
 
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { NextPageProps } from "@/shared/types/types";
@@ -63,13 +64,37 @@ async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]
   );
 }
 
-// The season is all the create form needs: the order is derived, so there is no next-free-position to work
-// out and nothing about the season's existing matchdays to read (ADR-0064).
+/**
+ * The season, plus the one fact that can close the create window.
+ *
+ * The order is derived, so there is no next-free-position to work out (ADR-0064) — but `REQ-SPIELTAG-003`
+ * refuses a create once the season's knockout phase is under way, and "under way" is the earliest
+ * non-group matchday beginning today or earlier. That is a read this page is already making, so the
+ * trigger can refuse BEFORE the request rather than opening a dialog onto a 409 (owner, 2026-08-08).
+ *
+ * The endpoint stays the authority: a page left open past midnight, or a knockout matchday re-dated in
+ * another tab, both reach it.
+ */
 async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
   const saisonId = await resolveSelectedSaison(searchParams);
 
-  return <AdminCreateSpieltagModal saisonId={saisonId} />;
+  // Retired matchdays INCLUDED, matching the endpoint: a retired knockout matchday is still a date the
+  // bracket was scheduled to start on, and hiding it from a list does not un-start the phase.
+  const spieltageRes = saisonId === null ? null : await getSpieltage({ saison_id: saisonId, include_inactive: true });
+  const knockoutBeginn = (spieltageRes?.spieltage ?? [])
+    .filter((spieltag) => spieltag.saison_phase !== "gruppenphase")
+    .map((spieltag) => spieltag.beginn)
+    .sort()
+    .at(0);
+
+  return (
+    <AdminCreateSpieltagModal
+      saisonId={saisonId}
+      knockoutBeginn={knockoutBeginn ?? null}
+      today={getGermanTodayStr()}
+    />
+  );
 }
 
 /**

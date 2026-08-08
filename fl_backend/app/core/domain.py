@@ -710,6 +710,15 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-SPIELTAG-003",
+        operation="POST /spieltage",
+        aggregate="Spieltag",
+        summary="a season whose knockout phase has started takes no new matchdays",
+        implemented_by="app.api.spieltage.services.find_spieltag_create_refusal",
+        tested_by="tests/api/test_spieltag_refusals.py::TestCreatingAMatchday",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-DATE-002",
         operation="POST /spieltage . PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",

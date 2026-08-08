@@ -1,0 +1,22 @@
+// scripts/pyrightconfig.json — brings the gate's own Python under the type checker that already covers
+// app/ and tests/.
+//
+// The [tool.pyright] block in fl_backend/pyproject.toml declares include = ["app", "tests"], so it governs
+// fl_backend/ and nothing else. The four scripts here — check_commits, check_docs, check_pr_body and
+// check_scope — were therefore linted by ruff and type-checked by nobody, which is exactly the gap that
+// block was added to close for app/ and tests/. These are the files the gate is BUILT from: a type error in
+// check_scope.py is a gate that reports the wrong scope.
+//
+// No venvPath or venv, unlike the backend block, and that is not an omission: every import in these four
+// files is standard library. Pointing at fl_backend/.venv would make the gate's own tooling depend on the
+// backend environment being installed, which is a dependency it does not otherwise have.
+//
+// typeCheckingMode matches the backend's "basic" for the reason stated there — "strict" demands an
+// annotation on every local, which is a different project from "the editor and the gate agree".
+//
+// It lives HERE rather than at the repository root for the same reason scripts/ruff.toml does: a root config
+// would become the nearest one for fl_backend/ as well, and override the include the backend has chosen.
+{
+  "include": ["."],
+  "typeCheckingMode": "basic"
+}

@@ -153,6 +153,19 @@ if (( RUN_SCRIPTS )); then
   ( quietly "$PY" -m ruff check scripts && quietly "$PY" -m ruff format --check scripts ) \
     || die "ruff failed in scripts/. Fix with:  fl_backend/.venv/Scripts/python -m ruff format scripts"
   ok "the gate's own python is clean"
+
+  # And the TYPES, for the same reason the ruff step above exists. `[tool.pyright]` in
+  # fl_backend/pyproject.toml declares include = ["app", "tests"], so it governs the backend and nothing
+  # else -- these four files were linted and type-checked by nobody. They are what the gate is BUILT from:
+  # a type error in check_scope.py is a gate that reports the wrong scope, and a wrong scope is the one
+  # failure this whole script exists to prevent (ADR-0037).
+  #
+  # Run from inside scripts/, because that is where pyright finds scripts/pyrightconfig.json. `$PY` is an
+  # absolute path from `venv_python`, so the `cd` does not disturb it.
+  step "scripts · pyright"
+  ( cd "${REPO_ROOT}/scripts" && quietly "$PY" -m pyright ) || die "pyright found type errors in scripts/.
+These are the same errors Pylance shows in the editor."
+  ok "the gate's own types are clean"
 fi
 
 # --- docs ------------------------------------------------------------------------------------------

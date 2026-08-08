@@ -10,29 +10,60 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 /**
- * Takes only its season as a prop: the order is derived, so unlike the earlier version there is no
- * next-free-position to compute and nothing about the season's existing matchdays the form needs
- * (ADR-0064).
- *
  * **A matchday is created into the season the sidemenu selector holds**, which is why there is no season
- * picker in the form. `saisonId` is null only where the league has no seasons at all — a fresh database —
- * and the dialog then says so instead of offering a form that cannot submit.
+ * picker in the form. The order is derived, so there is no next-free-position to compute either (ADR-0064).
+ *
+ * TWO states in which no matchday can be created, and the dialog refuses BEFORE the request in both
+ * (owner, 2026-08-08). `saisonId` is null where the league has no seasons at all — a fresh database — and
+ * the dialog says so rather than offering a form that cannot submit. And `REQ-SPIELTAG-003` refuses the
+ * create once the season's knockout phase is under way, which the page can see: `knockoutBeginn` is the
+ * earliest non-group matchday's start, so the trigger is disabled with the reason in its own label instead
+ * of opening onto a 409.
+ *
+ * The endpoint remains the authority. A page left open past midnight, or a knockout matchday re-dated in
+ * another tab, both reach it — and `mapSpieltagRefusal` answers in German when they do.
  */
-export function AdminCreateSpieltagModal({ saisonId }: { saisonId: string | null }) {
+export function AdminCreateSpieltagModal({
+  saisonId,
+  knockoutBeginn,
+  today,
+}: {
+  saisonId: string | null;
+  /** The earliest non-group matchday's `beginn`, or null where the season has none. */
+  knockoutBeginn: string | null;
+  today: string;
+}) {
   const modalState = useOverlayState();
+
+  // Inclusive, matching `find_spieltag_create_refusal`: a bracket beginning today is under way. Both are
+  // `YYYY-MM-DD`, which is why a string comparison is the right one.
+  const isKnockoutUnderWay = knockoutBeginn !== null && knockoutBeginn <= today;
 
   return (
     <>
-      <Button
-        onPress={modalState.open}
-        className={formButton({ intent: "trigger" })}>
-        <Plus
-          width={18}
-          height={18}
-        />
-        {/* Below `sm` the trigger is the bare plus continuing the search bar (owner, 2026-08-07). */}
-        <span className="hidden sm:inline">Neuen Spieltag anlegen</span>
-      </Button>
+      {/* The full reason on a WRAPPER, not on the button. HeroUI's `Button` takes no `title`, and
+          react-aria fires no hover events on a disabled control -- so a tooltip component would never
+          open on the one state that needs explaining. A native title on the span does. */}
+      <span
+        title={
+          isKnockoutUnderWay
+            ? `Die K.-o.-Runde dieser Saison läuft seit dem ${knockoutBeginn ?? ""}. Danach lassen sich keine Spieltage mehr anlegen.`
+            : undefined
+        }>
+        <Button
+          onPress={modalState.open}
+          isDisabled={isKnockoutUnderWay}
+          className={formButton({ intent: "trigger" })}>
+          <Plus
+            width={18}
+            height={18}
+          />
+          {/* Below `sm` the trigger is the bare plus continuing the search bar (owner, 2026-08-07). The
+              disabled label replaces it rather than sitting beside it: a disabled control whose wording is
+              unchanged says nothing about why. */}
+          <span className="hidden sm:inline">{isKnockoutUnderWay ? "K.-o.-Runde läuft" : "Neuen Spieltag anlegen"}</span>
+        </Button>
+      </span>
 
       <FormModal
         isOpen={modalState.isOpen}

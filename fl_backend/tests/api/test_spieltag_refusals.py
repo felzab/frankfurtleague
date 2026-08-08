@@ -1,5 +1,5 @@
 """
-What a matchday write refuses — two pure functions, so both run in the default tier with no container.
+What a matchday write refuses — three pure functions, so all of it runs in the default tier.
 
 Both rules exist because a matchday is a CONTAINER whose contents it does not know about. Its fixtures
 point at it and it points at none of them, so every question about the pair is one the endpoint has to
@@ -21,7 +21,9 @@ import pytest
 
 from app.api.spieltage.services import (
     SPIELTAG_HOLDS_PLAYED,
+    SPIELTAG_KNOCKOUT_STARTED,
     SPIELTAG_OVER_ITS_PHASE,
+    find_spieltag_create_refusal,
     find_spieltag_phase_refusal,
     find_spieltag_retire_refusal,
 )
@@ -111,3 +113,74 @@ class TestChangingThePhase:
         """Different advice — cancel or enter results, against move fixtures — so different codes."""
 
         assert SPIELTAG_HOLDS_PLAYED != SPIELTAG_OVER_ITS_PHASE
+
+
+class TestCreatingAMatchday:
+    """
+    A season whose knockout phase is already under way takes no new matchdays (owner, 2026-08-08).
+
+    **"Under way" is a DATE, not a result** (owner, 2026-08-08): the earliest non-group matchday of the
+    season begins today or began earlier. That is deliberately a different question from the one
+    `unplayed_spiel_nrs` and `REQ-RETIRE-002` ask -- those ask whether a MATCH has been played, and this
+    asks whether the PHASE has begun. A bracket that kicked off this morning with nothing entered has
+    begun; one drawn for next month has not, however complete it looks.
+
+    The schedule is settled before the bracket runs: a group matchday created afterwards belongs to a phase
+    nobody can still play, and the group table is by then being read as final.
+    """
+
+    TODAY = "2026-08-08"
+
+    def test_a_season_with_no_knockout_matchday_permits_it(self):
+        """A season still in its group phase, or one whose bracket is not drawn. Nothing has begun."""
+
+        assert find_spieltag_create_refusal(earliest_knockout_beginn=None, today=self.TODAY) is None
+
+    def test_a_knockout_phase_still_in_the_future_permits_it(self):
+        """
+        The case the date reading keeps open, and the reason it is not a result check.
+
+        A season with its whole bracket drawn for next month is still being prepared -- which is exactly
+        when a matchday is most likely to be missing.
+        """
+
+        assert find_spieltag_create_refusal(earliest_knockout_beginn="2026-09-01", today=self.TODAY) is None
+
+    def test_today_counts_as_under_way(self):
+        """
+        The inclusive boundary, and the safer one.
+
+        A bracket beginning this morning is under way, so a rule that waited until tomorrow would permit a
+        matchday for a round already being played.
+        """
+
+        refusal = find_spieltag_create_refusal(earliest_knockout_beginn=self.TODAY, today=self.TODAY)
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_KNOCKOUT_STARTED
+
+    def test_a_knockout_phase_in_the_past_is_refused(self):
+        refusal = find_spieltag_create_refusal(earliest_knockout_beginn="2026-06-12", today=self.TODAY)
+
+        assert refusal is not None
+        assert refusal[0] == SPIELTAG_KNOCKOUT_STARTED
+
+    def test_the_refusal_names_both_dates(self):
+        """Which date closed the window and what today is -- the comparison, stated so it can be checked."""
+
+        refusal = find_spieltag_create_refusal(earliest_knockout_beginn="2026-06-12", today=self.TODAY)
+
+        assert refusal is not None
+        assert "2026-06-12" in refusal[1]
+        assert self.TODAY in refusal[1]
+
+    def test_the_comparison_is_lexicographic_across_a_month_boundary(self):
+        """
+        `YYYY-MM-DD` sorts as a string, which is the property this whole service depends on.
+
+        The one place a broken comparison would go unnoticed is one that happens to be right for a single
+        month's data, so both directions are asserted across a month boundary.
+        """
+
+        assert find_spieltag_create_refusal(earliest_knockout_beginn="2026-09-01", today="2026-08-31") is None
+        assert find_spieltag_create_refusal(earliest_knockout_beginn="2026-08-31", today="2026-09-01") is not None

@@ -139,17 +139,22 @@ export async function postSpielerAction(
         is_nachgetragen,
         is_captain,
       });
-    } catch {
+    } catch (error) {
       invalidateSpieler();
-      // Swallowed without inspecting it: a 409 here cannot be the player's own row -- they were
-      // created one request ago -- so no status distinguishes a reason the admin could act on, and
-      // `runAdminMutation` has already logged the error with the correlation id. Either way the
-      // player now EXISTS without a squad, so the message says so rather than pretending nothing
-      // happened.
+      // A 409 here cannot be the player's own duplicate row -- they were created one request ago -- but
+      // it CAN be one of the two squad refusals (`REQ-SQUAD-001`/`002`), and both name something the
+      // admin can act on: the club is not in this season, or the number is taken. So the reason is read
+      // out and appended rather than swallowed.
+      //
+      // Either way the player now EXISTS without a squad entry, which the message has to say plainly.
+      // `runAdminMutation` has already logged the error with its correlation id.
+      const refusal = mapSquadRefusal(error);
+      const because = refusal ? ` ${refusal.error ?? Object.values(refusal.fieldErrors ?? {})[0] ?? ""}` : "";
+
       return {
         success: false,
         error:
-          "Der Spieler wurde angelegt, konnte aber nicht in den Kader aufgenommen werden. " +
+          `Der Spieler wurde angelegt, konnte aber nicht in den Kader aufgenommen werden.${because} ` +
           "Er ist dadurch auf keiner Seite sichtbar. Bitte nimm ihn über die Spielerseite in eine Saison auf.",
       };
     }
@@ -282,6 +287,12 @@ export async function postSaisonSpielerAction(
       // land on the field that caused them, in the form that is still open.
       saisonSpieler = await postSaisonSpieler(validated.data);
     } catch (error) {
+      // THREE different 409s reach this call and the code separates them. The two named refusals are
+      // checked first, because the fallback has no code to inspect: a repeat row arrives from the unique
+      // index, so it is the 409 left over once `REQ-SQUAD-001`/`002` are ruled out. Without this ordering
+      // a full squad number would have been explained as "already in this season".
+      const refusal = mapSquadRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
         return { success: false, error: ALREADY_IN_SAISON };
       }
