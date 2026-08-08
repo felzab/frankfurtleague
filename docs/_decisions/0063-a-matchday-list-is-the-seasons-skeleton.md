@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FB-6, plus the owner's question of 2026-08-07 — whether the admin surface needs a
+**Source:** Open item FB-6, plus my question of 2026-08-07 — whether the admin surface needs a
 design of its own or should reuse the public Spielplan, which already works.
 
 ## Context
@@ -16,11 +16,11 @@ a page-owned editor where the form outgrew a dialog
 ([ADR-0050](0050-a-form-that-outgrows-a-dialog-becomes-a-page.md)). Copying them is what the entry
 prescribed, and for `saisons` copying them was right.
 
-**Two questions had no precedent to copy, and the owner raised the first one directly.**
+**Two questions had no precedent to copy, and I raised the first one directly.**
 
 **The matchday surface.** `/dashboard/spielplan` is a sticky tab strip — one tab per Spieltag, one panel
 of match cards behind it (`fl_frontend/src/features/spieltage/components/views/SpielplanView.tsx`). It
-works, and the owner asked whether the admin needed anything different. Read against what it renders, it
+works, and I asked whether the admin needed anything different. Read against what it renders, it
 shows exactly one field of a Spieltag: `name`. The rest are invisible.
 
 What an admin asks about matchdays turned out to be comparisons rather than lookups:
@@ -46,7 +46,7 @@ That ADR assigned the precondition to FB-6's UI and said nothing about where on 
 ## Decision
 
 **The matchday surface is a phase-sectioned ordered list, not the Spielplan's tab strip and not a table**
-(owner, 2026-08-07). `fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx` is
+(my call, 2026-08-07). `fl_frontend/src/features/spieltage/components/collections/AdminSpieltageList.tsx` is
 the whole surface: one section per `saison_phase` in the order a season runs them, and within a section the
 rows in the order the API returned them.
 
@@ -56,7 +56,7 @@ ordering here would be a second answer to a settled question. What the row shows
 1-based place within its phase section, counted by the page over the order it received. It is presentation:
 two rows cannot claim the same one, and it cannot disagree with where the row actually is.
 
-**The ordinal shares the identity's row at every width** (owner, 2026-08-07). On a phone a marker on its
+**The ordinal shares the identity's row at every width** (my call, 2026-08-07). On a phone a marker on its
 own line spends a whole row on one digit; a number belongs beside the thing it numbers, and from `md` the
 same wrapper is the start of the horizontal layout.
 
@@ -81,7 +81,7 @@ is a page with the full page-owned apparatus: one descriptor table, per-field ma
 save bar, a discard guard, Ctrl+S, and an undo route handler
 ([ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)).
 
-**The rollover control lives on the season's own editor page** (owner, 2026-08-07), as a panel and not a
+**The rollover control lives on the season's own editor page** (my call, 2026-08-07), as a panel and not a
 row action. It presents the outgoing season's unfinished matches as a **list** rather than a count, each
 row linking into the fixture, because the count alone says something is open and nothing about whether it
 matters — a finale without a result is a different decision from four group games nobody is waiting on. It
@@ -100,7 +100,7 @@ through a control that says nothing about editing.
 that is over is `past`; deleting it would orphan every spiel, spieltag and junction row carrying its id
 (ADR-0033).
 
-**Every soft delete in the admin now says so** (owner, 2026-08-07). All five `DELETE` endpoints stamp
+**Every soft delete in the admin now says so** (my call, 2026-08-07). All five `DELETE` endpoints stamp
 `inactive_since` and keep the document ([ADR-0032](0032-soft-deletion-is-a-date-not-a-flag.md)), and the
 row renders a Reaktivieren control the moment the write lands — but `ConfirmDeleteModal` hardcoded
 "wirklich löschen", "kann **nicht** rückgängig gemacht werden" and "Ja, endgültig löschen" for every one of
@@ -158,7 +158,7 @@ link per row, which is worth knowing before looking for the trash control that i
 
 ## Alternatives considered
 
-**Reuse the Spielplan's tab strip for the admin matchday surface.** The owner's own question, and the
+**Reuse the Spielplan's tab strip for the admin matchday surface.** My own question, and the
 assistant recommended against it. The public page is right for its job: a reader wants one matchday's
 fixtures, so the matchday is a container you navigate into. Every admin question about matchdays is a
 comparison between them, and a strip shows one at a time — the worst possible shape for comparison. It also
@@ -170,7 +170,7 @@ half alone. It would show every field and hide the structure the fields describe
 what makes a mis-phased matchday visible. The season half did copy the table, because a season has no
 ordering to render.
 
-**A drag-to-reorder list with a bulk `PATCH /spieltage/order` endpoint.** Put to the owner as the third
+**A drag-to-reorder list with a bulk `PATCH /spieltage/order` endpoint.** Put to me as the third
 option and declined, then made moot: ADR-0064 removed the stored position a reorder would have written, so
 there is no longer anything for a drag to rearrange.
 

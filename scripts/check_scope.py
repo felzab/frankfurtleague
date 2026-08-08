@@ -13,7 +13,7 @@ file holds it - so correcting a citation inside src/core/config.ts is `--docs`, 
  before the push, and a packaging break is the one class the frontend toolchain cannot see at all
  (scripts/README.md, the images scope). So the images scope is the floor: missing it FAILS. Every
  other missing scope is reported, because the run may be a deliberate mid-work one and a check that
- refuses those gets suppressed (docs/_standard/5-currency.md). The reasoning is ADR-0037.
+ refuses those gets suppressed (docs/_standard/chapters/5-currency.md). The reasoning is ADR-0037.
 
  The classifier only ever SUPPRESSES a complaint - it can make the check quieter about a
  comment-only edit, never quieter about anything else, and it removes no CI job. Anything it cannot

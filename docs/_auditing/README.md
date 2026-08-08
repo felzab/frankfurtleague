@@ -15,7 +15,7 @@ docs/audit/
 **`programme/` is what `/audit:finish` deletes**, which is why it is a folder rather than an
 exception clause: an irreversible delete should have an unambiguous target. The register outlives it
 because hazards are a property of the system, not of one programme, and re-deriving them per surface
-would throw away the part that cost the most — the severities the owner confirmed.
+would throw away the part that cost the most — the severities I confirmed.
 
 | File / folder                                          | What it holds                                                     |
 | ------------------------------------------------------ | ----------------------------------------------------------------- |
@@ -46,18 +46,18 @@ graph TD
     f --> d["audit/programme/ deleted; register.md stays"]
 ```
 
-| Phase      | Command           | Sessions      | Writes                                                 |
-| ---------- | ----------------- | ------------- | ------------------------------------------------------ |
-| 1 · Passes | `/audit:pass`     | One per pass  | One report per pass, in `audit/programme/`             |
-| 2 · Ledger | `/audit:plan`     | One           | `docs/audit/programme/0-remediation-ledger.md`         |
-| 3 · Wave 0 | —                 | Owner answers | Answers recorded in the ledger                         |
-| 4 · Waves  | `/audit:wave <n>` | One per wave  | Source code, on a branch, plus wave report             |
-| 5 · Close  | `/audit:finish`   | One           | `reports/<yyyy-mm>-<surface>.md`; deletes `programme/` |
+| Phase      | Command           | Sessions     | Writes                                                 |
+| ---------- | ----------------- | ------------ | ------------------------------------------------------ |
+| 1 · Passes | `/audit:pass`     | One per pass | One report per pass, in `audit/programme/`             |
+| 2 · Ledger | `/audit:plan`     | One          | `docs/audit/programme/0-remediation-ledger.md`         |
+| 3 · Wave 0 | —                 | My answers   | Answers recorded in the ledger                         |
+| 4 · Waves  | `/audit:wave <n>` | One per wave | Source code, on a branch, plus wave report             |
+| 5 · Close  | `/audit:finish`   | One          | `reports/<yyyy-mm>-<surface>.md`; deletes `programme/` |
 
 `/audit:status` reconstructs programme state and resumes interrupted work. Run it first after any
 crash, token exhaustion, or return from a break.
 
-**What the owner actually does.** Everything else is the session's job.
+**What I actually do.** Everything else is the session's job.
 
 1. Run each command above in its own session, `/clear` between them.
 2. Answer the Wave 0 question batch after `/audit:plan`. **Nothing proceeds until this is done** —
@@ -99,11 +99,11 @@ two modes, and it decides which by looking:
 
 | Mode        | When                               | What it does                                                                                                                                                 |
 | ----------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Create**  | `audit/register.md` does not exist | Builds it from scratch. The severities go to the owner for confirmation.                                                                                     |
+| **Create**  | `audit/register.md` does not exist | Builds it from scratch. The severities come to me for confirmation.                                                                                          |
 | **Refresh** | It exists                          | Re-verifies existing rows against current code, adds hazards the code has grown, re-maps coverage to this programme's passes. Confirmed severities are kept. |
 
 A refresh is much cheaper than a create, which is the point: **the expensive part of the register is
-the owner's judgment about what matters, and that is not re-derived.** So auditing the frontend and
+my judgment about what matters, and that is not re-derived.** So auditing the frontend and
 then the backend means one create and one refresh, not two creates.
 
 The refresh is also where staleness is caught. The register records the commit it was last verified
@@ -128,7 +128,7 @@ it; the same control landing last catches nothing.
 
 ### 1.3 Wave 0
 
-Every blocking question answered and every owner decision settled **before any code changes**.
+Every blocking question answered and every decision of mine settled **before any code changes**.
 Answers routinely invert findings — a fix written against an unanswered question can be the exact
 opposite of correct.
 
@@ -136,13 +136,13 @@ opposite of correct.
 
 **One wave = one branch = one pull request = one fresh session.** Wave count is whatever the
 dependency structure needs; split any wave whose pull request would be too large to review. Each
-wave verifies its findings, batches its owner questions, implements, and runs the close-out in §4.
+wave verifies its findings, batches its questions for me, implements, and runs the close-out in §4.
 
 ### 1.5 Close
 
 The final report is written to `reports/`, then `docs/audit/programme/` is deleted. **`register.md`
 stays.** The report is the only artifact of the programme that survives, so it must be
-**self-contained**: no claim in it may depend on a deleted file (DS12).
+**self-contained**: no claim in it may depend on a deleted file (COR-1).
 
 It also compares itself against the previous programme on the same surface — findings by severity,
 the false-positive rate, findings in classes an earlier guardrail should have prevented, and hazards
@@ -190,8 +190,8 @@ Three consequences the protocol works around:
   report.
 - **A wave report is revised in place, never appended to.** Corrections appended below text that
   still says the old thing leave a document contradicting itself.
-- **The register is amended, never rebuilt.** A hazard whose severity the owner confirmed keeps that
-  severity until the owner changes it.
+- **The register is amended, never rebuilt.** A hazard whose severity I confirmed keeps that
+  severity until I change it.
 
 ---
 
@@ -207,7 +207,7 @@ Three consequences the protocol works around:
   act on against the current code. Reports go stale, miscount blast radius, and carry replacement
   snippets that were never executed. [`lessons.md` §1](lessons.md) catalogues the shapes.
 - **Ask more, not less.** A finding that is ambiguous, a change that is user-visible, a decision that
-  reopens something ratified, two fixes that conflict — each is an owner question. Collect them
+  reopens something ratified, two fixes that conflict — each is a question for me. Collect them
   during planning and put them as **one batch** with measured options and a recommendation. A
   question is cheaper than a reverted wave.
 - **Independent review is a phase, not a favour.** After implementation and before the wave report,
@@ -243,7 +243,7 @@ reconciliations.
 
 ## 4. Close-out, identical every wave
 
-The owner does exactly two things: click **Create pull request** and **Merge**. Everything else is
+I do exactly two things: click **Create pull request** and **Merge**. Everything else is
 the session's job, in this order, with no variation and no steps skipped.
 
 ### 4.1 Run the full gate
@@ -307,7 +307,7 @@ Push the branch, then print in one copy-paste block the pull request **title**
 branch achieves, what was verified and how, what was deliberately left undone, resolved divergences,
 and ADR links wherever a ratified decision was touched. Open it with `gh pr create --draft` and hand
 over the link. **Never `gh pr ready` and never `gh pr merge`** — marking a draft ready is the act of
-saying it passed review, and that is the owner's.
+saying it passed review, and that is mine.
 
 ---
 
@@ -321,20 +321,20 @@ not apply to reading prose.
 
 | It shares                                                                | It does not have                                    |
 | ------------------------------------------------------------------------ | --------------------------------------------------- |
-| Report-only: the audit session fixes nothing                             | A risk pass, a register, severities the owner sets  |
+| Report-only: the audit session fixes nothing                             | A risk pass, a register, severities I set           |
 | Findings are claims, re-verified before anything acts on them            | A ledger and waves — fixes go in one pull request   |
 | Working documents under `docs/audit/`, gitignored on a public repository | A permanent report; a sweep's value expires quickly |
 
 **The corpus is every document and every comment**: `/docs`, the repository-root documents, CLAUDE.md,
 the command files, and the module headers, docstrings and comments in the source, which the standard
-covers exactly as it covers a spec sheet (DS20). It is partitioned into segments, and each segment
+covers exactly as it covers a spec sheet (INC-6). It is partitioned into segments, and each segment
 goes to an agent that reads it **in full** and has seen none of the rest — independence is the
 mechanism, because the session that wrote a page cannot feel what is missing from it.
 
-It runs against `docs/_standard/`, and finds the classes the four defences in
-[`../_standard/5-currency.md`](../_standard/5-currency.md) structurally cannot: a page no change has
-touched, a sentence a stranger could not act on, a fact stated in two places, a citation that
-resolves but is not evidence for the claim beside it.
+It runs against `docs/_standard/`, and finds the classes the gate in
+[`../_standard/chapters/5-currency.md`](../_standard/chapters/5-currency.md) structurally cannot: a
+page no change has touched, a sentence a stranger could not act on, a fact stated in two places, a
+citation that resolves but is not evidence for the claim beside it.
 
 **`/docs:audit` reports and `/docs:audit fix` repairs, never in one session.** An audit that fixes as
 it goes stops looking at the point it starts repairing, and then grades its own work. The report goes
@@ -354,6 +354,6 @@ Prompts rot where they hardcode facts. Four rules:
 - **Shared discipline lives once**, in [`prompts/_shared-protocol.md`](prompts/_shared-protocol.md).
   A pass prompt carries only its lens: scope, numbered checks, required tables, priority order,
   boundaries.
-- **Prompts are documentation, so DS14 applies**: they name what exists now. A prompt must be fully
+- **Prompts are documentation, so COR-3 applies**: they name what exists now. A prompt must be fully
   understandable to someone who has never run a programme here — no reference to a past audit, a
   past session, or an identifier that no longer resolves to a tracked file.

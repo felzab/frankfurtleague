@@ -2,7 +2,7 @@
 
 Architecture Decision Records. One file per decision, numbered sequentially, **append-only**.
 
-- **How ADRs work, and how to write one:** [`../_standard/4-adr-guide.md`](../_standard/4-adr-guide.md)
+- **How ADRs work, and how to write one:** [`../_standard/chapters/4-decisions.md`](../_standard/chapters/4-decisions.md)
 - **Template:** [`../_standard/templates/adr.md`](../_standard/templates/adr.md)
 
 ## Rules for this folder
@@ -24,7 +24,7 @@ The rest of `/docs` is organised per surface (frontend / backend / ops). This fo
 purpose: decisions routinely span surfaces, the number is a permanent identity cited from code so the
 path must never move, numbering is global, and the log reads chronologically as the history of the
 project's thinking. Full reasoning in
-[`../_standard/3-out-of-code.md`](../_standard/3-out-of-code.md#why-adrs-are-not-split-by-surface).
+[`../_standard/chapters/3-corpus.md`](../_standard/chapters/3-corpus.md#out-2--the-folder-layout).
 
 **Browse by surface using the `Surface` column below**, not by directory.
 

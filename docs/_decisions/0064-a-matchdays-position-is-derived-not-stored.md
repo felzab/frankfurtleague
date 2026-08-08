@@ -5,7 +5,7 @@
 **Surface:** backend, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** The owner's correction of 2026-08-07, reviewing FB-6's matchday surface: `order_val`
+**Source:** My correction of 2026-08-07, reviewing FB-6's matchday surface: `order_val`
 existed only so `SpielplanView` had something to order by, it should not be reachable by an admin,
 reordering should not be possible, and it starts at 0, which reads wrongly in the interface. The
 follow-up review of 2026-08-08 — "what else on here is not a fact about this matchday?" — removed

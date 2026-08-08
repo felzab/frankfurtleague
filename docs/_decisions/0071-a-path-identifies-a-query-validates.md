@@ -5,7 +5,7 @@
 **Surface:** backend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Roadmap item BE-13 (owner, 2026-08-04), asking for one predictable rule.
+**Source:** Roadmap item BE-13 (my item, 2026-08-04), asking for one predictable rule.
 
 ## Context
 

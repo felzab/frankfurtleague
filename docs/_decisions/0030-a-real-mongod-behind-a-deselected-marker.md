@@ -114,7 +114,7 @@ laptop and on a runner is worth six dev packages.
 
 **The `db` tests in the default suite, with no marker.** Simpler — no marker, no second job. Rejected
 because it makes Docker a prerequisite of `pytest` and of `verify.sh --quick`, which is the path CI
-runs on every pull request and the owner runs on Windows. A test suite you must start a daemon to run
+runs on every pull request and I develop on Windows. A test suite you must start a daemon to run
 is a test suite that gets run less.
 
 **A step inside the existing `verify` job.** Rejected on measurement: it puts the image pull on the

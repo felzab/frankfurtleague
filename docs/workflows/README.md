@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `787fedf`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -76,8 +76,8 @@ window is where a pull request actually lives: it is handed over before it is re
 it ready is the act of saying it survived review.
 
 Title and body follow [`message-templates.md`](message-templates.md). Marking ready and merging are
-**the owner's, and only the owner's** — merge with the **merge commit** button, and delete the
-remote branch when GitHub offers.
+**mine, and only mine** — I merge with the **merge commit** button, and delete the remote branch
+when GitHub offers.
 
 `gh` is installed and authenticated, and the boundary is worth stating precisely because the tool
 no longer draws it by being absent:
@@ -258,8 +258,8 @@ Three things only the body can carry, which is why the template's headings are w
 - **What was verified, and how.** A gate invocation covers the branch; no single commit's body can
   claim it. Especially for anything the type checker cannot see: RSC boundaries, cache invalidation,
   rendered output.
-- **Anything deliberately left undone**, and why — including work proposed to the owner and awaiting
-  a decision, which is not a change any commit made.
+- **Anything deliberately left undone**, and why — including work proposed to me and awaiting
+  my decision, which is not a change any commit made.
 - **A link to the ADR** if the change touches a ratified decision.
 
 Do not restate the diff, and do not restate the Commits tab.
@@ -286,7 +286,7 @@ table is in [`scripts/README.md`](../../scripts/README.md).
 
 The **documentation gate** fails on any citation that resolves to nothing — a dangling ADR number, a
 dead link, a broken anchor, a named path that is not there — in `/docs` and inside source comments
-alike. Rules: [`docs/_standard/5-currency.md`](../_standard/5-currency.md).
+alike. Rules: [`docs/_standard/chapters/5-currency.md`](../_standard/chapters/5-currency.md).
 
 `--quick` skips everything that needs Docker: the database test tier and both image builds. A run
 without the images scope is **not sufficient** before a merge touching `src/core/config.ts`,
@@ -676,7 +676,7 @@ more than a machine-readable prefix would, and adopting the convention would add
 squashing would collapse several carefully written bodies into one.
 
 **Manual deploy rather than continuous deployment.** Deploying on merge would remove the deliberate
-gap between "merged" and "live" — and for a site whose owner is also its only operator, that gap is
+gap between "merged" and "live" — and for a site I both own and operate alone, that gap is
 worth more than the automation.
 
 ### Templates, served and binding

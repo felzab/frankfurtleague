@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** The owner's instruction of 2026-08-07 to give the signed-in shells one header in the shape of the
+**Source:** My instruction of 2026-08-07 to give the signed-in shells one header in the shape of the
 Cloudflare dashboard, with the page title shown only there and an info glyph on every page saying what
 can be found or done on it — plus the instruction to verify the cleanest implementation rather than
 assume the reference's, and a dozen rounds of review on the result.
@@ -57,16 +57,16 @@ five pages of twelve reads as "the other seven have nothing to explain".
 its `lg:` companion: the collapsed state is a desktop state, and with only `lg:w-sidemenu-collapsed` an
 admin who collapses the rail and then narrows to a phone gets a drawer with no width at all.
 
-**Below `lg` the bar shows no brand at all** (owner). The block is the hamburger and nothing else, and
+**Below `lg` the bar shows no brand at all** (my call). The block is the hamburger and nothing else, and
 the mark — full logo and wordmark — is at the top of the drawer that button opens.
 
-**The drawer overlays the bar rather than opening beneath it** (owner), so it stays viewport-`fixed`,
+**The drawer overlays the bar rather than opening beneath it** (my call), so it stays viewport-`fixed`,
 and `SidemenuDrawerHeader` gives it its own brand row and close button: while it is open, the bar's
 toggle is behind it. `h-dvh` is scoped to that overlay with `lg:h-auto` — **the desktop rail must take
 its height from the row**, because `h-dvh` under a 54px bar overshoots the viewport by exactly the bar
 and makes the whole page scroll.
 
-**The appearance and account controls are offered in both places** (owner). `ThemeSwitch` and
+**The appearance and account controls are offered in both places** (my call). `ThemeSwitch` and
 `SignOutButton` sit inline at the end of the bar, where they are reachable at every width; the
 sidemenu footer keeps its options menu, its way back to the public site and its collapse toggle,
 unchanged. **The sign-out's behaviour is `useSignOut`'s and is shared**, so the two placements cannot
@@ -78,7 +78,7 @@ HeroUI's `ToggleButtonGroup`. A switch can only be read as "dark mode: on", whic
 the state and says nothing about where pressing it leads; two labelled options say what both states are
 and which is current.
 
-**Both destructive controls carry their fill at rest and only ever deepen** (owner). A red that appears
+**Both destructive controls carry their fill at rest and only ever deepen** (my call). A red that appears
 on approach says nothing to a reader scanning the surface.
 
 **A route rendering the shell releases the viewport's reserved scrollbar gutter.** One unlayered rule
@@ -88,7 +88,7 @@ the reservation — are untouched, and nothing reaches up to mutate `<html>` imp
 **A list-box item's focus fill keys on `data-focus-visible`, a menu item's on `data-focused`.** A
 `Select` focuses its selected option the moment the popover opens, whatever opened it, so `data-focused`
 painted a fill on one row before anybody had pressed a key — read as "these items have a background"
-rather than as "you are here" (owner). A menu genuinely does move focus with the pointer, so there the
+rather than as "you are here" (my call). A menu genuinely does move focus with the pointer, so there the
 attribute is right.
 
 ## Consequences
@@ -141,13 +141,13 @@ made the phone and the desktop disagree about whether a page has a title at all.
 `sr-only`, is the state this replaces — and a second `h1` per page is an outline error rather than a
 style preference.
 
-**Move the options menu into the bar instead of offering both.** Built and reverted at the owner's
+**Move the options menu into the bar instead of offering both.** Built and reverted at my
 direction: the footer menu is where the rail's own controls have always been, and the bar's inline pair
 is what makes them reachable while the drawer is shut. Sharing the behaviour and not the markup is what
 keeps two placements from becoming two meanings.
 
 **Open the drawer beneath the bar, so the bar's toggle stays visible and can double as the close.**
-Built and reverted at the owner's direction. The overlay is what the drawer did before, and the close
+Built and reverted at my direction. The overlay is what the drawer did before, and the close
 control belongs on the panel that covers the screen.
 
 **Drop `scrollbar-gutter` from `<html>` outright.** It would fix the dead rail in one edit and

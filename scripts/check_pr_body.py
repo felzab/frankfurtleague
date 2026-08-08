@@ -70,7 +70,7 @@ TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
 # template writes `**Verified.**` while most of the merged corpus writes a bare `Verified.`, and the
 # difference is two asterisks rather than anything a reader loses. Requiring the bold form failed 27
 # of 44 merged bodies including several of the best — a check that cries wolf gets suppressed
-# (docs/_standard/5-currency.md), and what the form asks for is that the section be there at all.
+# (docs/_standard/chapters/5-currency.md), and what the form asks for is that the section be there at all.
 #
 # Named alternation rather than a general "bolded phrase" pattern: a paragraph opening "Rankings.
 # Twenty-eight entries ..." is prose, and a looser rule would read it as a heading and cut the

@@ -5,7 +5,7 @@
 **Surface:** backend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Roadmap item BE-10 (owner, 2026-08-02): nothing caches the season document, and every
+**Source:** Roadmap item BE-10 (my item, 2026-08-02): nothing caches the season document, and every
 request reads it.
 
 ## Context

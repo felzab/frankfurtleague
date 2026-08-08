@@ -1,35 +1,29 @@
 """
-scripts/check_docs.py - the documentation currency gate.
+scripts/check_docs.py - the documentation gate.
 
-Run by verify.sh. It is the mechanical half of the documentation standard's currency rules
-(docs/_standard/5-currency.md, DS18): the other three defences depend on someone remembering, and
-this one does not.
-
- WHAT IT CHECKS ------------------------------------------------------------------------------------
-
-  Failing, because each is objectively broken and cheap to fix:
-    1. every ADR-NNNN citation resolves to a file in docs/_decisions/
-    2. every relative markdown link resolves to an existing file
-    3. every citation of the form <path> :: <anchor> resolves - the file exists AND the anchor
-    4. every backticked repo path exists
-
-  Reporting, because a hit is evidence rather than proof and a check that cries wolf gets ignored:
-    5. a page's cited files changed since its `Verified against` commit
-    6. DS14's history phrases appear in the branch diff
-
- ENFORCEMENT SCOPE ---------------------------------------------------------------------------------
-
- The whole repository is enforced: every failing check fails the run, wherever the file lives.
- ENFORCED_PATHS narrows that when a folder is mid-adoption, because a hard failure a folder cannot yet
- satisfy has to be suppressed, and a suppressed check is worse than no check.
+Run by verify.sh. It is the mechanical half of the documentation standard's currency rules: the
+other defences depend on someone remembering, and this one does not. The check list, with what each
+failure means, lives in docs/_standard/chapters/5-currency.md (CUR-5) - the one place it is
+written, so it is deliberately not restated here.
 
  SCANNING RULES ------------------------------------------------------------------------------------
 
- Fenced code blocks are stripped before anything is extracted. A link or citation inside a fence is a
- worked example, not a reference, and templates are made almost entirely of those.
+ Fenced code blocks are stripped before anything is extracted. A link or citation inside a fence is
+ a worked example, not a reference, and templates are made almost entirely of those.
 
- Placeholder text is skipped wherever it appears: anything containing < > { } * ? or the literal NNNN.
- Templates ship `<sha>` and `ADR-NNNN` on purpose.
+ Placeholder text is skipped wherever it appears: anything containing < > { } * ? or the literal
+ NNNN. Templates ship `<sha>` and `ADR-NNNN` on purpose.
+
+ Source files carry the same citations as documentation and rot the same way, so their COMMENTS are
+ scanned too (INC-6). Only comments: a path-shaped string in executable code is data, not a claim.
+
+ BRANCH SCOPE --------------------------------------------------------------------------------------
+
+ Three checks read the branch rather than the tree: stamp freshness (an edited stamped page moves
+ its stamp), branch impact (a stamped page whose cited files materially changed restamps, CUR-4),
+ and the history phrases (COR-3). Material means more than comments, decided by the same parser
+ classifier the scope check uses - check_scope.is_comment_only - so the two gates cannot disagree
+ about what a comment is.
 """
 
 from __future__ import annotations
@@ -42,10 +36,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Iterable, Literal
 
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent
+import check_scope
 
-# Failures here fail the run. Everything else is reported only -- see ENFORCEMENT SCOPE above.
-ENFORCED_PATHS: Final[tuple[str, ...]] = ("",)  # "" matches every path: the whole repository
+REPO_ROOT: Final = Path(__file__).resolve().parent.parent
 
 # Scanned subtrees exclude these:
 #   docs/audit   -- gitignored working documents of a running audit programme, absent from any clone.
@@ -58,8 +51,7 @@ SKIP_DIRS: Final[tuple[str, ...]] = ("docs/audit", "node_modules", ".venv")
 # A file is a template if it sits in a templates/ directory or its name ends -template.md.
 TEMPLATE_MARKERS: Final[tuple[str, ...]] = ("/templates/", "-template.md")
 
-# Source files carry the same citations as documentation and rot the same way, so their COMMENTS are
-# scanned too (DS20). Only comments: a path-shaped string in executable code is data, not a claim.
+# The comment-bearing source suffixes the gate scans (INC-6).
 SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".py")
 
 # Top-level directories a backticked path must start with to be treated as a repo path. Anything else
@@ -74,7 +66,7 @@ REPO_PREFIXES: Final[tuple[str, ...]] = (
     ".github/",
 )
 
-# DS14's banned shapes. Reported, never failed: "the former ... the latter" is ordinary English, so
+# COR-3's banned shapes. Reported, never failed: "the former ... the latter" is ordinary English, so
 # every hit has to be read by a person.
 HISTORY_PHRASES: Final[tuple[str, ...]] = (
     "used to",
@@ -89,14 +81,24 @@ FENCE_RE: Final = re.compile(r"^\s*(```|~~~)")
 ADR_RE: Final = re.compile(r"\bADR-(\d{4})\b")
 LINK_RE: Final = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+?)(?:#[^)]*)?\)")
 # A citation is a single backticked run containing exactly one " :: ". The separator is what marks it
-# as checkable rather than prose (P6).
+# as checkable rather than prose (COR-6).
 CITATION_RE: Final = re.compile(r"`([^`\n]+? :: [^`\n]+?)`")
 BACKTICK_RE: Final = re.compile(r"`([^`\n]+?)`")
-STAMP_RE: Final = re.compile(r"\*\*Verified against:\*\*\s*`?([0-9a-f]{7,40})`?")
+STAMP_RE: Final = re.compile(r"\*\*Verified against:\*\*\s*`([0-9a-f]{7,40})`")
 STAMP_LINE_RE: Final = re.compile(r"(?m)^.*\*\*Verified against:\*\*.*$")
+# CUR-3's exact stamp shape, plus COR-8's optional trailing hard break. Anything that starts like
+# a stamp and is not this fails stamp-format; a looser line would still be found by STAMP_RE-based
+# checks, so the two stay in step.
+STRICT_STAMP_RE: Final = re.compile(r"\*\*Verified against:\*\* `[0-9a-f]{7,40}`, \d{4}-\d{2}-\d{2}\\?")
+
+# A rule id resolves to a rule heading in the standard's chapters or it dangles. Two segments and a
+# short number, so the backend's three-segment error codes (REQ-VAL-001) can never collide.
+RULE_ID_RE: Final = re.compile(r"\b((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\b")
+RULE_HEADING_RE: Final = re.compile(r"^###\s+((?:PRE|COR|INC|OUT|DEC|CUR)-\d{1,2})\b")
+CHAPTERS_DIR: Final = REPO_ROOT / "docs" / "_standard" / "chapters"
 
 # A line-number citation is wrong after any edit above it and nothing else detects that, which is why
-# P6 bans it outright. Matches a backticked path with a trailing :N or :N-M.
+# COR-6 bans it outright. Matches a backticked path with a trailing :N or :N-M.
 #
 # The extension must be 2 to 5 LETTERS, which is what separates a path from the other things that
 # carry a dot and a colon: a contrast ratio (4.5:1) and a version (22.1.0) both have a digit where a
@@ -104,10 +106,11 @@ STAMP_LINE_RE: Final = re.compile(r"(?m)^.*\*\*Verified against:\*\*.*$")
 # switched off.
 LINE_CITATION_RE: Final = re.compile(r"`([^`\n]*\.[A-Za-z]{2,5}:\d+(?:-\d+)?)`")
 
-# Drift past this many commits stops being "possibly stale" and becomes "nobody has looked". Most
-# changes to a cited file leave the claim true, so the number is deliberately large: below it the
-# check would fire constantly and be turned off, which is the failure mode it exists to avoid.
-DRIFT_FAIL_AFTER: Final = 25
+# The ADR anatomy DEC-2 fixes, in order. adr-meta checks the shape; the reasoning lives in the rule.
+ADR_META_ORDER: Final[tuple[str, ...]] = ("Status", "Date", "Surface", "Supersedes", "Superseded by", "Source")
+ADR_META_RE: Final = re.compile(r"^\*\*(Status|Date|Surface|Supersedes|Superseded by|Source):\*\*\s*(.*)$")
+ADR_STATUS_RE: Final = re.compile(r"Accepted|Proposed|Deprecated|Superseded by ADR-\d{4}")
+ADR_H2S: Final[tuple[str, ...]] = ("Context", "Decision", "Consequences", "Alternatives considered")
 
 Severity = Literal["fail", "report"]
 
@@ -241,7 +244,7 @@ def heading_anchors(body: str) -> set[str]:
 
     Lowercase, drop everything that is not alphanumeric / space / hyphen, then spaces to hyphens.
     An em dash therefore vanishes and leaves the two spaces around it as two hyphens, which is why
-    `## DS1 - In-code style` yields `ds1--in-code-style`.
+    `### OUT-2 — The folder layout` yields `out-2--the-folder-layout`.
     """
     anchors: set[str] = set()
     for line in body.split("\n"):
@@ -268,17 +271,32 @@ def is_gitignored(token: str) -> bool:
     )
 
 
-def severity_for(path: Path) -> Severity:
-    rel = path.relative_to(REPO_ROOT).as_posix()
-    return "fail" if any(rel.startswith(p) for p in ENFORCED_PATHS) else "report"
-
-
 def adr_numbers() -> set[str]:
     """The four-digit prefixes of every ADR file that exists."""
     decisions = REPO_ROOT / "docs" / "_decisions"
     if not decisions.is_dir():
         return set()
     return {m.group(1) for f in decisions.glob("*.md") if (m := re.match(r"^(\d{4})-", f.name))}
+
+
+def rule_ids() -> set[str]:
+    """Every rule id a chapter defines: the `### <ID> — <name>` headings under chapters/.
+
+    An empty set when the chapters folder is missing, so every cited id then fails -- deleting the
+    standard out from under its citations is exactly what the rule-id check exists to catch.
+    """
+    ids: set[str] = set()
+    if not CHAPTERS_DIR.is_dir():
+        return ids
+    for chapter in CHAPTERS_DIR.glob("*.md"):
+        try:
+            text = chapter.read_text(encoding="utf-8")
+        except OSError, UnicodeDecodeError:
+            continue
+        for line in text.split("\n"):
+            if match := RULE_HEADING_RE.match(line):
+                ids.add(match.group(1))
+    return ids
 
 
 def _resolve(file_part: str) -> list[Path]:
@@ -291,36 +309,35 @@ def _resolve(file_part: str) -> list[Path]:
     return [p for p in REPO_ROOT.rglob(file_part) if p.is_file() and not _skipped(p)][:5]
 
 
-def _check_citation(citation: str, rel: str, sev: Severity) -> list[Finding]:
+def _check_citation(citation: str, rel: str) -> list[Finding]:
     """A <file> :: <anchor> citation: the file must exist and the anchor must appear inside it."""
     file_part, _, anchor = citation.partition(" :: ")
     file_part, anchor = file_part.strip(), anchor.strip()
     if not file_part or not anchor:
-        return [Finding(sev, "citation", rel, f"malformed citation: {citation}")]
+        return [Finding("fail", "citation", rel, f"malformed citation: {citation}")]
 
     matches = _resolve(file_part)
     if not matches:
-        return [Finding(sev, "citation", rel, f"cited file not found: {file_part}")]
+        return [Finding("fail", "citation", rel, f"cited file not found: {file_part}")]
     if len(matches) > 1:
         names = ", ".join(sorted(m.relative_to(REPO_ROOT).as_posix() for m in matches)[:4])
-        return [Finding(sev, "citation", rel, f"ambiguous file '{file_part}' matches: {names}")]
+        return [Finding("fail", "citation", rel, f"ambiguous file '{file_part}' matches: {names}")]
 
     target = matches[0]
     try:
         content = target.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        return [Finding(sev, "citation", rel, f"cannot read {file_part}: {exc}")]
+        return [Finding("fail", "citation", rel, f"cannot read {file_part}: {exc}")]
 
     if anchor not in content:
         where = target.relative_to(REPO_ROOT).as_posix()
-        return [Finding(sev, "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
+        return [Finding("fail", "citation", rel, f"anchor '{anchor}' no longer appears in {where}")]
     return []
 
 
-def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
-    """Every failing check, for one file."""
+def check_file(path: Path, existing_adrs: set[str], existing_rules: set[str]) -> list[Finding]:
+    """Every per-file check, for one file."""
     rel = path.relative_to(REPO_ROOT).as_posix()
-    sev = severity_for(path)
     is_markdown = path.suffix == ".md"
     try:
         raw = path.read_text(encoding="utf-8")
@@ -332,22 +349,36 @@ def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
 
     for number in sorted(set(ADR_RE.findall(body))):
         if number not in existing_adrs:
-            found.append(Finding(sev, "adr", rel, f"ADR-{number} resolves to no file in docs/_decisions/"))
+            found.append(Finding("fail", "adr", rel, f"ADR-{number} resolves to no file in docs/_decisions/"))
+
+    for rule_id in sorted(set(RULE_ID_RE.findall(body))):
+        if rule_id not in existing_rules:
+            found.append(Finding("fail", "rule-id", rel, f"{rule_id} resolves to no rule heading in docs/_standard/chapters/"))
 
     for citation in sorted(set(CITATION_RE.findall(body))):
         if not is_placeholder(citation):
-            found.extend(_check_citation(citation, rel, sev))
+            found.extend(_check_citation(citation, rel))
 
-    # P6 bans line-number citations outright. Nothing else can detect one: it stays syntactically
+    # COR-6 bans line-number citations outright. Nothing else can detect one: it stays syntactically
     # valid and merely stops pointing at what it names, so it has to be caught at the form.
     for citation in sorted(set(LINE_CITATION_RE.findall(body))):
         if is_placeholder(citation):
             continue
-        found.append(Finding(sev, "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (P6)"))
+        found.append(Finding("fail", "line-citation", rel, f"line-number citation `{citation}` -- anchor it to a symbol (COR-6)"))
 
-    # Links, anchors and bare backticked paths are markdown conventions; a comment does not use them.
+    # Links, anchors, backticked paths and stamps are markdown conventions; a comment does not use them.
     if not is_markdown:
         return found
+
+    # Any line that starts like a stamp is held to CUR-3's exact shape. Prose ABOUT the stamp never
+    # starts a line with it, and the placeholder rule keeps a documented `<sha>` out of scope.
+    for line in body.split("\n"):
+        if not line.startswith("**Verified against"):
+            continue
+        if is_placeholder(line):
+            continue
+        if not STRICT_STAMP_RE.fullmatch(line):
+            found.append(Finding("fail", "stamp-format", rel, f"stamp line is not CUR-3's exact shape: {line.strip()}"))
 
     anchors = heading_anchors(body)
     for raw_target in sorted(set(LINK_RE.findall(body))):
@@ -355,10 +386,10 @@ def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
             continue
         if raw_target.startswith("#"):
             if raw_target[1:] not in anchors:
-                found.append(Finding(sev, "anchor", rel, f"no heading in this file yields {raw_target}"))
+                found.append(Finding("fail", "anchor", rel, f"no heading in this file yields {raw_target}"))
             continue
         if not (path.parent / raw_target).resolve().exists():
-            found.append(Finding(sev, "link", rel, f"link target does not exist: {raw_target}"))
+            found.append(Finding("fail", "link", rel, f"link target does not exist: {raw_target}"))
 
     for token in sorted(set(BACKTICK_RE.findall(body))):
         # A line-number citation is already reported above; it can never exist as a path, so letting
@@ -368,7 +399,7 @@ def check_file(path: Path, existing_adrs: set[str]) -> list[Finding]:
         if LINE_CITATION_RE.fullmatch(f"`{token}`"):
             continue
         if not (REPO_ROOT / token).exists() and not is_gitignored(token):
-            found.append(Finding(sev, "path", rel, f"path named but not present: {token}"))
+            found.append(Finding("fail", "path", rel, f"path named but not present: {token}"))
 
     return found
 
@@ -391,28 +422,24 @@ def cited_paths(body: str) -> set[str]:
 
 
 def check_stamps(paths: Iterable[Path]) -> list[Finding]:
-    """A `Verified against` SHA must be a real ancestor of HEAD, and what it cites may have moved.
+    """A `Verified against` SHA must be a real ancestor of HEAD.
 
-    Drift is measured against the files the page CITES, never against the page itself: editing a page
-    is not evidence its claims went stale, and counting it as such would make every documentation
-    commit report drift on the file it just corrected.
+    An unknown SHA is only reported: a shallow clone genuinely does not have the object, and that is
+    the checkout's shape rather than the page's defect.
     """
     found: list[Finding] = []
     for path in paths:
         rel = path.relative_to(REPO_ROOT).as_posix()
-        sev = severity_for(path)
         try:
             raw = path.read_text(encoding="utf-8")
         except OSError, UnicodeDecodeError:
             continue
-        body = strip_fences(raw)
-        match = STAMP_RE.search(body)
+        match = STAMP_RE.search(strip_fences(raw))
         if match is None:
             continue
         sha = match.group(1)
 
         if git("cat-file", "-e", f"{sha}^{{commit}}") is None:
-            # A shallow clone genuinely does not have the object. Report rather than fail on it.
             found.append(Finding("report", "stamp", rel, f"commit {sha} is not in this clone"))
             continue
 
@@ -423,39 +450,12 @@ def check_stamps(paths: Iterable[Path]) -> list[Finding]:
             check=False,
         ).returncode
         if is_ancestor != 0:
-            found.append(Finding(sev, "stamp", rel, f"commit {sha} is not an ancestor of HEAD"))
-            continue
-
-        cited = sorted(cited_paths(body))
-        if not cited:
-            continue
-        moved = git("log", "--oneline", f"{sha}..HEAD", "--", *cited)
-        if moved:
-            count = len(moved.split("\n"))
-            if count > DRIFT_FAIL_AFTER:
-                found.append(
-                    Finding(
-                        sev,
-                        "drift",
-                        rel,
-                        f"{count} commits have touched files this page cites since its stamp "
-                        f"(limit {DRIFT_FAIL_AFTER}) -- re-verify the page against the code, then restamp",
-                    )
-                )
-            else:
-                found.append(
-                    Finding(
-                        "report",
-                        "drift",
-                        rel,
-                        f"{count} commit(s) touched files this page cites since its stamp -- re-verify",
-                    )
-                )
+            found.append(Finding("fail", "stamp", rel, f"commit {sha} is not an ancestor of HEAD"))
     return found
 
 
 def check_stamp_freshness(base: str) -> list[Finding]:
-    """A stamped page changed on this branch must also change its stamp.
+    """A stamped page changed on this branch must also change its stamp (CUR-4).
 
     The stamp claims someone checked the page against a commit. Editing the page without moving it
     leaves that claim attached to work the author did not verify, and no other check can tell the
@@ -493,17 +493,169 @@ def check_stamp_freshness(base: str) -> list[Finding]:
         if old_line and new_line and old_line.group(0) == new_line.group(0):
             found.append(
                 Finding(
-                    severity_for(path),
+                    "fail",
                     "stamp",
                     rel,
-                    "changed on this branch without its `Verified against` line moving -- restamp it, or say why the page still holds",
+                    "changed on this branch without its `Verified against` line moving -- re-verify the page, then restamp (CUR-4)",
                 )
             )
     return found
 
 
+def check_branch_impact(base: str) -> list[Finding]:
+    """A stamped page whose cited files materially changed on this branch must restamp (CUR-4).
+
+    Material means more than comments, decided by check_scope's parser classifier -- anything it
+    cannot prove comment-only counts, so shell, YAML, Dockerfiles and markdown always do. A page
+    added on the branch passes: its stamp is already this branch's work.
+    """
+    fork = check_scope.resolve_base(base)
+    if fork is None:
+        return []
+    changed = check_scope.changed_files(fork)
+    material = {path for path in changed if not check_scope.is_comment_only(fork, path)}
+    if not material:
+        return []
+
+    found: list[Finding] = []
+    for path in tracked_files():
+        if path.suffix != ".md":
+            continue
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except OSError, UnicodeDecodeError:
+            continue
+        body = strip_fences(raw)
+        if STAMP_RE.search(body) is None:
+            continue
+        hits = sorted(cited_paths(body) & material)
+        if not hits:
+            continue
+
+        before = git("show", f"{fork}:{rel}")
+        if before is None:
+            continue
+        old_line = STAMP_LINE_RE.search(before)
+        new_line = STAMP_LINE_RE.search(raw)
+        if old_line and new_line and old_line.group(0) == new_line.group(0):
+            shown = ", ".join(hits[:4]) + (f", and {len(hits) - 4} more" if len(hits) > 4 else "")
+            found.append(
+                Finding(
+                    "fail",
+                    "branch-impact",
+                    rel,
+                    f"this branch materially changed {shown}, which this stamped page cites -- re-verify the page, then restamp (CUR-4)",
+                )
+            )
+    return found
+
+
+def check_adr_meta() -> list[Finding]:
+    """Every ADR carries DEC-2's exact anatomy, DEC-3's status set, and DEC-6's reciprocity."""
+    decisions = REPO_ROOT / "docs" / "_decisions"
+    found: list[Finding] = []
+    # Number -> the two supersession fields, collected first so reciprocity can be checked across files.
+    supersedes: dict[str, str] = {}
+    superseded_by: dict[str, str] = {}
+
+    for path in sorted(decisions.glob("*.md")):
+        match = re.match(r"^(\d{4})-", path.name)
+        if match is None:
+            continue
+        number = match.group(1)
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except OSError, UnicodeDecodeError:
+            found.append(Finding("fail", "adr-meta", rel, "unreadable"))
+            continue
+        lines = strip_fences(raw).split("\n")
+
+        if not lines[0].startswith(f"# ADR-{number} — "):
+            found.append(Finding("fail", "adr-meta", rel, f"the H1 does not read `# ADR-{number} — <statement>` matching the filename"))
+
+        names: list[str] = []
+        values: dict[str, str] = {}
+        for line in lines:
+            if line.startswith("## "):
+                break
+            if meta := ADR_META_RE.match(line):
+                names.append(meta.group(1))
+                # COR-8's hard break is layout, not value: strip it before validating.
+                values[meta.group(1)] = meta.group(2).strip().removesuffix("\\").strip()
+        if tuple(names) != ADR_META_ORDER:
+            found.append(Finding("fail", "adr-meta", rel, f"metadata lines are not exactly {', '.join(ADR_META_ORDER)}, in that order"))
+        else:
+            if ADR_STATUS_RE.fullmatch(values["Status"]) is None:
+                found.append(Finding("fail", "adr-meta", rel, f"Status '{values['Status']}' is outside DEC-3's closed set"))
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", values["Date"]) is None:
+                found.append(Finding("fail", "adr-meta", rel, f"Date '{values['Date']}' is not an ISO date"))
+            if not values["Source"]:
+                found.append(Finding("fail", "adr-meta", rel, "the Source line is empty"))
+            supersedes[number] = values["Supersedes"]
+            superseded_by[number] = values["Superseded by"]
+
+        h2s = tuple(line[3:].strip() for line in lines if line.startswith("## "))
+        if h2s != ADR_H2S:
+            found.append(Finding("fail", "adr-meta", rel, f"H2 sections are not exactly {', '.join(ADR_H2S)}, in that order"))
+
+        if any(line.startswith("**Verified against") for line in lines):
+            found.append(Finding("fail", "adr-meta", rel, "an ADR carries no stamp line -- it is dated, never re-verified (DEC-2)"))
+
+    def other_number(value: str, rel: str, field: str) -> str | None:
+        if value == "—":
+            return None
+        if m := re.fullmatch(r"ADR-(\d{4})", value):
+            return m.group(1)
+        found.append(Finding("fail", "adr-meta", rel, f"{field} '{value}' is neither — nor a single ADR-NNNN"))
+        return None
+
+    for number, value in supersedes.items():
+        rel = f"docs/_decisions/{number}-*"
+        if (other := other_number(value, rel, "Supersedes")) is None:
+            continue
+        if superseded_by.get(other) != f"ADR-{number}":
+            found.append(Finding("fail", "adr-meta", rel, f"not reciprocal: ADR-{other} does not carry Superseded by ADR-{number}"))
+    for number, value in superseded_by.items():
+        rel = f"docs/_decisions/{number}-*"
+        if (other := other_number(value, rel, "Superseded by")) is None:
+            continue
+        if supersedes.get(other) != f"ADR-{number}":
+            found.append(Finding("fail", "adr-meta", rel, f"not reciprocal: ADR-{other} does not carry Supersedes ADR-{number}"))
+
+    return found
+
+
+def check_adr_index() -> list[Finding]:
+    """Every ADR file has an index row in docs/_decisions/README.md (DEC-7).
+
+    Only the missing-row direction lives here: a row pointing at a missing file is already a dead
+    link, and the link check reports it.
+    """
+    decisions = REPO_ROOT / "docs" / "_decisions"
+    readme = decisions / "README.md"
+    try:
+        content = readme.read_text(encoding="utf-8")
+    except OSError, UnicodeDecodeError:
+        return [Finding("fail", "adr-index", "docs/_decisions/README.md", "unreadable or missing")]
+
+    rows = re.findall(r"^\|\s*\[(\d{4})\]\(([^)]+)\)", content, re.MULTILINE)
+    indexed = {number for number, _ in rows}
+
+    found: list[Finding] = []
+    for number, target in rows:
+        if not target.startswith(number):
+            detail = f"row [{number}] links to {target}, a different number's file"
+            found.append(Finding("fail", "adr-index", "docs/_decisions/README.md", detail))
+    for path in sorted(decisions.glob("*.md")):
+        if (match := re.match(r"^(\d{4})-", path.name)) and match.group(1) not in indexed:
+            found.append(Finding("fail", "adr-index", "docs/_decisions/README.md", f"no index row for {path.name}"))
+    return found
+
+
 def check_history_phrases(base: str) -> list[Finding]:
-    """DS14's banned shapes, over the branch diff. Always a report: the hits must be read."""
+    """COR-3's banned shapes, over the branch diff. Always a report: the hits must be read."""
     diff = git("diff", f"{base}...HEAD", "-U0", "--", "*.md")
     if not diff:
         return []
@@ -511,13 +663,13 @@ def check_history_phrases(base: str) -> list[Finding]:
     hits = [line[1:].strip() for line in diff.split("\n") if line.startswith("+") and not line.startswith("+++") and pattern.search(line)]
     if not hits:
         return []
-    return [Finding("report", "history", "(branch diff)", f"{len(hits)} added line(s) match a DS14 phrase -- read them")]
+    return [Finding("report", "history", "(branch diff)", f"{len(hits)} added line(s) match a COR-3 history phrase -- read them")]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Documentation currency gate (docs/_standard/5-currency.md).")
-    parser.add_argument("--all", action="store_true", help="list every finding, not just enforced ones")
-    parser.add_argument("--base", default="main", help="base ref for the history-phrase diff (default: main)")
+    parser = argparse.ArgumentParser(description="Documentation gate (docs/_standard/chapters/5-currency.md).")
+    parser.add_argument("--all", action="store_true", help="list every advisory finding, not just the first ten")
+    parser.add_argument("--base", default="main", help="base ref for the branch-scoped checks (default: main)")
     args = parser.parse_args()
 
     files = tracked_files()
@@ -526,36 +678,41 @@ def main() -> int:
         return 0
 
     # CI checkouts have no local branch for the base, only its remote-tracking ref -- without this
-    # fallback the two branch-diff checks below silently ran against nothing on every CI run.
+    # fallback the branch-scoped checks below silently ran against nothing on every CI run.
     base = args.base
     if git("rev-parse", "--verify", base) is None and git("rev-parse", "--verify", f"origin/{base}") is not None:
         base = f"origin/{base}"
 
-    existing = adr_numbers()
+    existing_adrs = adr_numbers()
+    existing_rules = rule_ids()
     findings: list[Finding] = []
     for path in files:
-        findings.extend(check_file(path, existing))
+        findings.extend(check_file(path, existing_adrs, existing_rules))
     findings.extend(check_stamps(files))
     findings.extend(check_stamp_freshness(base))
+    findings.extend(check_branch_impact(base))
+    findings.extend(check_adr_meta())
+    findings.extend(check_adr_index())
     findings.extend(check_history_phrases(base))
 
     failures = [f for f in findings if f.severity == "fail"]
     reports = [f for f in findings if f.severity == "report"]
 
     if failures:
-        print(f"\n      {len(failures)} failing finding(s) in enforced paths ({', '.join(ENFORCED_PATHS)}):")
+        print(f"\n      {len(failures)} failing finding(s):")
         for finding in failures:
             print(finding.line())
 
     if reports:
-        print(f"\n      {len(reports)} finding(s) outside enforced paths, or advisory:")
+        print(f"\n      {len(reports)} advisory finding(s):")
         for finding in reports if args.all else reports[:10]:
             print(finding.line())
         if not args.all and len(reports) > 10:
             print(f"      ... and {len(reports) - 10} more -- scripts/check_docs.py --all lists every one")
 
     docs = sum(1 for f in files if f.suffix == ".md")
-    print(f"\n      scanned {docs} documents and {len(files) - docs} source files against {len(existing)} ADRs")
+    sources = len(files) - docs
+    print(f"\n      scanned {docs} documents and {sources} source files against {len(existing_adrs)} ADRs, {len(existing_rules)} rules")
     return 1 if failures else 0
 
 

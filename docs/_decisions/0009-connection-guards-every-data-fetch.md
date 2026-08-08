@@ -1,11 +1,12 @@
 # ADR-0009 — `await connection()` guards every page data fetch
 
 **Status:** Accepted
-**Date:** 2026-07-29 (wording amended 2026-07-31)
+**Date:** 2026-07-29
 **Surface:** frontend, ops
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Rule A1 of the ratified-rules register CLAUDE.md carried, extracted into this folder 2026-07-29
+**Source:** Rule A1 of the ratified-rules register CLAUDE.md carried, extracted into this folder
+2026-07-29; the wording was amended 2026-07-31.
 
 ## Context
 

@@ -5,7 +5,7 @@
 **Surface:** backend, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FB-12, plus the owner's report of two reproductions against the running admin
+**Source:** Open item FB-12, plus my report of two reproductions against the running admin
 form on 2026-08-05.
 
 ## Context
@@ -16,7 +16,7 @@ resolution contained a reference it could not honour by leaving the slot alone. 
 right for stored data — erasing a team over a typo destroys more than it reports — but at the write
 path it meant `PATCH /spiele/{spiel_id}` accepted wiring no season can hold, and said nothing.
 
-Two reproductions, both from the owner against season 2026:
+Two reproductions, both mine against season 2026:
 
 - **One match's winner was wired into two fixtures.** A semi-final's source was re-pointed at a
   quarter-final whose winner already fed the other semi-final. The write succeeded, and the bracket

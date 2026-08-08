@@ -28,7 +28,7 @@ that set the new season active and forgot the old one leaves two, and `pull_curr
 whichever Mongo hands back first.
 
 **The junction raised the mirror-image question.** `saison_teams` is one row per team per season, and
-BE-4 was writing a `DELETE` for it by symmetry with every other collection. The owner's decision, taken
+BE-4 was writing a `DELETE` for it by symmetry with every other collection. My decision, taken
 2026-08-02: **a team never leaves a season.** Once squads are settled, a club that stops competing is
 _disqualified_, which is a recorded fact about that season and not the absence of a row. Deleting the
 row would delete the group assignment, the disqualification, and the team's presence in that season's
@@ -92,7 +92,7 @@ the invariant actually needs; an index would be a second, weaker copy of it.
 endpoint and kept for FB-6's UI. At the endpoint it is a rule with no override, and the one case where
 someone genuinely needs to activate a season is when the data is _not_ in the state the rule assumes.
 
-**A `DELETE` on `saison_teams`, by symmetry with the other collections.** Rejected by the owner. The
+**A `DELETE` on `saison_teams`, by symmetry with the other collections.** Rejected by me. The
 symmetry is superficial: every other collection's delete retires a _thing_, while this one would erase a
 _fact about a season that has been played_. Disqualification is the real operation and it already
 existed as a field.

@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `787fedf`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -95,8 +95,9 @@ no row here — its commit is the whole story.
 - **BE-4** → three ADRs: [0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md) (soft
   deletion is a date, and creating never revives), [0033](../_decisions/0033-one-active-season-and-one-path-to-it.md)
   (one active season, one path to it) and [0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)
-  (resource-first URLs in a second router per slice). It also produced **DS14 and DS15** in
-  [`../_standard/6-decisions.md`](../_standard/6-decisions.md), and opened **FB-6** (admin pages for
+  (resource-first URLs in a second router per slice). It also produced two documentation-standard
+  rules — documentation names only what exists, and a header cites an ADR rather than restating it
+  (COR-3 and INC-3 in `../_standard/chapters/`) — and opened **FB-6** (admin pages for
   seasons and matchdays, plus the rollover control) and **BE-12** (the purge `inactive_since` is a
   date for). It unblocked FB-3, and it left the in-network revalidation route standing (retired
   decision 0015; [ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)
@@ -173,7 +174,7 @@ no row here — its commit is the whole story.
   — bracket platforms drop a disqualified entrant from the entry list, while ADR-0033 keeps the team
   in the season behind a flag. It opened **BE-15** (no admin write is recorded anywhere), rewrote
   **FE-10**, **FE-11**, **FE-12** and **FB-11** into instructions, and moved **FB-9** from a standing
-  caution to a specified entry the owner has deferred. It unblocked nothing that was blocked: the four
+  caution to a specified entry I have deferred. It unblocked nothing that was blocked: the four
   rewritten entries had soft dependencies on it, which is why they were workable throughout.
 - **FE-10** → [ADR-0050](../_decisions/0050-a-form-that-outgrows-a-dialog-becomes-a-page.md), four
   decisions in one: a form that outgrows a dialog becomes a page rather than a wider dialog, a field is
@@ -187,7 +188,7 @@ no row here — its commit is the whole story.
 - **FE-11** → [ADR-0053](../_decisions/0053-a-toast-is-built-in-tsx-not-patched-in-css.md): a toast's
   markup is this app's, supplied through `Toast.Provider`'s render function rather than patched into
   HeroUI's from a stylesheet, and its duration is derived from its text rather than chosen at the call
-  site. The entry was widened by the owner mid-session from four recorded defects to a full redesign,
+  site. I widened the entry mid-session from four recorded defects to a full redesign,
   and that is what decided the mechanism — CSS could recolour what the library renders but not move it.
   One recorded defect was deliberately not fixed, with a measurement as the reason: the stacked-toast
   height clamp truncates a queued message, and the visible band of the toast behind is 6.4 px, so
@@ -217,7 +218,7 @@ no row here — its commit is the whole story.
 - **FB-4** → [ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md), the rule that a
   bracket slot stores a structural reference to what feeds it, the German label is derived from that
   reference and stored nowhere, and a result entry resolves the whole of its season's bracket. Its part
-  1 was concluded by the owner rather than by research: the seeding is predefined and correct, the first
+  1 was concluded by my call rather than by research: the seeding is predefined and correct, the first
   knockout round is always group-seeded, and every later round is fed by two matches of the round
   before. It opened **FB-8** (a level knockout cannot record how it was decided), **FB-10** (seeding the
   first knockout round from the standings, which the `gruppe` variant exists for) and **OPS-9** (nothing

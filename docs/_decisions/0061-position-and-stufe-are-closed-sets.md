@@ -5,8 +5,8 @@
 **Surface:** backend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** The owner's decision of 2026-08-07, taken when FB-3's spieler half reached the squad
-editor and had to decide what its two pickers offer. The set's membership is the owner's; the
+**Source:** My decision of 2026-08-07, taken when FB-3's spieler half reached the squad
+editor and had to decide what its two pickers offer. The set's membership is mine; the
 inspection that made the question unavoidable is recorded in
 [`../roadmap/open-items.md`](../roadmap/open-items.md).
 
@@ -141,6 +141,6 @@ field, kept forever to serve a window measured in minutes, is the more expensive
 the shape ADR-0042 and ADR-0059 both declined for the same reason: the data is ordered against the
 deploy, not accommodated by it.
 
-**Include the Mittelstufe years (5–10) in `stufe`.** Rejected by the owner: twelve members to
+**Include the Mittelstufe years (5–10) in `stufe`.** Rejected by me: twelve members to
 represent one row, in a set otherwise decided by the Oberstufe's two phases. The single row
 normalises to null instead.

@@ -25,12 +25,12 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 MODE — decide by looking, and state which you are in, in both files' headers:
 
 - **`docs/audit/register.md` does not exist → CREATE.** Build it from scratch by running every check
-  below. Put the severity column to the owner for confirmation before finishing.
+  below. Put the severity column to me for confirmation before finishing.
 - **It exists → REFRESH.** Do not rebuild it. Read it first, then: re-verify each existing row
   against the current code and mark it `holds` / `changed` / `gone`; add hazards the code has grown
   since; and re-run check 3 from scratch, because the coverage map is per-programme and the passes
-  differ. **Keep every severity the owner has confirmed** — a confirmed severity changes only when
-  the owner changes it, and a row you believe is now mis-rated is a question, not an edit.
+  differ. **Keep every severity I have confirmed** — a confirmed severity changes only when
+  I change it, and a row you believe is now mis-rated is a question, not an edit.
 
   Report the refresh honestly: how many rows held, how many changed, how many are new. If a large
   share changed, say so — that is a signal about the system, not noise.
@@ -66,13 +66,13 @@ THE CHECKS, in priority order:
 1. **ASSETS AND TRUST BOUNDARIES.** Name what is worth protecting and what separates it from
    everything else: the data stores and what each holds, the trust boundaries actually crossed (open
    internet → nginx → Next → FastAPI → Mongo), and who holds what at each position — an anonymous
-   visitor, a holder of a leaked internal key, someone on the compose network, the owner. Every later
+   visitor, a holder of a leaked internal key, someone on the compose network, myself. Every later
    judgment about reachability is relative to this list, so state it once and state it precisely.
 
 2. **THE FAILURE-MODE REGISTER** — written to `docs/audit/register.md`. The required table, one row
    per distinct bad outcome, with a stable `FM-n` id that later programmes keep:
 
-   | ID | Outcome, in plain terms | Mechanism that could produce it | Where it would originate | Detectability | Existing control | Severity | Confirmed by owner | Last verified at |
+   | ID | Outcome, in plain terms | Mechanism that could produce it | Where it would originate | Detectability | Existing control | Severity | Confirmed by me | Last verified at |
 
    - **Outcome** is stated as harm, not as a defect class: "the league table shows a team above one
      it actually lost to", not "aggregation bug".
@@ -118,8 +118,8 @@ THE CHECKS, in priority order:
    the actual mechanism or state plainly that there is none. Recovery gaps are findings — an
    unrecoverable low-probability failure outranks a recoverable likely one.
 
-CROSS-SURFACE QUESTIONS: which outcomes actually matter, and how bad each would be, is the owner's
-judgment and not derivable from code. **Present the register's severity column to the owner as one
+CROSS-SURFACE QUESTIONS: which outcomes actually matter, and how bad each would be, is my
+judgment and not derivable from code. **Present the register's severity column to me as one
 batch for confirmation**, since every later pass inherits it. Where you had to assume, say so on the
 row.
 

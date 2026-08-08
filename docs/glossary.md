@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `80534e2`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -510,7 +510,7 @@ cleaned in the same change. `PERSON_NAME_PATTERN` on the write payloads is what 
 ### `is_nachgetragen` — "entered later", retrospectively added
 
 On `FLSpieler`. Marks a squad entry added after the fact — the player joined a season that had already
-started. The admin create form derives it from the chosen season's status rather than asking (owner,
+started. The admin create form derives it from the chosen season's status rather than asking (decided
 2026-08-07), and every junction payload requires it with no default, so it is always an answer rather
 than a value nobody chose.
 
@@ -621,9 +621,9 @@ single person with two squad entries, which is the situation it exists for.
 
 Words that look like domain terms and are not.
 
-| Term                        | Actually                                                                                          |
-| --------------------------- | ------------------------------------------------------------------------------------------------- |
-| `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                  |
-| `surface`                   | A documentation term: frontend, backend, or ops. See [`_standard/README.md`](_standard/README.md) |
-| `base` / `system` / `admin` | The three API key tiers, not user roles. See the backend spec                                     |
-| `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{id}`)  |
+| Term                        | Actually                                                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `slice`                     | A frontend code-organisation unit under `src/features/`, one per business entity                                        |
+| `surface`                   | A documentation term: frontend, backend, or ops. See [`_standard/chapters/3-corpus.md`](_standard/chapters/3-corpus.md) |
+| `base` / `system` / `admin` | The three API key tiers, not user roles. See the backend spec                                                           |
+| `format`                    | The discriminator on the teams response (`list` · `grouped`, or `single` from `GET /teams/{id}`)                        |

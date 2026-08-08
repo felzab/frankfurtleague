@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `0ceefab`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -174,7 +174,7 @@ next upgrade knows what to re-read.
 
 ## Copy — how the site addresses its reader
 
-**The reader is `Du` — informal, and capitalised everywhere** (owner's rule, 2026-08-04):
+**The reader is `Du` — informal, and capitalised everywhere** (my rule, 2026-08-04):
 `Du`, `Dein`, `Dir`, `Dich`, and never `Sie` or `Ihr`. The capital is the courtesy form German
 orthography permits for direct address, and it is what separates the reader's `Dich` from a third
 party's `dich` in the same sentence. When auditing, a sentence-initial `Du` is capitalised whatever

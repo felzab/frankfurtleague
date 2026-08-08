@@ -171,11 +171,11 @@ fi
 # --- docs ------------------------------------------------------------------------------------------
 # A dangling ADR number, a dead link and a citation whose anchor has gone are all invisible to every
 # other check here, and all three read to a future reader as though they still mean something. The
-# standard's other currency defences depend on somebody remembering; this one does not (DS18).
+# standard's other currency defences depend on somebody remembering; this one does not (CUR-5).
 if (( RUN_DOCS )); then
   step "docs · citations, links and stamps"
   quietly "$PY" scripts/check_docs.py || die "The documentation gate failed. Each finding above names its file
-and what no longer resolves. Rules: docs/_standard/5-currency.md"
+and what no longer resolves. Rules: docs/_standard/chapters/5-currency.md"
   ok "documentation references resolve"
 
   # Commit messages are checked in the docs scope, not a scope of their own, because in this

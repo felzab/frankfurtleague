@@ -62,11 +62,11 @@ CLAUDE.md's ratified-decisions index and docs/_decisions/ list them. Several rea
 violations and are deliberate. Do not "fix" one without an instruction that
 names it; if you believe one is wrong, say so and stop.
 
-PHASE 2 — FRONT-LOAD THE OWNER'S DECISIONS. From the verified rows, inventory
+PHASE 2 — FRONT-LOAD MY DECISIONS. From the verified rows, inventory
 everything that needs a human: contrast and colour choices, anything
 user-visible, anything reopening a ratified decision, any row whose text names
-the owner, and any verification result that flips a fix's direction. Put the
-inventory to the owner as ONE batch, each item with its measured options and your
+me, and any verification result that flips a fix's direction. Put the
+inventory to me as ONE batch, each item with its measured options and your
 recommendation; where two halves must be decided together, ask them together. Err
 toward asking — a question is cheaper than a reverted wave. Then execute the
 whole wave without stopping again, except for genuinely new discoveries.
@@ -79,7 +79,7 @@ PHASE 3 — EXECUTE, in table order.
   not work, MEASURE rather than trying plausible causes: if changing the
   parameter changes nothing, that parameter is not the variable.
 - Where a change is visual, the default is that both sides become identical.
-  Keeping a difference needs the owner's agreement first, and the reason goes in
+  Keeping a difference needs my agreement first, and the reason goes in
   the pull request description. Ask when unsure whether to abstract — a little
   duplication can beat a large abstraction.
 - Commit code per row or small row-group, updating the ledger at the same moment:
@@ -102,7 +102,7 @@ PHASE 3 — EXECUTE, in table order.
   `error` in the same commit. If this wave is that wave, flip it; if the flip is
   deferred, it is its own row with a trigger, never an intention.
 - If a row turns out to cost materially more than its wave assumed — a
-  three-line fix that is really a refactor — STOP and put it to the owner with
+  three-line fix that is really a refactor — STOP and put it to me with
   the measured size and the options. Absorbing it silently is how a wave becomes
   unreviewable; dropping it silently is how a finding disappears.
 
@@ -171,5 +171,5 @@ PHASE 4 — CLOSE OUT, in this exact order, identical every wave:
    docs/audit/ is untracked, so a reviewer on GitHub can see neither the ledger
    nor the wave report; never point at them. Open it with gh pr create --draft
    and hand over the link. NEVER run gh pr ready or gh pr merge -- marking a
-   draft ready says it passed review, and that is the owner's step.
+   draft ready says it passed review, and that is my step.
 ```

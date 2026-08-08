@@ -120,7 +120,7 @@ client's label excludes it — are **ratified** (ADR-0072, a filter selects and 
 verify the code still matches the ADR and do not report the divergence itself as a finding.
 
 CROSS-SURFACE QUESTIONS: whether a given consistency gap is a defect or an accepted manual workflow
-(direct database edits, seasonal setup rituals) is owner knowledge. Collect such questions per the
+(direct database edits, seasonal setup rituals) is knowledge only I have. Collect such questions per the
 shared protocol instead of resolving them by assumption. **This lens produces inverted findings more
 readily than any other** — a write that looks lost is frequently a workflow that is deliberate.
 

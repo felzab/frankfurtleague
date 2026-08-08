@@ -93,7 +93,7 @@ reaches with no tarball at all.
 
 **`crazy-max/ghaction-github-runtime`**, the action Docker's documentation points at. It does exactly
 what the local one does. Rejected because it would be a fourth third-party action, requiring an
-allowlist entry that only the owner can add, for thirty-two lines this repository can own outright —
+allowlist entry that only I can add, for thirty-two lines this repository can own outright —
 and the allowlist exists to bound supply-chain surface (`docs/workflows/README.md`, Actions), which a
 local action bounds strictly better.
 

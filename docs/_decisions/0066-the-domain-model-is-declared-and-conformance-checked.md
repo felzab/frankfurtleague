@@ -5,7 +5,7 @@
 **Surface:** backend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** The owner's request of 2026-08-07: "please create a documented convention for the whole span of
+**Source:** My request of 2026-08-07: "please create a documented convention for the whole span of
 domains: What is the data hierarchy? What data depends on what? What data can be edited when and under what
 circumstances? What needs to happen when certain data is edited/created/deleted? … Maybe there even already
 is a standard out there." Then, on the shape: "Would it be possible to have the full system modelled in code
@@ -37,7 +37,7 @@ next to the code that implemented it.
 precedes its start, nothing refuses an early rollover, nothing refuses a matchday retired while it holds
 played matches. Each is a considered decision, and each reads exactly like a missing check.
 
-**The owner's own proposal was a runtime model every operation could be verified against** — a registry that
+**My own proposal was a runtime model every operation could be verified against** — a registry that
 each write consults before proceeding. That is the design this decision has to answer, because it is
 appealing for a real reason: it makes the rules enumerable, which is the whole complaint.
 
@@ -144,7 +144,7 @@ declaration: the enforcement stays where it was already correct.
 
 ## Alternatives considered
 
-**A central rules registry every write consults**, as the owner proposed. Rejected above, on two grounds: it
+**A central rules registry every write consults**, as I proposed. Rejected above, on two grounds: it
 is bypassable by any future endpoint that forgets the call, and a uniform verdict interface cannot express
 the rules that move or rewrite data rather than approving it. The declaration keeps the enumerability the
 proposal was after and gives up nothing, because enumeration was never the part that needed to run.
@@ -158,7 +158,7 @@ would ordinarily reach for. Rejected because prose cannot be checked: the citati
 would silently fall behind, and the page would join the class of document that is trusted for a year and
 wrong for most of it. The `docs/domain.md` page exists **and** is backed by tables a test walks.
 
-**Adopt an off-the-shelf standard.** The owner asked whether one exists, and the honest answer is that the
+**Adopt an off-the-shelf standard.** I asked whether one exists, and the honest answer is that the
 vocabulary does but the artifact does not. Aggregates, referential actions and invariants are all standard
 terms and are used here as such; what no standard supplies is a machine-checkable format for "which
 collection belongs to which boundary in _this_ system", so the vocabulary is borrowed and the artifact is

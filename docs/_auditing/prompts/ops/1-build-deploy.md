@@ -77,7 +77,7 @@ THE CHECKS, in priority order:
    documented rollback path actually reference images that exist after a normal publish cycle?
 
 CROSS-SURFACE QUESTIONS: which manual steps are accepted ritual, and which are traps that depend on
-the operator remembering something undocumented, is owner knowledge — collect and batch these per
+the operator remembering something undocumented, is knowledge only I have — collect and batch these per
 the shared protocol. The frontend-container recreation after an out-of-band reference edit
 (`docs/workflows/README.md`, ADR-0035) is a known example of an accepted manual step; check
 `scripts/README.md` for the others before filing any of them as findings.

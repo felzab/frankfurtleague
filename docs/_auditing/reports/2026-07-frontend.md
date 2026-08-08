@@ -49,7 +49,7 @@ patterns and counts), worked check-by-check, and reported negative results as fi
 
 A remediation ledger then assigned every finding to a wave, mapped cross-report overlap (the same
 defect surfacing under two or three lenses became a single fix), and — before any code changed —
-answered five blocking questions and five owner decisions (**Wave 0**), two of which inverted HIGH
+answered five blocking questions and five decisions of mine (**Wave 0**), two of which inverted HIGH
 findings outright. Wave order followed dependencies, not severity: guardrails (1) → broken output
 (2) → security (3) → layer boundaries and types (4, required before extraction) → design tokens
 (5a, required before extraction) → extraction/dedup (5b) → accessibility (6, after extraction so
@@ -219,7 +219,7 @@ member grouping. The codebase's only double cast (`as unknown as`) became a real
 filter casts vanished by converting `interface` declarations to `type` (TypeScript infers index
 signatures for aliases, not interfaces).
 
-**The frontend and backend now agree on what the data is.** The owner's ruling: the backend is the
+**The frontend and backend now agree on what the data is.** My ruling: the backend is the
 source of truth, the frontend mirrors it — converging _upward_, because each side was stricter
 somewhere (the frontend's calendar-date check rejects `2026-02-31`, which the backend's regex
 accepted; the frontend email check was the only one that existed). ~40 constraints moved into
@@ -251,7 +251,7 @@ returned everything. The wave collapsed them — `ModalShell`/`FormModal`/`Confi
 `AdminCrudView`/`EntityForm`/`RowActions`, `InlineCreateAutocomplete`, `useDebouncedUrlQuery` +
 `useFuzzySearch` + shared `SearchBar`, `EmptyState` (eight previously blank views), shared
 formatters with one placeholder per category — resolving every behavioural divergence explicitly
-and every visual one to "both sides identical" unless the owner agreed otherwise. The standing
+and every visual one to "both sides identical" unless I agreed otherwise. The standing
 limit: the three `SpielCard` variants are ratified as three components (ADR-0007); only their
 derivation and chrome are shared.
 
@@ -279,7 +279,7 @@ event, which server errors never fire — the audit's "focus moves for free" was
 seventeen routes had no `h1`; headings, landmarks, list semantics, skip links and `aria-current`
 landed without a pixel changing. Clearing a currency field no longer silently submits €0.
 
-**One focus indicator app-wide** — reached over three owner rounds after the app was found running
+**One focus indicator app-wide** — reached over three of my review rounds after the app was found running
 three focus languages at once. A single `--focus` token drives HeroUI's 89 rings plus one base-layer
 outline; field-like controls are the ratified exception (border turns brand, keyed off `data-slot`
 attributes in one unlayered block); collection options deliberately have no indicator, because
@@ -377,7 +377,7 @@ finding identifiers, kept for greppability against commit messages and PR titles
 
 ### Wave 0 (decisions only — no `src` changes)
 
-- **Q1–Q5** answered from backend code/owner: soft deletes don't fan out (inverted A1.1/A1.2);
+- **Q1–Q5** answered from backend code or by me: soft deletes don't fan out (inverted A1.1/A1.2);
   `ergebnis` is `null`-or-`d+:d+` (settled B1.2 + spawned BE-2); the response envelope is universal
   (fix direction for six schemas); backend will default `saison_id` (BE-1); out-of-band edits are
   real (spawned the revalidation route). **D1–D5** decided: keep the system endpoints; keep 2 of 22
@@ -461,7 +461,7 @@ finding identifiers, kept for greppability against commit messages and PR titles
   `formatSpielDisplay` · **NEW-T1** (§3.5) · **NEW-T2** (§3.3) · **NEW-T3** `ContentLoader` ·
   **NEW-V1** one `card()` recipe · **NEW-V2 + V2-1…8** consistency sweep series (recipe adoption,
   press states, disabled treatment, motion standard, kept `rounded-3xl` tier, theme verification,
-  panel recipes, sign-in buttons on the recipe) · **NEW-F1–F13** the owner-review series: score
+  panel recipes, sign-in buttons on the recipe) · **NEW-F1–F13** the series from my review rounds: score
   centering, `TeamPopoverMenu` everywhere, focus treatment v1, reduced-motion softening, design-
   language pass, scrollbar-gutter on `<html>`, playoff centering (`w-max`), sidemenu options menu +
   containment, edit form flattening + `useTransition` + two real submit bugs (`tore: NaN`, cleared
@@ -481,7 +481,7 @@ finding identifiers, kept for greppability against commit messages and PR titles
   **R4-13.2** clipboard hardening · **R4-13.4** inline-create auto-select (first cut resolved
   against a list that couldn't contain the new record — found by re-reading the diff) · **NEW-C1**
   badge `-solid` ramp + recorded chip deviation · **NEW-S1** sign-out (with the `NEXT_REDIRECT`
-  rejection trap) · **NEW-F14** popover-in-fixed-overlay removed · **W6-MAN** owner keyboard +
+  rejection trap) · **NEW-F14** popover-in-fixed-overlay removed · **W6-MAN** my keyboard +
   screen-reader walkthroughs · plus eleven review rounds' worth of fixes recorded in the series:
   union error messages germanised, tab-strip constants (`TAB_ITEM/TRACK/INDICATOR`), switch layout,
   `ctaButton`/`StatusPanel`/`FIELD_LABEL` recipes, the sign-in navigation oracle (§3.1), 15-minute
@@ -499,7 +499,7 @@ finding identifiers, kept for greppability against commit messages and PR titles
   three-round spielplan cascade (`cards-cascade`, 25 ms stagger, `[role="listitem"]` selector),
   editor chunk prefetch, CRUD fallback → entrance animation, the season selector's two root causes,
   the naming pass (closing five Wave 8 rows early), the dimensionally-exact `SpielCardSkeleton`
-  (3/4/6 by breakpoint, under-reserving on purpose) · **A1 wording amended** with owner
+  (3/4/6 by breakpoint, under-reserving on purpose) · **A1 wording amended** with my
   authorisation (`connection()` precedes the fetch, not necessarily in the default export) ·
   `no-concatenated-classes` added with its coverage limit recorded.
 
@@ -520,7 +520,7 @@ finding identifiers, kept for greppability against commit messages and PR titles
   targets extinct · **R2-6.4** postcss placement · **R2-6.7** false positive · **R2-6.8**
   `.prettierignore` pruned with each survivor justified · **NEW-SC8/SC9** `Headers` assembly +
   timeout bounding the body read · **R1-9** dead `optimizePackageImports` entry · **R4-8.1**
-  `tailwindFunctions` pruned to `["tv"]` · plus `useMounted`/`db.ts` export conversion (owner
+  `tailwindFunctions` pruned to `["tv"]` · plus `useMounted`/`db.ts` export conversion (my
   extension of D4) and the stale Part 1.4 backend rows corrected.
 
 ## 7. Left open
@@ -543,10 +543,10 @@ noted:
   no focus indicator inside open listboxes (WCAG 2.4.7 — react-aria's global modality flag);
   no focus trap/restore on the mobile drawer (reversal trigger: convert to `Modal` if it grows);
   react-aria's built-in strings follow the browser locale (an `I18nProvider` would change number
-  parsing — owner call); an in-flight submit can still be dismissed via the modal's X/Escape.
+  parsing — my call); an in-flight submit can still be dismissed via the modal's X/Escape.
 - **Never runtime-verified:** the two kept granular cache tags' invalidation (needs an admin
   session; the wiring type-checks and builds); BE-1's narrowing on multi-season data (one season
-  exists); the masked social icons' final look awaits the owner's eye.
+  exists); the masked social icons' final look awaits my eye.
 
 ## 8. Verification state at close
 
@@ -555,5 +555,5 @@ The final gate (`./scripts/verify.sh`, 2026-08-01): exit 0 — script self-check
 `next build` 27 routes · `node --test` 83/83 · `pnpm audit --prod` clean · backend ruff clean +
 238 pytest + pyright 0 errors · both Docker images build · `instrumentation.js` present in the
 frontend image. CI enforces the same script. Human verification performed during the programme:
-owner keyboard-only and screen-reader walkthroughs (Wave 6), the NEW-T1 admin round-trip, both
+my keyboard-only and screen-reader walkthroughs (Wave 6), the NEW-T1 admin round-trip, both
 themes on three route classes, and production header/sign-in checks after the Wave 3 deploy.

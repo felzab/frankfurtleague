@@ -82,7 +82,7 @@ THE CHECKS, in priority order:
    status codes match the exceptions actually raised.
 
 CROSS-SURFACE QUESTIONS: whether a looser side is deliberate slack or accumulated drift is usually
-owner knowledge, and this lens generates such questions in volume. Collect and batch them per the
+knowledge only I have, and this lens generates such questions in volume. Collect and batch them per the
 shared protocol rather than deciding silently.
 
 BOUNDARIES — not this pass: whether a write lands where reads read → B1 · injection through these
