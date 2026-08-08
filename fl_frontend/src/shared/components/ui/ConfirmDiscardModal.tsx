@@ -67,8 +67,10 @@ export function ConfirmDiscardModal({
             on the site use: the action the dialog exists for is the solid one, the way back is the
             outline (owner, seventh review — two solid fills read as two primaries). */}
         {/* The same footer band as every other modal (owner, 2026-08-07). Stacked rather than
-            side by side here, because this pair is not symmetrical: one discards work. */}
-        <div className={`${MODAL_FOOTER} mt-6 flex w-full min-w-0 flex-col gap-2.5`}>
+            side by side here, because this pair is not symmetrical: one discards work.
+            No width here — `MODAL_FOOTER` declares its own, and a `w-full` beside it wins on source
+            order and pulls the band 2rem narrow. */}
+        <div className={`${MODAL_FOOTER} mt-6 flex min-w-0 flex-col gap-2.5`}>
           <Button
             type="button"
             variant="primary"

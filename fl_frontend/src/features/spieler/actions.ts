@@ -34,7 +34,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import {
@@ -68,8 +68,6 @@ import type {
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
 
-const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
-
 // The index spans retired rows (ADR-0032), and reviving is deliberately not the create's job -- so
 // the message names the one path that is.
 const ALREADY_IN_SAISON =
@@ -79,6 +77,24 @@ const ALREADY_IN_SAISON =
 /** Every spieler read, in one call. Base tag only, for the reason in this module's invariants. */
 function invalidateSpieler(): void {
   updateTag("spieler");
+}
+
+/**
+ * The two squad refusals (`REQ-SQUAD-001`/`002`), or `null` when the 409 is neither.
+ *
+ * Written to the shape stated in `fl_frontend/src/features/saisons/actions.ts`. Both land on the field
+ * that caused them -- the team picker and the number input -- so both are one sentence about that value.
+ */
+function mapSquadRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-SQUAD-001") {
+    return { fieldErrors: { team_id: "Dieses Team ist in der gewählten Saison nicht dabei." } };
+  }
+  if (error.serverErrorCode === "REQ-SQUAD-002") {
+    return { fieldErrors: { nummer: "Diese Nummer trägt in diesem Kader schon jemand anderes." } };
+  }
+  return null;
 }
 
 export async function postSpielerAction(
@@ -121,17 +137,22 @@ export async function postSpielerAction(
         is_nachgetragen,
         is_captain,
       });
-    } catch {
+    } catch (error) {
       invalidateSpieler();
-      // Swallowed without inspecting it: a 409 here cannot be the player's own row -- they were
-      // created one request ago -- so no status distinguishes a reason the admin could act on, and
-      // `runAdminMutation` has already logged the error with the correlation id. Either way the
-      // player now EXISTS without a squad, so the message says so rather than pretending nothing
-      // happened.
+      // A 409 here cannot be the player's own duplicate row -- they were created one request ago -- but
+      // it CAN be one of the two squad refusals (`REQ-SQUAD-001`/`002`), and both name something the
+      // admin can act on: the club is not in this season, or the number is taken. So the reason is read
+      // out and appended rather than swallowed.
+      //
+      // Either way the player now EXISTS without a squad entry, which the message has to say plainly.
+      // `runAdminMutation` has already logged the error with its correlation id.
+      const refusal = mapSquadRefusal(error);
+      const because = refusal ? ` ${refusal.error ?? Object.values(refusal.fieldErrors ?? {})[0] ?? ""}` : "";
+
       return {
         success: false,
         error:
-          "Der Spieler wurde angelegt, konnte aber nicht in den Kader aufgenommen werden. " +
+          `Der Spieler wurde angelegt, konnte aber nicht in den Kader aufgenommen werden.${because} ` +
           "Er ist dadurch auf keiner Seite sichtbar. Bitte nimm ihn über die Spielerseite in eine Saison auf.",
       };
     }
@@ -260,8 +281,16 @@ export async function postSaisonSpielerAction(
     // it lands as a form error rather than a toast because it is about what was submitted.
     let saisonSpieler;
     try {
+      // The club has to be in the season and the number has to be free (`REQ-SQUAD-001`/`002`). Both
+      // land on the field that caused them, in the form that is still open.
       saisonSpieler = await postSaisonSpieler(validated.data);
     } catch (error) {
+      // THREE different 409s reach this call and the code separates them. The two named refusals are
+      // checked first, because the fallback has no code to inspect: a repeat row arrives from the unique
+      // index, so it is the 409 left over once `REQ-SQUAD-001`/`002` are ruled out. Without this ordering
+      // a full squad number would have been explained as "already in this season".
+      const refusal = mapSquadRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
         return { success: false, error: ALREADY_IN_SAISON };
       }
@@ -292,7 +321,15 @@ export async function patchSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const saisonSpieler = await patchSaisonSpieler(validated.data);
+    // The same two squad rules as on the create (`REQ-SQUAD-001`/`002`), reaching the same fields.
+    let saisonSpieler;
+    try {
+      saisonSpieler = await patchSaisonSpieler(validated.data);
+    } catch (error) {
+      const refusal = mapSquadRefusal(error);
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
+      throw error;
+    }
 
     invalidateSpieler();
 

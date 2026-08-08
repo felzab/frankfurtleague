@@ -1,5 +1,6 @@
 "use client";
 
+import { SCHIEDSRICHTER_FACETS } from "@/features/schiedsrichter/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import { AdminSchiedsrichterTable } from "../collections/AdminSchiedsrichterTable";
@@ -16,6 +17,7 @@ export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FL
     <AdminCrudView<FLSchiedsrichter>
       items={schiedsrichter}
       searchKeys={SEARCH_KEYS}
+      facets={SCHIEDSRICHTER_FACETS}
       renderTable={({ query, filteredItems, onEdit, onDelete }) => (
         <AdminSchiedsrichterTable
           schiedsrichterQuery={query}

@@ -20,6 +20,7 @@ export function SpielCard({
   spielData,
   onOpenInfoModal,
   adminEditHref,
+  asListitem = true,
   today,
 }: {
   spielData: FLSpiel;
@@ -33,6 +34,13 @@ export function SpielCard({
    * open-in-new-tab work, so an admin can line up several fixtures at once.
    */
   adminEditHref?: string;
+  /**
+   * Whether this card is itself the `role="listitem"` of the grid, which it is everywhere except on
+   * the triage list: there a fixture with faults is a note plus a card, so a WRAPPER carries the role
+   * and the card is plain content inside it (owner, 2026-08-08). A listitem nested inside a listitem
+   * would announce every faulted fixture twice, which is why this is a prop and not a second wrapper.
+   */
+  asListitem?: boolean;
   today: string;
 }) {
   const {
@@ -50,7 +58,7 @@ export function SpielCard({
 
   return (
     <div
-      role="listitem"
+      role={asListitem ? "listitem" : undefined}
       className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4`}>
       <div className="flex w-full flex-row items-center justify-between">
         {/* Datum/Uhrzeit */}

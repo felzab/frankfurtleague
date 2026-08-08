@@ -129,6 +129,29 @@ def validate_calendar_date(value: str) -> str:
 CustomDateString = Annotated[str, StringConstraints(pattern=DATE_REGEX, strict=True), AfterValidator(validate_calendar_date)]
 CustomTimeString = Annotated[str, StringConstraints(pattern=TIME_REGEX, strict=True)]
 
+
+def refuse_reversed_span(*, start: str, end: str, start_label: str, end_label: str) -> None:
+    """
+    Refuse a span whose end falls before its start, for a `model_validator(mode="after")` to call.
+
+    Four payloads carry a date span -- a season's and a matchday's, on their create and their patch --
+    and the rule is one rule, so it is written once here rather than four times with three chances to
+    say it differently. The comparison is lexicographic, which works because these are `YYYY-MM-DD`
+    strings and that format sorts (see the invariant at the top of this module).
+
+    **On the PAYLOADS only, never on a read model.** A model validator refusing this on read would make
+    a stored document that already holds a reversed span unreadable, taking down every page that lists
+    it -- and the repair is precisely the edit that read has to serve first. So a stored reversal stays
+    readable and becomes uneditable until it is corrected, which is the direction that leaves a way out.
+
+    German, because this surfaces as a 422 field message the admin reads. `find_*_refusal` details go
+    the other way: English for the log, with the code carrying the meaning (docs/logging.md).
+    """
+
+    if end < start:
+        raise ValueError(f"{end_label} darf nicht vor {start_label} liegen.")
+
+
 CustomOptionalDateString = Annotated[CustomDateString | None, BeforeValidator(parse_empty_string_to_none)]
 CustomOptionalTimeString = Annotated[CustomTimeString | None, BeforeValidator(parse_empty_string_to_none)]
 

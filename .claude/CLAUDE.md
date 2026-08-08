@@ -307,6 +307,13 @@ the ADR.
 | 0047 | Store a bracket fault; report a placing that is merely undecided; let reporting one resolve it      |
 | 0053 | Style a toast from CSS beyond the two rules named there; call HeroUI's `toast` at a call site       |
 | 0060 | Add a third admin mutation as a route handler; revert the two undos to actions before E592 is fixed |
+| 0063 | Add a reorder endpoint for `spieltage`, or move the rollover off the season editor's page           |
+| 0064 | Give a `Spieltag` a stored position, or order matchdays by date without the phase leading           |
+| 0065 | Store `anzahl_spiele`; hardcode the qualifier cap instead of deriving it from `KNOCKOUT_PHASES`     |
+| 0066 | Import `app/core/domain.py` from `app/`; generate it; make it the path a write is checked against   |
+| 0067 | Store a `Spieltag` name, or serve the German label from the API; order matchdays by the label       |
+| 0068 | Spell a collection name as a literal; give FIELD names the same treatment                           |
+| 0069 | Fetch the season list when `?saison_id=` is absent; drop either half of the two-sided validation    |
 
 ## 8. Documentation
 

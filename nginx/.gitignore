@@ -1,0 +1,6 @@
+# Docker Desktop on Windows creates these when a bind-mount path is mangled by
+# Git Bash MSYS path conversion (":" separators become ";C:\..."). Empty and useless.
+# Prevent them by prefixing a hand-typed `docker run -v` with MSYS_NO_PATHCONV=1,
+# per CLAUDE.md §5 — the local stack itself is ./scripts/local.sh, which is Git Bash.
+*;C
+*;C/

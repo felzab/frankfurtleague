@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Tabs } from "@heroui/react";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
-import { formatBracketFault } from "@/features/spiele/utils";
+import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
 import { COUNT_BADGE } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
@@ -86,9 +86,10 @@ export function AdminSpieleActionRequiredView({
   );
 
   // Derived here rather than in `buildActionRequiredSections`, which sorts matches and has no business
-  // deriving German. One fixture can carry several faults — two broken sides, or a cycle beside a
-  // group reference — and each gets its own sentence, because each is corrected separately.
-  const faultSentences = useMemo(() => bracketFaults.map(formatBracketFault), [bracketFaults]);
+  // deriving German. Keyed by `spiel_id` so each card can state its OWN reasons (owner, 2026-08-08):
+  // one shared box named every fixture in the section and left the reader matching match numbers back
+  // to cards by eye, which is exactly the work the card is there to save.
+  const faultsBySpielId = useMemo(() => groupBracketFaultsBySpielId(bracketFaults), [bracketFaults]);
 
   /**
    * All eight tabs, always, whatever the counts are (owner, 2026-08-06).
@@ -232,19 +233,6 @@ export function AdminSpieleActionRequiredView({
           key={section.category}
           id={section.category}
           className="max-w-page flex w-full flex-col items-center gap-y-5 px-4 pt-0 pb-4 outline-none sm:px-8">
-          {/* Above the grid rather than on each card, and the constraint is ADR-0047's: a card is a
-                `role="listitem"` of the `role="list"` below, and a wrapper holding a note and a card
-                would sit between the two and sever that relationship. Every sentence opens with its
-                own match number, which is what each card leads with. It is also the only category
-                whose reason the tab cannot state — one category, five reasons. */}
-          {section.category === "bracket_fault" && section.spiele.length > 0 && (
-            <ul className="bg-danger/5 border-danger/20 fluid-xxs text-danger-strong flex w-full flex-col gap-y-1.5 rounded-xl border px-4 py-3 font-semibold">
-              {faultSentences.map((sentence) => (
-                <li key={sentence}>{sentence}</li>
-              ))}
-            </ul>
-          )}
-
           {section.spiele.length === 0 ? (
             <EmptyState
               tone="positive"
@@ -252,7 +240,11 @@ export function AdminSpieleActionRequiredView({
             />
           ) : (
             // The app's one card grid, at the app's breakpoints, holding the app's one admin match
-            // card. Nothing about a card changes because it is rendered here.
+            // card. The only thing this page adds to a card is its faults.
+            //
+            // Handed to EVERY section, not only `bracket_fault`: the fault check is deliberately not
+            // exclusive, so a fixture with a broken reference is also listed under its missing date —
+            // and the reason it blocks the bracket is worth reading wherever the fixture appears.
             <div
               role="list"
               className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
@@ -260,6 +252,7 @@ export function AdminSpieleActionRequiredView({
                 spiele={[...section.spiele]}
                 today={today}
                 isAdmin
+                faultsBySpielId={faultsBySpielId}
               />
             </div>
           )}

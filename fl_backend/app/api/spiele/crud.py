@@ -64,7 +64,14 @@ from app.api.spiele.schemas import (
     FLSpielReleasedSide,
     FLSpielTeamField,
 )
-from app.api.spiele.services import BracketResolution, SlotAdvancement, SpieltagRelease, build_spiele_pipeline, resolve_bracket
+from app.api.spiele.services import (
+    BracketResolution,
+    SlotAdvancement,
+    SpieltagRelease,
+    build_spiele_pipeline,
+    find_disqualified_occupants,
+    resolve_bracket,
+)
 from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import DecidedStanding, build_decided_standings, build_team_pipeline
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db
@@ -127,7 +134,7 @@ async def find_bracket_faults(
     saisons_collection: AsyncIOMotorCollection,
 ) -> tuple[list[FLBracketFault], list[FLSpielJoined]]:
     """
-    Every stored bracket fault in every season, and the fixtures they name (ADR-0047).
+    Every derived fault in every season, and the fixtures they name (ADR-0047).
 
     Derived on demand and stored nowhere. A fault is a contradiction between documents rather than a
     property of one, so no Mongo filter can express it and no `$jsonSchema` validator can refuse it
@@ -179,6 +186,15 @@ async def find_bracket_faults(
         faults.extend(resolution.bracket_faults)
         faulted_ids.update(fault.spiel_id for fault in resolution.bracket_faults)
 
+    # The sixth fault, derived from the JOINED fixtures rather than from the resolution (owner,
+    # 2026-08-08). It is not a property of the bracket -- it compares a fixture's date against a
+    # disqualification recorded on the junction row -- so it sits beside the walk rather than inside it,
+    # and it covers group-phase fixtures, which no bracket rule looks at. The join already carries each
+    # side's `disqualifikation`, so this costs no extra read.
+    occupant_faults = find_disqualified_occupants(spiele)
+    faults.extend(occupant_faults)
+    faulted_ids.update(fault.spiel_id for fault in occupant_faults)
+
     # The fixtures behind the faults, so the caller can render one as an ordinary card without a second
     # read. Taken from the list already in hand rather than re-queried by id.
     faulted_spiele = [spiel for spiel in spiele if spiel.id in faulted_ids]
@@ -190,9 +206,9 @@ async def pull_saison_membership(
     saison_teams_collection: AsyncIOMotorCollection,
     saison_id: str,
     session: AsyncIOMotorClientSession | None = None,
-) -> dict[CustomObjectId, bool]:
+) -> dict[CustomObjectId, str | None]:
     """
-    Which teams hold a row for this season, and which of them are disqualified (ADR-0052).
+    Which teams hold a row for this season, and from which DAY each disqualified one is out (ADR-0052).
 
     Read directly rather than through `build_team_pipeline`: that pipeline serves the league table, so
     it skips seasons a team has no matches in and filters `inactive_since` -- both of which would drop
@@ -202,9 +218,10 @@ async def pull_saison_membership(
     A team absent from the returned map holds no row at all, which is a distinct refusal from being
     disqualified: the first is a dangling reference and the second is a decision somebody recorded.
 
-    The map's value is a BOOLEAN, deliberately narrower than the record it is read from (ADR-0059).
-    This answers one question -- may this team be fielded -- and the reason and the date do not change
-    the answer. The surfaces that display them read `FLTeam` instead.
+    **The value is the disqualification's DATE, not a boolean** (owner, 2026-08-08). A disqualification
+    takes effect on a day, so a fixture played before that day was played legally and stays editable --
+    entering its result is recording history, not fielding an ineligible team. `find_eligibility_refusal`
+    compares the fixture's own date against this, which it cannot do from a boolean.
 
     Takes the caller's SESSION on the write path, for the reason every read on it does: a
     disqualification written by the same transaction has to be visible to the rule that reads it.
@@ -217,7 +234,10 @@ async def pull_saison_membership(
         session=session,
     )
 
-    return {row["team_id"]: row.get("disqualifikation") is not None for row in rows}
+    # `None` for a team that competes, the effective date for one that does not. A row whose
+    # `disqualifikation` is present always carries a `datum` -- the validator requires the key and
+    # `FLDisqualifikation` requires the field -- so the `.get` is for the null record, not a missing date.
+    return {row["team_id"]: (row["disqualifikation"] or {}).get("datum") for row in rows}
 
 
 async def preview_bracket_after_patch(

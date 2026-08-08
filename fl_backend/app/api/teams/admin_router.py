@@ -55,7 +55,13 @@ from app.api.teams.schemas import (
     FLTeamWithMemberships,
     FLTeamWriteResponse,
 )
-from app.api.teams.services import RETIRE_BLOCKED, build_team_memberships_pipeline, find_entry_refusal, find_retire_refusal
+from app.api.teams.services import (
+    RETIRE_BLOCKED,
+    build_team_memberships_pipeline,
+    find_entry_refusal,
+    find_gruppe_move_refusal,
+    find_retire_refusal,
+)
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
@@ -330,6 +336,7 @@ async def patch_saison_team(
     saison_team_data: Annotated[FLPatchSaisonTeamPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
 ) -> FLSaisonTeamResponse:
     """
     Change which group a team is in for a season, or disqualify it.
@@ -343,11 +350,12 @@ async def patch_saison_team(
     Both writable fields are required on the payload, so this replaces them wholesale. An omitted
     `disqualifikation` is a 422 rather than a team quietly reinstated by a form that forgot the field.
 
-    **A group CHANGE is held to the season's capacity** (`REQ-ENTER-002`/`003`): the target group must
-    be one the season offers and must have space, or the move is a 409. Only the change is checked —
-    a disqualification writes the same row without moving anyone, and the season-status gate stays
-    the entry endpoint's alone, because the legal window for a group change ("future, or no fixture
-    yet") is the page's `gruppeLock` rule rather than a status test.
+    **A group CHANGE is held to three rules** and only a change is checked — a disqualification writes the
+    same row without moving anyone. The target group must be one the season offers and must have space
+    (`REQ-ENTER-002`/`003`), and the move has to fall inside its legal window: the season is `future`, or
+    this team has no fixture in it yet (`REQ-ENTER-004`, owner, 2026-08-08). That window was the admin
+    page's rule alone until then, so a direct request could move a team whose group fixtures were already
+    drawn — and the group phase is a round robin INSIDE a group, so those fixtures are its group.
     """
 
     existing_raw = await pull_one_from_db(
@@ -357,13 +365,25 @@ async def patch_saison_team(
     )
     if saison_team_data.gruppe != existing_raw["gruppe"]:
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+
+        # Whether this team's group phase is already drawn, which is what closes the window. Counted over
+        # both sides, because a fixture fields a team on either (ADR-0041).
+        fixtures_drawn = await spiele_collection.count_documents(
+            {"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]}
+        )
+        move_refusal = find_gruppe_move_refusal(saison_status=str(saison_raw["status"]), fixtures_drawn=fixtures_drawn)
+        if move_refusal is not None:
+            error_code, detail = move_refusal
+            raise DocumentConflictException(error_code=error_code, message=detail)
+
         occupied_rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "gruppe": saison_team_data.gruppe},
             projection=["_id"],
         )
         refusal = find_entry_refusal(
-            # The status gate does not apply to a move, so the check is fed the one status it accepts.
+            # The status gate is `find_gruppe_move_refusal`'s above, which states the window a move has
+            # rather than the one an entry has -- so this call is fed the one status the entry gate accepts.
             saison_status="future",
             gruppe=saison_team_data.gruppe,
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),

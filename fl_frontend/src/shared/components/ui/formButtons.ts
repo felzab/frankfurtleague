@@ -74,13 +74,21 @@ export const formButton = tv({
  * The footer band under a modal form's fields: a separator that reaches the dialog's own edges, then
  * the buttons back at the fields' inset.
  *
- * **The negative margin is the whole point and is measured against `ModalShell`.** That dialog draws
- * `p-4`, and `EntityForm`'s field column adds `px-2`; a border drawn inside either stops short of the
- * dialog's edges and reads as a stray line rather than as the boundary between what you fill in and
- * what you press (owner, 2026-08-07). `-mx-6` cancels both (1rem + 0.5rem) and the width grows by the
- * same 3rem, so the rule spans the dialog while the buttons stay aligned with the inputs above them.
+ * **The negative margin is the whole point and is measured against `ModalShell`.** A border drawn inside
+ * the body's padding stops short of the dialog's edges and reads as a stray line rather than as the
+ * boundary between what you fill in and what you press (owner, 2026-08-07). `ModalShell` puts the
+ * horizontal inset on its BODY as `px-4` and zeroes HeroUI's own body margin so that 1rem is the whole
+ * of it — so `-mx-4` cancels exactly that, `w-[calc(100%+2rem)]` restores the width the margin took,
+ * and `px-4` puts the buttons back in line with the fields above them.
  *
- * A constant rather than a class string at each site, because the number is derived from another
- * component's padding: if `ModalShell`'s `p-4` ever moves, this is the one place that has to follow.
+ * **It carries `w-full`, and a call site must not add its own width.** Both are plain utilities on a DOM
+ * `div` with no `twMerge` in the path, so both reach the class attribute and CSS source order decides —
+ * `.w-full` is emitted after `.w-[calc(…)]`, so a call site adding `w-full` silently won and the footer
+ * rendered 2rem narrower than its own margin, flush at the left and 2rem short at the right. That is
+ * the asymmetric gap and the separator that stopped early. Declaring the width here, once, is what
+ * removes the conflict rather than relying on every site to leave it out.
+ *
+ * A constant rather than a class string at each site, because the numbers are derived from another
+ * component's padding: if `ModalShell`'s `px-4` ever moves, this is the one place that has to follow.
  */
-export const MODAL_FOOTER = "border-border -mx-6 mt-2 w-[calc(100%+3rem)] border-t px-6 pt-4";
+export const MODAL_FOOTER = "border-border -mx-4 mt-2 w-[calc(100%+2rem)] border-t px-4 pt-4";

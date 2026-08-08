@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaison
 from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLSchiedsrichter
+from app.api.spiele.schemas import FLSpielBooking
 from app.api.spieler.schemas import FLSpieler
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
@@ -155,26 +156,50 @@ class TestSpieltag:
         """Positive baseline for the matchday model."""
         assert FLSpieltag.model_validate(spieltag()).anzahl_spiele == 4
 
-    def test_rejects_an_empty_name(self, spieltag):
-        """A matchday is identified by name in the bracket heading."""
-        with pytest.raises(ValidationError):
-            FLSpieltag.model_validate(spieltag(name=""))
+    def test_carries_no_name(self):
+        """
+        A matchday has no name field, and the absence is asserted rather than left to be noticed.
 
-    @pytest.mark.parametrize("anzahl", [0, -1])
-    def test_rejects_a_non_positive_match_count(self, spieltag, anzahl):
-        """Zero and negative: a matchday with no matches is not a matchday."""
-        with pytest.raises(ValidationError):
-            FLSpieltag.model_validate(spieltag(anzahl_spiele=anzahl))
+        The name a reader sees is composed from `saison_phase` and the matchday's position in its phase
+        (ADR-0067): a group matchday is its ordinal, a knockout matchday is its round. Both are already
+        derivable, so a stored name would be a second statement of the same fact -- and it was one nothing
+        held consistent, since two matchdays could share a name and a name could contradict its phase.
+        """
 
-    def test_rejects_a_negative_order_value(self, spieltag):
-        """`order_val` is the bracket's sort key, so it must be non-negative."""
-        with pytest.raises(ValidationError):
-            FLSpieltag.model_validate(spieltag(order_val=-1))
+        assert "name" not in FLSpieltag.model_fields
 
-    # order_val is a sort key, so 0 is a legitimate first entry.
-    def test_accepts_a_zero_order_value(self, spieltag):
-        """The boundary the rule above stops at: `0` is a legitimate first entry, not an unset value."""
-        assert FLSpieltag.model_validate(spieltag(order_val=0)).order_val == 0
+    def test_rejects_a_negative_match_count(self, spieltag):
+        """
+        A count below zero is not a count, and it is the only value this field refuses.
+
+        The bound is `ge=0` because the count is derived from the season's rules (ADR-0065), and zero is
+        a real answer there — which the test below pins.
+        """
+        with pytest.raises(ValidationError):
+            FLSpieltag.model_validate(spieltag(anzahl_spiele=-1))
+
+    def test_accepts_a_match_count_of_zero(self, spieltag):
+        """
+        Zero is the honest answer for a phase this season's bracket does not reach.
+
+        `anzahl_spiele` is derived from the season's rules and this matchday's phase (ADR-0065). A season
+        sending eight teams into the bracket plays no round of sixteen, so a matchday claiming to be one
+        expects no matches — and the admin list showing `0 / 0` is exactly the report that says so.
+        """
+        assert FLSpieltag.model_validate(spieltag(anzahl_spiele=0)).anzahl_spiele == 0
+
+    def test_carries_no_stored_position(self, spieltag):
+        """
+        A matchday's place in its season is derived, so the model holds no field for one (ADR-0064).
+
+        Asserted rather than left to absence: a stored position is the shape this model is most likely to
+        grow back, and it would silently become a second answer to a question `order_spieltage` already
+        answers. Pydantic ignores an unknown key, so a document still carrying the retired `order_val`
+        validates and the value is dropped -- which is what makes the cleanup optional rather than a
+        migration the deploy waits on.
+        """
+        assert "order_val" not in FLSpieltag.model_fields
+        assert not hasattr(FLSpieltag.model_validate(spieltag(order_val=3)), "order_val")
 
     @pytest.mark.parametrize("field", ["beginn", "ende"])
     def test_rejects_a_date_that_does_not_exist(self, spieltag, field):
@@ -277,3 +302,44 @@ class TestSaison:
         """Both season boundaries get the calendar check — 2026-04-31 passes the regex and is not a real day."""
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(**{field: "2026-04-31"}))
+
+
+class TestSpielBooking:
+    """
+    The clash rule's projection, which is validated rather than read as a raw dict (owner, 2026-08-08).
+
+    `find_clash_refusal` ACTS on these values — it splits `uhrzeit` into three parts to compare times — and
+    the read behind them is a bare projection over every season rather than a validated fixture list. The
+    database is hand-edited, which is the whole reason `constraints.py` exists, so a malformed time reached
+    the comparison and raised `ValueError`: a 500 on a legitimate match edit.
+    """
+
+    def booking(self, **overrides):
+        return {"spiel_nr": 3, "datum": "2026-03-15", "uhrzeit": "18:00:00", **overrides}
+
+    def test_accepts_a_well_formed_booking(self):
+        assert FLSpielBooking.model_validate(self.booking()).uhrzeit == "18:00:00"
+
+    @pytest.mark.parametrize("uhrzeit", ["18:00", "18", "abend", "25:00:00"])
+    def test_rejects_a_time_the_comparison_could_not_read(self, uhrzeit):
+        """
+        `18:00` is the one that mattered: three-part unpacking raised `ValueError` on it, not a 422.
+
+        The others are here because a hand edit is a hand edit — nothing about the two-part case makes it
+        more likely than a word or an impossible hour.
+        """
+
+        with pytest.raises(ValidationError):
+            FLSpielBooking.model_validate(self.booking(uhrzeit=uhrzeit))
+
+    def test_rejects_a_malformed_date(self):
+        """The date is compared too, so it needs the same guarantee as the time."""
+
+        with pytest.raises(ValidationError):
+            FLSpielBooking.model_validate(self.booking(datum="15.03.2026"))
+
+    def test_rejects_a_non_positive_fixture_number(self):
+        """`spiel_nr` is named back to the admin in the refusal, so a zero would be nonsense to act on."""
+
+        with pytest.raises(ValidationError):
+            FLSpielBooking.model_validate(self.booking(spiel_nr=0))

@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `dfec0fa`, 2026-08-07
+**Verified against:** `452ccda`, 2026-08-08
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -13,7 +13,7 @@ lives here rather than in the backend.
 ```
 src/
 ├── app/         routes only — thin. Fetch, then hand off to a feature component
-├── core/        infrastructure: api · auth · config · db · errors · logging · schemas · providers
+├── core/        infrastructure: api · auth · config · db · errors · logging · correlation · schemas · providers
 ├── features/    twelve slices, one per business entity
 ├── shared/      cross-slice components, hooks, types, utils
 └── proxy.ts     the admin route guard
@@ -22,7 +22,8 @@ src/
 **Slices** are the unit of organisation: `admin`, `auth`, `dashboard`, `meta`, `saisons`,
 `schiedsrichter`, `spiele`, `spieler`, `spielorte`, `spieltage`, `system`, `teams`. A slice holds its
 own `queries.ts`, `mutations.ts`, `actions.ts`, `schemas.ts`, `types.ts` and `components/`, and only the
-files it actually needs — most slices are read-only and have no `actions.ts` at all.
+files it actually needs. Seven have a write path; `admin`, `dashboard`, `meta` and `system` have no
+`actions.ts` at all, and `auth` has one holding only the sign-in and the sign-out.
 
 Within a slice, components sit in category folders: `views`, `collections`, `forms`, `modals`,
 `providers`, `ui`. One extra level is permitted for a multi-section form; nothing nests deeper and
@@ -64,13 +65,15 @@ behaviour looks impossible.
 
 ## Caching
 
-Thirteen functions carry `"use cache"`. Lifetimes reflect how volatile the data is: matches for hours,
+Fifteen functions carry `"use cache"`. Lifetimes reflect how volatile the data is: matches for hours,
 reference data (teams, players, matchdays, seasons, venues, referees) for days, system endpoints for
 minutes.
 
-Only **four** cache tags can ever be invalidated by the app, because only four resources have a write
-surface: matches, teams, venues and referees. Everything else is edited out of band and cleared by a
-script.
+**Every** cache tag can now be invalidated by the app: matches, teams, players, venues, referees, seasons
+and matchdays all have a write surface, and each action clears its own tag as it saves. Only the `system`
+tag has no writer, because nothing writes the system endpoints. What is still edited out of band is a hand
+edit made directly in MongoDB, which invalidates nothing and is bounded by the daily lifetime
+([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)).
 
 Granular (per-season) tags exist for exactly two resources, `spiele` and `teams`. Twenty other granular
 tags once existed and were deleted, because a tag that nothing can invalidate is not a caching strategy
@@ -101,11 +104,15 @@ component stylesheets no public route can reach — the date/time pickers, the c
 autocomplete. Keeping them out of the public bundle is worth 67 KB a public page would otherwise
 download and parse, measured 2026-08-01 (ADR-0023).
 
-**All nine reach the graph through one route: `app/admin/spiele/[spiel_id]`, the match editor.** That is
-a static import from a page under `/admin`, so the membership question — can any public route reach this
-— is answered by reading the route rather than by following a dynamic edge, which is how it had to be
-answered while the same form was a lazily imported modal (ADR-0050). The rule itself is unchanged and the
-tie-break still runs the same way: public unless proven otherwise.
+**Every one of the nine reaches the graph through a page under `/admin` by a static import**, so the
+membership question — can any public route reach this — is answered by reading the routes rather than by
+following a dynamic edge, which is how it had to be answered while the match form was a lazily imported
+modal (ADR-0050). The match editor at `app/admin/spiele/[spiel_id]` reaches all nine; the season editor,
+the season create dialog and the matchday dialogs reach the calendar, date-field and number-field
+stylesheets among them
+([ADR-0063](../_decisions/0063-a-matchday-list-is-the-seasons-skeleton.md)), which changes nothing about
+the membership because those routes are admin-only too. The rule itself is unchanged and the tie-break
+still runs the same way: public unless proven otherwise.
 
 **HeroUI is imported component-by-component, not as `@import "@heroui/styles"`.** This is HeroUI's own
 documented mechanism — the v3 release notes call it "ship only the CSS you use" — and it exists because

@@ -41,15 +41,24 @@ export function SidemenuNavLinks<TIcon extends string>({
     <div className="flex flex-col gap-5">
       {structure.map((group) => (
         <div
-          key={group.category_name}
+          // The first item's id, not the category name: a category may deliberately have no name (see
+          // `SidemenuStructureEntry`), and every id is a route segment, so it is unique across the
+          // whole structure where an empty name would not be.
+          key={group.sub_options[0]?.id ?? group.category_name}
           className="flex flex-col gap-1">
-          {!isDesktopCollapsed ? (
-            <span className="text-foreground-muted fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
-          ) : (
+          {/* An unnamed category renders neither a label nor a rule, and the `gap-5` between groups is
+              what still separates it. A heading with no text is a 4px box plus a line height of dead
+              space, and a rule above the first group would read as a divider from the bar above it. */}
+          {isDesktopCollapsed ? (
             <Separator className="bg-border my-1 w-1/2 self-center" />
+          ) : (
+            group.category_name !== "" && <span className="text-foreground-muted fluid-sm px-2 pb-1 font-medium">{group.category_name}</span>
           )}
 
-          <div className="flex flex-col gap-[2px]">
+          {/* `items-center` while collapsed, so the 36x36 squares sit on the column's centre — the
+              footer's own container does exactly this, and the two have to agree or the rail reads as
+              two columns of different widths. Expanded, the rows are full width and stretch is right. */}
+          <div className={`flex flex-col gap-[2px] ${isDesktopCollapsed ? "items-center" : ""}`}>
             {group.sub_options.map((sub_option) => {
               const targetPath = `${linkPrefix}/${sub_option.id}`;
               const finalHref = queryString ? `${targetPath}?${queryString}` : targetPath;

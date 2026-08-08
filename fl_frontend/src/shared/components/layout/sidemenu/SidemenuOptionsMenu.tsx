@@ -100,7 +100,7 @@ export function SidemenuOptionsMenu({
               shouldCloseOnSelect={false}
               className="flex w-full cursor-default items-center justify-between bg-transparent! px-2 py-1.5">
               <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
-              <ThemeSwitch />
+              <ThemeSwitch compact />
             </Dropdown.Item>
           </Dropdown.Section>
 

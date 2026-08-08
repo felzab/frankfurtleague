@@ -99,8 +99,17 @@ export function Sidemenu<TIcon extends string>({
       } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${railWidth}`}>
       <SidemenuDrawerHeader onClose={onMobileClose} />
 
-      {/* MAIN SCROLLABLE CONTENT */}
-      <div className="flex flex-1 scrollbar-gutter-stable flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4">
+      {/* MAIN SCROLLABLE CONTENT
+
+          The gutter is reserved on BOTH edges while collapsed (owner, 2026-08-07). At 72px with `px-3`
+          this container has 48px of content, and a one-edge reservation takes ~15px off the right alone —
+          so every icon sat correctly centred in its own box and the whole column sat left of the rail's
+          centre. `both-edges` spends the same strip twice and puts the centre back where the eye expects
+          it. Expanded, the content is left-aligned text and the one-edge value is the right trade. */}
+      <div
+        className={`flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4 ${
+          isDesktopCollapsed ? "scrollbar-gutter-stable-both" : "scrollbar-gutter-stable"
+        }`}>
         {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one
             continuous state rather than skeleton → dead control → live control. */}
         <Suspense fallback={<SaisonSlotSkeleton />}>

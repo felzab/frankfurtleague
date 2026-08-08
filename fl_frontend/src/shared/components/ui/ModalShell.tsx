@@ -20,13 +20,21 @@ import type { ReactNode } from "react";
  * was clipped or produced a horizontal scrollbar. No negative margin inside the body could ever cross
  * that boundary. Moving the inset down one level puts the clip edge at the dialog's border instead,
  * so `MODAL_FOOTER`'s negative margin lands exactly on it. The rendered padding is unchanged.
+ *
+ * **`mx-0` on the body is load-bearing, and it is what makes `MODAL_FOOTER`'s arithmetic the app's own.**
+ * HeroUI 3.2.3 gives `.modal__body` `-m-[3px] … p-[3px]`, so the body sat 3px WIDER than the dialog's
+ * content box while the app's `px-4` set the inset to 16px — a net 13px that no declaration in this
+ * repository stated, and that `MODAL_FOOTER` therefore had to guess. Zeroing the inline margin here
+ * makes the body's content box exactly `px-4` inside the dialog, so the footer cancels a number this
+ * file owns rather than one a HeroUI patch release can move. The block margin is already `my-0` in
+ * HeroUI's own rule, so only the inline axis is in play.
  */
 const modalShell = tv({
   slots: {
     dialog: "bg-background border-border text-foreground flex w-full flex-col rounded-2xl border px-0 py-4 shadow-2xl outline-none",
     header: "shrink-0 px-4 pb-4",
     heading: "fluid-lg text-foreground font-extrabold tracking-tight",
-    body: "scrollbar-hide text-foreground px-4",
+    body: "scrollbar-hide text-foreground mx-0 px-4",
   },
   variants: {
     size: {

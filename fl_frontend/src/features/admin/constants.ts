@@ -5,7 +5,7 @@
  * the two cannot disagree.
  */
 
-import { ExclamationShape, Magnifier, MapPin, Medal, Person, PersonPencil, Persons } from "@gravity-ui/icons";
+import { Calendar, ExclamationShape, Magnifier, MapPin, Medal, Person, PersonPencil, Persons, Sliders } from "@gravity-ui/icons";
 
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
@@ -25,13 +25,49 @@ export const ADMIN_SIDEMENU_ICONS = {
   PersonPencil,
   Persons,
   MapPin,
+  // The season's own glyph. Not a calendar, which is the Spieltage entry's below and the public
+  // Spielplan's: what that page edits is the competition's settings — the points, the groups, the
+  // levels — and the rollover, so a set of controls reads truer than a date range would.
+  Sliders,
+  // The matchday list's, and the public Spielplan's own (`DASHBOARD_SIDEMENU_ICONS`): the same
+  // matchdays seen for a different purpose, which the Finalrunden and Teams entries treat the same way.
+  Calendar,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
+  // First, and DELIBERATELY UNNAMED (owner, 2026-08-07). Everything below it is scoped by a season --
+  // the selector at the top of this menu, the group a team holds, the squad a player is in, the matches
+  // a Spieltag groups -- so the season sits above them all, and a heading here would be naming the thing
+  // the whole menu is already about. `SidemenuNavLinks` renders no label for an empty name.
+  {
+    category_name: "",
+    sub_options: [
+      {
+        id: "saisons",
+        label: "Saisons",
+        iconName: "Sliders",
+        hint: {
+          lead: "Alle Saisons, ihre Zeiträume und die Regeln, nach denen sie gespielt werden.",
+          points: [
+            { term: "Anlegen", detail: "über die Schaltfläche oben rechts. Eine neue Saison ist immer geplant, nie laufend." },
+            { term: "Bearbeiten", detail: "der Stift öffnet die Saisonseite mit Zeitraum, Regeln und Umstellung." },
+            { term: "Umstellen", detail: "macht eine geplante Saison zur laufenden und schließt die bisherige ab." },
+            { term: "Punkte", detail: "gelten rückwirkend, weil die Tabelle bei jedem Aufruf neu gerechnet wird." },
+          ],
+          note: "Eine Saison wird nie gelöscht. Eine gespielte Saison ist abgeschlossen und bleibt abrufbar.",
+        },
+      },
+    ],
+  },
+
   {
     category_name: "Spiele",
+    // The order is the order the four are REACHED IN (owner, 2026-08-08): what needs doing, then finding
+    // one fixture, then the schedule those fixtures sit in, then the draw that decides the later ones. The
+    // queue leads because it is the only entry that answers "is there anything to do at all" — the other
+    // three are all "take me to a thing I already have in mind".
     sub_options: [
       // "Handlungsbedarf", not "Übersicht": the page is a queue of the things needing an admin, ranked
       // by what each one blocks (ADR-0056) — an overview is what `spielsuche` below is. The label is
@@ -51,11 +87,38 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           note: "Abgesagte Spiele stehen nur zum Nachschlagen dort, sie sind keine Aufgabe.",
         },
       },
-      // Below the queue and above the search box, which is the order the three are reached in: what
-      // needs doing, then the draw that decides what will need doing, then looking one fixture up.
-      // Named AND iconed for the public bracket's own entry (`DASHBOARD_SIDEMENU_ICONS`), because it
-      // is the same rounds seen for a different purpose — a second word and a second glyph for one
-      // stage are two more things to learn for nothing.
+      {
+        id: "spielsuche",
+        label: "Spielsuche",
+        iconName: "Magnifier",
+        hint: {
+          lead: "Durchsucht alle Spiele der Saison, um eines gezielt zu öffnen.",
+          points: [
+            { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
+            { term: "Bearbeiten", detail: "der Stift auf einer Karte öffnet das Spiel." },
+          ],
+        },
+      },
+      // The two structural surfaces come after the two that reach a single fixture: a Spieltag is the block
+      // matches belong to, and the Finalrunden are how the later ones are wired — both are read to check the
+      // shape of the season rather than to act on one match.
+      {
+        id: "spieltage",
+        label: "Spieltage",
+        iconName: "Calendar",
+        hint: {
+          lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und in der Reihenfolge, in der sie gespielt werden.",
+          points: [
+            { term: "Name und Position", detail: "ergeben sich aus Phase und Beginn. Um einen Spieltag zu verschieben, ändere sein Datum." },
+            { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
+            { term: "Stilllegen", detail: "nimmt den Spieltag aus den Listen. Nur möglich, solange keines seiner Spiele ein Ergebnis hat." },
+          ],
+          note: "Sobald die KO.-Runde begonnen hat, lassen sich keine Spieltage mehr anlegen.",
+        },
+      },
+      // Named AND iconed for the public bracket's own entry (`DASHBOARD_SIDEMENU_ICONS`), because it is the
+      // same rounds seen for a different purpose — a second word and a second glyph for one stage are two
+      // more things to learn for nothing.
       {
         id: "finalrunden",
         label: "Finalrunden",
@@ -71,18 +134,6 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "„Ohne Herkunft“", detail: "weder Mannschaft noch Herkunft. Diese Seite füllt niemand." },
           ],
           note: "Die Gruppenphase steht nicht dort: ihre Paarungen kommen aus dem Spielplan und haben keine Herkunft.",
-        },
-      },
-      {
-        id: "spielsuche",
-        label: "Spielsuche",
-        iconName: "Magnifier",
-        hint: {
-          lead: "Durchsucht alle Spiele der Saison, um eines gezielt zu öffnen.",
-          points: [
-            { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
-            { term: "Bearbeiten", detail: "der Stift auf einer Karte öffnet das Spiel." },
-          ],
         },
       },
     ],

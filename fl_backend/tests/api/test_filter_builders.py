@@ -1,5 +1,8 @@
 """
-The filter builders — the pure `filters in, Mongo query out` half of each feature's `services.py`.
+The filter builders, plus the matchday order — the pure half of each feature's `services.py`.
+
+An ordering is pure in exactly the way a filter builder is: a list in, a list out, no collection and no
+await, so it belongs in this file rather than in one of its own.
 
 These are the first behaviour tests outside model validation, and they fit the suite's no-I/O
 boundary: a builder takes a filter model and returns a dict, with no collection and no await
@@ -13,8 +16,8 @@ from app.api.saisons.schemas import FLSaisonsFilterOptions
 from app.api.saisons.services import build_saisons_filter
 from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spiele.services import build_spiele_filter
-from app.api.spieltage.schemas import FLSpieltageFilterParams
-from app.api.spieltage.services import build_spieltage_filter
+from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
+from app.api.spieltage.services import build_spieltage_filter, order_spieltage
 
 TODAY = "2026-07-31"
 
@@ -119,3 +122,103 @@ class TestSpieltageFilter:
         filters = FLSpieltageFilterParams.model_validate({"saison_phase": "playoffs"})
 
         assert build_spieltage_filter(filters=filters)["saison_phase"] == {"$ne": "gruppenphase"}
+
+
+class TestSpieltageOrder:
+    """
+    The derived order (ADR-0064), which is also what the displayed name is composed from (ADR-0067).
+
+    These are the tests a stored position never had: with the value written by hand there was nothing to
+    assert but its type, and every ordering defect it permitted was invisible to the suite.
+
+    Each matchday is identified by its `_id` rather than by a name, because a matchday carries no name --
+    the id is both the final tie-break and the only stable handle a test has on one.
+    """
+
+    def _spieltag(self, *, oid: str, phase: str, beginn: str) -> FLSpieltag:
+        return FLSpieltag.model_validate(
+            {
+                "_id": ObjectId(oid),
+                "beginn": beginn,
+                "ende": beginn,
+                "anzahl_spiele": 4,
+                "saison_phase": phase,
+                "saison_id": "2026",
+                "inactive_since": None,
+            }
+        )
+
+    #: Four ids in ascending order, so a test can assert an ordering by the handle it sorted on.
+    A = "6890a1b2c3d4e5f60718000a"
+    B = "6890a1b2c3d4e5f60718000b"
+    C = "6890a1b2c3d4e5f60718000c"
+    D = "6890a1b2c3d4e5f60718000d"
+
+    def _ids(self, spieltage: list[FLSpieltag]) -> list[str]:
+        return [str(spieltag.id) for spieltag in spieltage]
+
+    def test_orders_the_phases_as_they_are_played(self):
+        """
+        The reason the phase leads rather than the date.
+
+        Mongo sorts the five lexically — achtelfinale, finale, gruppenphase, halbfinale, viertelfinale —
+        so a `$sort` on the field is not this order.
+        """
+        shuffled = [
+            self._spieltag(oid=self.D, phase="finale", beginn="2026-09-04"),
+            self._spieltag(oid=self.A, phase="gruppenphase", beginn="2026-03-07"),
+            self._spieltag(oid=self.C, phase="halbfinale", beginn="2026-08-21"),
+            self._spieltag(oid=self.B, phase="viertelfinale", beginn="2026-06-12"),
+        ]
+
+        assert self._ids(order_spieltage(shuffled)) == [self.A, self.B, self.C, self.D]
+
+    def test_the_phase_outranks_the_date(self):
+        """
+        A knockout round dated before a group matchday still comes after it.
+
+        This is the defect a stored position made possible in the other direction: a Halbfinale sitting at
+        a lower number than the Viertelfinale it follows.
+        """
+        out_of_sequence = [
+            self._spieltag(oid=self.B, phase="halbfinale", beginn="2026-01-01"),
+            self._spieltag(oid=self.A, phase="gruppenphase", beginn="2026-03-07"),
+        ]
+
+        assert self._ids(order_spieltage(out_of_sequence)) == [self.A, self.B]
+
+    def test_the_date_orders_within_one_phase(self):
+        """Three group matchdays are a date sequence, which is what the season's schedule already is."""
+        rounds = [
+            self._spieltag(oid=self.C, phase="gruppenphase", beginn="2026-05-13"),
+            self._spieltag(oid=self.A, phase="gruppenphase", beginn="2026-03-07"),
+            self._spieltag(oid=self.B, phase="gruppenphase", beginn="2026-04-18"),
+        ]
+
+        assert self._ids(order_spieltage(rounds)) == [self.A, self.B, self.C]
+
+    def test_the_id_breaks_a_shared_phase_and_date(self):
+        """
+        The order has to stay total, because nothing refuses two matchdays in one phase on one date.
+
+        Without a final tie-break two calls can disagree, and the public Spielplan's tabs then move between
+        reloads. The tie-break is the id rather than a name for two reasons: a matchday has none, and the
+        name a reader sees is composed FROM this order, so using it here would be circular (ADR-0067).
+        """
+        same_day = [
+            self._spieltag(oid=self.B, phase="gruppenphase", beginn="2026-03-07"),
+            self._spieltag(oid=self.A, phase="gruppenphase", beginn="2026-03-07"),
+        ]
+
+        assert self._ids(order_spieltage(same_day)) == [self.A, self.B]
+
+    def test_leaves_its_input_alone(self):
+        """`sorted`, not `list.sort` — the router hands it a validated list it may still hold a reference to."""
+        rounds = [
+            self._spieltag(oid=self.D, phase="finale", beginn="2026-09-04"),
+            self._spieltag(oid=self.A, phase="gruppenphase", beginn="2026-03-07"),
+        ]
+
+        order_spieltage(rounds)
+
+        assert self._ids(rounds) == [self.D, self.A]

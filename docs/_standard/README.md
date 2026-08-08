@@ -1,6 +1,6 @@
 # `_standard` — how this repository is documented
 
-**Verified against:** `cf88b87`, 2026-08-07
+**Verified against:** `b5324b8`, 2026-08-08
 
 Read [`1-principles.md`](1-principles.md) before writing anything. Everything else in this folder
 describes a particular shape; that chapter describes what all of them must be.
@@ -75,7 +75,10 @@ the granular tag covers it?_
 - The **ADR** says why, what the deleted tags were, and what would have to change for the answer to
   become yes.
 
-Plus the **glossary** (`docs/glossary.md`), which is cross-cutting and belongs to no surface.
+Plus two pages that are cross-cutting and belong to no surface: the **glossary**
+(`docs/glossary.md`), and the **domain model** (`docs/domain.md`). The second is a fourth shape — a
+narrative over tables a test walks, so its claims are checked rather than reviewed
+([ADR-0066](../_decisions/0066-the-domain-model-is-declared-and-conformance-checked.md)).
 
 **Each layer has a different update trigger**, which is the point: an ADR is written once and never
 edited, a spec sheet is edited when a constraint changes, an overview is rewritten only when a

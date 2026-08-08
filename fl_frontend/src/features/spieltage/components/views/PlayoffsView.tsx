@@ -7,7 +7,7 @@ import { SpielCardUltraCompact } from "@/features/spiele/components/ui/SpielCard
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 
-import { orderRoundsByWiring } from "../../utils";
+import { orderRoundsByWiring, spieltagLabels } from "../../utils";
 
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "../../schemas";
@@ -45,6 +45,9 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
   // Spiele arrive in `datum` order, which put matches 25 and 28 on one branch of a fixture whose
   // sides name 25 and 27 (ADR-0042 stores the edges; nothing about a date respects them).
   const rounds = orderRoundsByWiring(playoffsSpieltage);
+  // Labelled from the PLAYED order rather than from `rounds`, which `orderRoundsByWiring` re-arranges by
+  // the bracket's wiring: the ordinal counts a matchday's place in its phase, not its column (ADR-0067).
+  const labels = spieltagLabels(playoffsSpieltage);
 
   return (
     // flex-1 and pb-12 so it respects the same native scrolling flow as the other pages.
@@ -65,7 +68,7 @@ export function PlayoffsView({ playoffsSpieltage, today }: { playoffsSpieltage: 
               className="flex w-[85cqw] max-w-[380px] shrink-0 snap-center flex-col items-center @2xl:w-[42cqw] @5xl:w-[28cqw]">
               {/* Round header */}
               <h2 className="bg-surface border-border text-foreground fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
-                {playoffsSpieltag.name}
+                {labels.get(playoffsSpieltag.id)?.label}
               </h2>
 
               {/* Spiele column*/}

@@ -82,22 +82,26 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Mapping, Sequence
 
 from app.api.spiele.schemas import (
+    PHASE_RANK,
     FLBracketFault,
     FLBracketFaultGruppe,
+    FLBracketFaultOccupant,
     FLBracketFaultQuelle,
     FLBracketFaultSpiel,
     FLPatchSpielDataPayload,
-    FLSaisonPhase,
     FLSpiel,
     FLSpieleFilterParams,
     FLSpielElfmeterschiessen,
+    FLSpielJoined,
     FLSpielQuelle,
     FLSpielQuelleGruppe,
     FLSpielQuelleSpiel,
     FLSpielTeamField,
+    FLSpielTeamFieldJoined,
 )
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
+from app.core.collections import Collection
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -139,7 +143,6 @@ def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, 
     return query
 
 
-SAISON_TEAMS_COLLECTION_NAME = "saison_teams"
 # Where the junction rows land before the two sides are matched to them. Dropped again by the final
 # stage, so it never reaches a response and `FLSpielJoined` never has to declare it.
 SAISON_TEAMS_AS_NAME = "saison_teams_rows"
@@ -222,7 +225,7 @@ def build_spiele_pipeline(
     pipeline.append(
         {
             "$lookup": {
-                "from": SAISON_TEAMS_COLLECTION_NAME,
+                "from": Collection.SAISON_TEAMS,
                 "let": {
                     "spiel_saison_id": "$saison_id",
                     # `$ifNull` rather than the bare path: a null side makes `$teamN.team_id` MISSING,
@@ -732,8 +735,14 @@ class WriteRefusal:
     message: str
 
 
-# A team the season records as disqualified was newly fielded. Declared state, set by a person and
-# changed by no result, so a payload fielding one contradicts the season as it stands at the write.
+# A team the season records as disqualified was newly fielded on a fixture played on or after the day
+# that took effect. Declared state, set by a person and changed by no result -- but it takes effect on a
+# DAY, so a fixture dated before it was played legally and may still be edited (owner, 2026-08-08).
+#
+# Two carve-outs, both narrow. A team already stored on the fixture may be resubmitted, or the fixture that
+# needs fixing would be the one nobody can open. And a CANCELLED GROUP fixture may hold one outright: that
+# is what cancelling a group match records, and the knockout phase gets no such exemption because a bracket
+# slot is a place to advance from rather than a record of an absence.
 ELIGIBILITY_DISQUALIFIED = "REQ-ELIGIBILITY-001"
 
 # A team newly fielded on a fixture of a season it holds no `saison_teams` row for. A dangling
@@ -745,12 +754,27 @@ ELIGIBILITY_NO_MEMBERSHIP = "REQ-ELIGIBILITY-002"
 # resolution maintains -- so emptying it would be undone on the next pass.
 SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
 
+# A side carrying a result was emptied (owner, 2026-08-08). `ergebnis` is composed from the two `tore`, and
+# `tore` lives INSIDE the side -- so removing the team takes its goals with it and the composed result
+# collapses to null. What is left is a match that was played, whose score is gone, and whose one side is
+# empty; and no legitimate act reaches it, because a match that was played had two sides.
+#
+# **Switching the team is permitted and is the point of the distinction.** `tore` stays on the side, so the
+# score survives -- which is the "we recorded the wrong club" repair, the likeliest correction this data
+# needs. Refusing the whole edit would leave only clear-the-result, fix, re-enter: three steps passing
+# through a state where the match reads as unplayed, and the league table is derived on every read.
+#
+# This is a rule about the PAYLOAD path. The bracket resolution and `release_spieltag_sides` do empty sides
+# that carry results, deliberately, and report `voided_ergebnis` when they do -- that is the system acting
+# with an account of itself, not an admin removing a team.
+RESULT_SIDE_EMPTIED = "REQ-RESULT-001"
+
 
 def find_eligibility_refusal(
     spiel_id: CustomObjectId,
     payload: FLPatchSpielDataPayload,
     season: Sequence[FLSpiel],
-    membership: Mapping[CustomObjectId, bool],
+    membership: Mapping[CustomObjectId, str | None],
 ) -> WriteRefusal | None:
     """
     Why this patch's OCCUPANTS must be refused, or `None` when they are legal (ADR-0052).
@@ -760,9 +784,26 @@ def find_eligibility_refusal(
     different codes, because the advice differs -- "reload the page" is right for a raced bracket and
     wrong for a team somebody disqualified.
 
-    `membership` maps a team id to whether it is disqualified for THIS season, read from `saison_teams`
-    inside the caller's transaction. A team absent from it holds no row for the season at all, which is
-    the second rule below.
+    `membership` maps a team id to the DAY it is disqualified from THIS season, or `None` while it
+    competes, read from `saison_teams` inside the caller's transaction. A team absent from it holds no row
+    for the season at all, which is the second rule below.
+
+    **The disqualification rule is keyed on the fixture's date** (owner, 2026-08-08). A match played
+    before the disqualification took effect was played legally, so fielding that team on it stays
+    permitted -- recording the result of a match that happened is not the same act as putting an
+    ineligible team into one that has not. The comparison uses the PAYLOAD's `datum`, because that is the
+    date the fixture will carry after this write.
+
+    A fixture with NO date is refused, and that is the refuse-by-default posture rather than an oversight:
+    "we cannot tell when this was played" is not evidence that it was played in time.
+
+    **A CANCELLED GROUP-PHASE fixture may hold a disqualified team whatever the dates say** (owner,
+    2026-08-08). That is what cancelling a group fixture records: the team was not there, and the match did
+    not happen. The row exists so the group's schedule stays complete and the table can account for it, so
+    refusing the team on it would refuse the very entry that documents the absence.
+    **The carve-out stops at the group phase.** A knockout slot is not a record of a fixture that did not
+    happen -- it is a place in a bracket, and a cancelled one still has to say who advances. Putting a
+    disqualified team in it decides nothing and reads as a bracket somebody forgot to rewire.
 
     Both rules apply only to a team this payload NEWLY fields. Resubmitting the stored occupant
     unchanged passes, and it has to: without that clause a fixture already holding such a team becomes
@@ -787,13 +828,193 @@ def find_eligibility_refusal(
                 message=f"{label}: {submitted.name} has no saison_teams row for season {stored.saison_id}",
             )
 
-        if membership[submitted.team_id]:
+        # A cancelled GROUP fixture is a record of a match that did not happen, so a disqualified team is
+        # exactly who belongs on it (owner, 2026-08-08). The phase is the stored fixture's: `saison_phase`
+        # is on no payload, so this write cannot move a knockout slot into the group phase to get past it.
+        records_an_absence = payload.is_canceled and stored.saison_phase == "gruppenphase"
+
+        disqualified_from = membership[submitted.team_id]
+        if disqualified_from is not None and not records_an_absence and not (payload.datum is not None and payload.datum < disqualified_from):
+            played_on = payload.datum or "no date"
+
             return WriteRefusal(
                 error_code=ELIGIBILITY_DISQUALIFIED,
-                message=f"{label}: {submitted.name} is disqualified from season {stored.saison_id} and cannot be fielded",
+                message=(
+                    f"{label}: {submitted.name} is disqualified from season {stored.saison_id} as of {disqualified_from} "
+                    f"and this fixture is dated {played_on}"
+                ),
             )
 
     return None
+
+
+# The fixture's own date falls outside the span of the matchday it belongs to (owner, 2026-08-08). The
+# matchday is a named block of the season's fixtures and the public Spielplan prints this date under that
+# matchday's heading, so a fixture outside the block reads as a data error on a public page. The repair is
+# to widen the matchday rather than to except the fixture -- see the note in `spieltage/services.py`.
+FIXTURE_OUTSIDE_SPIELTAG = "REQ-DATE-001"
+
+# Another fixture already holds this venue, or this referee, within the buffer below (owner, 2026-08-08).
+# Physically impossible, and easy to enter because neither picker shows availability. The same shape as
+# `REQ-SPIELTAG-001`, which refuses a team playing twice on one matchday.
+FIXTURE_DOUBLE_BOOKED = "REQ-CLASH-001"
+
+# How far apart two fixtures must be to share a venue and a referee, in minutes (owner, 2026-08-08: four
+# hours). A match plus its overrun, the changeover and the travel between them -- the league plays several
+# matches at one ground on a matchday, so the rule is a spacing rule rather than a ban.
+CLASH_BUFFER_MINUTES = 4 * 60
+
+
+def _minutes_into_day(uhrzeit: str) -> int:
+    """`HH:MM:SS` as minutes past midnight. Seconds are dropped: no fixture is scheduled to the second."""
+
+    hours, minutes, _ = uhrzeit.split(":")
+
+    return int(hours) * 60 + int(minutes)
+
+
+def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str, spieltag_ende: str) -> tuple[str, str] | None:
+    """
+    Why this fixture's date must be refused, as `(error_code, detail)` -- or `None`.
+
+    `None` for `datum` passes. An undated fixture is one nobody has scheduled yet, which is the ordinary
+    state of a season being set up, and it contradicts no span -- unlike the disqualification rule, where
+    an absent date is evidence of nothing and therefore refused.
+
+    The message names the matchday's span rather than only the offending date, because the repair is a
+    choice between two edits and the admin needs both numbers to make it.
+    """
+
+    if datum is None or spieltag_beginn <= datum <= spieltag_ende:
+        return None
+
+    return (
+        FIXTURE_OUTSIDE_SPIELTAG,
+        f"the fixture is dated {datum} and its matchday runs {spieltag_beginn} to {spieltag_ende}; "
+        "move the fixture inside that span or widen the matchday",
+    )
+
+
+@dataclass(frozen=True)
+class BookedSlot:
+    """One other fixture's claim on a venue or a referee, as the clash rule needs to see it."""
+
+    spiel_nr: int
+    datum: str
+    uhrzeit: str
+    #: Which resource this claim is for, so the refusal can say which one collides.
+    resource: Literal["Spielort", "Schiedsrichter"]
+
+
+def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequence[BookedSlot]) -> tuple[str, str] | None:
+    """
+    Why this fixture's venue or referee must be refused, as `(error_code, detail)` -- or `None`.
+
+    `booked` is every OTHER fixture holding the same venue or the same referee on the same day, which the
+    caller reads; this decides only whether any of them is too close. Two fixtures at one ground four hours
+    apart are the league's ordinary matchday, so the rule spaces them rather than forbidding the pairing.
+
+    **A fixture with no date or no time cannot clash and is not caught.** There is nothing to compare, and
+    refusing on that basis would refuse every fixture in a season still being scheduled. It is the one gap
+    in this rule and it is deliberate: what is unscheduled is not yet double-booked.
+    """
+
+    if datum is None or uhrzeit is None:
+        return None
+
+    start = _minutes_into_day(uhrzeit)
+    for slot in sorted(booked, key=lambda entry: (entry.datum, entry.uhrzeit, entry.spiel_nr)):
+        if slot.datum != datum:
+            continue
+
+        gap = abs(_minutes_into_day(slot.uhrzeit) - start)
+        if gap < CLASH_BUFFER_MINUTES:
+            return (
+                FIXTURE_DOUBLE_BOOKED,
+                f"the same {slot.resource} is booked for spiel_nr {slot.spiel_nr} at {slot.uhrzeit} on {slot.datum}, "
+                f"{gap} minutes away; two fixtures need {CLASH_BUFFER_MINUTES} minutes between them",
+            )
+
+    return None
+
+
+def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
+    """
+    Why emptying a side of this fixture must be refused, as a `WriteRefusal` -- or `None`.
+
+    Keyed on the STORED side carrying goals rather than on the fixture carrying an `ergebnis`, and the two
+    can differ: a fixture whose sides hold `tore` but whose `ergebnis` was never composed is the
+    hand-edited document `apply_payload_to_spiel` warns about. Keying on the goals catches both.
+
+    Only the EMPTYING is refused. A payload naming a different team on the same side passes, keeps that
+    side's `tore`, and so keeps the result -- see the constant above for why that asymmetry is the whole
+    rule rather than a gap in it.
+    """
+
+    stored = next((spiel for spiel in season if spiel.id == spiel_id), None)
+    if stored is None:
+        return None
+
+    for label, submitted, stored_side in (("team1", payload.team1, stored.team1), ("team2", payload.team2, stored.team2)):
+        if submitted is not None or stored_side is None or stored_side.tore is None:
+            continue
+
+        return WriteRefusal(
+            error_code=RESULT_SIDE_EMPTIED,
+            message=(
+                f"{label}: {stored_side.name} carries {stored_side.tore} goal(s) on a played fixture and cannot be removed; "
+                "name a different team to correct it, or clear the result first"
+            ),
+        )
+
+    return None
+
+
+def find_disqualified_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFaultOccupant]:
+    """
+    Every fixture fielding a team the season disqualified before the day it is played (owner, 2026-08-08).
+
+    Derived on demand and stored nowhere, like the five bracket faults beside it (ADR-0047). It needs no
+    read of its own: `build_spiele_pipeline` already joins each side's `disqualifikation` record with its
+    date, so the whole rule is a comparison between two fields of one document.
+
+    **A fixture dated BEFORE the effective day is not reported.** The team was eligible when it played, so
+    the match and its result stand -- which is the same line `find_eligibility_refusal` draws when it
+    permits that result being entered. Reporting it would be reporting history as a defect.
+
+    **An undated fixture IS reported.** It cannot be shown to have been played in time, and an undated
+    fixture is far more often one nobody has scheduled than one somebody forgot to date.
+
+    Applies to every phase. A group fixture dated after the disqualification is exactly as wrong as a
+    bracket slot, and a season that disqualifies a team mid-way reports one of these per remaining
+    fixture -- which is the honest count, because each of them needs the same decision.
+    """
+
+    faults: list[FLBracketFaultOccupant] = []
+    for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
+        for side in ("team1", "team2"):
+            occupant: FLSpielTeamFieldJoined | None = getattr(spiel, side)
+            if occupant is None or occupant.disqualifikation is None:
+                continue
+
+            effective = occupant.disqualifikation.datum
+            if spiel.datum is not None and spiel.datum < effective:
+                continue
+
+            faults.append(
+                FLBracketFaultOccupant(
+                    reason="disqualified_occupant",
+                    spiel_id=spiel.id,
+                    spiel_nr=spiel.spiel_nr,
+                    side=side,
+                    team_id=occupant.team_id,
+                    team_name=occupant.name,
+                    disqualifiziert_seit=effective,
+                    spiel_datum=spiel.datum,
+                )
+            )
+
+    return faults
 
 
 @dataclass(frozen=True)
@@ -909,11 +1130,6 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
             )
 
     return SpieltagVerdict(refusal=None, releases=releases)
-
-
-# The rounds in the order they are played. What the refusal below needs is only "strictly earlier",
-# so a new phase slots in by rank without touching the rules that read this.
-PHASE_RANK: Mapping[FLSaisonPhase, int] = {"gruppenphase": 0, "viertelfinale": 1, "halbfinale": 2, "finale": 3}
 
 
 def _quelle_key(quelle: FLSpielQuelle) -> tuple[Any, ...]:

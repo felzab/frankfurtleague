@@ -32,10 +32,11 @@ from app.api.spielorte.schemas import (
     FLSpielort,
     FLSpielortWriteResponse,
 )
+from app.api.spielorte.services import find_venue_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import SpieleCollection, SpielorteCollection, get_german_date_str
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -120,6 +121,7 @@ async def patch_spielort(
 async def delete_spielort(
     spielort_id: CustomRouteObjectId,
     spielorte_collection: SpielorteCollection,
+    spiele_collection: SpieleCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSpielortWriteResponse:
     """
@@ -127,7 +129,25 @@ async def delete_spielort(
 
     Matches embed a copy of the venue, so a hard delete would orphan every historical match that used
     it. Returns the updated document rather than a bare acknowledgement.
+
+    **It is refused while an unplayed fixture is still booked here** (`REQ-RETIRE-003`, owner,
+    2026-08-08). Retiring the venue takes it out of every picker while matches are still scheduled at it,
+    which is the state this soft delete exists to prevent, reached through the soft delete itself — the
+    reasoning `REQ-RETIRE-001` already applies to a club. A PLAYED fixture never blocks: its `ort` is an
+    embedded record of where the match was held, so the venue document has nothing left to supply.
     """
+
+    # Unplayed means no result and not cancelled, which is `unplayed_spiel_nrs`'s definition -- the two
+    # rules must agree about what is still to come.
+    booked = await pull_many_from_db(
+        collection=spiele_collection,
+        db_filter={"ort.spielort_id": spielort_id, "ergebnis": None, "is_canceled": False},
+        projection={"spiel_nr": 1},
+    )
+    refusal = find_venue_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in booked))
+    if refusal is not None:
+        error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_document_raw = await patch_one_in_db(
         collection=spielorte_collection,

@@ -39,12 +39,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/dashboard/spielhistorie`,
-      lastModified: CONTENT_LAST_MODIFIED,
-      changeFrequency: "daily",
-      priority: 0.7,
-    },
-    {
       url: `${baseUrl}/dashboard/saisontabelle`,
       lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",

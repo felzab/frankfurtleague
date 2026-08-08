@@ -1,5 +1,6 @@
 "use client";
 
+import { SPIELORT_FACETS } from "@/features/spielorte/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import { AdminSpielorteTable } from "../collections/AdminSpielorteTable";
@@ -16,6 +17,7 @@ export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {
     <AdminCrudView<FLSpielort>
       items={spielorte}
       searchKeys={SEARCH_KEYS}
+      facets={SPIELORT_FACETS}
       renderTable={({ query, filteredItems, onEdit, onDelete }) => (
         <AdminSpielorteTable
           spielortQuery={query}

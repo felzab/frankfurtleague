@@ -3,7 +3,14 @@
 import { Calendar, DateField, DatePicker, FieldError, Input, Switch, TextField } from "@heroui/react";
 
 import { Callout } from "@/shared/components/ui/Callout";
-import { FIELD_ERROR, FIELD_GROUP, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import {
+  DATE_PICKER_CALENDAR,
+  DATE_PICKER_PLACEMENT,
+  DATE_PICKER_POPOVER,
+  FIELD_ERROR,
+  FIELD_GROUP,
+  FIELD_INPUT,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -120,10 +127,12 @@ export function FormDisqualifikationSection({
                 </DateField.Suffix>
               </DateField.Group>
               <FieldError className={FIELD_ERROR} />
-              <DatePicker.Popover className="p-2">
+              <DatePicker.Popover
+                className={DATE_PICKER_POPOVER}
+                placement={DATE_PICKER_PLACEMENT}>
                 <Calendar
                   aria-label="Wirksamkeitsdatum auswählen"
-                  className={`${overlayPanel()} p-3`}>
+                  className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
                   <Calendar.Header className="bg-transparent">
                     <Calendar.YearPickerTrigger>
                       <Calendar.YearPickerTriggerHeading />

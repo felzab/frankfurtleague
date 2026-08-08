@@ -124,15 +124,30 @@ export function RowActionRestore({ label, ariaLabel, onPress }: { label: string;
   );
 }
 
-export function RowActionDelete({ label, ariaLabel, onPress }: { label: string; ariaLabel: string; onPress: () => void }) {
+export function RowActionDelete({
+  label,
+  ariaLabel,
+  onPress,
+  isDisabled,
+}: {
+  label: string;
+  ariaLabel: string;
+  onPress: () => void;
+  /**
+   * For a refusal this row can already see. The tooltip carries the reason, so `label` is what changes —
+   * a disabled control with the same wording as a live one tells the reader nothing (owner, 2026-08-08).
+   */
+  isDisabled?: boolean;
+}) {
   return (
     <IconTooltip
       label={label}
-      tone="danger">
+      tone={isDisabled ? undefined : "danger"}>
       <Button
         isIconOnly
         aria-label={ariaLabel}
         variant="ghost"
+        isDisabled={isDisabled}
         className={DANGER_CLASS}
         onPress={onPress}>
         <TrashBin

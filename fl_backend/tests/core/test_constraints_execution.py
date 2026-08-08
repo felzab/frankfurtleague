@@ -119,11 +119,11 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         "spieltage": {
             "_id": SPIELTAG_OID,
-            "name": "1. Spieltag",
+            # No `name` and no `anzahl_spiele`: the first is composed by the reader (ADR-0067) and the
+            # second is derived from the season's rules (ADR-0065). Neither is on a document, so neither
+            # belongs in one the validator is asked to accept.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
-            "anzahl_spiele": 4,
-            "order_val": 0,
             "saison_phase": "gruppenphase",
             "saison_id": SAISON_ID,
             "inactive_since": None,
@@ -245,7 +245,10 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
             valid_document("spiele", ergebnis="2:2", elfmeterschiessen={"team1": 4}),
             "a shoot-out with only one side",
         ),
-        ("spieltage", valid_document("spieltage", anzahl_spiele=4.0), "a count stored as a double"),
+        # `beginn` rather than a count: `anzahl_spiele` left this validator with ADR-0065, so nothing
+        # rejects it any more -- a matchday's expected count is derived on read and is on no document.
+        # A date stored as a number is the same class of defect on a field the validator does constrain.
+        ("spieltage", valid_document("spieltage", beginn=20260315), "a date stored as a number"),
         ("spieler", valid_document("spieler", vorname=None), "a player with no first name"),
         ("teams", {k: v for k, v in valid_documents()["teams"].items() if k != "full_name"}, "a missing required field"),
         ("schiedsrichter", valid_document("schiedsrichter", kontakt={"telefon": "030 123"}), "a kontakt missing half its shape"),

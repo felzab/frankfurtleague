@@ -118,3 +118,37 @@ export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
  * it gets no heading — that would render the same word twice and read it twice to a screen reader.
  */
 export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold tracking-widest uppercase";
+
+/**
+ * The date picker's popover and its calendar, declared once for all three pickers (owner, 2026-08-08).
+ *
+ * **The popover carries no padding.** It is a positioning wrapper, and the calendar inside it is already a
+ * bordered panel with its own — so `p-2` on the wrapper drew a second inset outside the border, which read
+ * as the popover being misaligned with its trigger rather than as deliberate spacing.
+ *
+ * **The calendar is much larger from `sm` up.** HeroUI sizes `.calendar` at `w-63` (15.75rem) and lays the
+ * days out as a 7-column grid of `aspect-square` cells, so the ROOT's width is the only lever — widening it
+ * scales every cell proportionally rather than needing each one overridden. 25rem gives roughly 57px days
+ * on a desktop, against 36px before; the phone keeps the compact size, where the screen is the constraint.
+ *
+ * One declaration rather than three copies: the three pickers had identical strings, which is exactly how
+ * two of them come to disagree after somebody adjusts the third.
+ */
+export const DATE_PICKER_POPOVER = "p-0";
+
+export const DATE_PICKER_CALENDAR = "p-3 sm:w-100 sm:max-w-100 sm:p-4 sm:text-base";
+
+/**
+ * Below the trigger and aligned to its leading edge, for all three pickers (owner, 2026-08-08).
+ *
+ * HeroUI's `DatePicker.Popover` defaults to `"bottom"`, which centres the panel on the trigger — and the
+ * calendar is far wider than the trigger it hangs from, so a centred panel overhangs the field on both
+ * sides and reads as unanchored. `start` puts its leading edge where the field's is, which is the edge a
+ * reader is already tracking down the form. `FilterBar`'s popover is placed the same way for the same
+ * reason, so the app has one answer to "where does a panel open" rather than one per control.
+ *
+ * Deliberately not `"bottom end"`: every one of these pickers sits in a two-column grid from `sm` up, so
+ * trailing-edge alignment would open each calendar leftwards, across the column beside it. react-aria
+ * still shifts the panel back inside the viewport where the leading edge leaves no room for it.
+ */
+export const DATE_PICKER_PLACEMENT = "bottom start";

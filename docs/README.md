@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `cf88b87`, 2026-08-07
+**Verified against:** `b5324b8`, 2026-08-08
 
 Frankfurt-League is a league website: a Next.js frontend, a FastAPI backend, MongoDB, deployed with
 Docker Compose behind nginx on a single host.
@@ -22,6 +22,7 @@ rest explains how the documentation is organised and why.
 | Write a commit message, a PR or an issue                            | [`workflows/message-templates.md`](workflows/message-templates.md) |
 | Run a script, publish an image, or roll back                        | [`../scripts/README.md`](../scripts/README.md)                     |
 | Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)                                       |
+| Know what depends on what, or when a field may be edited            | [`domain.md`](domain.md)                                           |
 | Follow a request through the logs, or add an error code             | [`logging.md`](logging.md)                                         |
 | Write or change any documentation                                   | [`_standard/`](_standard/)                                         |
 | Run an audit or remediation programme                               | [`_auditing/`](_auditing/)                                         |
@@ -34,11 +35,13 @@ Read in this order. About an hour, and it is the shortest path back to changing 
 
 1. **[`glossary.md`](glossary.md)** — the German vocabulary is load-bearing and some of it is
    counter-intuitive. Everything else assumes it.
-2. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
+2. **[`domain.md`](domain.md)** — what the data is, what depends on what, and when each thing may be
+   edited. Two of its seven aggregates are counter-intuitive and both mistakes are expensive.
+3. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
    [ops](ops/overview.md). What each part is, and why it is shaped that way.
-3. **The [ADR index](_decisions/README.md)** — one line per decision. The fastest answer to "why is it
+4. **The [ADR index](_decisions/README.md)** — one line per decision. The fastest answer to "why is it
    like this", and the reason you will not re-litigate settled questions.
-4. **[`workflows/`](workflows/)** — how to actually ship a change.
+5. **[`workflows/`](workflows/)** — how to actually ship a change.
 
 The specs are reference, not reading. Look things up in them; do not read them through.
 
@@ -55,7 +58,9 @@ scheduled review, because nothing depends on one.
 | **Spec sheet** | What is the contract? Is it still true? | Tables, looked up              | A constraint changes           |
 | **ADR**        | Why is it like this? May I change it?   | One decision, argued           | **Never** — superseded instead |
 
-Plus the **glossary**, which is cross-cutting and belongs to no surface.
+Plus the **glossary** and the **domain model**, which are cross-cutting and belong to no surface. The
+domain model is a fourth shape: a narrative over tables that a test walks, so its claims are checked
+rather than reviewed ([ADR-0066](_decisions/0066-the-domain-model-is-declared-and-conformance-checked.md)).
 
 The rule underneath all of it: **code documents the local and the changeable, `/docs` documents the
 cross-cutting and the decided.** An inline comment says what not to do at the line where doing it is
@@ -101,6 +106,7 @@ duplicated here.
 | [`workflows/`](workflows/)   | Branching, commits, pull requests, deployment, and the message templates                    |
 | [`roadmap/`](roadmap/)       | Open items with their analyses, and the closed log naming the commit that closed each       |
 | [`glossary.md`](glossary.md) | The German domain vocabulary                                                                |
+| [`domain.md`](domain.md)     | Aggregates, references, editability and refusals — the model, narrated over checked tables  |
 | [`logging.md`](logging.md)   | The logging and error-handling convention: correlation id, streams, error codes             |
 | `audit/`                     | **Gitignored.** Working documents of a running programme — see below                        |
 

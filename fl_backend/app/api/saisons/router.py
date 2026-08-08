@@ -33,7 +33,7 @@ from app.api.saisons.schemas import (
     FLSaisonsListResponse,
     FLSaisonsSingleResponse,
 )
-from app.api.saisons.services import build_saisons_filter, build_saisons_sort
+from app.api.saisons.services import build_saisons_filter, build_saisons_sort, with_schedule
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection
@@ -63,7 +63,7 @@ async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsF
         limit=filters.limit,
         sort_by=db_sort,
     )
-    saisons = FLSaisonsListAdapter.validate_python(saisons_raw)
+    saisons = FLSaisonsListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw])
 
     return FLSaisonsListResponse(saisons=saisons)
 
@@ -81,7 +81,7 @@ async def get_current_saison(
 
     saison_raw = await pull_current_saison(saisons_collection=saisons_collection)
 
-    saison = FLSaison.model_validate(saison_raw)
+    saison = FLSaison.model_validate(with_schedule(saison_raw))
 
     return FLSaisonsSingleResponse(saison=saison)
 
@@ -101,4 +101,4 @@ async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> F
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
 
-    return FLSaisonsSingleResponse(saison=FLSaison.model_validate(saison_raw))
+    return FLSaisonsSingleResponse(saison=FLSaison.model_validate(with_schedule(saison_raw)))

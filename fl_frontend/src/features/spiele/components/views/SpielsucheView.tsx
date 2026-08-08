@@ -2,11 +2,15 @@
 
 import { useMemo } from "react";
 
+import { FilterBar } from "@/shared/components/ui/FilterBar";
 import { CARDS_CASCADE } from "@/shared/components/ui/motion";
 import { SearchBar } from "@/shared/components/ui/SearchBar";
 import { useDebouncedUrlQuery } from "@/shared/hooks/useDebouncedUrlQuery";
 import { useFuzzySearch } from "@/shared/hooks/useFuzzySearch";
+import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
+import { applyFacets } from "@/shared/utils/facets";
 
+import { buildSpielFacets } from "../../facets";
 import { formatQuelle } from "../../utils";
 import { SpielCardsList } from "../collections/SpielCardsList";
 
@@ -56,19 +60,32 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
     }));
   }, [spiele]);
 
-  // `emptyQuery: "none"` is deliberate and the reason the hook takes the option at all: this view
-  // shows "Noch keine Eingabe..." until the user types, while the two admin views list everything.
+  // The facets, rebuilt only when the season's fixtures change: three of them derive their options from
+  // the fixtures themselves, so they cannot offer a club, venue or referee that would narrow to nothing.
+  const facets = useMemo(() => buildSpielFacets({ spiele, today, isAdmin }), [spiele, today, isAdmin]);
+  const { selection, activeCount } = useUrlFilters(facets);
+
+  const narrowed = useMemo(() => applyFacets(processedSpiele, facets, selection), [processedSpiele, facets, selection]);
+
+  // **`emptyQuery: "all"` now, and the empty state moved out of the hook.** This view still shows
+  // "Noch keine Eingabe..." on arrival, but a FILTER is an input too: a search for every cancelled
+  // fixture is a legitimate thing to ask for without typing a word, which is what FE-5 wanted. So the
+  // hook returns everything for an empty query and the branch below decides whether the page has been
+  // asked anything at all.
   const filteredResults = useFuzzySearch({
-    items: processedSpiele,
+    items: narrowed,
     keys: SEARCH_KEYS,
     query: spielQuery,
-    emptyQuery: "none",
+    emptyQuery: "all",
   });
+
+  const hasAsked = spielQuery !== "" || activeCount > 0;
 
   return (
     <div className="relative flex w-full flex-1 flex-col items-center">
-      {/** Search Bar */}
-      <div className="bg-background sticky top-0 z-20 flex w-full justify-center px-4 py-4 sm:px-8 lg:py-8">
+      {/** Search bar and the filter control, in one sticky band: both narrow the same list, so a reader
+           scrolling a long result set keeps both within reach. */}
+      <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center gap-3 px-4 py-4 sm:px-8 lg:py-8">
         <SearchBar
           label="Spiele suchen"
           placeholder="Suche nach Team, Ort, Datum..."
@@ -76,14 +93,24 @@ export function SpielsucheView({ spiele, today, isAdmin = false }: { spiele: FLS
           onChange={setInputValue}
           className="max-w-toolbar w-full"
         />
+        {/* Counted over the season's whole fixture list, so an option says what it would leave rather
+            than what the current query already left. */}
+        <div className="max-w-toolbar flex w-full flex-row justify-start">
+          <FilterBar
+            facets={facets}
+            items={processedSpiele}
+          />
+        </div>
       </div>
 
       {/* Results Area */}
       <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
-        {spielQuery === "" ? (
+        {!hasAsked ? (
           <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Noch keine Eingabe...</p>
         ) : filteredResults.length === 0 ? (
-          <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">Keine Ergebnisse für "{spielQuery}"</p>
+          <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">
+            {spielQuery === "" ? "Keine Ergebnisse für diese Filter" : `Keine Ergebnisse für "${spielQuery}"`}
+          </p>
         ) : (
           // The cascade is doing more work here than elsewhere: results are re-filtered on every
           // debounced keystroke, so this grid re-enters constantly. A block fade made each new

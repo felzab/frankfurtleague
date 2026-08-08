@@ -1,21 +1,28 @@
 """
-SPIELTAGE · read endpoint
+SPIELTAGE · read endpoints
 
-Matchdays: named blocks of fixtures inside a season, with a date range. Reference data -- read-only
-through the API, edited directly in MongoDB.
+Matchdays: named blocks of fixtures inside a season, with a date range. Written through
+`admin_router.py` in this slice and read here.
 
  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
 
-  • Ordering is by `order_val`, NOT by date. That is the default sort and the one the bracket depends
-    on; sorting by `beginn` reorders the playoff rounds wrongly when dates overlap.
+  • Ordering is DERIVED and no field holds it: `saison_phase` in bracket order, then `beginn`, then
+    `name`. `order_spieltage` applies it and is the only expression of it (ADR-0064).
   • Omitting `saison_id` means the current season, resolved in the handler because a field default
     cannot query the database.
-  • A Spieltag is not a Spiel. It groups matches; `anzahl_spiele` records how many it should contain.
+  • A Spieltag is not a Spiel. It groups matches; `anzahl_spiele` says how many it SHOULD contain.
+  • **`anzahl_spiele` is derived here and stored nowhere** (ADR-0065). Both reads resolve the season's
+    `rules` for it, which is why the list endpoint reads the season document rather than only its id --
+    exactly what `GET /teams` does for the league table (ADR-0026).
 """
+
+from typing import Any, Mapping
 
 from fastapi import APIRouter, Depends
 
-from app.api.saisons.crud import pull_current_saison_id
+from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.saisons.schedule import expected_matches
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
     FLSpieltag,
     FLSpieltageFilterParams,
@@ -23,7 +30,7 @@ from app.api.spieltage.schemas import (
     FLSpieltageSingleResponse,
     FLSpieltagListAdapter,
 )
-from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort
+from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort, order_spieltage
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpieltageCollection
@@ -37,6 +44,18 @@ router = APIRouter(
 )
 
 
+def _with_expected_matches(spieltage_raw: list[Mapping[str, Any]], rules: FLSaisonRules) -> list[dict[str, Any]]:
+    """
+    Attaches each matchday's derived `anzahl_spiele` before validation.
+
+    Injected into the raw document rather than set on the model afterwards, because the field is REQUIRED
+    on `FLSpieltag` -- so a document reaching validation without it is a 500, and doing it here means the
+    model's own bound (`ge=0`) still judges the derived value.
+    """
+
+    return [{**raw, "anzahl_spiele": expected_matches(rules, raw["saison_phase"])} for raw in spieltage_raw]
+
+
 @router.get("", response_model=FLSpieltageListResponse, summary="List Spieltage")
 async def get_spieltage(
     spieltage_collection: SpieltageCollection,
@@ -44,16 +63,20 @@ async def get_spieltage(
     filters: FLSpieltageFilterParams = Depends(),
 ) -> FLSpieltageListResponse:
     """
-    List matchdays for a season, ordered by `order_val` rather than by date.
+    List matchdays for a season, in the order they are played.
+
+    That order is derived rather than stored: the phase in bracket order, then `beginn`, then `name`. It
+    is what `sort_by=natural` means and it is the default; the other two sort options are dates, and
+    neither is what a bracket reads.
 
     Omitting `saison_id` returns the **current** season. `saison_phase` accepts `playoffs` as an alias
     for "any phase except gruppenphase".
     """
 
     # Omitting `saison_id` means "the current season", not "every season" (ADR-0002). Resolved here
-    # rather than as a field default because a default cannot reach the database.
-    if filters.saison_id is None:
-        filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+    # rather than as a field default because a default cannot reach the database — and the season's
+    # `rules` come back in the same query, because the derived match count needs them.
+    filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
     db_filter = build_spieltage_filter(filters=filters)
     db_sort = build_spieltage_sort(sort_by=filters.sort_by, order=filters.order)
@@ -64,20 +87,34 @@ async def get_spieltage(
         limit=filters.limit,
         sort_by=db_sort,
     )
-    spieltage = FLSpieltagListAdapter.validate_python(spieltage_raw)
+    spieltage = FLSpieltagListAdapter.validate_python(_with_expected_matches(spieltage_raw, rules))
+
+    # The exact order, applied after the read: the four phases sort lexically in Mongo and that is not
+    # the order they are played in (ADR-0064). Only the natural order is refined here — a caller who
+    # asked for a date or a size ordering asked for exactly that.
+    if filters.sort_by == "natural":
+        spieltage = order_spieltage(spieltage)
+        if filters.order == "desc":
+            spieltage.reverse()
 
     return FLSpieltageListResponse(spieltage=spieltage)
 
 
 @router.get(by_id("spieltag_id"), response_model=FLSpieltageSingleResponse, summary="One Spieltag")
-async def get_spieltag(spieltag_id: CustomRouteObjectId, spieltage_collection: SpieltageCollection) -> FLSpieltageSingleResponse:
+async def get_spieltag(
+    spieltag_id: CustomRouteObjectId,
+    spieltage_collection: SpieltageCollection,
+    saisons_collection: SaisonsCollection,
+) -> FLSpieltageSingleResponse:
     """
     Return one matchday by its id.
 
-    Addressed directly, so no season is resolved and a retired matchday is returned rather than
-    hidden — a caller holding an id was given it by something.
+    Addressed directly, so no season is chosen by this endpoint and a retired matchday is returned rather
+    than hidden — a caller holding an id was given it by something. The matchday's OWN `saison_id` is
+    still resolved, because the derived match count needs that season's rules (ADR-0065).
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
+    _, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
 
-    return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(spieltag_raw))
+    return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(_with_expected_matches([spieltag_raw], rules)[0]))

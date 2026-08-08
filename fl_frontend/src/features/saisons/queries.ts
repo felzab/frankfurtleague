@@ -5,10 +5,14 @@
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
- *   • Base tag only. `saisons` has no frontend write surface, so a granular tag could never be
- *     invalidated by anything — it would read as coverage and provide none.
- *   • Because nothing in the app writes seasons, a direct database edit is served stale until the
- *     daily cacheLife expires or the container is recreated — there is no invalidation endpoint, by
+ *   • Base tag only, and here it is the only tag that could exist: a season is not season-scoped data,
+ *     it IS the season, and `getSaisons` reads every one of them in a single call. A
+ *     `saisons:saison_id:...` tag would name an entry nothing ever creates (ADR-0001).
+ *   • The base tag IS invalidated — `actions.ts` in this slice clears it on every season write, and
+ *     the rollover clears `spiele`, `spieltage` and `teams` with it, because an omitted `saison_id`
+ *     means the current season (ADR-0002).
+ *   • A hand edit made directly in MongoDB still goes around all of that and is served stale until the
+ *     daily cacheLife expires or the container is recreated. There is no invalidation endpoint, by
  *     decision (ADR-0035).
  *   • `getCurrentSaison` takes no filters on purpose: "current" is a backend determination, and a
  *     second definition here would be one that could disagree.
@@ -30,7 +34,7 @@ import type { FLSaisonsFilterParams } from "./types";
 export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonsListResponse> {
   "use cache";
 
-  // Base tag only: `saisons` has no frontend write surface, so nothing could invalidate a granular one.
+  // Base tag only: this read spans every season, so nothing narrower describes it.
   cacheTag("saisons");
   cacheLife("days");
 

@@ -49,6 +49,7 @@ thing to check when behaviour looks impossible.
   docs/glossary.md -- Ergebnis, Tore, saison_phase
 """
 
+from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, model_validator
@@ -57,8 +58,35 @@ from app.api.teams.schemas import FLDisqualifikation, FLGruppenNames
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomOptionalDateString, CustomOptionalTimeString, CustomTimeString
 from app.shared.schemas.responses import BaseAPIResponse
 
-FLSaisonPhase = Literal["gruppenphase", "viertelfinale", "halbfinale", "finale"]
+FLSaisonPhase = Literal["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
 FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
+
+# ── The competition's shape, derived from the phase set ──────────────────────────────────────────────
+#
+# **`PHASE_ORDER` is the one declaration of how many knockout rounds this competition can have, and
+# adding one is adding a member to it.** Everything below reads the tuple rather than a literal count:
+# the ladder, the bracket's capacity, and how many matches a round holds. A `sechzehntelfinale` between
+# `gruppenphase` and `achtelfinale` would raise the ceiling from 16 qualifiers to 32 and change nothing
+# else in this file (ADR-0065).
+#
+# The order is the order the rounds are PLAYED, so the group phase is first and the final is last. That
+# ordering is what `find_wiring_refusal` needs to refuse a feeder played too late, and what
+# `order_spieltage` needs because a matchday's position is derived rather than stored (ADR-0064).
+PHASE_ORDER: tuple[FLSaisonPhase, ...] = ("gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale")
+
+# The rank of each phase, built from the order above so the two cannot disagree. A Mapping because both
+# callers ask "which rank is this phase" rather than "what is at rank n" -- the frontend's
+# `SAISON_PHASE_OPTIONS` is the array form and mirrors `PHASE_ORDER` the way every schema there mirrors
+# one here.
+PHASE_RANK: Mapping[FLSaisonPhase, int] = {phase: rank for rank, phase in enumerate(PHASE_ORDER)}
+
+# The knockout rounds, largest first: every phase except the group phase, which is not a round.
+KNOCKOUT_PHASES: tuple[FLSaisonPhase, ...] = PHASE_ORDER[1:]
+
+# How many teams a season may send into the bracket. A knockout ladder halves each round down to one
+# final, so it needs a power of two -- and the ceiling is what the phase set can hold: 2**4 = 16 with
+# the five phases above.
+MAX_QUALIFIERS: int = 2 ** len(KNOCKOUT_PHASES)
 
 
 # The three embedded field models are declared BEFORE the payload and FLSpiel that reference them.
@@ -259,11 +287,70 @@ class FLBracketFaultSpiel(BaseModel):
     spiel_nr: int = Field(gt=0)
 
 
-# The five stored bracket faults, tagged on `reason` so each variant carries exactly the fields its own
-# fault needs and no reader has to know which of them are meaningful together. Discriminated rather than
+class FLBracketFaultOccupant(BaseModel):
+    """
+    One fixture that fields a team the season disqualified before the day it is played.
+
+    **Not a fault of the bracket, and the only one here that is not.** The other five are contradictions
+    between a slot's references and what the season can produce; this one is a contradiction between a
+    fixture's DATE and a decision recorded on the junction row, and it applies to a group-phase fixture
+    exactly as much as to a knockout slot. It shares this union because it shares the channel: a derived
+    contradiction that needs a person, reported on the same triage list (ADR-0047, ADR-0056).
+
+    **A fixture played BEFORE the disqualification is not a fault.** The team was eligible on the day, so
+    the match and its result stand -- `find_eligibility_refusal` permits entering that result for the same
+    reason (owner, 2026-08-08). What is reported is a fixture on or after the effective day.
+
+    `spiel_datum` is null where the fixture carries no date, which is reported: an undated fixture cannot
+    be shown to have been played in time, and that is the same refuse-by-default reading the write path
+    takes.
+
+    Nothing is emptied. The fixture keeps both sides, because the answer -- cancel it, award it, or
+    replace the team -- is a competition decision and not one a derivation may take (roadmap FB-9).
+    """
+
+    reason: Literal["disqualified_occupant"]
+    spiel_id: CustomObjectId
+    spiel_nr: int = Field(gt=0)
+    side: Literal["team1", "team2"]
+    team_id: CustomObjectId
+    team_name: str = Field(min_length=1)
+    # The day the disqualification took effect, and the day this fixture is played, so a reader can see
+    # the ordering that makes it a fault without opening either document.
+    disqualifiziert_seit: CustomDateString
+    spiel_datum: CustomOptionalDateString
+
+
+# The six derived faults, tagged on `reason` so each variant carries exactly the fields its own fault
+# needs and no reader has to know which of them are meaningful together. Discriminated rather than
 # flattened with optional fields, for the same reason `FLSpielQuelle` is: a flat model can express a
 # cycle carrying a `platz`, which means nothing, and no validator here could refuse it (ADR-0047).
-FLBracketFault = Annotated[FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel, Field(discriminator="reason")]
+FLBracketFault = Annotated[
+    FLBracketFaultGruppe | FLBracketFaultQuelle | FLBracketFaultSpiel | FLBracketFaultOccupant,
+    Field(discriminator="reason"),
+]
+
+
+class FLSpielBooking(BaseModel):
+    """
+    The three fields the clash rule reads off ANOTHER fixture, validated (owner, 2026-08-08).
+
+    Its own model rather than `FLSpiel`, because the clash read spans every season and projects three keys
+    -- validating whole fixtures there would read every field of every match in the database to compare two
+    times. And a validated model rather than raw dict access, because `find_clash_refusal` ACTS on these
+    values: `uhrzeit` is split into three parts to compare, so a hand-edited `18:00` raised `ValueError` and
+    answered 500 on a legitimate edit. `CustomTimeString` refuses it at the boundary with a loud, specific
+    error instead -- which is the reason every other Mongo read on this path is validated too.
+
+    Neither field is nullable: the query filters both out, so a document reaching this model has them.
+    """
+
+    spiel_nr: int = Field(gt=0)
+    datum: CustomDateString
+    uhrzeit: CustomTimeString
+
+
+FLSpielBookingListAdapter = TypeAdapter(list[FLSpielBooking])
 
 
 class FLPatchSpielDataPayload(BaseModel):
@@ -330,8 +417,8 @@ class FLSpiel(BaseModel):
     schiedsrichter: FLSpielSchiedsrichterField | None
 
     # "Tore:Tore", or null when the match has not been played. Parsed as structured data by the
-    # frontend, which derives win/draw/loss from it -- a malformed value rendered as a loss for
-    # both teams before this was constrained.
+    # frontend, which derives win/draw/loss from it -- so a malformed value renders as a loss for both
+    # teams, which is what the pattern is here to refuse.
     ergebnis: Annotated[str, StringConstraints(pattern=r"^[0-9]+:[0-9]+$")] | None
 
     # How a knockout that finished level was settled, or null -- which is every match that was not, and
@@ -424,8 +511,8 @@ class FLSpielAdvancement(BaseModel):
 
     **The two are separate facts and the second is the one an admin needs.** A slot filling from empty
     is the ordinary, harmless case; a slot whose occupant changed while the fixture already held a
-    scoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044), and until this model
-    existed the response said only that a `Paarung` had been updated (ADR-0051).
+    scoreline loses that scoreline in the same transaction (ADR-0042, ADR-0044) -- which a response
+    reporting only that a `Paarung` was updated cannot convey (ADR-0051).
 
     Both voided fields are `None` on the harmless case, so "was anything destroyed here" is a null
     check rather than a comparison against the fixture's earlier state — which the caller does not

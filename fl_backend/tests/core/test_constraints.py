@@ -43,35 +43,25 @@ from app.api.spiele.schemas import (
     FLSpielTeamField,
 )
 from app.api.spieler.schemas import FLSpieler, FLSpielerPosition, FLSpielerStufe
-from app.api.spieler.services import SAISON_SPIELER_COLLECTION_NAME
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLDisqualifikation, FLGruppenNames, FLTeam, FLTeamRecord
-from app.api.teams.services import SAISON_TEAMS_COLLECTION_NAME
+from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS, UNIQUE_INDEXES, diagnose_failure
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.kontakt import FLKontakt
 
-# Every collection the application reads or writes. Written out rather than derived from `db.py`'s
-# providers, because two of the nine have no provider -- the junctions are reached through a `$lookup`
-# by name -- so a derivation would quietly cover seven and look complete.
-EXPECTED_COLLECTIONS = {
-    "saisons",
-    "teams",
-    "saison_teams",
-    "spieler",
-    "saison_spieler",
-    "spiele",
-    "spieltage",
-    "spielorte",
-    "schiedsrichter",
-}
+# Every collection the application reads or writes, from the one declaration of them (ADR-0068). It was
+# written out here because a derivation from `db.py`'s providers would have covered seven of the nine --
+# the junctions are reached through a `$lookup` by name and have no provider -- and `Collection` is the
+# declaration that covers all nine without being derived from any single consumer.
+EXPECTED_COLLECTIONS = {collection.value for collection in Collection}
 
 # The two collections with no Pydantic model of the ROW. Named here so that giving one a model later
 # fails this file rather than silently leaving its validator unmirrored. A model of an EMBEDDED
 # sub-document does not take a collection off this list -- `saison_teams.disqualifikation` has one and
 # the row around it still does not.
-MODELLESS_COLLECTIONS = {SAISON_TEAMS_COLLECTION_NAME, SAISON_SPIELER_COLLECTION_NAME}
+MODELLESS_COLLECTIONS = {Collection.SAISON_TEAMS, Collection.SAISON_SPIELER}
 
 # JSON Schema keywords ADR-0027 puts out of scope. Ranges, formats and lengths stay Pydantic's, and a
 # validator reaching for one of these is the scope being widened rather than a constraint being added.
@@ -98,40 +88,44 @@ OUT_OF_SCOPE_KEYWORDS = {
 # more than one collection, so they carry fields no single document holds -- and naming them here is
 # what keeps this an equality check rather than a subset check that would pass while a real field went
 # missing.
-MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[BaseModel], ...], frozenset[str]]] = [
-    ("saisons", (), FLSaison, frozenset()),
-    ("saisons", ("rules",), FLSaisonRules, frozenset()),
-    ("spiele", (), FLSpiel, frozenset()),
-    ("spiele", ("team1",), FLSpielTeamField, frozenset()),
-    ("spiele", ("team2",), FLSpielTeamField, frozenset()),
+MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple[type[BaseModel], ...], frozenset[str]]] = [
+    # `schedule` is derived from this season's own `rules` and is stored nowhere (ADR-0065) -- the same
+    # shape `anzahl_spiele` has on a matchday, which reports one entry of it per matchday.
+    (Collection.SAISONS, (), FLSaison, frozenset({"schedule"})),
+    (Collection.SAISONS, ("rules",), FLSaisonRules, frozenset()),
+    (Collection.SPIELE, (), FLSpiel, frozenset()),
+    (Collection.SPIELE, ("team1",), FLSpielTeamField, frozenset()),
+    (Collection.SPIELE, ("team2",), FLSpielTeamField, frozenset()),
     # A discriminated union, so both variants are named and the validator must declare their union
     # (ADR-0042). `required` on the validator side is `type` alone -- $jsonSchema cannot make a key
     # required only when a sibling holds a particular value, and this test compares field SETS.
-    ("spiele", ("team1_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
-    ("spiele", ("team2_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
+    (Collection.SPIELE, ("team1_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
+    (Collection.SPIELE, ("team2_quelle",), (FLSpielQuelleGruppe, FLSpielQuelleSpiel), frozenset()),
     # No variants, so unlike the two `quelle` fields above this one is covered in full: the validator
     # requires both counts and types both (ADR-0044).
-    ("spiele", ("elfmeterschiessen",), FLSpielElfmeterschiessen, frozenset()),
-    ("spiele", ("ort",), FLSpielOrtField, frozenset()),
-    ("spiele", ("schiedsrichter",), FLSpielSchiedsrichterField, frozenset()),
-    ("spieltage", (), FLSpieltag, frozenset()),
-    ("spielorte", (), FLSpielort, frozenset()),
-    ("spielorte", ("address",), FLAddress, frozenset()),
-    ("schiedsrichter", (), FLSchiedsrichter, frozenset()),
-    ("schiedsrichter", ("kontakt",), FLKontakt, frozenset()),
+    (Collection.SPIELE, ("elfmeterschiessen",), FLSpielElfmeterschiessen, frozenset()),
+    (Collection.SPIELE, ("ort",), FLSpielOrtField, frozenset()),
+    (Collection.SPIELE, ("schiedsrichter",), FLSpielSchiedsrichterField, frozenset()),
+    # `anzahl_spiele` is derived from the season's rules and this matchday's phase, and is stored
+    # nowhere (ADR-0065) -- the same shape `statistik` has on a team two entries down.
+    (Collection.SPIELTAGE, (), FLSpieltag, frozenset({"anzahl_spiele"})),
+    (Collection.SPIELORTE, (), FLSpielort, frozenset()),
+    (Collection.SPIELORTE, ("address",), FLAddress, frozenset()),
+    (Collection.SCHIEDSRICHTER, (), FLSchiedsrichter, frozenset()),
+    (Collection.SCHIEDSRICHTER, ("kontakt",), FLKontakt, frozenset()),
     # `gruppe` and `disqualifikation` are joined from saison_teams; `statistik` is derived from spiele
     # and stored nowhere at all (ADR-0026). None of the three is on a teams document.
-    ("teams", (), FLTeam, frozenset({"gruppe", "disqualifikation", "statistik"})),
+    (Collection.TEAMS, (), FLTeam, frozenset({"gruppe", "disqualifikation", "statistik"})),
     # The same collection twice, on purpose. `FLTeam` is the READ shape and is allowed to carry three
     # fields no document has; `FLTeamRecord` is what a write echoes, so its field set must match the
     # validator EXACTLY -- an empty `not_stored` is the assertion.
-    ("teams", (), FLTeamRecord, frozenset()),
-    ("teams", ("address",), FLAddress, frozenset()),
+    (Collection.TEAMS, (), FLTeamRecord, frozenset()),
+    (Collection.TEAMS, ("address",), FLAddress, frozenset()),
     # Everything but the two names comes from the saison_spieler junction.
-    ("spieler", (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "is_captain"})),
+    (Collection.SPIELER, (), FLSpieler, frozenset({"team_id", "stufe", "nummer", "position", "is_nachgetragen", "is_captain"})),
     # The one sub-document of a modelless row that does have a model, so the drift check reaches it
     # (ADR-0059). `FLTeam` embeds it, which is how the record travels from the junction to the reader.
-    ("saison_teams", ("disqualifikation",), FLDisqualifikation, frozenset()),
+    (Collection.SAISON_TEAMS, ("disqualifikation",), FLDisqualifikation, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -143,36 +137,36 @@ MIRRORED_MODELS: list[tuple[str, tuple[str, ...], type[BaseModel] | tuple[type[B
 # neither has one: `type` is the discriminator declared inline on each variant, and `ausgang` is
 # declared inline on the match-fed variant (ADR-0042). Naming them here would mean adding two aliases
 # to the spiele slice for a test's benefit, which is the tail wagging the dog.
-MIRRORED_ENUMS: list[tuple[str, tuple[str, ...], str, tuple[object, ...], bool]] = [
-    ("saisons", (), "status", get_args(FLSaisonStatus), False),
+MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...], bool]] = [
+    (Collection.SAISONS, (), "status", get_args(FLSaisonStatus), False),
     # An ARRAY of the league's set: which levels this season runs. Not nullable and not itself a
     # Literal — the members are, which is what this row compares.
-    ("saisons", ("rules",), "erlaubte_stufen", get_args(FLSpielerStufe), False),
-    ("saison_teams", (), "gruppe", get_args(FLGruppenNames), False),
-    ("spiele", (), "saison_phase", get_args(FLSaisonPhase), False),
-    ("spieltage", (), "saison_phase", get_args(FLSaisonPhase), False),
+    (Collection.SAISONS, ("rules",), "erlaubte_stufen", get_args(FLSpielerStufe), False),
+    (Collection.SAISON_TEAMS, (), "gruppe", get_args(FLGruppenNames), False),
+    (Collection.SPIELE, (), "saison_phase", get_args(FLSaisonPhase), False),
+    (Collection.SPIELTAGE, (), "saison_phase", get_args(FLSaisonPhase), False),
     (
-        "spiele",
+        Collection.SPIELE,
         ("team1_quelle",),
         "type",
         get_args(FLSpielQuelleGruppe.model_fields["type"].annotation) + get_args(FLSpielQuelleSpiel.model_fields["type"].annotation),
         False,
     ),
-    ("spiele", ("team1_quelle",), "gruppe", get_args(FLGruppenNames), False),
-    ("spiele", ("team1_quelle",), "ausgang", get_args(FLSpielQuelleSpiel.model_fields["ausgang"].annotation), False),
+    (Collection.SPIELE, ("team1_quelle",), "gruppe", get_args(FLGruppenNames), False),
+    (Collection.SPIELE, ("team1_quelle",), "ausgang", get_args(FLSpielQuelleSpiel.model_fields["ausgang"].annotation), False),
     (
-        "spiele",
+        Collection.SPIELE,
         ("team2_quelle",),
         "type",
         get_args(FLSpielQuelleGruppe.model_fields["type"].annotation) + get_args(FLSpielQuelleSpiel.model_fields["type"].annotation),
         False,
     ),
-    ("spiele", ("team2_quelle",), "gruppe", get_args(FLGruppenNames), False),
-    ("spiele", ("team2_quelle",), "ausgang", get_args(FLSpielQuelleSpiel.model_fields["ausgang"].annotation), False),
+    (Collection.SPIELE, ("team2_quelle",), "gruppe", get_args(FLGruppenNames), False),
+    (Collection.SPIELE, ("team2_quelle",), "ausgang", get_args(FLSpielQuelleSpiel.model_fields["ausgang"].annotation), False),
     # Nullable, because a squad entry is filled in over time (ADR-0061). `None` is a member of the
     # validator's list, which is what lets `enum` stand beside a nullable `bsonType`.
-    ("saison_spieler", (), "position", get_args(FLSpielerPosition), True),
-    ("saison_spieler", (), "stufe", get_args(FLSpielerStufe), True),
+    (Collection.SAISON_SPIELER, (), "position", get_args(FLSpielerPosition), True),
+    (Collection.SAISON_SPIELER, (), "stufe", get_args(FLSpielerStufe), True),
 ]
 
 
@@ -195,7 +189,7 @@ def document_keys(models: type[BaseModel] | tuple[type[BaseModel], ...]) -> set[
     return keys
 
 
-def properties_at(collection: str, path: tuple[str, ...]) -> Mapping[str, Any]:
+def properties_at(collection: Collection, path: tuple[str, ...]) -> Mapping[str, Any]:
     """Walk into a validator's nested `properties`, so an embedded model can be compared to its own."""
     schema: Mapping[str, Any] = COLLECTION_VALIDATORS[collection]["$jsonSchema"]
 
@@ -234,7 +228,7 @@ def test_only_the_two_junctions_are_unmirrored():
 
 @pytest.mark.parametrize(("collection", "path", "model", "not_stored"), MIRRORED_MODELS)
 def test_every_mirrored_model_matches_its_validator(
-    collection: str,
+    collection: Collection,
     path: tuple[str, ...],
     model: type[BaseModel] | tuple[type[BaseModel], ...],
     not_stored: frozenset[str],
@@ -261,7 +255,7 @@ def test_every_mirrored_model_matches_its_validator(
 
 @pytest.mark.parametrize(("collection", "path", "field", "members", "nullable"), MIRRORED_ENUMS)
 def test_every_validator_enum_matches_its_literal(
-    collection: str,
+    collection: Collection,
     path: tuple[str, ...],
     field: str,
     members: tuple[object, ...],
@@ -270,9 +264,9 @@ def test_every_validator_enum_matches_its_literal(
     """
     A validator's `enum` holds exactly the members of the `Literal` it copies.
 
-    The sibling drift check compares field NAMES and reaches no further, so before this test a
-    renamed or dropped enum member passed the whole default tier and surfaced as a live write the
-    database refused for a value the models consider perfectly legal.
+    The sibling drift check compares field NAMES and reaches no further, so without this test a
+    renamed or dropped enum member passes the whole default tier and surfaces as a live write the
+    database refuses for a value the models consider perfectly legal.
 
     Compared as SETS: `enum` is an unordered membership rule, and MongoDB does not care what order the
     list is in, so an ordering difference is not drift.
@@ -336,7 +330,7 @@ def test_every_declared_enum_is_checked():
 
 
 @pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))
-def test_every_required_field_declares_a_type(collection: str):
+def test_every_required_field_declares_a_type(collection: Collection):
     """A required field with no entry in `properties` asserts presence and nothing about the value."""
     for schema in walk_schemas(COLLECTION_VALIDATORS[collection]["$jsonSchema"]):
         undeclared = set(schema.get("required", [])) - set(schema.get("properties", {}))
@@ -344,7 +338,7 @@ def test_every_required_field_declares_a_type(collection: str):
 
 
 @pytest.mark.parametrize("collection", sorted(COLLECTION_VALIDATORS))
-def test_no_validator_constrains_a_range_or_a_format(collection: str):
+def test_no_validator_constrains_a_range_or_a_format(collection: Collection):
     """
     ADR-0027's scope, made enforceable.
 

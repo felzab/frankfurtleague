@@ -2,6 +2,7 @@
 
 import { Autocomplete, FieldError, Label, ListBox, SearchField, useFilter } from "@heroui/react";
 
+import { PHASE_LABELS } from "@/features/saisons/constants";
 import { formatQuelle, isDirectlyPrecedingRound, listFeederSpiele, quelleKey } from "@/features/spiele/utils";
 import { LABEL_BADGE } from "@/shared/components/ui/badges";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -9,7 +10,6 @@ import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/c
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import { PHASE_LABELS } from "../../ui/SaisonPhaseChip";
 import { FieldLabel } from "./FieldLabel";
 
 import type { FLPatchSpielDataPayload, FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
@@ -107,8 +107,8 @@ const describeFeeder = (spiel: FLSpiel): string => {
  * team picker is the whole editor. A knockout side is source-first: fed by an earlier match, seeded
  * from a group placing, or taken over manually. Only the manual answer shows a team picker; a side
  * with a source shows its occupant read-only, because the resolution maintains it and a team picked
- * against it would be reverted by the same request that reported success — the incoherence this
- * component used to permit.
+ * against it would be reverted by the same request that reported success, which is the incoherence
+ * this component declines to offer.
  *
  * **A match is picked from the season's legal feeders, never typed as a number.** The list offers
  * knockout matches of a strictly earlier round whose outcome no other slot already takes, so a
@@ -304,6 +304,17 @@ export function FormTeamPicker({
   // holds is exempt from the occupancy rule by construction: `collectSpieltagTeamOccupancy` skips
   // the edited fixture. Eligibility is still the write path's question (ADR-0049): a disabled key is
   // UI, not a security control, and the stale form and the second tab go around it.
+  // Whether the STORED side carries goals, which is what `REQ-RESULT-001` keys on. The stored side rather
+  // than the draft: the rule is about destroying a recorded result, and a draft that has already cleared
+  // the goals is the edit doing exactly that.
+  const hasStoredGoals = (fieldName === "team1" ? spielData.team1 : spielData.team2)?.tore != null;
+
+  // Whether the side currently selected is disqualified, for the badge on the closed trigger. Read from
+  // `teams` rather than from the payload: the payload carries the embedded display copy, and the
+  // disqualification is joined onto the team list on every read (ADR-0028 rule 4).
+  const isSelectedDisqualified =
+    teamPayload !== null && teams.find((candidate) => candidate.id === teamPayload.team_id)?.disqualifikation != null;
+
   const disabledTeamKeys = [
     ...(disabledTeamId ? [disabledTeamId] : []),
     ...teams.filter((team) => team.disqualifikation !== null || spieltagOccupancy.has(team.id)).map((team) => team.id),
@@ -321,15 +332,33 @@ export function FormTeamPicker({
       disabledKeys={disabledTeamKeys}>
       <FieldLabel path={`${fieldName}.team_id`}>{isKnockout ? `${label}: Mannschaft` : label}</FieldLabel>
       <Autocomplete.Trigger className={FIELD_TRIGGER}>
-        <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+        {/* The selected team's NAME from the prop, not `Autocomplete.Value`. That component renders the
+            chosen list ITEM's content, and a row's content is the name plus its chip with `ml-auto` -- so a
+            disqualified team's closed trigger drew "Disqualifiziert" on top of its own name inside a
+            `truncate` span (owner, 2026-08-08). Same reason `SpieltagFormFields` reads its phase from the
+            prop rather than from `Select.Value`.
+            The badge is kept, as a SIBLING rather than inside the truncating span: it is the one piece of
+            state a closed trigger genuinely has to carry, and losing it to fix the overlap would trade one
+            defect for a quieter one. `shrink-0` beside `min-w-0 truncate` is what makes the name give way
+            instead of the badge. */}
+        <span className={`fluid-sm min-w-0 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
+          {teamPayload?.name ?? PLACEHOLDER.slot}
+        </span>
+        {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong shrink-0`}>Disqualifiziert</span>}
         {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. `size-7`
             because the default is a 20px target on the control that is the PRIMARY way a group
             fixture's side is emptied — too small to see and to hit (owner, third review). */}
-        <Autocomplete.ClearButton
-          type="button"
-          aria-label={`${label}-Auswahl aufheben`}
-          className="text-foreground-muted hover:text-foreground size-7 rounded-md [&_svg]:size-4"
-        />
+        {/* Not offered while this side carries goals: emptying it would take them with it, and the
+            composed `ergebnis` with them, which `REQ-RESULT-001` refuses (owner, 2026-08-08). Switching
+            the team stays available through the list, and that is the correction this control was being
+            reached for anyway. */}
+        {!hasStoredGoals && (
+          <Autocomplete.ClearButton
+            type="button"
+            aria-label={`${label}-Auswahl aufheben`}
+            className="text-foreground-muted hover:text-foreground size-7 rounded-md [&_svg]:size-4"
+          />
+        )}
         <Autocomplete.Indicator />
       </Autocomplete.Trigger>
 

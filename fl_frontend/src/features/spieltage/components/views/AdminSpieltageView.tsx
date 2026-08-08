@@ -1,0 +1,74 @@
+"use client";
+
+import { AdminSpieltageList } from "@/features/spieltage/components/collections/AdminSpieltageList";
+import { AdminDeleteSpieltagModal } from "@/features/spieltage/components/modals/AdminDeleteSpieltagModal";
+import { AdminEditSpieltagModal } from "@/features/spieltage/components/modals/AdminEditSpieltagModal";
+import { SPIELTAG_FACETS } from "@/features/spieltage/facets";
+import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
+
+import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
+import type { AdminSpieltagRow } from "@/features/spieltage/types";
+
+// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The search finds a
+// matchday by its derived label -- "2. Spieltag", "Viertelfinale" -- or by either date. `label` is a field
+// of the ROW rather than of the document (ADR-0067), which is exactly why the row carries it: the search
+// has to match what a person reads. The phase is what the sections already group by, and narrowing to one
+// is the filter bar's job rather than something to type.
+const SEARCH_KEYS = ["label", "beginn", "ende"] as const;
+
+/**
+ * The fifth declaration over `AdminCrudView` — and the first whose `renderTable` is not a table.
+ *
+ * That slot was always a slot: it takes whatever places many of one thing, and what a matchday list needs
+ * is a phase-sectioned ordered list rather than a grid of cells (ADR-0063). The search, the edit overlay
+ * and the retire overlay are unchanged from the four resources before it.
+ *
+ * **The editor is a dialog rather than a page**, which is where this differs from Teams, Spieler and
+ * Saisons: five scalar fields with no nested object and no junction row do not reach ADR-0050's threshold.
+ */
+export function AdminSpieltageView({
+  spieltage,
+  saisonId,
+  saisonSpan,
+  saisonSchedule,
+}: {
+  spieltage: AdminSpieltagRow[];
+  saisonId: string | null;
+  /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
+  saisonSpan?: { start: string; end: string };
+  /** The season's derived per-phase match counts, which bound the edit dialog's phase picker. */
+  saisonSchedule?: readonly FLSaisonPhaseSchedule[];
+}) {
+  return (
+    <AdminCrudView<AdminSpieltagRow>
+      items={spieltage}
+      searchKeys={SEARCH_KEYS}
+      facets={SPIELTAG_FACETS}
+      renderTable={({ query, filteredItems, onEdit, onDelete }) => (
+        <AdminSpieltageList
+          spieltageQuery={query}
+          filteredSpieltage={filteredItems}
+          saisonId={saisonId}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      )}
+      renderEditModal={({ item, isOpen, onClose }) => (
+        <AdminEditSpieltagModal
+          spieltagData={item}
+          saisonSpan={saisonSpan}
+          saisonSchedule={saisonSchedule}
+          isOpen={isOpen}
+          onClose={onClose}
+        />
+      )}
+      renderDeleteModal={({ item, isOpen, onClose }) => (
+        <AdminDeleteSpieltagModal
+          spieltagData={item}
+          isOpen={isOpen}
+          onClose={onClose}
+        />
+      )}
+    />
+  );
+}

@@ -33,6 +33,7 @@ from motor.motor_asyncio import (
     AsyncIOMotorDatabase,
 )
 
+from app.core.collections import Collection
 from app.core.config import BackendConfig, get_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import DatabaseUnavailableException
@@ -100,43 +101,43 @@ async def get_database(
 async def get_spiele_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.spiele
+    return db[Collection.SPIELE]
 
 
 async def get_spieler_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.spieler
+    return db[Collection.SPIELER]
 
 
 async def get_spieltage_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.spieltage
+    return db[Collection.SPIELTAGE]
 
 
 async def get_teams_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.teams
+    return db[Collection.TEAMS]
 
 
 async def get_saisons_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.saisons
+    return db[Collection.SAISONS]
 
 
 async def get_spielorte_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.spielorte
+    return db[Collection.SPIELORTE]
 
 
 async def get_schiedsrichter_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.schiedsrichter
+    return db[Collection.SCHIEDSRICHTER]
 
 
 # The two junctions. A READ never opens either directly -- they are reached by name inside the `$lookup`
@@ -145,10 +146,10 @@ async def get_schiedsrichter_collection(
 async def get_saison_teams_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.saison_teams
+    return db[Collection.SAISON_TEAMS]
 
 
 async def get_saison_spieler_collection(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> AsyncIOMotorCollection:
-    return db.saison_spieler
+    return db[Collection.SAISON_SPIELER]

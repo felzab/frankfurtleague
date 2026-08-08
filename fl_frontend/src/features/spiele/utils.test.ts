@@ -30,6 +30,7 @@ import {
   formatQuelle,
   formatSpielDisplay,
   formatSpielUpdateMessage,
+  groupBracketFaultsBySpielId,
   listDependentSpiele,
   listFeederSpiele,
   quelleKey,
@@ -479,6 +480,51 @@ describe("formatBracketFault", () => {
       formatBracketFault({ reason: "same_team", spiel_id: "6890a1b2c3d4e5f607180029", spiel_nr: 29 }),
       "In Spiel 29 führen beide Seiten zur selben Mannschaft",
     );
+  });
+});
+
+describe("groupBracketFaultsBySpielId", () => {
+  const twentyNine = "6890a1b2c3d4e5f607180029";
+  const thirty = "6890a1b2c3d4e5f607180030";
+
+  it("gives one fixture every one of its reasons, in the order they arrived", () => {
+    // The case the card has to render: two faults on one fixture are corrected separately, so both are
+    // stated rather than the second replacing the first.
+    const grouped = groupBracketFaultsBySpielId([
+      { reason: "spiel_missing", spiel_id: twentyNine, spiel_nr: 29, quelle_spiel_nr: 99 },
+      { reason: "same_team", spiel_id: twentyNine, spiel_nr: 29 },
+    ]);
+
+    assert.deepEqual(grouped.get(twentyNine), [
+      "Verweist auf Spiel 99, das es in dieser Saison nicht gibt.",
+      "Beide Seiten führen zur selben Mannschaft.",
+    ]);
+  });
+
+  it("files each fixture's faults under its own id", () => {
+    const grouped = groupBracketFaultsBySpielId([
+      { reason: "same_team", spiel_id: twentyNine, spiel_nr: 29 },
+      { reason: "same_team", spiel_id: thirty, spiel_nr: 30 },
+    ]);
+
+    assert.equal(grouped.size, 2);
+    // No match number in the wording: the note sits on the card that already leads with it.
+    assert.deepEqual(grouped.get(thirty), ["Beide Seiten führen zur selben Mannschaft."]);
+  });
+
+  it("keys on the id and not the number, which repeats across seasons", () => {
+    // `GET /spiele/action_required` spans every season, so two fixtures numbered 29 reach this together
+    // and a number-keyed map would show one season's reason on the other season's card.
+    const grouped = groupBracketFaultsBySpielId([
+      { reason: "same_team", spiel_id: twentyNine, spiel_nr: 29 },
+      { reason: "spiel_missing", spiel_id: thirty, spiel_nr: 29, quelle_spiel_nr: 99 },
+    ]);
+
+    assert.deepEqual([...grouped.keys()], [twentyNine, thirty]);
+  });
+
+  it("returns an empty map for a season with no faults", () => {
+    assert.equal(groupBracketFaultsBySpielId([]).size, 0);
   });
 });
 

@@ -30,7 +30,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 import type { FormState } from "@/shared/types/types";
 
 const SignInPayloadSchema = z.object({
-  email: z.email("Bitte gebe eine valide Email ein."),
+  email: z.email("Gib eine gültige E-Mail-Adresse ein."),
 });
 
 // Deliberately identical whether or not the address is on the admin allowlist. This action is
@@ -64,7 +64,7 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
     // be specific here: it is a format check on what the user typed, so it leaks no membership.
     return settleAfterFloor(startedAt, {
       success: false,
-      error: "Bitte gebe eine valide Email ein.",
+      error: "Gib eine gültige E-Mail-Adresse ein.",
       fieldErrors: toFieldErrors(validated.error),
     });
   }

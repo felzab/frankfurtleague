@@ -45,18 +45,9 @@ export const DASHBOARD_SIDEMENU_STRUCTURE: SidemenuStructure<DashboardIconName> 
           points: [
             { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
             { term: "Sofort", detail: "die Liste filtert beim Tippen, es gibt nichts abzuschicken." },
+            { term: "Filter", detail: "Status, Phase, Team und Ort — auch ganz ohne Suchbegriff, etwa für alle vergangenen Spiele." },
           ],
           note: "Gesucht wird nur innerhalb der gewählten Saison.",
-        },
-      },
-      {
-        id: "spielhistorie",
-        label: "Spielhistorie",
-        iconName: "ClockArrowRotateLeft",
-        hint: {
-          lead: "Alle bereits gespielten Begegnungen der Saison.",
-          points: [{ term: "Reihenfolge", detail: "die zuletzt gespielten zuerst." }],
-          note: "Was noch aussteht, steht im Spielplan.",
         },
       },
       {

@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `445241b`, 2026-08-07
+**Verified against:** `b5324b8`, 2026-08-08
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -49,7 +49,11 @@ with a result still counts · `inactive_since` is a date, never a boolean.
 The competition year. Everything else hangs off one.
 
 **In code:** `saisons` collection · `FLSaison` (`fl_backend/app/api/saisons/schemas.py`).
-**Fields:** `start_date`, `end_date`, `status`, `rules`.
+**Stored fields:** `start_date`, `end_date`, `status`, `rules`.
+**Served but stored nowhere:** `schedule` — the season phase by phase, derived from `rules`
+([ADR-0065](_decisions/0065-a-seasons-schedule-is-derived-from-its-rules.md)), which is where a
+matchday's `anzahl_spiele` comes from and what lets the matchday editor refuse a phase too small for
+the fixtures already attached.
 
 **Pitfalls.** The id is **exactly four characters** and is a string, not an ObjectId — enforced at
 `min_length=4, max_length=4`. That constraint is not cosmetic: `FLSpiel.saison_id` and
@@ -59,9 +63,10 @@ fail to parse on read.
 
 `status` is `past` · `active` · `future` — English, unlike almost everything else in the model.
 
-`rules` carries `win_points`, `draw_points`, `qualifiers_per_group`, `number_of_groups` and
-`teams_per_group` per season, so the scoring, the size of the knockout round and the season's capacity
-are all season-configurable — and all five are live. `GET /teams` scores its derived league table with
+`rules` carries `win_points`, `draw_points`, `qualifiers_per_group`, `number_of_groups`,
+`teams_per_group` and `erlaubte_stufen` per season, so the scoring, the size of the knockout round, the
+season's capacity and the levels it admits are all season-configurable — and all six are live.
+`GET /teams` scores its derived league table with
 the two point values ([ADR-0026](_decisions/0026-team-statistics-are-derived-from-spiele.md)); a defeat
 scores nothing, and there is deliberately no `loss_points` to say otherwise. Editing either changes
 every table for that season on the next read.
@@ -84,11 +89,15 @@ invalidate the squads of a season already played.
 the same capacity (`REQ-ENTER-001..003` in [logging.md](logging.md)). Both are required with no
 default, for the same reason `qualifiers_per_group` is.
 
-**All five field names are English**, unlike almost everything else in the model: they configure the
-competition rather than naming anything in it.
+**Five of the six field names are English**, unlike almost everything else in the model: they configure
+the competition rather than naming anything in it. `erlaubte_stufen` is the exception and is German
+because its VALUES are — it names which of the league's own school levels a season admits, and those are
+the German vocabulary (ADR-0061).
 
-**Nothing edits `rules`.** No page calls `PATCH /saisons/{saison_id}`, so these values are set by hand
-until FB-6 builds the season admin form.
+**`rules` is edited on one surface**, the Regeln panel of `/admin/saisons/[saison_id]`
+([ADR-0063](_decisions/0063-a-matchday-list-is-the-seasons-skeleton.md)). All six fields are writable
+there and nowhere else. `status` is on no payload at all, so the rollover control on the same page remains
+the only path to it ([ADR-0033](_decisions/0033-one-active-season-and-one-path-to-it.md)).
 
 ### `Spiel` — match, game
 
@@ -122,14 +131,34 @@ makes cancellation something other than a soft delete.
 
 ### `Spieltag` — matchday, fixture round
 
-A named block of matches inside a season, with a date range.
+A block of matches inside a season, with a date range.
 
 **In code:** `spieltage` collection · `FLSpieltag` (`fl_backend/app/api/spieltage/schemas.py`).
-**Fields:** `name`, `beginn`, `ende`, `anzahl_spiele`, `order_val`, `saison_phase`, `saison_id`.
+**Stored fields:** `beginn`, `ende`, `saison_phase`, `saison_id`, `inactive_since`.
+**Served but stored nowhere:** `anzahl_spiele`, on the read model and on neither payload.
 
-**Pitfalls.** Ordering is by `order_val`, not by date — that is the default sort. **Not the same as
-`Spiel`.** A `Spieltag` groups matches; a `Spiel` is one of them. The English "matchday" collides
-badly here, so prefer the German in code and conversation.
+**Pitfalls — three things a matchday deliberately does not carry.**
+
+**No position.** Its place in the season is derived
+(`fl_backend/app/api/spieltage/services.py :: order_spieltage`,
+[ADR-0064](_decisions/0064-a-matchdays-position-is-derived-not-stored.md)): `saison_phase` in bracket
+order, then `beginn`, then `_id`. So moving a matchday means editing its date or its phase, two matchdays
+cannot claim one place, and the order is total because the id is unique.
+
+**No match count on the document.** `anzahl_spiele` is computed on read from the season's `rules` and this
+matchday's phase, because a single round robin per group determines it exactly
+([ADR-0065](_decisions/0065-a-seasons-schedule-is-derived-from-its-rules.md)) — so it cannot be sorted on,
+and it is zero for a phase this season's bracket never reaches. The admin list compares it against the
+fixtures actually attached.
+
+**No name.** A group matchday is its ordinal and a knockout matchday is its round, so the label is composed
+by the reader from `saison_phase` and the derived position
+([ADR-0067](_decisions/0067-a-matchdays-name-is-composed-by-the-reader.md)) —
+`fl_frontend/src/features/spieltage/utils.ts :: spieltagLabel`, on the frontend because it is German
+display text. A round split across several matchdays gets a `(1)`/`(2)` suffix; one played once does not.
+
+**Not the same as `Spiel`.** A `Spieltag` groups matches; a `Spiel` is one of them. The English
+"matchday" collides badly here, so prefer the German in code and conversation.
 
 ### `Team` — club
 
@@ -275,7 +304,16 @@ the pipeline's `name` order.
 
 ### `saison_phase` — stage of the season
 
-**Stored values, exactly four:** `gruppenphase` · `viertelfinale` · `halbfinale` · `finale`.
+**Stored values, exactly five:** `gruppenphase` · `achtelfinale` · `viertelfinale` · `halbfinale` ·
+`finale`. Declared once, as `fl_backend/app/api/spiele/schemas.py :: PHASE_ORDER`, and that order is the
+bracket's: each knockout round feeds the next.
+
+**A season plays the LAST k of the four knockout rounds**, never a prefix — eight qualifiers play
+quarter-final, semi-final and final and never touch `achtelfinale`
+(`fl_backend/app/api/saisons/schedule.py :: knockout_phases_for`,
+[ADR-0065](_decisions/0065-a-seasons-schedule-is-derived-from-its-rules.md)). Four knockout rounds is what
+puts the qualifier ceiling at sixteen, and `MAX_QUALIFIERS` derives that from the set rather than
+restating it.
 
 **Pitfalls.** `"playoffs"` is **not** one of them. It is a query-only alias, accepted as a filter value
 and compiled by `build_spiele_filter` to `saison_phase != "gruppenphase"`. It never appears on a stored

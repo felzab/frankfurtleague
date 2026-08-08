@@ -2,6 +2,7 @@
 
 import { AdminTeamsTable } from "@/features/teams/components/collections/AdminTeamsTable";
 import { AdminDeleteTeamModal } from "@/features/teams/components/modals/AdminDeleteTeamModal";
+import { TEAM_FACETS } from "@/features/teams/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminTeamRow } from "@/features/teams/types";
@@ -22,6 +23,7 @@ export function AdminTeamsView({ teams, selectedSaisonStatus }: { teams: AdminTe
     <AdminCrudView<AdminTeamRow>
       items={teams}
       searchKeys={SEARCH_KEYS}
+      facets={TEAM_FACETS}
       renderTable={({ query, filteredItems, onDelete }) => (
         <AdminTeamsTable
           teamsQuery={query}

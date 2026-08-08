@@ -24,7 +24,8 @@
 import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { APIBadStatusError } from "@/core/errors";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort } from "./mutations";
@@ -32,6 +33,24 @@ import { FLDeleteSpielortPayloadSchema, FLPatchSpielortPayloadSchema, FLPostSpie
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDeleteSpielortPayload, FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielort } from "./schemas";
+
+/**
+ * The retirement refusal (`REQ-RETIRE-003`), or `null` when the 409 is something else.
+ *
+ * Two sentences to the shape in `fl_frontend/src/features/saisons/actions.ts`: the retire control is a
+ * dialog rather than a form, so there is no field for this to land on and the action goes second.
+ */
+function mapRetireRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
+  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
+
+  if (error.serverErrorCode === "REQ-RETIRE-003") {
+    return {
+      error:
+        "Für diesen Spielort sind noch Spiele angesetzt, die kein Ergebnis haben. Verlege diese Spiele auf einen anderen Spielort oder sage sie ab.",
+    };
+  }
+  return null;
+}
 
 export async function postSpielortAction(
   rawPayload: FLPostSpielortPayload,
@@ -46,7 +65,7 @@ export async function postSpielortAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }
@@ -75,7 +94,7 @@ export async function patchSpielortAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }
@@ -110,12 +129,22 @@ export async function deleteSpielortAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }
 
-    const patchOperation = await deleteSpielort(validated.data);
+    // The retirement is refused while an unplayed fixture is still booked here (`REQ-RETIRE-003`), and
+    // that answer belongs in the dialog rather than on the error page.
+    let patchOperation;
+    try {
+      patchOperation = await deleteSpielort(validated.data);
+    } catch (error) {
+      const refusal = mapRetireRefusal(error);
+      if (refusal) return { success: false, ...refusal };
+      throw error;
+    }
+
     if (!patchOperation.acknowledged) {
       return { success: false, error: "Beim löschen der Spielort-Daten ist ein unerwarteter Fehler aufgetreten" };
     }

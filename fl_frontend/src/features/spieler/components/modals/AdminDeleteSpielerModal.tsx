@@ -32,7 +32,9 @@ export function AdminDeleteSpielerModal({
       heading="Spieler stilllegen"
       entityLabel="den Spieler"
       entityName={spieler.fullName}
-      consequence="Seine Kadereinträge bleiben in jeder Saison erhalten, in der er gespielt hat. Der Spieler steht nur nicht mehr zur Auswahl und kann jederzeit reaktiviert werden."
+      // The reactivation half moved into the shared escalation sentence, so this one states only what is
+      // specific to a person: the squad rows of every season they played in survive.
+      consequence="Seine Kadereinträge bleiben in jeder Saison erhalten, in der er gespielt hat. Der Spieler steht nur nicht mehr zur Auswahl."
       successMessage="Spieler stillgelegt"
       onConfirm={() => deleteSpielerAction({ id: spieler.id })}
     />

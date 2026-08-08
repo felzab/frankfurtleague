@@ -31,10 +31,11 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichter,
     FLSchiedsrichterWriteResponse,
 )
+from app.api.schiedsrichter.services import find_referee_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db
 from app.core.dependencies import SchiedsrichterCollection, SpieleCollection, get_german_date_str
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -104,9 +105,22 @@ async def patch_schiedsrichter(
 async def delete_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
+    spiele_collection: SpieleCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterWriteResponse:
     """Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy."""
+
+    # Unplayed means no result and not cancelled, matching `unplayed_spiel_nrs` so the two rules cannot
+    # disagree about which fixtures are still to come.
+    assigned = await pull_many_from_db(
+        collection=spiele_collection,
+        db_filter={"schiedsrichter.schiedsrichter_id": schiedsrichter_id, "ergebnis": None, "is_canceled": False},
+        projection={"spiel_nr": 1},
+    )
+    refusal = find_referee_retire_refusal(upcoming_spiel_nrs=sorted(int(row["spiel_nr"]) for row in assigned))
+    if refusal is not None:
+        error_code, detail = refusal
+        raise DocumentConflictException(error_code=error_code, message=detail)
 
     updated_document_raw = await patch_one_in_db(
         collection=schiedsrichter_collection,
