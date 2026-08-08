@@ -24,7 +24,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSchiedsrichter, patchSchiedsrichter, postSchiedsrichter } from "./mutations";
@@ -63,7 +63,7 @@ export async function postSchiedsrichterAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }
@@ -96,7 +96,7 @@ export async function patchSchiedsrichterAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }
@@ -131,7 +131,7 @@ export async function deleteSchiedsrichterAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }

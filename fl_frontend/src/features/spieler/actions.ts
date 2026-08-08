@@ -34,7 +34,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import {
@@ -67,8 +67,6 @@ import type {
   FLSpielerSingleResponse,
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
-
-const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 
 // The index spans retired rows (ADR-0032), and reviving is deliberately not the create's job -- so
 // the message names the one path that is.

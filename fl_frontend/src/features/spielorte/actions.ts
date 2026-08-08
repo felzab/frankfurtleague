@@ -25,7 +25,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSpielort, patchSpielort, postSpielort } from "./mutations";
@@ -65,7 +65,7 @@ export async function postSpielortAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }
@@ -94,7 +94,7 @@ export async function patchSpielortAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }
@@ -129,7 +129,7 @@ export async function deleteSpielortAction(
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }

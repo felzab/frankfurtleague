@@ -34,7 +34,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam } from "./mutations";
@@ -50,8 +50,6 @@ import {
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDeleteTeamPayload, FLPatchTeamPayload, FLReactivateTeamPayload, FLSaisonTeamResponse, FLTeamRecord } from "./schemas";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
-
-const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 
 // The shorthand's unique index spans retired clubs (ADR-0032), and reviving is deliberately not the
 // create's job -- so the message names the one path that is.

@@ -35,7 +35,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, previewAdminSpielData } from "./mutations";
@@ -90,7 +90,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
     if (!validated.success) {
       return {
         success: false,
-        error: "Bitte überprüfe deine Eingaben!",
+        error: VALIDATION_FAILED,
         fieldErrors: toFieldErrors(validated.error),
       };
     }
@@ -102,7 +102,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawSaisonId
       patch_operation = await patchAdminSpielData(validated.data);
     } catch (error) {
       const refusal = mapSpielRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? "Bitte überprüfe deine Eingaben!", fieldErrors: refusal.fieldErrors };
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
 
@@ -179,7 +179,7 @@ export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<
       preview = await previewAdminSpielData(validated.data);
     } catch (error) {
       const refusal = mapSpielRefusal(error);
-      if (refusal) return { success: false, error: refusal.error ?? "Bitte überprüfe deine Eingaben!", fieldErrors: refusal.fieldErrors };
+      if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       throw error;
     }
 

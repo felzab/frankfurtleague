@@ -34,7 +34,7 @@ import { updateTag } from "next/cache";
 
 import { getAdminSession } from "@/core/auth";
 import { APIBadStatusError } from "@/core/errors";
-import { runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { deleteSpieltag, patchSpieltag, postSpieltag, reactivateSpieltag } from "./mutations";
@@ -43,8 +43,6 @@ import { FLPatchSpieltagPayloadSchema, FLPostSpieltagPayloadSchema, FLSpieltagKe
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLPatchSpieltagPayload, FLSpieltagKeyPayload, FLSpieltagWriteResponse } from "./schemas";
 import type { SpieltagCreateDraft } from "./types";
-
-const VALIDATION_FAILED = "Bitte überprüfe deine Eingaben!";
 
 /**
  * The five matchday refusals in German, or `null` when the 409 is none of them.
