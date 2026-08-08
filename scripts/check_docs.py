@@ -403,7 +403,7 @@ def check_stamps(paths: Iterable[Path]) -> list[Finding]:
         sev = severity_for(path)
         try:
             raw = path.read_text(encoding="utf-8")
-        except OSError, UnicodeDecodeError:
+        except (OSError, UnicodeDecodeError):
             continue
         body = strip_fences(raw)
         match = STAMP_RE.search(body)
@@ -480,7 +480,7 @@ def check_stamp_freshness(base: str) -> list[Finding]:
             continue
         try:
             current = path.read_text(encoding="utf-8")
-        except OSError, UnicodeDecodeError:
+        except (OSError, UnicodeDecodeError):
             continue
         if STAMP_RE.search(strip_fences(current)) is None:
             continue

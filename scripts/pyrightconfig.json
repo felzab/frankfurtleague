@@ -16,7 +16,12 @@
 //
 // It lives HERE rather than at the repository root for the same reason scripts/ruff.toml does: a root config
 // would become the nearest one for fl_backend/ as well, and override the include the backend has chosen.
+// pythonVersion is PINNED because nothing here lets pyright infer it: with no venv declared it falls
+// back to the interpreter it happens to find, which is 3.14 on the dev machine and older on the CI
+// runner -- and the two then disagree about what parses. 3.14 is what these scripts actually run
+// under: verify.sh invokes them with the backend venv's interpreter, whose floor pyproject.toml sets.
 {
   "include": ["."],
-  "typeCheckingMode": "basic"
+  "typeCheckingMode": "basic",
+  "pythonVersion": "3.14"
 }
