@@ -2,7 +2,7 @@
 
 import { Calendar, DateField, DatePicker, FieldError, NumberField } from "@heroui/react";
 
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
+import { DATE_PICKER_CALENDAR, DATE_PICKER_POPOVER, FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { CalendarDate } from "@internationalized/date";
@@ -85,10 +85,10 @@ export function SaisonDateField({
         </DateField.Suffix>
       </DateField.Group>
       <FieldError className={FIELD_ERROR} />
-      <DatePicker.Popover className="p-2">
+      <DatePicker.Popover className={DATE_PICKER_POPOVER}>
         <Calendar
           aria-label={ariaLabel}
-          className={`${overlayPanel()} p-3`}>
+          className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
           <Calendar.Header className="bg-transparent">
             {/* The year picker earns its place here more than anywhere else in the app: a season's dates
                 are usually a year away from today, so a month-by-month walk would be twelve presses. */}

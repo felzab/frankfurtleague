@@ -2,12 +2,12 @@
 
 import { Sliders, Xmark } from "@gravity-ui/icons";
 
-import { Button, ListBox, Popover, Separator } from "@heroui/react";
+import { Button, ListBox, Popover } from "@heroui/react";
 
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { countFacetOptions } from "@/shared/utils/facets";
 
-import { COUNT_BADGE, LABEL_BADGE } from "./badges";
+import { COUNT_BADGE } from "./badges";
 import { overlayPanel } from "./overlayPanel";
 
 import type { Facet } from "@/shared/utils/facets";
@@ -78,21 +78,29 @@ export function FilterBar<TItem>({
         <Popover.Content
           placement="bottom start"
           offset={8}>
-          {/* `max-h` plus its own scroll, because Spielsuche's seven facets are taller than a phone.
-              `w-72` rather than a width from the trigger: the options are the content that needs the
-              room, and a trigger reading „Filter“ is narrower than any of them. */}
-          <Popover.Dialog className={`${overlayPanel()} flex max-h-[70vh] w-72 flex-col gap-y-1 overflow-y-auto p-2 outline-none`}>
-            {facets.map((facet, index) => {
+          {/* A GRID that grows sideways, not a single tall column (owner, 2026-08-08). Seven facets stacked
+              made the popover a scroll on every screen; in three columns the same seven fit a desktop
+              outright, and the scroll that remains is a fallback rather than the normal way to reach the
+              last facet. `min(92vw, …)` because a fixed width wide enough for three columns overflows a
+              phone, where the grid collapses to one column anyway.
+
+              `data-scrollbar="thin"` is what makes the remaining scroll look like the rest of the app:
+              HeroUI drives its scrollbar off that attribute rather than off a class, so a container with
+              `overflow-y-auto` and nothing else gets the raw OS scrollbar. */}
+          <Popover.Dialog
+            data-scrollbar="thin"
+            className={`${overlayPanel()} grid max-h-[70vh] w-[min(92vw,22rem)] grid-cols-1 gap-3 overflow-y-auto p-3 outline-none sm:w-[min(92vw,34rem)] sm:grid-cols-2 lg:w-[min(92vw,48rem)] lg:grid-cols-3`}>
+            {facets.map((facet) => {
               const counts = countFacetOptions(items, facets, selection, facet);
               const picked = selection[facet.param] ?? [];
 
               return (
                 <div
                   key={facet.param}
-                  className="flex w-full flex-col gap-y-1">
-                  {index > 0 && <Separator className="bg-border/60 my-1" />}
-
-                  <div className="flex flex-row items-center justify-between gap-x-2 px-2 pt-1">
+                  // A bordered cell rather than a rule between stacked rows: in a grid a horizontal
+                  // separator would divide two columns' worth of unrelated facets.
+                  className="border-border/70 flex w-full min-w-0 flex-col gap-y-1 rounded-xl border p-1.5">
+                  <div className="flex flex-row items-center justify-between gap-x-2 px-1.5 pt-0.5">
                     <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
                     {picked.length > 0 && (
                       <Button
@@ -142,31 +150,49 @@ export function FilterBar<TItem>({
       </Popover>
 
       {/* The chips are what make a closed popover honest: they say what is narrowing the list, and each
-          one removes exactly itself. */}
+          one removes exactly itself.
+
+          Redesigned (owner, 2026-08-08). The previous chip ran the facet name, a colon and the value
+          together at `fluid-xxs` inside a tinted pill, with the × crowding the value — three pieces of text
+          at one size with no boundary between them, which is why it did not read. Now the facet name is its
+          own segment on a lighter ground, the VALUE carries the weight, and the × sits behind a hairline
+          divider so it reads as a separate target rather than as punctuation. Taller, too: this is a control
+          people click, and it was below a comfortable target. */}
       {chips.map(({ facet, value, label }) => (
-        <Button
+        <span
           key={`${facet.param}:${value}`}
-          variant="ghost"
-          aria-label={`Filter ${facet.label}: ${label} entfernen`}
-          // `toggle`, not a filtered `setFacet`: it reads the live selection itself, so removing two chips
-          // in quick succession cannot have the second one rebuild from a snapshot taken before the first.
-          onPress={() => toggle(facet.param, value)}
-          className={`${LABEL_BADGE} bg-brand/15 text-foreground hover:bg-brand/25 flex cursor-pointer flex-row items-center gap-x-1.5 transition-colors`}>
-          <span className="text-foreground-muted font-medium">{facet.label}:</span>
-          {label}
-          <Xmark
-            aria-hidden="true"
-            className="size-3 shrink-0"
-          />
-        </Button>
+          className="border-brand/25 bg-brand/10 flex h-7 shrink-0 flex-row items-stretch overflow-hidden rounded-lg border">
+          <span className="fluid-xxs text-foreground-muted bg-brand/10 flex items-center px-2 font-bold tracking-wide uppercase">
+            {facet.label}
+          </span>
+          <span className="fluid-xs text-foreground flex min-w-0 items-center truncate px-2 font-bold">{label}</span>
+          <Button
+            variant="ghost"
+            aria-label={`Filter ${facet.label}: ${label} entfernen`}
+            // `toggle`, not a filtered `setFacet`: it reads the live selection itself, so removing two chips
+            // in quick succession cannot have the second one rebuild from a snapshot taken before the first.
+            onPress={() => toggle(facet.param, value)}
+            className="border-brand/25 text-foreground-muted hover:bg-danger/15 hover:text-danger-strong flex cursor-pointer items-center border-l px-1.5 transition-colors">
+            <Xmark
+              aria-hidden="true"
+              className="size-3.5 shrink-0"
+            />
+          </Button>
+        </span>
       ))}
 
+      {/* A real button rather than an underlined word at the end of the strip, which read as the last chip's
+          caption. Bordered, icon-led, and set apart by `ml-1` so the strip has an end. */}
       {activeCount > 1 && (
         <Button
           variant="ghost"
           onPress={clearAll}
-          className="fluid-xxs text-foreground-muted hover:text-foreground cursor-pointer font-bold underline transition-colors">
-          Alle zurücksetzen
+          className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs ml-1 flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors">
+          <Xmark
+            aria-hidden="true"
+            className="size-3.5 shrink-0"
+          />
+          Alle Filter zurücksetzen
         </Button>
       )}
     </div>

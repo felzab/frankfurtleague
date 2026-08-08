@@ -118,3 +118,22 @@ export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
  * it gets no heading — that would render the same word twice and read it twice to a screen reader.
  */
 export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold tracking-widest uppercase";
+
+/**
+ * The date picker's popover and its calendar, declared once for all three pickers (owner, 2026-08-08).
+ *
+ * **The popover carries no padding.** It is a positioning wrapper, and the calendar inside it is already a
+ * bordered panel with its own — so `p-2` on the wrapper drew a second inset outside the border, which read
+ * as the popover being misaligned with its trigger rather than as deliberate spacing.
+ *
+ * **The calendar is much larger from `sm` up.** HeroUI sizes `.calendar` at `w-63` (15.75rem) and lays the
+ * days out as a 7-column grid of `aspect-square` cells, so the ROOT's width is the only lever — widening it
+ * scales every cell proportionally rather than needing each one overridden. 25rem gives roughly 57px days
+ * on a desktop, against 36px before; the phone keeps the compact size, where the screen is the constraint.
+ *
+ * One declaration rather than three copies: the three pickers had identical strings, which is exactly how
+ * two of them come to disagree after somebody adjusts the third.
+ */
+export const DATE_PICKER_POPOVER = "p-0";
+
+export const DATE_PICKER_CALENDAR = "p-3 sm:w-100 sm:max-w-100 sm:p-4 sm:text-base";

@@ -754,6 +754,21 @@ ELIGIBILITY_NO_MEMBERSHIP = "REQ-ELIGIBILITY-002"
 # resolution maintains -- so emptying it would be undone on the next pass.
 SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
 
+# A side carrying a result was emptied (owner, 2026-08-08). `ergebnis` is composed from the two `tore`, and
+# `tore` lives INSIDE the side -- so removing the team takes its goals with it and the composed result
+# collapses to null. What is left is a match that was played, whose score is gone, and whose one side is
+# empty; and no legitimate act reaches it, because a match that was played had two sides.
+#
+# **Switching the team is permitted and is the point of the distinction.** `tore` stays on the side, so the
+# score survives -- which is the "we recorded the wrong club" repair, the likeliest correction this data
+# needs. Refusing the whole edit would leave only clear-the-result, fix, re-enter: three steps passing
+# through a state where the match reads as unplayed, and the league table is derived on every read.
+#
+# This is a rule about the PAYLOAD path. The bracket resolution and `release_spieltag_sides` do empty sides
+# that carry results, deliberately, and report `voided_ergebnis` when they do -- that is the system acting
+# with an account of itself, not an admin removing a team.
+RESULT_SIDE_EMPTIED = "REQ-RESULT-001"
+
 
 def find_eligibility_refusal(
     spiel_id: CustomObjectId,
@@ -919,6 +934,38 @@ def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequen
                 f"the same {slot.resource} is booked for spiel_nr {slot.spiel_nr} at {slot.uhrzeit} on {slot.datum}, "
                 f"{gap} minutes away; two fixtures need {CLASH_BUFFER_MINUTES} minutes between them",
             )
+
+    return None
+
+
+def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
+    """
+    Why emptying a side of this fixture must be refused, as a `WriteRefusal` -- or `None`.
+
+    Keyed on the STORED side carrying goals rather than on the fixture carrying an `ergebnis`, and the two
+    can differ: a fixture whose sides hold `tore` but whose `ergebnis` was never composed is the
+    hand-edited document `apply_payload_to_spiel` warns about. Keying on the goals catches both.
+
+    Only the EMPTYING is refused. A payload naming a different team on the same side passes, keeps that
+    side's `tore`, and so keeps the result -- see the constant above for why that asymmetry is the whole
+    rule rather than a gap in it.
+    """
+
+    stored = next((spiel for spiel in season if spiel.id == spiel_id), None)
+    if stored is None:
+        return None
+
+    for label, submitted, stored_side in (("team1", payload.team1, stored.team1), ("team2", payload.team2, stored.team2)):
+        if submitted is not None or stored_side is None or stored_side.tore is None:
+            continue
+
+        return WriteRefusal(
+            error_code=RESULT_SIDE_EMPTIED,
+            message=(
+                f"{label}: {stored_side.name} carries {stored_side.tore} goal(s) on a played fixture and cannot be removed; "
+                "name a different team to correct it, or clear the result first"
+            ),
+        )
 
     return None
 

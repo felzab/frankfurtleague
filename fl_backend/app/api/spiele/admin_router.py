@@ -86,6 +86,7 @@ from app.api.spiele.services import (
     find_clash_refusal,
     find_eligibility_refusal,
     find_fixture_date_refusal,
+    find_result_removal_refusal,
     find_wiring_refusal,
     judge_spieltag_occupancy,
 )
@@ -296,6 +297,12 @@ async def patch_spiel_data(
         eligibility_refusal = find_eligibility_refusal(spiel_id, spiel_data, season, membership)
         if eligibility_refusal is not None:
             raise DocumentConflictException(error_code=eligibility_refusal.error_code, message=eligibility_refusal.message)
+
+        # Before the occupancy judgement, because it is the narrower and more concrete answer: a side that
+        # cannot be emptied is a fact about this fixture, where a clash is a fact about its neighbours.
+        removal_refusal = find_result_removal_refusal(spiel_id, spiel_data, season)
+        if removal_refusal is not None:
+            raise DocumentConflictException(error_code=removal_refusal.error_code, message=removal_refusal.message)
 
         verdict = judge_spieltag_occupancy(spiel_id, spiel_data, season)
         if verdict.refusal is not None:

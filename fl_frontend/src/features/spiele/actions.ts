@@ -64,6 +64,12 @@ function mapSpielRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
   if (error.serverErrorCode === "REQ-DATE-001") {
     return { fieldErrors: { datum: "Dieses Datum liegt außerhalb des Zeitraums seines Spieltags." } };
   }
+  if (error.serverErrorCode === "REQ-RESULT-001") {
+    return {
+      error:
+        "Dieses Spiel hat ein Ergebnis, deshalb lässt sich die Mannschaft nicht entfernen. Wähle eine andere Mannschaft, oder lösche zuerst die Tore.",
+    };
+  }
   if (error.serverErrorCode === "REQ-CLASH-001") {
     return {
       error:

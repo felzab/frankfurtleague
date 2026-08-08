@@ -803,6 +803,15 @@ RULES: tuple[Rule, ...] = (
         multi_document=True,
     ),
     Rule(
+        code="REQ-RESULT-001",
+        operation="PATCH /spiele/{spiel_id}",
+        aggregate="Saison-Spielplan",
+        summary="a side carrying goals on a played fixture may be switched but not emptied",
+        implemented_by="app.api.spiele.services.find_result_removal_refusal",
+        tested_by="tests/api/test_occupant_refusal.py::TestRemovingATeamFromAPlayedFixture",
+        multi_document=True,
+    ),
+    Rule(
         code="REQ-SPIELTAG-001",
         operation="PATCH /spiele/{spiel_id}",
         aggregate="Saison-Spielplan",

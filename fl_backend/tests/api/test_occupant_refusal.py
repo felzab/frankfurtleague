@@ -28,10 +28,12 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoin
 from app.api.spiele.services import (
     ELIGIBILITY_DISQUALIFIED,
     ELIGIBILITY_NO_MEMBERSHIP,
+    RESULT_SIDE_EMPTIED,
     SPIELTAG_OCCUPIED,
     apply_payload_to_spiel,
     find_disqualified_occupants,
     find_eligibility_refusal,
+    find_result_removal_refusal,
     judge_spieltag_occupancy,
 )
 
@@ -609,3 +611,77 @@ class TestTheDisqualifiedOccupantFault:
         )
 
         assert [fault.spiel_nr for fault in faults] == [2, 7]
+
+
+class TestRemovingATeamFromAPlayedFixture:
+    """
+    A side carrying goals may be SWITCHED but not EMPTIED (owner, 2026-08-08).
+
+    `ergebnis` is composed from the two `tore`, and `tore` lives inside the side — so removing the team
+    takes its goals with it and the result collapses. What is left is a match that was played, whose score
+    is gone, and whose one side is empty; no legitimate act reaches that, because a match that was played
+    had two sides.
+
+    Switching stays permitted, and that asymmetry is the rule rather than a gap in it: `tore` stays on the
+    side, so the score survives, which is the "we recorded the wrong club" repair this data most often
+    needs. Refusing the whole edit would leave only clear-the-result-then-fix — three steps passing through
+    a state where the match reads as unplayed, and the league table is derived on every read.
+    """
+
+    def removal(self, season_docs, nr, **overrides):
+        stored = next(doc for doc in season_docs if doc["spiel_nr"] == nr)
+        refusal = find_result_removal_refusal(
+            ObjectId(stored["_id"]),
+            payload_for(season_docs, nr, **overrides),
+            FLSpielListAdapter.validate_python(season_docs),
+        )
+
+        return None if refusal is None else refusal.error_code
+
+    def test_emptying_a_side_that_carries_goals_is_refused(self, season):
+        """Fixture 2 is the one with a stored 3:1, so its team1 carries three goals."""
+
+        assert self.removal(season, 2, team1=None) == RESULT_SIDE_EMPTIED
+
+    def test_switching_the_team_on_that_side_is_permitted(self, season):
+        """
+        The repair the rule exists to keep possible.
+
+        Fixture 2's team1 is Cronberg with three goals. Naming Adler instead keeps the three goals on the
+        side, so the 3:1 survives and only the club changes.
+        """
+
+        assert self.removal(season, 2, team1=team(ADLER, "Adler", tore=3)) is None
+
+    def test_emptying_a_side_with_no_goals_is_permitted(self, season):
+        """
+        Fixture 1 was never played, so clearing a side destroys nothing.
+
+        This is the ordinary way a group fixture's side is emptied, and the picker's clear button exists
+        for it — the rule must not reach it.
+        """
+
+        assert self.removal(season, 1, team1=None) is None
+
+    def test_the_other_side_is_checked_too(self, season):
+        """A fixture is symmetric, so a rule that only read `team1` would be half a rule."""
+
+        assert self.removal(season, 2, team2=None) == RESULT_SIDE_EMPTIED
+
+    def test_resubmitting_the_fixture_unchanged_is_permitted(self, season):
+        """The clause every occupant rule here turns on: a no-op edit is always legal."""
+
+        assert self.removal(season, 2) is None
+
+    def test_it_keys_on_the_goals_rather_than_on_ergebnis(self, season):
+        """
+        The two can differ, and keying on the goals catches both.
+
+        A fixture whose sides hold `tore` but whose `ergebnis` was never composed is the hand-edited
+        document `apply_payload_to_spiel` exists to normalise — and emptying its side destroys the goals
+        just the same.
+        """
+
+        without_ergebnis = [{**doc, "ergebnis": None} if doc["spiel_nr"] == 2 else doc for doc in season]
+
+        assert self.removal(without_ergebnis, 2, team1=None) == RESULT_SIDE_EMPTIED
