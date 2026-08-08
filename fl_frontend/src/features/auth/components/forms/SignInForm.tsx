@@ -62,7 +62,7 @@ export function SignInForm() {
             role="status"
             className="flex flex-col items-center gap-y-3 py-6 text-center">
             <span className="text-4xl">📬</span>
-            <p className="fluid-lg text-foreground font-black tracking-tight">Prüfe dein Postfach</p>
+            <p className="fluid-lg text-foreground font-black tracking-tight">Prüfe Dein Postfach</p>
 
             {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
 

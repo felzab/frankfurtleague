@@ -48,7 +48,7 @@ export function ConfirmDeleteModal({
   onClose: () => void;
   /** "Spielort stilllegen" */
   heading: string;
-  /** "den Spielort" — reads as "Möchtest du {entityLabel} <name> wirklich {verb}?" */
+  /** "den Spielort" — reads as "Möchtest Du {entityLabel} <name> wirklich {verb}?" */
   entityLabel: string;
   entityName: string;
   /** The step-2 sentence after what `isPermanent` decides. */
@@ -128,7 +128,7 @@ export function ConfirmDeleteModal({
       <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
         {confirmStep === 1 ? (
           <p className="fluid-sm text-foreground-muted leading-relaxed">
-            Möchtest du {entityLabel}
+            Möchtest Du {entityLabel}
             <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
               {entityName}
             </span>
@@ -146,7 +146,7 @@ export function ConfirmDeleteModal({
                 width={18}
                 height={18}
               />
-              Bist du dir wirklich sicher?
+              Bist Du Dir wirklich sicher?
             </div>
             <p className="fluid-sm text-foreground-muted leading-relaxed">
               {isPermanent ? (

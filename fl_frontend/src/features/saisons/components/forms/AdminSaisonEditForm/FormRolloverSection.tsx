@@ -199,7 +199,7 @@ export function FormRolloverSection({
               <div
                 role="alert"
                 className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
-                <strong className="fluid-xs text-danger-strong">Bist du dir sicher?</strong>
+                <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
                 <p className="fluid-xxs text-foreground leading-normal font-medium">
                   {outgoing === null
                     ? `Saison ${saisonId} wird sofort öffentlich als laufende Saison angezeigt.`

@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `452ccda`, 2026-08-08
+**Verified against:** `7a18d8c`, 2026-08-08
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -171,6 +171,30 @@ and CSS keeps only the two things markup cannot reach
 ([ADR-0053](../_decisions/0053-a-toast-is-built-in-tsx-not-patched-in-css.md)). Where a stylesheet is
 genuinely the only route, **name the HeroUI version the rule was written against at the rule**, so the
 next upgrade knows what to re-read.
+
+## Copy — how the site addresses its reader
+
+**The reader is `Du` — informal, and capitalised everywhere** (owner's rule, 2026-08-04):
+`Du`, `Dein`, `Dir`, `Dich`, and never `Sie` or `Ihr`. The capital is the courtesy form German
+orthography permits for direct address, and it is what separates the reader's `Dich` from a third
+party's `dich` in the same sentence. When auditing, a sentence-initial `Du` is capitalised whatever
+the convention holds, so it is evidence of nothing.
+
+**Scope: what a user reads.** Rendered strings, form and toast copy, and the sign-in emails in
+`fl_frontend/src/core/authEmail.ts` are all in. German inside `/docs` and in code comments
+addresses developers, not users, and is out — except where a comment quotes a rendered string,
+which tracks the string.
+
+**Refusal copy carries a second register on top of this**, declared at
+`fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED`: Du-form imperative, no
+"Bitte", one period — a FIELD message stays one sentence about the value, and a FORM message is
+two with the action second. Field messages are the one place "Bitte" stays ("Bitte gib einen Namen
+ein."): a field nudges toward input, a banner refuses it, and softening a refusal blurs which of
+the two the reader is looking at.
+
+**Nothing mechanical holds either rule.** A lint over the pronouns would have to know which string
+literals are user-facing, and nothing in the tree marks that — so both rules hold by review, which
+is why they are written here rather than in a linter config.
 
 ## Metadata and indexing
 

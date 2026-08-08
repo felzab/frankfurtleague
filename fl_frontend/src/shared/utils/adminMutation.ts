@@ -36,10 +36,11 @@ import type { FormState } from "@/shared/types/types";
  *
  * Every slice's actions rendered its own copy of this sentence, which is how one of them came to end in
  * an exclamation mark while the rest of the corpus ends in a period. The message format is the one every
- * refusal follows: du-form imperative, no "Bitte", one period. The field messages beside it carry the
- * specifics; this is only the banner saying the form as a whole did not go through.
+ * refusal follows: Du-form imperative, no "Bitte", one period — and the reader is the capitalised Du,
+ * per the copy section of docs/frontend/overview.md. The field messages beside it carry the specifics;
+ * this is only the banner saying the form as a whole did not go through.
  */
-export const VALIDATION_FAILED = "Überprüfe deine Eingaben.";
+export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";
 
 export async function runAdminMutation<T extends { success: boolean }>(
   mutationName: string,

@@ -29,7 +29,7 @@ export function MetaTeamView() {
 
         <div className="soccer-field-card-bg soccer-field-card-border rounded-2xl border p-4 shadow-xl sm:p-6 lg:p-8">
           <p className="fluid-xs sm:fluid-sm text-field-fg/95 leading-relaxed font-medium text-pretty">
-            Das Team hinter der Frankfurt-League. Hier lernst du die Personen kennen, die die Frankfurt-League am Laufen halten und erfährst,
+            Das Team hinter der Frankfurt-League. Hier lernst Du die Personen kennen, die die Frankfurt-League am Laufen halten und erfährst,
             wer für was zuständig ist.
           </p>
         </div>

@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `9cb426d`, 2026-08-08
+**Verified against:** `7a18d8c`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -43,7 +43,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
-| 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Open     | —                         |
+| 2   | FE-9  | Polite address form applied inconsistently              | FE          | S      | Closed   | —                         |
 | 3   | FE-8  | `SpielCardCompact` does not survive a narrow screen     | FE          | S      | Open     | — (overlaps FE-3)         |
 | 4   | BE-10 | Nothing caches the season document, read every request  | BE          | S      | Open     | —                         |
 | 5   | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
@@ -254,6 +254,19 @@ Two things this needs beyond the sweep itself:
 Whether anything mechanical can hold the rule is open. A lint rule matching the standalone words is
 plausible — word boundaries keep it off `du` inside longer words — but it would also have to be
 scoped to user-facing strings, and nothing in the tree marks which literals those are.
+
+**Closed, 2026-08-08.** The rule is recorded in `docs/frontend/overview.md` §Copy — chosen over
+CLAUDE.md because that page is the frontend's documentation home and already carries the HeroUI
+checklist sessions read before writing components. The scope line is drawn there too: rendered
+strings, form and toast copy and the sign-in emails are in; `/docs` German and code comments are
+out, except a comment quoting a rendered string. The sweep capitalised every remaining lowercase
+form — `adminMutation.ts`, `authEmail.ts`, `SignInForm`, `FormRolloverSection`,
+`ConfirmDeleteModal`, `MetaTeamView`, the Kontakt page description — measured clean by the same
+grep that opened the entry. The 2026-08-04 inventory had been partly overtaken: the eight
+`Bitte überprüfe deine Eingaben!` copies left with the register work merged in PR #80, which
+declared the banner once as `VALIDATION_FAILED`. Mechanical enforcement stays unbuilt for the
+entry's own reason — nothing marks which literals are user-facing — and the overview section says
+so. No ADR: a copy convention, not an architecture decision.
 
 **Path:** independent. Every later item that writes copy — FE-6, FB-7, FB-16 — is cheaper after it.
 
