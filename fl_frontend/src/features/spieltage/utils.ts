@@ -25,9 +25,9 @@
  *   docs/glossary.md — Quelle, for the two variants and what they reference
  */
 
-import { PHASE_LABELS } from "@/features/saisons/constants";
+import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FLSpieltagWithSpiele } from "./schemas";
 
@@ -135,4 +135,44 @@ export function spieltagLabels(
   }
 
   return labels;
+}
+
+/** One phase the matchday editor may offer, with the count that decides whether it may be picked. */
+export type SpieltagPhaseOffer = {
+  phase: FLSaisonPhase;
+  /** How many matches one matchday of this phase holds in this season. Zero for a phase it does not play. */
+  expected: number;
+  /** Whether the fixtures already attached would still have somewhere to be played. */
+  fits: boolean;
+};
+
+/**
+ * Every phase, with this season's expected match count and whether a matchday holding `attachedCount`
+ * fixtures may take it — the browser's half of `REQ-SPIELTAG-002`.
+ *
+ * **The counts are the SERVED schedule, never recomputed here** (ADR-0065). The arithmetic has a case a
+ * hand-written copy gets wrong — an odd group needs an extra round, because one team sits out each round
+ * — and a copy that undercounts disables a phase the endpoint would have accepted, which is worse than
+ * not checking at all. `FLSaison.schedule` is that derivation on the wire.
+ *
+ * **Only the over-full direction is refused**, exactly as the endpoint does: a matchday still being
+ * filled in holds fewer fixtures than its phase expects, and that is every season part-way through
+ * setup. `attachedCount` of 0 therefore lets every phase through, which is what the create dialog needs
+ * — a new matchday holds nothing, and a phase this season does not reach is a legal, if odd, choice the
+ * endpoint accepts.
+ *
+ * A phase absent from the schedule expects 0, which is the same answer `expected_matches` gives.
+ */
+export function buildSpieltagPhaseOffer(schedule: readonly FLSaisonPhaseSchedule[], attachedCount: number): readonly SpieltagPhaseOffer[] {
+  // No schedule means no season is selected, not a season that plays nothing: every real season's
+  // schedule carries its group phase. Offering everything is the only safe answer, because disabling a
+  // phase here would refuse what the endpoint accepts.
+  if (schedule.length === 0) return SAISON_PHASE_OPTIONS.map((phase) => ({ phase, expected: 0, fits: true }));
+
+  const expectedByPhase = new Map(schedule.map((entry) => [entry.phase, entry.matches_per_matchday]));
+
+  return SAISON_PHASE_OPTIONS.map((phase) => {
+    const expected = expectedByPhase.get(phase) ?? 0;
+    return { phase, expected, fits: attachedCount <= expected };
+  });
 }

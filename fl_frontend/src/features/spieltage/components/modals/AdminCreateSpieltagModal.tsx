@@ -9,6 +9,8 @@ import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
+import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
+
 /**
  * **A matchday is created into the season the sidemenu selector holds**, which is why there is no season
  * picker in the form. The order is derived, so there is no next-free-position to compute either (ADR-0064).
@@ -26,12 +28,15 @@ import { FormModal } from "@/shared/components/ui/FormModal";
 export function AdminCreateSpieltagModal({
   saisonId,
   saisonSpan,
+  saisonSchedule,
   knockoutBeginn,
   today,
 }: {
   saisonId: string | null;
   /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
+  /** The season's derived per-phase match counts, shown beside each phase in the picker. */
+  saisonSchedule?: readonly FLSaisonPhaseSchedule[];
   /** The earliest non-group matchday's `beginn`, or null where the season has none. */
   knockoutBeginn: string | null;
   today: string;
@@ -82,6 +87,7 @@ export function AdminCreateSpieltagModal({
           <AdminCreateSpieltagForm
             saisonId={saisonId}
             saisonSpan={saisonSpan}
+            saisonSchedule={saisonSchedule}
             onClose={modalState.close}
           />
         )}

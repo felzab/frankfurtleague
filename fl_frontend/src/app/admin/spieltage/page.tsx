@@ -97,6 +97,7 @@ async function CreateSpieltagModalLoader({ searchParams }: { searchParams: NextP
     <AdminCreateSpieltagModal
       saisonId={saisonId}
       saisonSpan={saison === null ? undefined : { start: saison.start_date, end: saison.end_date }}
+      saisonSchedule={saison?.schedule}
       knockoutBeginn={knockoutBeginn ?? null}
       today={getGermanTodayStr()}
     />
@@ -177,6 +178,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
       spieltage={rows}
       saisonId={saisonId}
       saisonSpan={saison === null ? undefined : { start: saison.start_date, end: saison.end_date }}
+      saisonSchedule={saison?.schedule}
     />
   );
 }

@@ -4278,6 +4278,13 @@
           },
           "rules": {
             "$ref": "#/components/schemas/FLSaisonRules"
+          },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonPhaseSchedule"
+            },
+            "type": "array",
+            "title": "Schedule"
           }
         },
         "type": "object",
@@ -4286,9 +4293,43 @@
           "start_date",
           "end_date",
           "status",
-          "rules"
+          "rules",
+          "schedule"
         ],
         "title": "FLSaison"
+      },
+      "FLSaisonPhaseSchedule": {
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "gruppenphase",
+              "achtelfinale",
+              "viertelfinale",
+              "halbfinale",
+              "finale"
+            ],
+            "title": "Phase"
+          },
+          "matchdays": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Matchdays"
+          },
+          "matches_per_matchday": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Matches Per Matchday"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phase",
+          "matchdays",
+          "matches_per_matchday"
+        ],
+        "title": "FLSaisonPhaseSchedule",
+        "description": "One phase of a season: how many matchdays it takes, and how many matches each of those holds.\n\nMirrors `app/api/saisons/schedule.py :: PhaseSchedule`, which is the derivation; this is the wire\nshape for it. A phase this season's bracket does not reach is absent rather than present with zeroes,\nso the list IS the phases the season plays, in playing order."
       },
       "FLSaisonRules": {
         "properties": {

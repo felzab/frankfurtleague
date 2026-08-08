@@ -33,7 +33,7 @@ in this module and nothing calls it at request time.
   • A referential action names what the CODE does, never what it ought to do. Where the answer is "nothing
     happens, deliberately", the action is `NO_ACTION` and the note says why.
   • Only fields whose answer is not plainly `EDITABLE` are listed. A row for every editable string would
-    bury the thirty-two that carry a condition.
+    bury the thirty-three that carry a condition.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -464,6 +464,15 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Editability.DERIVED,
         "computed from the season's `rules` and this matchday's phase (ADR-0065)",
         "app.api.saisons.schedule.expected_matches",
+    ),
+    FieldPolicy(
+        Collection.SAISONS,
+        "schedule",
+        Editability.DERIVED,
+        "computed from this season's own `rules` (ADR-0065): the whole phase-by-phase shape the matchday "
+        "above reports one entry of. Served so the matchday editor can refuse `REQ-SPIELTAG-002` before "
+        "the request, which needs the count for a phase the matchday does not have yet",
+        "app.api.saisons.schedule.schedule_for",
     ),
     FieldPolicy(
         Collection.SPIELTAGE,

@@ -68,17 +68,38 @@ export const FLSaisonRulesSchema = z.object({
 });
 export type FLSaisonRules = z.infer<typeof FLSaisonRulesSchema>;
 
+/**
+ * One phase the season plays: how many matchdays it takes, and how many matches each of those holds.
+ *
+ * **Mirrored rather than recomputed here** (ADR-0065). The arithmetic has a case a hand-written copy gets
+ * wrong — a group with an odd number of teams needs an extra round, because one team sits out each round
+ * — and a copy that undercounts REFUSES a phase the endpoint accepts. The backend derives it from the
+ * season's `rules` and serves it, so there is one answer.
+ *
+ * A phase this season's bracket does not reach is ABSENT rather than present with zeroes, so this list is
+ * the phases the season actually plays, in playing order.
+ */
+export const FLSaisonPhaseScheduleSchema = z.object({
+  phase: FLSaisonPhaseSchema,
+  matchdays: z.int().nonnegative(),
+  matches_per_matchday: z.int().nonnegative(),
+});
+export type FLSaisonPhaseSchedule = z.infer<typeof FLSaisonPhaseScheduleSchema>;
+
 export const FLSaisonSchema = z.object({
   // Exactly 4, mirroring the backend's FLSaison.id. FLSpielSchema.saison_id and
-  // FLSpieltagSchema.saison_id both require .length(4), and resolveSaisonId silently discards a
-  // param that is not 4 chars -- so an unbounded id here would let SaisonSelector offer a season
-  // that renders as the current one with no error.
+  // FLSpieltagSchema.saison_id both require .length(4), and `resolveSaisonId` validates a `?saison_id=`
+  // against this list before any query sees it (ADR-0069) -- so an unbounded id here would let
+  // SaisonSelector offer, and the resolver accept, a season the backend cannot hold.
   id: z.string().length(4),
 
   start_date: CustomDateStringSchema,
   end_date: CustomDateStringSchema,
   status: FLSaisonStatusSchema,
   rules: FLSaisonRulesSchema,
+  // Derived from `rules` and stored on no document (ADR-0065), the same way a matchday's
+  // `anzahl_spiele` is -- this is the whole season, one entry per phase it plays.
+  schedule: z.array(FLSaisonPhaseScheduleSchema),
 });
 export type FLSaison = z.infer<typeof FLSaisonSchema>;
 

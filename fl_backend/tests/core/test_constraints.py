@@ -89,7 +89,9 @@ OUT_OF_SCOPE_KEYWORDS = {
 # what keeps this an equality check rather than a subset check that would pass while a real field went
 # missing.
 MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple[type[BaseModel], ...], frozenset[str]]] = [
-    (Collection.SAISONS, (), FLSaison, frozenset()),
+    # `schedule` is derived from this season's own `rules` and is stored nowhere (ADR-0065) -- the same
+    # shape `anzahl_spiele` has on a matchday, which reports one entry of it per matchday.
+    (Collection.SAISONS, (), FLSaison, frozenset({"schedule"})),
     (Collection.SAISONS, ("rules",), FLSaisonRules, frozenset()),
     (Collection.SPIELE, (), FLSpiel, frozenset()),
     (Collection.SPIELE, ("team1",), FLSpielTeamField, frozenset()),

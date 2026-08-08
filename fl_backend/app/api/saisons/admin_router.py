@@ -36,7 +36,7 @@ from app.api.saisons.schemas import (
     FLSaison,
     FLSaisonRules,
 )
-from app.api.saisons.services import find_activation_refusal, find_rules_refusal, unplayed_spiel_nrs
+from app.api.saisons.services import find_activation_refusal, find_rules_refusal, unplayed_spiel_nrs, with_schedule
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db
@@ -183,7 +183,7 @@ async def patch_saison(
     if updated_document_raw is None:
         raise DocumentNotFoundException(filter={"_id": saison_id}, error_code="DB-COMMON-001")
 
-    return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(updated_document_raw))
+    return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))
 
 
 @router.post("/{saison_id}/activate", response_model=FLActivateSaisonResponse, summary="Make this the active Saison")
@@ -258,6 +258,6 @@ async def activate_saison(
 
     # The read above already proved the row exists, so this is a type narrowing rather than a branch
     # anything is expected to reach.
-    activated = FLSaison.model_validate(activated_raw if activated_raw is not None else target_raw)
+    activated = FLSaison.model_validate(with_schedule(activated_raw if activated_raw is not None else target_raw))
 
     return FLActivateSaisonResponse(updated_document=activated, deactivated=demoted.modified_count)

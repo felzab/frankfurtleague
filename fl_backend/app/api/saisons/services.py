@@ -34,11 +34,28 @@ Two halves: `build_saisons_*` translate `FLSaisonsFilterOptions` into a Mongo fi
 
 from typing import Any, Iterable, Mapping, Sequence
 
-from app.api.saisons.schedule import expected_matches, knockout_phases_for
+from app.api.saisons.schedule import expected_matches, knockout_phases_for, schedule_for
 from app.api.saisons.schemas import FLSaisonRules, FLSaisonsFilterOptions
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSaisonPhase, FLSpiel
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
+
+
+def with_schedule(saison_raw: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Attaches a season's derived `schedule` before validation.
+
+    Injected into the raw document rather than computed on the model, for the reason `FLSaison.schedule`
+    gives: `schedule_for` imports `FLSaisonRules` from that module, so a computed field there would close
+    an import cycle. The shape is the same one `_with_expected_matches` uses for a matchday's count, and
+    for the same reason -- the field is REQUIRED on the model, so a document reaching validation without
+    it is a 500 rather than a silently absent key.
+
+    **Every path that answers with an `FLSaison` goes through this**, which is what
+    `fl_backend/tests/api/test_schedule.py :: TestTheSeasonCarriesItsSchedule` holds it to.
+    """
+
+    return {**saison_raw, "schedule": [entry.__dict__ for entry in schedule_for(FLSaisonRules.model_validate(saison_raw["rules"]))]}
 
 
 def build_saisons_sort(sort_by: str, order: str) -> list[tuple[str, int]]:

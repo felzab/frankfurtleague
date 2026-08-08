@@ -29,7 +29,7 @@ two names, which is the drift arriving rather than threatening.
 
 ## Decision
 
-**`app/core/collections.py :: Collection` is the one declaration, and every one of those five reads it.**
+**`fl_backend/app/core/collections.py :: Collection` is the one declaration, and every one of those five reads it.**
 
 **It is a `StrEnum`, which is the opposite of every other closed set in this backend**, and the difference
 is what the value _is_. `FLSaisonStatus` is a `Literal` because the string is **data**: stored in MongoDB,
@@ -38,10 +38,15 @@ and nothing else. **A collection name never crosses the wire** — it is how thi
 storage — so it can have the three things an enum gives and a `Literal` cannot: a namespace at the call
 site, per-member documentation attached to the member, and iteration.
 
-**Iteration is what earns it.** `tests/core/test_constraints.py :: test_every_collection_is_declared_once`
-walks `Collection` against `COLLECTION_VALIDATORS` and against `db.py`'s accessors, so a tenth collection
-added to one and not the others fails rather than drifts. That check is not expressible over a `Literal`
-without reaching for `get_args`.
+**Iteration is what earns it.** `fl_backend/tests/core/test_constraints.py` builds its
+`EXPECTED_COLLECTIONS` by walking `Collection`, and `:: test_every_collection_has_a_validator` asserts that
+set equals `COLLECTION_VALIDATORS` — so a tenth collection added to one and not the other fails rather than
+drifts. That check is not expressible over a `Literal` without reaching for `get_args`.
+
+**It walks the enum rather than `db.py`'s providers, and that is the reason the declaration is its own
+module.** Deriving the set from the providers would cover seven collections of the nine: `saison_teams` and
+`saison_spieler` are reached through a `$lookup` by name and have no provider at all. A declaration that is
+derived from one consumer is a declaration that documents that consumer, which is what this one is not.
 
 **`StrEnum` and not the `(str, Enum)` mixin**, for the reason `app/core/domain.py` gives: on Python 3.12+
 the mixin renders as `Collection.SAISONS` inside an f-string, and a Mongo filter built from one would carry

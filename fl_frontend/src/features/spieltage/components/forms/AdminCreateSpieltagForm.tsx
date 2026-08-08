@@ -2,8 +2,10 @@
 
 import { postSpieltagAction } from "@/features/spieltage/actions";
 import { SpieltagFormFields } from "@/features/spieltage/components/forms/SpieltagFormFields";
+import { buildSpieltagPhaseOffer } from "@/features/spieltage/utils";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 
+import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 import type { SpieltagCreateDraft } from "@/features/spieltage/types";
 
 /**
@@ -17,12 +19,19 @@ export function AdminCreateSpieltagForm({
   saisonId,
   onClose,
   saisonSpan,
+  saisonSchedule,
 }: {
   saisonId: string;
   onClose: () => void;
   /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
+  /** The season's derived per-phase match counts, shown beside each phase in the picker. */
+  saisonSchedule?: readonly FLSaisonPhaseSchedule[];
 }) {
+  // Nothing is refused here and that is correct: a new matchday holds no fixtures, so every phase fits.
+  // The counts are still shown, because "Finale — 1 Sp." is what tells an admin which phase they mean.
+  const phaseOffer = buildSpieltagPhaseOffer(saisonSchedule ?? [], 0);
+
   return (
     <EntityForm<SpieltagCreateDraft>
       initialDraft={{
@@ -36,6 +45,7 @@ export function AdminCreateSpieltagForm({
           draft={draft}
           onChange={setDraft}
           saisonSpan={saisonSpan}
+          phaseOffer={phaseOffer}
         />
       )}
       onSubmit={async (draft) => {

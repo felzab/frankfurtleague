@@ -6,6 +6,7 @@ import { AdminEditSpieltagModal } from "@/features/spieltage/components/modals/A
 import { SPIELTAG_FACETS } from "@/features/spieltage/facets";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
+import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The search finds a
@@ -29,11 +30,14 @@ export function AdminSpieltageView({
   spieltage,
   saisonId,
   saisonSpan,
+  saisonSchedule,
 }: {
   spieltage: AdminSpieltagRow[];
   saisonId: string | null;
   /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
+  /** The season's derived per-phase match counts, which bound the edit dialog's phase picker. */
+  saisonSchedule?: readonly FLSaisonPhaseSchedule[];
 }) {
   return (
     <AdminCrudView<AdminSpieltagRow>
@@ -53,6 +57,7 @@ export function AdminSpieltageView({
         <AdminEditSpieltagModal
           spieltagData={item}
           saisonSpan={saisonSpan}
+          saisonSchedule={saisonSchedule}
           isOpen={isOpen}
           onClose={onClose}
         />

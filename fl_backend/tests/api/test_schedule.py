@@ -19,7 +19,8 @@ from app.api.saisons.schedule import (
     schedule_for,
     total_group_matches,
 )
-from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.schemas import FLSaison, FLSaisonRules
+from app.api.saisons.services import with_schedule
 from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK, FLSaisonPhase
 
 
@@ -222,3 +223,52 @@ class TestTheWholeSeason:
         """
 
         assert expected_matches(rules(), "achtelfinale") == 0
+
+
+class TestTheSeasonCarriesItsSchedule:
+    """
+    What puts the arithmetic above on the wire.
+
+    Every season response goes through `with_schedule`, because the matchday editor refuses
+    `REQ-SPIELTAG-002` in the browser by reading the counts off the season it already holds — so a path
+    that skipped the injection would answer 500 rather than degrade.
+    """
+
+    def test_the_injected_schedule_is_the_derivation(self, saison):
+        """The wire shape and `schedule_for` are the same numbers; nothing recomputes them differently."""
+
+        injected = with_schedule(saison())["schedule"]
+
+        assert [(entry["phase"], entry["matchdays"], entry["matches_per_matchday"]) for entry in injected] == [
+            (entry.phase, entry.matchdays, entry.matches_per_matchday) for entry in schedule_for(rules())
+        ]
+
+    def test_the_model_accepts_what_the_helper_produces(self, saison):
+        """The pair that matters: a raw document plus this helper validates, and a raw document alone does not."""
+
+        assert FLSaison.model_validate(with_schedule(saison())).schedule[0].matches_per_matchday == 8
+
+    def test_an_odd_group_keeps_the_bye_round(self, saison):
+        """
+        Five teams per group give five matchdays, not four.
+
+        The case a hand-written TypeScript copy of this arithmetic would most plausibly get wrong: with an
+        odd group no round pairs everybody, so the schedule needs an extra round to give each team its
+        `n - 1` opponents. Serving the number is what keeps one answer to it.
+        """
+
+        odd = saison(rules={**saison()["rules"], "teams_per_group": 5})
+
+        assert with_schedule(odd)["schedule"][0] == {"phase": "gruppenphase", "matchdays": 5, "matches_per_matchday": 8}
+
+    def test_a_season_with_no_bracket_still_carries_its_group_phase(self, saison):
+        """
+        A rules set the editor refuses is still readable, because documents predate the refusal.
+
+        `schedule_for` contributes no knockout phases rather than raising, so the season reads back with
+        one entry and the matchday editor offers no knockout phase any fixture could fit.
+        """
+
+        no_bracket = saison(rules={**saison()["rules"], "qualifiers_per_group": 3})
+
+        assert [entry["phase"] for entry in with_schedule(no_bracket)["schedule"]] == ["gruppenphase"]

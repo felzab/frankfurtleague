@@ -49,7 +49,11 @@ with a result still counts · `inactive_since` is a date, never a boolean.
 The competition year. Everything else hangs off one.
 
 **In code:** `saisons` collection · `FLSaison` (`fl_backend/app/api/saisons/schemas.py`).
-**Fields:** `start_date`, `end_date`, `status`, `rules`.
+**Stored fields:** `start_date`, `end_date`, `status`, `rules`.
+**Served but stored nowhere:** `schedule` — the season phase by phase, derived from `rules`
+([ADR-0065](_decisions/0065-a-seasons-schedule-is-derived-from-its-rules.md)), which is where a
+matchday's `anzahl_spiele` comes from and what lets the matchday editor refuse a phase too small for
+the fixtures already attached.
 
 **Pitfalls.** The id is **exactly four characters** and is a string, not an ObjectId — enforced at
 `min_length=4, max_length=4`. That constraint is not cosmetic: `FLSpiel.saison_id` and

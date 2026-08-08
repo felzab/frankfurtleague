@@ -2,8 +2,10 @@
 
 import { patchSpieltagAction } from "@/features/spieltage/actions";
 import { SpieltagFormFields } from "@/features/spieltage/components/forms/SpieltagFormFields";
+import { buildSpieltagPhaseOffer } from "@/features/spieltage/utils";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 
+import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
 import type { FLPatchSpieltagPayload } from "@/features/spieltage/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
@@ -23,12 +25,19 @@ export function AdminEditSpieltagForm({
   spieltag,
   onClose,
   saisonSpan,
+  saisonSchedule,
 }: {
   spieltag: AdminSpieltagRow;
   onClose: () => void;
   /** The season's own span, which bounds both date pickers (`REQ-DATE-002`). */
   saisonSpan?: { start: string; end: string };
+  /** The season's derived per-phase match counts, which decide what the phase picker may offer. */
+  saisonSchedule?: readonly FLSaisonPhaseSchedule[];
 }) {
+  // The browser's half of `REQ-SPIELTAG-002`: a phase accounting for fewer matches than this matchday
+  // already holds would leave the rest with nowhere to be played, so the picker does not offer it.
+  const phaseOffer = buildSpieltagPhaseOffer(saisonSchedule ?? [], spieltag.spieleAngelegt);
+
   return (
     <EntityForm<FLPatchSpieltagPayload>
       initialDraft={{
@@ -42,6 +51,7 @@ export function AdminEditSpieltagForm({
           draft={draft}
           onChange={setDraft}
           saisonSpan={saisonSpan}
+          phaseOffer={phaseOffer}
         />
       )}
       onSubmit={async (draft) => {

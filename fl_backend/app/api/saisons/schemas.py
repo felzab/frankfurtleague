@@ -17,6 +17,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, model_validator
 
+# The phase set, imported rather than restated, exactly as `spieltage/schemas.py` imports it. Acyclic --
+# the spiele slice imports from `teams` and `shared` and from neither this one nor `spieler`.
+from app.api.spiele.schemas import FLSaisonPhase
+
 # The league's school-level vocabulary, imported rather than restated: `rules.erlaubte_stufen` names
 # WHICH of it a season runs and must not be able to name a level the league does not have (ADR-0061).
 # Acyclic -- the spieler slice imports nothing from this one.
@@ -65,6 +69,20 @@ class FLSaisonRules(BaseModel):
     erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
 
 
+class FLSaisonPhaseSchedule(BaseModel):
+    """
+    One phase of a season: how many matchdays it takes, and how many matches each of those holds.
+
+    Mirrors `fl_backend/app/api/saisons/schedule.py :: PhaseSchedule`, which is the derivation; this is the wire
+    shape for it. A phase this season's bracket does not reach is absent rather than present with zeroes,
+    so the list IS the phases the season plays, in playing order.
+    """
+
+    phase: FLSaisonPhase
+    matchdays: int = Field(ge=0)
+    matches_per_matchday: int = Field(ge=0)
+
+
 class FLSaison(BaseModel):
     # Exactly 4 characters, because FLSpiel.saison_id and FLSpieltag.saison_id both demand that of
     # the value referencing this one. Without it a saison id like "2026/27" validates here and then
@@ -75,6 +93,18 @@ class FLSaison(BaseModel):
     end_date: CustomDateString
     status: FLSaisonStatus
     rules: FLSaisonRules
+
+    # DERIVED, and on no document (ADR-0065): `schedule_for` over `rules`, the same arithmetic
+    # `spieltage.anzahl_spiele` already reports per matchday. Served because the matchday editor needs the
+    # count for a phase the matchday does NOT have yet -- `anzahl_spiele` answers only for the phase it
+    # has, so without this the browser cannot refuse `REQ-SPIELTAG-002` before the request (owner,
+    # 2026-08-08). Serving it keeps the arithmetic in one place; mirroring it in TypeScript would be a
+    # second copy with nothing holding the two equal, and a wrong copy REFUSES a phase the endpoint
+    # accepts.
+    #
+    # Injected before validation rather than computed on the model, because `schedule_for` imports
+    # `FLSaisonRules` from this module and a computed field here would close that import cycle.
+    schedule: tuple[FLSaisonPhaseSchedule, ...]
 
 
 FLSaisonsListAdapter = TypeAdapter(list[FLSaison])

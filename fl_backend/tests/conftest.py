@@ -291,6 +291,18 @@ def saison() -> PayloadFactory:
                 "teams_per_group": 4,
                 "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
             },
+            # Derived and on no document, like the matchday's `anzahl_spiele` above: the router injects
+            # it before validation (ADR-0065). Spelled out rather than computed so a change to
+            # `schedule_for` that this fixture no longer matches is visible here.
+            #
+            # These are the rules above: four groups of four give three group matchdays of eight
+            # matches, and eight qualifiers play the LAST three knockout rounds, never `achtelfinale`.
+            "schedule": [
+                {"phase": "gruppenphase", "matchdays": 3, "matches_per_matchday": 8},
+                {"phase": "viertelfinale", "matchdays": 1, "matches_per_matchday": 4},
+                {"phase": "halbfinale", "matchdays": 1, "matches_per_matchday": 2},
+                {"phase": "finale", "matchdays": 1, "matches_per_matchday": 1},
+            ],
         }
     )
 

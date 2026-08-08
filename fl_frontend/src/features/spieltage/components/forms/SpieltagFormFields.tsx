@@ -5,12 +5,13 @@ import { parseDate } from "@internationalized/date";
 import { FieldError, Label, ListBox, Select } from "@heroui/react";
 
 import { SaisonDateField } from "@/features/saisons/components/forms/SaisonFormControls";
-import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
+import { PHASE_LABELS } from "@/features/saisons/constants";
 import { Callout } from "@/shared/components/ui/Callout";
 import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { SpieltagPhaseOffer } from "@/features/spieltage/utils";
 import type { Key } from "@heroui/react";
 
 /**
@@ -56,9 +57,16 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
   onChange,
   errors,
   saisonSpan,
+  phaseOffer,
 }: {
   draft: T;
   onChange: (updatedDraft: T) => void;
+  /**
+   * Every phase with this season's expected match count, and whether the fixtures already attached would
+   * still fit (`REQ-SPIELTAG-002`). From `buildSpieltagPhaseOffer`, so the counts are the SERVED schedule
+   * rather than arithmetic repeated here (ADR-0065).
+   */
+  phaseOffer: readonly SpieltagPhaseOffer[];
   /**
    * The season's own `start_date`/`end_date`, which bound both pickers below (`REQ-DATE-002`). A matchday
    * is a block of that season's fixtures, so a span outside it is refused at the endpoint — and greying the
@@ -104,13 +112,20 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
         <FieldError className={FIELD_ERROR}>{errors?.["saison_phase"]}</FieldError>
         <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
           <ListBox aria-label="Phasen">
-            {SAISON_PHASE_OPTIONS.map((phase) => (
+            {phaseOffer.map(({ phase, expected, fits }) => (
               <ListBox.Item
                 key={phase}
                 id={phase}
                 textValue={PHASE_LABELS[phase]}
-                className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm flex flex-row items-center rounded-lg px-3 py-2.5 font-bold transition-colors duration-200">
+                /* Visible and disabled rather than hidden, the treatment `GruppeSelect` gives a full
+                   group: an admin should see WHY a phase cannot be picked rather than wonder where it
+                   went. The endpoint refuses the same shape (`REQ-SPIELTAG-002`) and stays authoritative. */
+                isDisabled={!fits}
+                className="text-foreground-muted hover:bg-muted hover:text-brand fluid-sm flex flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2.5 font-bold transition-colors duration-200 data-disabled:cursor-not-allowed data-disabled:opacity-40">
                 {PHASE_LABELS[phase]}
+                {/* The expected count, always: it answers "why is that one disabled" and "how many
+                    matches does this phase hold" in the same two characters. */}
+                <span className="fluid-xs text-foreground-muted font-semibold">{expected} Sp.</span>
               </ListBox.Item>
             ))}
           </ListBox>

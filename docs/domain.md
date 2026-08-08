@@ -6,7 +6,7 @@
 about its neighbours.** Four questions, one page.
 
 **The authority is `fl_backend/app/core/domain.py`, not this page.** That module states the model as data —
-seven aggregates, twelve references, thirty-two field policies, twenty-nine refusal rules, eight deliberate
+seven aggregates, twelve references, thirty-three field policies, twenty-nine refusal rules, eight deliberate
 absences — and `fl_backend/tests/core/test_domain.py` checks every claim in it against the code on every test
 run. This page is the narrative: it explains the shape and points at the tables, and it deliberately does
 not repeat them, because a second copy of a table is a second thing to be wrong.
