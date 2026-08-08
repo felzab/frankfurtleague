@@ -534,3 +534,26 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
         : `Spiel ${fault.spiel_nr} am ${formatSpielDatum(fault.spiel_datum)} führt ${fault.team_name}, disqualifiziert seit ${formatSpielDatum(fault.disqualifiziert_seit)}`;
   }
 };
+
+/**
+ * Every fault's sentence, filed under the fixture it names, so a card can state its own reasons.
+ *
+ * **Keyed on `spiel_id` and never on `spiel_nr`**, which the action-required route repeats: that route
+ * spans seasons, and two seasons both have a match 29. `FLSpieleActionRequiredResponseSchema` states the
+ * same rule, and it is the only join between the two arrays it returns.
+ *
+ * **One fixture can carry several**, which is why the value is a list rather than a sentence: two broken
+ * sides, or a cycle beside a group reference, are corrected separately and so are reported separately.
+ * Insertion order is the backend's, which reports the faults of one fixture together.
+ */
+export const groupBracketFaultsBySpielId = (faults: readonly FLBracketFault[]): ReadonlyMap<string, readonly string[]> => {
+  const bySpielId = new Map<string, string[]>();
+
+  for (const fault of faults) {
+    const sentences = bySpielId.get(fault.spiel_id);
+    if (sentences === undefined) bySpielId.set(fault.spiel_id, [formatBracketFault(fault)]);
+    else sentences.push(formatBracketFault(fault));
+  }
+
+  return bySpielId;
+};
