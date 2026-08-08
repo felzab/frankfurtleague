@@ -2,7 +2,7 @@
 
 import { Sliders, Xmark } from "@gravity-ui/icons";
 
-import { Button, ListBox, Popover } from "@heroui/react";
+import { Button, ListBox, Popover, ScrollShadow } from "@heroui/react";
 
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { countFacetOptions } from "@/shared/utils/facets";
@@ -61,24 +61,28 @@ export function FilterBar<TItem>({
   );
 
   return (
-    <div className="flex w-full flex-row flex-wrap items-center gap-2">
-      <Popover>
-        <Popover.Trigger
-          aria-label={activeCount === 0 ? triggerLabel : `${triggerLabel}, ${String(activeCount)} aktiv`}
-          className="border-border bg-surface text-foreground hover:bg-muted fluid-xs flex h-10 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-xl border px-3 font-bold shadow-sm transition-colors">
-          <Sliders
-            aria-hidden="true"
-            width={16}
-            height={16}
-          />
-          {triggerLabel}
-          {activeCount > 0 && <span className={`${COUNT_BADGE} bg-brand/50 text-foreground`}>{activeCount}</span>}
-        </Popover.Trigger>
+    // A column of two rows rather than one wrapping row (owner, 2026-08-08). Wrapping meant seven active
+    // filters pushed the list itself down the page by three rows of chips; scrolling them sideways keeps the
+    // control one row tall whatever is selected, and puts the reset where it does not compete with a chip.
+    <div className="flex w-full flex-col gap-2">
+      <div className="flex w-full flex-row items-center gap-2">
+        <Popover>
+          <Popover.Trigger
+            aria-label={activeCount === 0 ? triggerLabel : `${triggerLabel}, ${String(activeCount)} aktiv`}
+            className="border-border bg-surface text-foreground hover:bg-muted fluid-xs flex h-10 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-xl border px-3 font-bold shadow-sm transition-colors">
+            <Sliders
+              aria-hidden="true"
+              width={16}
+              height={16}
+            />
+            {triggerLabel}
+            {activeCount > 0 && <span className={`${COUNT_BADGE} bg-brand/50 text-foreground`}>{activeCount}</span>}
+          </Popover.Trigger>
 
-        <Popover.Content
-          placement="bottom start"
-          offset={8}>
-          {/* A GRID that grows sideways, not a single tall column (owner, 2026-08-08). Seven facets stacked
+          <Popover.Content
+            placement="bottom start"
+            offset={8}>
+            {/* A GRID that grows sideways, not a single tall column (owner, 2026-08-08). Seven facets stacked
               made the popover a scroll on every screen; in three columns the same seven fit a desktop
               outright, and the scroll that remains is a fallback rather than the normal way to reach the
               last facet. `min(92vw, …)` because a fixed width wide enough for three columns overflows a
@@ -87,107 +91,118 @@ export function FilterBar<TItem>({
               `data-scrollbar="thin"` is what makes the remaining scroll look like the rest of the app:
               HeroUI drives its scrollbar off that attribute rather than off a class, so a container with
               `overflow-y-auto` and nothing else gets the raw OS scrollbar. */}
-          <Popover.Dialog
-            data-scrollbar="thin"
-            className={`${overlayPanel()} grid max-h-[70vh] w-[min(92vw,22rem)] grid-cols-1 gap-3 overflow-y-auto p-3 outline-none sm:w-[min(92vw,34rem)] sm:grid-cols-2 lg:w-[min(92vw,48rem)] lg:grid-cols-3`}>
-            {facets.map((facet) => {
-              const counts = countFacetOptions(items, facets, selection, facet);
-              const picked = selection[facet.param] ?? [];
+            <Popover.Dialog
+              data-scrollbar="thin"
+              className={`${overlayPanel()} grid max-h-[70vh] w-[min(92vw,22rem)] grid-cols-1 gap-3 overflow-y-auto p-3 outline-none sm:w-[min(92vw,34rem)] sm:grid-cols-2 lg:w-[min(92vw,48rem)] lg:grid-cols-3`}>
+              {facets.map((facet) => {
+                const counts = countFacetOptions(items, facets, selection, facet);
+                const picked = selection[facet.param] ?? [];
 
-              return (
-                <div
-                  key={facet.param}
-                  // A bordered cell rather than a rule between stacked rows: in a grid a horizontal
-                  // separator would divide two columns' worth of unrelated facets.
-                  className="border-border/70 flex w-full min-w-0 flex-col gap-y-1 rounded-xl border p-1.5">
-                  <div className="flex flex-row items-center justify-between gap-x-2 px-1.5 pt-0.5">
-                    <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
-                    {picked.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        aria-label={`${facet.label} zurücksetzen`}
-                        onPress={() => clearFacet(facet.param)}
-                        className="fluid-xxs text-foreground-muted hover:text-foreground cursor-pointer font-bold transition-colors">
-                        Zurücksetzen
-                      </Button>
-                    )}
+                return (
+                  <div
+                    key={facet.param}
+                    // A bordered cell rather than a rule between stacked rows: in a grid a horizontal
+                    // separator would divide two columns' worth of unrelated facets.
+                    className="border-border/70 flex w-full min-w-0 flex-col gap-y-1 rounded-xl border p-1.5">
+                    <div className="flex flex-row items-center justify-between gap-x-2 px-1.5 pt-0.5">
+                      <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
+                      {picked.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          aria-label={`${facet.label} zurücksetzen`}
+                          onPress={() => clearFacet(facet.param)}
+                          className="fluid-xxs text-foreground-muted hover:text-foreground cursor-pointer font-bold transition-colors">
+                          Zurücksetzen
+                        </Button>
+                      )}
+                    </div>
+
+                    <ListBox
+                      aria-label={facet.label}
+                      selectionMode="multiple"
+                      selectedKeys={picked}
+                      // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing
+                      // `selectedKeys="all"`, which this never does, so it maps to an empty selection
+                      // rather than to a cast.
+                      onSelectionChange={(keys: Selection) => {
+                        setFacet(facet.param, keys === "all" ? [] : [...keys].map(String));
+                      }}>
+                      {facet.options.map((option) => {
+                        const count = counts[option.value] ?? 0;
+                        const isPicked = picked.includes(option.value);
+
+                        return (
+                          <ListBox.Item
+                            key={option.value}
+                            id={option.value}
+                            textValue={option.label}
+                            // A selected option stays enabled whatever its count — disabling it would make
+                            // it impossible to deselect, which is the one state this rule must not create.
+                            isDisabled={count === 0 && !isPicked}
+                            className="text-foreground-muted hover:bg-muted hover:text-brand data-selected:text-foreground fluid-sm flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors data-disabled:opacity-40">
+                            <span className="min-w-0 truncate">{option.label}</span>
+                            <span className={`${COUNT_BADGE} bg-muted text-foreground-muted shrink-0`}>{count}</span>
+                          </ListBox.Item>
+                        );
+                      })}
+                    </ListBox>
                   </div>
+                );
+              })}
+            </Popover.Dialog>
+          </Popover.Content>
+        </Popover>
 
-                  <ListBox
-                    aria-label={facet.label}
-                    selectionMode="multiple"
-                    selectedKeys={picked}
-                    // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing
-                    // `selectedKeys="all"`, which this never does, so it maps to an empty selection
-                    // rather than to a cast.
-                    onSelectionChange={(keys: Selection) => {
-                      setFacet(facet.param, keys === "all" ? [] : [...keys].map(String));
-                    }}>
-                    {facet.options.map((option) => {
-                      const count = counts[option.value] ?? 0;
-                      const isPicked = picked.includes(option.value);
+        {/* The chips are what make a closed popover honest: they say what is narrowing the list, and each
+            one removes exactly itself. Beside the trigger and scrolling sideways, so the control stays one
+            row tall however many are active (owner, 2026-08-08).
 
-                      return (
-                        <ListBox.Item
-                          key={option.value}
-                          id={option.value}
-                          textValue={option.label}
-                          // A selected option stays enabled whatever its count — disabling it would make
-                          // it impossible to deselect, which is the one state this rule must not create.
-                          isDisabled={count === 0 && !isPicked}
-                          className="text-foreground-muted hover:bg-muted hover:text-brand data-selected:text-foreground fluid-sm flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors data-disabled:opacity-40">
-                          <span className="min-w-0 truncate">{option.label}</span>
-                          <span className={`${COUNT_BADGE} bg-muted text-foreground-muted shrink-0`}>{count}</span>
-                        </ListBox.Item>
-                      );
-                    })}
-                  </ListBox>
-                </div>
-              );
-            })}
-          </Popover.Dialog>
-        </Popover.Content>
-      </Popover>
+            `ScrollShadow` at 16px rather than its 40px default: this is a 28px-tall strip, and a shadow the
+            height of the content reads as a gradient over the chips rather than as an edge. `hideScrollBar`
+            because the shadow IS the affordance here — a horizontal bar under a 28px row costs a third of it.
 
-      {/* The chips are what make a closed popover honest: they say what is narrowing the list, and each
-          one removes exactly itself.
+            **The facet name is gone from the chip and kept in the `aria-label`** (owner, 2026-08-08). On a
+            phone the name doubled every chip's width for information the values mostly carry themselves —
+            „Viertelfinale“ does not need „Phase:“ in front of it. A screen reader still hears which filter
+            it is, so the saving is visual only. */}
+        {chips.length > 0 && (
+          <ScrollShadow
+            orientation="horizontal"
+            size={16}
+            hideScrollBar
+            className="min-w-0 flex-1">
+            <div className="flex flex-row items-center gap-2">
+              {chips.map(({ facet, value, label }) => (
+                <span
+                  key={`${facet.param}:${value}`}
+                  className="border-brand/25 bg-brand/10 flex h-7 shrink-0 flex-row items-stretch overflow-hidden rounded-lg border">
+                  <span className="fluid-xs text-foreground flex items-center pr-1.5 pl-2 font-bold whitespace-nowrap">{label}</span>
+                  <Button
+                    variant="ghost"
+                    aria-label={`Filter ${facet.label}: ${label} entfernen`}
+                    // `toggle`, not a filtered `setFacet`: it reads the live selection itself, so removing
+                    // two chips quickly cannot have the second rebuild from a snapshot taken before the first.
+                    onPress={() => toggle(facet.param, value)}
+                    className="border-brand/25 text-foreground-muted hover:bg-danger/15 hover:text-danger-strong flex cursor-pointer items-center border-l px-1.5 transition-colors">
+                    <Xmark
+                      aria-hidden="true"
+                      className="size-3.5 shrink-0"
+                    />
+                  </Button>
+                </span>
+              ))}
+            </div>
+          </ScrollShadow>
+        )}
+      </div>
 
-          Redesigned (owner, 2026-08-08). The previous chip ran the facet name, a colon and the value
-          together at `fluid-xxs` inside a tinted pill, with the × crowding the value — three pieces of text
-          at one size with no boundary between them, which is why it did not read. Now the facet name is its
-          own segment on a lighter ground, the VALUE carries the weight, and the × sits behind a hairline
-          divider so it reads as a separate target rather than as punctuation. Taller, too: this is a control
-          people click, and it was below a comfortable target. */}
-      {chips.map(({ facet, value, label }) => (
-        <span
-          key={`${facet.param}:${value}`}
-          className="border-brand/25 bg-brand/10 flex h-7 shrink-0 flex-row items-stretch overflow-hidden rounded-lg border">
-          <span className="fluid-xxs text-foreground-muted bg-brand/10 flex items-center px-2 font-bold tracking-wide uppercase">
-            {facet.label}
-          </span>
-          <span className="fluid-xs text-foreground flex min-w-0 items-center truncate px-2 font-bold">{label}</span>
-          <Button
-            variant="ghost"
-            aria-label={`Filter ${facet.label}: ${label} entfernen`}
-            // `toggle`, not a filtered `setFacet`: it reads the live selection itself, so removing two chips
-            // in quick succession cannot have the second one rebuild from a snapshot taken before the first.
-            onPress={() => toggle(facet.param, value)}
-            className="border-brand/25 text-foreground-muted hover:bg-danger/15 hover:text-danger-strong flex cursor-pointer items-center border-l px-1.5 transition-colors">
-            <Xmark
-              aria-hidden="true"
-              className="size-3.5 shrink-0"
-            />
-          </Button>
-        </span>
-      ))}
-
-      {/* A real button rather than an underlined word at the end of the strip, which read as the last chip's
-          caption. Bordered, icon-led, and set apart by `ml-1` so the strip has an end. */}
+      {/* Below the strip rather than at the end of it, where it scrolled out of reach exactly when the most
+          filters were active and it was most wanted. `self-start` so it takes its own width. */}
       {activeCount > 1 && (
         <Button
           variant="ghost"
           onPress={clearAll}
-          className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs ml-1 flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 rounded-lg border px-2.5 font-bold transition-colors">
+          className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 self-start rounded-lg border px-2.5 font-bold transition-colors">
           <Xmark
             aria-hidden="true"
             className="size-3.5 shrink-0"

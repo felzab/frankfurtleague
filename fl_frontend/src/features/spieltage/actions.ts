@@ -71,7 +71,7 @@ function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: Fie
   if (error.serverErrorCode === "REQ-SPIELTAG-003") {
     return {
       error:
-        "Die K.-o.-Runde dieser Saison hat schon begonnen, deshalb lassen sich keine Spieltage mehr anlegen. Verschiebe den Beginn der K.-o.-Runde oder wähle eine andere Saison.",
+        "Die KO.-Runde dieser Saison hat schon begonnen, deshalb lassen sich keine Spieltage mehr anlegen. Verschiebe den Beginn der KO.-Runde oder wähle eine andere Saison.",
     };
   }
   if (error.serverErrorCode === "REQ-DATE-002") {

@@ -50,7 +50,7 @@ export function AdminCreateSpieltagModal({
       <span
         title={
           isKnockoutUnderWay
-            ? `Die K.-o.-Runde dieser Saison läuft seit dem ${knockoutBeginn ?? ""}. Danach lassen sich keine Spieltage mehr anlegen.`
+            ? `Die KO.-Runde dieser Saison läuft seit dem ${knockoutBeginn ?? ""}. Danach lassen sich keine Spieltage mehr anlegen.`
             : undefined
         }>
         <Button
@@ -64,7 +64,7 @@ export function AdminCreateSpieltagModal({
           {/* Below `sm` the trigger is the bare plus continuing the search bar (owner, 2026-08-07). The
               disabled label replaces it rather than sitting beside it: a disabled control whose wording is
               unchanged says nothing about why. */}
-          <span className="hidden sm:inline">{isKnockoutUnderWay ? "K.-o.-Runde läuft" : "Neuen Spieltag anlegen"}</span>
+          <span className="hidden sm:inline">{isKnockoutUnderWay ? "KO.-Runde läuft" : "Neuen Spieltag anlegen"}</span>
         </Button>
       </span>
 
