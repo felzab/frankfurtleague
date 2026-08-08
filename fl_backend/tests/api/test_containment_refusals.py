@@ -155,8 +155,8 @@ class TestAMatchdayKeepsCoveringItsFixtures:
 
 class TestOneVenueAndOneRefereeAtATime:
     # `resource` is annotated rather than left to inference: without the Literal, a plain `str` default
-    # widens the parameter and `BookedSlot` then refuses it, which Pylance reports and `pyright app` does
-    # not -- the gate's pyright pass covers `app` alone.
+    # widens the parameter and `BookedSlot` then refuses it. The gate catches that -- its bare `pyright`
+    # reads `[tool.pyright]`, which includes `tests`.
     def slot(
         self,
         uhrzeit: str,
