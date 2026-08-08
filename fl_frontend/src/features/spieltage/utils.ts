@@ -2,7 +2,7 @@
  * SPIELTAGE · derivations
  *
  * Pure derivation over a season's matchdays — no I/O and no caching, which is why it stays out of
- * `queries.ts` rather than being folded in (ADR-0004). Two things live here: the bracket's column order,
+ * `queries.ts` rather than being folded in (ADR-0003). Two things live here: the bracket's column order,
  * and the NAME a matchday is shown under, which no document stores (ADR-0064).
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────

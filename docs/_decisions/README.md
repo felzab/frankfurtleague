@@ -38,12 +38,9 @@ was taken**, not when the file was written.
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------- | -------- | ---------- |
 | [0001](0001-two-granular-cache-tags.md)                                           | Keep two granular cache tags, delete twenty                                  | frontend, backend      | Accepted | 2026-07-29 |
 | [0002](0002-omitted-season-means-current.md)                                      | An omitted `saison_id` means the current season                              | backend, frontend      | Accepted | 2026-07-31 |
-| [0003](0003-no-barrel-files.md)                                                   | No barrel files, anywhere                                                    | frontend               | Accepted | 2026-07-29 |
-| [0004](0004-optional-slice-modules.md)                                            | `utils.ts` and `resolvers.ts` are sanctioned slice modules                   | frontend               | Accepted | 2026-07-29 |
+| [0003](0003-no-barrel-files.md)                                                   | The frontend file layout: no barrels, named exports, categories              | frontend               | Accepted | 2026-07-29 |
 | [0005](0005-spiel-write-path-belongs-to-spiele.md)                                | The Spiel write path belongs to `spiele`, not `admin`                        | frontend               | Accepted | 2026-07-31 |
-| [0006](0006-component-category-folders.md)                                        | Component category folders, one extra level for forms                        | frontend               | Accepted | 2026-07-29 |
 | [0007](0007-three-spiel-cards-stay-separate.md)                                   | Three Spiel cards stay three components                                      | frontend               | Accepted | 2026-07-29 |
-| [0008](0008-named-exports.md)                                                     | Named exports; defaults only where Next.js requires                          | frontend               | Accepted | 2026-07-29 |
 | [0009](0009-connection-guards-every-data-fetch.md)                                | `await connection()` guards every page data fetch                            | frontend, ops          | Accepted | 2026-07-29 |
 | [0010](0010-authjs-owns-a-direct-mongoclient.md)                                  | Auth.js owns a direct `MongoClient`                                          | frontend               | Accepted | 2026-07-29 |
 | [0012](0012-admin-is-an-aggregator-slice.md)                                      | `admin` is an aggregator; cross-feature lints must be scoped                 | frontend               | Accepted | 2026-07-29 |
@@ -108,6 +105,9 @@ lives where the row says.
 
 | Number | Where the content went                                                           |
 | ------ | -------------------------------------------------------------------------------- |
+| 0004   | [ADR-0003](0003-no-barrel-files.md)                                              |
+| 0006   | [ADR-0003](0003-no-barrel-files.md)                                              |
+| 0008   | [ADR-0003](0003-no-barrel-files.md)                                              |
 | 0011   | `docs/frontend/spec.md`, invariant I28 (no `generateStaticParams`)               |
 | 0015   | [ADR-0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)        |
 | 0018   | `docs/frontend/overview.md`, the metadata rules (no `keywords` tag)              |

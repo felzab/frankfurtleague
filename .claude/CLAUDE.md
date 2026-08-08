@@ -278,12 +278,9 @@ the ADR.
 | ---- | --------------------------------------------------------------------------------------------------- |
 | 0001 | Add a granular cache tag with no `updateTag`; make base tags conditional                            |
 | 0002 | Give `saison_id` a field default — an omitted one means the current season, in the handler          |
-| 0003 | Add a barrel file                                                                                   |
-| 0004 | Fold `utils.ts` or `resolvers.ts` into `queries.ts`                                                 |
+| 0003 | Add a barrel file; fold `utils.ts` or `resolvers.ts` into `queries.ts`; use a default export outside the files Next.js requires one in; nest components deeper than one level or leave them flat |
 | 0005 | Move the Spiel write path to `admin`, or let its form read `useAdmin()`                             |
-| 0006 | Nest components deeper than one level, or leave them flat in `components/`                          |
 | 0007 | Merge the three `SpielCard` variants                                                                |
-| 0008 | Use a default export outside the files Next.js requires one in                                      |
 | 0009 | Remove an `await connection()` before a page fetch — the image build fails                          |
 | 0010 | Add a second direct `MongoClient`; Auth.js owns the only one                                        |
 | 0012 | Scope a cross-feature import lint to anything but `core` and `shared`                               |

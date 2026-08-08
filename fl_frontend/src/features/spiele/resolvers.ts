@@ -3,7 +3,7 @@
  *
  * Bridges the edit page's dynamic segment to a validated match id. Kept out of `queries.ts` because it
  * is not caching code, and folding it in would put a non-caching function inside a `"use cache"` module
- * (ADR-0004).
+ * (ADR-0003).
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *

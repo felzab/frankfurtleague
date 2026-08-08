@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `80534e2`, 2026-08-08
+**Verified against:** `50c87e8`, 2026-08-08
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -26,7 +26,7 @@ Twelve slices. The column shows which optional modules each actually has.
 
 `utils.ts` and `resolvers.ts` are sanctioned optional modules. They exist separately from `queries.ts`
 because they hold non-caching code, and folding them in would put pure functions inside a `"use cache"`
-module. (ADR-0004.)
+module. (ADR-0003.)
 
 ## 2. Cached reads
 
