@@ -101,82 +101,88 @@ export function FilterBar<TItem>({
               className={`${overlayPanel()} w-[92vw] overflow-hidden p-0 outline-none ${
                 facets.length >= 5 ? "sm:w-[min(92vw,44rem)] lg:w-[min(92vw,64rem)] xl:w-[min(92vw,75rem)]" : "sm:w-[min(92vw,40rem)]"
               }`}>
-              <div
-                className={`scrollbar-line max-h-[70vh] gap-x-3 overflow-y-auto p-3 ${
-                  facets.length >= 5 ? "columns-1 sm:columns-2 lg:columns-3 xl:columns-4" : "columns-1 sm:columns-2"
-                }`}>
-                {facets.map((facet) => {
-                  const counts = countFacetOptions(items, facets, selection, facet);
-                  const picked = selection[facet.param] ?? [];
+              {/* The SCROLLER and the COLUMNS are two elements, and merging them is the bug this
+                  split fixes (owner, 2026-08-08): a height-capped multicol container does not scroll
+                  its overflow, it spawns ANOTHER column sideways — on a phone, `columns-1` plus
+                  `max-h` produced a second column off the right edge. Unconstrained, the columns
+                  balance to the content's own height and the scroller above them only scrolls down.
+                  On a phone that leaves a single unconstrained column: a plain vertical stack. */}
+              <div className="scrollbar-line max-h-[70vh] overflow-x-hidden overflow-y-auto p-3">
+                <div
+                  className={`gap-x-3 ${facets.length >= 5 ? "columns-1 sm:columns-2 lg:columns-3 xl:columns-4" : "columns-1 sm:columns-2"}`}>
+                  {facets.map((facet) => {
+                    const counts = countFacetOptions(items, facets, selection, facet);
+                    const picked = selection[facet.param] ?? [];
 
-                  // A facet with many options still flows its OPTIONS in two columns (owner,
-                  // 2026-08-08), so the Team facet is nine rows rather than seventeen — the cell itself
-                  // stays one masonry column wide, and the column layout absorbs whatever height remains.
-                  const isWide = facet.options.length > 8;
+                    // A facet with many options still flows its OPTIONS in two columns (owner,
+                    // 2026-08-08), so the Team facet is nine rows rather than seventeen — the cell itself
+                    // stays one masonry column wide, and the column layout absorbs whatever height remains.
+                    const isWide = facet.options.length > 8;
 
-                  return (
-                    <div
-                      key={facet.param}
-                      // `break-inside-avoid` is what multi-column layout is bought for: without it a
-                      // facet is sliced mid-option across two columns. `mb-3` rather than the parent's
-                      // gap, because multicol has no row-gap — the bottom margin is the vertical rhythm.
-                      className="border-border/70 mb-3 flex w-full min-w-0 break-inside-avoid flex-col gap-y-1 rounded-xl border p-1.5">
-                      {/* A FIXED height, because the reset appears only once something is picked (owner,
+                    return (
+                      <div
+                        key={facet.param}
+                        // `break-inside-avoid` is what multi-column layout is bought for: without it a
+                        // facet is sliced mid-option across two columns. `mb-3` rather than the parent's
+                        // gap, because multicol has no row-gap — the bottom margin is the vertical rhythm.
+                        className="border-border/70 mb-3 flex w-full min-w-0 break-inside-avoid flex-col gap-y-1 rounded-xl border p-1.5 last:mb-0">
+                        {/* A FIXED height, because the reset appears only once something is picked (owner,
                         2026-08-08). Its intrinsic height exceeded the label's, so the header row grew on the
                         first selection and pushed every facet below it down — the popover appeared to jump
                         while being used. Reserving the row lets the button come and go without reflow. */}
-                      <div className="flex h-6 flex-row items-center justify-between gap-x-2 px-1.5">
-                        <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
-                        {picked.length > 0 && (
-                          <Button
-                            variant="ghost"
-                            aria-label={`${facet.label} zurücksetzen`}
-                            onPress={() => clearFacet(facet.param)}
-                            className="fluid-xxs text-foreground-muted hover:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors">
-                            Zurücksetzen
-                          </Button>
-                        )}
+                        <div className="flex h-6 flex-row items-center justify-between gap-x-2 px-1.5">
+                          <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
+                          {picked.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              aria-label={`${facet.label} zurücksetzen`}
+                              onPress={() => clearFacet(facet.param)}
+                              className="fluid-xxs text-foreground-muted hover:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors">
+                              Zurücksetzen
+                            </Button>
+                          )}
+                        </div>
+
+                        <ListBox
+                          aria-label={facet.label}
+                          selectionMode="multiple"
+                          className={isWide ? "sm:grid sm:grid-cols-2 sm:gap-x-1" : undefined}
+                          selectedKeys={picked}
+                          // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing
+                          // `selectedKeys="all"`, which this never does, so it maps to an empty selection
+                          // rather than to a cast.
+                          onSelectionChange={(keys: Selection) => {
+                            setFacet(facet.param, keys === "all" ? [] : [...keys].map(String));
+                          }}>
+                          {facet.options.map((option) => {
+                            const count = counts[option.value] ?? 0;
+                            const isPicked = picked.includes(option.value);
+
+                            return (
+                              <ListBox.Item
+                                key={option.value}
+                                id={option.value}
+                                textValue={option.label}
+                                // A selected option stays enabled whatever its count — disabling it would make
+                                // it impossible to deselect, which is the one state this rule must not create.
+                                isDisabled={count === 0 && !isPicked}
+                                // The VALUE carries the emphasis and its count carries the brand (owner,
+                                // 2026-08-08): full-strength text for an option that would match something,
+                                // muted for one that would match nothing. `data-disabled:opacity-40` used to be
+                                // the only signal, which dimmed the whole row including its count.
+                                className={`fluid-sm hover:bg-muted hover:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors ${
+                                  count === 0 ? "text-foreground-muted" : "text-foreground"
+                                }`}>
+                                <span className="min-w-0 truncate">{option.label}</span>
+                                <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{count}</span>
+                              </ListBox.Item>
+                            );
+                          })}
+                        </ListBox>
                       </div>
-
-                      <ListBox
-                        aria-label={facet.label}
-                        selectionMode="multiple"
-                        className={isWide ? "sm:grid sm:grid-cols-2 sm:gap-x-1" : undefined}
-                        selectedKeys={picked}
-                        // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing
-                        // `selectedKeys="all"`, which this never does, so it maps to an empty selection
-                        // rather than to a cast.
-                        onSelectionChange={(keys: Selection) => {
-                          setFacet(facet.param, keys === "all" ? [] : [...keys].map(String));
-                        }}>
-                        {facet.options.map((option) => {
-                          const count = counts[option.value] ?? 0;
-                          const isPicked = picked.includes(option.value);
-
-                          return (
-                            <ListBox.Item
-                              key={option.value}
-                              id={option.value}
-                              textValue={option.label}
-                              // A selected option stays enabled whatever its count — disabling it would make
-                              // it impossible to deselect, which is the one state this rule must not create.
-                              isDisabled={count === 0 && !isPicked}
-                              // The VALUE carries the emphasis and its count carries the brand (owner,
-                              // 2026-08-08): full-strength text for an option that would match something,
-                              // muted for one that would match nothing. `data-disabled:opacity-40` used to be
-                              // the only signal, which dimmed the whole row including its count.
-                              className={`fluid-sm hover:bg-muted hover:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors ${
-                                count === 0 ? "text-foreground-muted" : "text-foreground"
-                              }`}>
-                              <span className="min-w-0 truncate">{option.label}</span>
-                              <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{count}</span>
-                            </ListBox.Item>
-                          );
-                        })}
-                      </ListBox>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </Popover.Dialog>
           </Popover.Content>
