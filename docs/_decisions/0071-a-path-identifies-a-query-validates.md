@@ -11,7 +11,7 @@
 
 The two spellings answer differently, and each is uniform within itself:
 
-- **A path segment: 404.** `app/core/routing.py :: by_id` spells every ObjectId-addressed route with
+- **A path segment: 404.** `fl_backend/app/core/routing.py :: by_id` spells every ObjectId-addressed route with
   the `objectid` convertor, whose regex is 24 hex characters — `/spiele/not-an-id` matches no route
   and never reaches a handler. A season id is a four-character string rather than an ObjectId, so
   `/saisons/{saison_id}` carries no convertor and a wrong id 404s from the lookup instead; the status
@@ -29,7 +29,7 @@ The convertor is not free to go. `GET /spiele/action_required` is admin-authoriz
 `GET /spiele/{spiel_id}` is not, so the two live in different routers
 ([ADR-0034](0034-the-write-path-is-resource-first-in-a-second-router.md)) — and with an
 unconstrained `{spiel_id}`, the literal path is captured by the parameter unless the include order
-in `app/main.py` happens to save it, which is a load-bearing invisible ordering the convertor
+in `fl_backend/app/main.py` happens to save it, which is a load-bearing invisible ordering the convertor
 exists to remove.
 
 ## Decision
@@ -53,7 +53,7 @@ the statement that the split is intentional, which is what made it read as accid
 (`docs/backend/spec.md` §7 tracked it as such, and that row leaves with this decision).
 
 **The convertor must stay.** Dropping it would re-open the literal-vs-parameter capture that
-`app/core/routing.py`'s header documents, and would move `/spiele/not-an-id` from "no such route"
+`fl_backend/app/core/routing.py`'s header documents, and would move `/spiele/not-an-id` from "no such route"
 to "a handler queried Mongo with a string" — which is the case `REQ-OID-001` exists to net.
 
 **A client can tell the two failures apart, and that is correct.** A 404 on a path says "nothing is
