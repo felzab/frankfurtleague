@@ -79,7 +79,14 @@ export function SpielDetailsModal({
       onOpenChange={(open: boolean) => {
         if (!open) onClose();
       }}
-      variant="blur">
+      variant="opaque">
+      {/* The blur on an empty sibling rather than `variant="blur"`, for ModalShell's reason: a
+          backdrop-filter on the ancestor of animated content is what Chromium drops for good. This
+          modal is off the shell by decision (below), so it carries its own copy of the layer. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 backdrop-blur-md"
+      />
       <Modal.Container placement="top">
         {/* No `aria-label`: it outranked the heading, so opening a match announced
             "Spieldetails-Dialog" and never said which match. `Modal.Heading` below names
