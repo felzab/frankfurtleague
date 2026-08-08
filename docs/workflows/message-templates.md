@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `cf88b87`, 2026-08-07
+**Verified against:** `eefc968`, 2026-08-08
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
