@@ -40,7 +40,7 @@ With the slot modelled as absent, **nothing filled it when a result arrived**. S
 quarter-finals — matches 25 and 28 — whose winners never reached the semi-finals they feed, and the
 only way to move them was to type each team into the admin form by hand.
 
-**The domain fact that decides the shape, and it is the owner's ruling closing FB-4's part 1:** the
+**The domain fact that decides the shape, and it is my ruling closing FB-4's part 1:** the
 first knockout round is **always** seeded from the group phase, and every round after it is fed by
 exactly two matches of the round before. There is no third way for a slot to be filled. Until that
 ruling, the shape of the reference was deliberately left open — a match-fed reference cannot express a

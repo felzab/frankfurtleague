@@ -11,7 +11,7 @@ Read this before running any phase.
 | [5 · The gate](#5-the-gate--what-it-catches-what-it-cannot-and-its-own-traps)                                     | Closing out a wave                                  |
 | [6 · Environment traps](#6-runtime-verification--environment-traps)                                               | Verifying anything at runtime                       |
 | [7 · Ledger discipline](#7-ledger-discipline--the-failure-modes-and-their-rules)                                  | Editing the ledger                                  |
-| [8 · Wave mechanics](#8-wave-mechanics--ordering-scope-and-owner-interaction)                                     | Planning waves or running one                       |
+| [8 · Wave mechanics](#8-wave-mechanics--ordering-scope-and-working-with-me)                                       | Planning waves or running one                       |
 | [9 · Report and prompt hygiene](#9-report-and-prompt-hygiene)                                                     | Writing a report or a prompt                        |
 | [10 · Stack-specific traps](#10-stack-specific-traps)                                                             | Working in this stack                               |
 
@@ -55,7 +55,7 @@ overstated `[x]`.
 ### The shapes to expect
 
 - **Findings that invert on an answer.** A finding written from one surface can be the exact opposite
-  of correct once the other surface, or the owner, is consulted. Applying such a fix as written adds
+  of correct once the other surface is consulted, or I am. Applying such a fix as written adds
   dead code and preserves a false claim. This is why Wave 0 answers questions before any code is
   written.
 - **Findings that are already fixed.** By the time a wave runs, earlier waves may have removed the
@@ -250,7 +250,7 @@ are written. The end-of-wave sweep is what keeps the document true.
 
 ---
 
-## 8. Wave mechanics — ordering, scope, and owner interaction
+## 8. Wave mechanics — ordering, scope, and working with me
 
 - **Dependency order is real, and it is not severity order.** Guardrails first, because their lint
   rules catch in-flight mistakes in every later wave. Boundaries before extraction, or the extraction
@@ -262,14 +262,14 @@ are written. The end-of-wave sweep is what keeps the document true.
 - **Wave 0 first.** A small number of answered questions, settled before any code, can invert
   findings, redirect fixes, and produce the ratified-decision table that ends the false-positive
   treadmill.
-- **Front-load owner decisions as one batch** with measured options and a recommendation each:
+- **Front-load my decisions as one batch** with measured options and a recommendation each:
   contrast and colour choices, user-visible changes, anything reopening a ratified decision, any row
-  whose text names the owner. Discovering them one at a time mid-wave stalls the wave across
+  whose text names me. Discovering them one at a time mid-wave stalls the wave across
   sittings.
 - **Visual divergence rule.** When deduplicating drifted copies, behavioural divergences are resolved
   explicitly; visual divergences default to _both sides become identical_. Keeping a difference needs
-  the owner's agreement first, and the reason goes in the pull request description.
-- **Owner review rounds are where the truth arrives.** They surface reversals of a wave's largest
+  my agreement first, and the reason goes in the pull request description.
+- **My review rounds are where the truth arrives.** They surface reversals of a wave's largest
   decisions and controls that had silently never run — things the gate cannot see. When a fix does
   not work, stop guessing at plausible causes and measure: **if changing the parameter changes
   nothing, that parameter is not the variable.**

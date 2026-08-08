@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FE-10, the owner's report that the match editor is cramped, too concentrated, and navigable mainly by the person who built it.
+**Source:** Open item FE-10, my report that the match editor is cramped, too concentrated, and navigable mainly by the person who built it.
 
 ## Context
 
@@ -34,17 +34,17 @@ by ADR-0051) and FB-9's eligibility feedback (now ADR-0052, implementation defer
 
 ## Decision
 
-**The match editor is a page at `/admin/spiele/[spiel_id]`, and the modal retires.** Owner's decision of
+**The match editor is a page at `/admin/spiele/[spiel_id]`, and the modal retires.** My decision of
 2026-08-06. One fixture per URL, so a triage list can send an admin to the exact thing that needs fixing
 and a reload returns to it. `GET /spiele/{spiel_id}` — kept by ADR-0034 for uniform addressability and
 until now uncalled — is what makes the route addressable by match id alone: a match carries its own
 `saison_id`, so reading it is what tells the page which season's lookup lists the pickers must offer.
 
-**A field is judged when it is left, never between two keystrokes.** The owner asked for real-time
+**A field is judged when it is left, never between two keystrokes.** I asked for real-time
 validation; established form-validation research is consistent that validating while the user is still
 typing raises error rates rather than lowering them, and that the workable trigger is the moment the
 field is left. Premature messages read as accusatory, and on a phone they shift the layout under the
-submit button — the surface the owner declared imperative. So the rule has two halves, and the split is
+submit button — the surface I declared imperative. So the rule has two halves, and the split is
 by control rather than by field:
 
 - a control the user **types** into is judged on **blur**;
@@ -69,7 +69,7 @@ fields is indistinguishable from a rule inside one.
 
 **A label, a hint or a description earns its place only by saying something the others do not.** "Wähle
 das Datum aus, an dem das Spiel stattfindet" under a label reading "Spieldatum" is the label again in
-more words. Owner's instruction, 2026-08-06: the copy is light and digestible, and a hint that explains a
+more words. My instruction, 2026-08-06: the copy is light and digestible, and a hint that explains a
 switch is reversible or repeats a placeholder is deleted rather than shortened.
 
 **A save leaves the page through history.** `router.back()` returns to whichever list the admin came from
@@ -127,7 +127,7 @@ to be built and then maintained twice, and a rule present on one surface and mis
 worse than either surface alone.
 
 **Validate on every keystroke, as the brief's wording asked.** Rejected on the evidence above, and
-recorded here rather than silently: the owner has not been asked to re-confirm the departure, so the
+recorded here rather than silently: I have not re-confirmed the departure, so the
 disagreement is on the record where a reader will find it.
 
 **Simulate the resolution to say exactly which results a save would destroy.** Refused at the time

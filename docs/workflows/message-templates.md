@@ -1,6 +1,6 @@
 # Message templates
 
-**Verified against:** `aa5caf5`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 **Scope:** copy-paste forms for commit messages, pull requests and issues
 
 **This page is the form; [`README.md`](README.md) — the workflows page beside it — is the reasoning.** That page documents the
@@ -121,7 +121,7 @@ reads **only the commits on your branch** — never history, which predates this
 
 **The split is deliberate.** Everything on the left is true or false without reading the change;
 everything on the right needs judgment, and a check that cries wolf gets suppressed
-([`../_standard/5-currency.md`](../_standard/5-currency.md)). Advisories do not appear in a green
+([`../_standard/chapters/5-currency.md`](../_standard/chapters/5-currency.md)). Advisories do not appear in a green
 run — the gate captures a passing step's output — so read them with
 `./scripts/verify.sh --docs --verbose`, or by running the checker directly.
 

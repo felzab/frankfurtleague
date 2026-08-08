@@ -5,7 +5,7 @@
 **Surface:** ops
 **Supersedes:** —
 **Superseded by:** —
-**Source:** owner's decision, 2026-08-05, on roadmap item OPS-6
+**Source:** My decision, 2026-08-05, on roadmap item OPS-6
 
 ## Context
 
@@ -28,7 +28,7 @@ on 2026-08-05. Four facts came out of that reading and together they decide the 
   fifteen commits. One sentence each would be fifteen lines; its actual body groups the fifteen into
   themes in a single paragraph, which is the only form a reader can hold at once.
 - **The headings carry what no commit can.** That same body's _Left undone_ names four things
-  proposed to the owner and awaiting a decision. It appears in no commit body because it is not a
+  proposed to me and awaiting my decision. It appears in no commit body because it is not a
   change anyone made — and neither is a gate invocation covering the whole branch, or a divergence
   resolved across two commits.
 

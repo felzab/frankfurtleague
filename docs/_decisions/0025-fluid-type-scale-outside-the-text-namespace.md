@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Owner report, 2026-08-02 — chips on the teams pages rendering "either a blue or a gray".
+**Source:** My report, 2026-08-02 — chips on the teams pages rendering "either a blue or a gray".
 Tracing that colour led to a class being deleted before it reached the browser, and the same
 mechanism was then found at 51 call sites.
 

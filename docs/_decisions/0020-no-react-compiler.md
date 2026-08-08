@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Enabled during a performance pass, measured, and reversed by the owner the same day. The
+**Source:** Enabled during a performance pass, measured, and reversed by me the same day. The
 inline note in `next.config.ts` was the only record until this ADR.
 
 ## Context

@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FE-12, the owner's instruction to rethink `/admin/action_required` from the ground
+**Source:** Open item FE-12, my instruction to rethink `/admin/action_required` from the ground
 up — good UX, and sound from a development perspective — and six rounds of review on the result.
 
 ## Context
@@ -49,7 +49,7 @@ render order cannot drift from the table. Three working grades and one that is n
 the same sticky toolbar over the same three-breakpoint card grid, the same `TAB_TRACK` / `TAB_ITEM` /
 `TAB_INDICATOR`, the same paddings. Two surfaces that are one control doing one job read as one control.
 
-**All eight tabs render at all times, whatever the counts are** (owner). A strip that gains and loses
+**All eight tabs render at all times, whatever the counts are** (my call). A strip that gains and loses
 tabs as fixtures are completed is a control that moves under the hand using it. What carries the state
 is the count badge, and **green is reserved for zero**: a cleared category is the one thing that needs
 no attention, and every other count takes its own urgency's accent, so the colour says what the number
@@ -64,7 +64,7 @@ deliberately uncached ([ADR-0013](0013-admin-scoped-reads-are-never-cached.md)).
 `pushState`, because Back on a triage list should leave the list rather than walk an admin back through
 the sections they looked at.
 
-**The card is `SpielCard`, unaltered** (owner, twice). A match card looks the same on every surface that
+**The card is `SpielCard`, unaltered** (my call, twice). A match card looks the same on every surface that
 renders one, so the triage page adds no variant, no slot and no wrapper. What the page adds instead is
 what the card cannot carry: the tab names the problem once, an `InfoHint` beside the strip says what
 that one word covers, and the bracket faults keep the panel above the grid that
@@ -108,7 +108,7 @@ which one test asserts.
 **`SpielCard` changed for every surface, twice, and both were deliberate.** The admin edit link takes the
 brand fill wherever `adminEditHref` is passed — the two admin routes, never a public one — and both icon
 buttons gained an `IconTooltip`, because an icon-only control should say what it does. The finished
-fixture's `opacity-90` is gone (owner): a played match is not a lesser one.
+fixture's `opacity-90` is gone (my call): a played match is not a lesser one.
 
 **The two badge recipes moved to `fl_frontend/src/shared/components/ui/badges.ts`.** They were the match
 editor's; a second surface needs the same two shapes, and a copy is how one page's count pill and
@@ -145,7 +145,7 @@ category set that ADR-0046 and ADR-0047 build on and that the match editor reads
 the system names.
 
 **A purpose-built triage card carrying the reason, the overdue count and the fixture's other open
-categories.** Built and rejected by the owner on sight: a match card that looks different on one page is
+categories.** Built and rejected by me on sight: a match card that looks different on one page is
 an inconsistency, and the information it added is either the tab's own name repeated per row or
 available one click deeper. The card's own date and status chip are the timestamp the pattern asks for.
 

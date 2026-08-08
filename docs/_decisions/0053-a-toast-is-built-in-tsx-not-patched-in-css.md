@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FE-11, widened by the owner the same day from "fix four defects" to a full
+**Source:** Open item FE-11, widened by me the same day from "fix four defects" to a full
 redesign of the toast surface.
 
 ## Context
@@ -60,7 +60,7 @@ read.
 Both are written against **HeroUI 3.2.3** and both say so at the rule.
 
 **A settled toast carries no icon, and severity is two thin marks: the border and the timer bar**
-(owner, 2026-08-06, after seeing the first build). Both are the plain accent, the border at `/60`.
+(my call, 2026-08-06, after seeing the first build). Both are the plain accent, the border at `/60`.
 
 That is a real departure from `Callout`, which announces itself with a glyph in a tinted 36px tile, and
 the difference is the surface rather than the palette. A callout sits inside a page among body text and

@@ -28,7 +28,7 @@ the _specific report sections_ its wave names — never a whole report, never tw
 and whether it is done_. That file records _what was actually done and why_. Status here, narrative
 there.
 
-**Wave 0 status: `OPEN`** — every wave is blocked until this reads `SETTLED <date>`. Only the owner's
+**Wave 0 status: `OPEN`** — every wave is blocked until this reads `SETTLED <date>`. Only my
 answers to Part 1 change it, and `/audit:wave` refuses to run while it says `OPEN`.
 
 **Source reports** (in `docs/audit/programme/`, listed in the order they were written):
@@ -72,12 +72,12 @@ Everything here is settled **before any code changes**. Answers routinely invert
 ## 1.1 — Questions answerable only outside this surface's code
 
 \<One row per question: # | Question | Blocks (row IDs) | Why it matters. Answer each by reading the
-other surface's code or by asking the owner, and record the answer of record inline, dated, with its
+other surface's code or by asking me, and record the answer of record inline, dated, with its
 evidence.\>
 
-## 1.2 — Product and owner decisions
+## 1.2 — Product decisions for me
 
-\<# | Decision | Blocks | Options with trade-offs. Put these to the owner as ONE batch, each with a
+\<# | Decision | Blocks | Options with trade-offs. Put these to me as ONE batch, each with a
 recommendation. Record the answer inline and dated.\>
 
 ## 1.3 — Architectural decisions to ratify
@@ -124,7 +124,7 @@ It is what justifies auditing that area again rather than assuming it stays fixe
 
 \<If the programme ran the risk pass, copy its register rows here with their coverage outcome, and
 add a row for every `NOT COVERED` entry and every pass that reported a register row as not covered.
-Each becomes either a ledger row, an accepted risk with the owner's reasoning, or a roadmap item —
+Each becomes either a ledger row, an accepted risk with my reasoning, or a roadmap item —
 never nothing. This is the audit's own coverage record, and it is the part a reader six months later
 uses to decide whether the programme was thorough.\>
 
@@ -204,7 +204,7 @@ be deleted with every one of its tests still passing.
 Review the wave's full diff **as unreviewed code from a stranger**, against CLAUDE.md and the ADRs —
 not by re-checking the list that produced it. Verify every ticked row against the diff at **all** its
 call sites, not the one the report named. File what it finds: fix in-wave if this wave introduced it,
-otherwise open a row in the wave that owns it. This is a phase, not an owner favour, and it reliably
+otherwise open a row in the wave that owns it. This is a phase, not a favour to me, and it reliably
 finds shipped defects.
 
 ## 4.5 Wave report and lessons harvest
@@ -213,7 +213,7 @@ Write this wave's section in `wave-reports.md` using the template there. **A wav
 until its report exists.** Then trim the ledger rows — rows are status, the report is the story.
 
 **Wave reports are written for humans, not machines.** The audience is someone who was not in the
-session: the owner months later, a reviewer, a future session. That means the "what this wave was
+session: me months later, a reviewer, a future session. That means the "what this wave was
 for" paragraph must be readable by a non-engineer; changes are grouped by theme and explained as
 defect → fix → visible effect in full sentences; row IDs appear in passing for greppability and never
 as the load-bearing text, because a reader must not need the ledger open to follow the story; tables
@@ -244,7 +244,7 @@ durable, transferable lesson moves.
 Push the branch, then print in one copy-paste block the pull request **title**
 (`Scope: what changed`) and **body**. The body must **stand alone**: `docs/audit/` is untracked, so a
 reviewer on GitHub can see neither this file nor the wave report — never point at them. Open it with
-`gh pr create --draft`; marking it ready and merging are the owner's.
+`gh pr create --draft`; marking it ready and merging are mine.
 
 ---
 
@@ -266,9 +266,9 @@ diff.
 findings must not publish. Snapshot to `docs/audit/programme/.snapshots/<date>-<time>.md` before any bulk edit,
 so a botched edit has a last-good version to diff against.
 
-**Front-load the owner's decisions.** Before writing code, inventory every row that needs a human —
-user-visible changes, contrast and colour, anything reopening a ratified decision, any row naming the
-owner — and ask them as ONE batch with measured options and recommendations. Ask more rather than
+**Front-load my decisions.** Before writing code, inventory every row that needs a human —
+user-visible changes, contrast and colour, anything reopening a ratified decision, any row naming
+me — and put them to me as ONE batch with measured options and recommendations. Ask more rather than
 less; a question is cheaper than a reverted wave.
 
 ---

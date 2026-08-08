@@ -71,7 +71,7 @@ else
       *.md) docs=true; format=true ;;
       scripts/*) scripts=true; docs=true; format=true ;;
       # Packaging inputs. The docs scope rides along wherever source comments are scanned for
-      # citations (.ts/.tsx/.js/.mjs/.cjs/.py — see check_docs.py, DS20).
+      # citations (.ts/.tsx/.js/.mjs/.cjs/.py — see check_docs.py, INC-6).
       fl_frontend/Dockerfile|fl_frontend/.dockerignore) images=true ;;
       fl_backend/Dockerfile|fl_backend/.dockerignore) images=true ;;
       fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)

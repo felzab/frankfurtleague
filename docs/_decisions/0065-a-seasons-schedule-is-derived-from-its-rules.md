@@ -5,7 +5,7 @@
 **Surface:** backend, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** The owner's decisions of 2026-08-07, reviewing FB-6: "just from the number of teams and number
+**Source:** My decisions of 2026-08-07, reviewing FB-6: "just from the number of teams and number
 of groups you can figure out how many Spieltage there have to be … anzahl spiele per spieltag can also be
 calculated just from that. It CAN be saved to the db, but shouldn't be manually editable"; then, asked
 whether to store the derived value or compute it, "derive it, don't store it"; and "a round of sixteen
@@ -54,7 +54,7 @@ read from the season's rules and this matchday's phase, exactly as `FLTeam.stati
 season's matches ([ADR-0026](0026-team-statistics-are-derived-from-spiele.md)). `GET /spieltage` and
 `GET /spieltage/{spieltag_id}` resolve the season's rules once and inject the value before validation.
 
-**Storing the derived number was the owner's own suggestion and is rejected on the same ground ADR-0064
+**Storing the derived number was my own suggestion and is rejected on the same ground ADR-0064
 rejected a stored position:** a stored derivation is a cache with no invalidation. Editing a season's
 `teams_per_group` would leave every matchday's count behind, and the field would then need either a fan-out
 across the season's matchdays or a reader who knows the stored value may be stale. There is no second copy
@@ -107,7 +107,7 @@ without these the same incoherence was unreachable from one direction and wide o
 **The fifth is a freeze, and it protects a result rather than a reference.** The league table is scored from
 `rules` on every read ([ADR-0026](0026-team-statistics-are-derived-from-spiele.md)), so editing a finished
 season's points rewrites who won it, on the next read, with nothing anywhere recording what it said before.
-**Only the dates stay editable** (owner, 2026-08-07): a mistyped end date on a closed season is a repair
+**Only the dates stay editable** (my call, 2026-08-07): a mistyped end date on a closed season is a repair
 with no downside. `erlaubte_stufen` stays editable too, because it bounds what a **form** offers and never
 what a stored squad row holds ([ADR-0061](0061-position-and-stufe-are-closed-sets.md)).
 
@@ -172,7 +172,7 @@ a direct API call both reach it.
 
 ## Alternatives considered
 
-**Store the derived count and refuse edits to it.** The owner's own first suggestion, and the one this
+**Store the derived count and refuse edits to it.** My own first suggestion, and the one this
 decision came closest to taking. Rejected for ADR-0064's reason: a stored derivation with no invalidation
 goes stale the moment `teams_per_group` changes, and the alternative — fanning the new value out across
 every matchday of the season — makes a rules edit a multi-document write in order to maintain a number that

@@ -315,8 +315,8 @@ the ADR.
 
 ## 8. Documentation
 
-**The standard is `docs/_standard/`, starting at `1-principles.md`. Read it before writing or changing
-any documentation.** Any edit under `docs/_standard/` needs the owner's explicit approval — a
+**The standard is `docs/_standard/` — the one-line-per-rule summary is `rules-index.md`, the full
+rules are in `chapters/`. Read it before writing or changing any documentation.** Any edit under `docs/_standard/` needs the owner's explicit approval — a
 PreToolUse hook surfaces the permission prompt on every write there (owner rule, 2026-08-08). These four are the ones that bind every session:
 
 1. **Same commit.** A change invalidating a documented claim updates that document in the same commit.
@@ -328,8 +328,9 @@ PreToolUse hook surfaces the permission prompt on every write there (owner rule,
 Write for a reader with no context: no reference to a session, a past effort, or an identifier that
 resolves to nothing.
 
-`./scripts/verify.sh` fails on a dangling ADR number, a dead link, a broken anchor, a line-number
-citation, a missing path, and a stamped page edited without restamping — in `/docs` and inside source
+`./scripts/verify.sh` fails on a dangling ADR number or rule id, a dead link, a broken anchor, a
+line-number citation, a missing path, a malformed ADR or stamp, and a stamped page that kept its
+stamp although it was edited or its cited files materially changed — in `/docs` and inside source
 comments alike.
 
 **Entry point: `docs/README.md`.** Every module gets a header; every FastAPI endpoint gets a docstring;

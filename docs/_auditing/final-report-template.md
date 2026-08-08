@@ -5,7 +5,7 @@ reports, the ledger and the wave reports in `docs/audit/programme/` are deleted 
 at programme close (`/audit:finish`) to
 `docs/_auditing/reports/<yyyy-mm>-<surface>.md`.
 
-**It must be self-contained.** No reference into `docs/audit/programme/` may carry substance (DS12) — cite
+**It must be self-contained.** No reference into `docs/audit/programme/` may carry substance (COR-1) — cite
 ADRs, code and git history, all of which outlive the programme. A reader who has never seen the
 programme must be able to follow it end to end.
 
@@ -26,7 +26,7 @@ the permanent report defeats that. The rule, in both directions:
 prose a non-engineer could follow — and every **minor** change captured in at least one bullet.
 Nothing that merged during the programme goes unmentioned.
 
-**Written for humans.** The reader is the owner in a year, or someone encountering the project for
+**Written for humans.** The reader is me in a year, or someone encountering the project for
 the first time. Major changes are full sentences telling a story: what was wrong, what it cost, what
 shipped, what a user or developer notices now. Finding IDs appear in passing for greppability, never
 as a sentence's subject. Tables carry numbers and enumerations; prose carries every explanation. Any

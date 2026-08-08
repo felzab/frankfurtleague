@@ -5,7 +5,7 @@
 **Surface:** backend, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FB-2, the owner's item of 2026-08-02: find a way to handle disqualifications
+**Source:** Open item FB-2, my item of 2026-08-02: find a way to handle disqualifications
 properly, recording the reason and the date rather than only the fact.
 
 ## Context

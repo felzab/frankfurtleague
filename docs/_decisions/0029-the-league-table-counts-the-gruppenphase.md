@@ -5,7 +5,7 @@
 **Surface:** backend, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FB-1, the owner's item of 2026-08-02: "the Saisontabelle currently tracks all
+**Source:** Open item FB-1, my item of 2026-08-02: "the Saisontabelle currently tracks all
 games, not only the ones from the Gruppenphase — this is wrong."
 
 ## Context

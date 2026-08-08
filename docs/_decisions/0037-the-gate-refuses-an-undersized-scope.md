@@ -85,7 +85,7 @@ scope is trusted, and a wrong inference is silent. A refusal is read.
 
 **Fail on every under-covering scope, not just images.** Rejected because `verify.sh --frontend`
 mid-work is a legitimate invocation and nothing in it says whether a push follows, so the check
-would fail correct runs until somebody stopped running it (`docs/_standard/5-currency.md`).
+would fail correct runs until somebody stopped running it (`docs/_standard/chapters/5-currency.md`).
 
 **A `--partial` flag to acknowledge a deliberately narrow run.** Rejected as a suppression switch
 for the one finding that must not be suppressible; the reported findings need no acknowledgement

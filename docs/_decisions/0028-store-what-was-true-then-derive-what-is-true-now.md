@@ -5,7 +5,7 @@
 **Surface:** backend, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item DB-1. Raised by the owner during the review, immediately after
+**Source:** Open item DB-1. Raised by me during the review, immediately after
 [ADR-0026](0026-team-statistics-are-derived-from-spiele.md): if statistics should be derived rather
 than stored, what about every other place this database keeps a second copy?
 

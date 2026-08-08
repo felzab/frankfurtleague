@@ -5,7 +5,7 @@
 **Surface:** frontend, backend, ops
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item F2, whose owner's instruction was to find a way to verify the frontend schemas
+**Source:** Open item F2, my instruction on which was to find a way to verify the frontend schemas
 against the backend's, and possibly generate them.
 
 ## Context

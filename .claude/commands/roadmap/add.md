@@ -16,8 +16,8 @@ This command adds and re-ranks. **It never closes, deletes or implements anythin
 
 1. **Read the rules before writing a line.** `docs/roadmap/README.md` in full — the issue boundary,
    the ranking rubric, the status derivation — and `docs/roadmap/open-items.md` in full, which is
-   also the shape every new entry must match. Then `docs/_standard/1-principles.md`: an entry is
-   documentation and carries P1, P3, P6 and P9 like anything else.
+   also the shape every new entry must match. Then `docs/_standard/chapters/1-core.md`: an entry is
+   documentation and carries COR-1, COR-3, COR-6 and COR-9 like anything else.
 
 2. **Triage each bullet, and say the result back before writing.** Three outcomes:
 
@@ -34,7 +34,7 @@ This command adds and re-ranks. **It never closes, deletes or implements anythin
    An entry that only restates the bullet in nicer words is worth nothing — the file exists so that a
    decision is taken with the analysis already in hand. For each item, establish and write down:
 
-   - **What it actually touches**, cited the way P6 requires — `` `<file> :: <symbol>` `` or a file
+   - **What it actually touches**, cited the way COR-6 requires — `` `<file> :: <symbol>` `` or a file
      plus a short quoted fragment. Never a line number.
    - **What is already decided about it.** Search `docs/_decisions/`. An ADR that settles half the
      question turns an open argument into a scoped piece of work, and citing it is what stops the
@@ -42,7 +42,7 @@ This command adds and re-ranks. **It never closes, deletes or implements anythin
    - **Who consumes it** — the other entries, endpoints, components or collections that would have to
      change with it, and which of them are already in this file.
    - **What makes it non-trivial**, stated plainly. If it is genuinely trivial, say that instead.
-   - **What you could not verify** (P9). A named gap is useful; a confident guess is a defect with a
+   - **What you could not verify** (COR-9). A named gap is useful; a confident guess is a defect with a
      long half-life.
 
    **Never invent analysis.** Where a bullet is too thin to research — it names no surface, or the
@@ -101,7 +101,7 @@ This command adds and re-ranks. **It never closes, deletes or implements anythin
    - **Every _every_, _only_ and _never_.** A component shared by "every" caller usually has an
      exception, and the exception is the interesting half of the finding.
    - **Every claim about a framework** rather than about this repository. If the repo states it in a
-     comment, cite that comment; if nothing states it, mark the claim unverified (P9).
+     comment, cite that comment; if nothing states it, mark the claim unverified (COR-9).
    - **Every structural promise**: the index table and the `### <rank> ·` headings agree, rank by
      rank, and no id appears twice.
 
@@ -109,7 +109,7 @@ This command adds and re-ranks. **It never closes, deletes or implements anythin
    reports anything is a step nobody is really running.
 
 10. **Restamp every stamped page this change touched**, not only `docs/roadmap/open-items.md`, per
-    `docs/_standard/5-currency.md`. Step 8 routinely edits spec sheets, and each carries its own
+    `docs/_standard/chapters/5-currency.md`. Step 8 routinely edits spec sheets, and each carries its own
     `Verified against` line. Editing a stamped page without moving its stamp fails the gate; moving a
     stamp without re-reading the page falsifies a record the gate treats as true.
 

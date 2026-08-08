@@ -34,7 +34,7 @@ Pull requests). The form they follow is docs/workflows/message-templates.md.
  80-column terminal, so it is the right target. It is the wrong hard limit HERE: measured over the
  last eighty non-merge commits, thirty-eight run past it, because the two-clause subject joined by
  ", and" is idiomatic in this repository and documented as such in both workflow pages. A check that
- fails half of a deliberate style is a check that gets suppressed (docs/_standard/5-currency.md).
+ fails half of a deliberate style is a check that gets suppressed (docs/_standard/chapters/5-currency.md).
 
  So 72 reports and 100 fails. Past 100 a subject is unreadable in every view rather than truncated in
  one, which is a different thing from missing a target. The same threshold governs body lines, where

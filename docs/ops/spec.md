@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `2b69c68`, 2026-08-07
+**Verified against:** `09f903d`, 2026-08-08
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
@@ -103,7 +103,7 @@ same scopes as parallel jobs mapped from the paths a pull request touches.
 **The documentation gate** (`scripts/check_docs.py`) fails on a citation that resolves to nothing — a
 dangling ADR number, a dead link, a broken in-page anchor, an anchored citation whose target has gone,
 a named path that is not there — across `/docs` and inside source comments alike. It is the one
-currency defence that does not depend on somebody remembering (DS18, DS20).
+currency defence that does not depend on somebody remembering (CUR-5, INC-6).
 
 **The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`, and the frontend
 mirrors the backend's validation constraints rather than enforcing them, so those constraints would

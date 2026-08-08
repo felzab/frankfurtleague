@@ -1,8 +1,8 @@
 # Open items
 
-**Verified against:** `0ceefab`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 
-Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
+Findings and undecided questions with real analysis, plus my ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
 audit prompts (`docs/_auditing/prompts/backend/`) seed several of these as their starting checks.
 
@@ -17,7 +17,7 @@ what it blocks or waits on. The five tests that produce that order — and the f
 not — are in the [README](README.md#how-the-file-is-ranked). Rank by what it costs to leave an item
 undone, and let effort break ties toward the cheaper item.
 
-Some entries are issue-shaped feature work parked here at the owner's direction, so that the
+Some entries are issue-shaped feature work parked here at my direction, so that the
 ordering lives in one place; the "this folder or a GitHub issue?" boundary in the
 [README](README.md) still applies to everything else.
 
@@ -59,7 +59,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 ## The bracket, end to end
 
 **The bracket maintains itself from the group phase to the final, with no admin input in the best case**
-(the owner's framing), and every behavioural piece of that is built. This section is an index over what
+(my framing), and every behavioural piece of that is built. This section is an index over what
 built it and what is left, and states no dependency of its own — each entry's own `Path` line governs.
 
 **No production data change is outstanding.** All three of the bracket programme's backfills have run:
@@ -114,7 +114,7 @@ cap is a design boundary rather than debt.
 
 ## The admin surface, end to end
 
-**Opened 2026-08-06 at the owner's direction, as one unbroken chain of sessions.** The owner reported
+**Opened 2026-08-06 at my direction, as one unbroken chain of sessions.** I reported
 an eligibility hole and asked for a researched, textbook-standard pass over seeding and advancement,
 the match edit surface, the toasts, the action-required page and the database structure — worked as one
 string, each session handing the next its starting prompt. Three decisions were taken the same day and
@@ -177,7 +177,7 @@ on a date nobody will be watching.
 
 ### 1 · FB-16 — Nothing announces that a season rollover is due
 
-**Opened 2026-08-08, when FB-6 closed**, and recorded rather than built at the owner's direction.
+**Opened 2026-08-08, when FB-6 closed**, and recorded rather than built at my direction.
 
 **Every STEP of a rollover now has a page; the SEQUENCE has nothing.** `/admin/saisons` creates the
 season, the Umstellung panel on `/admin/saisons/[saison_id]` activates it
@@ -231,7 +231,7 @@ the one defensible mid-season move.
 
 ### 2 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 
-**Owner's item, 2026-08-04:** a team showing fewer games than its group's fixtures should say why.
+**My item, 2026-08-04:** a team showing fewer games than its group's fixtures should say why.
 The sketch is `Spiele: 2 +1` in two colours, with a tooltip on hover for a pointer and on tap for
 touch.
 
@@ -242,7 +242,7 @@ cancelled match that has a result already counts** — it is a forfeit, and
 game is a match with no result at all, and that covers two different situations: cancelled without a
 result, and not yet played.
 
-**Verify which one is behind the numbers before designing the badge.** The owner's reading is that
+**Verify which one is behind the numbers before designing the badge.** My reading is that
 they are cancellations; the pipeline cannot currently tell the two apart, and a badge that says
 "cancelled" about a fixture that simply has not happened yet is worse than no badge.
 
@@ -274,8 +274,8 @@ nothing. The eighth `FLTeamStatistik` field lands in both mirrors and in
 
 ### 3 · FE-1 — Date ranges instead of specific dates for games (heavy)
 
-**Owner's item, 2026-08-02.** At some point, implement **date ranges** instead of specific dates
-for games. A heavy change, in the owner's scoping: it would change `AdminEditSpielDataForm`, the
+**My item, 2026-08-02.** At some point, implement **date ranges** instead of specific dates
+for games. A heavy change, in my scoping: it would change `AdminEditSpielDataForm`, the
 schemas, and possibly logic and UI elements **across the board**.
 
 Known touchpoints to scope against when it is worked: `datum` in both schema mirrors and the DB
@@ -291,7 +291,7 @@ ADR-0072's definitions under ranges.
 
 ### 4 · FE-3 — TeamDetailsView rework
 
-**Owner's item, 2026-08-02.** Rework `TeamDetailsView` to look nicer — **especially the saison
+**My item, 2026-08-02.** Rework `TeamDetailsView` to look nicer — **especially the saison
 progress line at the bottom**, which should also include important notes and milestones like "went
 to playoffs".
 
@@ -337,7 +337,7 @@ prospective item, opened so the field's purpose is recorded rather than rediscov
 - **Whether `uniq_shorthand` releasing two letters is a feature or a hazard.** Purging a retired club
   frees its shorthand for reuse, which is the point — and it also means a future club can hold letters
   that historical matches still name, if any survived the check above.
-- **What runs it.** A scheduled job, a script the owner runs like the backfill, or an admin control.
+- **What runs it.** A scheduled job, a script I run like the backfill, or an admin control.
   The repository has no scheduler today, which makes the middle option the cheapest by a distance.
 
 **The two collections without the field are not oversights.** `saisons` has no delete at all and
@@ -387,7 +387,7 @@ paid only when something goes wrong and somebody asks what happened.
 - **Whether a restore is offered at all.** Recording that a result was destroyed is much cheaper than
   being able to put it back, and the two are separable — the first is worth having on its own.
 
-**What the owner has since asked this to become (2026-08-06).** An **admin action-log page** listing
+**What I have since asked this to become (2026-08-06).** An **admin action-log page** listing
 every edit and every add, with a **smarter undo built over it**. That settles two of the four questions
 above and reshapes a third:
 
@@ -404,13 +404,13 @@ Still open: **how long it is kept and whether it holds personal data**, unchange
 
 **Path:** independent, and not scheduled. ADR-0059 gives disqualification a reason and a date and is
 the nearest thing to a first instalment; LOG-2 owns the destination question only if the answer ever
-becomes a log rather than a collection, which the owner's direction above makes unlikely. Neither
+becomes a log rather than a collection, which my direction above makes unlikely. Neither
 blocks this and this blocks neither. ADR-0051 raises the value of doing it: the client-held undo makes
 the gap visible on the one surface an admin uses most.
 
 ### 7 · LOG-2 — Full trace context: `traceparent`, spans, and somewhere to send them
 
-**Owner's item, 2026-08-05, opened out of LOG-1: implement the industry-standard shape of what
+**My item, 2026-08-05, opened out of LOG-1: implement the industry-standard shape of what
 LOG-1 built a subset of.**
 
 [ADR-0039](../_decisions/0039-one-correlation-id-per-request-one-document-per-line.md) settled **one
@@ -460,7 +460,7 @@ OpenTelemetry is the half no application code can reach.
 
 **What it would supersede.** ADR-0039's decision that the identifier is a single id on a custom
 header. Reversing that means a new ADR carrying `Supersedes: ADR-0039`, and ADR-0039 gaining its two
-`Superseded by` lines and nothing else ([`_standard/4-adr-guide.md`](../_standard/4-adr-guide.md)).
+`Superseded by` lines and nothing else ([`_standard/chapters/4-decisions.md`](../_standard/chapters/4-decisions.md)).
 The parts of ADR-0039 that would survive untouched are the stream contract, the error-code system
 and the edge's refusal of a client-supplied id — a `traceparent` from an untrusted client carries
 exactly the same log-injection risk and must be validated or replaced the same way.
@@ -474,7 +474,7 @@ this is fidelity rather than function. Nothing waits on it.
 
 ### 8 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
 
-**Owner's item, 2026-08-07, out of the admin teams work.** The club editor locks the Gruppe select
+**My item, 2026-08-07, out of the admin teams work.** The club editor locks the Gruppe select
 the moment the selected season is underway and the club has a fixture in it: a group decides which
 table counts the club's results and which bracket slot its placing seeds (ADR-0043), so moving one
 club mid-season falsifies two standings at once. The lock's own message names the one move that
@@ -487,7 +487,7 @@ three — and a failure after the first call leaves the season in that state. A 
 and wants one transaction over two junction rows, which no endpoint offers. This is the same
 endpoint question FB-11's editor half recorded for fixtures, on a smaller surface.
 
-**A second bound, also the owner's:** once the knockout rounds have begun, no swap is defensible
+**A second bound, also mine:** once the knockout rounds have begun, no swap is defensible
 either — the standings have been consumed by the seeding, and a group change behind a played
 bracket rewrites what its slots meant. The control must refuse then, not merely warn.
 

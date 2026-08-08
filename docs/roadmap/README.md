@@ -1,6 +1,6 @@
 # `roadmap` — open items and future ideas
 
-**Verified against:** `857a20a`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 
 What this folder holds, and the boundary that keeps it honest:
 
@@ -9,12 +9,12 @@ What this folder holds, and the boundary that keeps it honest:
   decision is taken with the analysis in hand rather than re-derived. **The file is ranked:** reading
   top to bottom gives the suggested working order, by the rubric in
   [How the file is ranked](#how-the-file-is-ranked), and each entry that participates in a dependency
-  carries a **Path** line. Some entries are issue-shaped feature work parked there at the owner's
+  carries a **Path** line. Some entries are issue-shaped feature work parked there at my
   direction, so the ordering lives in one place — the issue boundary below still applies to
   everything else.
 - [`closed-items.md`](closed-items.md) — **the log of everything that has left the open file.** One
-  row per item, no prose: id, what it was in a line, and the commit that closed it. Added by the
-  owner, 2026-08-02, because deletion alone made a closed item unfindable unless you already knew it
+  row per item, no prose: id, what it was in a line, and the commit that closed it. Added
+  2026-08-02, because deletion alone made a closed item unfindable unless you already knew it
   had existed.
 - Ideas and feature plans — one file per substantial idea as this folder grows.
 
@@ -86,12 +86,12 @@ the numbers are its output.
 
 ## Closing an entry: two commits, not one
 
-**Set by the owner, 2026-08-02, and it is not optional.** Deletion in a single commit leaves the
+**Set 2026-08-02, and it is not optional.** Deletion in a single commit leaves the
 closure legible only in that commit's body — so `git log -p docs/roadmap/open-items.md` shows an
 entry that simply vanishes, and nothing in the file ever said it was finished. Splitting it in two
 fixes that, and gives the removal a commit to point at.
 
-Both commits go in **one pull request**. The owner still sees a single merge.
+Both commits go in **one pull request**, so the review still sees a single merge.
 
 | #     | Commit                 | Contains                                                                                                                                                                                                                                                                                                         |
 | ----- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -125,7 +125,7 @@ commit — an ADR it produced, or an entry it opened. An item that was simply fi
 
 ### Re-derive every status, not just the one you touched
 
-**Set by the owner, 2026-08-02.** Statuses are not independent. `Blocked` is a statement about
+**Set 2026-08-02.** Statuses are not independent. `Blocked` is a statement about
 _another_ entry, so an item that leaves — or a decision that lands — changes rows nobody edited. An
 entry blocked only by the item just closed is now `Open`, and nothing in the file will notice on its
 own.
@@ -163,7 +163,7 @@ deliverable?**
 | The value is  | That the analysis survives until someone decides | That the work is visible until someone does it |
 | It reads like | Evidence, options, costs                         | A definition of done                           |
 
-A sharper version, borrowed from the ADR test in [`../_standard/3-out-of-code.md`](../_standard/3-out-of-code.md):
+A sharper version, borrowed from the ADR trigger test in [`../_standard/chapters/4-decisions.md`](../_standard/chapters/4-decisions.md):
 _would someone reasonably propose the opposite, and would you have to re-derive the argument to
 refuse?_ If yes, it belongs here. If the honest answer is "yes, do that, when I get to it", open an
 issue.

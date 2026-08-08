@@ -23,7 +23,7 @@ documents.
    compares against it.
 2. Write `docs/_auditing/reports/<yyyy-mm>-<surface>.md` following the template. The completeness
    bar is the owner's: every major change fully described; every minor change in at least one
-   bullet. The report must be self-contained (DS12) — no claim may depend on `docs/audit/programme/`
+   bullet. The report must be self-contained (COR-1) — no claim may depend on `docs/audit/programme/`
    surviving; cite code, ADRs and git history.
 3. Harvest before deletion. Every still-open item — undecided questions, accepted deviations, `[!]`
    rows, guardrails not yet built, register hazards still uncovered — moves somewhere that survives,

@@ -5,7 +5,7 @@
 **Surface:** ops
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Raised by the owner alongside taking the repository public; the analysis was carried as
+**Source:** Raised by me alongside taking the repository public; the analysis was carried as
 open item OPS-1 until this decision closed it.
 
 ## Context

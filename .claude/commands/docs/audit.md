@@ -24,7 +24,7 @@ docstring in the repository, which is more than one context can hold — so it i
 part goes to an agent that reads its part **in full** and has never seen the rest.
 
 That the agents are independent is the point rather than a convenience. A session that wrote a page
-cannot feel the gap in it, which is the exact failure P1 describes, and an agent carrying the whole
+cannot feel the gap in it, which is the exact failure COR-1 describes, and an agent carrying the whole
 corpus starts summarising at the point where scanning is what finds things.
 
 ## Steps
@@ -66,24 +66,25 @@ corpus starts summarising at the point where scanning is what finds things.
 
 4. **Dispatch one agent per segment, at most four at a time.** Each agent gets, in its prompt: its
    file list, the report path it writes to, the check classes below, the finding format, and the
-   ground rules. Each agent reads `docs/_standard/1-principles.md` plus the chapter for its shape —
-   `2-in-code.md` for source, `3-out-of-code.md` for `/docs`, `4-adr-guide.md` for ADRs,
-   `5-currency.md` for stamps — and applies the rules from there. **Never restate a rule in the
+   ground rules. Each agent reads `docs/_standard/chapters/1-core.md` plus the chapter for its
+   shape — `chapters/2-in-code.md` for source, `chapters/3-corpus.md` for `/docs`,
+   `chapters/4-decisions.md` for ADRs, `chapters/5-currency.md` for stamps — and applies the rules
+   from there. **Never restate a rule in the
    agent's prompt**: a copy of the standard drifts from the standard, and then the audit enforces the
    copy.
 
    ### The check classes
 
-   | #   | Class                      | The question the agent answers                                                                                                                                             |
-   | --- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | C1  | **Cold read** (P1)         | Could someone who has never seen this repository, this conversation or any past session act on every sentence? This is the class that finds the most, and the flagship one |
-   | C2  | **Said twice** (P2)        | Is a fact here stated somewhere else in this same segment, so the two can disagree later?                                                                                  |
-   | C3  | **Names what exists** (P3) | Does every file, symbol, field, endpoint and behaviour named still exist, including the ones named in prose rather than cited?                                             |
-   | C4  | **Still true** (P4)        | Read the code the claim describes. Does it still do that? This is the expensive check and the one that finds real staleness                                                |
-   | C5  | **Evidence holds** (P6)    | Does each anchored citation actually support the claim made beside it? The gate proves the anchor exists; only a reader proves it is evidence                              |
-   | C6  | **Doubt is stated** (P9)   | Is anything unverified written as fact, or a plan written as a description?                                                                                                |
-   | C7  | **Shape** (P5, P7, P8)     | Purpose in the first lines, navigation where the page is long, tables for what enumerates, no nesting past three, bold on claims rather than paragraphs                    |
-   | C8  | **Its own shape**          | The rules for what this document _is_ — an ADR, a spec sheet, an overview, a module header, an endpoint docstring, a stamped page — from the chapter that governs it       |
+   | #   | Class                           | The question the agent answers                                                                                                                                             |
+   | --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | C1  | **Cold read** (COR-1)           | Could someone who has never seen this repository, this conversation or any past session act on every sentence? This is the class that finds the most, and the flagship one |
+   | C2  | **Said twice** (COR-2)          | Is a fact here stated somewhere else in this same segment, so the two can disagree later?                                                                                  |
+   | C3  | **Names what exists** (COR-3)   | Does every file, symbol, field, endpoint and behaviour named still exist, including the ones named in prose rather than cited?                                             |
+   | C4  | **Still true** (COR-4)          | Read the code the claim describes. Does it still do that? This is the expensive check and the one that finds real staleness                                                |
+   | C5  | **Evidence holds** (COR-6)      | Does each anchored citation actually support the claim made beside it? The gate proves the anchor exists; only a reader proves it is evidence                              |
+   | C6  | **Doubt is stated** (COR-9)     | Is anything unverified written as fact, or a plan written as a description?                                                                                                |
+   | C7  | **Shape** (COR-5, COR-7, COR-8) | Purpose in the first lines, navigation where the page is long, tables for what enumerates, no nesting past three, bold on claims rather than paragraphs                    |
+   | C8  | **Its own shape**               | The rules for what this document _is_ — an ADR, a spec sheet, an overview, a module header, an endpoint docstring, a stamped page — from the chapter that governs it       |
 
    ### The finding format, one row each
 
@@ -113,7 +114,7 @@ corpus starts summarising at the point where scanning is what finds things.
 5. **Consolidate, in this session, once every agent has reported.** Three things only the whole
    corpus can see, so no agent could have done them:
 
-   - **The cross-segment P2 check.** The same fact in a spec sheet and an overview, in CLAUDE.md and
+   - **The cross-segment COR-2 check.** The same fact in a spec sheet and an overview, in CLAUDE.md and
      an ADR, in a command file and the document it wraps. This is where duplication actually lives —
      within one segment it is rare.
    - **CLAUDE.md against `docs/_decisions/`.** CLAUDE.md is a summary and the ADR is the source, so

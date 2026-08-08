@@ -1,6 +1,6 @@
 # Documentation
 
-**Verified against:** `857a20a`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 
 Frankfurt-League is a league website: a Next.js frontend, a FastAPI backend, MongoDB, deployed with
 Docker Compose behind nginx on a single host.
@@ -146,7 +146,7 @@ checked them against. ADRs deliberately do not: an ADR is dated to when its deci
 re-check line would imply something that by design never happens.
 
 Full rules and the reasoning: [`_standard/`](_standard/), starting at
-[`1-principles.md`](_standard/1-principles.md).
+[`rules-index.md`](_standard/rules-index.md).
 
 ---
 
@@ -163,7 +163,7 @@ Full rules and the reasoning: [`_standard/`](_standard/), starting at
 
 ## What is open
 
-**Everything open lives in [`roadmap/`](roadmap/)** — findings, undecided questions and the owner's
+**Everything open lives in [`roadmap/`](roadmap/)** — findings, undecided questions and the ranked
 backlog, each with the full analysis that a decision should be taken with rather than re-derived.
 
 [`open-items.md`](roadmap/open-items.md) is **ranked**: reading it top to bottom gives the suggested

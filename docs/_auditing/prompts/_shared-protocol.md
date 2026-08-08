@@ -103,7 +103,7 @@ Two rules that override the table: a finding reachable only from a privileged po
 soften a genuine CRITICAL because the project is small.
 
 If `docs/audit/register.md` already rates an outcome, **use its severity rather than deriving one**.
-It was confirmed with the owner, and a pass silently re-rating it makes severity mean two things at
+It was confirmed with me, and a pass silently re-rating it makes severity mean two things at
 once. Where you believe a rating is wrong, say so as an open question.
 
 ### Anchoring to an external standard
@@ -186,7 +186,7 @@ to rip out. **A reader must never act on this report and break something load-be
 
 If a check's intent is ambiguous, if a judgment depends on information outside the code (deployment
 reality, product intent, whether a workflow exists), or if two plausible readings lead to opposite
-findings — **collect the question rather than picking silently**. Put questions to the owner as one
+findings — **collect the question rather than picking silently**. Put questions to me as one
 batch at the natural break, which is the end of the current check, each with its evidence and your
 best reading, and carry every one of them into the verdict.
 
@@ -216,7 +216,7 @@ split the pass, not to compress the findings.
 On starting, check whether the target report file already exists:
 
 - **It does not** → fresh pass; proceed.
-- **It exists with a complete verdict** → this pass already ran. Stop and tell the owner rather than
+- **It exists with a complete verdict** → this pass already ran. Stop and tell me rather than
   silently overwriting.
 - **It exists without a verdict** → a previous session died mid-pass. Read its header and coverage
   ledger, **trust the completed checks and do not redo them**, delete any half-written trailing
@@ -225,7 +225,7 @@ On starting, check whether the target report file already exists:
 
 ## Handoff
 
-End the pass by confirming the report file exists on disk at the named path, then tell the owner
+End the pass by confirming the report file exists on disk at the named path, then tell me
 that the pass is complete, the file is written, and the next step is `/clear` before the next pass —
 carrying this pass's context into the next one makes the model summarise instead of scan.
 

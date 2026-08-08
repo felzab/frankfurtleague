@@ -59,7 +59,7 @@ nothing downstream, and now a filled-in record implying otherwise.
 **`ergebnis` does not absorb it.** Both ends parse that string to derive win, draw or loss, and a third
 number in it reads as a malformed value on every card — the failure the pattern was added to stop.
 
-**The name is German and the glossary defines it**, under the owner's vocabulary rule: a structural name
+**The name is German and the glossary defines it**, under my vocabulary rule: a structural name
 is English, as `type` on a `quelle` is, and a domain word stays German and gets an entry.
 `Elfmeterschießen` is the shoot-out; `Elfmeter` alone is a single spot kick awarded in play, which is a
 different thing this system does not record.

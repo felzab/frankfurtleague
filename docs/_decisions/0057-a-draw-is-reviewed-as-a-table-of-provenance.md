@@ -5,8 +5,8 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FB-11, whose evaluation had already narrowed it to the read half, plus the
-owner's instruction to research what such a surface normally is before building one, and seven rounds
+**Source:** Open item FB-11, whose evaluation had already narrowed it to the read half, plus my
+instruction to research what such a surface normally is before building one, and seven rounds
 of review on the result.
 
 ## Context
@@ -42,7 +42,7 @@ missing name.
 Three constraints were already in force before any of that could be applied here:
 
 - **`SpielCard` is the match card on every surface, admin routes included**
-  ([ADR-0056](0056-a-triage-list-is-ordered-by-what-blocks-play.md), and the owner rejected a
+  ([ADR-0056](0056-a-triage-list-is-ordered-by-what-blocks-play.md), and I rejected a
   purpose-built card twice). A surface needing to say something the card cannot carry says it beside
   the grid, not inside a new variant.
 - **A fixture is edited in one place**, `/admin/spiele/[spiel_id]`
@@ -85,7 +85,7 @@ be two reds claiming to be opposite answers.
 
 **The German is the derivation that already exists**, and it gained one form. `fl_frontend/src/features/spiele/utils.ts ::
 formatQuelle` names a source, and **every group placing now reads as an ordinal, first included** —
-`1. der Gruppe A`, not `Gruppensieger A` (owner). One form for the whole set is what lets two slots
+`1. der Gruppe A`, not `Gruppensieger A` (my call). One form for the whole set is what lets two slots
 compare at a glance here, and the ordinal already says the team won the group. The placing picker in
 `FormTeamPicker` had spelled that rule a second time; it now calls `formatQuelle`, so the placing an
 admin picks and the placing every card derives are one string.
@@ -160,7 +160,7 @@ here — the page frame is copied from that shell and the panel is `Saisontabell
 **Render the bracket as a tree, like `PlayoffsView`, with the provenance inside each node.** The most
 faithful to "one whole-stage surface", and the closest to a preview in the reference platforms.
 Rejected because the node is `SpielCardUltraCompact` — adding provenance to it changes the public
-bracket, and building a second node component is the purpose-built card the owner has already rejected
+bracket, and building a second node component is the purpose-built card I have already rejected
 twice (ADR-0056). The topology is also the half that is already correct and already visible; what was
 missing is the provenance, which a tree renders worst because each node is at its narrowest exactly
 where two labels have to fit.
@@ -177,12 +177,12 @@ nor ordered by urgency. It would also inherit that route's uncached whole-archiv
 cached season queries already serve.
 
 **Drop the chips and state the source as plain text, colouring only the broken case.** Built and
-rejected by the owner on sight: it made the page grey, and it threw away the one signal that separates
+rejected by me on sight: it made the page grey, and it threw away the one signal that separates
 a group-seeded slot from a match-fed one. Colour carrying four meanings is worth more here than colour
 carrying one.
 
 **The admin tables' own `RowActionLink` for the edit control**, on the argument that this is a table
-row and the brand-filled square belongs to the card. Rejected by the owner: the control an admin
+row and the brand-filled square belongs to the card. Rejected by me: the control an admin
 presses looks the same on every admin surface, and which container it sits in is not a reason to
 change it.
 

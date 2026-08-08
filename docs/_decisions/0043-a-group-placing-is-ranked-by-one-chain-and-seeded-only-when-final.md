@@ -174,7 +174,7 @@ which is both more work and less defensible than the rule everybody already expe
 
 **Seed once every fixture in the group is played, and never earlier.** Simpler by a wide margin — one
 boolean instead of a walk over outcomes — and it can never seed something wrong either. Rejected because
-the owner's framing for this item was "as automatic as possible", and a group winner is routinely decided
+my framing for this item was "as automatic as possible", and a group winner is routinely decided
 a matchday before the group ends. The walk is what turns that into a slot that fills itself.
 
 **Seed from the table as it stands and correct it as results arrive.** Cheapest of all, and the bracket

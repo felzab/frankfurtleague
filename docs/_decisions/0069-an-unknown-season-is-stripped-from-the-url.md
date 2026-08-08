@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** The owner's report of 2026-08-08: `?saison_id=2027` on `/admin/teams` listed every club as
+**Source:** My report of 2026-08-08: `?saison_id=2027` on `/admin/teams` listed every club as
 "Nicht aufgenommen" while the sidemenu's season selector still read 2026 — "The page and the selector must
 ALWAYS agree."
 

@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `50c87e8`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 **Scope:** `fl_frontend/src/`
 
 ---
@@ -174,7 +174,7 @@ create form sits on, with no surface left that could give it one. **The player c
 shape for the same reason**, `POST /spieler` then `POST /spieler/{spieler_id}/saisons`, and differs
 in which seasons it offers: `active` and `future` both, because a squad is filled in during its
 season. The chosen season's status decides `is_nachgetragen`, which the form derives rather than asks
-(owner, 2026-08-07).
+(decided 2026-08-07).
 
 **Season entry is offered only where the backend would take it.** The create form and the club
 editor's Aufnehmen affordance offer only `future` seasons, and their group picker
@@ -474,7 +474,7 @@ Next 16 exposes **no navigation blocker** — verified against the `next/navigat
 | The admin sidemenu's links      |   ❌    | Rendered by the layout, above this tree                |
 | The browser's Back button       |   ❌    | `popstate` fires after the router has committed        |
 
-**The owner accepted the two gaps** rather than pay for full coverage, and the shape of that payment is
+**The two gaps are accepted** rather than paying for full coverage, and the shape of that payment is
 worth recording so the trade can be re-taken rather than re-derived: a `NavigationGuardContext` in the
 admin layout, which every intercept-able control consults before navigating and which this form
 registers its guard with. That is the upgrade path if full coverage is ever wanted. It is not built,

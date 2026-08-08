@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `0ceefab`, 2026-08-08
+**Verified against:** `09f903d`, 2026-08-08
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
