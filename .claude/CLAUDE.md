@@ -315,26 +315,24 @@ the ADR.
 
 ## 8. Documentation
 
-**The standard is `docs/_standard/` — the one-line-per-rule summary is `rules-index.md`, the full
-rules are in `chapters/`. Read it before writing or changing any documentation.** Any edit under `docs/_standard/` needs the owner's explicit approval — a
-PreToolUse hook surfaces the permission prompt on every write there (owner rule, 2026-08-08). These four are the ones that bind every session:
+**The standard is `docs/_standard/` — `rules-index.md` is the one-line-per-rule summary, the full
+rules are in `chapters/`.** A hook serves the index into context after a session's first
+documentation edit; read the chapter governing what you are writing before writing more. Any edit
+under `docs/_standard/` needs the owner's explicit approval — a PreToolUse hook surfaces the
+permission prompt on every write there (owner rule, 2026-08-08). Four rules bind every session:
 
 1. **Same commit.** A change invalidating a documented claim updates that document in the same commit.
 2. **Anchored citations** — `` `<file> :: <symbol>` `` or an ADR number, never a line number.
 3. **Only cite an ADR that exists.** Writing it is part of the change that cites it.
 4. **Name only what exists.** No "used to", no narration of an edit, nothing documenting an absence.
-   Record a rejected alternative in the present, as a constraint.
 
-Write for a reader with no context: no reference to a session, a past effort, or an identifier that
-resolves to nothing.
+In code: a comment carries why, never what the line does; a module header stays inside INC-2's
+20-line cap; every FastAPI endpoint gets a docstring; never restate a type.
 
 `./scripts/verify.sh` fails on a dangling ADR number or rule id, a dead link, a broken anchor, a
 line-number citation, a missing path, a malformed ADR or stamp, and a stamped page that kept its
 stamp although it was edited or its cited files materially changed — in `/docs` and inside source
-comments alike.
-
-**Entry point: `docs/README.md`.** Every module gets a header; every FastAPI endpoint gets a docstring;
-never restate a type.
+comments alike. Entry point: `docs/README.md`.
 
 ## 9. Commands
 
@@ -347,3 +345,4 @@ Behaviour lives in those files.
 | `/roadmap:start <ID>` | Work one open item to a conclusion                                           |
 | `/roadmap:add`        | Turn described items into ranked roadmap entries, then re-rank the file      |
 | `/docs:audit`         | Sweep every document and comment against `docs/_standard/`; `fix` applies it |
+| `/docs:audit-pr`      | Audit and fix the branch's documentation slice before its pull request       |

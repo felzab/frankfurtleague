@@ -93,6 +93,11 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/guard-stale-type-class.sh\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/docs-rules-index.sh\"",
+            "timeout": 10
           }
         ]
       }

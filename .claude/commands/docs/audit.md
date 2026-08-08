@@ -35,10 +35,11 @@ corpus starts summarising at the point where scanning is what finds things.
    ./scripts/verify.sh --docs
    ```
 
-   `scripts/check_docs.py` already fails on dangling ADR numbers, dead links, broken anchors,
-   line-number citations, missing paths and unmoved stamps. **A red gate ends the session** — report
-   it and stop, because those are cheaper to fix than to audit around. Everything below is the layer
-   the gate cannot see.
+   `scripts/check_docs.py` already fails on dangling ADR numbers and rule ids, dead links, broken
+   anchors, line-number citations, missing paths, malformed ADR metadata, a missing index row, a
+   malformed stamp, and a stamped page that kept its stamp although it was edited or its cited
+   files materially changed. **A red gate ends the session** — report it and stop, because those
+   are cheaper to fix than to audit around. Everything below is the layer the gate cannot see.
 
 2. **Build the corpus, and derive it — never from a list written here.** Two halves:
 
@@ -75,23 +76,24 @@ corpus starts summarising at the point where scanning is what finds things.
 
    ### The check classes
 
-   | #   | Class                           | The question the agent answers                                                                                                                                             |
-   | --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | C1  | **Cold read** (COR-1)           | Could someone who has never seen this repository, this conversation or any past session act on every sentence? This is the class that finds the most, and the flagship one |
-   | C2  | **Said twice** (COR-2)          | Is a fact here stated somewhere else in this same segment, so the two can disagree later?                                                                                  |
-   | C3  | **Names what exists** (COR-3)   | Does every file, symbol, field, endpoint and behaviour named still exist, including the ones named in prose rather than cited?                                             |
-   | C4  | **Still true** (COR-4)          | Read the code the claim describes. Does it still do that? This is the expensive check and the one that finds real staleness                                                |
-   | C5  | **Evidence holds** (COR-6)      | Does each anchored citation actually support the claim made beside it? The gate proves the anchor exists; only a reader proves it is evidence                              |
-   | C6  | **Doubt is stated** (COR-9)     | Is anything unverified written as fact, or a plan written as a description?                                                                                                |
-   | C7  | **Shape** (COR-5, COR-7, COR-8) | Purpose in the first lines, navigation where the page is long, tables for what enumerates, no nesting past three, bold on claims rather than paragraphs                    |
-   | C8  | **Its own shape**               | The rules for what this document _is_ — an ADR, a spec sheet, an overview, a module header, an endpoint docstring, a stamped page — from the chapter that governs it       |
+   | #   | Class                               | The question the agent answers                                                                                                                                             |
+   | --- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | C1  | **Cold read** (COR-1)               | Could someone who has never seen this repository, this conversation or any past session act on every sentence? This is the class that finds the most, and the flagship one |
+   | C2  | **Said twice** (COR-2)              | Is a fact here stated somewhere else in this same segment, so the two can disagree later?                                                                                  |
+   | C3  | **Names what exists** (COR-3)       | Does every file, symbol, field, endpoint and behaviour named still exist, including the ones named in prose rather than cited?                                             |
+   | C4  | **Still true** (COR-4)              | Read the code the claim describes. Does it still do that? This is the expensive check and the one that finds real staleness                                                |
+   | C5  | **Evidence holds** (COR-6)          | Does each anchored citation actually support the claim made beside it? The gate proves the anchor exists; only a reader proves it is evidence                              |
+   | C6  | **Doubt is stated** (COR-9)         | Is anything unverified written as fact, or a plan written as a description?                                                                                                |
+   | C7  | **Shape** (COR-5, COR-7, COR-8)     | Purpose in the first lines, navigation where the page is long, tables for what enumerates, no nesting past three, bold on claims rather than paragraphs                    |
+   | C8  | **Its own shape**                   | The rules for what this document _is_ — an ADR, a spec sheet, an overview, a module header, an endpoint docstring, a stamped page — from the chapter that governs it       |
+   | C9  | **Comment altitude** (INC-1, INC-2) | Does a comment say what its code already says, or a module header outgrow the cap or carry labels INC-2 does not allow?                                                    |
 
    ### The finding format, one row each
 
    | Field         | Holds                                                                                                            |
    | ------------- | ---------------------------------------------------------------------------------------------------------------- |
    | **Where**     | `<file> :: <symbol or quoted fragment>`. Never a line number, in the report either                               |
-   | **Class**     | C1–C8                                                                                                            |
+   | **Class**     | C1–C9                                                                                                            |
    | **Quote**     | The offending text, verbatim and short. **A finding with no quote is deleted, not investigated**                 |
    | **Wrong how** | One sentence. For C4, the code that disproves it, cited                                                          |
    | **Fix**       | What it should say. Never longer than what it replaces                                                           |
@@ -158,8 +160,9 @@ corpus starts summarising at the point where scanning is what finds things.
    status line, and delete a claim you cannot verify rather than leaving it standing.
 
 4. **Restamp every page you edit** that carries a `Verified against` line, to the commit you verified
-   it at. The gate fails a stamped page edited without its stamp moving, and moving a stamp without
-   re-reading the page falsifies the record.
+   it at, in the exact shape CUR-3 prescribes. The gate fails a stamped page edited without its stamp
+   moving, and a page whose cited files changed materially under the fixes restamps the same way
+   (CUR-4); moving a stamp without re-reading the page falsifies the record.
 
 5. **Ship it**, per `docs/workflows/README.md`: branch first, `./scripts/verify.sh --docs` plus
    `pnpm format` from `fl_frontend/`, push, hand over the pull request link, title and body. Report

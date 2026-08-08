@@ -1,6 +1,6 @@
 # Rules index
 
-**Verified against:** `09f903d`, 2026-08-08
+**Verified against:** `3014d32`, 2026-08-08
 
 Every rule in one line each; the chapter heading links to the file the full rules live in.
 Precedence, in one breath:
@@ -77,6 +77,7 @@ Precedence, in one breath:
 - **CUR-4:** materially change a file a stamped page cites → re-verify and restamp it, same
   branch.
 - **CUR-5:** the gate's check list lives in the currency chapter, and only there.
-- **CUR-6:** what no branch touched belongs to `/docs:audit`, not to the gate.
+- **CUR-6:** what no branch touched belongs to `/docs:audit`; one branch's slice, before its pull
+  request, to `/docs:audit-pr`.
 
 Templates: [`templates/`](templates/).
