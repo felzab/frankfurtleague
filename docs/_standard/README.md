@@ -1,6 +1,6 @@
 # `_standard` — how this repository is documented
 
-**Verified against:** `b5324b8`, 2026-08-08
+**Verified against:** `893cd4a`, 2026-08-08
 
 Read [`1-principles.md`](1-principles.md) before writing anything. Everything else in this folder
 describes a particular shape; that chapter describes what all of them must be.

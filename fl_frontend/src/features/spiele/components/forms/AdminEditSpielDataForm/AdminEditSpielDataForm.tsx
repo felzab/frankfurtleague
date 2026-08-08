@@ -24,6 +24,7 @@ import { FormAnsetzungSection } from "./FormAnsetzungSection";
 import { FormCancelSection } from "./FormCancelSection";
 import { FormErgebnisSection } from "./FormErgebnisSection";
 import { FormMatchupSection } from "./FormMatchupSection";
+import { FormNotizSection } from "./FormNotizSection";
 import { useVoidPreview } from "./useVoidPreview";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
@@ -180,6 +181,8 @@ export function AdminEditSpielDataForm({
   // the two must not be the same value (ADR-0044).
   const [elfmeterschiessen, setElfmeterschiessen] = useState<FLSpielElfmeterschiessenDraft | null>(spielData.elfmeterschiessen);
 
+  const [notiz, setNotiz] = useState<string | null>(spielData.notiz);
+
   // ALWAYS closed on open (owner, seventh review, overruling the opened-when-played variant): the
   // deliberate flip is the guard, on every fixture alike, so a stray keystroke can neither invent a
   // 0:0 nor silently rewrite a recorded result.
@@ -205,7 +208,7 @@ export function AdminEditSpielDataForm({
     formRef,
   } = useServerFieldErrors(() =>
     appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Bitte lade die Seite neu.",
+      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
     }),
   );
 
@@ -226,6 +229,7 @@ export function AdminEditSpielDataForm({
     team2_quelle: team2Quelle,
     elfmeterschiessen,
     is_canceled: spielIsCanceled,
+    notiz,
   };
 
   // An empty picker is a legitimate answer, and it is how a bracket slot the group phase has not
@@ -790,6 +794,12 @@ export function AdminEditSpielDataForm({
                   onElfmeterschiessenChange={setElfmeterschiessen}
                   ergebnisCanBeEdited={ergebnisCanBeEdited}
                   onErgebnisCanBeEditedChange={setErgebnisCanBeEdited}
+                  onValidateFields={validateFields}
+                />
+
+                <FormNotizSection
+                  notiz={notiz}
+                  onNotizChange={setNotiz}
                   onValidateFields={validateFields}
                 />
 

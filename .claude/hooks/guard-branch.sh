@@ -65,6 +65,8 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 # `..` as the first segment means the target climbed back out of the root, and an absolute result means
 # the two are on different drives. Empty means the target IS the root, which is a directory and not a
 # file, and is denied for the same reason a path that cannot be read is.
+# The backticks are Markdown in the embedded script's own comments; nothing here is meant to expand.
+# shellcheck disable=SC2016
 decision="$(REPO_ROOT="$repo_root" node -e '
 const path = require("path");
 

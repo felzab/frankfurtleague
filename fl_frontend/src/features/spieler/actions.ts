@@ -153,7 +153,7 @@ export async function postSpielerAction(
         success: false,
         error:
           `Der Spieler wurde angelegt, konnte aber nicht in den Kader aufgenommen werden.${because} ` +
-          "Er ist dadurch auf keiner Seite sichtbar. Bitte nimm ihn über die Spielerseite in eine Saison auf.",
+          "Er ist dadurch auf keiner Seite sichtbar. Nimm ihn über die Spielerseite in eine Saison auf.",
       };
     }
 

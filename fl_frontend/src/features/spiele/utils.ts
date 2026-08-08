@@ -8,8 +8,8 @@
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *
  *   • `computeSpielStatus` treats cancellation as overriding the date. The server treats the two as
- *     independent filters, and its `ausstehend` includes today while this excludes it — see the
- *     glossary before assuming either side is wrong.
+ *     independent filters, and its `ausstehend` includes today while this excludes it — deliberate
+ *     on both counts (ADR-0072): a filter selects, a label partitions. The glossary carries the table.
  *   • `computeErgebnisFor` returns "?" for anything it cannot read with certainty, including a team id
  *     that is neither side and a side with no occupant yet. A two-way branch would score an unknown
  *     team as team2 and render a confident loss for a team that did not play.
@@ -327,6 +327,7 @@ export const toPatchPayload = (spiel: FLSpiel): FLPatchSpielDataPayload => ({
   uhrzeit: spiel.uhrzeit,
   ort: spiel.ort,
   schiedsrichter: spiel.schiedsrichter,
+  notiz: spiel.notiz,
 });
 
 /**

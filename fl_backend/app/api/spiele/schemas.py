@@ -377,6 +377,12 @@ class FLPatchSpielDataPayload(BaseModel):
     ort: FLSpielOrtField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
 
+    # On the payload for the `$set` reason the fields above are: omitted would mean erased. An
+    # emptied textarea arrives as "" and leaves as None through the validator below, which is how a
+    # note is removed. Free text and public, the same trust `disqualifikation.grund` and
+    # `teams.description` already carry (ADR-0059).
+    notiz: str | None
+
     @model_validator(mode="before")
     @classmethod
     def empty_strings_to_none(cls, data: Any) -> Any:
@@ -432,6 +438,14 @@ class FLSpiel(BaseModel):
     is_canceled: bool
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=4, max_length=4)
+
+    # An optional free-text note on the fixture -- exciting moments, anything worth a sentence
+    # (owner, 2026-08-02). DEFAULTED, unlike `elfmeterschiessen`'s required key: nothing anywhere
+    # distinguishes a missing key from a stored null -- both mean "no note" -- so requiring the key
+    # would buy a backfill of every live document for a distinction with no consumer. The bracket
+    # resolution never touches it: a voided fixture keeps its note for the admin to rewrite, because
+    # silently destroying entered prose is the behaviour ADR-0048 exists to make visible.
+    notiz: str | None = None
 
 
 class FLSpielJoined(FLSpiel):

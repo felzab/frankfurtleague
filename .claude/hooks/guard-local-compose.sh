@@ -35,6 +35,8 @@ case "$cmd" in
   *docker-compose.local.yml*) exit 0 ;;
 esac
 
+# The backticks are Markdown in the refusal copy, not substitution.
+# shellcheck disable=SC2016
 printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: a bare `docker compose` reads docker-compose.yml, the PRODUCTION definition. Local work goes through ./scripts/local.sh — `--down` to stop, `--fresh` to drop volumes, `--logs` to follow. If you genuinely need compose directly, pass -f docker-compose.local.yml."}}'
 
 exit 0

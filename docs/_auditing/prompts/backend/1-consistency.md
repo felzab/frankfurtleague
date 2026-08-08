@@ -115,9 +115,9 @@ ALREADY DECIDED — report against these, do not re-litigate them:
 
 KNOWN OPEN ITEMS to place rather than re-derive: `docs/roadmap/open-items.md` tracks the backend
 items that are open by decision. Verify each at the current code and cite the roadmap entry instead
-of re-analysing it. **F1** there (two definitions of `ausstehend` — the server includes today, the
-client excludes it) is a cross-surface _semantic_ divergence: verify the current state and report it
-under check 5 as a decision to confirm, since the landing-page behaviour may be intended.
+of re-analysing it. The two definitions of `ausstehend` — the server's filter includes today, the
+client's label excludes it — are **ratified** (ADR-0072, a filter selects and a label partitions):
+verify the code still matches the ADR and do not report the divergence itself as a finding.
 
 CROSS-SURFACE QUESTIONS: whether a given consistency gap is a defect or an accepted manual workflow
 (direct database edits, seasonal setup rituals) is owner knowledge. Collect such questions per the

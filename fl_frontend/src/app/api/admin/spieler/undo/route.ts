@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     if (person !== undefined) {
       const operation = await patchSpieler(person);
       if (!operation.acknowledged) {
-        return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Bitte prüfe die Spielerdaten." };
+        return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten." };
       }
     }
 
@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
           success: false as const,
           error:
             person === undefined
-              ? "Die Rücknahme wurde abgebrochen. Bitte prüfe den Kadereintrag."
-              : "Nur der Name wurde zurückgesetzt. Bitte prüfe den Kadereintrag.",
+              ? "Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."
+              : "Nur der Name wurde zurückgesetzt. Prüfe den Kadereintrag.",
         };
       }
     }

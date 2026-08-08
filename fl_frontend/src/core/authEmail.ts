@@ -59,7 +59,7 @@ function renderHtml(url: string): string {
         Anmeldung bestätigen
       </h1>
       <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#525252;">
-        Klicke auf den Button, um dich bei der ${BRAND_NAME}-Verwaltung anzumelden. Der Link ist
+        Klicke auf den Button, um Dich bei der ${BRAND_NAME}-Verwaltung anzumelden. Der Link ist
         <strong style="color:#0a0a0a;">${LINK_VALIDITY_TEXT}</strong> gültig und kann nur einmal
         verwendet werden.
       </p>
@@ -67,7 +67,7 @@ function renderHtml(url: string): string {
         Jetzt anmelden
       </a>
       <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#525252;">
-        Falls der Button nicht funktioniert, kopiere diese Adresse in deinen Browser:
+        Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:
       </p>
       <p style="margin:8px 0 0;font-size:12px;line-height:1.5;word-break:break-all;color:#525252;">
         ${url}
@@ -86,7 +86,7 @@ function renderText(url: string): string {
   return [
     `${BRAND_NAME}: Anmeldung bestätigen`,
     "",
-    `Öffne diesen Link, um dich bei der ${BRAND_NAME}-Verwaltung anzumelden.`,
+    `Öffne diesen Link, um Dich bei der ${BRAND_NAME}-Verwaltung anzumelden.`,
     `Er ist ${LINK_VALIDITY_TEXT} gültig und kann nur einmal verwendet werden.`,
     "",
     "Ist er abgelaufen, fordere auf der Anmeldeseite einfach einen neuen an.",

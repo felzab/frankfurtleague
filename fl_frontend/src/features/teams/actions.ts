@@ -140,7 +140,7 @@ export async function postTeamAction(
         success: false,
         error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${
           reason ? `: ${reason}` : "."
-        } Es ist dadurch auf keiner Seite sichtbar. Bitte melde dies dem Betreiber, bevor Du es erneut versuchst.`,
+        } Es ist dadurch auf keiner Seite sichtbar. Melde dies dem Betreiber, bevor Du es erneut versuchst.`,
       };
     }
 
@@ -304,7 +304,7 @@ export async function postSaisonTeamAction(
         return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       }
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
-        return { success: false, error: "Dieses Team ist bereits in dieser Saison. Bitte lade die Seite neu." };
+        return { success: false, error: "Dieses Team ist bereits in dieser Saison. Lade die Seite neu." };
       }
       throw error;
     }

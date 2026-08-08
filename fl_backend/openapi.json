@@ -3600,6 +3600,17 @@
                 "type": "null"
               }
             ]
+          },
+          "notiz": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notiz"
           }
         },
         "type": "object",
@@ -3613,7 +3624,8 @@
           "datum",
           "uhrzeit",
           "ort",
-          "schiedsrichter"
+          "schiedsrichter",
+          "notiz"
         ],
         "title": "FLPatchSpielDataPayload"
       },
@@ -4953,6 +4965,17 @@
             "maxLength": 4,
             "minLength": 4,
             "title": "Saison Id"
+          },
+          "notiz": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notiz"
           }
         },
         "type": "object",

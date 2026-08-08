@@ -284,6 +284,7 @@ class TestPatchPayload:
             "uhrzeit": base["uhrzeit"],
             "ort": base["ort"],
             "schiedsrichter": base["schiedsrichter"],
+            "notiz": base.get("notiz"),
             **overrides,
         }
 

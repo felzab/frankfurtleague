@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `9a0f3b5`, 2026-08-08
+**Verified against:** `69c506f`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -60,6 +60,16 @@ OPS-6 and OPS-7 are both retired here.
 | 32  | FB-3  | The admin panel could edit no team and no player; both were hand-edited in MongoDB             | FE, BE      | L      | — (ADR-0050's patterns)      | [`5518774`](https://github.com/felzab/frankfurtleague/commit/5518774) |
 | 33  | FB-6  | The rollover was done by hand against endpoints that already existed, with no page calling one | FE, BE      | L      | — (ADR-0033 settled it)      | [`fa5832a`](https://github.com/felzab/frankfurtleague/commit/fa5832a) |
 | 34  | FE-5  | The Spielsuche could only be searched, not narrowed, and Spielhistorie duplicated it           | FE          | M      | — (F1 informed it)           | [`9a0f3b5`](https://github.com/felzab/frankfurtleague/commit/9a0f3b5) |
+| 35  | F7    | The landing page's season badge was a literal that no rollover would have moved                | FE          | S      | — (clock: the rollover)      | [`9cb426d`](https://github.com/felzab/frankfurtleague/commit/9cb426d) |
+| 36  | FE-9  | User-facing copy mixed the capitalised Du with lowercase, and no recorded rule said which      | FE          | S      | —                            | [`4ff9af6`](https://github.com/felzab/frankfurtleague/commit/4ff9af6) |
+| 37  | BE-10 | The season document was read from Mongo on every request that resolved or scored with it       | BE          | S      | —                            | [`c26c3e3`](https://github.com/felzab/frankfurtleague/commit/c26c3e3) |
+| 38  | FE-8  | The compact card's metadata row could not wrap, and crushed its info button on phones          | FE          | S      | — (overlaps FE-3)            | [`b86e282`](https://github.com/felzab/frankfurtleague/commit/b86e282) |
+| 39  | FE-7  | The delete confirmation's second step turned the blurred backdrop flat as it animated in       | FE          | S      | —                            | [`69c506f`](https://github.com/felzab/frankfurtleague/commit/69c506f) |
+| 40  | BE-13 | A malformed id answered 404 in a path and 422 in a query, and no rule said the split was meant | BE          | S      | —                            | [`4fcb250`](https://github.com/felzab/frankfurtleague/commit/4fcb250) |
+| 41  | F1    | The server's `ausstehend` included today and the client's excluded it, with the intent unsaid  | FE, BE      | S      | — (latest with FE-1)         | [`2ea28e0`](https://github.com/felzab/frankfurtleague/commit/2ea28e0) |
+| 42  | OPS-9 | The assistant hooks gated every session and nothing linted or executed any of them             | Ops         | S      | —                            | [`1d98034`](https://github.com/felzab/frankfurtleague/commit/1d98034) |
+| 43  | FE-2  | A match had nowhere to carry a sentence about itself, and the editor nothing to write one with | FE (+BE)    | S      | — (batch with FB-7, FE-1)    | [`0efa98e`](https://github.com/felzab/frankfurtleague/commit/0efa98e) |
+| 44  | FE-6  | The error page logged everything and offered its reader no way to say what they were doing     | FE          | S      | —                            | [`11497ba`](https://github.com/felzab/frankfurtleague/commit/11497ba) |
 
 ## What each one produced
 
@@ -236,6 +246,18 @@ no row here — its commit is the whole story.
   `anzahl_spiele` — a single round robin per group fixes that number, so it was arithmetic rather than an
   intention. It opened **FB-16**: the rollover's steps all have pages now, and its sequence still has no
   prompt.
+- **FE-9** → the copy section of `docs/frontend/overview.md`: the reader is the capitalised Du, the
+  scope line separating user-facing strings from developer German, and the boundary between a field
+  message's "Bitte" and a banner's refusal register.
+- **BE-10** → [ADR-0070](../_decisions/0070-the-season-document-is-cached-in-process.md), the
+  in-process season cache: dropped by its own write path, bounded by a ten-minute TTL, and the
+  single-worker assumption named as the thing to re-check before adding `--workers`.
+- **BE-13** → [ADR-0071](../_decisions/0071-a-path-identifies-a-query-validates.md): a path
+  identifies (404), a query validates (422), `REQ-OID-001` stays as the net behind both, and the
+  `objectid` convertor is load-bearing for routing and must not be dropped.
+- **F1** → [ADR-0072](../_decisions/0072-a-status-filter-is-not-a-status-label.md): a filter
+  selects and a label partitions, so the server's `ausstehend` includes today and the client's
+  ternary keeps `heute` — FE-1 re-derives both under date ranges.
 - **FE-5** → no ADR. The three questions the entry held were answered by building it: a filter runs in
   memory over the season already fetched, the selection goes in the URL beside the search text, and
   Spielhistorie does not stay — the route 308s to `/dashboard/spielsuche?status=vergangen`, because it

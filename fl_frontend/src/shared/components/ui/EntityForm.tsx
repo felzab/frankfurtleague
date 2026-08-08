@@ -56,7 +56,7 @@ export function EntityForm<TDraft>({
   // "check the highlighted field" would send the reader hunting for one that does not exist.
   const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
     appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Bitte lade die Seite neu.",
+      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
     }),
   );
 

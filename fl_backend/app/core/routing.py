@@ -20,7 +20,9 @@ One custom URL convertor, `objectid`, and the helper that spells a path with it.
  A CONSEQUENCE WORTH HAVING ───────────────────────────────────────────────────────────────────────────────
 
   A malformed id is now a 404 rather than a 422. `/spiele/not-an-id` matches no route at all, which is
-  the honest answer -- it is not a match whose id failed validation, it is not a match.
+  the honest answer -- it is not a match whose id failed validation, it is not a match. The same value
+  in a query parameter stays a 422, and that split is ratified rather than accidental (ADR-0071): a
+  path identifies, a query validates.
 
  REGISTRATION IS AN IMPORT SIDE EFFECT ────────────────────────────────────────────────────────────────────
 

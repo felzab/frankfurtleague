@@ -58,6 +58,7 @@ function makeStored(overrides: Partial<FLSpiel> = {}): FLSpiel {
     team2_quelle: null,
     ergebnis: "3:1",
     elfmeterschiessen: null,
+    notiz: null,
     ...overrides,
   } as FLSpiel;
 }
@@ -75,6 +76,7 @@ function draftOf(stored: FLSpiel, overrides: Partial<FLSpielDraftFields> = {}): 
     team2_quelle: stored.team2_quelle,
     elfmeterschiessen: stored.elfmeterschiessen,
     is_canceled: stored.is_canceled,
+    notiz: stored.notiz,
     ...overrides,
   };
 }

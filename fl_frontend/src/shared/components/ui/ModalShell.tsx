@@ -81,7 +81,20 @@ export function ModalShell({
       onOpenChange={(open: boolean) => {
         if (!open) onClose();
       }}
-      variant="blur">
+      variant="opaque">
+      {/* The blur lives on this EMPTY sibling, never on the backdrop itself (owner report,
+          2026-08-08). HeroUI's `variant="blur"` puts `backdrop-filter` on the ancestor that contains
+          the whole dialog, and Chromium drops the filter — permanently, surviving close and reopen —
+          once animated content composites inside the filtered element's subtree: the delete
+          confirmation's step-2 swap was the reported trigger, and the container's own enter zoom
+          runs there on every open. An element with no children has no subtree for any animation to
+          run in, so the breakage has nothing to attach to. `opaque` keeps HeroUI's dim on the
+          backdrop; painting below its children, it is part of what this layer blurs.
+          `pointer-events-none` so an outside press still reaches the backdrop's dismiss. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 backdrop-blur-md"
+      />
       <Modal.Container placement="top">
         <Modal.Dialog
           role={role}

@@ -212,6 +212,11 @@ export const FLSpielSchema = z.object({
   // here, zod's default strip mode discarded it silently -- which is why the admin patch action has
   // no season id to invalidate a granular cache tag with.
   saison_id: z.string().length(4),
+
+  // An optional free-text note on the fixture — null on almost every match. Nullable but never
+  // absent: a stored document may lack the key, but the backend fills its default at validation and
+  // serializes it on every response, so the wire always carries it.
+  notiz: z.string().nullable(),
 });
 export type FLSpiel = z.infer<typeof FLSpielSchema>;
 
@@ -276,6 +281,10 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   // it off would retract a recorded shoot-out on the first edit of a kick-off time. The handler keeps
   // it only where the goals it accompanies are level (ADR-0044).
   elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
+
+  // Required on the payload for the `$set` reason above; an emptied textarea submits "" and the
+  // backend coerces it to null, which is how a note is removed.
+  notiz: z.string().nullable(),
 
   spiel_id: CustomObjectIdStringSchema,
   is_canceled: z.boolean(),

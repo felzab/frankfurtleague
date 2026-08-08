@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `b5324b8`, 2026-08-08
+**Verified against:** `7d3a797`, 2026-08-08
 
 The domain vocabulary is German and load-bearing: it appears verbatim in collection names, schema
 fields, API parameters and URLs. Translating it in your head is fine; translating it in code is not.
@@ -121,6 +121,10 @@ Either side is **null while its occupant is unknown** — a bracket slot the gro
 filled yet. What a card shows in its place is derived from `team1_quelle` / `team2_quelle`; see `Quelle`.
 
 A knockout that finished level carries its `Elfmeterschießen` beside the score rather than inside it.
+
+A fixture may carry an optional public **`notiz`** — free text entered in the match editor and shown
+in the match details dialog; null on almost every match, and absent from documents older than the
+field, which the read model tolerates by defaulting it.
 
 **A season's matches are all created at its start, and the set never changes.** A match can be called
 off (`is_canceled`) or moved to another date (`datum`); it is never deleted, and none is ever added
@@ -329,8 +333,9 @@ was rejected there.
 `ausstehend` (upcoming) · `vergangen` (past) · `heute` (today) · `abgesagt` (cancelled) ·
 `unbekannt` (unknown).
 
-**Pitfalls — two definitions that do not match.** The server compiles the filter one way and the client
-derives the label another:
+**Two definitions, and the difference is the rule**
+([ADR-0072](_decisions/0072-a-status-filter-is-not-a-status-label.md)): the server compiles a
+**filter** and the client derives a **label**, and they answer different questions.
 
 | Status       | Server filter (`build_spiele_filter`) | Client derivation (`computeSpielStatus`) |
 | ------------ | ------------------------------------- | ---------------------------------------- |
@@ -340,9 +345,11 @@ derives the label another:
 | `abgesagt`   | `is_canceled == True`                 | wins over any date                       |
 | `unbekannt`  | no branch — filters nothing           | `datum === null`                         |
 
-A match today is returned by an "upcoming" query and then labelled `heute` by its own card. On the
-landing page that is probably intended. Recorded as **Finding F1** in the ledger; verify the intent
-before changing either side.
+The filter values are deliberately **not a partition** — `heute` is a subset of `ausstehend`,
+because a fixture today is still ahead of a reader asking for upcoming matches. The label **is** a
+partition, because one card wears one word and `heute` is the most informative one on the day. So a
+match today is returned by the landing page's "upcoming" query and labelled `HEUTE` by its own
+card, which is the intended composition, not a mismatch.
 
 Note also `unbekannt`: passing it as a filter returns _everything_, because no branch matches.
 

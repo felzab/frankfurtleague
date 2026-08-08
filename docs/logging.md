@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `b5324b8`, 2026-08-08
+**Verified against:** `fb70ee0`, 2026-08-08
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
@@ -149,51 +149,51 @@ Every domain refusal is a 409 and there is one reason for it: nothing about the 
 the same request would have succeeded against a different state of the database
 (`fl_backend/app/core/exceptions.py :: DocumentConflictException`).
 
-| Code                  | Status | Meaning                                                                                                   |
-| --------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
-| `REQ-AUTH-001`        | 401    | No bearer credentials presented                                                                           |
-| `REQ-AUTH-002`        | 401    | `base` key invalid                                                                                        |
-| `REQ-AUTH-003`        | 401    | `system` key invalid                                                                                      |
-| `REQ-AUTH-004`        | 401    | `admin` key invalid                                                                                       |
-| `REQ-VAL-001`         | 422    | Request payload or parameters failed validation                                                           |
-| `REQ-OID-001`         | 400    | A malformed ObjectId reached a handler                                                                    |
-| `REQ-RULES-001`       | 409    | `number_of_groups` × `qualifiers_per_group` is not a power of two the phase set holds (ADR-0065)          |
-| `REQ-RULES-002`       | 409    | `number_of_groups` would drop below a group that still holds teams                                        |
-| `REQ-RULES-003`       | 409    | `teams_per_group` would drop below the fullest group's occupancy                                          |
-| `REQ-RULES-004`       | 409    | `qualifiers_per_group` would drop below a placing a bracket slot already names                            |
-| `REQ-RULES-005`       | 409    | A finished season's points and qualifier count are frozen, because the table derives from them (ADR-0026) |
-| `REQ-RULES-006`       | 409    | A narrowing would leave a matchday holding more fixtures than its phase accounts for (ADR-0065)           |
-| `REQ-RULES-007`       | 409    | `qualifiers_per_group` exceeds `teams_per_group`                                                          |
-| `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures that are neither played nor cancelled (ADR-0033)                 |
-| `REQ-ENTER-001`       | 409    | A team was entered into a season that is not `future`                                                     |
-| `REQ-ENTER-002`       | 409    | A team was entered into, or moved to, a group the season does not run                                     |
-| `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                      |
-| `REQ-ENTER-004`       | 409    | A group change reached a team whose fixtures the started season has already drawn                         |
-| `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                      |
-| `REQ-SPIELTAG-002`    | 409    | A matchday's new phase accounts for fewer matches than the matchday already holds (ADR-0065)              |
-| `REQ-SPIELTAG-003`    | 409    | A season whose knockout phase has started was asked for a new matchday                                    |
-| `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                              |
-| `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                 |
-| `REQ-DATE-004`        | 409    | A season's span would shrink below a live matchday's own                                                  |
-| `REQ-RETIRE-002`      | 409    | A matchday holding a played match was asked to retire, which would unpublish that result                  |
-| `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                     |
-| `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                  |
-| `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path (ADR-0046)                             |
-| `REQ-ELIGIBILITY-001` | 409    | A disqualified team was newly fielded on a match (ADR-0052)                                               |
-| `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season (ADR-0052)                      |
-| `REQ-RESULT-001`      | 409    | A side carrying goals on a played fixture was emptied rather than switched (ADR-0051)                     |
-| `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved (ADR-0052)                  |
-| `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                          |
-| `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                       |
-| `REQ-SQUAD-001`       | 409    | A squad row names a team holding no junction row for that season                                          |
-| `REQ-SQUAD-002`       | 409    | A squad number this write would newly take from another player in the same team                           |
-| `DB-CONN-001`         | 503    | Database client unavailable                                                                               |
-| `DB-CONN-002`         | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                                           |
-| `DB-COMMON-001`       | 404    | No document matched the filter                                                                            |
-| `DB-COMMON-002`       | 409    | A unique index refused the write                                                                          |
-| `DB-FAIL-001`         | 500    | A database operation crashed                                                                              |
-| `SRV-VAL-001`         | 500    | A server-side model failed validation outside request parsing — a data bug, not a caller bug              |
-| `SRV-FAIL-001`        | 500    | Unhandled crash                                                                                           |
+| Code                  | Status | Meaning                                                                                                                                        |
+| --------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REQ-AUTH-001`        | 401    | No bearer credentials presented                                                                                                                |
+| `REQ-AUTH-002`        | 401    | `base` key invalid                                                                                                                             |
+| `REQ-AUTH-003`        | 401    | `system` key invalid                                                                                                                           |
+| `REQ-AUTH-004`        | 401    | `admin` key invalid                                                                                                                            |
+| `REQ-VAL-001`         | 422    | Request payload or parameters failed validation                                                                                                |
+| `REQ-OID-001`         | 400    | A malformed ObjectId reached a handler — the net behind the path convertor and the query models, unreachable through routed traffic (ADR-0071) |
+| `REQ-RULES-001`       | 409    | `number_of_groups` × `qualifiers_per_group` is not a power of two the phase set holds (ADR-0065)                                               |
+| `REQ-RULES-002`       | 409    | `number_of_groups` would drop below a group that still holds teams                                                                             |
+| `REQ-RULES-003`       | 409    | `teams_per_group` would drop below the fullest group's occupancy                                                                               |
+| `REQ-RULES-004`       | 409    | `qualifiers_per_group` would drop below a placing a bracket slot already names                                                                 |
+| `REQ-RULES-005`       | 409    | A finished season's points and qualifier count are frozen, because the table derives from them (ADR-0026)                                      |
+| `REQ-RULES-006`       | 409    | A narrowing would leave a matchday holding more fixtures than its phase accounts for (ADR-0065)                                                |
+| `REQ-RULES-007`       | 409    | `qualifiers_per_group` exceeds `teams_per_group`                                                                                               |
+| `REQ-ACTIVATE-001`    | 409    | The outgoing season still holds fixtures that are neither played nor cancelled (ADR-0033)                                                      |
+| `REQ-ENTER-001`       | 409    | A team was entered into a season that is not `future`                                                                                          |
+| `REQ-ENTER-002`       | 409    | A team was entered into, or moved to, a group the season does not run                                                                          |
+| `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                                                           |
+| `REQ-ENTER-004`       | 409    | A group change reached a team whose fixtures the started season has already drawn                                                              |
+| `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                           |
+| `REQ-SPIELTAG-002`    | 409    | A matchday's new phase accounts for fewer matches than the matchday already holds (ADR-0065)                                                   |
+| `REQ-SPIELTAG-003`    | 409    | A season whose knockout phase has started was asked for a new matchday                                                                         |
+| `REQ-DATE-002`        | 409    | A matchday's span falls outside its season's                                                                                                   |
+| `REQ-DATE-003`        | 409    | A matchday's span would shrink below a date one of its own fixtures holds                                                                      |
+| `REQ-DATE-004`        | 409    | A season's span would shrink below a live matchday's own                                                                                       |
+| `REQ-RETIRE-002`      | 409    | A matchday holding a played match was asked to retire, which would unpublish that result                                                       |
+| `REQ-DATE-001`        | 409    | A fixture's date falls outside the span of the matchday it belongs to                                                                          |
+| `REQ-CLASH-001`       | 409    | A venue or a referee would serve two fixtures less than four hours apart                                                                       |
+| `REQ-WIRING-001`      | 409    | Bracket wiring the season cannot hold reached the match write path (ADR-0046)                                                                  |
+| `REQ-ELIGIBILITY-001` | 409    | A disqualified team was newly fielded on a match (ADR-0052)                                                                                    |
+| `REQ-ELIGIBILITY-002` | 409    | A newly fielded team holds no `saison_teams` row for the fixture's season (ADR-0052)                                                           |
+| `REQ-RESULT-001`      | 409    | A side carrying goals on a played fixture was emptied rather than switched (ADR-0051)                                                          |
+| `REQ-SPIELTAG-001`    | 409    | A team would play two fixtures of one Spieltag, and the clash cannot be moved (ADR-0052)                                                       |
+| `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                               |
+| `REQ-RETIRE-004`      | 409    | A referee still assigned to an unplayed fixture was asked to retire                                                                            |
+| `REQ-SQUAD-001`       | 409    | A squad row names a team holding no junction row for that season                                                                               |
+| `REQ-SQUAD-002`       | 409    | A squad number this write would newly take from another player in the same team                                                                |
+| `DB-CONN-001`         | 503    | Database client unavailable                                                                                                                    |
+| `DB-CONN-002`         | 503    | The readiness ping could not reach MongoDB (`/system/is_ready`)                                                                                |
+| `DB-COMMON-001`       | 404    | No document matched the filter                                                                                                                 |
+| `DB-COMMON-002`       | 409    | A unique index refused the write                                                                                                               |
+| `DB-FAIL-001`         | 500    | A database operation crashed                                                                                                                   |
+| `SRV-VAL-001`         | 500    | A server-side model failed validation outside request parsing — a data bug, not a caller bug                                                   |
+| `SRV-FAIL-001`        | 500    | Unhandled crash                                                                                                                                |
 
 Frontend codes (`fl_frontend/src/core/errors.ts`, plus the call sites named):
 
@@ -221,6 +221,9 @@ It wraps both entry points: the eight server actions and the undo route handler
   incident** — Next derives it from the message, so every `APINetworkError` shares one digest. Take
   the digest plus the time and route, find the matching `FE-RSC-001` line, and its
   `correlation_id`/`fetch_correlation_id` open the nginx and backend lines for that exact request.
+  The error page's own report link pre-fills exactly these three coordinates
+  (`fl_frontend/src/shared/components/ui/Error.tsx`): a `mailto:` carrying digest, route and
+  timestamp, so a reader's report arrives with the search already narrowed to one log entry.
 - **A slow page.** The nginx line carries `duration_s` and `upstream_duration_s` for every request;
   the backend line carries `duration_ms`. An edge duration without a matching upstream duration is
   nginx or the network; a large backend `duration_ms` is the application.

@@ -48,7 +48,7 @@ export function ConfirmDeleteModal({
   onClose: () => void;
   /** "Spielort stilllegen" */
   heading: string;
-  /** "den Spielort" — reads as "Möchtest du {entityLabel} <name> wirklich {verb}?" */
+  /** "den Spielort" — reads as "Möchtest Du {entityLabel} <name> wirklich {verb}?" */
   entityLabel: string;
   entityName: string;
   /** The step-2 sentence after what `isPermanent` decides. */
@@ -128,7 +128,7 @@ export function ConfirmDeleteModal({
       <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
         {confirmStep === 1 ? (
           <p className="fluid-sm text-foreground-muted leading-relaxed">
-            Möchtest du {entityLabel}
+            Möchtest Du {entityLabel}
             <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
               {entityName}
             </span>
@@ -137,16 +137,22 @@ export function ConfirmDeleteModal({
         ) : (
           /* `role="alert"` because this panel replaces the step-1 copy in place: without it the
              escalation is silent, and the only other signal is the button label quietly changing. */
+          /* Deliberately NOT animated (FE-7): a danger escalation should register at once rather
+             than fade in over 400ms. Its entrance animation was also the first recorded trigger for
+             the backdrop losing its blur, and what actually holds that fix now is ModalShell's
+             structure — the blur sits on an empty sibling no animation can run inside — so this
+             stays un-animated for the reading reason alone. `FormRolloverSection` keeps the same
+             panel animated on its page. */
           <div
             role="alert"
-            className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
+            className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
             <div className="text-danger flex items-center gap-2 font-bold">
               <TriangleExclamation
                 aria-hidden="true"
                 width={18}
                 height={18}
               />
-              Bist du dir wirklich sicher?
+              Bist Du Dir wirklich sicher?
             </div>
             <p className="fluid-sm text-foreground-muted leading-relaxed">
               {isPermanent ? (

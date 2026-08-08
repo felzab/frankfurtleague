@@ -366,6 +366,7 @@ describe("toPatchPayload and buildUndoPayloads", () => {
       "datum",
       "elfmeterschiessen",
       "is_canceled",
+      "notiz",
       "ort",
       "schiedsrichter",
       "spiel_id",

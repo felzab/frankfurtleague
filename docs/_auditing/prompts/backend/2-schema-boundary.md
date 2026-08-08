@@ -71,11 +71,11 @@ THE CHECKS, in priority order:
    surfaced with enough structure to act on and no more (leakage itself is pass B3's).
 
 7. **SEMANTIC CONTRACTS.** Where both sides _derive_ the same concept independently — status
-   derivation (`ausstehend`/`heute`: the server includes today and the client excludes it, tracked
-   as F1 in `docs/roadmap/open-items.md`; verify the current state and report it as a decision to
-   confirm), score formatting, phase aliases (`"playoffs"` compiles to a filter and never appears on
-   a document — see `docs/glossary.md`) — name every derivation pair and state whether the two
-   agree at the boundaries: today, null, empty.
+   derivation (`ausstehend`/`heute`: the server's filter includes today and the client's label
+   excludes it, ratified as ADR-0072; verify the code still matches the ADR rather than reporting
+   the divergence), score formatting, phase aliases (`"playoffs"` compiles to a filter and never
+   appears on a document — see `docs/glossary.md`) — name every derivation pair and state whether
+   the two agree at the boundaries: today, null, empty.
 
 8. **OPENAPI TRUTHFULNESS.** Every endpoint has a docstring and a `summary=` — verify the claims
    still match the behaviour; `response_model` matches what the handler actually returns; documented

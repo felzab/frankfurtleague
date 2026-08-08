@@ -21,7 +21,7 @@ advancement algorithm and every refusal rule testable without a database. Six ha
 
   • `saison_phase="playoffs"` compiles to `!= "gruppenphase"`. It is a query alias and never a stored
     value.
-  • `spiel_status` compiles to a date or cancellation filter. Note `ausstehend` is `>= today`, so it
+  • `spiel_status` compiles to a date or cancellation filter (ADR-0072). Note `ausstehend` is `>= today`, so it
     INCLUDES today -- the frontend's own status derivation excludes it and labels those matches
     `heute`. The two definitions differ deliberately; see the glossary before changing either.
   • `unbekannt` has no branch and therefore filters nothing: passing it returns everything.
@@ -717,6 +717,7 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload) ->
             "ergebnis": ergebnis,
             "elfmeterschiessen": payload.elfmeterschiessen if keeps_shoot_out else None,
             "is_canceled": payload.is_canceled,
+            "notiz": payload.notiz,
         }
     )
 

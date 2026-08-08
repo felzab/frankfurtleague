@@ -23,18 +23,27 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
   return (
     <Card className={`${card()} w-full p-4`}>
       <Card.Content className="flex w-full flex-col items-center justify-between gap-y-3 p-0 text-left">
-        {/* Metadata */}
+        {/* Metadata. Inside the timeline rail this row gets ~259px on a 375px phone and its content
+            needs ~319px: measured 2026-08-08 against the local stack, where the un-wrappable row
+            crushed the 32px info button to 16px and pushed 26px past the card edge. Nothing here may
+            deform instead of wrapping — but only the LEFT GROUP wraps: the chip moves under the date
+            when space runs out, while the button stays a direct child of the outer row, pinned to the
+            card's top-right corner as it is on SpielCard (owner, 2026-08-08). `self-start` costs the
+            button nothing on one line, where it is the tallest item anyway. */}
         <div className="flex h-fit w-full flex-row items-center gap-x-4">
-          {/** Time/Date */}
-          <div className="fluid-sm text-foreground-muted flex h-full w-fit flex-row items-center gap-x-2 font-bold">
-            <span className="w-full">{spielDatum}</span>
-            <span>-</span>
-            <span className="w-full">{spielUhrzeit}</span>
+          <div className="flex min-w-0 flex-row flex-wrap items-center gap-x-4 gap-y-2">
+            {/** Time/Date — one non-breaking unit; a date split across lines reads as two dates. */}
+            <div className="fluid-sm text-foreground-muted flex shrink-0 flex-row items-center gap-x-2 font-bold whitespace-nowrap">
+              <span>{spielDatum}</span>
+              <span>-</span>
+              <span>{spielUhrzeit}</span>
+            </div>
+
+            <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
           </div>
 
-          <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
-
-          {/* The same details-modal affordance SpielCard has, sized to the slimmer row. */}
+          {/* The same details-modal affordance SpielCard has, sized to the slimmer row. `shrink-0`
+              because a tap target must keep its box whatever the row does around it. */}
           {onOpenInfoModal && (
             <Button
               isIconOnly
@@ -42,7 +51,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
               onPress={onOpenInfoModal}
               size="sm"
               variant="tertiary"
-              className="bg-muted text-foreground hover:bg-muted/80 ml-auto h-[32px] w-[32px] p-0 transition-colors duration-200">
+              className="bg-muted text-foreground hover:bg-muted/80 ml-auto h-[32px] w-[32px] shrink-0 self-start p-0 transition-colors duration-200">
               <CircleExclamation className="m-0 size-4" />
             </Button>
           )}

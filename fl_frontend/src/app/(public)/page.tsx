@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 
+import { getCurrentSaison } from "@/features/saisons/queries";
 import {
   RecentAndUpcomingSpieleGrid,
   RecentAndUpcomingSpieleGridSkeleton,
@@ -11,9 +13,10 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 /**
  * The public landing page.
  *
- * Static marketing chrome, with the one data-dependent region — the recent/upcoming grid — isolated
- * behind `Suspense`. That split is the whole point of the page's structure: the shell is prerendered
- * and the data hole streams in, so the page paints without waiting on the backend.
+ * Static marketing chrome, with the data-dependent regions — the hero's season badge and the
+ * recent/upcoming grid — each isolated behind `Suspense`. That split is the whole point of the
+ * page's structure: the shell is prerendered and the data holes stream in, so the page paints
+ * without waiting on the backend.
  */
 export default function LandingPage() {
   return (
@@ -27,16 +30,16 @@ export default function LandingPage() {
             <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
             <div className="relative z-10 flex flex-col gap-4">
-              {/* Hardcoded season label. It is NOT derived from the current season, so it goes stale
-                  silently at the season rollover — the rest of the page will already be showing next
-                  season's fixtures while this badge still says the old year. Wire it to
-                  `getCurrentSaison()` if this page ever gains a data fetch of its own. */}
               {/* `/10`, not `/15`: the label is 13.9px bold, i.e. normal-size text under WCAG, so it needs
                   4.5:1 against its own tint. A 10% tint measures 4.70:1 in the dark theme and 7.69:1 in
                   the light one; 15% drops the dark reading to 4.42:1. Re-measure if --accent-brand moves. */}
               <div className="border-brand/30 bg-brand/10 fluid-xs text-brand inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs">
                 <span className="bg-brand-solid size-2 animate-ping rounded-full" />
-                Saison 2026
+                {/* The pill is static chrome; only the label suspends. The fallback holds the label's
+                    exact box invisibly, so the year landing moves nothing. */}
+                <Suspense fallback={<span className="invisible">Saison 0000</span>}>
+                  <CurrentSaisonLabel />
+                </Suspense>
               </div>
 
               <h1 className="fluid-3xl font-black tracking-tight uppercase">
@@ -144,4 +147,16 @@ export default function LandingPage() {
       </div>
     </>
   );
+}
+
+/**
+ * The season named by the hero badge, from the same daily `saisons` cache the fixtures below read —
+ * so a rollover through `/admin` moves the badge and the fixtures together, and neither can name a
+ * season the other has left (ADR-0002, ADR-0035). `connection()` precedes the fetch per ADR-0009.
+ */
+async function CurrentSaisonLabel() {
+  await connection();
+  const { saison } = await getCurrentSaison();
+
+  return <>Saison {saison.id}</>;
 }

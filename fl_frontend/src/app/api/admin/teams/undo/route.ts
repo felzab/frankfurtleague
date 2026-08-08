@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (club !== undefined) {
       const operation = await patchTeam(club);
       if (!operation.acknowledged) {
-        return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Bitte prüfe die Teamdaten." };
+        return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Prüfe die Teamdaten." };
       }
     }
 
@@ -85,8 +85,8 @@ export async function POST(request: NextRequest) {
           success: false as const,
           error:
             club === undefined
-              ? "Die Rücknahme wurde abgebrochen. Bitte prüfe die Saison-Zugehörigkeit."
-              : "Nur die Stammdaten wurden zurückgesetzt. Bitte prüfe die Saison-Zugehörigkeit.",
+              ? "Die Rücknahme wurde abgebrochen. Prüfe die Saison-Zugehörigkeit."
+              : "Nur die Stammdaten wurden zurückgesetzt. Prüfe die Saison-Zugehörigkeit.",
         };
       }
     }
