@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `1d98034`, 2026-08-08
+**Verified against:** `0efa98e`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -68,6 +68,7 @@ OPS-6 and OPS-7 are both retired here.
 | 40  | BE-13 | A malformed id answered 404 in a path and 422 in a query, and no rule said the split was meant | BE          | S      | —                            | [`4fcb250`](https://github.com/felzab/frankfurtleague/commit/4fcb250) |
 | 41  | F1    | The server's `ausstehend` included today and the client's excluded it, with the intent unsaid  | FE, BE      | S      | — (latest with FE-1)         | [`2ea28e0`](https://github.com/felzab/frankfurtleague/commit/2ea28e0) |
 | 42  | OPS-9 | The assistant hooks gated every session and nothing linted or executed any of them             | Ops         | S      | —                            | [`1d98034`](https://github.com/felzab/frankfurtleague/commit/1d98034) |
+| 43  | FE-2  | A match had nowhere to carry a sentence about itself, and the editor nothing to write one with | FE (+BE)    | S      | — (batch with FB-7, FE-1)    | [`0efa98e`](https://github.com/felzab/frankfurtleague/commit/0efa98e) |
 
 ## What each one produced
 
