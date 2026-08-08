@@ -166,7 +166,7 @@ def same_but_for_comments(suffix: str, old: str, new: str) -> bool:
         if suffix == ".toml":
             return toml_same(old, new)
         return typescript_same(old, new)
-    except (SyntaxError, ValueError, ImportError, RuntimeError, OSError):
+    except SyntaxError, ValueError, ImportError, RuntimeError, OSError:
         # A version that does not parse, a missing toolchain, a tomllib that is not there: none of
         # these is proof of anything, so the change counts as code.
         return False
