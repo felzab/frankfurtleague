@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `fb70ee0`, 2026-08-08
+**Verified against:** `11497ba`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -46,17 +46,16 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 2   | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with FE-1)       |
 | 3   | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with FB-7)       |
 | 4   | FE-3  | TeamDetailsView rework                                  | FE          | M      | Open     | — (ADR-0059 settles it)   |
-| 5   | FE-6  | A way to report an error from the error page            | FE          | S      | Closed   | —                         |
-| 6   | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
-| 7   | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
-| 8   | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
-| 9   | FB-15 | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —                         |
-| 10  | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0049 settles it)   |
-| 11  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
-| 12  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
-| 13  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
-| 14  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
-| 15  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
+| 5   | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
+| 6   | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
+| 7   | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
+| 8   | FB-15 | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —                         |
+| 9   | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0049 settles it)   |
+| 10  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
+| 11  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
+| 12  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
+| 13  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
+| 14  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
 
 ## The bracket, end to end
 
@@ -109,11 +108,11 @@ closed.
   by hand.
 
 **Two entries remain, both concluded and neither scheduled.**
-**[FB-9](#10--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** — a
+**[FB-9](#9--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** — a
 manual slot takes a disqualified team and no layer says a word. The design is ratified as
 [ADR-0049](../_decisions/0049-eligibility-is-checked-where-a-team-is-fielded.md); the owner's deferral
 of the work stands.
-**[BE-14](#13--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
+**[BE-14](#12--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
 capped at ten outstanding fixtures, which is a group of five, and a group of six would stop seeding
 with nothing said. The audit established that no faster exact algorithm exists to replace it, so the
 cap is a design boundary rather than debt.
@@ -168,8 +167,8 @@ and the rollover control sits on the season's own editor
 no prompt for is its SEQUENCE, which is [FB-16](#1--fb-16--nothing-announces-that-a-season-rollover-is-due)
 and a different kind of thing.
 
-**[FB-9](#10--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** and
-**[BE-14](#13--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** are not sessions of the
+**[FB-9](#9--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** and
+**[BE-14](#12--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** are not sessions of the
 string. Both are concluded: FB-9's design is ratified and its implementation stays deferred, and
 BE-14's cap is measured as a boundary the competition's size does not reach.
 
@@ -227,8 +226,8 @@ schema batch renders on it and the triage list links into it, and neither has to
 dialog first and then again. The batch keeps its one-pass rule: one schema surface, one form, one
 mirror pass, now aimed at the page rather than the modal
 ([ADR-0040](../_decisions/0040-the-zod-mirror-is-checked-against-the-published-document.md) makes a
-mirror that falls behind a gate failure that names the field). FE-3 and FE-6 are presentation work
-on surfaces that already exist. The three after them are prospective rather
+mirror that falls behind a gate failure that names the field). FE-3 is presentation work on a
+surface that already exists. The three after it are prospective rather
 than dependent: BE-12 is real now that the spieler pages make retiring a row possible at all, BE-15
 becomes real the moment a second person can write, and LOG-2 improves the fidelity of a logging
 convention that already works. FB-15 closes the tier: the group swap the team editor's lock names as
@@ -317,44 +316,7 @@ Contents the rework must carry:
 only consumer of already survives narrow screens (FE-8, row 38 of
 [`closed-items.md`](closed-items.md)).
 
-### 5 · FE-6 — A way to report an error from the error page
-
-**Owner's item, 2026-08-04, with the evaluation he asked for**: is a report affordance worth having
-when everything is already logged?
-
-**Worth having, narrowly, for what a log line cannot carry.** Crashes are recorded on both sides
-now — `onRequestError` logs server errors and the error boundary posts client crashes to
-`fl_frontend/src/app/api/client-error/route.ts` (`docs/logging.md`) — but **what the user was doing
-is in no log**, and it is usually the difference between a report that reproduces and one that does
-not. The affordance's remaining job is the human half: intent, steps, expectation.
-
-**A digest names an error class, not an incident** (measured 2026-08-05, recorded in
-`docs/logging.md`): Next derives it from the message, so every `APINetworkError` shares one digest.
-A report quoting only a digest locates every occurrence of that message rather than the reader's
-own — so the affordance should carry the digest, the route AND the time, which together pin the
-exact log entry and its correlation ids.
-
-**Keep it to a `mailto:`.** The Kontakt page already publishes the address, so a link carrying the
-digest, the route and the time in its subject costs one component and adds no write path. A form
-posting to an endpoint would be a second public, unauthenticated write for the same information —
-the crash itself already travels through the rate-limited ingest route, and a human report does not
-need a machine path.
-
-**Closed, 2026-08-08**, to the entry's own design. The shared `Error` view carries a quiet third
-action: a `mailto:` to the published contact address whose subject and body pre-fill all three
-coordinates — digest (or "keiner (Client-Fehler)", which is itself a coordinate: it points at the
-client-error stream), route from `usePathname`, and a timestamp captured when the boundary mounts.
-The body prompts for the human half the logs cannot carry — what the reader was doing and what they
-expected. No endpoint and no form, for the entry's reason. The address moved to one declaration in
-`core/brand.ts`, consumed by the Kontakt page and the error view alike, because `shared` may not
-reach into a feature slice for it (ADR-0012); `docs/logging.md`'s finding-an-incident recipe names
-the link. Copy follows the capitalised-Du convention. No ADR: the entry's evaluation was the
-decision, and this build is its verdict.
-
-**Path:** independent. Every request carries an edge-minted correlation id and the joining recipe
-is `docs/logging.md` (ADR-0039), so the affordance quotes real coordinates. Nothing waits on this.
-
-### 6 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
+### 5 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
 **Opened 2026-08-03, when BE-4 closed. It is the reason that field is a date rather than a boolean**
 ([ADR-0032](../_decisions/0032-soft-deletion-is-a-date-not-a-flag.md)).
@@ -388,7 +350,7 @@ prospective item, opened so the field's purpose is recorded rather than rediscov
 **Path:** independent, and now real: the spieler pages retire both a person and a squad row, so rows
 with an `inactive_since` can accumulate for the first time.
 
-### 7 · BE-15 — An admin action log, and a smarter undo over it
+### 6 · BE-15 — An admin action log, and a smarter undo over it
 
 **Opened 2026-08-06, out of the evaluation of this system against established practice.** It is the
 one place where that evaluation found this system materially behind the reference model on the data
@@ -450,7 +412,7 @@ becomes a log rather than a collection, which the owner's direction above makes 
 blocks this and this blocks neither. ADR-0051 raises the value of doing it: the client-held undo makes
 the gap visible on the one surface an admin uses most.
 
-### 8 · LOG-2 — Full trace context: `traceparent`, spans, and somewhere to send them
+### 7 · LOG-2 — Full trace context: `traceparent`, spans, and somewhere to send them
 
 **Owner's item, 2026-08-05, opened out of LOG-1: implement the industry-standard shape of what
 LOG-1 built a subset of.**
@@ -514,7 +476,7 @@ neither should be guessed.
 **Path:** independent. ADR-0039 is the floor it builds on, not a blocker — logging works today, and
 this is fidelity rather than function. Nothing waits on it.
 
-### 9 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
+### 8 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
 
 **Owner's item, 2026-08-07, out of the admin teams work.** The club editor locks the Gruppe select
 the moment the selected season is underway and the club has a fixture in it: a group decides which
@@ -549,7 +511,7 @@ elsewhere: two are seeded into backend audit passes and two into ops, and FB-9 i
 whose implementation the owner has deferred. BE-14 is the exception and carries its own trigger — a group of six teams —
 because no pass covers a constant that is correct at today's group size and wrong at a larger one.
 
-### 10 · FB-9 — A manual knockout slot accepts a disqualified team, and nothing says a word
+### 9 · FB-9 — A manual knockout slot accepts a disqualified team, and nothing says a word
 
 **Owner's item, 2026-08-06, reported as a reproduction — and deferred the same day, by the owner:**
 the site has exactly one admin, who is the person who found the hole, so the interim risk is priced
@@ -634,7 +596,7 @@ cover this — it is a cross-collection relation); or the hole being exercised b
 in a test. Absent one of those it stays unscheduled, and the page it is built onto is
 `/admin/spiele/[spiel_id]`.
 
-### 11 · BE-7 — `typing` imports instead of `collections.abc`
+### 10 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -642,7 +604,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 12 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 11 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -651,7 +613,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 13 · BE-14 — The certainty walk gives up in a group of six or more
+### 12 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Found 2026-08-05, reviewing the bracket after FB-8 closed. Not a defect today, and the numbers say why.**
 
@@ -710,7 +672,7 @@ and nobody needs to until a group grows.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 14 · OPS-2 — nothing validates the contents of a restored `.env`
+### 13 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -748,7 +710,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 15 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 14 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 
