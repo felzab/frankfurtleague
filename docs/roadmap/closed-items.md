@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `11497ba`, 2026-08-08
+**Verified against:** `69c506f`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -64,7 +64,7 @@ OPS-6 and OPS-7 are both retired here.
 | 36  | FE-9  | User-facing copy mixed the capitalised Du with lowercase, and no recorded rule said which      | FE          | S      | —                            | [`4ff9af6`](https://github.com/felzab/frankfurtleague/commit/4ff9af6) |
 | 37  | BE-10 | The season document was read from Mongo on every request that resolved or scored with it       | BE          | S      | —                            | [`c26c3e3`](https://github.com/felzab/frankfurtleague/commit/c26c3e3) |
 | 38  | FE-8  | The compact card's metadata row could not wrap, and crushed its info button on phones          | FE          | S      | — (overlaps FE-3)            | [`b86e282`](https://github.com/felzab/frankfurtleague/commit/b86e282) |
-| 39  | FE-7  | The delete confirmation's second step turned the blurred backdrop flat as it animated in       | FE          | S      | —                            | [`bea3e30`](https://github.com/felzab/frankfurtleague/commit/bea3e30) |
+| 39  | FE-7  | The delete confirmation's second step turned the blurred backdrop flat as it animated in       | FE          | S      | —                            | [`69c506f`](https://github.com/felzab/frankfurtleague/commit/69c506f) |
 | 40  | BE-13 | A malformed id answered 404 in a path and 422 in a query, and no rule said the split was meant | BE          | S      | —                            | [`4fcb250`](https://github.com/felzab/frankfurtleague/commit/4fcb250) |
 | 41  | F1    | The server's `ausstehend` included today and the client's excluded it, with the intent unsaid  | FE, BE      | S      | — (latest with FE-1)         | [`2ea28e0`](https://github.com/felzab/frankfurtleague/commit/2ea28e0) |
 | 42  | OPS-9 | The assistant hooks gated every session and nothing linted or executed any of them             | Ops         | S      | —                            | [`1d98034`](https://github.com/felzab/frankfurtleague/commit/1d98034) |
