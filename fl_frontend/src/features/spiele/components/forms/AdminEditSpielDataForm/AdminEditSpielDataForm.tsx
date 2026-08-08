@@ -205,7 +205,7 @@ export function AdminEditSpielDataForm({
     formRef,
   } = useServerFieldErrors(() =>
     appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Bitte lade die Seite neu.",
+      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
     }),
   );
 

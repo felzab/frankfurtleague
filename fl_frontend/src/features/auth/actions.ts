@@ -129,7 +129,7 @@ export async function signOutAction(): Promise<FormState> {
     unstable_rethrow(error);
 
     if (error instanceof AuthError) {
-      return { success: false, error: "Abmelden fehlgeschlagen. Bitte versuche es erneut." };
+      return { success: false, error: "Abmelden fehlgeschlagen. Versuche es erneut." };
     }
 
     throw error;

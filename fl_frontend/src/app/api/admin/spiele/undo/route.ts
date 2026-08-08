@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         // state than either end of it.
         return {
           success: false as const,
-          error: `Die Rücknahme wurde nach ${restored} von ${payloads.length} Spielen abgebrochen. Bitte prüfe die betroffenen Spiele.`,
+          error: `Die Rücknahme wurde nach ${restored} von ${payloads.length} Spielen abgebrochen. Prüfe die betroffenen Spiele.`,
         };
       }
       restored += 1;

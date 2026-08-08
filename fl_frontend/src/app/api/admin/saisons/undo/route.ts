@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     const operation = await patchSaison(parsed.data);
     if (!operation.acknowledged) {
-      return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Bitte prüfe die Saisondaten." };
+      return { success: false as const, error: "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten." };
     }
 
     // Guarded, which the save does not need to be — see the match undo: the write above is already

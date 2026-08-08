@@ -139,7 +139,7 @@ export function AdminTeamEditForm({
     formRef,
   } = useServerFieldErrors(() =>
     appToast.danger("Speichern fehlgeschlagen", {
-      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Bitte lade die Seite neu.",
+      description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
     }),
   );
 
@@ -458,7 +458,7 @@ export function AdminTeamEditForm({
               appToast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
               appToast.danger("Rücknahme konnte nicht gesendet werden", {
-                description: "Die Änderung steht weiterhin. Bitte prüfe die Verbindung und das Team.",
+                description: "Die Änderung steht weiterhin. Prüfe die Verbindung und das Team.",
               });
             },
           );
