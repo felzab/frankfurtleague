@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `c26c3e3`, 2026-08-08
+**Verified against:** `b86e282`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -63,6 +63,7 @@ OPS-6 and OPS-7 are both retired here.
 | 35  | F7    | The landing page's season badge was a literal that no rollover would have moved                | FE          | S      | — (clock: the rollover)      | [`9cb426d`](https://github.com/felzab/frankfurtleague/commit/9cb426d) |
 | 36  | FE-9  | User-facing copy mixed the capitalised Du with lowercase, and no recorded rule said which      | FE          | S      | —                            | [`4ff9af6`](https://github.com/felzab/frankfurtleague/commit/4ff9af6) |
 | 37  | BE-10 | The season document was read from Mongo on every request that resolved or scored with it       | BE          | S      | —                            | [`c26c3e3`](https://github.com/felzab/frankfurtleague/commit/c26c3e3) |
+| 38  | FE-8  | The compact card's metadata row could not wrap, and crushed its info button on phones          | FE          | S      | — (overlaps FE-3)            | [`b86e282`](https://github.com/felzab/frankfurtleague/commit/b86e282) |
 
 ## What each one produced
 
