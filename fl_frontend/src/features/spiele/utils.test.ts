@@ -496,8 +496,8 @@ describe("groupBracketFaultsBySpielId", () => {
     ]);
 
     assert.deepEqual(grouped.get(twentyNine), [
-      "Spiel 29 verweist auf Spiel 99, das es in dieser Saison nicht gibt",
-      "In Spiel 29 führen beide Seiten zur selben Mannschaft",
+      "Verweist auf Spiel 99, das es in dieser Saison nicht gibt.",
+      "Beide Seiten führen zur selben Mannschaft.",
     ]);
   });
 
@@ -508,7 +508,8 @@ describe("groupBracketFaultsBySpielId", () => {
     ]);
 
     assert.equal(grouped.size, 2);
-    assert.deepEqual(grouped.get(thirty), ["In Spiel 30 führen beide Seiten zur selben Mannschaft"]);
+    // No match number in the wording: the note sits on the card that already leads with it.
+    assert.deepEqual(grouped.get(thirty), ["Beide Seiten führen zur selben Mannschaft."]);
   });
 
   it("keys on the id and not the number, which repeats across seasons", () => {

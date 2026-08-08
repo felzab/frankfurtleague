@@ -511,8 +511,9 @@ const joinSpiele = (advancements: readonly { spiel_nr: number }[]): string =>
  * no further result can fix reach here — a group that is still being played produces none of them,
  * because a placing that is not decided yet needs nobody's attention (ADR-0043).
  *
- * The same sentences serve the save's toast and the action-required list, so a fault reads identically
- * wherever an admin meets it.
+ * These serve the save's TOAST, which arrives with no fixture in sight — so every sentence names its
+ * match number. The triage list's per-card notes use `describeBracketFaultOnCard` below, which says the
+ * same thing without restating the number the card already leads with.
  */
 export const formatBracketFault = (fault: FLBracketFault): string => {
   switch (fault.reason) {
@@ -536,7 +537,33 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
 };
 
 /**
- * Every fault's sentence, filed under the fixture it names, so a card can state its own reasons.
+ * The same fault, worded for a note that sits directly beside the fixture it names (owner, 2026-08-08).
+ *
+ * `formatBracketFault` opens every sentence with "Spiel N", because a toast arrives with no fixture in
+ * sight. A note attached to the card would repeat the number the card itself leads with — so these speak
+ * about "dieses Spiel" directly, in plainer German, and name only what the card does not already show.
+ */
+export const describeBracketFaultOnCard = (fault: FLBracketFault): string => {
+  switch (fault.reason) {
+    case "gruppe_too_small":
+      return `Verweist auf Platz ${fault.platz} der Gruppe ${fault.gruppe} — so viele Plätze hat diese Gruppe nicht.`;
+    case "tie_unresolved":
+      return `Platz ${fault.platz} der Gruppe ${fault.gruppe} ist auch nach der Gruppenphase nicht entschieden — dieses Spiel bleibt deshalb offen.`;
+    case "spiel_missing":
+      return `Verweist auf Spiel ${fault.quelle_spiel_nr}, das es in dieser Saison nicht gibt.`;
+    case "reference_cycle":
+      return `Der Verweis über Spiel ${fault.quelle_spiel_nr} führt im Kreis und kann nie ein Ergebnis liefern.`;
+    case "same_team":
+      return "Beide Seiten führen zur selben Mannschaft.";
+    case "disqualified_occupant":
+      return fault.spiel_datum === null
+        ? `${fault.team_name} ist seit dem ${formatSpielDatum(fault.disqualifiziert_seit)} disqualifiziert — ohne Spieldatum ist nicht belegt, dass vorher gespielt wurde.`
+        : `${fault.team_name} ist seit dem ${formatSpielDatum(fault.disqualifiziert_seit)} disqualifiziert, steht aber noch in diesem Spiel.`;
+  }
+};
+
+/**
+ * Every fault's card wording, filed under the fixture it names, so each note states its own reasons.
  *
  * **Keyed on `spiel_id` and never on `spiel_nr`**, which the action-required route repeats: that route
  * spans seasons, and two seasons both have a match 29. `FLSpieleActionRequiredResponseSchema` states the
@@ -551,8 +578,8 @@ export const groupBracketFaultsBySpielId = (faults: readonly FLBracketFault[]): 
 
   for (const fault of faults) {
     const sentences = bySpielId.get(fault.spiel_id);
-    if (sentences === undefined) bySpielId.set(fault.spiel_id, [formatBracketFault(fault)]);
-    else sentences.push(formatBracketFault(fault));
+    if (sentences === undefined) bySpielId.set(fault.spiel_id, [describeBracketFaultOnCard(fault)]);
+    else sentences.push(describeBracketFaultOnCard(fault));
   }
 
   return bySpielId;

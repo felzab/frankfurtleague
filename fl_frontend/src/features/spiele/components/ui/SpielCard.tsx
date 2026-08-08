@@ -20,7 +20,7 @@ export function SpielCard({
   spielData,
   onOpenInfoModal,
   adminEditHref,
-  faults,
+  asListitem = true,
   today,
 }: {
   spielData: FLSpiel;
@@ -35,16 +35,12 @@ export function SpielCard({
    */
   adminEditHref?: string;
   /**
-   * Why this fixture needs a person, one sentence per reason, on the admin triage list alone.
-   *
-   * **On the card rather than in a note beside it, and that is a structural requirement** (ADR-0047).
-   * The card is a `role="listitem"` of a `role="list"` grid, so a wrapper holding a note and a card
-   * would sit between the two and sever the relationship — and a note rendered as a sibling would be a
-   * non-listitem child of the list. Inside, it is simply part of the item it describes.
-   *
-   * Several are normal: two broken sides, or a cycle beside a group reference, are corrected separately.
+   * Whether this card is itself the `role="listitem"` of the grid, which it is everywhere except on
+   * the triage list: there a fixture with faults is a note plus a card, so a WRAPPER carries the role
+   * and the card is plain content inside it (owner, 2026-08-08). A listitem nested inside a listitem
+   * would announce every faulted fixture twice, which is why this is a prop and not a second wrapper.
    */
-  faults?: readonly string[];
+  asListitem?: boolean;
   today: string;
 }) {
   const {
@@ -62,20 +58,8 @@ export function SpielCard({
 
   return (
     <div
-      role="listitem"
+      role={asListitem ? "listitem" : undefined}
       className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4`}>
-      {/* First, and marked by a rule down its leading edge rather than a full border: this is the one
-          thing on the card that is wrong, and it has to be readable before the fixture it is about.
-          `danger/5` behind `danger-strong` text is the app's tint-plus-strong pairing, the same one the
-          status chip and `Callout` are measured at. */}
-      {faults !== undefined && faults.length > 0 && (
-        <ul className="border-danger bg-danger/5 text-danger-strong fluid-xxs flex w-full flex-col gap-y-1 rounded-lg border-l-4 py-2 pr-3 pl-3 font-semibold">
-          {faults.map((sentence) => (
-            <li key={sentence}>{sentence}</li>
-          ))}
-        </ul>
-      )}
-
       <div className="flex w-full flex-row items-center justify-between">
         {/* Datum/Uhrzeit */}
         <div className="flex flex-col">
