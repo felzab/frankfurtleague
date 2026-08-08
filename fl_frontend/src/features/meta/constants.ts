@@ -8,6 +8,8 @@
  * once or twice a year and a CRUD surface for it would cost more than it saves.
  */
 
+import { KONTAKT_EMAIL } from "@/core/brand";
+
 import type { KontaktChannel, QaQuestion, TeamMember } from "./types";
 
 export const TEAM_MEMBERS: TeamMember[] = [
@@ -50,7 +52,7 @@ export const KONTAKT_CHANNELS: KontaktChannel[] = [
     id: "email",
     name: "E-Mail",
     value: "frankfurt.league@gmail.com",
-    action: "mailto:kontakt@frankfurt-league.de",
+    action: `mailto:${KONTAKT_EMAIL}`,
   },
   {
     id: "instagram",

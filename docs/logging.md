@@ -1,6 +1,6 @@
 # Logging and error handling — the convention
 
-**Verified against:** `1a45c03`, 2026-08-08
+**Verified against:** `fb70ee0`, 2026-08-08
 **Governing decision:** [ADR-0039](_decisions/0039-one-correlation-id-per-request-one-document-per-line.md)
 
 The one description of how a request is followed across nginx, the frontend and the backend, what a
@@ -221,6 +221,9 @@ It wraps both entry points: the eight server actions and the undo route handler
   incident** — Next derives it from the message, so every `APINetworkError` shares one digest. Take
   the digest plus the time and route, find the matching `FE-RSC-001` line, and its
   `correlation_id`/`fetch_correlation_id` open the nginx and backend lines for that exact request.
+  The error page's own report link pre-fills exactly these three coordinates
+  (`fl_frontend/src/shared/components/ui/Error.tsx`): a `mailto:` carrying digest, route and
+  timestamp, so a reader's report arrives with the search already narrowed to one log entry.
 - **A slow page.** The nginx line carries `duration_s` and `upstream_duration_s` for every request;
   the backend line carries `duration_ms`. An edge duration without a matching upstream duration is
   nginx or the network; a large backend `duration_ms` is the application.

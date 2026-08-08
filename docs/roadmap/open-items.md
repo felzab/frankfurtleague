@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `0efa98e`, 2026-08-08
+**Verified against:** `fb70ee0`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -46,7 +46,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 2   | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with FE-1)       |
 | 3   | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with FB-7)       |
 | 4   | FE-3  | TeamDetailsView rework                                  | FE          | M      | Open     | — (ADR-0059 settles it)   |
-| 5   | FE-6  | A way to report an error from the error page            | FE          | S      | Open     | —                         |
+| 5   | FE-6  | A way to report an error from the error page            | FE          | S      | Closed   | —                         |
 | 6   | BE-12 | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | — (ADR-0032's follow-on)  |
 | 7   | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
 | 8   | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
@@ -339,6 +339,17 @@ digest, the route and the time in its subject costs one component and adds no wr
 posting to an endpoint would be a second public, unauthenticated write for the same information —
 the crash itself already travels through the rate-limited ingest route, and a human report does not
 need a machine path.
+
+**Closed, 2026-08-08**, to the entry's own design. The shared `Error` view carries a quiet third
+action: a `mailto:` to the published contact address whose subject and body pre-fill all three
+coordinates — digest (or "keiner (Client-Fehler)", which is itself a coordinate: it points at the
+client-error stream), route from `usePathname`, and a timestamp captured when the boundary mounts.
+The body prompts for the human half the logs cannot carry — what the reader was doing and what they
+expected. No endpoint and no form, for the entry's reason. The address moved to one declaration in
+`core/brand.ts`, consumed by the Kontakt page and the error view alike, because `shared` may not
+reach into a feature slice for it (ADR-0012); `docs/logging.md`'s finding-an-incident recipe names
+the link. Copy follows the capitalised-Du convention. No ADR: the entry's evaluation was the
+decision, and this build is its verdict.
 
 **Path:** independent. Every request carries an edge-minted correlation id and the joining recipe
 is `docs/logging.md` (ADR-0039), so the affordance quotes real coordinates. Nothing waits on this.
