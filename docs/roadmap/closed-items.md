@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `4ff9af6`, 2026-08-08
+**Verified against:** `c26c3e3`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -62,6 +62,7 @@ OPS-6 and OPS-7 are both retired here.
 | 34  | FE-5  | The Spielsuche could only be searched, not narrowed, and Spielhistorie duplicated it           | FE          | M      | — (F1 informed it)           | [`9a0f3b5`](https://github.com/felzab/frankfurtleague/commit/9a0f3b5) |
 | 35  | F7    | The landing page's season badge was a literal that no rollover would have moved                | FE          | S      | — (clock: the rollover)      | [`9cb426d`](https://github.com/felzab/frankfurtleague/commit/9cb426d) |
 | 36  | FE-9  | User-facing copy mixed the capitalised Du with lowercase, and no recorded rule said which      | FE          | S      | —                            | [`4ff9af6`](https://github.com/felzab/frankfurtleague/commit/4ff9af6) |
+| 37  | BE-10 | The season document was read from Mongo on every request that resolved or scored with it       | BE          | S      | —                            | [`c26c3e3`](https://github.com/felzab/frankfurtleague/commit/c26c3e3) |
 
 ## What each one produced
 
@@ -241,6 +242,9 @@ no row here — its commit is the whole story.
 - **FE-9** → the copy section of `docs/frontend/overview.md`: the reader is the capitalised Du, the
   scope line separating user-facing strings from developer German, and the boundary between a field
   message's "Bitte" and a banner's refusal register.
+- **BE-10** → [ADR-0070](../_decisions/0070-the-season-document-is-cached-in-process.md), the
+  in-process season cache: dropped by its own write path, bounded by a ten-minute TTL, and the
+  single-worker assumption named as the thing to re-check before adding `--workers`.
 - **FE-5** → no ADR. The three questions the entry held were answered by building it: a filter runs in
   memory over the season already fetched, the selection goes in the URL beside the search text, and
   Spielhistorie does not stay — the route 308s to `/dashboard/spielsuche?status=vergangen`, because it
