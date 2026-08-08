@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `3b74b5f`, 2026-08-07
+**Verified against:** `452ccda`, 2026-08-08
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -13,7 +13,7 @@ lives here rather than in the backend.
 ```
 src/
 ├── app/         routes only — thin. Fetch, then hand off to a feature component
-├── core/        infrastructure: api · auth · config · db · errors · logging · schemas · providers
+├── core/        infrastructure: api · auth · config · db · errors · logging · correlation · schemas · providers
 ├── features/    twelve slices, one per business entity
 ├── shared/      cross-slice components, hooks, types, utils
 └── proxy.ts     the admin route guard
@@ -23,7 +23,7 @@ src/
 `schiedsrichter`, `spiele`, `spieler`, `spielorte`, `spieltage`, `system`, `teams`. A slice holds its
 own `queries.ts`, `mutations.ts`, `actions.ts`, `schemas.ts`, `types.ts` and `components/`, and only the
 files it actually needs. Seven have a write path; `admin`, `dashboard`, `meta` and `system` have no
-`actions.ts` at all, and `auth` has one holding a single sign-out.
+`actions.ts` at all, and `auth` has one holding only the sign-in and the sign-out.
 
 Within a slice, components sit in category folders: `views`, `collections`, `forms`, `modals`,
 `providers`, `ui`. One extra level is permitted for a multi-section form; nothing nests deeper and
