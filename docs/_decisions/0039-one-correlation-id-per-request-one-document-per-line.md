@@ -3,9 +3,10 @@
 **Status:** Accepted
 **Date:** 2026-08-05
 **Surface:** frontend, backend, ops
-
 **Supersedes:** —
 **Superseded by:** —
+**Source:** Roadmap item LOG-1, the survey of the three surfaces' logging, measured 2026-08-05
+against the local stack.
 
 ## Context
 

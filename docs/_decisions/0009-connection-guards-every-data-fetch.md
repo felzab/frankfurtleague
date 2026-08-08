@@ -5,7 +5,7 @@
 **Surface:** frontend, ops
 **Supersedes:** —
 **Superseded by:** —
-**Source:** CLAUDE.md §9 A1
+**Source:** Rule A1 of the ratified-rules register CLAUDE.md carried, extracted into this folder 2026-07-29
 
 ## Context
 

@@ -28,7 +28,7 @@ That is not hypothetical. Two `saison_spieler` rows carry `team_id: "Lessing-Gym
 where every other row carries an `ObjectId`, and it is the team's `full_name` rather than a
 reference. The two players are missing from Lessing's squad page, which shows 21 of 23, and
 `GET /spieler` without a `team_id` returns 422 because `FLSpieler.team_id` refuses the string.
-Verified against the running backend. Nothing calls the endpoint that way today, so the failure is
+Checked against the running backend. Nothing calls the endpoint that way today, so the failure is
 latent rather than visible — one call site away from an outage nobody could explain from the code.
 
 Four uniqueness rules are true in the data today and enforced by nothing: one `saison_teams` row per

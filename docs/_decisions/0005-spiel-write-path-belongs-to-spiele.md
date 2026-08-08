@@ -5,7 +5,7 @@
 **Surface:** frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** remediation ledger NEW-F9; amends CLAUDE.md §9 A7
+**Source:** Remediation-ledger finding NEW-F9, 2026-07-31, amending rule A7 of the ratified-rules register CLAUDE.md then carried
 
 ## Context
 

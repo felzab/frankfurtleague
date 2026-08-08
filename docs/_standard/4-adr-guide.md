@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-**Verified against:** `dcc4c47`, 2026-08-06
+**Verified against:** `18d1d85`, 2026-08-08
 
 Governs `docs/_decisions/`. Template: [`templates/adr.md`](templates/adr.md).
 
@@ -45,6 +45,7 @@ MADR, trimmed. Six parts, in this order.
 **Surface:** <frontend | backend | ops — every one it touches>
 **Supersedes:** —
 **Superseded by:** —
+**Source:** <what prompted this — must resolve, or be a plain sentence carrying its date>
 
 ## Context
 
@@ -69,8 +70,10 @@ What else was on the table and why each lost. This is the section that gets read
 ADR-NNNN` (reversed or replaced), or `Deprecated` (no longer relevant and not replaced — the
 subsystem went away). A superseded ADR stays in the folder with its original text intact.
 
-**Date** is when the decision was taken. For an ADR written up later than the decision, use the real
-date and add a `**Source:**` line naming where it came from. Honest, and it keeps the trail intact.
+**Date** is when the decision was taken — for an ADR written up later than the decision, the real
+date. **Source** says what prompted the decision on every ADR: a roadmap item, or a dated owner
+instruction. Its value must resolve, or be a plain sentence carrying its date — it is what keeps the
+trail intact.
 
 ## Context is the one place past tense is allowed
 

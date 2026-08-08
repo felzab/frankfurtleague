@@ -5,7 +5,7 @@
 **Surface:** backend, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** remediation ledger question Q4, implemented as BE-1
+**Source:** Remediation-ledger question Q4, answered 2026-07-31 and implemented as roadmap item BE-1
 
 ## Context
 

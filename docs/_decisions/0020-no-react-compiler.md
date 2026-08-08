@@ -46,6 +46,10 @@ trade is acceptable here and would not be in an app with heavier client state.
 as a devDependency. **Delete the two hand-written `useMemo`s at that point** rather than leaving them
 beside the compiler's own.
 
+**Reversal trigger.** Next enabling the compiler by default, or a React feature that requires
+it. Re-measure rather than assuming the 40 KB still applies; it is a young compiler and its
+runtime cost is expected to fall. The key would go in `fl_frontend/next.config.ts`.
+
 ## Alternatives considered
 
 **Enable it and accept the 40 KB.** Rejected on the measurement above: the payload is paid by every
@@ -54,12 +58,3 @@ client state. The benefit lands entirely in the admin area, behind a login.
 
 **Enable it only for the admin routes.** Not supported — the key is global, and the runtime is a
 dependency of the client bundle rather than a per-route transform.
-
-## Reversal trigger
-
-Next enabling the compiler by default, or a React feature that requires it. Re-measure rather than
-assuming the 40 KB still applies; it is a young compiler and its runtime cost is expected to fall.
-
-## See also
-
-- `fl_frontend/next.config.ts` — where the key would go

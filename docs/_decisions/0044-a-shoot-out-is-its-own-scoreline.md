@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-08-05
 **Surface:** backend, frontend
+**Supersedes:** —
+**Superseded by:** —
 **Source:** Open item FB-8, the last behavioural gap in the bracket
 [ADR-0042](0042-a-result-entry-resolves-the-whole-bracket.md) and
 [ADR-0043](0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md) built.

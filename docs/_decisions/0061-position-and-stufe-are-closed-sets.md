@@ -107,6 +107,13 @@ check did not reach enum values. `test_every_validator_enum_matches_its_literal`
 `test_every_declared_enum_is_checked` are added with this decision and cover all eight enums in the
 file, not only these two — the second found an unchecked one on `spieltage` the moment it ran.
 
+[ADR-0027](0027-the-database-enforces-its-own-invariants.md) is why types, presence and enums
+are the validator's scope and ranges and formats are not;
+[ADR-0031](0031-the-third-copy-of-the-schema-is-checked-not-generated.md) is why the validator
+is transcribed and checked rather than generated;
+[ADR-0032](0032-soft-deletion-is-a-date-not-a-flag.md) is the runbook convention, and why a
+one-off is not a script.
+
 ## Alternatives considered
 
 **Leave both free text and normalise nothing.** Rejected: the split is already there at eight rows
@@ -137,12 +144,3 @@ deploy, not accommodated by it.
 **Include the Mittelstufe years (5–10) in `stufe`.** Rejected by the owner: twelve members to
 represent one row, in a set otherwise decided by the Oberstufe's two phases. The single row
 normalises to null instead.
-
-## See also
-
-- [ADR-0027](0027-the-database-enforces-its-own-invariants.md) — why types, presence and enums are
-  the validator's scope, and ranges and formats are not
-- [ADR-0031](0031-the-third-copy-of-the-schema-is-checked-not-generated.md) — why the validator is
-  transcribed and checked rather than generated from the models
-- [ADR-0032](0032-soft-deletion-is-a-date-not-a-flag.md) — the runbook convention, and why a one-off
-  is not a script

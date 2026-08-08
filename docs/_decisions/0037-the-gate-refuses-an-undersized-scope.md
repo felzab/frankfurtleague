@@ -5,7 +5,7 @@
 **Surface:** ops
 **Supersedes:** —
 **Superseded by:** —
-**Source:** roadmap item OPS-7
+**Source:** Roadmap item OPS-7, closed 2026-08-05
 
 ## Context
 

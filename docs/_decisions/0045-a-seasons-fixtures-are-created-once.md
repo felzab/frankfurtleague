@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-08-05
 **Surface:** backend
+**Supersedes:** —
+**Superseded by:** —
 **Source:** The owner's ruling on how a season is scheduled, stated 2026-08-05. Written up because the
 constraint was enforced by the absence of two endpoints and recorded nowhere at all.
 

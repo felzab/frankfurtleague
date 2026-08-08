@@ -5,7 +5,7 @@
 **Surface:** ops, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** remediation ledger R3b-S9.1b
+**Source:** Remediation-ledger finding R3b-S9.1b, 2026-07-30
 
 ## Context
 

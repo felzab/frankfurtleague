@@ -5,7 +5,7 @@
 **Surface:** frontend, backend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** remediation ledger decision D2; recorded as a rule in CLAUDE.md §6
+**Source:** Remediation-ledger decision D2, 2026-07-29; recorded as a trap in CLAUDE.md §6
 
 ## Context
 
