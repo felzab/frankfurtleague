@@ -137,9 +137,15 @@ export function ConfirmDeleteModal({
         ) : (
           /* `role="alert"` because this panel replaces the step-1 copy in place: without it the
              escalation is silent, and the only other signal is the button label quietly changing. */
+          /* Deliberately NOT animated (FE-7): this panel sits inside ModalShell's blur backdrop, and a
+             compositor-driven entrance here — the opacity/transform keyframes `animate-in` runs — is
+             the trigger class recorded for the backdrop going flat the moment step 2 arrived. No
+             entrance means no layer promotion under the `backdrop-filter`, and a danger escalation
+             registering at once beats one fading in over 400ms. `FormRolloverSection` keeps the same
+             panel animated because nothing above it carries a backdrop filter. */
           <div
             role="alert"
-            className="animate-in fade-in slide-in-from-bottom-4 bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm duration-400">
+            className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">
             <div className="text-danger flex items-center gap-2 font-bold">
               <TriangleExclamation
                 aria-hidden="true"

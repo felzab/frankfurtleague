@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `b86e282`, 2026-08-08
+**Verified against:** `9d542f9`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -43,7 +43,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
-| 2   | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Open     | —                         |
+| 2   | FE-7  | The delete confirmation loses its backdrop blur         | FE          | S      | Closed   | —                         |
 | 3   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
 | 4   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
 | 5   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
@@ -244,6 +244,21 @@ subtree. Which browsers reproduce it is also not recorded; establish that first,
 Chromium-only compositing artefact and a general CSS mistake have different fixes.
 
 Verify against the local stack, never `next dev`.
+
+**Closed, 2026-08-08.** The step-2 panel's entrance animation is removed rather than varied:
+`animate-in fade-in slide-in-from-bottom-4 duration-400` is gone from `ConfirmDeleteModal`, so
+nothing promotes a layer under the backdrop's filter when the escalation arrives — the whole
+suspected mechanism leaves, not one property of it — and a danger escalation now registers at once
+instead of fading in. `FormRolloverSection` keeps the same panel animated, because nothing above it
+carries a backdrop filter; `FormModal` and `SpielDetailsModal` are untouched, since neither swaps
+animated content inside its backdrop. **The entry's hypothesis test could not be run**: the session
+had no rendering surface that composites frames, a backdrop filter is observable only in rendered
+frames, and the delete dialogs sit behind owner-only admin auth besides. What the closure rests on
+is subtraction, not reproduction — with no compositor-driven animation inside the backdrop's
+subtree, the recorded trigger class is empty. The one-look check left to the owner: open a delete
+confirmation, press once, and the blur behind step 2 should now hold. If it still drops, the
+hypothesis itself was wrong, and that is a new entry with a new id, carrying this one's analysis
+plus that measurement. Which browsers reproduced the original loss stays unrecorded.
 
 **Path:** independent.
 
