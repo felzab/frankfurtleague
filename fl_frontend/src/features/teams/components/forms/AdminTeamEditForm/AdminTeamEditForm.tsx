@@ -34,7 +34,7 @@ import type { ReactNode } from "react";
 import type { TeamRailBanner } from "./TeamRail";
 
 /**
- * How long the undo offer stands after a save (ADR-0051's window, ADR-0060's transport). There is no
+ * How long the undo offer stands after a save (ADR-0051's window, ADR-0062's transport). There is no
  * confirmation dialog on this page for the same reason as the match editor: confirmation and undo
  * are alternatives, and undo is the one that helps the admin who was not paying attention.
  */
@@ -47,7 +47,7 @@ type TeamUndoPayloads = {
 };
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0060): by the
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0062): by the
  * time the offer is pressed this component is unmounted and the browser is on another route, and a
  * server action dispatched from there trips Next's E592 invariant and is truncated mid-response.
  * **Revert this to a server action once E592 is fixed upstream**; the ADR names that condition.
@@ -367,7 +367,7 @@ export function AdminTeamEditForm({
 
       // The halves the save wrote, holding their pre-save values — `team` and `storedMembership`
       // are this render's props, so they still carry what was stored before the write. Built BEFORE
-      // leaving, because the toast outlives the page (ADR-0051, ADR-0060).
+      // leaving, because the toast outlives the page (ADR-0051, ADR-0062).
       const undoPayloads: TeamUndoPayloads = {
         ...(clubDirty
           ? {
@@ -408,7 +408,7 @@ export function AdminTeamEditForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back (ADR-0051's window over ADR-0060's
+   * The undo toast: fifteen seconds to take the save back (ADR-0051's window over ADR-0062's
    * transport). The pitfalls the match editor documents all apply and are all mirrored here: the
    * toast outlives this component, so the press runs in a detached closure — `router.refresh()` is
    * what re-renders a screen the action's own revalidation can no longer reach (the router instance

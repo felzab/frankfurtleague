@@ -444,7 +444,7 @@ class FLSpiel(BaseModel):
     # distinguishes a missing key from a stored null -- both mean "no note" -- so requiring the key
     # would buy a backfill of every live document for a distinction with no consumer. The bracket
     # resolution never touches it: a voided fixture keeps its note for the admin to rewrite, because
-    # silently destroying entered prose is the behaviour ADR-0048 exists to make visible.
+    # silently destroying entered prose is the behaviour ADR-0051 exists to make visible.
     notiz: str | None = None
 
 

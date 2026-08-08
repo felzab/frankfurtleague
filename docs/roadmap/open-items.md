@@ -50,7 +50,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 6   | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
 | 7   | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
 | 8   | FB-15 | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —                         |
-| 9   | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0049 settles it)   |
+| 9   | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Decided  | — (ADR-0052 settles it)   |
 | 10  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
 | 11  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
 | 12  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
@@ -110,7 +110,7 @@ closed.
 **Two entries remain, both concluded and neither scheduled.**
 **[FB-9](#9--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** — a
 manual slot takes a disqualified team and no layer says a word. The design is ratified as
-[ADR-0049](../_decisions/0049-eligibility-is-checked-where-a-team-is-fielded.md); the owner's deferral
+[ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md); the deferral
 of the work stands.
 **[BE-14](#12--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
 capped at ten outstanding fixtures, which is a group of five, and a group of six would stop seeding
@@ -127,14 +127,14 @@ each member entry states the ones it builds on: the rethink is **evaluation-firs
 evidence demands it, keep what survives scrutiny), the match editor becomes a **dedicated page**, and
 eligibility enforcement is **layered** (refuse a newly fielded disqualified team, warn on the merely
 unusual), ratified as
-[ADR-0049](../_decisions/0049-eligibility-is-checked-where-a-team-is-fielded.md). A fourth decision
+[ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md). A fourth decision
 followed the same day: **FB-9's implementation is deferred** — one admin, a known hole, no interim
 risk — so it is a specified entry nobody has scheduled, not a session of the string.
 
 **The evaluation that opened the string is finished**, and it rewrote the entries below into
-instructions before any of them was worked. It produced
-[ADR-0048](../_decisions/0048-a-voided-result-is-named-not-implied.md) and ADR-0049 — row 24 of
-[`closed-items.md`](closed-items.md).
+instructions before any of them was worked. It produced the destructive-edit and eligibility designs
+now carried by [ADR-0051](../_decisions/0051-a-voided-result-is-named-before-it-is-lost.md) and
+ADR-0052 — row 24 of [`closed-items.md`](closed-items.md).
 
 **The string's first session is finished too**, and the surface every later member renders on, links
 into or copies from now exists: the match editor is a page at `/admin/spiele/[spiel_id]`, the modal is
@@ -362,9 +362,9 @@ it or why, and the write that destroys the most is one nobody asked for — appl
 advancement clears the advanced fixture's `ergebnis` and `elfmeterschiessen`
 (`fl_backend/app/api/spiele/crud.py :: advance_bracket_winners`), so correcting a quarter-final
 silently deletes a semi-final scoreline that a person had entered.
-[ADR-0048](../_decisions/0048-a-voided-result-is-named-not-implied.md) makes that destruction
-**visible** and deliberately does not make it **recoverable** — which is the question this entry
-carries.
+[ADR-0051](../_decisions/0051-a-voided-result-is-named-before-it-is-lost.md) makes that destruction
+**visible** and deliberately does not make it **recoverable** beyond a fifteen-second undo — which is
+the question this entry carries.
 
 **What the reference model does.** Federation administration software treats a disciplinary action as
 a case with an audit trail, because a disqualification is a decision somebody has to be able to
@@ -381,7 +381,7 @@ paid only when something goes wrong and somebody asks what happened.
 **What it has to answer, none of it decided:**
 
 - **What is recorded.** Every write, or only the ones that destroy something a person entered? The
-  second is far cheaper and covers the case ADR-0048 exposed; the first is what makes a dispute
+  second is far cheaper and covers the case ADR-0051 exposed; the first is what makes a dispute
   answerable.
 - **Where it goes.** A collection, an append-only log stream, or the existing JSON log lines — which
   are destroyed on every deploy, because `deploy.sh` recreates the containers (`docs/logging.md`), so
@@ -524,7 +524,7 @@ stops being an entrant, so no later stage can select it — while here ADR-0033 
 never leaves a season and disqualification is a flag on the junction row, so the team stays selectable
 by design and the check has to sit where a team is fielded instead. The three tiers below are now
 ratified as
-[ADR-0049](../_decisions/0049-eligibility-is-checked-where-a-team-is-fielded.md), and the reasoning,
+[ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md), and the reasoning,
 the rejected alternatives and the accepted edge live there.
 
 **The argument is settled; the work is not scheduled.** The owner's deferral covers implementation and
@@ -547,7 +547,7 @@ only through a `gruppe`-typed source, and a manual side has none by definition:
 | Fault report (`FLBracketFault`)    | No variant for an ineligible occupant (ADR-0047 covers wiring contradictions only) |
 | Action-required filter             | No — "Offene Besetzung" needs a side with _neither_ team _nor_ source              |
 
-**The design, layered enforcement — owner's decision of 2026-08-06, ratified as ADR-0049:**
+**The design, layered enforcement — decided 2026-08-06, ratified as ADR-0052:**
 
 - **Refused: newly fielding a disqualified team.** `is_disqualified` is declared state on the
   `saison_teams` junction, set by a person and changed by no result — so a payload fielding such a

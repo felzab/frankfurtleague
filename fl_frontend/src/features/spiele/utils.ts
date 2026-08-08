@@ -227,7 +227,7 @@ export const collectUsedQuelleKeys = (saisonSpiele: readonly FLSpiel[], editedSp
  * map is what lets the picker say so where the answer is refused, instead of accepting a pick that
  * silently leaves the team in both fixtures. Stored sides only, like `collectUsedQuelleKeys`: other
  * fixtures' drafts are not visible here, and the edited fixture's own sides are the caller's to
- * check against its draft. The write-path refusal is the backend's half (ADR-0049's successor); this
+ * check against its draft. The write-path refusal is the backend's half (ADR-0052); this
  * is the UI half that makes the rule readable.
  */
 export const collectSpieltagTeamOccupancy = (
@@ -390,8 +390,8 @@ export const buildUndoPayloads = (
 export const adminSpielEditHref = (spielId: string): string => `/admin/spiele/${spielId}`;
 
 /**
- * The fixtures whose occupants this one's result decides — the wiring the edit surface warns about
- * before a save (ADR-0048).
+ * The fixtures whose occupants this one's result decides — what tells the edit surface a dry-run
+ * preview is worth requesting at all (ADR-0051).
  *
  * The inverse direction to `listFeederSpiele`, and over stored wiring rather than legal candidates: a
  * fixture is dependent when it actually names this one as a source, or when it seeds a placing from a
@@ -407,9 +407,9 @@ export const adminSpielEditHref = (spielId: string): string => `/admin/spiele/${
  * (ADR-0028). Empty for a knockout fixture, where the group route cannot apply.
  *
  * **This states the wiring; it does not predict the loss.** Whether a save actually voids a stored
- * result depends on running the resolution against the payload, which ADR-0048 rejects as a preview —
- * so a dependent fixture listed here is one whose result *can* be cleared, and the caller says so in
- * those words.
+ * result is the dry run's answer (ADR-0051) — this list only decides whether a preview request is
+ * worth issuing, so a dependent fixture listed here is one whose result *can* be affected, and the
+ * dry run names the ones that actually are.
  */
 export const listDependentSpiele = (
   saisonSpiele: readonly FLSpiel[],

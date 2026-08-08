@@ -50,7 +50,7 @@ OPS-6 and OPS-7 are both retired here.
 | 22  | FB-12 | A knockout slot with no team and no source was maintained by nobody and reported by nobody     | FE, BE      | S      | — (clock: the playoffs)      | [`6331791`](https://github.com/felzab/frankfurtleague/commit/6331791) |
 | 23  | FB-13 | Two bracket faults lived in one toast and three more were contained without a word             | FE, BE      | M      | — (surface: ADR-0046)        | [`125f1cc`](https://github.com/felzab/frankfurtleague/commit/125f1cc) |
 | 24  | FB-14 | The seeding, advancement, edit and feedback surfaces measured against established practice     | FE, BE, DB  | L      | — (owned FB-9's verdict)     | [`0fae7b4`](https://github.com/felzab/frankfurtleague/commit/0fae7b4) |
-| 25  | FE-10 | The match editor was a dialog with no URL, 311px of width and a round-trip per error message   | FE          | L      | — (ADR-0048 landed on it)    | [`efed00a`](https://github.com/felzab/frankfurtleague/commit/efed00a) |
+| 25  | FE-10 | The match editor was a dialog with no URL, 311px of width and a round-trip per error message   | FE          | L      | — (ADR-0051 landed on it)    | [`efed00a`](https://github.com/felzab/frankfurtleague/commit/efed00a) |
 | 26  | FE-11 | A toast could not be dismissed without a hover, and every message shared a four-second clock   | FE          | S      | — (ADR-0051 shaped it)       | [`cc55487`](https://github.com/felzab/frankfurtleague/commit/cc55487) |
 | 27  | FE-12 | An eight-section accordion ordered by how the categories happened to be declared               | FE          | M      | — (its links had a target)   | [`68ac42d`](https://github.com/felzab/frankfurtleague/commit/68ac42d) |
 | 28  | FB-2  | A team could only **be** disqualified, with no record of why or from when                      | FE, BE, DB  | M      | —                            | [`3669cc7`](https://github.com/felzab/frankfurtleague/commit/3669cc7) |
@@ -97,8 +97,10 @@ no row here — its commit is the whole story.
   (resource-first URLs in a second router per slice). It also produced **DS14 and DS15** in
   [`../_standard/6-decisions.md`](../_standard/6-decisions.md), and opened **FB-6** (admin pages for
   seasons and matchdays, plus the rollover control) and **BE-12** (the purge `inactive_since` is a
-  date for). It unblocked FB-3, and it left ADR-0015 standing on the reasoning that endpoint would have
-  been redundant with the write path it was building.
+  date for). It unblocked FB-3, and it left the in-network revalidation route standing (retired
+  decision 0015; [ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)
+  later removed it) on the reasoning that endpoint would have been redundant with the write path it
+  was building.
 - **DB-2** → [ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md),
   the rule that the `$jsonSchema` validators are hand-written and compared to the Pydantic models by a
   test rather than generated from them. It opened nothing. Two findings that were not decisions left
@@ -159,10 +161,12 @@ no row here — its commit is the whole story.
   every `spiele` document needed the key set before the next deploy; ADR-0044 carries the runbook, and
   `python -m app.core.constraints --check` reported it clean on 2026-08-06.
 - **FB-14** → two decisions and one new entry.
-  [ADR-0048](../_decisions/0048-a-voided-result-is-named-not-implied.md) makes a resolution that voids
-  a stored result say so — before the write as a warning and after it as a distinct outcome — because
+  The destructive-edit design (retired 0048, now carried by
+  [ADR-0051](../_decisions/0051-a-voided-result-is-named-before-it-is-lost.md)) makes a resolution that
+  voids a stored result say so — before the write and after it as a distinct outcome — because
   clearing a semi-final scoreline was reported only as a change of `Paarung`.
-  [ADR-0049](../_decisions/0049-eligibility-is-checked-where-a-team-is-fielded.md) is **FB-9's
+  The eligibility design (retired 0049, now carried by
+  [ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md)) is **FB-9's
   verdict**: implement as recorded, layered, and the audit found why the rule has to exist here at all
   — bracket platforms drop a disqualified entrant from the entry list, while ADR-0033 keeps the team
   in the season behind a flag. It opened **BE-15** (no admin write is recorded anywhere), rewrote
@@ -173,7 +177,8 @@ no row here — its commit is the whole story.
   decisions in one: a form that outgrows a dialog becomes a page rather than a wider dialog, a field is
   judged when it is left rather than between keystrokes, a form's sections sit in panels on a page and
   flat in a dialog, and a label or hint earns its place only by saying something the others do not. It
-  built ADR-0048's static half — the warning before the write — and left that ADR's response half to the
+  built the destructive-edit design's static half — the warning before the write, since replaced by
+  ADR-0051's dry run — and left the response half to the
   FB-5/FB-7/FE-2/FE-1 batch, which changes the patch response shape and regenerates the mirror. It
   opened nothing and unblocked nothing formally: FE-11, FE-12, FB-3 and FB-6 all named it as a soft
   ordering preference, and each of those `Path` lines now names the page as a fact instead.
@@ -271,8 +276,8 @@ no row here — its commit is the whole story.
   here is [ADR-0061](../_decisions/0061-position-and-stufe-are-closed-sets.md) (a player's `position`
   and `stufe` are closed sets, with the runbook that normalises the ten stray rows **before** the
   deploy) and [ADR-0062](../_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md),
-  which supersedes ADR-0060: the undo-as-route-handler boundary moves from a count of two to the
+  which moves the undo-as-route-handler boundary from a count to the
   pattern, so every page-owned editor may have one and nothing else may. The assistant recommended
-  against that third handler and the owner overruled it; ADR-0062 records the argument that lost.
+  against that third handler and was overruled; ADR-0062 records the argument that lost.
   It discharged FB-5's obligation, made **BE-12** real for the first time — a squad row can now be
   retired — and left **FB-6** as the last of the admin-surface string.

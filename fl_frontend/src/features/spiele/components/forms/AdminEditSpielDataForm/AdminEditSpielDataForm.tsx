@@ -62,7 +62,7 @@ const joinGerman = (spielNummern: readonly number[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(spielNummern.map(String));
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0055).
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0062).
  *
  * By the time the offer is pressed this component is unmounted and the browser is on another route,
  * and a server action dispatched from there makes Next re-render the editor segment it still holds in
@@ -281,7 +281,7 @@ export function AdminEditSpielDataForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  // The fixtures whose occupants this one's result decides (ADR-0048). Read off the STORED sides: what
+  // The fixtures whose occupants this one's result decides (ADR-0051). Read off the STORED sides: what
   // is already wired is what a save resolves, and a group is a property of the clubs in the fixture
   // rather than of the fixture document (ADR-0028).
   const dependentSpiele = useMemo(() => {

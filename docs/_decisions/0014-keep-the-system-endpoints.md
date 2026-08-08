@@ -26,10 +26,10 @@ Three separate audit findings proposed deleting some combination of the three.
 The accepted cost is explicit: `INTERNAL_API_KEY_SYSTEM` stays mandatory at boot, and a deployment that
 omits it fails to start, for functionality nothing calls.
 
-That cost turned out to be an investment rather than waste. When
-[ADR-0015](0015-backend-triggered-revalidation-route.md) added `POST /api/revalidate`, the key it
-authenticates with was already declared, already required, and already validated — the route needed no
-new secret and no new deployment step.
+That cost turned out to be an investment rather than waste. When an in-network revalidation route
+was added (retired decision 0015; [ADR-0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)
+later removed it), the key it authenticated with was already declared, already required, and already
+validated — the route needed no new secret and no new deployment step.
 
 **One thing must never be done, and it is the trap this decision creates.** If the two functions are
 ever removed, the environment declaration must be removed _with_ them. Deleting only the declaration

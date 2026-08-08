@@ -1,17 +1,17 @@
 /**
  * APP · the season edit's undo
  *
- * Puts a season's dates and rules back the way they were — the fourth of the admin mutations that are
+ * Puts a season's dates and rules back the way they were — one of the admin mutations that are
  * route handlers rather than server actions
  * ([ADR-0062](../../../../../../../docs/_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md),
  * whose boundary is the PATTERN rather than a count: an undo belongs to a page-owned editor, and a
- * fourth page-owned editor may have one without superseding that ADR).
+ * new page-owned editor may have one without superseding that ADR).
  *
  * **The short version.** The undo is offered by a toast that outlives the page that raised it, so by the
  * time it is pressed the browser has left `/admin/saisons/[saison_id]`. A server action dispatched from
  * the route it landed on makes Next re-render the editor segment it still holds in the router tree,
  * which raises Next's E592 invariant mid-stream and truncates the response — the whole diagnosis is
- * ADR-0055's. **Revert this to a server action when E592 is fixed upstream.**
+ * ADR-0062's. **Revert this to a server action when E592 is fixed upstream.**
  *
  *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
  *

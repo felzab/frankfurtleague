@@ -119,7 +119,7 @@ removed; `frame-ancestors 'none'`, `base-uri`, `object-src`, `form-action` added
 `callbackUrl` in the proxy deleted rather than honoured (honouring it unvalidated is an open
 redirect); and `POST /api/revalidate` added for out-of-band reference-data edits — bearer-authed
 with `timingSafeEqual`, resource-enum-validated, and deliberately reachable only inside the compose
-network (ADR-0015: do not add an nginx location for it).
+network (retired decision 0015; ADR-0035 later removed the route).
 
 ### 3.2 Broken and silently wrong output
 
@@ -529,7 +529,8 @@ Tracked in [`docs/roadmap/open-items.md`](../../roadmap/open-items.md) unless
 noted:
 
 - **BE-4** — no write path for `saisons`/`spieler`/`spieltage`; edits are direct-in-Mongo with
-  manual revalidation. Building it retires the runbook script and ADR-0015's manual half.
+  manual revalidation. Building it retires the runbook script and the manual half (since removed by
+  ADR-0035).
 - **BE-9** — the "TBD" placeholder team vs nullable opponents. Analysis recorded; trigger: BE-4's
   scoping, or the first season where the missing junction row breaks a bracket.
 - **BE-6** — `CustomObjectId` validates nothing in JSON mode · **BE-7** — `typing` →

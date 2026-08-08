@@ -302,7 +302,7 @@ export function FormTeamPicker({
   // already plays another fixture of this Spieltag (a team plays once per matchday — picking it here
   // would silently field it twice, which is what the owner caught). The team this fixture already
   // holds is exempt from the occupancy rule by construction: `collectSpieltagTeamOccupancy` skips
-  // the edited fixture. Eligibility is still the write path's question (ADR-0049): a disabled key is
+  // the edited fixture. Eligibility is still the write path's question (ADR-0052): a disabled key is
   // UI, not a security control, and the stale form and the second tab go around it.
   // Whether the STORED side carries goals, which is what `REQ-RESULT-001` keys on. The stored side rather
   // than the draft: the rule is about destroying a recorded result, and a draft that has already cleared

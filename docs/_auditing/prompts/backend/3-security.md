@@ -92,7 +92,7 @@ THE CHECKS, in priority order:
 
 8. **TOPOLOGY-ONLY CONTROLS INVENTORY.** Every control that exists _only_ as network topology (no
    in-band check): list them with what breaks if an nginx location is ever added or the compose
-   network changes. ADR-0015 is the pattern — the point is that each such control is _named_, so no
+   network changes. The retired revalidation route (ADR-0035) is the pattern — the point is that each such control is _named_, so no
    future nginx edit removes one unknowingly. Hand the list to pass O2, which owns the nginx side.
 
 SEVERITY HONESTY: a finding reachable only by an attacker who already holds an internal API key or

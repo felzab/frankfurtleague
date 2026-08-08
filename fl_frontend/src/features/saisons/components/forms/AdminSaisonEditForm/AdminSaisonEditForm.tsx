@@ -39,10 +39,10 @@ import type { SaisonRailBanner } from "./SaisonRail";
 const UNDO_TIMEOUT_MS = 15000;
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0062, which
- * widened ADR-0060's boundary to cover every page-owned editor): by the time the offer is pressed this
- * component is unmounted and the browser is on another route, and a server action dispatched from there
- * trips Next's E592 invariant and is truncated mid-response.
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0062: an undo
+ * belongs to a page-owned editor, and nothing else becomes a route handler): by the time the offer is
+ * pressed this component is unmounted and the browser is on another route, and a server action
+ * dispatched from there trips Next's E592 invariant and is truncated mid-response.
  * **Revert this to a server action once E592 is fixed upstream**; the ADR names that condition.
  */
 async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success: boolean; message?: string; error?: string }> {

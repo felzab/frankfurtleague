@@ -19,7 +19,7 @@ CONTEXT — derive, do not assume: auth is next-auth via `src/core/auth.ts` with
 still exist rather than assuming either); the frontend holds tiered internal API keys used by
 `src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate: the single
 enforced CSP with `react/no-danger` as compensating control (ADR-0016), the kept system tier
-(ADR-0014), the topology-protected revalidation route (ADR-0015).
+(ADR-0014), and the absence of a reference-data invalidation endpoint (ADR-0035).
 
 THE CHECKS, in priority order:
 

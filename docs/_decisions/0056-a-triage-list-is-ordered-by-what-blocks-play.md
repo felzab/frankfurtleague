@@ -60,7 +60,7 @@ the rendered sections before use. It is written with `window.history.replaceStat
 `router.replace`: Next documents the native History API as integrating with its router, so
 `useSearchParams` re-renders and history stays coherent, while a router navigation would re-read the
 whole archive from FastAPI to change which already-loaded section is on screen — this route's query is
-deliberately uncached ([ADR-0013](0013-admin-action-required-uncached.md)). `replaceState` and not
+deliberately uncached ([ADR-0013](0013-admin-scoped-reads-are-never-cached.md)). `replaceState` and not
 `pushState`, because Back on a triage list should leave the list rather than walk an admin back through
 the sections they looked at.
 
@@ -117,7 +117,7 @@ another's stop matching.
 **This page still has no mutation, and adding one is not free.** Next's E592 fires when a server action is
 dispatched from one route while `/admin/spiele/[spiel_id]` sits in the router tree, which is exactly what
 a "fix it from the list" control here would be
-([ADR-0055](0055-the-undo-is-a-route-handler-until-e592-is-fixed.md)). Every action on this page is a
+([ADR-0062](0062-every-page-owned-editors-undo-is-a-route-handler.md)). Every action on this page is a
 navigation to the editor, and a future inline mutation reads that ADR first.
 
 **FE-12 asked for URL state for a section _and_ an item, and only the section shipped.** Restoring the
@@ -154,7 +154,7 @@ it.
 - [ADR-0047](0047-a-bracket-fault-is-derived-on-demand.md) — the derivation this renders, and the fault
   panel's placement, both unchanged
 - [ADR-0050](0050-a-form-that-outgrows-a-dialog-becomes-a-page.md) — the page every card links into
-- [ADR-0013](0013-admin-action-required-uncached.md) — why the read is uncached, which decides the transport
+- [ADR-0013](0013-admin-scoped-reads-are-never-cached.md) — why the read is uncached, which decides the transport
 - [ADR-0007](0007-three-spiel-cards-stay-separate.md) — why this page renders an existing card rather
   than a fourth
 - `docs/frontend/spec.md`, invariant I24 and section 12 — the URL-state rule and the sibling hazard

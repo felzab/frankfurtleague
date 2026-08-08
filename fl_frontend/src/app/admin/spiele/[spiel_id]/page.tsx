@@ -18,8 +18,8 @@ import type { NextPageProps } from "@/shared/types/types";
  *
  * **No `generateMetadata`.** Every `/admin` route is behind `proxy.ts` and the layout's session check,
  * so nothing here is ever crawled or shared, and a title fetched per request would buy a second
- * round-trip for a tab label. The admin layout's own metadata covers it (ADR-0011 is why there is no
- * `generateStaticParams` either — this segment resolves per request by design).
+ * round-trip for a tab label. The admin layout's own metadata covers it (`docs/frontend/spec.md :: I28`
+ * is why there is no `generateStaticParams` either — this segment resolves per request by design).
  *
  * **Two reads, and the order between them is load-bearing.** The URL carries a match id and nothing
  * else, so which season's teams and fixtures the pickers must offer is only known once the match has
