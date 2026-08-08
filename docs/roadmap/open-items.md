@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `11497ba`, 2026-08-08
+**Verified against:** `0ceefab`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -50,12 +50,11 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 6   | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
 | 7   | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
 | 8   | FB-15 | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —                         |
-| 9   | FB-9  | A manual slot accepts a disqualified team, silently     | FE, BE      | M      | Closed   | — (ADR-0052 settles it)   |
-| 10  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
-| 11  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
-| 12  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
-| 13  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
-| 14  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
+| 9   | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
+| 10  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
+| 11  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
+| 12  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
+| 13  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
 
 ## The bracket, end to end
 
@@ -107,12 +106,8 @@ closed.
   editable on the Regeln panel of `/admin/saisons/[saison_id]`, so the qualifier count is no longer set
   by hand.
 
-**Two entries remain, both concluded and neither scheduled.**
-**[FB-9](#9--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** — a
-manual slot takes a disqualified team and no layer says a word. The design is ratified as
-[ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md); the deferral
-of the work stands.
-**[BE-14](#12--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
+**One entry remains, concluded and not scheduled.**
+**[BE-14](#11--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
 capped at ten outstanding fixtures, which is a group of five, and a group of six would stop seeding
 with nothing said. The audit established that no faster exact algorithm exists to replace it, so the
 cap is a design boundary rather than debt.
@@ -128,8 +123,9 @@ evidence demands it, keep what survives scrutiny), the match editor becomes a **
 eligibility enforcement is **layered** (refuse a newly fielded disqualified team, warn on the merely
 unusual), ratified as
 [ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md). A fourth decision
-followed the same day: **FB-9's implementation is deferred** — one admin, a known hole, no interim
-risk — so it is a specified entry nobody has scheduled, not a session of the string.
+followed the same day: **FB-9's implementation was deferred** — one admin, a known hole, no interim
+risk — and the deferral ended when the string's editor work shipped the design (row 40 of
+[`closed-items.md`](closed-items.md)).
 
 **The evaluation that opened the string is finished**, and it rewrote the entries below into
 instructions before any of them was worked. It produced the destructive-edit and eligibility designs
@@ -167,10 +163,10 @@ and the rollover control sits on the season's own editor
 no prompt for is its SEQUENCE, which is [FB-16](#1--fb-16--nothing-announces-that-a-season-rollover-is-due)
 and a different kind of thing.
 
-**[FB-9](#9--fb-9--a-manual-knockout-slot-accepts-a-disqualified-team-and-nothing-says-a-word)** and
-**[BE-14](#12--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** are not sessions of the
-string. Both are concluded: FB-9's design is ratified and its implementation stays deferred, and
-BE-14's cap is measured as a boundary the competition's size does not reach.
+**[BE-14](#11--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** is not a session of
+the string, and is concluded: its cap is measured as a boundary the competition's size does not
+reach. FB-9's eligibility design shipped with the string's editor work and is closed — row 40 of
+[`closed-items.md`](closed-items.md).
 
 ---
 
@@ -507,106 +503,11 @@ interim answer, and today's data has no case that needs a swap.
 ## Tier 4 — standing cautions and watch items
 
 No scheduled action. Each of these has a recorded trigger rather than a plan, and most have an owner
-elsewhere: two are seeded into backend audit passes and two into ops, and FB-9 is a settled design
-whose implementation the owner has deferred. BE-14 is the exception and carries its own trigger — a group of six teams —
-because no pass covers a constant that is correct at today's group size and wrong at a larger one.
+elsewhere: two are seeded into backend audit passes and two into ops. BE-14 is the exception and
+carries its own trigger — a group of six teams — because no pass covers a constant that is correct at
+today's group size and wrong at a larger one.
 
-### 9 · FB-9 — A manual knockout slot accepts a disqualified team, and nothing says a word
-
-**Closed 2026-08-08.** Everything this entry specifies is built, and the deferral it records ended
-without the file noticing: the write path refuses a newly fielded ineligible team and the Spieltag
-clash (`REQ-ELIGIBILITY-001`, `REQ-ELIGIBILITY-002`, `REQ-SPIELTAG-001` — landed in `4d35788`), a
-since-disqualified occupant reports as a derived fault, and the picker disables, labels and warns
-(`7597374`, with the dry-run banner in `ce92261`).
-[ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md) carries the design as
-implemented; where the spec below names other codes or function names, the implementation refined
-them and the ADR is the record. Nothing needs rehoming — every test and trigger the spec asks for
-exists in `fl_backend/tests/api/test_occupant_refusal.py` and the constraint checker.
-
-**Owner's item, 2026-08-06, reported as a reproduction — and deferred the same day:**
-the site has exactly one admin, who is the person who found the hole, so the interim risk is priced
-at nil and fixing ahead of the evaluation buys nothing.
-
-**The verdict, 2026-08-06: implement as recorded.** The evaluation measured the recorded design
-against how established systems handle eligibility and found nothing to supersede. It also found the
-reason this system needs a rule those systems do not: on a bracket platform a disqualified entrant
-stops being an entrant, so no later stage can select it — while here ADR-0033 settles that a team
-never leaves a season and disqualification is a flag on the junction row, so the team stays selectable
-by design and the check has to sit where a team is fielded instead. The three tiers below are now
-ratified as
-[ADR-0052](../_decisions/0052-a-team-is-fielded-once-per-spieltag.md), and the reasoning,
-the rejected alternatives and the accepted edge live there.
-
-**The argument is settled; the work is not scheduled.** The owner's deferral covers implementation and
-still stands — this entry is the specification, and the ADR is why.
-
-**The reproduction:** a team that is disqualified — and never qualified from its group — can be
-manually picked onto a semi-final side, the save succeeds, and no entry appears under "Fehlerhafte
-Verweise".
-
-**Measured 2026-08-06, and the rule genuinely does not exist at any layer.** The one eligibility
-predicate in the system, `fl_backend/app/api/teams/services.py :: _may_hold_a_platz`, is reachable
-only through a `gruppe`-typed source, and a manual side has none by definition:
-
-| Layer                              | Checks a manual side's team?                                                       |
-| ---------------------------------- | ---------------------------------------------------------------------------------- |
-| Picker (`FormTeamPicker`)          | No — maps every season team; `is_disqualified` and `gruppe` sit unread on each     |
-| Write path (`find_wiring_refusal`) | No — all four rules begin `if quelle is None: continue` (ADR-0046, by design)      |
-| Handler (`patch_spiel_data`)       | No — never reads `teams` or `saison_teams`; the side is `$set` as submitted        |
-| Resolution (`resolve_bracket`)     | No — a null-`quelle` slot is the admin's own and is read by nothing (ADR-0042)     |
-| Fault report (`FLBracketFault`)    | No variant for an ineligible occupant (ADR-0047 covers wiring contradictions only) |
-| Action-required filter             | No — "Offene Besetzung" needs a side with _neither_ team _nor_ source              |
-
-**The design, layered enforcement — decided 2026-08-06, ratified as ADR-0052:**
-
-- **Refused: newly fielding a disqualified team.** `is_disqualified` is declared state on the
-  `saison_teams` junction, set by a person and changed by no result — so a payload fielding such a
-  team contradicts the season _as it stands at the write_, which is ADR-0046's class of rule, not the
-  result-dependent class it rejected. A new pure sibling `find_occupant_refusal` taking the payload,
-  the season and a membership map, beside `find_wiring_refusal` (not a fifth rule inside it: that
-  function's contract is wiring and its input carries no membership data), a distinct 409 code
-  `REQ-OCCUPANT-001`, the junction read inside the transaction (`SaisonTeamsCollection` exists in
-  `app/core/dependencies.py`). Two rules: **O1** a disqualified team is never _newly_ fielded —
-  resubmitting the stored occupant unchanged passes, or a fixture holding a DQ team becomes
-  uneditable, including the edit that resolves it; **O2** a fielded team holds a `saison_teams` row
-  for the fixture's season — a missing row is a dangling reference, not an odd draw, and only a stale
-  form or a hand-crafted request can produce one.
-- **Reported: an occupant disqualified after being placed.** A sixth fault variant,
-  `reason: "occupant_disqualified"`, carrying `spiel_id`, `spiel_nr`, `team_id` and `team_name` —
-  the name because the save toast has no `spiele` list to join against, and it cannot go stale
-  because faults are derived per request off a field the rename fan-out maintains (ADR-0028 rule 3).
-  Derived in `resolve_bracket` over the _effective_ sides of knockout fixtures whose effective result
-  is `None`: a played fixture is history and reports nothing, and a since-disqualified winner reports
-  on the fixture it arrives in. The slot is never changed — only a person can pick between a forfeit
-  and a replacement. `find_bracket_faults` reads the junction directly
-  (`{"is_disqualified": True}`, projected) rather than through `build_team_pipeline`, which skips
-  match-fed seasons, is the per-season cost ADR-0047 flagged, and filters `inactive_since`.
-- **Warned, never refused: a manual pick that did not qualify from the groups.** Undecidable while
-  the groups run, and on the only slot type that can hold it, frequently deliberate — a replacement
-  team is the manual mode's intended use (ADR-0042). A real-time note in the form says the system
-  does not judge sporting qualification on a manual side. Deliberately **no** computed
-  "nicht qualifiziert" badge: it would re-implement the tiebreak chain client-side — a second answer
-  to who finished second.
-- **Frontend:** disqualified teams disabled in the picker with an inline " — disqualifiziert" label
-  (and in `textValue`, so search and screen readers still find them); an `aria-live` warning under
-  the picker when the current payload holds a DQ team, which covers the pre-selected stored occupant
-  the disabling cannot; an `actionError.ts` branch for `REQ-OCCUPANT-001` whose advice differs from
-  REQ-WIRING-001's "reload". Whichever surface holds the form when the verdict lands — the modal, or
-  `/admin/spiele/[spiel_id]` — carries these; the rules are surface-independent.
-
-**Tests:** a new `tests/api/test_occupant_refusal.py` mirroring
-`test_wiring_refusal.py` (legal edits including resubmit-unchanged and the warn-only-unqualified pin;
-DQ refusals on both phases; membership refusals), `TestReportingAFault` additions in the house
-report-plus-containment style (played-fixture silence, the arriving DQ winner, dedupe across both
-sides, the empty-default back-compat pin, ordering), and the frontend utils and categorisation cases.
-
-**Triggers to schedule the work:** a second admin gaining access; any evidence a stored knockout
-occupant is disqualified or holds no junction row (`python -m app.core.constraints --check` does not
-cover this — it is a cross-collection relation); or the hole being exercised by accident rather than
-in a test. Absent one of those it stays unscheduled, and the page it is built onto is
-`/admin/spiele/[spiel_id]`.
-
-### 10 · BE-7 — `typing` imports instead of `collections.abc`
+### 9 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -614,7 +515,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 11 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 10 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -623,7 +524,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 12 · BE-14 — The certainty walk gives up in a group of six or more
+### 11 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Found 2026-08-05, reviewing the bracket after FB-8 closed. Not a defect today, and the numbers say why.**
 
@@ -682,7 +583,7 @@ and nobody needs to until a group grows.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 13 · OPS-2 — nothing validates the contents of a restored `.env`
+### 12 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -720,7 +621,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 14 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 13 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 
