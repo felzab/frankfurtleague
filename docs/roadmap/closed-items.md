@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `9cb426d`, 2026-08-08
+**Verified against:** `4ff9af6`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -61,6 +61,7 @@ OPS-6 and OPS-7 are both retired here.
 | 33  | FB-6  | The rollover was done by hand against endpoints that already existed, with no page calling one | FE, BE      | L      | — (ADR-0033 settled it)      | [`fa5832a`](https://github.com/felzab/frankfurtleague/commit/fa5832a) |
 | 34  | FE-5  | The Spielsuche could only be searched, not narrowed, and Spielhistorie duplicated it           | FE          | M      | — (F1 informed it)           | [`9a0f3b5`](https://github.com/felzab/frankfurtleague/commit/9a0f3b5) |
 | 35  | F7    | The landing page's season badge was a literal that no rollover would have moved                | FE          | S      | — (clock: the rollover)      | [`9cb426d`](https://github.com/felzab/frankfurtleague/commit/9cb426d) |
+| 36  | FE-9  | User-facing copy mixed the capitalised Du with lowercase, and no recorded rule said which      | FE          | S      | —                            | [`4ff9af6`](https://github.com/felzab/frankfurtleague/commit/4ff9af6) |
 
 ## What each one produced
 
@@ -237,6 +238,9 @@ no row here — its commit is the whole story.
   `anzahl_spiele` — a single round robin per group fixes that number, so it was arithmetic rather than an
   intention. It opened **FB-16**: the rollover's steps all have pages now, and its sequence still has no
   prompt.
+- **FE-9** → the copy section of `docs/frontend/overview.md`: the reader is the capitalised Du, the
+  scope line separating user-facing strings from developer German, and the boundary between a field
+  message's "Bitte" and a banner's refusal register.
 - **FE-5** → no ADR. The three questions the entry held were answered by building it: a filter runs in
   memory over the season already fetched, the selection goes in the URL beside the search text, and
   Spielhistorie does not stay — the route 308s to `/dashboard/spielsuche?status=vergangen`, because it
