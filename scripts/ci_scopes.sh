@@ -102,6 +102,10 @@ else
       # falls through to the conservative default below.
       certs/*|.vscode/*|.gitignore|LICENSE|NOTICE) ;;
       docs/*) docs=true; format=true ;;
+      # The assistant hooks are shell scripts selfcheck.sh lints and probes, so a hook edit selects
+      # the scripts scope — matched before the .claude/* arm, which alone would map it to docs and
+      # leave the one check that executes hooks unrun on exactly the change that needs it.
+      .claude/hooks/*) scripts=true; docs=true; format=true ;;
       .claude/*|.github/*) docs=true; format=true ;;
       *) all ;;
     esac

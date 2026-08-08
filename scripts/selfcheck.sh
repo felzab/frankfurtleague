@@ -12,7 +12,7 @@
 #   This script closes that gap. Run it after touching anything in scripts/.
 #
 # WHAT IT CHECKS:
-#   1. every script parses
+#   1. every script parses — the assistant hooks in .claude/hooks/ included
 #   2. line endings are LF — CRLF makes a script fail outright on the Linux server
 #   3. the executable bit is set in git — Windows silently drops it
 #   4. every helper a script calls is actually defined in _lib.sh   <-- the one that was missed
@@ -24,6 +24,9 @@
 #  10. actionlint on the workflow files, which are pipeline code and rot the same way
 #  11. the comment-only classifier answers both directions — the one gate decision whose wrong
 #      answer is silent
+#  12. the assistant hooks refuse what they exist to refuse, and stay silent on what they allow —
+#      probed against a throwaway repository, because a guard is exactly the code whose failure
+#      nobody observes
 #
 # USAGE:
 #   ./scripts/selfcheck.sh
@@ -35,7 +38,9 @@ FAILURES=0
 note_fail() { warn "$*"; FAILURES=$(( FAILURES + 1 )); }
 
 step "1. Syntax"
-for f in scripts/*.sh; do
+# .claude/hooks/*.sh included: the hooks gate every assistant session, and before this the first
+# `bash -n` one of them ever got was from the session that tripped it.
+for f in scripts/*.sh .claude/hooks/*.sh; do
   if bash -n "$f" 2>/dev/null; then info "$(basename "$f")"; else note_fail "$(basename "$f") does not parse"; fi
 done
 
@@ -52,7 +57,7 @@ step "2. Line endings are LF"
 #                  platform where CRLF is actually introduced. Silently useless.
 #   - grep for a literal CR: same problem, and it puts the character being detected into the
 #                  detector — which then matches itself and flags every script.
-for f in scripts/*.sh; do
+for f in scripts/*.sh .claude/hooks/*.sh; do
   if [[ -n "$(tr -dc '\r' < "$f")" ]]; then
     note_fail "$(basename "$f") has CRLF endings. Fix:  tr -d '\r' < $f > t && mv t $f && chmod +x $f"
   else
@@ -167,7 +172,7 @@ run_shellcheck() {
 }
 
 sc_out=""; sc_rc=0
-sc_out="$(run_shellcheck scripts/*.sh 2>&1)" || sc_rc=$?
+sc_out="$(run_shellcheck scripts/*.sh .claude/hooks/*.sh 2>&1)" || sc_rc=$?
 case "$sc_rc" in
   0) info "no findings in any script" ;;
   2) info "unavailable (no local binary and no Docker) — skipped" ;;
@@ -259,6 +264,93 @@ else
   expect_verdict dockerfile Dockerfile code
 
   rm -rf "$fixtures"
+  trap - EXIT
+fi
+
+step "12. The assistant hooks refuse what they exist to refuse"
+# The hooks in .claude/hooks/ gate every assistant session, and a guard is exactly the code whose
+# failure nobody observes — a refusal that does not happen announces nothing. That is not
+# hypothetical: guard-branch.sh shipped a containment test that four ordinary spellings of an
+# inside path walked straight past, and nothing in the repository could have said so. These probes
+# run the two branch guards and the compose guard the way the hook runner does — a JSON payload on
+# stdin, the verdict on stdout — against a throwaway repository whose branch each case controls.
+#
+# The throwaway repo sits under the repo root for the same MSYS reason as the classifier fixtures:
+# an absolute /tmp path gets rewritten into a Windows one before bash can use it.
+if ! command -v node >/dev/null 2>&1; then
+  info "node not found — skipped (without node the hooks deny by contract, and there is nothing to probe)"
+else
+  hooks_dir="${REPO_ROOT}/.claude/hooks"
+  hookfx=".tmp-hook-fixtures"
+  rm -rf "$hookfx"; mkdir -p "$hookfx/repo"
+  trap 'rm -rf "${REPO_ROOT}/.tmp-hook-fixtures"' EXIT
+
+  if (
+    cd "$hookfx/repo" &&
+    git init -q -b main &&
+    git -c user.email=selfcheck@example.invalid -c user.name=selfcheck commit -q --allow-empty -m seed
+  ); then
+    # The root AS THE HOOK SEES IT: it asks git from its working directory, so the probes must
+    # build their payloads from the same answer rather than from a path this script composed.
+    hook_root="$(cd "$hookfx/repo" && git rev-parse --show-toplevel)"
+
+    run_hook() { # $1 hook basename · $2 payload on stdin — from inside the throwaway repo
+      ( cd "$hookfx/repo" && printf '%s' "$2" | bash "${hooks_dir}/$1" 2>/dev/null ) || true
+    }
+    expect_deny() { # $1 label · $2 hook output
+      case "$2" in
+        *'"permissionDecision":"deny"'*) info "$1 — denied" ;;
+        *) note_fail "$1: expected a deny, got '${2:-nothing}'" ;;
+      esac
+    }
+    expect_allow() { # $1 label · $2 hook output — the contract is silence
+      if [[ -z "$2" ]]; then info "$1 — allowed"; else note_fail "$1: expected silence, got '$2'"; fi
+    }
+    file_payload() { printf '{"tool_input":{"file_path":"%s"}}' "$1"; }
+    cmd_payload()  { printf '{"tool_input":{"command":"%s"}}' "$1"; }
+
+    # guard-branch.sh on main: a write inside the repository is refused however the path is spelt.
+    # The dot segment, the `..` segment and the doubled separator are the exact spellings the shipped
+    # bypass allowed; the device form is Windows-only, because elsewhere it is not an absolute path.
+    expect_deny  "branch guard: plain inside path"   "$(run_hook guard-branch.sh "$(file_payload "${hook_root}/inside.py")")"
+    expect_deny  "branch guard: ./ segment"          "$(run_hook guard-branch.sh "$(file_payload "${hook_root}/./inside.py")")"
+    expect_deny  "branch guard: .. re-entry"         "$(run_hook guard-branch.sh "$(file_payload "${hook_root}/sub/../inside.py")")"
+    expect_deny  "branch guard: doubled separator"   "$(run_hook guard-branch.sh "$(file_payload "${hook_root}//inside.py")")"
+    case "$(uname -s)" in
+      MINGW*|MSYS*|CYGWIN*)
+        expect_deny "branch guard: //?/ device form"  "$(run_hook guard-branch.sh "$(file_payload "//?/${hook_root}/inside.py")")" ;;
+    esac
+    expect_deny  "branch guard: payload without a path" "$(run_hook guard-branch.sh '{"tool_input":{}}')"
+    expect_deny  "branch guard: unparseable payload"    "$(run_hook guard-branch.sh 'not json')"
+    expect_allow "branch guard: path outside the repo"  "$(run_hook guard-branch.sh "$(file_payload "${hook_root}/../outside.py")")"
+
+    # The same guard off main: a topic branch allows, and so does a detached HEAD — a rebase or a
+    # bisect must not lose every write.
+    ( cd "$hookfx/repo" && git checkout -q -b probe-topic )
+    expect_allow "branch guard: topic branch"        "$(run_hook guard-branch.sh "$(file_payload "${hook_root}/inside.py")")"
+    ( cd "$hookfx/repo" && git checkout -q --detach )
+    expect_allow "branch guard: detached HEAD"       "$(run_hook guard-branch.sh "$(file_payload "${hook_root}/inside.py")")"
+    ( cd "$hookfx/repo" && git checkout -q main )
+
+    # guard-branch-bash.sh: the same rule for shell writes. The scratchpad and /tmp are exempt, and
+    # `git checkout -b` is the escape hatch that must never be blocked.
+    expect_deny  "bash guard: redirect on main"      "$(run_hook guard-branch-bash.sh "$(cmd_payload 'echo x > notes.md')")"
+    expect_allow "bash guard: plain read"            "$(run_hook guard-branch-bash.sh "$(cmd_payload 'cat notes.md')")"
+    expect_allow "bash guard: /tmp write"            "$(run_hook guard-branch-bash.sh "$(cmd_payload 'echo x > /tmp/scratch.txt')")"
+    expect_allow "bash guard: the escape hatch"      "$(run_hook guard-branch-bash.sh "$(cmd_payload 'git checkout -b fix-thing')")"
+    ( cd "$hookfx/repo" && git checkout -q probe-topic )
+    expect_allow "bash guard: redirect off main"     "$(run_hook guard-branch-bash.sh "$(cmd_payload 'echo x > notes.md')")"
+    ( cd "$hookfx/repo" && git checkout -q main )
+
+    # guard-local-compose.sh: a bare compose is refused, naming the local file is what allows it.
+    expect_deny  "compose guard: bare docker compose" "$(run_hook guard-local-compose.sh "$(cmd_payload 'docker compose up -d')")"
+    expect_allow "compose guard: local file named"    "$(run_hook guard-local-compose.sh "$(cmd_payload 'docker compose -f docker-compose.local.yml up -d')")"
+    expect_allow "compose guard: not compose at all"  "$(run_hook guard-local-compose.sh "$(cmd_payload 'docker ps')")"
+  else
+    note_fail "could not build the throwaway repository for the hook probes"
+  fi
+
+  rm -rf "$hookfx"
   trap - EXIT
 fi
 

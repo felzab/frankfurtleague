@@ -1,6 +1,6 @@
 # `scripts/`
 
-**Verified against:** `eefc968`, 2026-08-08
+**Verified against:** `404e9c8`, 2026-08-08
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says
@@ -186,7 +186,10 @@ served because nginx waits on `service_healthy`.
 
 ## `selfcheck.sh` — test the scripts
 
-`verify.sh` runs this first; reach for it directly after editing anything in `scripts/`. `bash -n`
+`verify.sh` runs this first; reach for it directly after editing anything in `scripts/` — or in
+`.claude/hooks/`, whose shell scripts the syntax, line-ending and shellcheck passes cover too, and
+whose branch and compose guards a dedicated step probes against a throwaway repository
+(`ci_scopes.sh` maps a hook edit to this scope for exactly that reason). `bash -n`
 validates syntax only — the checks, listed in the script's own header, cover what it misses:
 undefined helpers, drifted `--help` text, workflow files that only fail on their first live run
 (actionlint), and the two defects Windows hides (CRLF endings, and an executable bit that

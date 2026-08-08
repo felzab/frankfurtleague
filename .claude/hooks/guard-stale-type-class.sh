@@ -39,6 +39,8 @@ case "$normalised" in
 esac
 
 if grep -q 'text-fluid-' "$file"; then
+  # The backticks are Markdown in the refusal copy, not substitution.
+  # shellcheck disable=SC2016
   printf '%s' '{"decision":"block","reason":"This file contains `text-fluid-*`, which is not a utility (ADR-0025). The type scale is spelled `fluid-sm`, never `text-fluid-sm` — the tokens live outside Tailwind --text-* so no such class is generated, and it applies no font size at all. Replace every occurrence with the `fluid-*` form."}'
 fi
 

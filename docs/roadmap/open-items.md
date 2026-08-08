@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `2ea28e0`, 2026-08-08
+**Verified against:** `404e9c8`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -43,7 +43,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
-| 2   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
+| 2   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Closed   | —                         |
 | 3   | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with FE-2, FE-1) |
 | 4   | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with FB-7, FE-1) |
 | 5   | FE-1  | Date ranges instead of specific dates                   | FE (+BE)    | XL     | Open     | — (batch with FB-7, FE-2) |
@@ -244,6 +244,16 @@ what would catch a bypass like that one — that needs a behavioural test agains
 hook that stops working announces itself the first time a session does the thing it was meant to stop.
 Against that, a guard is exactly the code whose failure is least likely to be noticed — nobody observes
 a refusal that does not happen.
+
+**Closed, 2026-08-08.** The guard got its gate, in both halves the entry named. `selfcheck.sh`'s
+syntax, line-ending and shellcheck passes now cover `.claude/hooks/*.sh`, and a new step 12 probes
+the two branch guards and the compose guard behaviourally — a throwaway repository whose branch
+each case controls, JSON on stdin the way the hook runner sends it, nineteen probes including the
+four path spellings the shipped bypass allowed and the detached-HEAD case that must stay open.
+`ci_scopes.sh` maps `.claude/hooks/*` to the scripts scope ahead of the `.claude/*` arm, so a hook
+edit selects the one check that executes hooks. The deny messages' literal backticks carry inline
+`shellcheck disable=SC2016` annotations, the same treatment `_lib.sh` gives SC2034. No ADR: the
+decision and its argument live at the tool — selfcheck's step-12 comment and `scripts/README.md`.
 
 **Path:** independent. Small either way; the decision is whether a guard deserves a gate.
 
