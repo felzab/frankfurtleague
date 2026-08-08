@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `bea3e30`, 2026-08-08
+**Verified against:** `1a45c03`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -43,7 +43,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
-| 2   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Open     | —                         |
+| 2   | BE-13 | A malformed id is a 404 in a path, a 422 in a query     | BE          | S      | Closed   | —                         |
 | 3   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
 | 4   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
 | 5   | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with FE-2, FE-1) |
@@ -248,6 +248,14 @@ That leaves two consistent rules, and the cheaper one may be the one already in 
 
 **Either way `docs/backend/spec.md` §4 gains a row.** It lists five error codes and says nothing
 about a malformed id, which is why the behaviour reads as accidental.
+
+**Closed, 2026-08-08**, as the entry predicted — a documentation change and no code at all.
+[ADR-0071](../_decisions/0071-a-path-identifies-a-query-validates.md) ratifies the split as the
+rule: a path identifies (404 — the convertor for ObjectIds, the lookup for four-character season
+ids), a query validates (422, `REQ-VAL-001` like any malformed parameter), and `REQ-OID-001` (400)
+stays as the net behind both, expected unreachable through routed traffic. The convertor stays for
+the routing reason `app/core/routing.py` documents. `docs/backend/spec.md` §4 states the split, its
+§7 known-open row leaves, and `docs/logging.md`'s `REQ-OID-001` row names the ADR.
 
 **Path:** independent. May well end as a documentation change and no code at all.
 
