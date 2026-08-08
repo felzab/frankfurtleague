@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `bea3e30`, 2026-08-08
+**Verified against:** `4fcb250`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -65,6 +65,7 @@ OPS-6 and OPS-7 are both retired here.
 | 37  | BE-10 | The season document was read from Mongo on every request that resolved or scored with it       | BE          | S      | —                            | [`c26c3e3`](https://github.com/felzab/frankfurtleague/commit/c26c3e3) |
 | 38  | FE-8  | The compact card's metadata row could not wrap, and crushed its info button on phones          | FE          | S      | — (overlaps FE-3)            | [`b86e282`](https://github.com/felzab/frankfurtleague/commit/b86e282) |
 | 39  | FE-7  | The delete confirmation's second step turned the blurred backdrop flat as it animated in       | FE          | S      | —                            | [`bea3e30`](https://github.com/felzab/frankfurtleague/commit/bea3e30) |
+| 40  | BE-13 | A malformed id answered 404 in a path and 422 in a query, and no rule said the split was meant | BE          | S      | —                            | [`4fcb250`](https://github.com/felzab/frankfurtleague/commit/4fcb250) |
 
 ## What each one produced
 
@@ -247,6 +248,9 @@ no row here — its commit is the whole story.
 - **BE-10** → [ADR-0070](../_decisions/0070-the-season-document-is-cached-in-process.md), the
   in-process season cache: dropped by its own write path, bounded by a ten-minute TTL, and the
   single-worker assumption named as the thing to re-check before adding `--workers`.
+- **BE-13** → [ADR-0071](../_decisions/0071-a-path-identifies-a-query-validates.md): a path
+  identifies (404), a query validates (422), `REQ-OID-001` stays as the net behind both, and the
+  `objectid` convertor is load-bearing for routing and must not be dropped.
 - **FE-5** → no ADR. The three questions the entry held were answered by building it: a filter runs in
   memory over the season already fetched, the selection goes in the URL beside the search text, and
   Spielhistorie does not stay — the route 308s to `/dashboard/spielsuche?status=vergangen`, because it
