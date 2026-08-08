@@ -320,7 +320,8 @@ the ADR.
 ## 8. Documentation
 
 **The standard is `docs/_standard/`, starting at `1-principles.md`. Read it before writing or changing
-any documentation.** These four are the ones that bind every session:
+any documentation.** Any edit under `docs/_standard/` needs the owner's explicit approval — a
+PreToolUse hook surfaces the permission prompt on every write there (owner rule, 2026-08-08). These four are the ones that bind every session:
 
 1. **Same commit.** A change invalidating a documented claim updates that document in the same commit.
 2. **Anchored citations** — `` `<file> :: <symbol>` `` or an ADR number, never a line number.
