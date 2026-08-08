@@ -516,6 +516,39 @@ html:has([data-app-shell]) {
   scrollbar-width: none;
 }
 
+/* An ultra-thin LINE scrollbar: a 3px thumb, no track, no buttons (owner, 2026-08-08). The standard
+   `scrollbar-width: thin` still draws a track and, on Windows, arrow buttons — a line is only
+   reachable through the WebKit pseudo-elements, and Chromium DISABLES those the moment the standard
+   properties compute to anything but `auto`. So this forces both back to `auto` (undoing HeroUI's
+   `data-scrollbar` inheritance), styles the pseudos, and gives Firefox — which has no pseudos and no
+   buttons to hide — the standard thin form inside `@supports not`. `--scrollbar-thumb` is HeroUI's
+   own theme token, so the line follows the light/dark theme like every other scrollbar in the app. */
+@utility scrollbar-line {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+  &::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  @supports not selector(::-webkit-scrollbar) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+}
+
 /* Makes a dotted background. currentColor rather than a white literal: the dots then invert with
    whatever text colour the consumer sets, instead of being invisible on any light surface. The
    No `!important` needed: @utility output lands in the utilities layer, which already outranks

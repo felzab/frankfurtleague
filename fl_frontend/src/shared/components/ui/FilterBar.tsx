@@ -82,83 +82,102 @@ export function FilterBar<TItem>({
           <Popover.Content
             placement="bottom start"
             offset={8}>
-            {/* A GRID that grows sideways, not a single tall column (owner, 2026-08-08). Seven facets stacked
-              made the popover a scroll on every screen; in three columns the same seven fit a desktop
-              outright, and the scroll that remains is a fallback rather than the normal way to reach the
-              last facet. `min(92vw, …)` because a fixed width wide enough for three columns overflows a
-              phone, where the grid collapses to one column anyway.
+            {/* MASONRY columns, not a grid (owner, 2026-08-08). A grid aligns cells into rows, so one tall
+              facet stretched its whole row and left holes under its shorter neighbours — the "chaotic"
+              read. CSS multi-column is what filter panels actually use for this: each facet keeps its
+              own height, the columns fill top to bottom with no gaps, and `break-inside-avoid` keeps a
+              facet from being sliced across two columns.
 
-              `data-scrollbar="thin"` is what makes the remaining scroll look like the rest of the app:
-              HeroUI drives its scrollbar off that attribute rather than off a class, so a container with
-              `overflow-y-auto` and nothing else gets the raw OS scrollbar. */}
+              The widths track the SEARCH BAR's own. The bar is `max-w-toolbar w-full` (1200px), so the
+              panel is `92vw` on a phone — the bar's own width there — and grows toward the toolbar cap
+              on a desktop, never narrower than the control it opens under. A page with few facets gets
+              the narrow form, or two facets would float in a metre of empty panel.
+
+              The panel CLIPS its scroller (`overflow-hidden` outside, the scroll inside): the rounded
+              corners are the panel's, and a rectangular scrollbar inside a rounded scroll container
+              poked out of the curve at both ends. `scrollbar-line` rather than `data-scrollbar="thin"`,
+              because the standard thin scrollbar still draws a track and, on Windows, arrow buttons. */}
             <Popover.Dialog
-              data-scrollbar="thin"
-              className={`${overlayPanel()} grid max-h-[70vh] w-[min(92vw,22rem)] grid-cols-1 gap-3 overflow-y-auto p-3 outline-none sm:w-[min(92vw,34rem)] sm:grid-cols-2 lg:w-[min(92vw,48rem)] lg:grid-cols-3`}>
-              {facets.map((facet) => {
-                const counts = countFacetOptions(items, facets, selection, facet);
-                const picked = selection[facet.param] ?? [];
+              className={`${overlayPanel()} w-[92vw] overflow-hidden p-0 outline-none ${
+                facets.length >= 5 ? "sm:w-[min(92vw,44rem)] lg:w-[min(92vw,64rem)] xl:w-[min(92vw,75rem)]" : "sm:w-[min(92vw,40rem)]"
+              }`}>
+              <div
+                className={`scrollbar-line max-h-[70vh] gap-x-3 overflow-y-auto p-3 ${
+                  facets.length >= 5 ? "columns-1 sm:columns-2 lg:columns-3 xl:columns-4" : "columns-1 sm:columns-2"
+                }`}>
+                {facets.map((facet) => {
+                  const counts = countFacetOptions(items, facets, selection, facet);
+                  const picked = selection[facet.param] ?? [];
 
-                return (
-                  <div
-                    key={facet.param}
-                    // A bordered cell rather than a rule between stacked rows: in a grid a horizontal
-                    // separator would divide two columns' worth of unrelated facets.
-                    className="border-border/70 flex w-full min-w-0 flex-col gap-y-1 rounded-xl border p-1.5">
-                    {/* A FIXED height, because the reset appears only once something is picked (owner,
+                  // A facet with many options still flows its OPTIONS in two columns (owner,
+                  // 2026-08-08), so the Team facet is nine rows rather than seventeen — the cell itself
+                  // stays one masonry column wide, and the column layout absorbs whatever height remains.
+                  const isWide = facet.options.length > 8;
+
+                  return (
+                    <div
+                      key={facet.param}
+                      // `break-inside-avoid` is what multi-column layout is bought for: without it a
+                      // facet is sliced mid-option across two columns. `mb-3` rather than the parent's
+                      // gap, because multicol has no row-gap — the bottom margin is the vertical rhythm.
+                      className="border-border/70 mb-3 flex w-full min-w-0 break-inside-avoid flex-col gap-y-1 rounded-xl border p-1.5">
+                      {/* A FIXED height, because the reset appears only once something is picked (owner,
                         2026-08-08). Its intrinsic height exceeded the label's, so the header row grew on the
                         first selection and pushed every facet below it down — the popover appeared to jump
                         while being used. Reserving the row lets the button come and go without reflow. */}
-                    <div className="flex h-6 flex-row items-center justify-between gap-x-2 px-1.5">
-                      <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
-                      {picked.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          aria-label={`${facet.label} zurücksetzen`}
-                          onPress={() => clearFacet(facet.param)}
-                          className="fluid-xxs text-foreground-muted hover:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors">
-                          Zurücksetzen
-                        </Button>
-                      )}
+                      <div className="flex h-6 flex-row items-center justify-between gap-x-2 px-1.5">
+                        <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
+                        {picked.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            aria-label={`${facet.label} zurücksetzen`}
+                            onPress={() => clearFacet(facet.param)}
+                            className="fluid-xxs text-foreground-muted hover:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors">
+                            Zurücksetzen
+                          </Button>
+                        )}
+                      </div>
+
+                      <ListBox
+                        aria-label={facet.label}
+                        selectionMode="multiple"
+                        className={isWide ? "sm:grid sm:grid-cols-2 sm:gap-x-1" : undefined}
+                        selectedKeys={picked}
+                        // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing
+                        // `selectedKeys="all"`, which this never does, so it maps to an empty selection
+                        // rather than to a cast.
+                        onSelectionChange={(keys: Selection) => {
+                          setFacet(facet.param, keys === "all" ? [] : [...keys].map(String));
+                        }}>
+                        {facet.options.map((option) => {
+                          const count = counts[option.value] ?? 0;
+                          const isPicked = picked.includes(option.value);
+
+                          return (
+                            <ListBox.Item
+                              key={option.value}
+                              id={option.value}
+                              textValue={option.label}
+                              // A selected option stays enabled whatever its count — disabling it would make
+                              // it impossible to deselect, which is the one state this rule must not create.
+                              isDisabled={count === 0 && !isPicked}
+                              // The VALUE carries the emphasis and its count carries the brand (owner,
+                              // 2026-08-08): full-strength text for an option that would match something,
+                              // muted for one that would match nothing. `data-disabled:opacity-40` used to be
+                              // the only signal, which dimmed the whole row including its count.
+                              className={`fluid-sm hover:bg-muted hover:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors ${
+                                count === 0 ? "text-foreground-muted" : "text-foreground"
+                              }`}>
+                              <span className="min-w-0 truncate">{option.label}</span>
+                              <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{count}</span>
+                            </ListBox.Item>
+                          );
+                        })}
+                      </ListBox>
                     </div>
-
-                    <ListBox
-                      aria-label={facet.label}
-                      selectionMode="multiple"
-                      selectedKeys={picked}
-                      // `Selection` is `"all" | Set<Key>`; `"all"` is only reachable by passing
-                      // `selectedKeys="all"`, which this never does, so it maps to an empty selection
-                      // rather than to a cast.
-                      onSelectionChange={(keys: Selection) => {
-                        setFacet(facet.param, keys === "all" ? [] : [...keys].map(String));
-                      }}>
-                      {facet.options.map((option) => {
-                        const count = counts[option.value] ?? 0;
-                        const isPicked = picked.includes(option.value);
-
-                        return (
-                          <ListBox.Item
-                            key={option.value}
-                            id={option.value}
-                            textValue={option.label}
-                            // A selected option stays enabled whatever its count — disabling it would make
-                            // it impossible to deselect, which is the one state this rule must not create.
-                            isDisabled={count === 0 && !isPicked}
-                            // The VALUE carries the emphasis and its count carries the brand (owner,
-                            // 2026-08-08): full-strength text for an option that would match something,
-                            // muted for one that would match nothing. `data-disabled:opacity-40` used to be
-                            // the only signal, which dimmed the whole row including its count.
-                            className={`fluid-sm hover:bg-muted hover:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors ${
-                              count === 0 ? "text-foreground-muted" : "text-foreground"
-                            }`}>
-                            <span className="min-w-0 truncate">{option.label}</span>
-                            <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{count}</span>
-                          </ListBox.Item>
-                        );
-                      })}
-                    </ListBox>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </Popover.Dialog>
           </Popover.Content>
         </Popover>
@@ -178,22 +197,35 @@ export function FilterBar<TItem>({
         {chips.length > 0 && (
           <ScrollShadow
             orientation="horizontal"
-            size={16}
+            // 24 rather than the 16 this shipped at (owner, 2026-08-08): on a phone the shadow IS the
+            // only sign the strip scrolls, and at 16px over 28px-tall chips it read as anti-aliasing.
+            size={24}
             hideScrollBar
             className="min-w-0 flex-1">
             <div className="flex flex-row items-center gap-2">
               {chips.map(({ facet, value, label }) => (
+                // Value, a straight divider, then the x (owner, 2026-08-08). The divider is its OWN
+                // element rather than a border on the button: HeroUI's Button brings a radius and its
+                // own box, so a `border-l` there rendered kinked and the x rode off-centre. A 1px span
+                // cannot be anything but straight, and `w-7 justify-center p-0` centres the x by
+                // construction instead of by the button's padding happening to balance.
                 <span
                   key={`${facet.param}:${value}`}
-                  className="border-brand/25 bg-brand/10 flex h-7 shrink-0 flex-row items-stretch overflow-hidden rounded-lg border">
-                  <span className="fluid-xs text-foreground flex items-center pr-1.5 pl-2 font-bold whitespace-nowrap">{label}</span>
+                  // `h-10`, the trigger's own height (owner, 2026-08-08): the chips and the button sit
+                  // in one row, and two heights in one row read as two controls that happen to touch.
+                  className="border-brand/25 bg-brand/10 flex h-10 shrink-0 flex-row items-stretch overflow-hidden rounded-xl border">
+                  <span className="fluid-xs text-foreground flex items-center px-2.5 font-bold whitespace-nowrap">{label}</span>
+                  <span
+                    aria-hidden="true"
+                    className="bg-brand/25 w-px shrink-0"
+                  />
                   <Button
                     variant="ghost"
                     aria-label={`Filter ${facet.label}: ${label} entfernen`}
                     // `toggle`, not a filtered `setFacet`: it reads the live selection itself, so removing
                     // two chips quickly cannot have the second rebuild from a snapshot taken before the first.
                     onPress={() => toggle(facet.param, value)}
-                    className="border-brand/25 text-foreground-muted hover:bg-danger/15 hover:text-danger-strong flex cursor-pointer items-center border-l px-1.5 transition-colors">
+                    className="text-foreground-muted hover:bg-danger/15 hover:text-danger-strong flex h-full w-8 min-w-0 shrink-0 cursor-pointer items-center justify-center rounded-none p-0 transition-colors">
                     <Xmark
                       aria-hidden="true"
                       className="size-3.5 shrink-0"
