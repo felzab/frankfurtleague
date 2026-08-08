@@ -14,8 +14,8 @@
  *     their own data; the public set is the four facets a visitor would recognise as ways to find a match.
  *   • `status` is DERIVED and not stored, so it reads through `computeSpielStatus` — the same function the
  *     cards label themselves with, so a chip reading „HEUTE“ and the facet that finds it cannot disagree.
- *     Note the backend's own `spiel_status` filter defines `ausstehend` differently (Finding F1); this
- *     filters on the client, so the client's definition is the one that applies and the one on screen.
+ *     The backend's own `spiel_status` filter defines `ausstehend` more widely on purpose (ADR-0072); this
+ *     filters on the client, so the label's definition is the one that applies and the one on screen.
  *   • Every facet is built inside one `useMemo` per surface, keyed on the fixture list, because
  *     `AdminCrudView`'s collection-identity constraint applies to the Spielsuche's own Fuse memo too.
  */

@@ -82,7 +82,12 @@ class TestSpieleFilter:
         assert build_spiele_filter(filters=filters, today=TODAY)["saison_phase"] == {"$ne": "gruppenphase"}
 
     def test_status_maps_to_a_date_comparison_against_today(self):
-        """All three date branches at once — note `ausstehend` is `$gte`, so it INCLUDES today."""
+        """All three date branches at once.
+
+        `ausstehend` is `$gte` — it INCLUDES today, as intent rather than accident (ADR-0072):
+        the landing page's upcoming list must show today's fixtures, so a tightening to `$gt`
+        is the regression this assertion exists to refuse.
+        """
         vergangen = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "vergangen"}), today=TODAY)
         ausstehend = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "ausstehend"}), today=TODAY)
         heute = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "heute"}), today=TODAY)

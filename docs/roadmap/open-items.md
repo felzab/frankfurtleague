@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `4fcb250`, 2026-08-08
+**Verified against:** `0242240`, 2026-08-08
 
 Findings and undecided questions with real analysis, plus the owner's ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -43,7 +43,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | #   | ID    | Item                                                    | Surfaces    | Effort | Status   | Depends on                |
 | --- | ----- | ------------------------------------------------------- | ----------- | ------ | -------- | ------------------------- |
 | 1   | FB-16 | Nothing announces that a season rollover is due         | Ops, BE     | M      | Open     | — (clock: the rollover)   |
-| 2   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Open     | — (latest with FE-1)      |
+| 2   | F1    | Two definitions of `ausstehend`                         | FE, BE      | S      | Closed   | — (latest with FE-1)      |
 | 3   | OPS-9 | Nothing lints or tests the repository's own hooks       | Ops         | S      | Open     | —                         |
 | 4   | FB-7  | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | — (batch with FE-2, FE-1) |
 | 5   | FE-2  | Optional per-game notes                                 | FE (+BE)    | S      | Open     | — (batch with FB-7, FE-1) |
@@ -233,6 +233,15 @@ card. On the landing page's _Nächste Begegnungen_ that is very likely the desir
 silently drop today's matches off the landing page. Not filed as a bug. Related: the client takes
 cancellation first (`isCanceled` wins over any date), while the server treats `is_canceled` and
 `datum` as independent filters. Seeded into backend audit pass B2's semantic-contracts check.
+
+**Closed, 2026-08-08**, by ratifying the difference rather than aligning either side:
+[ADR-0072](../_decisions/0072-a-status-filter-is-not-a-status-label.md) — a filter selects and a
+label partitions, so the backend's `ausstehend` includes today (its one consumer is the landing
+page's upcoming list, which must show today's fixtures) while the client's ternary keeps `heute`
+as its own state. The glossary's pitfall table became the rule's table, both derivation sites and
+the audit prompts cite the ADR instead of this entry, the frontend spec's known-open row leaves,
+and `test_filter_builders.py` now pins `$gte` as intent with the ADR named in the docstring.
+FE-1 re-derives both definitions under date ranges, as this entry always said it would.
 
 **Path:** independent, but settle it at the latest inside FE-1, whose date ranges change these
 semantics anyway. The Spielsuche's Status facet already exposes these semantics to a reader and
