@@ -2,7 +2,14 @@
 
 import { Calendar, DateField, DatePicker, FieldError, NumberField } from "@heroui/react";
 
-import { DATE_PICKER_CALENDAR, DATE_PICKER_POPOVER, FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
+import {
+  DATE_PICKER_CALENDAR,
+  DATE_PICKER_PLACEMENT,
+  DATE_PICKER_POPOVER,
+  FIELD_COUNT_INPUT,
+  FIELD_ERROR,
+  FIELD_GROUP,
+} from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import type { CalendarDate } from "@internationalized/date";
@@ -85,7 +92,9 @@ export function SaisonDateField({
         </DateField.Suffix>
       </DateField.Group>
       <FieldError className={FIELD_ERROR} />
-      <DatePicker.Popover className={DATE_PICKER_POPOVER}>
+      <DatePicker.Popover
+        className={DATE_PICKER_POPOVER}
+        placement={DATE_PICKER_PLACEMENT}>
         <Calendar
           aria-label={ariaLabel}
           className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>

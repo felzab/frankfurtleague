@@ -137,3 +137,18 @@ export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold t
 export const DATE_PICKER_POPOVER = "p-0";
 
 export const DATE_PICKER_CALENDAR = "p-3 sm:w-100 sm:max-w-100 sm:p-4 sm:text-base";
+
+/**
+ * Below the trigger and aligned to its leading edge, for all three pickers (owner, 2026-08-08).
+ *
+ * HeroUI's `DatePicker.Popover` defaults to `"bottom"`, which centres the panel on the trigger — and the
+ * calendar is far wider than the trigger it hangs from, so a centred panel overhangs the field on both
+ * sides and reads as unanchored. `start` puts its leading edge where the field's is, which is the edge a
+ * reader is already tracking down the form. `FilterBar`'s popover is placed the same way for the same
+ * reason, so the app has one answer to "where does a panel open" rather than one per control.
+ *
+ * Deliberately not `"bottom end"`: every one of these pickers sits in a two-column grid from `sm` up, so
+ * trailing-edge alignment would open each calendar leftwards, across the column beside it. react-aria
+ * still shifts the panel back inside the viewport where the leading edge leaves no room for it.
+ */
+export const DATE_PICKER_PLACEMENT = "bottom start";

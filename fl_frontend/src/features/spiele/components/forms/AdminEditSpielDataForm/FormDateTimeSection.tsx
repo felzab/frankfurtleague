@@ -2,7 +2,13 @@ import { Xmark } from "@gravity-ui/icons";
 
 import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
 
-import { DATE_PICKER_CALENDAR, DATE_PICKER_POPOVER, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
+import {
+  DATE_PICKER_CALENDAR,
+  DATE_PICKER_PLACEMENT,
+  DATE_PICKER_POPOVER,
+  FIELD_ERROR,
+  FIELD_GROUP,
+} from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { FieldLabel } from "./FieldLabel";
@@ -102,7 +108,9 @@ export function FormDateTimeSection({
           </DateField.Suffix>
         </DateField.Group>
         <FieldError className={FIELD_ERROR} />
-        <DatePicker.Popover className={DATE_PICKER_POPOVER}>
+        <DatePicker.Popover
+          className={DATE_PICKER_POPOVER}
+          placement={DATE_PICKER_PLACEMENT}>
           <Calendar
             aria-label="Spieldatum auswählen"
             className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
