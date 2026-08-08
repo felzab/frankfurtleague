@@ -72,7 +72,6 @@ was taken**, not when the file was written.
 | [0038](0038-the-image-cache-is-the-actions-cache-service.md)                      | The image build cache is the Actions cache service                           | ops                    | Accepted | 2026-08-05 |
 | [0039](0039-one-correlation-id-per-request-one-document-per-line.md)              | One correlation id per request, one JSON document per line                   | frontend, backend, ops | Accepted | 2026-08-05 |
 | [0040](0040-the-zod-mirror-is-checked-against-the-published-document.md)          | The Zod mirror is checked against a committed OpenAPI document               | frontend, backend, ops | Accepted | 2026-08-05 |
-| [0041](0041-a-bracket-slot-carries-its-own-provenance.md)                         | A bracket slot carries its own provenance, beside the team                   | frontend, backend      | Accepted | 2026-08-05 |
 | [0042](0042-a-result-entry-resolves-the-whole-bracket.md)                         | A bracket slot stores a reference; a result resolves the bracket             | frontend, backend      | Accepted | 2026-08-05 |
 | [0043](0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md) | One tiebreak chain, and a placing is seeded only once it is final            | frontend, backend      | Accepted | 2026-08-05 |
 | [0044](0044-a-shoot-out-is-its-own-scoreline.md)                                  | A shoot-out is its own scoreline, read by the bracket alone                  | frontend, backend      | Accepted | 2026-08-05 |
@@ -114,6 +113,7 @@ lives where the row says.
 | 0015   | [ADR-0035](0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)        |
 | 0018   | `docs/frontend/overview.md`, the metadata rules (no `keywords` tag)              |
 | 0021   | [ADR-0022](0022-origin-keeps-compressing.md)                                     |
+| 0041   | [ADR-0042](0042-a-result-entry-resolves-the-whole-bracket.md)                    |
 | 0048   | [ADR-0051](0051-a-voided-result-is-named-before-it-is-lost.md)                   |
 | 0049   | [ADR-0052](0052-a-team-is-fielded-once-per-spieltag.md)                          |
 | 0054   | Nowhere — written 2026-08-07 and reverted the same day, before anything cited it |

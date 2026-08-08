@@ -46,7 +46,7 @@ export function SpielDraftPreview({
   const { datum, uhrzeit, ergebnis, elfmeterschiessen } = formatSpielDisplay(previewSpiel);
   const spielStatus = computeSpielStatus({ datum: previewSpiel.datum, isCanceled: previewSpiel.is_canceled, today });
 
-  // Team, then provenance, then the shared placeholder — the fall-through every card uses (ADR-0041),
+  // Team, then provenance, then the shared placeholder — the fall-through every card uses (ADR-0042),
   // so this names a side exactly as the bracket will.
   const team1Name = previewSpiel.team1?.name || formatQuelle(previewSpiel.team1_quelle) || PLACEHOLDER.slot;
   const team2Name = previewSpiel.team2?.name || formatQuelle(previewSpiel.team2_quelle) || PLACEHOLDER.slot;

@@ -175,7 +175,7 @@ def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
     return {
         "$cond": [
             # An unresolved bracket slot stays null rather than becoming an object holding only a
-            # disqualification (ADR-0041). `$eq` against null also catches a document missing the key.
+            # disqualification (ADR-0042). `$eq` against null also catches a document missing the key.
             {"$eq": [f"${side}", None]},
             None,
             {"$mergeObjects": [f"${side}", {"disqualifikation": joined_record}]},

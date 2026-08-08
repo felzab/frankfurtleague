@@ -138,7 +138,7 @@ describe("computeErgebnisFor", () => {
     assert.equal(computeErgebnisFor({ spiel: makeSpiel("٢:١"), teamId: TEAM_1 }), "?");
   });
 
-  // A fixture whose occupant the group phase has not produced yet (ADR-0041). The optional chaining
+  // A fixture whose occupant the group phase has not produced yet (ADR-0042). The optional chaining
   // that reaches `team1?.team_id` compiles either way, so only this pins the ANSWER: a team asking
   // about a match with an unresolved side must get "unknown", never a scored result — and a result
   // beside a null side is exactly the shape a hand-edited document takes.

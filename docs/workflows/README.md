@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `b123022`, 2026-08-08
+**Verified against:** `787fedf`, 2026-08-08
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling
@@ -620,8 +620,8 @@ A new season needs, at minimum:
    whose phase or date is wrong.
 
 A playoff fixture whose participants the group phase has not produced yet needs **no team row at all**:
-both sides are null, and `team1_herkunft` / `team2_herkunft` carry what the bracket shows in their
-place ([ADR-0041](../_decisions/0041-a-bracket-slot-carries-its-own-provenance.md)).
+both sides are null, and the card derives what the bracket shows from `team1_quelle` / `team2_quelle`
+([ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md)).
 
 **A rollover done through `/admin` needs nothing afterwards**: the action clears `saisons`, `spiele`,
 `spieltage` and `teams`, which is every read an omitted `saison_id` reaches. One done in Compass clears

@@ -156,7 +156,7 @@ export const formatQuelle = (quelle: FLSpielQuelle | null): string | null => {
 /**
  * Who maintains one side of a fixture — the three answers a slot's two fields add up to.
  *
- * A `quelle` and a team are independent and all four combinations are stored states (ADR-0041), but
+ * A `quelle` and a team are independent and all four combinations are stored states (ADR-0042), but
  * only one question has three answers: **what fills this side from here on.** A source owns the slot
  * and the resolution writes it; with no source the slot is the admin's, occupied or not; and a side
  * that is the admin's AND empty is filled by nobody at all (ADR-0042).

@@ -55,7 +55,7 @@ name, is not a standing, and pays none of it.
 
 ### `rules.qualifiers_per_group` says how many advance
 
-**Required, with no Pydantic default**, for ADR-0041's reason: a default would let a season document
+**Required, with no Pydantic default**, for ADR-0042's reason: a default would let a season document
 that has never carried the key read as though it had, and the number would be a constant chosen in a
 model file. It is English, like `win_points` and `draw_points` beside it — it configures the competition
 rather than naming anything in it.

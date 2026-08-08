@@ -33,7 +33,7 @@ const ELFMETER_PATHS = ["elfmeterschiessen.team1", "elfmeterschiessen.team2"] as
  *
  * **A result needs both sides.** `PATCH /spiele/{spiel_id}` derives `ergebnis` from the two goal counts
  * and reads through an absent side as no goals at all, so a fixture with an unresolved slot can never
- * carry one (ADR-0041). The toggle says so rather than accepting scores the write path would discard.
+ * carry one (ADR-0042). The toggle says so rather than accepting scores the write path would discard.
  *
  * **The shoot-out appears only on a KNOCKOUT fixture that finished level**, which is the only shape it
  * can describe — the write path discards a record stored against any other, so offering the fields
@@ -115,7 +115,7 @@ export function FormErgebnisSection({
     onElfmeterschiessenChange({ team1: null, team2: null, ...elfmeterschiessen, [slot]: isNaN(val) ? null : val });
   };
 
-  // Team, then provenance, then the shared placeholder — the fall-through every card uses (ADR-0041).
+  // Team, then provenance, then the shared placeholder — the fall-through every card uses (ADR-0042).
   const team1Name = team1Payload?.name || formatQuelle(team1Quelle) || PLACEHOLDER.slot;
   const team2Name = team2Payload?.name || formatQuelle(team2Quelle) || PLACEHOLDER.slot;
   const team1Tore = team1Payload?.tore ?? NaN;

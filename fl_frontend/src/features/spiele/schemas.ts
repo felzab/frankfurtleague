@@ -19,7 +19,7 @@
  *     joined one: `disqualifikation` is joined per request and writing it back would denormalise it
  *     into the match document (ADR-0028, rule 4).
  *   • A fixture side is `null` when its occupant is not yet known, and `teamN_quelle` says where that
- *     occupant comes from (ADR-0041, ADR-0042). The two are independent and nothing pairs them, so every
+ *     occupant comes from (ADR-0042). The two are independent and nothing pairs them, so every
  *     consumer reads `team?.name ?? formatQuelle(quelle) ?? "Noch offen"` and never branches on a state.
  *   • `quelle` is a REFERENCE and carries no German. `formatQuelle` in `utils.ts` derives what a card
  *     shows, so the label exists in exactly one place instead of being stored per fixture.
@@ -183,7 +183,7 @@ export const FLSpielSchema = z.object({
   team2: FLSpielTeamFieldJoinedSchema.nullable(),
 
   // Where each side comes from. Survives the team arriving, so it is a sibling of the field above
-  // rather than a key inside it (ADR-0041). `null` also means "this slot is the admin's": clearing
+  // rather than a key inside it (ADR-0042). `null` also means "this slot is the admin's": clearing
   // it is the one way to take a slot out of automatic maintenance (ADR-0042).
   team1_quelle: FLSpielQuelleSchema.nullable(),
   team2_quelle: FLSpielQuelleSchema.nullable(),

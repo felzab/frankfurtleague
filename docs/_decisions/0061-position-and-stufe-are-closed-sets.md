@@ -48,7 +48,7 @@ counted: it is not unique within a squad — seven rows across three teams alrea
 team-mate — and there is no set to close it to.
 
 **The ten stray rows are normalised before the deploy, by hand, and the runbook is below.** The two
-directions of the change pull against each other exactly as ADR-0041's did: the validator refuses
+directions of the change pull against each other exactly as ADR-0042's did: the validator refuses
 what the documents currently hold, so the order is not a preference.
 
 ### Runbook
@@ -131,7 +131,7 @@ show the data it exists to fix. Rejected on scope: the tolerance would be perman
 for a state that lasts from the deploy until step 2 of a runbook — after which the validator makes it
 unreachable, since it refuses a bad value on update as well as on insert. A second shape of the same
 field, kept forever to serve a window measured in minutes, is the more expensive mistake. It is also
-the shape ADR-0041 and ADR-0059 both declined for the same reason: the data is ordered against the
+the shape ADR-0042 and ADR-0059 both declined for the same reason: the data is ordered against the
 deploy, not accommodated by it.
 
 **Include the Mittelstufe years (5–10) in `stufe`.** Rejected by the owner: twelve members to

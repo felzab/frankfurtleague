@@ -78,7 +78,7 @@ def test_accepts_a_match_with_no_date_venue_or_referee(spiel):
 
 class TestUnresolvedSides:
     """
-    A bracket slot whose occupant the group phase has not produced yet (ADR-0041).
+    A bracket slot whose occupant the group phase has not produced yet (ADR-0042).
 
     The four cases below are the four combinations of `teamN` and `teamN_quelle`, and the point of
     the parametrised one is that ALL of them validate. Nothing pairs the two fields, so no case here

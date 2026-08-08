@@ -5,23 +5,46 @@
 **Surface:** backend, frontend
 **Supersedes:** —
 **Superseded by:** —
-**Source:** Open item FB-4, whose part 1 established what feeds a bracket slot and whose part 2 is this
-workflow. [ADR-0041](0041-a-bracket-slot-carries-its-own-provenance.md) left the shape of the reference
-open and named the condition under which it could be settled; this is that settlement.
+**Source:** Open items BE-9 and FB-4. BE-9's subject was the "TBD" placeholder team, and its stated
+hard part was where the bracket slot's label would live once the team reference could be null; FB-4's
+part 1 established what feeds a bracket slot, and its part 2 is the resolution workflow. Retired
+number 0041 recorded the slot model alone on 2026-08-05, before FB-4's ruling settled the shape of
+the reference; this decision carries both halves.
 
 ## Context
 
-A playoff fixture with an unresolved side stores `teamN: null` beside a record of where that side comes
-from (ADR-0041). Nothing filled those slots when a result arrived. Season 2026 ran two quarter-finals —
-matches 25 and 28 — whose winners never reached the semi-finals they feed, and the only way to move them
-was to type each team into the admin form by hand.
+An unresolved playoff opponent was a **real `teams` document** named "TBD" carrying
+`is_placeholder: true`, with a `saison_teams` junction row per season. It worked, and it cost in four
+places: the junction row nothing prompted anyone to create, whose absence dropped the placeholder out
+of that season's team queries because the join is strict; a two-character shorthand `"??"` invented for
+a non-team; an exemption in `PATCH /teams/{team_id}`; and a free-text mechanism in the edit form so
+each bracket slot could read something other than "TBD".
+
+**The measurement that constrained the answer.** On 2026-08-02, matches 29, 30 and 31 held
+`team1.name` values reading `"Sieger 25."`, `"Sieger 26."` and `"Sieger 29."` while the `teams`
+document all three referenced read `"TBD"`. The embedded field was doing double duty: a display copy of
+`teams.name` on every other match, and a bracket slot label on those three — a label that existed
+nowhere else in the database. Nulling the reference deletes it, so "make the reference nullable" is
+only half a decision. That double duty had already forced a hole in an invariant:
+[ADR-0028](0028-store-what-was-true-then-derive-what-is-true-now.md) rule 3 obliges the endpoint that
+can change a source to fan a rename into every embedded copy of it — and `patch_team` had to read the
+team document first, purely to decide whether it was allowed to write `team1.name`, because for one
+club that field held something a fan-out would destroy. The placeholder team, its junction rows and
+`is_placeholder` were hard-deleted in the change that landed the slot model — reversing neither
+[ADR-0032](0032-soft-deletion-is-a-date-not-a-flag.md) nor
+[ADR-0033](0033-one-active-season-and-one-path-to-it.md): after it, nothing referenced the document,
+`inactive_since` means the day a **club** left the league and the placeholder was never a club, and
+ADR-0033 forbids a DELETE **endpoint**, which a one-off hand operation is not.
+
+With the slot modelled as absent, **nothing filled it when a result arrived**. Season 2026 ran two
+quarter-finals — matches 25 and 28 — whose winners never reached the semi-finals they feed, and the
+only way to move them was to type each team into the admin form by hand.
 
 **The domain fact that decides the shape, and it is the owner's ruling closing FB-4's part 1:** the
 first knockout round is **always** seeded from the group phase, and every round after it is fed by
-exactly two matches of the round before. There is no third way for a slot to be filled. That is what
-ADR-0041 was waiting to know — it rejected a `{spiel_nr, ausgang}` reference precisely because a
-match-fed reference cannot express a group placing, and nobody had yet decided whether group placings
-were in play.
+exactly two matches of the round before. There is no third way for a slot to be filled. Until that
+ruling, the shape of the reference was deliberately left open — a match-fed reference cannot express a
+group placing, and choosing it early would have answered FB-4's question by accident.
 
 **Nothing else records the bracket's edges.** `spieltage.order_val` orders the rounds and says nothing
 about who feeds whom, and position within a round is not the answer either: match 29 is fed by 25 and
@@ -32,11 +55,36 @@ describes the geometry and not the topology.
 match number by parsing it. It was rejected before it shipped. The reasoning is in
 _Alternatives considered_ below, because it is the alternative most likely to be proposed again.
 
+Two constraints were already in force and shaped what follows:
+
+- **A `$jsonSchema` validator may assert types, presence and enums and nothing else**
+  ([ADR-0027](0027-the-database-enforces-its-own-invariants.md)), so no cross-field rule about these
+  fields can live in the database. Matches are still hand-created in Compass, so a rule enforceable
+  only in Pydantic fails on **read**, which takes a public page down rather than refusing a bad write.
+- **The Zod mirror is compared against the published document on nullability**
+  ([ADR-0040](0040-the-zod-mirror-is-checked-against-the-published-document.md)), which names this
+  exact edit as the case it was proved against.
+
 ## Decision
 
-**A bracket slot stores a structural reference to what feeds it, and the German label is derived from
-that reference.** `FLSpiel.teamN_quelle` is a tagged union with exactly two variants, discriminated on
-`type`:
+**Model the unknown opponent as absent, and give the slot its own record of where its occupant comes
+from — a structural reference beside the team, never inside it.**
+
+```python
+class FLSpiel(BaseModel):
+    team1: FLSpielTeamField | None
+    team2: FLSpielTeamField | None
+    team1_quelle: FLSpielQuelle | None
+    team2_quelle: FLSpielQuelle | None
+```
+
+**`quelle` is provenance, not a placeholder.** It answers "where does this side of the fixture come
+from", which is a fact about the **fixture** — so it is set when the bracket is drawn, it stays true
+once the winner is written into the slot, it is never derived, never fanned out into, and never
+written or cleared by the resolution below.
+
+**The reference is structural, and the German label is derived from it.** `FLSpielQuelle` is a tagged
+union with exactly two variants, discriminated on `type`:
 
 | Variant  | Shape                       | Means                                                |
 | -------- | --------------------------- | ---------------------------------------------------- |
@@ -57,52 +105,61 @@ second copy of the fact to drift.
 within a season (`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`), and an id would make the draw
 depend on which documents already exist.
 
-**The occupant of a slot naming a match IS the winner of that match, recomputed in full on every match
-write.** `PATCH /spiele/{spiel_id}` resolves the whole of that match's season and writes back every
-fixture whose sides disagree with their references, inside the transaction that carries the result
-itself.
+**Nothing pairs the team and its reference, and no rule may be added to.** All four combinations are
+meaningful:
+
+| `team1` | `team1_quelle` | Means                                              |
+| ------- | -------------- | -------------------------------------------------- |
+| set     | null           | An ordinary group-phase fixture                    |
+| set     | set            | A resolved bracket slot — the winner of match 25   |
+| null    | set            | An unresolved bracket slot — "Sieger 25.", derived |
+| null    | null           | An opponent nobody has entered yet — "Noch offen"  |
+
+**Every reader takes the team's own text first, then the label derived from the reference, then the
+shared placeholder**, and branches on nothing else.
+`fl_frontend/src/features/spiele/components/ui/SpielTeamSlot.tsx` is that rule for the three match
+cards, which stay separate ([ADR-0007](0007-three-spiel-cards-stay-separate.md)).
+
+**There is no placeholder team.** An unresolved opponent is never impersonated by a `teams` document:
+no `is_placeholder` flag, no `"??"` shorthand, no `include_placeholders` parameter and no exemption in
+`patch_team` — the rename fan-out is unconditional (ADR-0028, rule 3), because no path under `team1.`
+or `team2.` can reach the reference.
+
+**The occupant of a slot IS what its reference names, recomputed in full on every match write.**
+`PATCH /spiele/{spiel_id}` resolves the whole of that match's season and writes back every fixture
+whose sides disagree with their references, inside the transaction that carries the result itself. A
+`spiel` reference resolves to the side that came out of that match; a `gruppe` reference is seeded
+from the standings — the single ranking chain and the only-once-final rule it obeys are
+[ADR-0043](0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)'s.
 
 **Recomputed, never appended to.** A corrected result moves the right team in; a deleted one empties the
 slot again; a bracket nobody propagated resolves itself on the next save of any match in the season.
 Running the resolution twice writes nothing the second time.
 
 **A fixture whose occupant changes loses its own result.** The goals stored against it were scored by a
-side that is no longer in it, so both sides' `tore` and the `ergebnis` go with the occupant — and the
-fixture then has no winner, which carries the correction onward to whatever it feeds.
+side that is no longer in it, so both sides' `tore`, the `ergebnis` and the shoot-out record beside it
+([ADR-0044](0044-a-shoot-out-is-its-own-scoreline.md)) go with the occupant — and the fixture then has
+no winner, which carries the correction onward to whatever it feeds.
 
-**Two things that cannot be looked up leave the fixture alone**: a reference naming a `spiel_nr` the
-season has no match for, and a chain of references that closes on itself. Both are data-entry mistakes,
-and erasing a team over one would destroy more than it reports. This is the one place the rule is not
-"the reference owns the slot", and the distinction is deliberate: _a match that exists and has no winner
-yet_ genuinely means the slot is empty, while _a number nobody can resolve_ means nothing at all.
-
-**Only the `spiel` variant resolves. A `gruppe` variant is stored, displayed, and left alone.** Seeding
-from the standings needs a total order within a group and a record of how many teams advance, and
-neither exists: the group sort is points, then goal difference, then whatever order the pipeline
-delivered. Asserting a second place the data cannot distinguish would be worse than not seeding at all.
-Open item FB-10 is that work, and the `gruppe` variant is what it will read.
+**A reference that cannot be looked up leaves the fixture alone.** A `spiel_nr` the season has no match
+for, or a chain of references that closes on itself, is a data-entry mistake in stored data, and
+erasing a team over one would destroy more than it reports. This is the one place the rule is not "the
+reference owns the slot", and the distinction is deliberate: _a match that exists and has no winner
+yet_ genuinely means the slot is empty, while _a number nobody can resolve_ means nothing at all. The
+full taxonomy of these faults and how they are reported is
+[ADR-0047](0047-a-bracket-fault-is-derived-on-demand.md)'s.
 
 **Manual override is the null, and there is no override flag.** A slot with a `quelle` is maintained by
-the resolution and by nothing else — a team entered by hand is reverted in the same request. A slot
-whose `quelle` is `null` is the admin's, and nothing writes it. That single rule is the whole
-manual-override story, and it is the route for a knockout that ends level, which has no winner and no
-way to record how it was actually settled (open item FB-8).
+the resolution and by nothing else — a team entered by hand against it is refused by the write path
+([ADR-0046](0046-the-write-path-refuses-wiring-the-season-cannot-hold.md)). A slot whose `quelle` is
+`null` is the admin's, and nothing writes it. That single rule is the whole manual-override story.
 
-**The endpoint reports what it moved.** `FLPatchSpielDataResponse.advanced_to` carries the `spiel_nr` of
-every fixture written, and the admin's toast names them. It reports what happened rather than what was
-asked for, so a fixture that was _emptied_ is named as readily as one that was filled — which is why the
-copy reads "aktualisiert" and not "eingetragen".
-
-**`quelle` is never written and never cleared by any of this.** It describes where a side of the fixture
-comes from, which stays true once the winner arrives (ADR-0041).
+**The endpoint reports what it moved.** `FLPatchSpielDataResponse.advanced_to` carries one entry per
+bracket fixture whose sides the result entry resolved, and the admin's toast names them. It reports
+what happened rather than what was asked for, so a fixture that was _emptied_ is named as readily as
+one that was filled — which is why the copy reads "aktualisiert" and not "eingetragen".
 
 ## Consequences
-
-**The reference and the team field are independent, and all four combinations are legitimate.** A
-`quelle` is a fact about the fixture; a team is a display copy the rename fan-out maintains
-([ADR-0028](0028-store-what-was-true-then-derive-what-is-true-now.md), rule 3). Every reader takes the
-team, then the derived label, then "Noch offen", and never asks which state it is in. Nothing pairs
-them and no validator polices the combination.
 
 **A match edit can rewrite matches the admin did not open.** The first save of any match in season 2026
 fills both outstanding semi-final slots. That is the point, and `advanced_to` is what stops it being a
@@ -123,58 +180,48 @@ value — that conditional rule is Pydantic's discriminated union, and the valid
 failure that would otherwise be silent: a `platz` stored as the string `"2"`, or a `type` nobody in the
 code has heard of.
 
-**Referential integrity is not enforced.** Nothing refuses a `spiel_nr` naming no match, and the admin
-form takes the number as typed rather than picking from a list of the season's matches — the edit dialog
-holds one match and not its season. The containment above is that an unresolvable reference is
-non-destructive and that `advanced_to` stays silent, which surfaces the typo when the result is entered
-rather than weeks later on the public bracket.
+**Referential integrity is enforced at the write path and nowhere else.** The endpoint refuses wiring
+the season cannot hold — a dangling `spiel_nr` among the refusals
+([ADR-0046](0046-the-write-path-refuses-wiring-the-season-cannot-hold.md)) — while the resolution keeps
+its non-destructive containment for stored data, because a season hand-edited in Compass never passed
+through the endpoint and erasing teams over a typo destroys more than it reports.
+
+**`teamN_quelle` is required, with no Pydantic default**, so a document that has never carried the key
+cannot be read at all. A default would let such a document read as null — the exact state a seeding
+pass exists to remove — and the pass could then be skipped with nothing to say so. This is the shape
+that orders a data change **against the deploy rather than accommodating it**: seed the key across the
+collection first, deploy second, with `python -m app.core.constraints --check` reporting exactly what
+the seeding missed. Later ADRs reuse the shape for their own fields.
 
 **No cache tag is added.** `updateTag("spiele")` already clears every `getSpiele` entry whatever its
 filter, so the playoffs page is invalidated by the same call as the admin's own view. A per-match tag
 would be a granular tag nothing invalidates ([ADR-0001](0001-two-granular-cache-tags.md)).
 
-**A knockout decided on penalties still cannot be recorded.** `ergebnis` is `^[0-9]+:[0-9]+$` and there
-is no penalties field, so a level fixture has no winner, the resolution correctly advances nobody, and
-the bracket stalls behind the clear-the-`quelle` route above. Open item FB-8.
-
-**The bracket's German vocabulary is now testable.** `formatQuelle` is a pure function with unit tests,
+**The bracket's German vocabulary is testable.** `formatQuelle` is a pure function with unit tests,
 where a stored label was checked by nobody.
 
-## The production data change, and the order is load-bearing
-
-Three steps, in ADR-0041's shape and for its reason: no migration tooling is added, because
-[ADR-0032](0032-soft-deletion-is-a-date-not-a-flag.md) settled that a one-off ships as a runbook rather
-than as a permanent file with one day's purpose.
-
-**`teamN_quelle` is required with no Pydantic default**, so a document that has never carried the key
-cannot be read at all. Running step 2 before step 1 fails `FLSpiel` on every match and takes
-`GET /spiele` — and with it the landing page, every grid and the bracket — down. Measured on
-2026-08-05 with `python -m app.core.constraints --check`: **31 of 31 `spiele` documents in season 2026
-would currently be rejected**, because none of them carries the key yet.
-
-**The bracket below is the owner's, confirmed 2026-08-05.** It was not measured from the database.
-
-1. **Before the deploy**, seed `teamN_quelle` on all 31 documents of season 2026. The running image
-   ignores unknown keys, so this is invisible until step 2.
-
-   | Match | `team1_quelle`                                     | `team2_quelle`                                     |
-   | ----- | -------------------------------------------------- | -------------------------------------------------- |
-   | 29    | `{type: "spiel", spiel_nr: 25, ausgang: "sieger"}` | `{type: "spiel", spiel_nr: 27, ausgang: "sieger"}` |
-   | 30    | `{type: "spiel", spiel_nr: 26, ausgang: "sieger"}` | `{type: "spiel", spiel_nr: 28, ausgang: "sieger"}` |
-   | 31    | `{type: "spiel", spiel_nr: 29, ausgang: "sieger"}` | `{type: "spiel", spiel_nr: 30, ausgang: "sieger"}` |
-
-   **Every other document — matches 25–28 and all 24 group-phase fixtures — gets `null` on both
-   fields.** The quarter-finals are group-seeded and their group provenance was never recorded, so a
-   `gruppe` reference here would be invented rather than migrated. `null` is also the correct answer
-   under the rule above: those slots stay the admin's until FB-10 can derive them.
-
-2. **Deploy.** `python -m app.core.constraints --check` reports exactly what step 1 missed, and
-   `collMod` applies the validator only once it reports clean.
-
-3. **After the deploy**, `$unset` `teamN_herkunft` across `spiele`. The new image never reads it, and
-   removing it before the deploy would take down the running one.
-
 ## Alternatives considered
+
+**A discriminated union on the team field — `team1: FLSpielTeamField | FLSpielSlotOffen`.** Cleaner in
+type theory: two states, illegal states unrepresentable, no combination to explain. Rejected on three
+counts. It needs a discriminator on every stored team field, so every match document is rewritten
+rather than extended. `$jsonSchema` cannot express a `oneOf` within ADR-0027's boundary, so the third
+copy of the schema would stop covering this shape at exactly the point it became structural. And it is
+the wrong sum: "where this side comes from" is not the opposite of "which team it is" but an
+independent fact that outlives the union's own discriminator.
+
+**Keep one field per side and nullify its contents** — `team_id: ObjectId | None`,
+`shorthand: str | None`, with `name` still carrying the label. The smallest diff, and it keeps every
+consumer reading `team1.name`. Rejected because that last property is the problem rather than the
+benefit: it is precisely what stops the type checker finding the consumers. Under `strict: true` a
+nullable `team1` makes every `.name`, `.team_id` and `.shorthand` access a compile error until it is
+handled, which is the sweep ADR-0040 records as having no other net. It also leaves `name`'s
+`min_length=1` demanding text for a side with no team — which is how "TBD" came to be stored in the
+first place — and leaves an object called "team" describing something that is not one.
+
+**Leave the placeholder team and only fix the junction-row omission.** Rejected: it treats the symptom
+that was cheapest to see. The missing row is one of four costs, and the other three — the invented
+shorthand, the fan-out exemption and the form's special case — all follow from the same lie.
 
 **Store the German label and parse it back into a reference** — `"Sieger 25."`, read by a
 `parse_herkunft` grammar. Built, reviewed, and rejected before it shipped. It makes a display string
@@ -183,8 +230,7 @@ here the data was being recovered from presentation. Three concrete costs on top
 foreign key that a typo silently breaks, with no validator able to see it, because every constraint that
 could apply is a regex over free text. A label that cannot express a group placing at all, so the
 `gruppe` half of the bracket would have needed a second mechanism. And a German string that both
-codebases must agree on character by character, which no type system checks. The structural field costs
-one staged production change — the runbook above — and deletes all three.
+codebases must agree on character by character, which no type system checks.
 
 **Store the reference and the label side by side.** Keeps every existing consumer working with no
 derivation step. Rejected because it stores the same fact twice with nothing keeping the two in step: the

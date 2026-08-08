@@ -14,7 +14,7 @@ Every mutation sits beside the reads for the resource it changes, in a second ro
     its `spiel_nr` pointing at nothing, which the resolution reads as a typo and acts on by leaving the
     slot alone -- so the bracket would keep a team it should not, and report nothing.
   • `ergebnis` is DERIVED from the two `tore` values and is never accepted from the client. A fixture
-    with an unresolved side has no goals to derive from and therefore no result (ADR-0041).
+    with an unresolved side has no goals to derive from and therefore no result (ADR-0042).
   • `elfmeterschiessen` IS accepted from the client -- it is a scoreline of its own and nothing else in
     the document states it -- but only on a KNOCKOUT fixture whose goals are level. Anywhere else it is
     discarded on the way in: a group-phase match has no tie to break, and a shoot-out on a fixture one

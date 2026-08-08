@@ -73,7 +73,7 @@ that omits it is a 422 rather than a team quietly reinstated.
 **Sixteen `saison_teams` rows, measured 2026-08-06.** `disqualifikation` is required and has no
 Pydantic default, so a row that has never carried the key cannot be read at all — and `GET /teams`
 serves the league table, the group grids and every team page. This follows the staged shape
-[ADR-0041](0041-a-bracket-slot-carries-its-own-provenance.md) and
+[ADR-0042](0042-a-result-entry-resolves-the-whole-bracket.md) and
 [ADR-0044](0044-a-shoot-out-is-its-own-scoreline.md) both used:
 
 1. **Before the deploy**, against the live database, seed the new key and leave the old one in place:

@@ -171,4 +171,4 @@ rule that never applies to the table it changed.
 **Refuse a shoot-out on a fixture the goals already decided, rather than discarding it.** Rejected
 because the check is a cross-field rule between `elfmeterschiessen` and two `tore` values, and matches
 are hand-created — so it would fail on READ and take the bracket page down over a document that is
-merely contradictory, which is the trap ADR-0041 recorded for pairing `quelle` with its team field.
+merely contradictory, which is the trap ADR-0042 records for pairing `quelle` with its team field.

@@ -32,7 +32,7 @@ it over ONE season rebuilt in memory, which is what `dry_run=true` answers with 
     `schiedsrichter.payment` record what was agreed for that match, and rewriting them would rewrite
     history (ADR-0028, rule 2).
   • `teamN_quelle` is never written. It describes where a side of the fixture comes from, which stays
-    true once the winner arrives (ADR-0041), and clearing it is the admin's only way to take a slot into
+    true once the winner arrives (ADR-0042), and clearing it is the admin's only way to take a slot into
     manual charge -- a write here would silently take it back (ADR-0042).
   • The GROUP STANDING is read through `build_team_pipeline`, the same pipeline `GET /teams` uses. A
     second, Python implementation of ADR-0026's counting rule would be a second answer to "how many

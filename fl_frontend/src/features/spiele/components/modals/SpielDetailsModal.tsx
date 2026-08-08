@@ -19,7 +19,7 @@ import type { FLSpiel, FLSpielQuelle, FLSpielTeamField } from "../../schemas";
  *
  * A resolved side is a plain link straight to the team — not a popover, for the reason recorded at the
  * call site. A side whose occupant is not yet known shows its provenance label as text, because there
- * is no team page to send anyone to (ADR-0041).
+ * is no team page to send anyone to (ADR-0042).
  */
 function TeamNameLine({ team, quelle, onNavigate }: { team: FLSpielTeamField | null; quelle: FLSpielQuelle | null; onNavigate: () => void }) {
   if (team === null) {

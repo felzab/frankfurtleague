@@ -24,7 +24,7 @@ thing to check when behaviour looks impossible.
   • Every response carrying matches carries the JOINED shape -- both reads and the action-required
     list. One wire shape, because the frontend mirrors all three with one `FLSpielSchema`.
   • A fixture side is `None` when its occupant is not yet known, and `teamN_quelle` says where that
-    occupant comes from (ADR-0041, ADR-0042). The two fields are INDEPENDENT and nothing pairs them:
+    occupant comes from (ADR-0042). The two fields are INDEPENDENT and nothing pairs them:
     `quelle` is a fact about the FIXTURE and stays true once the team arrives, while the team field is a
     display copy the rename fan-out maintains (ADR-0028, rules 2 and 3). All four combinations are
     meaningful, so a reader takes the team, then the label derived from `quelle`, then "Noch offen", and
@@ -195,7 +195,7 @@ class FLSpielElfmeterschiessen(BaseModel):
 
     **A `gruppenphase` fixture never carries one**, and that is not expressible here: `saison_phase` is a
     sibling field, so pairing the two would be a cross-field rule failing on READ for a hand-edited
-    document and taking the bracket page down with it (ADR-0041, invariant I22). `patch_spiel_data`
+    document and taking the bracket page down with it (ADR-0042, invariant I22). `patch_spiel_data`
     discards a shoot-out arriving on a group fixture, and `_outcome_of` refuses to read one.
 
     The two counts are the SHOOT-OUT's own scoreline and are never added to `tore`: a shoot-out win is a
@@ -406,7 +406,7 @@ class FLSpiel(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through id
 
     # `None` while the occupant is unknown -- a playoff slot the group phase has not filled yet. The
-    # opponent is MODELLED as absent rather than impersonated by a placeholder team (ADR-0041).
+    # opponent is MODELLED as absent rather than impersonated by a placeholder team (ADR-0042).
     team1: FLSpielTeamField | None
     team2: FLSpielTeamField | None
 

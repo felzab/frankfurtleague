@@ -94,7 +94,7 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
       <span className={`${LABEL_BADGE} ${chip} max-w-full whitespace-normal`}>{label}</span>
 
       {/* The occupant, in the two spellings every card uses: the club's own name, or the shared
-          placeholder for a side nobody stands in yet (ADR-0041). `break-words` and not `truncate` — a
+          placeholder for a side nobody stands in yet (ADR-0042). `break-words` and not `truncate` — a
           review surface that hides half a club's name is one an admin cannot finish, and the row is
           free to grow. */}
       {team === null ? (

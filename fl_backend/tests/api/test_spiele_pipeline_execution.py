@@ -97,7 +97,7 @@ class TestWhatTheMergeMustNotBreak:
         A bracket slot with no occupant is `None`, never an object carrying only a disqualification.
 
         `FLSpielJoined.team1` is nullable and every card reads `team?.name ?? formatQuelle(...)`, so an
-        empty object here would render as a resolved side with a blank name (ADR-0041).
+        empty object here would render as a resolved side with a blank name (ADR-0042).
         """
 
         assert spiel(league, 9)["team1"] is None

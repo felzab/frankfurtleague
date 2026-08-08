@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `0ceefab`, 2026-08-08
+**Verified against:** `787fedf`, 2026-08-08
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -43,7 +43,7 @@ OPS-6 and OPS-7 are both retired here.
 | 15  | LOG-1 | Logging was surveyed, then standardised: one correlation id, one stream per service                | FE, BE, Ops | L      | —                            | [`87ce77c`](https://github.com/felzab/frankfurtleague/commit/87ce77c) |
 | 16  | F2    | The Pydantic models and their Zod mirror were hand-maintained with nothing comparing them          | FE, BE      | M      | —                            | [`a9bbc71`](https://github.com/felzab/frankfurtleague/commit/a9bbc71) |
 | 17  | BE-9  | An unresolved playoff opponent was a real team document named "TBD"                                | BE, FE      | L      | —                            | [`ca63cd9`](https://github.com/felzab/frankfurtleague/commit/ca63cd9) |
-| 18  | FB-4  | The playoff bracket had no seeding check and advanced no winner when a result was entered          | FE, BE      | M      | — (slot model: ADR-0041)     | [`f023414`](https://github.com/felzab/frankfurtleague/commit/f023414) |
+| 18  | FB-4  | The playoff bracket had no seeding check and advanced no winner when a result was entered          | FE, BE      | M      | — (slot model: ADR-0042)     | [`f023414`](https://github.com/felzab/frankfurtleague/commit/f023414) |
 | 19  | FB-10 | The first knockout round could not be seeded, because nothing could say who finished second        | FE, BE, DB  | L      | — (batched with FE-4)        | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
 | 20  | FE-4  | The Saisontabelle marked nobody as holding a playoff place                                         | FE, BE      | M      | — (batched with FB-10)       | [`aebf43d`](https://github.com/felzab/frankfurtleague/commit/aebf43d) |
 | 21  | FB-8  | A knockout that ended level had nowhere to record how it was decided, so the bracket stalled       | FE, BE, DB  | M      | — (clock: the playoffs)      | [`ab20403`](https://github.com/felzab/frankfurtleague/commit/ab20403) |
@@ -131,8 +131,9 @@ no row here — its commit is the whole story.
   run were fixed in the same commit rather than filed, and one finding that was not a decision left it
   for a permanent home instead: backend audit pass B2's prompt now names what the check deliberately
   omits — ranges, patterns, lengths, formats — as that pass's subject.
-- **BE-9** → [ADR-0041](../_decisions/0041-a-bracket-slot-carries-its-own-provenance.md), a nullable
-  fixture side with its provenance label in an independent sibling field. It opened nothing and
+- **BE-9** → the slot model carried by
+  [ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md) (retired number 0041): a
+  nullable fixture side with its provenance in an independent sibling field. It opened nothing and
   unblocked FB-4's part 2. Two findings that were not decisions left it for permanent homes instead:
   the slot vocabulary is `Quelle` in `docs/glossary.md`, and the two fields' independence is
   invariant I22 in `docs/backend/spec.md`.
