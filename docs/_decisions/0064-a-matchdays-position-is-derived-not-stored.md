@@ -117,11 +117,11 @@ accepts is a season whose columns order correctly, which was not previously true
 season, retirement. Nothing on it is a statement about its neighbours, which is what made a position
 different in kind from every other field it sat beside.
 
-**`anzahl_spiele` is now the only hand-maintained value on the document**, and the only one with no
-authority behind it. ADR-0026's derivation still does not extend to it and this decision does not extend to
-it either — but it is worth naming that the argument above applies to it in full, and the reason it is not
-acted on here is that "how many matches this matchday should contain" is a genuine intention, not a
-derivable fact.
+**The same argument reached `anzahl_spiele`, and [ADR-0065](0065-a-seasons-schedule-is-derived-from-its-rules.md)
+acts on it.** A single round robin per group fixes how many matches a matchday of a given phase holds, so
+what looked like an intention is arithmetic over the season's rules. That decision removes the last
+hand-maintained value from this document, which leaves a matchday described entirely by facts about the
+matchday.
 
 ## Alternatives considered
 

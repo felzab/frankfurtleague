@@ -1,6 +1,6 @@
 # Backend — overview
 
-**Verified against:** `74d83d6`, 2026-08-05
+**Verified against:** `b5324b8`, 2026-08-08
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB. **Fifteen routers**: `system`, plus a read and a write router for
@@ -20,8 +20,9 @@ fl_backend/
 ├── app/
 │   ├── asgi.py        the process entry point — the ONE module that builds an app on import
 │   ├── main.py        `create_app()`: middleware, router registration. Builds nothing on import
-│   ├── core/          infrastructure: config · db · security · crud · dependencies
+│   ├── core/          infrastructure: config · db · security · crud · dependencies · routing
 │   │                  exceptions · exception_handlers · middlewares · logging
+│   │                  collections · constraints · domain — the three declarations
 │   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services · crud
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
@@ -123,12 +124,15 @@ full table, and the rule that every failure response is `{error_code, correlatio
 `fl_backend/tests/` runs in **two tiers** since
 [ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).
 
-The **default tier** is **459 cases** under parametrisation and finishes in under a second. It
-tests **schema constraints** — that the models reject what they should — plus the rules encoded in
-`build_team_pipeline` and the database constraints read as data, and needs no running server, no
-database and no Docker.
+The **default tier** is **972 cases** under parametrisation and finishes in a few seconds. It tests
+**schema constraints** — that the models reject what they should — plus every `find_*_refusal` in
+`domain.py :: RULES`, the rules encoded in `build_team_pipeline`, and the three declarations read as
+data: the database constraints, the collection names
+([ADR-0068](../_decisions/0068-one-declaration-of-the-collection-names.md)) and the domain model
+([ADR-0066](../_decisions/0066-the-domain-model-is-declared-and-conformance-checked.md)). It needs no
+running server, no database and no Docker.
 
-The **`db` tier** is **54 cases** carrying `@pytest.mark.db`, deselected by default and run with
+The **`db` tier** is **72 cases** carrying `@pytest.mark.db`, deselected by default and run with
 `pytest -m db`. They start a real `mongod` and execute two things the default tier can only describe:
 the league-table pipeline against a seeded corpus, because a pipeline is a dict MongoDB runs; and the
 `$jsonSchema` validators, because `required` inside a nullable sub-schema, and `bsonType: "int"` faced
@@ -144,9 +148,12 @@ rather than enforcing them itself, and those constraints had no regression net u
 existed. The frontend's toolchain runs nothing against the backend, so `scripts/verify.sh` runs
 ruff and pytest as a separate step.
 
-**What is still uncovered:** routers, CRUD and authentication. That boundary belongs to the planned
-backend audit, which wants one strategy across those layers — and which now inherits the `mongod`
-fixture rather than having to invent one.
+**What is still uncovered: `core/crud.py`, and the handler bodies that orchestrate it.** Authorization
+is no longer among them — `tests/api/test_admin_guard.py` walks `app.openapi()["paths"]` and fails if a
+write endpoint loses its guard — and neither is the refusal logic every write performs, which is pure
+and so is covered without a server. What remains is the code between those two. That boundary belongs to
+the planned backend audit, which wants one strategy across those layers — and which now inherits the
+`mongod` fixture rather than having to invent one.
 See [`../../fl_backend/tests/README.md`](../../fl_backend/tests/README.md).
 
 ## Read next

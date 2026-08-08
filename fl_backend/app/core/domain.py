@@ -33,7 +33,7 @@ in this module and nothing calls it at request time.
   • A referential action names what the CODE does, never what it ought to do. Where the answer is "nothing
     happens, deliberately", the action is `NO_ACTION` and the note says why.
   • Only fields whose answer is not plainly `EDITABLE` are listed. A row for every editable string would
-    bury the thirty that carry a condition.
+    bury the thirty-two that carry a condition.
 
  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -607,7 +607,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-RULES-007",
-        operation="POST /saisons . PATCH /saisons/{saison_id}",
+        operation="POST /saisons · PATCH /saisons/{saison_id}",
         aggregate="Saison",
         summary="`qualifiers_per_group` may not exceed `teams_per_group`",
         implemented_by="app.api.saisons.services.find_rules_refusal",
@@ -720,7 +720,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-DATE-002",
-        operation="POST /spieltage . PATCH /spieltage/{spieltag_id}",
+        operation="POST /spieltage · PATCH /spieltage/{spieltag_id}",
         aggregate="Spieltag",
         summary="a matchday's span must fall inside its season's",
         implemented_by="app.api.spieltage.services.find_spieltag_span_refusal",
@@ -840,7 +840,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SQUAD-001",
-        operation="POST /spieler/{spieler_id}/saisons . PATCH /spieler/{spieler_id}/saisons/{saison_id}",
+        operation="POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id}",
         aggregate="Saison",
         summary="a squad row's team must hold a junction row for that season",
         implemented_by="app.api.spieler.services.find_squad_refusal",
@@ -849,7 +849,7 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         code="REQ-SQUAD-002",
-        operation="POST /spieler/{spieler_id}/saisons . PATCH /spieler/{spieler_id}/saisons/{saison_id}",
+        operation="POST /spieler/{spieler_id}/saisons · PATCH /spieler/{spieler_id}/saisons/{saison_id}",
         aggregate="Saison",
         summary="a squad number this write would newly take from another player is refused",
         implemented_by="app.api.spieler.services.find_squad_refusal",
