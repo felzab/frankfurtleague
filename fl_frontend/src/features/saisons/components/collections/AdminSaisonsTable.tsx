@@ -36,11 +36,28 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 }) {
   // One source for both layouts: the `md+` table's cells and the phone cards render these, so the two
   // presentations cannot disagree about a season's state.
+  // `h-7` on the status badge AND on the id chip beside it (owner, 2026-08-08): LABEL_BADGE sizes
+  // itself by padding and the id chip by its own, so the two sat at different heights in one row.
+  // One fixed height, stated at both call sites, is what keeps them level.
   const renderStatusBadge = (saison: AdminSaisonRow) => {
-    if (saison.status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>;
-    if (saison.status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>;
-    return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>;
+    if (saison.status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong h-7 px-2`}>Laufend</span>;
+    if (saison.status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong h-7 px-2`}>Geplant</span>;
+    return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted h-7 px-2`}>Abgeschlossen</span>;
   };
+
+  /**
+   * The season's span as two dates around a bis-Strich, shared by both layouts (owner, 2026-08-08).
+   * The dates carry the weight and the dash recedes: set entirely in one face, "01.09.2025 bis
+   * 30.06.2026" read as one grey ribbon, and the word did more work than the dates. `tabular-nums`
+   * keeps the digits in columns, so two rows' spans line up under each other.
+   */
+  const renderZeitraum = (saison: AdminSaisonRow) => (
+    <span className="flex flex-row items-baseline gap-x-1.5 tabular-nums">
+      <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.start_date)}</span>
+      <span className="fluid-xs text-foreground-muted font-medium">–</span>
+      <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.end_date)}</span>
+    </span>
+  );
 
   /** The three numbers that say whether a season is set up, in one line. */
   const renderAufbau = (saison: AdminSaisonRow) => (
@@ -111,14 +128,12 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
             key={saison.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             <div className="flex w-full flex-row items-center gap-3">
-              <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 shrink-0 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
+              <span className="bg-brand/50 text-foreground fluid-xs inline-flex h-7 w-14 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide shadow-sm">
                 {saison.id}
               </span>
               {renderStatusBadge(saison)}
             </div>
-            <span className="fluid-sm text-foreground font-semibold">
-              {formatSpielDatum(saison.start_date)} bis {formatSpielDatum(saison.end_date)}
-            </span>
+            {renderZeitraum(saison)}
             {renderAufbau(saison)}
             <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(saison)}</div>
           </div>
@@ -160,16 +175,12 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                     <Table.Cell className="px-6 py-4">
                       {/* The season id wears the same chip tint a team's Kürzel does: both are the short
                           identifier a reader scans a column for. */}
-                      <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
+                      <span className="bg-brand/50 text-foreground fluid-xs inline-flex h-7 w-14 items-center justify-center rounded-md font-extrabold tracking-wide shadow-sm">
                         {saison.id}
                       </span>
                     </Table.Cell>
 
-                    <Table.Cell className="px-3 py-4">
-                      <span className="fluid-sm text-foreground font-semibold">
-                        {formatSpielDatum(saison.start_date)} bis {formatSpielDatum(saison.end_date)}
-                      </span>
-                    </Table.Cell>
+                    <Table.Cell className="px-3 py-4">{renderZeitraum(saison)}</Table.Cell>
 
                     <Table.Cell className="px-3 py-4">{renderAufbau(saison)}</Table.Cell>
 
