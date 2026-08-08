@@ -50,12 +50,20 @@ export function ThemeSwitch() {
       <ToggleButton
         id="light"
         isIconOnly
+        // Shorter on a phone (owner, 2026-08-08). HeroUI's `size="sm"` toggle is `h-8`, which is right in a
+        // desktop footer and taller than it needs to be in a mobile one, where the switch sits under the nav
+        // and every vertical pixel is scrolled past. `h-7` below `sm`, HeroUI's own height from there up.
+        className="h-7 sm:h-8"
         aria-label="Helle Darstellung">
         <Sun className="size-4" />
       </ToggleButton>
       <ToggleButton
         id="dark"
         isIconOnly
+        // Shorter on a phone (owner, 2026-08-08). HeroUI's `size="sm"` toggle is `h-8`, which is right in a
+        // desktop footer and taller than it needs to be in a mobile one, where the switch sits under the nav
+        // and every vertical pixel is scrolled past. `h-7` below `sm`, HeroUI's own height from there up.
+        className="h-7 sm:h-8"
         aria-label="Dunkle Darstellung">
         <Moon className="size-4" />
       </ToggleButton>

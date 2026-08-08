@@ -104,14 +104,18 @@ export function FilterBar<TItem>({
                     // A bordered cell rather than a rule between stacked rows: in a grid a horizontal
                     // separator would divide two columns' worth of unrelated facets.
                     className="border-border/70 flex w-full min-w-0 flex-col gap-y-1 rounded-xl border p-1.5">
-                    <div className="flex flex-row items-center justify-between gap-x-2 px-1.5 pt-0.5">
+                    {/* A FIXED height, because the reset appears only once something is picked (owner,
+                        2026-08-08). Its intrinsic height exceeded the label's, so the header row grew on the
+                        first selection and pushed every facet below it down — the popover appeared to jump
+                        while being used. Reserving the row lets the button come and go without reflow. */}
+                    <div className="flex h-6 flex-row items-center justify-between gap-x-2 px-1.5">
                       <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
                       {picked.length > 0 && (
                         <Button
                           variant="ghost"
                           aria-label={`${facet.label} zurücksetzen`}
                           onPress={() => clearFacet(facet.param)}
-                          className="fluid-xxs text-foreground-muted hover:text-foreground cursor-pointer font-bold transition-colors">
+                          className="fluid-xxs text-foreground-muted hover:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors">
                           Zurücksetzen
                         </Button>
                       )}
@@ -139,9 +143,15 @@ export function FilterBar<TItem>({
                             // A selected option stays enabled whatever its count — disabling it would make
                             // it impossible to deselect, which is the one state this rule must not create.
                             isDisabled={count === 0 && !isPicked}
-                            className="text-foreground-muted hover:bg-muted hover:text-brand data-selected:text-foreground fluid-sm flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors data-disabled:opacity-40">
+                            // The VALUE carries the emphasis and its count carries the brand (owner,
+                            // 2026-08-08): full-strength text for an option that would match something,
+                            // muted for one that would match nothing. `data-disabled:opacity-40` used to be
+                            // the only signal, which dimmed the whole row including its count.
+                            className={`fluid-sm hover:bg-muted hover:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors ${
+                              count === 0 ? "text-foreground-muted" : "text-foreground"
+                            }`}>
                             <span className="min-w-0 truncate">{option.label}</span>
-                            <span className={`${COUNT_BADGE} bg-muted text-foreground-muted shrink-0`}>{count}</span>
+                            <span className={`${COUNT_BADGE} bg-brand/50 text-foreground shrink-0`}>{count}</span>
                           </ListBox.Item>
                         );
                       })}

@@ -64,23 +64,11 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
 
   {
     category_name: "Spiele",
+    // The order is the order the four are REACHED IN (owner, 2026-08-08): what needs doing, then finding
+    // one fixture, then the schedule those fixtures sit in, then the draw that decides the later ones. The
+    // queue leads because it is the only entry that answers "is there anything to do at all" — the other
+    // three are all "take me to a thing I already have in mind".
     sub_options: [
-      // First in this group, and above the queue: a Spieltag is the block the matches below it belong
-      // to, so the schedule comes before the fixtures that fill it (owner, 2026-08-07).
-      {
-        id: "spieltage",
-        label: "Spieltage",
-        iconName: "Calendar",
-        hint: {
-          lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und in der Reihenfolge, in der sie gespielt werden.",
-          points: [
-            { term: "Position", detail: "ergibt sich aus Phase und Beginn. Um einen Spieltag zu verschieben, ändere sein Datum." },
-            { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
-            { term: "Stilllegen", detail: "nimmt den Spieltag aus den Listen. Seine Spiele bleiben erhalten." },
-          ],
-          note: "Es gibt keine Reihenfolge einzutragen. Die Liste zeigt, an welcher Stelle ein Spieltag steht.",
-        },
-      },
       // "Handlungsbedarf", not "Übersicht": the page is a queue of the things needing an admin, ranked
       // by what each one blocks (ADR-0056) — an overview is what `spielsuche` below is. The label is
       // also the collapsed sidemenu's tooltip and the page's own title in the bar, so all three move
@@ -99,11 +87,38 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           note: "Abgesagte Spiele stehen nur zum Nachschlagen dort, sie sind keine Aufgabe.",
         },
       },
-      // Below the queue and above the search box, which is the order the three are reached in: what
-      // needs doing, then the draw that decides what will need doing, then looking one fixture up.
-      // Named AND iconed for the public bracket's own entry (`DASHBOARD_SIDEMENU_ICONS`), because it
-      // is the same rounds seen for a different purpose — a second word and a second glyph for one
-      // stage are two more things to learn for nothing.
+      {
+        id: "spielsuche",
+        label: "Spielsuche",
+        iconName: "Magnifier",
+        hint: {
+          lead: "Durchsucht alle Spiele der Saison, um eines gezielt zu öffnen.",
+          points: [
+            { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
+            { term: "Bearbeiten", detail: "der Stift auf einer Karte öffnet das Spiel." },
+          ],
+        },
+      },
+      // The two structural surfaces come after the two that reach a single fixture: a Spieltag is the block
+      // matches belong to, and the Finalrunden are how the later ones are wired — both are read to check the
+      // shape of the season rather than to act on one match.
+      {
+        id: "spieltage",
+        label: "Spieltage",
+        iconName: "Calendar",
+        hint: {
+          lead: "Die Spieltage der im Seitenmenü gewählten Saison, nach Phase und in der Reihenfolge, in der sie gespielt werden.",
+          points: [
+            { term: "Name und Position", detail: "ergeben sich aus Phase und Beginn. Um einen Spieltag zu verschieben, ändere sein Datum." },
+            { term: "Spiele", detail: "die angelegte Zahl neben der erwarteten. Weichen sie ab, fehlt etwas." },
+            { term: "Stilllegen", detail: "nimmt den Spieltag aus den Listen. Nur möglich, solange keines seiner Spiele ein Ergebnis hat." },
+          ],
+          note: "Sobald die KO.-Runde begonnen hat, lassen sich keine Spieltage mehr anlegen.",
+        },
+      },
+      // Named AND iconed for the public bracket's own entry (`DASHBOARD_SIDEMENU_ICONS`), because it is the
+      // same rounds seen for a different purpose — a second word and a second glyph for one stage are two
+      // more things to learn for nothing.
       {
         id: "finalrunden",
         label: "Finalrunden",
@@ -119,18 +134,6 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
             { term: "„Ohne Herkunft“", detail: "weder Mannschaft noch Herkunft. Diese Seite füllt niemand." },
           ],
           note: "Die Gruppenphase steht nicht dort: ihre Paarungen kommen aus dem Spielplan und haben keine Herkunft.",
-        },
-      },
-      {
-        id: "spielsuche",
-        label: "Spielsuche",
-        iconName: "Magnifier",
-        hint: {
-          lead: "Durchsucht alle Spiele der Saison, um eines gezielt zu öffnen.",
-          points: [
-            { term: "Gesucht wird in", detail: "Mannschaft, Ort, Datum, Spielnummer und Schiedsrichter." },
-            { term: "Bearbeiten", detail: "der Stift auf einer Karte öffnet das Spiel." },
-          ],
         },
       },
     ],
