@@ -1,6 +1,6 @@
 # Rules index
 
-**Verified against:** `3014d32`, 2026-08-08
+**Verified against:** `5d70e9f`, 2026-08-09
 
 Every rule in one line each; the chapter heading links to the file the full rules live in.
 Precedence, in one breath:
@@ -75,7 +75,7 @@ Precedence, in one breath:
 - **CUR-2:** a change that invalidates a claim updates the document in the same commit.
 - **CUR-3:** stamp on line 3, exact shape, moved only after re-verifying the page.
 - **CUR-4:** materially change a file a stamped page cites → re-verify and restamp it, same
-  branch.
+  branch; a stamp-only delta re-arms nothing.
 - **CUR-5:** the gate's check list lives in the currency chapter, and only there.
 - **CUR-6:** what no branch touched belongs to `/docs:audit`; one branch's slice, before its pull
   request, to `/docs:audit-pr`.

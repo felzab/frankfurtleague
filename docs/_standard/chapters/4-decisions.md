@@ -1,6 +1,6 @@
 # Decisions
 
-**Verified against:** `09f903d`, 2026-08-08\
+**Verified against:** `5d70e9f`, 2026-08-09\
 **Applies to:** `docs/_decisions/` — every ADR, and the index beside them.
 
 | ID    | Rule                 |

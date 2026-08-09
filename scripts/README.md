@@ -1,6 +1,6 @@
 # `scripts/`
 
-**Verified against:** `09f903d`, 2026-08-08
+**Verified against:** `5d70e9f`, 2026-08-09
 **Scope:** every script in `scripts/`, and the conventions they share
 
 Operational scripts for building, testing, running and deploying Frankfurt-League. This page says

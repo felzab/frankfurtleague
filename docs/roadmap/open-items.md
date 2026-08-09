@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `3014d32`, 2026-08-08
+**Verified against:** `5d70e9f`, 2026-08-09
 
 Findings and undecided questions with real analysis, plus my ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -50,7 +50,7 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 6   | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
 | 7   | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
 | 8   | FB-15 | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —                         |
-| 9   | DOC-1 | A stamp-only edit propagates the branch-impact check    | Docs        | S      | Open     | —                         |
+| 9   | DOC-1 | A stamp-only edit propagates the branch-impact check    | Docs        | S      | Closed   | —                         |
 | 10  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
 | 11  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
 | 12  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
@@ -526,6 +526,11 @@ documentation-heavy branch is what makes it worth an afternoon.
 
 **Path:** independent. Nothing blocks it; every branch that edits a page other stamped pages cite
 pays the cascade until it is decided.
+
+**Concluded 2026-08-09:** [ADR-0073](../_decisions/0073-a-restamp-is-not-a-material-change.md) —
+the carve-out was taken. `branch-impact` normalises real stamp lines out of both versions of a
+changed markdown file before deciding materiality, so a restamp arms nothing and the cascade ends
+at the pages whose cited content actually changed. No non-decision finding needed rehoming.
 
 ---
 

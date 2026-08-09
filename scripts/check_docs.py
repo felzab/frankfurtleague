@@ -502,18 +502,53 @@ def check_stamp_freshness(base: str) -> list[Finding]:
     return found
 
 
+def _stamp_only_delta(fork: str, rel: str) -> bool:
+    """A markdown delta consisting only of moved stamp lines is a restamp, not a change.
+
+    Restamping is the remedy branch-impact itself prescribes, and a remedy that re-arms the check
+    on every page citing the restamped one turns one edit into a repository-wide cascade
+    (ADR-0073). Nothing a citer cites lives on the stamp line, so real stamp lines are normalised
+    out of both versions before they are compared. Only a line carrying an actual SHA is
+    normalised: a placeholder stamp, like the shape example in the currency chapter, is content.
+    Anything unreadable stays material, which is the conservative direction.
+    """
+    if not rel.endswith(".md"):
+        return False
+    before = git("show", f"{fork}:{rel}")
+    if before is None:
+        return False
+    try:
+        after = (REPO_ROOT / rel).read_text(encoding="utf-8")
+    except OSError, UnicodeDecodeError:
+        return False
+
+    def keep_placeholders(match: re.Match[str]) -> str:
+        return "" if STAMP_RE.search(match.group(0)) else match.group(0)
+
+    # Stripped on both sides because git() strips what `git show` returns, while read_text keeps
+    # the file's trailing newline -- without this the two sides never compare equal.
+    normalised_before = STAMP_LINE_RE.sub(keep_placeholders, before).strip()
+    normalised_after = STAMP_LINE_RE.sub(keep_placeholders, after).strip()
+    return normalised_before == normalised_after
+
+
 def check_branch_impact(base: str) -> list[Finding]:
     """A stamped page whose cited files materially changed on this branch must restamp (CUR-4).
 
     Material means more than comments, decided by check_scope's parser classifier -- anything it
-    cannot prove comment-only counts, so shell, YAML, Dockerfiles and markdown always do. A page
-    added on the branch passes: its stamp is already this branch's work.
+    cannot prove comment-only counts, so shell, YAML and Dockerfiles always do, and markdown does
+    unless its whole delta is stamp lines, which is a restamp rather than a change (ADR-0073). A
+    page added on the branch passes: its stamp is already this branch's work.
     """
     fork = check_scope.resolve_base(base)
     if fork is None:
         return []
     changed = check_scope.changed_files(fork)
-    material = {path for path in changed if not check_scope.is_comment_only(fork, path)}
+    material = {
+        path
+        for path in changed
+        if not check_scope.is_comment_only(fork, path) and not _stamp_only_delta(fork, path)
+    }
     if not material:
         return []
 
