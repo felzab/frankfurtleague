@@ -544,11 +544,7 @@ def check_branch_impact(base: str) -> list[Finding]:
     if fork is None:
         return []
     changed = check_scope.changed_files(fork)
-    material = {
-        path
-        for path in changed
-        if not check_scope.is_comment_only(fork, path) and not _stamp_only_delta(fork, path)
-    }
+    material = {path for path in changed if not check_scope.is_comment_only(fork, path) and not _stamp_only_delta(fork, path)}
     if not material:
         return []
 
