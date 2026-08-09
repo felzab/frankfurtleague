@@ -1,33 +1,14 @@
 """
 CORE · the nine collection names
 
-One declaration of what this database holds, so the name is written once rather than in each of the three
-places that need it: the DI accessors in `db.py`, the `$jsonSchema` validators in `constraints.py`, and the
-aggregate and reference tables in `domain.py`.
+One declaration of what this database holds, so a name is written once for the three places that
+need it: the accessors in `db.py`, the validators in `constraints.py`, and the tables in
+`domain.py`. A `StrEnum` rather than a `Literal` because a collection name never crosses the
+wire, and iteration is what lets `test_every_collection_is_declared_once` catch a tenth
+collection added to one place and not the others (ADR-0068).
 
- WHY AN ENUM HERE AND A `Literal` IN `app/api/*/schemas.py` ─────────────────────────────────────────────────
-
-  The difference is what the value IS. `FLSaisonStatus` is a `Literal` because the string is DATA: it is
-  stored in MongoDB, enumerated in a validator and published in `openapi.json`, so the wire format needs
-  the bare value and nothing else. A collection name never crosses the wire -- it is how this process
-  addresses its own storage -- so it wants the three things an enum gives and a `Literal` cannot: a
-  namespace at the call site, per-member documentation attached to the member, and iteration.
-
-  Iteration is what earns it. `test_every_collection_is_declared_once` walks `Collection` against
-  `COLLECTION_VALIDATORS` and against `db.py`'s accessors, so a tenth collection added to one and not the
-  others fails rather than drifting -- and that check is not expressible over a `Literal` without
-  `get_args`.
-
-  `StrEnum` rather than the `(str, Enum)` mixin, for the reason `app/core/domain.py` gives: on Python 3.12+
-  the mixin renders as `Collection.SAISONS` inside an f-string, and a Mongo filter built from one would
-  carry the enum's name instead of the collection's.
-
- WHAT THIS IS NOT ─────────────────────────────────────────────────────────────────────────────────────────
-
-  It is not a declaration of FIELD names, and there is deliberately no equivalent for those. A filter needs
-  the STORED name, which differs from the model's field where an alias is involved (`_id` against `id`), so
-  a constants layer over fields would be a hand-maintained third copy of every schema -- which is what
-  ADR-0031 exists to avoid. Motor's API takes strings there and this repository keeps them.
+Invariants:
+- There is deliberately no equivalent declaration of field names (ADR-0068, ADR-0031).
 """
 
 from enum import StrEnum

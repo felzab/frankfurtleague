@@ -1,59 +1,22 @@
 """
 SPIELE · write endpoints, and the one admin-only read
 
-Every mutation sits beside the reads for the resource it changes, in a second router whose guard is
-`verify_access_admin` (ADR-0034).
+Every mutation sits in a second router guarded at router level by `verify_access_admin`
+(ADR-0034). There is no POST and no DELETE (ADR-0045): fixtures are created once, then cancelled
+or moved. `apply_payload_to_spiel` normalises for both the save and the `dry_run=true` preview,
+so the two cannot drift (ADR-0051).
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- `ergebnis` is derived from the `tore` values, never accepted from the client (ADR-0042).
+- `elfmeterschiessen` is accepted only on a level knockout fixture, else discarded (ADR-0044).
+- The `$set` keys come from the payload's field set — an omitted field overwrites, hence no defaults.
+- `dry_run=true` opens no transaction and writes nothing, and every refusal runs in `judge` first.
+- Wiring and occupant refusals are distinct 409 codes: the advice differs (ADR-0046, ADR-0052).
+- `patch_spiel_data` writes no team document (ADR-0026) but does advance the bracket (ADR-0042).
+- `/action_required` derives its faults (ADR-0047), is uncached (ADR-0013), and routes via the `objectid` convertor.
 
-  • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
-    construction. Never move the guard onto an individual endpoint.
-  • There is NO POST and NO DELETE here, and neither is to be added (ADR-0045). A season's fixtures are
-    all created at its start; a match is thereafter CANCELLED (`is_canceled`) or MOVED (`datum`), and
-    those two are the whole vocabulary of change. Deleting one would leave every `teamN_quelle` naming
-    its `spiel_nr` pointing at nothing, which the resolution reads as a typo and acts on by leaving the
-    slot alone -- so the bracket would keep a team it should not, and report nothing.
-  • `ergebnis` is DERIVED from the two `tore` values and is never accepted from the client. A fixture
-    with an unresolved side has no goals to derive from and therefore no result (ADR-0042).
-  • `elfmeterschiessen` IS accepted from the client -- it is a scoreline of its own and nothing else in
-    the document states it -- but only on a KNOCKOUT fixture whose goals are level. Anywhere else it is
-    discarded on the way in: a group-phase match has no tie to break, and a shoot-out on a fixture one
-    side already won is a contradiction (ADR-0044).
-  • BOTH of those live in `apply_payload_to_spiel`, and this handler states neither for itself. The
-    `dry_run=true` preview applies the same function, so a normalisation restated here would be the
-    one place the preview and the save could drift (ADR-0051).
-  • The payload is written wholesale with `$set`, so a field absent from it is overwritten rather than
-    preserved. That is why the money fields carry no Pydantic default. The keys come from the PAYLOAD's
-    field set, not from the normalised fixture's, so `spiel_nr`, `spieltag_id`, `saison_id` and
-    `saison_phase` are never in an update that has no business naming them.
-  • `dry_run=true` opens NO transaction and writes nothing, and it runs every refusal first. A preview
-    that could succeed where the save is refused is worse than no preview at all.
-  • `patch_spiel_data` writes NO team document. Team statistics are derived from the matches on read
-    (ADR-0026), so there is no second write to keep in step and no team to look up here. It does write
-    other MATCH documents: entering a result resolves the season's bracket, which moves winners into
-    the fixtures whose `quelle` names that match (ADR-0042).
-  • Wiring the season cannot hold is a 409 (`REQ-WIRING-001`), decided by `find_wiring_refusal` inside
-    the transaction and before the write (ADR-0046). The resolution's own containment of the same
-    shapes stays: it is for data that never passed through this endpoint.
-  • An OCCUPANT the season cannot hold is a 409 with its own code, decided by `find_eligibility_refusal`
-    and `judge_spieltag_occupancy` beside it (ADR-0052). Distinct codes because the advice differs:
-    reloading fixes a raced bracket and fixes nothing about a disqualified team.
-  • Every refusal runs in `judge`, which BOTH paths call. That is the whole mechanism keeping the
-    preview honest -- a rule added to one path and not the other is not expressible here.
-  • `/action_required` DERIVES its bracket faults and stores none (ADR-0047). It is the only read here
-    that does work beyond a filter, and it is uncached for the same reason the rest of the route is.
-    Reporting a fault never resolves it: the containment in `resolve_bracket` is what owns that.
-
- WHY `/action_required` DOES NOT COLLIDE WITH `/{spiel_id}` ────────────────────────────────────────────────
-
-  They are the same path shape at the same depth, in two routers with different authorization -- so
-  declaration order cannot separate them. The `objectid` convertor does: `GET /spiele/{spiel_id}` in
-  `router.py` matches only 24 hex characters, so "action_required" is not a candidate for it and routing
-  reaches this endpoint whatever order the routers are included in. See `app/core/routing.py`.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/backend/spec.md -- section 3, the write path step by step
+See:
+- docs/backend/spec.md — section 3, the write path step by step
 """
 
 from typing import Annotated, Literal

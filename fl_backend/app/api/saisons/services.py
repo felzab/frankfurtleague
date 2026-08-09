@@ -1,35 +1,19 @@
 """
 SAISONS · filter and sort construction, and what a rules edit refuses
 
-Pure throughout -- no I/O, no collection access -- so every refusal rule is testable without a database.
-Two halves: `build_saisons_*` translate `FLSaisonsFilterOptions` into a Mongo filter and sort, and
+Pure throughout — no I/O — so every refusal rule is testable without a database. Two halves:
+`build_saisons_*` translate `FLSaisonsFilterOptions` into a Mongo filter and sort, and
 `find_rules_refusal` decides whether a season's rules are ones the competition can hold.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- An edit that would strand existing data is refused at the write (decided 2026-08-07).
+- A finished season's competitive rules are frozen — only the dates stay editable (decided 2026-08-07).
+- `MAX_QUALIFIERS` is `2 ** len(KNOCKOUT_PHASES)`: the rule widens by adding a phase (ADR-0065).
+- A refusal returns `(error_code, detail)` and never raises — the caller owns the status code.
+- The checks run in the order an admin can act on them, like `find_entry_refusal`.
 
-  • **A refusal is the default when an edit would strand data** (owner, 2026-08-07; docs/domain.md). The
-    rules decide the shape of the competition, and three of them can be narrowed below what already
-    exists -- a group nobody may enter that still holds teams, a group over its own capacity, a bracket
-    slot naming a placing that can no longer be reached. Each of those states is legal at every layer and
-    invisible until something downstream reads it, which is exactly the class this repository refuses at
-    the write rather than reports later.
-  • **A finished season's competitive rules are FROZEN** (owner, 2026-08-07). The league table is scored
-    from `rules` on every read rather than stored (ADR-0026), so editing the points of a `past` season
-    rewrites who won it and nothing anywhere records what it said before. Only the dates stay editable,
-    because a mistyped end date on a closed season is a repair with no downside.
-  • **The bracket needs a power-of-two field, capped by the phase set.** `MAX_QUALIFIERS` is
-    `2 ** len(KNOCKOUT_PHASES)`, so this rule widens by adding a phase rather than by editing a number
-    here (ADR-0065).
-  • Every refusal returns `(error_code, detail)` and never raises: the caller decides the status code, and
-    the detail is the English log line while the code is what the client maps to German
-    (docs/logging.md).
-  • The checks run in the order an admin can act on them, which is the order `find_entry_refusal` uses
-    for the same reason: the answer they get first should be the one they can fix first.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/domain.md -- the editability matrix these rules implement
-  docs/_decisions/0065-a-seasons-schedule-is-derived-from-its-rules.md
+See:
+- docs/domain.md — the editability matrix these rules implement
 """
 
 from typing import Any, Iterable, Mapping, Sequence
@@ -99,14 +83,14 @@ RULES_QUALIFIERS_BELOW_WIRING = "REQ-RULES-004"
 # finished competition's result and nothing records the previous one.
 RULES_SAISON_FINISHED = "REQ-RULES-005"
 
-# `qualifiers_per_group` exceeds `teams_per_group` (owner, 2026-08-08). A group of four cannot supply six
+# `qualifiers_per_group` exceeds `teams_per_group` (decided 2026-08-08). A group of four cannot supply six
 # qualifiers, so the bracket would expect more teams out of the group phase than the group phase can
 # produce -- and the seeding walk then asks for a placing no standing will ever hold, which is the state
 # `REQ-RULES-004` refuses from the other direction. The editor warned about this and saved anyway.
 RULES_QUALIFIERS_ABOVE_GROUP = "REQ-RULES-007"
 
 # The narrowing would leave one of the season's matchdays holding more fixtures than its phase accounts
-# for (owner, 2026-08-08). The matchday's expected count is derived from these rules (ADR-0065), so
+# for (decided 2026-08-08). The matchday's expected count is derived from these rules (ADR-0065), so
 # lowering `number_of_groups` or `teams_per_group` lowers it for every group-phase matchday at once --
 # and a matchday over its own count is a state no season setup passes through, unlike being under it.
 RULES_MATCHDAY_OVER_ITS_PHASE = "REQ-RULES-006"
@@ -216,7 +200,7 @@ def find_rules_refusal(
 # =====================================================================================================
 
 # The season's span would no longer cover one of its own matchdays. The fourth member of the containment
-# family (owner, 2026-08-08): `REQ-DATE-002` refuses a matchday reaching outside its season, and without
+# family (decided 2026-08-08): `REQ-DATE-002` refuses a matchday reaching outside its season, and without
 # this the same state stayed reachable from the container's side by shrinking the season -- exactly the
 # pair `REQ-DATE-001` and `REQ-DATE-003` already form one level down.
 SAISON_SPAN_BELOW_SPIELTAGE = "REQ-DATE-004"
@@ -251,7 +235,7 @@ def find_saison_span_refusal(
 # WHAT THE ROLLOVER REFUSES
 # =====================================================================================================
 
-# The outgoing season still has fixtures nobody has played (owner, 2026-08-08). Activating a season
+# The outgoing season still has fixtures nobody has played (decided 2026-08-08). Activating a season
 # demotes the incumbent to `past`, and a `past` season's competitive rules freeze (REQ-RULES-005) while
 # its table becomes the record of what happened -- so a rollover over unplayed fixtures closes a
 # competition that is not finished, and does it in the one transaction that cannot be undone by editing

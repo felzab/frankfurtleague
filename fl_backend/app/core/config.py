@@ -1,24 +1,17 @@
 """
 CORE · backend configuration
 
-Every environment variable the service reads, declared once as a pydantic-settings model, plus the one
-thing that deliberately is NOT one. Anything absent from both is a hardcoded constant somewhere, which
-is usually a defect.
+Every environment variable the service reads, declared once as a pydantic-settings model, plus
+the one thing that deliberately is not one — `API_VERSION` is a constant, not a setting.
+Anything absent from both is a hardcoded constant somewhere, which is usually a defect.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- Secrets are `SecretStr`; reach a value only through `.get_secret_value()`, where it is used.
+- Fields without a default are required at boot, and the three API keys never gain one.
+- Nothing constructs the settings at import time — `get_config()` builds them.
 
-  • Secrets are `SecretStr`, so they do not appear in a repr, a traceback or a log line. Reach the value
-    only through `.get_secret_value()`, and only where it is actually used.
-  • Fields without a default are REQUIRED at boot: the process refuses to start rather than running
-    half-configured. The three API keys are among them, and none of them may ever gain a default --
-    a default key is a key, and a service that starts with one is a service anyone can call.
-  • `API_VERSION` is a CONSTANT, not a setting. See below.
-  • Nothing constructs the settings at import time. `get_config()` is what builds them, so importing a
-    module that merely *mentions* configuration cannot fail.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/backend/spec.md -- the environment section
+See:
+- docs/backend/spec.md — the environment section
 """
 
 from functools import lru_cache

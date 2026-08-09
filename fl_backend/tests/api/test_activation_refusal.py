@@ -1,16 +1,14 @@
 """
-What the rollover refuses — `unplayed_spiel_nrs` and `find_activation_refusal`, both pure.
+SAISONS · what the rollover refuses
 
-`POST /saisons/{saison_id}/activate` is the only writer of `status` (ADR-0033), and it does two things in
-one transaction: it promotes a season and it demotes the incumbent to `past`. That second half is the
-reason this rule exists. A `past` season freezes its competitive rules (`REQ-RULES-005`) and its derived
-league table becomes the record of what happened — so rolling over across unplayed fixtures closes a
-competition that is not finished, in the one operation that editing the season afterwards cannot undo.
+`unplayed_spiel_nrs` and `find_activation_refusal`, both pure. `POST /saisons/{saison_id}/activate`
+demotes the incumbent to `past` in the same transaction it promotes with — and `past` freezes the
+rules and makes the derived table the record, so rolling over across unplayed fixtures closes a
+competition that is not finished, in the one operation editing afterwards cannot undo.
 
-**Cancelling is the way through, not a loophole.** A fixture nobody will ever play is settled by
-cancelling it, which is a decision somebody records rather than a state that lingers. The owner chose the
-refusal over the previous behaviour — a page that counted the unplayed fixtures and activated anyway
-(owner, 2026-08-08).
+Cancelling is the way through, not a loophole: a fixture nobody will ever play is settled by
+cancelling it — chosen (decided 2026-08-08) over the previous page, which counted the unplayed
+fixtures and activated anyway.
 """
 
 import pytest

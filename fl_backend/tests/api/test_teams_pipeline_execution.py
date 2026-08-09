@@ -1,16 +1,12 @@
 """
-`build_team_pipeline` executed by a real MongoDB (ADR-0030).
+TEAMS · `build_team_pipeline` executed by a real MongoDB (ADR-0030)
 
 The sibling `test_teams_pipeline.py` asserts what the pipeline SAYS; this asserts what MongoDB
-COMPUTES from it. The two are complementary and neither replaces the other: a structural test fails
-loudly when a rule is deleted, and an executing test fails when a rule is present but wrong -- a
-`$cond` picking the wrong side of a match, a `$sum` over the wrong field, a scope filtering on a
-phase that no document carries.
+COMPUTES from it — a `$cond` picking the wrong side, a `$sum` over the wrong field, a scope
+filtering on a phase no document carries. The two are complementary and neither replaces the
+other.
 
-Every test here is marked `db` and therefore deselected by default. Run them with:
-
-    cd fl_backend && uv run pytest -m db
-
+Every test is marked `db` and deselected by default: `cd fl_backend && uv run pytest -m db`.
 The corpus and the expected figures are documented in `conftest.py`; this module asserts against
 them and does not restate the derivation.
 """

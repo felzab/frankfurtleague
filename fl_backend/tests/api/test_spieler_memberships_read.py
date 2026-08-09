@@ -1,14 +1,14 @@
 """
-The admin list's player-centric read.
+SPIELER · the admin list's player-centric read
 
-`GET /spieler/memberships` answers "every player, and which squads hold them" in one aggregation.
-`GET /spieler` cannot answer it at any filter setting, and these cases pin all three reasons — the
-strict join, the unwind, and the missing `saison_id` — because each is a separate way the composed
-alternative fails, and two of them fail silently.
+`GET /spieler/memberships` answers "every player, and which squads hold them" in one
+aggregation. `GET /spieler` cannot answer it at any filter setting, and these cases pin all
+three reasons — the strict join, the unwind, and the missing `saison_id` — because each is a
+separate way the composed alternative fails, and two of them fail silently.
 
-The structural half asserts what the pipeline SAYS and the `db`-marked half what MongoDB COMPUTES
-from it (ADR-0030). Neither replaces the other: a structural test fails when a rule is deleted, an
-executing one when a rule is present and wrong.
+The structural half asserts what the pipeline says and the `db`-marked half what MongoDB
+computes from it (ADR-0030) — a structural test fails when a rule is deleted, an executing one
+when a rule is present and wrong.
 """
 
 from typing import Any

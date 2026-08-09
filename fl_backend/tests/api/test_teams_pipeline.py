@@ -1,18 +1,13 @@
 """
-`build_team_pipeline` — the derived league table (ADR-0026).
+TEAMS · `build_team_pipeline` — the derived league table (ADR-0026)
 
-What is pinned here is the set of RULES the pipeline encodes: which matches count, which phase they
-come from, where the points come from, and what a team with no matches is served. Those are the parts
-a later edit can get wrong silently — the aggregation would still run, and the table would just be a
-different table.
+What is pinned is the set of rules the pipeline encodes: which matches count, which phase they
+come from, where the points come from, and what a team with no matches is served — the parts a
+later edit can get wrong silently. Deliberately structural and without a database: locating each
+stage by name rather than asserting the stage list keeps every harmless refactor green.
 
-Deliberately structural, and deliberately without a database. A test asserting the exact stage list
-would fail on every harmless refactor; these locate the stage they care about by name and assert only
-the rule.
-
-`test_teams_pipeline_execution.py` is the other half and does not replace this one: it runs the
-pipeline against a real `mongod` (ADR-0030). This file fails when a rule is DELETED — `is_canceled`
-reappearing, the phase filter vanishing — and that one fails when a rule is present but WRONG.
+`test_teams_pipeline_execution.py` is the other half and does not replace this one: this file
+fails when a rule is DELETED, that one when a rule is present but WRONG (ADR-0030).
 """
 
 from typing import Any, Mapping

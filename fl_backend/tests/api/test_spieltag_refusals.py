@@ -1,20 +1,13 @@
 """
-What a matchday write refuses — three pure functions, so all of it runs in the default tier.
+SPIELTAGE · what a matchday write refuses
 
-Both rules exist because a matchday is a CONTAINER whose contents it does not know about. Its fixtures
-point at it and it points at none of them, so every question about the pair is one the endpoint has to
-ask the `spiele` collection — and until it did, the matchday could be retired or re-phased into a state
-its own fixtures contradicted.
+Three pure functions, so all of it runs in the default tier. Both rules exist because a matchday
+is a container whose contents it does not know about: `REQ-RETIRE-002` refuses retiring one that
+holds a played match — the public Spielplan joins fixtures onto the matchdays it received, so
+the results would go with the container — and `REQ-SPIELTAG-002` refuses a phase accounting for
+fewer matches than the matchday already holds (ADR-0065).
 
-- `REQ-RETIRE-002` — retiring one that holds a played match. Soft deletion is described everywhere in
-  this repository as harmless because the matches stay resolvable, and that is true of `GET /spiele` and
-  false of the page a visitor reads: `getSpieltage` excludes retired rows and the public Spielplan joins
-  fixtures onto the matchdays it received, so the results go with the container.
-- `REQ-SPIELTAG-002` — a phase accounting for fewer matches than the matchday already holds. The count
-  follows from the season's rules (ADR-0065), so this is the one direction no setup passes through.
-
-Asserted on the CODE, never the message: the code is the contract the form reads, the message is an
-English log line.
+Asserted on the code, never the message: the code is the contract the form reads.
 """
 
 import pytest
@@ -117,9 +110,9 @@ class TestChangingThePhase:
 
 class TestCreatingAMatchday:
     """
-    A season whose knockout phase is already under way takes no new matchdays (owner, 2026-08-08).
+    A season whose knockout phase is already under way takes no new matchdays (decided 2026-08-08).
 
-    **"Under way" is a DATE, not a result** (owner, 2026-08-08): the earliest non-group matchday of the
+    **"Under way" is a DATE, not a result** (decided 2026-08-08): the earliest non-group matchday of the
     season begins today or began earlier. That is deliberately a different question from the one
     `unplayed_spiel_nrs` and `REQ-RETIRE-002` ask -- those ask whether a MATCH has been played, and this
     asks whether the PHASE has begun. A bracket that kicked off this morning with nothing entered has

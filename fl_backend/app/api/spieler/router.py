@@ -3,14 +3,10 @@ SPIELER · read endpoints
 
 Squad lists. Written through `admin_router.py` in this slice and read here.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • This is the ONE read endpoint that does not default `saison_id` to the current season. It is
-    normally called with a `team_id`, which already narrows the result -- a season default would add a
-    lookup on the hot path and narrow nothing.
-  • Only `vorname` is required on a player. Everything else may be null while a squad is being filled
-    in, so consumers must handle missing surnames, numbers and positions.
-  • `nummer` is a STRING, not an integer.
+Invariants:
+- The one read that does not default `saison_id` to the current season — `team_id` already narrows.
+- Only `vorname` is required; consumers handle missing surnames, numbers and positions.
+- `nummer` is a string, not an integer.
 """
 
 from fastapi import APIRouter, Depends

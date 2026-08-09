@@ -1,21 +1,14 @@
 """
-What makes `app/core/domain.py` a checked declaration rather than a second document.
+CORE · what makes `app/core/domain.py` a checked declaration, not a second document
 
-The module states the domain model as data: seven aggregates over nine collections, twelve references with
-a referential action each, thirty-odd field policies and thirteen refusal rules. None of it runs, so
-without this file it would drift exactly the way a comment drifts -- silently, and only discovered by
-somebody who trusted it.
+The module states the domain model as data, and none of it runs — without this file it would
+drift exactly the way a comment drifts. Every assertion answers one question: does the
+declaration cover the system, does it name real things, and is it still a declaration.
 
-Every assertion here answers one question about that declaration:
-
-  • does it COVER the system?      every collection in exactly one aggregate; every `REQ-*` code the
-                                   application defines present, and no invented ones
-  • does it NAME real things?      every field path resolves against a model or a validator, every
-                                   `implemented_by` imports, every `tested_by` file and class exist
-  • is it still a DECLARATION?     no application module imports it
-
-The fourth is the one worth defending: the moment production code reads this module, it becomes an engine
-a write can forget to consult, which is the design ADR-0066 rejected.
+Invariants:
+- Every collection sits in exactly one aggregate; every `REQ-*` code appears, none is invented.
+- Every field path, `implemented_by` and `tested_by` resolves against the real code.
+- No application module imports it — an imported declaration is the engine ADR-0066 rejected.
 """
 
 import ast

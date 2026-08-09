@@ -1,44 +1,20 @@
 """
 CORE · the domain model, as a declaration
 
-What the entities are, which of them form one consistency boundary, what happens to a reference when its
-target changes, and when each field may be written. Every statement here is DATA -- there is no evaluator
-in this module and nothing calls it at request time.
+What the entities are, which form one consistency boundary, what happens to a reference when its
+target changes, and when each field may be written. Everything here is data — no evaluator, and
+nothing calls it at request time: enforcement stays at the write endpoints, and this is the model
+stated once for a conformance test to compare against the code (ADR-0066).
 
- WHY A DECLARATION AND NOT AN ENGINE ──────────────────────────────────────────────────────────────────────
+Invariants:
+- No application code imports this module — only the conformance test and the documentation read it.
+- Every `implemented_by` and `tested_by` names a real symbol, resolved by `tests/core/test_domain.py`.
+- A referential action names what the code does, never what it ought to do.
+- Only fields whose answer is not plainly `EDITABLE` are listed.
 
-  **An invariant is enforced at the aggregate boundary, which is the write endpoint, and it stays there.**
-  That is the textbook answer and the one this repository already implements: every rule below is a pure
-  `find_*_refusal` function returning `(error_code, detail)`, called by the endpoint that owns the write.
-  A central evaluator that each write had to remember to consult would be bypassable, and a rule that can
-  be bypassed reads as coverage it does not have.
-
-  So this module is the OTHER half: the model stated once, in a form a test can compare against the code
-  and a document can cite instead of restating. It is the shape `constraints.py` has for the database and
-  `src/core/apiContract.test.ts` has for the wire -- a hand-written declaration plus a conformance test,
-  which ADR-0031 ratified as "checked, not generated".
-
-  `tests/core/test_domain.py` is what makes it true rather than decorative: every domain `REQ-*` code the
-  application defines appears here, every rule names a callable and a test that resolve, every collection
-  belongs to exactly one aggregate, every field policy names a real field, and a field called derived is
-  on no document.
-
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • **No application code imports this module.** Only the conformance test and the documentation read it.
-    A caller wanting to ASK the model something is the point at which this becomes an engine, and that is
-    a decision to take deliberately rather than by adding one import.
-  • Every `implemented_by` is a dotted path to a real symbol and every `tested_by` is a real file and
-    class, so the test resolves them rather than trusting the strings.
-  • A referential action names what the CODE does, never what it ought to do. Where the answer is "nothing
-    happens, deliberately", the action is `NO_ACTION` and the note says why.
-  • Only fields whose answer is not plainly `EDITABLE` are listed. A row for every editable string would
-    bury the thirty-three that carry a condition.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/domain.md -- the reader's version of everything below
-  docs/_decisions/0066-the-domain-model-is-declared-and-conformance-checked.md
+See:
+- docs/domain.md — the reader's version of everything below
+- ADR-0066 — the domain model is declared and conformance-checked
 """
 
 from dataclasses import dataclass

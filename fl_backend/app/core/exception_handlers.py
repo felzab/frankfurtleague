@@ -3,14 +3,12 @@ CORE · exception handlers
 
 Turns every exception into a response. Registered once from `app/main.py`.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- The body carries only the error code and correlation id; detail goes to the log, never the client.
+- Every handler logs before it returns, with the error code as a structured field.
 
-  • The RESPONSE BODY carries only the error code and the correlation id. Messages, validation
-    details and stack traces go to the log, never to the client -- the caller correlates by id.
-    Adding the detail to the body would leak schema internals to anyone who can reach the API.
-  • Every handler logs before it returns, and every log line carries its error code as a structured
-    field (`extra={"error_code": ...}`). A swallowed exception with no log line is invisible; a log
-    line without a code is not greppable as a class. The codes are listed in `docs/logging.md`.
+See:
+- docs/logging.md — the error codes
 """
 
 from typing import Mapping

@@ -1,35 +1,14 @@
 """
 CORE · path parameter convertors
 
-One custom URL convertor, `objectid`, and the helper that spells a path with it.
+One custom URL convertor, `objectid`, and the helper that spells a path with it. It exists
+because `GET /spiele/action_required` and `GET /spiele/{spiel_id}` live in different routers
+(ADR-0034), so declaration order cannot separate them — constraining the parameter to 24 hex
+characters removes the ambiguity at its source, whatever order the routers are included in. A
+malformed id is therefore a 404 rather than a 422: a path identifies, a query validates (ADR-0071).
 
- WHY THIS EXISTS ──────────────────────────────────────────────────────────────────────────────────────────
-
-  `GET /spiele/action_required` is admin-authorized and `GET /spiele/{spiel_id}` is not, so the two live
-  in different routers -- and with an unconstrained `{spiel_id}` the literal path is captured by the
-  parameter, making the order routers are included in `app/main.py` load-bearing. That is a fragile thing
-  to rest a route on: it is invisible at both definition sites and breaks silently.
-
-  Constraining the parameter to 24 hex characters removes the ambiguity at its source. `action_required`
-  simply does not match, so routing falls through to the literal path whatever the include order is.
-
-  Declaring literal routes before parameterised ones is the usual answer and is what `saisons/router.py`
-  does for `/current`. It works only WITHIN one router; these two cannot share one, because they do not
-  share an authorization level (ADR-0034).
-
- A CONSEQUENCE WORTH HAVING ───────────────────────────────────────────────────────────────────────────────
-
-  A malformed id is now a 404 rather than a 422. `/spiele/not-an-id` matches no route at all, which is
-  the honest answer -- it is not a match whose id failed validation, it is not a match. The same value
-  in a query parameter stays a 422, and that split is ratified rather than accidental (ADR-0071): a
-  path identifies, a query validates.
-
- REGISTRATION IS AN IMPORT SIDE EFFECT ────────────────────────────────────────────────────────────────────
-
-  Starlette resolves a convertor name when the route is COMPILED, which happens as the decorator runs --
-  so this module must be imported before any router module that uses it. Routers reach the convertor
-  through `by_id()` rather than by spelling the name themselves, which makes that import real rather than
-  something a tidy-up could remove as unused.
+Invariants:
+- Registration is an import side effect — `by_id()` is what keeps this module's import real.
 """
 
 from starlette.convertors import Convertor, register_url_convertor

@@ -1,39 +1,18 @@
 """
 TEAMS · write endpoints
 
-Clubs, and their membership of a season.
+Clubs, and their membership of a season. Guarded at router level by `verify_access_admin`
+(ADR-0034).
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- A rename fans the club's name into every match embedding it, unconditionally (ADR-0028).
+- Deletion is soft; `uniq_shorthand` keeps indexing a retired club, so a taken shorthand 409s.
+- A team never leaves a season — the junction has a POST and a PATCH and no DELETE (ADR-0033).
+- A write echoes `FLTeamRecord`, never `FLTeam` — the strict join would 404 a just-created club.
+- `/teams/{team_id}/saisons/{saison_id}` addresses a junction row, never the season (ADR-0034).
 
-  • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
-    construction. Never move the guard onto an individual endpoint.
-  • Renaming a club FANS OUT into every match embedding it, unconditionally. The embedded `name` is a
-    display copy of `teams.name` and nothing else (ADR-0028, rule 3): a bracket slot label lives in the
-    match's own `teamN_quelle`, which no path under `team1.`/`team2.` can reach (ADR-0042).
-  • Deletion is SOFT, because `spiele.team1.team_id` and `team2.team_id` point here and a hard delete
-    would orphan every historical match. `uniq_shorthand` keeps indexing a retired club, so its two
-    letters stay reserved -- which is correct, and which is why creating a club whose shorthand is
-    taken comes back 409 rather than succeeding.
-  • A team is NEVER removed from a season. Once squads are settled the only way out is disqualification
-    (ADR-0033), so the junction has a POST and a PATCH and no DELETE at all.
-  • A write echoes `FLTeamRecord`, the STORED club document -- never `FLTeam`. `FLTeam` is flattened
-    from the club, a junction row and a derived `statistik`, and its pipeline's junction join is
-    STRICT: a club with no `saison_teams` row for the current season is dropped, so re-reading one
-    would answer 404 to a write that succeeded. That is the normal state for a club being created,
-    retired or reactivated.
-  • `/teams/{team_id}/saisons/{saison_id}` addresses a JUNCTION ROW -- this team's group and
-    disqualification for that season -- and never the season document, which lives at
-    `/saisons/{saison_id}`. A GET added here must return junction rows (ADR-0034).
-
- DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
-
-  ADR-0032  soft deletion is a date, and creating never revives
-  ADR-0033  a team leaves a season only by disqualification
-  ADR-0034  the junction is addressed by its natural key, under the entity
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/glossary.md -- "the season junctions"
+See:
+- docs/glossary.md — "the season junctions"
 """
 
 from typing import Annotated
@@ -276,7 +255,7 @@ async def post_saison_team(
     substantive step in setting a season up.
 
     **Refused with a 409 unless the season is `future`, the group is one it offers and that group has
-    space** (`REQ-ENTER-001..003`, owner 2026-08-07). The bounds are the season's own
+    space** (`REQ-ENTER-001..003`, decided 2026-08-07). The bounds are the season's own
     `rules.number_of_groups` and `rules.teams_per_group`. The count-then-insert is not transactional;
     the single-admin surface makes the race a non-concern, and the cost of losing it is one team over
     a planning bound rather than corrupt data.
@@ -353,7 +332,7 @@ async def patch_saison_team(
     **A group CHANGE is held to three rules** and only a change is checked — a disqualification writes the
     same row without moving anyone. The target group must be one the season offers and must have space
     (`REQ-ENTER-002`/`003`), and the move has to fall inside its legal window: the season is `future`, or
-    this team has no fixture in it yet (`REQ-ENTER-004`, owner, 2026-08-08). That window was the admin
+    this team has no fixture in it yet (`REQ-ENTER-004`, decided 2026-08-08). That window was the admin
     page's rule alone until then, so a direct request could move a team whose group fixtures were already
     drawn — and the group phase is a round robin INSIDE a group, so those fixtures are its group.
     """

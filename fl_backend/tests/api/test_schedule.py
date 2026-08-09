@@ -1,9 +1,10 @@
 """
-The schedule a season's rules imply — pure arithmetic, so it fits the default tier's no-I/O boundary.
+SAISONS · the schedule a season's rules imply — pure arithmetic, default tier
 
-These are the numbers `spieltage.anzahl_spiele` reports (ADR-0065). The season the league is actually
-playing is the fixture this file keeps returning to, because it is the one case where the answer is known
-independently of the arithmetic: 4 groups of 4 play 3 group matchdays of 8 matches, then 4, 2 and 1.
+These are the numbers `spieltage.anzahl_spiele` reports (ADR-0065). The season the league is
+actually playing is the fixture this file keeps returning to, because it is the one case where
+the answer is known independently of the arithmetic: 4 groups of 4 play 3 group matchdays of 8
+matches, then 4, 2 and 1.
 """
 
 from typing import get_args
@@ -81,7 +82,7 @@ class TestTheGroupPhase:
 
         With an odd n no round can pair everybody: one team sits out, so a round delivers `(n-1)/2` matches
         instead of `n/2` and the schedule needs one extra round to cover all `n-1` opponents each. Refusing
-        an odd group was the alternative and the owner rejected it (2026-08-07): a group goes odd when a
+        an odd group was the alternative, rejected 2026-08-07: a group goes odd when a
         club withdraws after the draw, and blocking that blocks the season rather than the withdrawal.
         """
 

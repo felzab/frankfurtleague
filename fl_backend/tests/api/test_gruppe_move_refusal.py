@@ -1,18 +1,14 @@
 """
-When a team may change group inside a season — `find_gruppe_move_refusal`, pure, default tier.
+TEAMS · when a team may change group inside a season
 
-**The rule existed only in the browser until 2026-08-08.** `fl_frontend/src/app/admin/teams/[team_id]/page.tsx`
-locked the group picker once the season was running and the team had fixtures, and the endpoint's own
-docstring described that window — while `patch_saison_team` fed `find_entry_refusal` a hardcoded
-`saison_status="future"`, so a direct request moved a team whose group fixtures were already drawn.
+`find_gruppe_move_refusal`, pure, default tier. The rule existed only in the browser until
+2026-08-08: the admin page locked the picker while `patch_saison_team` fed `find_entry_refusal` a
+hardcoded `saison_status="future"`, so a direct request moved a team whose fixtures were already
+drawn. The group phase is a round robin inside each group (ADR-0065), so a team's fixtures ARE
+its group — moving it afterwards leaves every one of them played against the group it left.
 
-Why the fixtures are what matter: the group phase is a single round robin INSIDE each group (ADR-0065), so
-a team's fixtures ARE its group. Moving it afterwards leaves every one of them played against the group it
-left, and nothing rewrites them.
-
-`REQ-ENTER-001` is a different rule and stays a different rule: it refuses ENTERING a season that is not
-`future`. A move is not an entry, which is why a running season whose fixtures nobody has drawn still
-permits one.
+`REQ-ENTER-001` stays a different rule: it refuses ENTERING a season that is not `future`, and a
+move is not an entry.
 """
 
 import pytest

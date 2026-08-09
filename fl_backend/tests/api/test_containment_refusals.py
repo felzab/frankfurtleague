@@ -1,17 +1,13 @@
 """
-What contains what — the date-span family, plus the clash and squad rules. All pure, all default tier.
+API · what contains what — the date-span family, plus the clash and squad rules
 
-One idea runs through the span rules: **a span contains what sits inside it** (owner, 2026-08-08). A season
-contains its matchdays, a matchday contains its fixtures, and until these existed a fixture could be dated
-in a month its matchday did not cover while the public Spielplan printed that date under the matchday's
-heading.
+All pure, all default tier. One idea runs through the span rules (decided 2026-08-08): a span
+contains what sits inside it — a season its matchdays, a matchday its fixtures — and until these
+existed a fixture could be dated in a month its matchday did not cover.
 
-**A postponed match prolongs the matchday, and there is deliberately no exception.** The span DESCRIBES
-when the fixtures are played rather than planning when they must be, so a fixture moving to the 20th means
-the matchday now runs to the 20th. A per-fixture escape hatch would need a marker saying "this one may sit
-outside", which is a second statement of the same fact with nothing holding the two consistent.
-
-Asserted on the CODE, never the message.
+A postponed match prolongs the matchday, deliberately without exception: the span describes when
+the fixtures are played rather than planning when they must be. Asserted on the code, never the
+message.
 """
 
 from typing import Literal
@@ -349,7 +345,7 @@ class TestASquadEntry:
         The clause that makes an existing duplicate editable, including by the edit that would resolve it.
 
         It is also what let this rule ship without inspecting the live database: whatever duplicates exist
-        are grandfathered by the same logic that refuses new ones (owner, 2026-08-08).
+        are grandfathered by the same logic that refuses new ones (decided 2026-08-08).
         """
 
         assert find_squad_refusal(team_in_saison=True, proposed_nummer="7", stored_nummer="7", taken_nummern=["7"]) is None

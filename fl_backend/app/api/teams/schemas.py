@@ -1,46 +1,20 @@
 """
 TEAMS · models
 
-The read shapes `GET /teams` discriminates by `format`, the single-team shape, the write payloads and
-their echoes, plus the statistics model and the four-group container.
+The read shapes `GET /teams` discriminates by `format`, the single-team shape, the write payloads
+and their echoes, plus the statistics model and the four-group container.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- `FLTeam` is flattened from three sources — `teams`, the junction row, and a derived `statistik`.
+- Disqualified means `disqualifikation` is not null; there is no boolean beside it (ADR-0059).
+- There is one team shape — never a reduced projection beside it (ADR-0034).
+- `FLGruppen` always emits all four group keys, and only `build_gruppen` constructs it (ADR-0043).
+- Statistics fields default to 0 — a team with no counting match is served zeros, not absence.
+- `statistik_scope` decides which matches count and defaults to `"gruppenphase"` (ADR-0029).
+- `FLTeam` is a read shape, `FLTeamRecord` the stored one — a write echoes the record.
 
-  • `FLTeam` is FLATTENED from more than one source: the season-independent `teams` record, the
-    `gruppe` and `disqualifikation` of the `saison_teams` junction row, and a `statistik` computed from
-    the season's matches. That is why fields exist here that no single collection carries.
-  • A team is disqualified exactly when `disqualifikation` is not null. There is no boolean beside it
-    anywhere, on this model or in the database, because a flag and a record can disagree and no
-    `$jsonSchema` validator can say they must not (ADR-0059, ADR-0027).
-  • There is ONE team shape. Never add a reduced projection beside it (ADR-0034).
-  • `FLGruppen` always emits all four group keys, even empty ones. A map built from the teams present
-    omits "D" for a season with nobody in it, and the frontend schema requires all four.
-  • `FLGruppen` is built by `fl_backend/app/api/teams/services.py :: build_gruppen` and by nothing
-    else. Its lists are in standing order, and the chain's last criterion reads the season's matches
-    (ADR-0043) -- which is why the construction cannot live on a model that holds only teams.
-  • Statistics fields are all `ge=0` and default to 0. The default is load-bearing: a team whose season
-    holds no counting match is served a zeroed object, not an absent one.
-  • `statistik_scope` decides WHICH matches those seven numbers count, and it defaults to
-    `"gruppenphase"`. The response shape is identical either way, so a caller that gets the scope wrong
-    gets a plausible table rather than an error -- which is why the safe value is the default.
-  • The `format` discriminator is what lets one endpoint return a list or the four groups. Adding a
-    shape means adding a literal, not widening an existing model.
-  • `FLTeam` is a READ shape and `FLTeamRecord` is the STORED one. A write endpoint echoes the record:
-    it changed no season-scoped field, and re-reading one through the pipeline would 404 for a club
-    with no junction row in the current season.
-
- DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
-
-  ADR-0026  statistik is derived from the matches on every read
-  ADR-0029  the table counts the Gruppenphase, and that is the default scope
-  ADR-0032  `inactive_since` is the day the club left the league
-  ADR-0034  one team shape, no reduced projection
-  ADR-0043  one tiebreak chain orders the table and seeds the bracket
-  ADR-0059  a disqualification is a record, and its absence is the null
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  fl_backend/app/api/teams/services.py -- the join that flattens the three sources, and the standing
+See:
+- app/api/teams/services.py — the join that flattens the three sources, and the standing
 """
 
 from typing import Annotated, Literal, Mapping, Union

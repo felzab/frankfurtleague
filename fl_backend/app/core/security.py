@@ -1,24 +1,18 @@
 """
 CORE · request authorization
 
-Three shared bearer keys, not user identities: `base` for the read routers, `admin` for every mutation,
-`system` for readiness and diagnostics. There are no user sessions here -- the only client is the Next.js
-container, which authenticates its own users before ever calling this service.
+Three shared bearer keys, not user identities: `base` for reads, `admin` for every mutation,
+`system` for diagnostics. The only client is the Next.js container, which authenticates its own
+users before ever calling this service.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- Keys are compared with `secrets.compare_digest`, never `==`.
+- Guards attach at router level, so a new endpoint inherits its router's protection (ADR-0034).
+- The expected key is read per request through `Depends(get_config)`, never captured at import.
+- `/system/is_live` is deliberately unguarded — it is the container healthcheck.
 
-  • Keys are compared with `secrets.compare_digest`, never `==`.
-  • Guards are attached at ROUTER level, so a new endpoint inherits its router's protection instead of
-    needing its own decorator. Adding an endpoint to a router is therefore safe by default.
-  • The expected key is read PER REQUEST, through `Depends(get_config)`, never captured at import. That
-    is what lets a test import this module without configuration, and what lets one override the key
-    through `app.dependency_overrides` instead of through the environment.
-  • `/system/is_live` is deliberately unguarded: it is the container healthcheck, and a healthcheck
-    that needs a secret fails for the wrong reasons.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/backend/spec.md -- invariants I7, I8, and the error-code table
+See:
+- docs/backend/spec.md — invariants I7, I8, and the error-code table
 """
 
 import secrets

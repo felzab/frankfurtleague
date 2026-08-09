@@ -1,9 +1,9 @@
 """
-FLSpiel and its embedded field models.
+SPIELE · FLSpiel and its embedded field models
 
 `ergebnis` is the important one. It is parsed as structured data by the frontend, which derives
-win/draw/loss from it — an unconstrained value rendered as a loss for BOTH teams.
-`ge=0` on `tore` and the pattern that makes `\\d+` provably safe both guard that.
+win/draw/loss from it — an unconstrained value renders as a loss for BOTH teams. `ge=0` on
+`tore` and the pattern that makes `\\d+` provably safe both guard that.
 """
 
 import pytest
@@ -223,7 +223,7 @@ class TestEmbeddedFields:
         with pytest.raises(ValidationError):
             FLSpiel.model_validate(spiel(ort=spiel_ort_field(**{field: ""})))
 
-    # Owner decision: a rental price is whole euros. Stored values were float in 12 of 31
+    # Decided: a rental price is whole euros. Stored values were float in 12 of 31
     # documents, but every one was integral -- Pydantic coerces those and rejects a fraction.
     def test_coerces_an_integral_float_rent(self, spiel, spiel_ort_field):
         """Historic documents stored the rent as a float. Integral values coerce rather than failing the read path."""

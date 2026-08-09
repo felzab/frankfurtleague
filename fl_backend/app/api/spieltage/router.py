@@ -4,16 +4,10 @@ SPIELTAGE · read endpoints
 Matchdays: named blocks of fixtures inside a season, with a date range. Written through
 `admin_router.py` in this slice and read here.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Ordering is DERIVED and no field holds it: `saison_phase` in bracket order, then `beginn`, then
-    `name`. `order_spieltage` applies it and is the only expression of it (ADR-0064).
-  • Omitting `saison_id` means the current season, resolved in the handler because a field default
-    cannot query the database.
-  • A Spieltag is not a Spiel. It groups matches; `anzahl_spiele` says how many it SHOULD contain.
-  • **`anzahl_spiele` is derived here and stored nowhere** (ADR-0065). Both reads resolve the season's
-    `rules` for it, which is why the list endpoint reads the season document rather than only its id --
-    exactly what `GET /teams` does for the league table (ADR-0026).
+Invariants:
+- Ordering is derived and no field holds it — `order_spieltage` is its only expression (ADR-0064).
+- Omitting `saison_id` means the current season, resolved in the handler (ADR-0002).
+- `anzahl_spiele` is derived per read (ADR-0065), so both reads resolve the season document.
 """
 
 from typing import Any, Mapping

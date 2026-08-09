@@ -1,31 +1,20 @@
 """
-The published OpenAPI document, built and read.
+TESTS · the published OpenAPI document, built and read
 
-`fl_backend/openapi.json` is committed, and this module is both what writes it and what the freshness
-test reads it with. Not a test module — pytest collects `test_*.py`, so nothing here is collected.
+`fl_backend/openapi.json` is committed because the frontend's contract test compares its Zod
+mirror against it and the frontend gate scope has no Python; the regenerated document maps to
+both scopes, which is what pulls the mirror check into the same pull request as the model change
+that needs it (ADR-0040). Not a test module — pytest collects `test_*.py`, so nothing here is
+collected.
 
-**Why the document is committed rather than generated at gate time.** The frontend's contract test
-(`fl_frontend/src/core/apiContract.test.ts`) compares the Zod mirror against it, and the frontend gate
-scope has no Python. Committing it also closes a hole in the scope mapping: a change confined to
-`fl_backend/` selects the backend scope alone, so a schema edit there would never run the frontend
-check. The regenerated document is mapped to BOTH scopes (`scripts/ci_scopes.sh`), which is what pulls
-the mirror check into the same pull request as the model change that needs it (ADR-0040).
+Run from `fl_backend/`: `python -m tests.openapi_document --write` rewrites the document, and
+`--check` reports whether it is stale, writing nothing.
 
-The app is built from `build_test_config()` — the same construction `api/test_admin_guard.py` uses —
-so writing the document needs no server, no database and no `.env`. The published surface does not
-depend on the settings it was built with.
+Invariants:
+- Built from `build_test_config()` — the published surface never depends on the settings used.
 
- USAGE ────────────────────────────────────────────────────────────────────────────────────────────────────
-
-  Run from `fl_backend/`:
-
-    python -m tests.openapi_document --write    rewrite openapi.json from the current models
-    python -m tests.openapi_document --check    report whether it is stale; writes nothing
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  tests/api/test_openapi_document.py — the gate's copy of the --check above, in the default tier
-  docs/_decisions/0040-the-zod-mirror-is-checked-against-the-published-openapi-document.md
+See:
+- tests/api/test_openapi_document.py — the gate's copy of `--check`, in the default tier
 """
 
 import argparse

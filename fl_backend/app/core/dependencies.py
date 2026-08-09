@@ -1,16 +1,13 @@
 """
 CORE · injectable dependencies
 
-Typed aliases for the nine collections, plus the German-time providers. Endpoints declare what they
-need rather than reaching for it, which is what makes them testable without a database.
+Typed aliases for the nine collections, plus the German-time providers. Endpoints declare what
+they need rather than reaching for it, which is what makes them testable without a database.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Time is Europe/Berlin wall-clock, injected as a STRING, never `datetime.now()` inside a handler.
-    Match dates are `YYYY-MM-DD` strings compared lexicographically -- which works only because the
-    format sorts, so the format is not negotiable.
-  • Injecting the date also makes "today" substitutable in tests. A handler calling the clock itself
-    cannot be tested across a date boundary.
+Invariants:
+- Time is Europe/Berlin wall-clock injected as a `YYYY-MM-DD` string — the format sorts, which is
+  why lexicographic comparison works and why the format is not negotiable.
+- Injecting the date keeps "today" substitutable in tests.
 """
 
 from datetime import datetime

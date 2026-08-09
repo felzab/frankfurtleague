@@ -1,23 +1,15 @@
 """
 CORE · structured logging
 
-One logger for the whole service, emitting one JSON document per line in production and colourised
-human output in development. The JSON field set is shared with the frontend logger so one parser
-reads both streams -- the contract is `docs/logging.md`.
+One logger for the whole service: one JSON document per line in production, colourised human
+output in development. The field set is shared with the frontend logger so one parser reads both
+streams — the contract is `docs/logging.md`.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • The correlation id is a ContextVar, not a parameter. It is set from the `X-Correlation-ID` header
-    on every request by `CorrelationIdMiddleware`, so one user action can be followed across nginx and
-    both services in the logs.
-  • Nothing writes to stdout directly. A stray `print` or bare `console`-style write breaks the
-    one-document-per-line contract that makes the output machine-readable.
-  • Log the field name, never the submitted value, when reporting a validation failure -- payloads
-    routinely carry email addresses and other personal data.
-  • uvicorn's own access log is disabled in the container (`--no-access-log`, Dockerfile CMD);
-    `CorrelationIdMiddleware` writes the per-request line instead, with the correlation id on it.
-    uvicorn's remaining loggers propagate to the root handler configured here, via
-    `app/core/uvicorn_logging.json`.
+Invariants:
+- The correlation id is a ContextVar set by `CorrelationIdMiddleware`, never a parameter.
+- Nothing writes to stdout directly — a stray `print` breaks one-document-per-line.
+- Log the field name, never the submitted value: payloads carry personal data.
+- uvicorn's access log is off in the container; the middleware writes the per-request line.
 """
 
 import json

@@ -1,17 +1,12 @@
 """
 SPIELORTE · read endpoint
 
-Venues. This router only reads; creation, update and deletion live in the admin router because they are
-admin-authorized.
+Venues. Read-only; create, update and delete are admin-authorized and live in the admin router.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Deletion is SOFT (`inactive_since`, ADR-0032). A match embeds a copy of its venue, so a hard
-    delete would orphan every historical match played there. Retired venues stay readable.
-  • `maps_link` is free text -- a Google Maps search string built from name and address -- NOT a URL.
-    It carries no scheme validation, so it must never be rendered into an href.
-  • `mietpreis` is whole euros and has no default. The admin patch writes the payload back wholesale,
-    so a default would silently overwrite a real rent with 0.
+Invariants:
+- Deletion is soft (`inactive_since`, ADR-0032); retired venues stay readable.
+- `maps_link` is free text — a Google Maps search string, not a URL; never render it into an href.
+- `mietpreis` is whole euros with no default: the patch writes wholesale, so a default zeroes rents.
 """
 
 from fastapi import APIRouter, Depends

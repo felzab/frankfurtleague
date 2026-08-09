@@ -1,48 +1,17 @@
 """
-The one seeded league every executing pipeline test reads (ADR-0030).
+TESTS · the seeded league every executing pipeline test reads
 
-The `mongod` container itself is a session fixture in `tests/conftest.py`, because the constraint
-suite wants the same one.
+`build_team_pipeline` and `build_spiele_pipeline` are dicts MongoDB executes: the schema suites
+prove a dict says the right thing, and only a database proves the right thing comes back — so
+everything here is behind the `db` marker (ADR-0030), and the `mongod` container is a session
+fixture in `tests/conftest.py` because the constraint suite wants the same one. Five teams and
+nine matches, sized so the expected figures can be worked out on paper — each row makes exactly
+one pipeline invariant observable, its purpose commented beside it below, and the hand-derived
+figures sit above `league`.
 
-These exist because `build_team_pipeline` and `build_spiele_pipeline` are dicts that MongoDB executes:
-the schema suites can prove a dict says the right thing, and only a database can prove the right thing
-comes back. Everything here is therefore behind the `db` marker, which `pyproject.toml` deselects by
-default -- a normal `pytest` run neither imports `testcontainers` nor contacts Docker.
-
- THE CORPUS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-Five teams and nine matches, sized so the expected figures can be worked out on paper and checked
-against the assertions. Each row exists to make exactly one invariant from `teams/services.py` or
-`spiele/services.py` observable:
-
-  Helmholtz  three Gruppenphase matches and one Viertelfinale -- the SCOPE, and the only team whose
-             two tables differ. Its junction row also carries a stale `statistik`, so a pipeline that
-             read a stored copy would return different numbers (ADR-0026). No live `saison_teams`
-             document carries that field any more, so this fixture is the only place one exists --
-             planted deliberately, and never to be "cleaned up" to match production.
-  Bock       a cancelled match WITH a result -- the FORFEIT rule -- plus a match with no `ergebnis`.
-  Lessing    a match whose `ergebnis` is set while `team1.tore` is null, which is the shape a
-             hand-edited document takes and the reason the `$match` restates the goal counts. It is
-             also the ONLY DISQUALIFIED team, and its junction row is the one the spiele join reads.
-  Ohne       a junction row and no counting match at all -- the ZEROED FALLBACK.
-  Fremd      no junction row -- the STRICT JOIN, which must drop it entirely.
-
-Season 2025 carries a played Helmholtz match that must never reach a 2026 table. It carries the
-spiele join's sharpest case too: neither of its sides holds a 2025 junction row, and one of them is
-disqualified in 2026 -- so a join keyed on anything but the fixture's own season shows a badge on a
-match played a year before the decision.
-
-Match 9 is a bracket slot with no occupant on one side, which is the state the join must survive
-rather than turn into an object holding only a disqualification.
-
-The figures every test asserts against, derived by hand from the rows below:
-
-  gruppenphase   Helmholtz 3 matches 1/1/1  5:7  4 pts   Bock 2  1/0/1  2:3  3 pts
-                 Lessing   3 matches 1/1/1  6:3  4 pts   Ohne 0  0/0/0  0:0  0 pts
-  gesamt         Helmholtz 4 matches 2/1/1 10:7  7 pts   Bock 3  1/0/2  2:8  3 pts
-
-Helmholtz reading 3 against 4 is the cheapest available proof that the scope filters at all, and it
-is the same divergence ADR-0029 measured against the live database.
+Invariants:
+- The corpus is never "cleaned up" to match production: several rows are deliberately impossible.
+- Season 2025 exists so a join keyed on anything but the fixture's own season fails a test here.
 """
 
 from dataclasses import dataclass
@@ -55,12 +24,21 @@ from pymongo.database import Database
 SAISON = "2026"
 PRIOR_SAISON = "2025"
 
-# Fixed rather than generated, so a failure names the same team every run.
+# Fixed rather than generated, so a failure names the same team every run. Each team makes one
+# invariant observable:
 TEAM_OIDS = {
+    # Three Gruppenphase matches and one Viertelfinale — the SCOPE, and the only team whose two
+    # tables differ. Its junction row also carries a stale `statistik` (see the seed below).
     "Helmholtz": ObjectId("6890a1b2c3d4e5f607190001"),
+    # A cancelled match WITH a result — the FORFEIT rule — plus a match with no `ergebnis`.
     "Bock": ObjectId("6890a1b2c3d4e5f607190002"),
+    # A match whose `ergebnis` is set while `team1.tore` is null — the hand-edited shape, and the
+    # reason the `$match` restates the goal counts. Also the only DISQUALIFIED team, whose junction
+    # row is the one the spiele join reads.
     "Lessing": ObjectId("6890a1b2c3d4e5f607190003"),
+    # A junction row and no counting match at all — the ZEROED FALLBACK.
     "Ohne": ObjectId("6890a1b2c3d4e5f607190004"),
+    # No junction row — the STRICT JOIN, which must drop it entirely.
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
 }
 
@@ -134,9 +112,15 @@ def _spiel(
     }
 
 
+# The figures every test asserts against, derived by hand from the seeded matches:
+#   gruppenphase   Helmholtz 3 matches 1/1/1  5:7  4 pts   Bock 2  1/0/1  2:3  3 pts
+#                  Lessing   3 matches 1/1/1  6:3  4 pts   Ohne 0  0/0/0  0:0  0 pts
+#   gesamt         Helmholtz 4 matches 2/1/1 10:7  7 pts   Bock 3  1/0/2  2:8  3 pts
+# Helmholtz reading 3 against 4 is the cheapest proof the scope filters at all — the same
+# divergence ADR-0029 measured against the live database.
 @pytest.fixture(scope="session")
 def league(mongo_database: Database) -> SeededLeague:
-    """The corpus described in this module's header, inserted once."""
+    """The corpus described beside `TEAM_OIDS` and the rows below, inserted once."""
     for collection in ("teams", "saison_teams", "spiele"):
         mongo_database.drop_collection(collection)
 

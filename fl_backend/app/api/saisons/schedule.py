@@ -1,42 +1,19 @@
 """
 SAISONS · the schedule a season's rules imply
 
-Pure arithmetic over `FLSaisonRules`. No I/O, no documents, no season needed -- given the rules, this
-module says how many matchdays the competition has, which phase each is in, and how many matches each
-one holds.
+Pure arithmetic over `FLSaisonRules`: how many matchdays the competition has, which phase each is
+in, and how many matches each holds. It exists because `anzahl_spiele` was a stored count of
+something fully determined by the rules, and nothing reconciled the two (ADR-0065).
 
-**It exists because those numbers were being entered by hand.** `spieltage.anzahl_spiele` was a stored
-count of something fully determined by `number_of_groups`, `teams_per_group` and `qualifiers_per_group`,
-so it could disagree with the rules that decide it and nothing reconciled the two (ADR-0065).
+Invariants:
+- The group phase count is a round-robin schedule — n-1 rounds for even n, n for odd, no division.
+- A bye is modelled, never refused (decided 2026-08-07): an odd group is a withdrawal, not an error.
+- The qualifiers must be a power of two; the ceiling is what the phase set holds (ADR-0065).
+- Knockout rounds are the last k of `KNOCKOUT_PHASES`, so adding a phase renames no round below it.
+- Every count is derived and stored nowhere, computed per read like ADR-0026's league table.
 
- THE COMPETITION ──────────────────────────────────────────────────────────────────────────────────────────
-
-  A season is `number_of_groups` groups of `teams_per_group` teams. Each group plays a SINGLE ROUND
-  ROBIN -- every team meets every other team in its group exactly once -- and all groups play on the same
-  matchdays. Then `qualifiers_per_group` teams from each group enter a straight knockout bracket.
-
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • **The group phase's matchday count is a round-robin schedule, not a division.** n teams need n-1
-    rounds when n is even and n rounds when n is odd, because an odd group cannot pair everybody: one
-    team sits out each round, so it takes one more round to give every team its n-1 opponents. That is
-    the standard circle method and it is why this is not simply `C(n,2) / (n/2)`.
-  • **A bye is a real state and is modelled rather than refused** (owner, 2026-08-07). An odd group
-    happens when a club withdraws after the draw, and refusing it would block the season rather than the
-    withdrawal.
-  • **The bracket needs a power-of-two entry field.** Each knockout round halves, so the qualifiers must
-    be 2, 4, ... up to `MAX_QUALIFIERS` -- and that ceiling is what the phase set can hold rather than a
-    number chosen here. `find_rules_refusal` is what refuses the rest.
-  • **The knockout rounds are the LAST k phases of `KNOCKOUT_PHASES`**, so eight qualifiers play
-    quarter-final, semi-final, final and never touch `achtelfinale`. Reading from the end is what makes a
-    new phase raise the ceiling without renaming any round below it.
-  • Every count here is DERIVED and nothing stores one. A matchday's `anzahl_spiele` on the wire is this
-    module's answer, computed per read the way the league table is (ADR-0026).
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/domain.md -- the derived-versus-stored rule this module is the largest instance of
-  docs/_decisions/0065-a-seasons-schedule-is-derived-from-its-rules.md
+See:
+- docs/domain.md — the derived-versus-stored rule this module is the largest instance of
 """
 
 from dataclasses import dataclass

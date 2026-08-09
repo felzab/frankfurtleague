@@ -1,19 +1,13 @@
 """
-The constraints applied by a real MongoDB (ADR-0027, ADR-0030).
+CORE · the constraints applied by a real MongoDB (ADR-0027, ADR-0030)
 
-The sibling `test_constraints.py` asserts what the declarations SAY; this asserts what the engine DOES
-with them. Both are needed for the usual reason — a structural test fails when a rule is deleted, an
-executing one when a rule is present but does not bite — and for one specific to `$jsonSchema`: its
-semantics are quietly non-obvious. `required` inside a nullable sub-schema applies only when the value
-is an object, `bsonType: "int"` refuses a double that prints as `80.0`, and a missing key is indexed as
-null. Every one of those is asserted below rather than assumed.
+The sibling `test_constraints.py` asserts what the declarations say; this asserts what the
+engine does with them — `$jsonSchema` semantics are quietly non-obvious (`required` inside a
+nullable sub-schema, `bsonType: "int"` against `80.0`, a missing key indexing as null), so every
+one is asserted rather than assumed. The rejection cases are the defects that motivated the ADR,
+and both are in the live database today.
 
-The rejection cases are the defects that motivated the ADR, not invented ones: a `team_id` holding a
-team's name, and a rent stored as a double. Both are in the live database today.
-
-Every test here is marked `db` and therefore deselected by default. Run them with:
-
-    cd fl_backend && uv run pytest -m db
+Every test is marked `db` and deselected by default: `cd fl_backend && uv run pytest -m db`.
 """
 
 import asyncio

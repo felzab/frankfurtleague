@@ -2,22 +2,15 @@
 SYSTEM · liveness, readiness and diagnostics
 
 The one router without a blanket guard, because `/is_live` must be reachable by the container
-healthcheck.
+healthcheck — so any endpoint added here is public unless it declares otherwise.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- `/is_live` stays unguarded and never touches the database.
+- `/is_ready` and `/info` carry their guards individually.
+- `/is_ready` is the one that pings the database — the liveness/readiness distinction.
 
-  • `/is_live` stays UNGUARDED and must never touch the database. It answers "is this process up",
-    and a healthcheck that needs a secret or a working database fails for the wrong reasons and
-    triggers restarts that cannot help.
-  • `/is_ready` and `/info` carry their guards INDIVIDUALLY, because the router has none. Any endpoint
-    added here is public unless it declares otherwise -- the opposite of every other router in the
-    service, and the reason this note exists.
-  • `/is_ready` is the one that pings the database. That is the liveness/readiness distinction, and it
-    is why they are two endpoints rather than one.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/ops/spec.md -- section 1, where the healthcheck path is pinned
+See:
+- docs/ops/spec.md — section 1, where the healthcheck path is pinned
 """
 
 from typing import Annotated
