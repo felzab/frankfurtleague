@@ -1,6 +1,6 @@
 # Currency
 
-**Verified against:** `5d70e9f`, 2026-08-09\
+**Verified against:** `6b65889`, 2026-08-09\
 **Applies to:** every stamped page, and every change that touches what a documented claim
 describes.
 
@@ -94,22 +94,23 @@ citer cites, so it re-arms nothing (ADR-0073).
 **Rule:** the mechanical defence is `scripts/check_docs.py`, run by `./scripts/verify.sh` in its
 docs scope. This table is the one place its checks are listed; the script's docstring points here.
 
-| Check           | A failure means                                                                                | Verdict |
-| --------------- | ---------------------------------------------------------------------------------------------- | ------- |
-| `adr`           | An `ADR-NNNN` citation resolves to no file in `docs/_decisions/`                               | Fail    |
-| `link`          | A relative markdown link points at nothing                                                     | Fail    |
-| `anchor`        | An in-page `#anchor` link matches no heading in its file                                       | Fail    |
-| `citation`      | A `<file> :: <anchor>` citation's file is missing or ambiguous, or the anchor is gone          | Fail    |
-| `path`          | A backticked repo path names something that is not there, and git does not ignore it           | Fail    |
-| `line-citation` | A citation uses a line number (COR-6)                                                          | Fail    |
-| `stamp`         | A stamped SHA is no ancestor of `HEAD`, or a page changed on the branch kept its stamp         | Fail    |
-| `stamp-format`  | A stamp line deviates from CUR-3's exact shape                                                 | Fail    |
-| `branch-impact` | The branch materially changed a file a stamped page cites, and the page kept its stamp (CUR-4) | Fail    |
-| `adr-meta`      | An ADR breaks DEC-2's anatomy, DEC-3's status set, or DEC-6's reciprocity                      | Fail    |
-| `adr-index`     | An ADR has no row in the index (DEC-7)                                                         | Fail    |
-| `rule-id`       | A cited rule id resolves to no rule heading in `docs/_standard/chapters/`                      | Fail    |
-| `stamp`         | The stamped SHA is not in this clone — usually a shallow clone, not a defect                   | Report  |
-| `history`       | A COR-3 history phrase appears in the branch diff — the hits must be read                      | Report  |
+| Check           | A failure means                                                                                                              | Verdict |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `adr`           | An `ADR-NNNN` citation resolves to no file in `docs/_decisions/`                                                             | Fail    |
+| `link`          | A relative markdown link points at nothing                                                                                   | Fail    |
+| `anchor`        | An in-page `#anchor` link matches no heading in its file                                                                     | Fail    |
+| `citation`      | A `<file> :: <anchor>` citation's file is missing or ambiguous, or the anchor is gone                                        | Fail    |
+| `path`          | A backticked repo path names something that is not there, and git does not ignore it                                         | Fail    |
+| `line-citation` | A citation uses a line number (COR-6)                                                                                        | Fail    |
+| `module-header` | A module header in INC-2's scope breaks its shape — the cap, a ruled or shouty line, a foreign list label, or the title line | Fail    |
+| `stamp`         | A stamped SHA is no ancestor of `HEAD`, or a page changed on the branch kept its stamp                                       | Fail    |
+| `stamp-format`  | A stamp line deviates from CUR-3's exact shape                                                                               | Fail    |
+| `branch-impact` | The branch materially changed a file a stamped page cites, and the page kept its stamp (CUR-4)                               | Fail    |
+| `adr-meta`      | An ADR breaks DEC-2's anatomy, DEC-3's status set, or DEC-6's reciprocity                                                    | Fail    |
+| `adr-index`     | An ADR has no row in the index (DEC-7)                                                                                       | Fail    |
+| `rule-id`       | A cited rule id resolves to no rule heading in `docs/_standard/chapters/`                                                    | Fail    |
+| `stamp`         | The stamped SHA is not in this clone — usually a shallow clone, not a defect                                                 | Report  |
+| `history`       | A COR-3 history phrase appears in the branch diff — the hits must be read                                                    | Report  |
 
 Four scanning rules keep it quiet:
 

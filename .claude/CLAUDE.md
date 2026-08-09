@@ -331,9 +331,9 @@ In code: a comment carries why, never what the line does; a module header stays 
 20-line cap; every FastAPI endpoint gets a docstring; never restate a type.
 
 `./scripts/verify.sh` fails on a dangling ADR number or rule id, a dead link, a broken anchor, a
-line-number citation, a missing path, a malformed ADR or stamp, and a stamped page that kept its
-stamp although it was edited or its cited files materially changed — in `/docs` and inside source
-comments alike. Entry point: `docs/README.md`.
+line-number citation, a missing path, a malformed ADR or stamp, a module header off INC-2's shape,
+and a stamped page that kept its stamp although it was edited or its cited files materially
+changed — in `/docs` and inside source comments alike. Entry point: `docs/README.md`.
 
 ## 9. Commands
 

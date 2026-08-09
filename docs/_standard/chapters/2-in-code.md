@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `09f903d`, 2026-08-08\
+**Verified against:** `6b65889`, 2026-08-09\
 **Applies to:** source files — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests` and
 `scripts/`: module headers, symbol docs, inline comments and test docstrings. A comment is
 documentation and carries every rule in [`1-core.md`](1-core.md) too.
@@ -50,7 +50,8 @@ code it introduces, and drawn rules invite crooked hand-maintained decoration.
 
 **Exceptions:** —
 
-**Enforced by:** unenforced — review judgment.
+**Enforced by:** gate check `module-header` — the shape of a header that exists; whether a file
+carries one stays review judgment.
 
 **Example:** the copy blocks in [`templates/module-header.md`](../templates/module-header.md).
 
