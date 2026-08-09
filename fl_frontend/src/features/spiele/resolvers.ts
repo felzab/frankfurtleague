@@ -1,16 +1,12 @@
 /**
  * SPIELE · route-parameter resolution
  *
- * Bridges the edit page's dynamic segment to a validated match id. Kept out of `queries.ts` because it
- * is not caching code, and folding it in would put a non-caching function inside a `"use cache"` module
- * (ADR-0003).
+ * Bridges the edit page's dynamic segment to a validated match id. Out of `queries.ts` so a
+ * non-caching function stays out of a `"use cache"` module (ADR-0003).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • PARSE, do not cast. The type says `string`, but nothing checks what is actually in the URL, and
- *     the value is forwarded to the backend under the base API key. An unvalidated segment becomes a
- *     backend request plus a distinct cache entry per variant — an unbounded cache-fill vector.
- *   • A bad match id ends the render. There is no sensible fallback fixture to edit.
+ * Invariants:
+ * - Parse, never cast — an unvalidated segment is a backend request and a cache entry per variant.
+ * - A bad match id ends the render; there is no sensible fallback fixture to edit.
  */
 
 import { notFound } from "next/navigation";

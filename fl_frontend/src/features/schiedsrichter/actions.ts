@@ -5,20 +5,14 @@
  *
  * Full CRUD over referees. The `"use server"` directive stays the first line, above this block.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Every action runs inside `runAdminMutation` — a 409 must reach the toast, not the error page.
+ * - Every action begins with `getAdminSession()` and CHECKS the result.
+ * - The patch invalidates `spiele` too: the rename fans out the NAME only; a match keeps its fee.
+ * - Delete is a soft delete server-side.
  *
- *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
- *     and converts a thrown API error into the returned result -- a 409 must reach the form's toast,
- *     not the error page (docs/logging.md).
- *   • Every action begins with `getAdminSession()` and CHECKS the result.
- *   • The patch action invalidates `spiele` as well as `schiedsrichter`, because the backend fans the
- *     new name into every match embedding it. Note it fans out the NAME only — a match keeps the fee
- *     that was agreed for it.
- *   • Delete is a soft delete server-side.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 3, the action inventory
+ * See:
+ * - docs/frontend/spec.md — section 3, the action inventory
  */
 import { updateTag } from "next/cache";
 

@@ -16,7 +16,7 @@ import { SpielDraftPreview } from "./SpielDraftPreview";
 import type { FLSpielWithStoredSides } from "@/features/spiele/schemas";
 
 /**
- * One warning the form also shows inline, mirrored into the rail's warnings card — the owner's rule
+ * One warning the form also shows inline, mirrored into the rail's warnings card — the rule
  * (fifth review): a warning that appears anywhere on the page has a place in "Hinweise" too, so
  * scrolling past it never means missing it. The FORM builds these from the same state its inline
  * callouts read; this card only renders them.
@@ -31,7 +31,7 @@ export type RailBanner = { severity: "info" | "warning" | "danger"; title: strin
  * second track holds exactly one sticky card, which never reaches the bottom to be uneven against.
  * Below `xl` it drops into flow directly under the page header, where a standing warning belongs.
  *
- * **The warnings card never disappears** (owner, fourth review): a card that vanishes when its count
+ * **The warnings card never disappears** (fourth review): a card that vanishes when its count
  * hits zero makes the layout jump and leaves nowhere to confirm "no warnings". It folds itself shut
  * instead when the last banner clears, opens itself when one arrives, and reads "Keine Hinweise."
  * when opened empty — the same shape "Offene Angaben" already has.
@@ -53,7 +53,7 @@ export function DraftRail({
   const status = useDraftStatus();
 
   // ONE list, then one sort: the card's own banner joins the form's mirrored ones, and the whole set
-  // renders ranked by severity — danger first, informational last (owner, eighth review).
+  // renders ranked by severity — danger first, informational last (eighth review).
   //
   // **The void warning is the FORM's, not this card's** (ADR-0051). It comes from a read-only dry run
   // that resolves the bracket against the current draft, so it names the fixtures a save actually
@@ -62,7 +62,7 @@ export function DraftRail({
   const banners: RailBanner[] = [...extraBanners];
 
   // A standing fact, so informational — and one sentence: what a reschedule needs becomes visible
-  // by itself the moment the Absage switch goes off (owner, fourth review).
+  // by itself the moment the Absage switch goes off (fourth review).
   if (previewSpiel.is_canceled) {
     banners.push({
       severity: "info",
@@ -83,7 +83,7 @@ export function DraftRail({
 
   // Controlled, because the count moves it: shut when the last banner clears, open when one arrives.
   // Only the TRANSITION drives it — in between, the state is the admin's own toggle. Desktop starts
-  // open even at zero banners (owner, seventh review): every rail card opens on a desktop
+  // open even at zero banners (seventh review): every rail card opens on a desktop
   // navigation, and this one showed a folded green zero instead. Same `xl` probe as `RailSection`.
   const [hinweiseOpen, setHinweiseOpen] = useState(
     () => bannerCount > 0 || (typeof window !== "undefined" && window.matchMedia("(min-width: 80rem)").matches),
@@ -95,7 +95,7 @@ export function DraftRail({
     previousCount.current = bannerCount;
   }, [bannerCount]);
 
-  // The owner's split (fourth review): red counts only what the fixture cannot happen without; the
+  // The split (fourth review): red counts only what the fixture cannot happen without; the
   // recommended rest gets its own yellow badge, matching the yellow markers beside those fields.
   const expectedRequired = status.expected.filter((field) => field.expectedSeverity === "required");
   const expectedRecommended = status.expected.filter((field) => field.expectedSeverity === "recommended");
@@ -173,7 +173,7 @@ export function DraftRail({
             {expectedRecommended.length > 0 && (
               <span className={`${COUNT_BADGE} bg-warning/15 text-warning-strong`}>{expectedRecommended.length}</span>
             )}
-            {/* Tinted like every other badge — `/15` fill, `-strong` text (owner, fifth review):
+            {/* Tinted like every other badge — `/15` fill, `-strong` text (fifth review):
                 the two solid-filled counts were the odd ones out and the least like their markers. */}
             {(expectedRequired.length > 0 || expectedRecommended.length === 0) && (
               <span
@@ -198,7 +198,7 @@ export function DraftRail({
             {[...expectedRequired, ...expectedRecommended].map((field) => (
               <li key={field.path}>
                 {/* The default fragment jump teleports; scrolling there keeps the admin oriented
-                    (owner, sixth review). `scrollIntoView` honours the wrapper's `scroll-mt-28`, and
+                    (sixth review). `scrollIntoView` honours the wrapper's `scroll-mt-28`, and
                     reduced-motion readers get the instant jump their setting asks for. The href
                     stays, so the control remains a real link for every non-click activation. */}
                 <a

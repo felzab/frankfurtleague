@@ -11,8 +11,7 @@ import type { FLSpiel } from "@/features/spiele/schemas";
  *
  * **Its own panel, last, and in the danger tone.** `is_canceled` is the one control on this form that
  * describes the fixture rather than its data, and it used to sit above the fields — so the destructive
- * answer was where the eye lands first. Last is the danger-zone position every settings page the owner
- * will compare this to uses.
+ * answer was where the eye lands first. Last is the danger-zone position of every settings page this will be compared to.
  *
  * **A cancelled match is not a match with no result.** The flag and the `ergebnis` are independent: a
  * fixture awarded without being played carries both, and that is what makes it count in the league table

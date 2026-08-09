@@ -68,7 +68,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
   return (
     // Fills `main` exactly, and owns no padding: the form inside is the page's shell — an inner
     // container scrolls the header and panels, and the action bar stays pinned below it, outside
-    // the scroll content, where nothing can move it (owner, eighth review). The page paddings and
+    // the scroll content, where nothing can move it (eighth review). The page paddings and
     // the `max-w-page` cap live in the form's scroll container.
     <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminEditSpielDataForm

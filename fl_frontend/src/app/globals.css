@@ -127,10 +127,10 @@
     /* Accents & Feedback */
     --accent-brand: #82181a;
 
-    /* THE focus colour, and there is only one (owner decision, 2026-07-31).
+    /* THE focus colour, and there is only one (decided 2026-07-31).
        HeroUI reads --focus for all 47 of its focus rings, and the base-layer rule further down gives
        plain <a>/<button> an identical outline, so this single line is the whole focus palette.
-       --fg-base, not --accent-brand: it is white in the dark theme -- the look the owner picked --
+       --fg-base, not --accent-brand: it is white in the dark theme -- the chosen look --
        and near-black in the light theme, where white would be invisible on --bg-base. Both read as
        "the standard focus outline", which is the point.
        Field-like controls and collection options opt out; both exceptions are declared once, in the
@@ -154,7 +154,7 @@
        against --bg-muted**, the darkest of the three light surfaces and the one that decides these
        values: the 700s clear 4.5:1 on --bg-base and --bg-surface but reach only 4.35 and 3.99 here,
        while the 800s measure 6.10 and 5.63. Amber-800 reading browner than amber-700 is an accepted
-       cost, not an oversight (owner, 2026-08-01). */
+       cost, not an oversight (decided 2026-08-01). */
     --accent-success-strong: #065f46;
     --accent-info-strong: #1d4ed8;
     --accent-warn-strong: #92400e;
@@ -256,7 +256,7 @@
      HeroUI covers its own components -- button, link, tab, accordion trigger, menu item, table row,
      switch and 30-odd more -- with a 2px ring in var(--focus) at a 2px offset. This gives a plain
      <a>, <button> or [tabindex] an outline with the same width, offset and colour, so the app has
-     ONE focus appearance rather than three (owner, 2026-07-31).
+     ONE focus appearance rather than three (decided 2026-07-31).
 
      Why it beats the browser's own focus ring: any author style does.
 
@@ -516,7 +516,7 @@ html:has([data-app-shell]) {
   scrollbar-width: none;
 }
 
-/* An ultra-thin LINE scrollbar: a 3px thumb, no track, no buttons (owner, 2026-08-08). The standard
+/* An ultra-thin LINE scrollbar: a 3px thumb, no track, no buttons (decided 2026-08-08). The standard
    `scrollbar-width: thin` still draws a track and, on Windows, arrow buttons — a line is only
    reachable through the WebKit pseudo-elements, and Chromium DISABLES those the moment the standard
    properties compute to anything but `auto`. So this forces both back to `auto` (undoing HeroUI's
@@ -558,7 +558,7 @@ html:has([data-app-shell]) {
   background-size: 32px 32px;
 }
 
-/* THE two focus exceptions, and they are the only ones (owner decision, 2026-07-31).
+/* THE two focus exceptions, and they are the only ones (decided 2026-07-31).
 
    Everything else in the app takes the one focus indicator declared in @layer base: HeroUI's ring
    and the matching outline, both in var(--focus). These two categories must not.
@@ -623,7 +623,7 @@ html:has([data-app-shell]) {
      open-state arm: react-aria restores focus to a trigger when its popover dismisses — after the
      exit animation, so no blur scheduled at close time can beat it — and the restored focus kept
      the brand border on a control the user had just clicked away from. The season selector is the
-     one bearer (owner, 2026-08-07: brand only while open, the resting border always otherwise).
+     one bearer (decided 2026-08-07: brand only while open, the resting border always otherwise).
      A keyboard user still gets an indicator: with these arms skipped, the ring suppression below
      is skipped too, so HeroUI's own focus-visible ring shows — the app's standard one. */
   &:is(:focus, :focus-visible, :focus-within, [data-focused="true"], [data-focus-visible="true"], [data-focus-within="true"]):not(
@@ -686,7 +686,7 @@ html:has([data-app-shell]) {
    for every Select and Autocomplete, because the problem was never that selector's: react-aria
    restores focus to the trigger when the popover dismisses, and it does so AFTER the exit animation,
    so no blur scheduled at close time beats it. The trigger the user had just clicked away from kept
-   a brand border until something else took focus, on every picker in the app (owner, 2026-08-07).
+   a brand border until something else took focus, on every picker in the app (decided 2026-08-07).
 
    The focus arms in the block above are skipped for these two slots rather than the whole rule: the
    `aria-expanded` arms still apply, so an open picker still reads as active, and skipping the focus
@@ -707,7 +707,7 @@ html:has([data-app-shell]) {
   border-color: var(--border-base);
 }
 
-/* Required asterisks belong to a form that CREATES something (owner, 2026-08-07).
+/* Required asterisks belong to a form that CREATES something (decided 2026-08-07).
    On an edit every value is already present, so a column of red stars marks nothing the reader can
    act on; on a create each one is a genuine question.
 
@@ -741,14 +741,14 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   border-color: var(--accent-brand);
 }
 
-/* Collection options: NO focus highlight at all (owner decision, 2026-07-31, superseding a neutral
+/* Collection options: NO focus highlight at all (decided 2026-07-31, superseding a neutral
    fill and, before that, a brand one).
 
    The highlight was correct in principle — react-aria moves the focused key onto the first match as
    you type in a combobox so Enter can pick it, and that needs a visible state — but not achievable
    here. react-aria's `isFocusVisible` is a GLOBAL interaction-modality flag, not per-element state:
    whether a freshly opened dropdown paints its selected row depends on whether the user's last
-   interaction anywhere on the page was a key press. The owner saw it appear and disappear at random
+   interaction anywhere on the page was a key press. It appeared and disappeared at random
    on the season selector across three review rounds. The browser's own `:focus-visible` uses a very
    similar heuristic, so it is not a fix, and inside a combobox popover focus never leaves the search
    input, so the browser cannot see the option at all.
@@ -762,7 +762,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    `data-focus-visible`, which is what this block exists to prevent.
 
    Removing the repository's own highlight was only half the job, and the other half went unnoticed
-   until the owner reported a white ring on the first search result. HeroUI's `list-box-item.css`
+   until a white ring was reported on the first search result. HeroUI's `list-box-item.css`
    applies `status-focused` on `[data-focus-visible]`, which resolves to
    `ring-2 ring-focus ring-offset-0 ring-offset-background` with `--ring-offset-width: 2px` — and this
    app maps `--focus` to `--fg-base`, so the composite is a 2px `--bg-base` halo inside a 2px
@@ -774,7 +774,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    than reintroducing one. Both ring custom properties have to be zeroed, not just the first: Tailwind
    composes `box-shadow` from `--tw-ring-shadow` AND `--tw-ring-offset-shadow`, so killing one leaves
    the 2px offset band behind, which is the white line itself. What remains to convey the option under
-   the pointer is each call site's own `hover:bg-muted`, which is all the owner wants there. */
+   the pointer is each call site's own `hover:bg-muted`, which is all that is wanted there. */
 [data-slot="list-box-item"],
 [data-slot="menu-item"] {
   --tw-ring-shadow: 0 0 #0000;
@@ -800,7 +800,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    A LIST-BOX item keys on `data-focus-visible`, and the difference is not cosmetic. A `Select` focuses
    its SELECTED option the moment the popover opens, whatever opened it, so `data-focused` painted a
    fill on one row before anybody had pressed a key — read as "these items have a background" rather
-   than as "you are here" (owner, 2026-08-07). `data-focus-visible` is react-aria's keyboard-modality
+   than as "you are here" (decided 2026-08-07). `data-focus-visible` is react-aria's keyboard-modality
    flag, so the fill now appears when a key actually moves the selection, which is the WCAG 2.4.7 case
    this rule exists for. What a pointer user gets instead is the call site's own `hover:` pair — see
    `SaisonSelector`, which tints the row and turns its text brand. */
@@ -809,14 +809,14 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
   background-color: var(--bg-muted);
 }
 
-/* Number fields carry no vertical padding, anywhere (owner decision, 2026-08-06). The group is a fixed
+/* Number fields carry no vertical padding, anywhere (decided 2026-08-06). The group is a fixed
    height with a centred grid, so padding on the input only fights it — and it was the reason a number
    field and the autocomplete beside it did not line up. */
 [data-slot="number-field-input"] {
   padding-block: 0;
 }
 
-/* Reduced motion, SOFTENED (owner decision 2026-07-31).
+/* Reduced motion, SOFTENED (decided 2026-07-31).
    The policy is "remove movement, keep fades", NOT "remove motion". Zeroing every animation- and
    transition-duration is the obvious implementation and the wrong one: it makes the site
    motionless rather than calm, and the result reads as flickering, because state changes land with
@@ -938,7 +938,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     @apply items-start gap-2.5 overflow-hidden whitespace-normal;
   }
 
-  /* Severity is the border and the timer bar, and with the icon tile gone (owner, 2026-08-06) the
+  /* Severity is the border and the timer bar, and with the icon tile gone (decided 2026-08-06) the
      border is the one mark a settled toast carries. `/60` rather than the `/30` it ran at beside a
      tinted tile: it is now doing that work alone and has to read at a glance. */
   .toast--accent {

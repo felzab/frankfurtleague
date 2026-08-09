@@ -2,24 +2,15 @@
  * SPIELER · what the squad editor's draft has changed and got wrong
  *
  * One derivation over one player's draft, read by everything on the edit page that says something
- * about a field: the label markers, the change list, the unsaved count, the action bar and the
- * navigation guard. Pure, so it is tested rather than clicked. `teamDraftStatus.ts` is the pattern
- * and this is the same idea over a player.
+ * about a field: label markers, change list, unsaved count, action bar, navigation guard. Pure,
+ * so it is tested rather than clicked; `teamDraftStatus.ts` is the pattern.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • `path` is the field's dotted path in the payloads, and the SAME string is the input's `name`,
- *     the `FieldErrors` key and the anchor id. One string joins the label, the change row, the error
- *     and the jump link.
- *   • Every editable field has a row in `FIELD_DESCRIPTORS` and nothing reads a field any other way.
- *     A field with no row is invisible to the whole page.
- *   • The squad rows participate only while the player IS in a squad that season — an absent junction
- *     row has no number to change and no team to move between.
- *   • `inactive_since` is NOT a descriptor on either surface. Retiring is a control, not a field: it
- *     writes immediately through its own endpoint and is never part of a draft the save bar counts.
- *   • `is_nachgetragen` is not one either, and for a different reason: the editor renders it as a
- *     NOTE (owner, 2026-08-07). Nothing on the page can change it, so a change row for it could never
- *     fire — it still travels on the payload, because the patch replaces the row wholesale.
+ * Invariants:
+ * - `path` is the payloads' dotted path AND the input `name`, `FieldErrors` key and anchor id.
+ * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
+ * - Squad rows participate only while the player IS in a squad that season.
+ * - `inactive_since` is not a descriptor — retiring is a control, not a field.
+ * - `is_nachgetragen` renders as a note (decided 2026-08-07) yet travels — the patch is wholesale.
  */
 
 import type { FieldErrors } from "@/shared/utils/validation";

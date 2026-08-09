@@ -28,7 +28,7 @@ const EMPTY_DRAFT_BASE = {
  * One form on purpose: every team read is season-scoped with a strict junction join (I11), so a club
  * created without a junction row would be invisible to the very list this form sits on.
  *
- * **Only planned seasons are offered** (owner, 2026-08-07): a season's field is settled before it
+ * **Only planned seasons are offered** (decided 2026-08-07): a season's field is settled before it
  * starts, so the picker holds `saisonOptions` — the `future` seasons, each with its groups' fill
  * state — and the modal shows a notice instead of this form when none exist. The group picker
  * disables a full group; `POST /teams/{team_id}/saisons` refuses the same shapes

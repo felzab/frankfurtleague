@@ -28,7 +28,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
             crushed the 32px info button to 16px and pushed 26px past the card edge. Nothing here may
             deform instead of wrapping — but only the LEFT GROUP wraps: the chip moves under the date
             when space runs out, while the button stays a direct child of the outer row, pinned to the
-            card's top-right corner as it is on SpielCard (owner, 2026-08-08). `self-start` costs the
+            card's top-right corner as it is on SpielCard (decided 2026-08-08). `self-start` costs the
             button nothing on one line, where it is the tallest item anyway. */}
         <div className="flex h-fit w-full flex-row items-center gap-x-4">
           <div className="flex min-w-0 flex-row flex-wrap items-center gap-x-4 gap-y-2">

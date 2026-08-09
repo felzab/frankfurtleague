@@ -1,17 +1,13 @@
 /**
  * SYSTEM · health and diagnostics
  *
- * Wrappers over the backend's three system endpoints. Cached for minutes rather than days — health is
- * the one thing where a stale answer is worse than no answer.
+ * Wrappers over the backend's three system endpoints. Cached for minutes rather than days —
+ * health is the one thing where a stale answer is worse than no answer.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Each call uses a different `authType`, matching how the backend guards them: `is_live` is
- *     unauthenticated because it is the container healthcheck, the other two need the system key.
- *   • `checkIsReady` and `getSystemInfo` have no callers in the application today. They are kept
- *     deliberately, and the system key stays required at boot as a result. If they are ever removed,
- *     remove the environment declaration WITH them — dropping only the declaration turns a
- *     boot-time failure into a runtime `Bearer undefined`.
+ * Invariants:
+ * - Each call's `authType` matches the backend guard: `is_live` is the unauthenticated healthcheck.
+ * - `checkIsReady` and `getSystemInfo` are kept uncalled (ADR-0014); if ever removed, remove the
+ *   system-key environment declaration WITH them.
  */
 
 import { cacheLife, cacheTag } from "next/cache";

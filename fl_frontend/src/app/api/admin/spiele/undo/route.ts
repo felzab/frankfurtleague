@@ -1,32 +1,16 @@
 /**
  * APP · the match edit's undo
  *
- * Puts a batch of fixtures back the way they were, in the order given (ADR-0051). It is one of the
- * admin mutations that are route handlers rather than server actions, and the reason is an upstream
- * Next.js bug rather than a preference —
- * [ADR-0062](../../../../../../../docs/_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md)
- * carries the argument and the condition for reverting it.
+ * Puts a batch of fixtures back the way they were, in the order given (ADR-0051) — one of the
+ * admin mutations that are route handlers rather than server actions (ADR-0062): the undo's toast
+ * outlives the page that raised it, and a server action dispatched from the landing route
+ * re-renders the abandoned editor segment, which trips Next's E592 invariant mid-stream and
+ * truncates the response. Revert to a server action when E592 is fixed upstream.
  *
- * **The short version.** The undo is offered by a toast that outlives the page that raised it, so by
- * the time it is pressed the browser has already left `/admin/spiele/[spiel_id]`. A server action
- * dispatched from the route it landed on makes Next re-render the editor segment, which it still
- * holds in the router tree — and that render combines a prerendered postponed state with fallback
- * params, which Next asserts is impossible (error E592). The assertion fires mid-stream, truncating
- * the action's response to two bytes, so the client could not read a result and the write never
- * happened. A route handler renders no page tree at all, so there is nothing for that assertion to
- * fire on.
- *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • **`revalidateTag`, never `updateTag`.** The latter is the server-action form and throws here
- *     (spec I14). The pair invalidated is the same one the save uses, because an undo is a write.
- *   • **It guards itself.** `proxy.ts` matches `/admin/:path*` and does not reach `/api`, so the
- *     session check below is the only control on this route — exactly as it is inside the action it
- *     replaced, which the proxy also exempts.
- *   • **The client holds every payload**, because nothing on the server does: no admin write is
- *     recorded anywhere (roadmap BE-15), so a fixture's previous state exists only in the page that
- *     was looking at it. That is what bounds this to one page session rather than making it a
- *     history feature.
+ * Invariants:
+ * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.
+ * - It guards itself: `proxy.ts` matches `/admin/:path*` only, so the session check is the control.
+ * - The client holds every payload — no admin write is recorded anywhere (roadmap BE-15).
  */
 
 import { revalidateTag } from "next/cache";

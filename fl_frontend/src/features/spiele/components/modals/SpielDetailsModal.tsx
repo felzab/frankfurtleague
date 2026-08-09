@@ -40,10 +40,10 @@ function TeamNameLine({ team, quelle, onNavigate }: { team: FLSpielTeamField | n
 }
 
 /**
- * Deliberately NOT on `ModalShell` (owner decision, 2026-07-31): this is the one modal public users
+ * Deliberately NOT on `ModalShell` (decided 2026-07-31): this is the one modal public users
  * see, and its lighter `bg-surface p-6 shadow-sm` appearance is the wanted look.
  *
- * **The caller guards the mount; this component does not stay mounted (owner decision, 2026-07-31).**
+ * **The caller guards the mount; this component does not stay mounted (decided 2026-07-31).**
  * Keeping the Backdrop mounted would preserve HeroUI's exit transition, but `SpielCardsList` is
  * instantiated once per collection, so it would also mount ~11 idle overlay trees across the app on
  * first paint. Losing the exit transition is the accepted cost.
@@ -115,7 +115,7 @@ export function SpielDetailsModal({
               <Modal.Body className="text-foreground">
                 {/* Teams area  */}
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
-                  {/* Plain links, not a team popover (owner decision, 2026-07-31). A popover
+                  {/* Plain links, not a team popover (decided 2026-07-31). A popover
                       anchored inside a `position: fixed` overlay is mispositioned by react-aria,
                       which adds `document.scrollTop` to the trigger's viewport rect — on the landing
                       page, the one route where you must scroll to reach a match, it opened that far

@@ -100,7 +100,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
 
   return (
     <>
-      {/* The phone layout: one card per referee, no horizontal scrolling anywhere (owner, 2026-08-07
+      {/* The phone layout: one card per referee, no horizontal scrolling anywhere (decided 2026-08-07
           — the teams table's card pattern, applied here as FE-13 asked). The school column stays
           table-only: on a card it read as an unlabeled stray line, and the edit dialog carries it. */}
       <div className="flex w-full flex-col gap-3 md:hidden">

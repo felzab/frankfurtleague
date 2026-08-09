@@ -2,20 +2,14 @@
  * APP · client-error ingest
  *
  * The one place a browser-side crash reaches the server log. Client components cannot use
- * `core/logging.ts` (it is server-only via `core/config.ts`), so without this route a client render
- * crash is recorded nowhere -- the error boundary posts here instead (`src/app/error.tsx`).
+ * `core/logging.ts` (it is server-only via `core/config.ts`), so without this route a client
+ * render crash is recorded nowhere — the error boundary posts here instead (`src/app/error.tsx`).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Strictly bounded input: every field is length-capped by the schema and anything unparseable is
- *     dropped with a 4xx and no log line an attacker controls the size of. This is a public,
- *     unauthenticated write path -- the only one besides sign-in -- which is why nginx rate-limits
- *     POSTs to it the same way (docs/logging.md).
- *   • Browser-only by intent: requests whose `Sec-Fetch-Site` is present and not `same-origin` are
- *     refused. Every current browser sends the header on fetch; a missing header (curl) still passes
- *     schema validation and the rate limit, which bounds the abuse to noise in a capped log.
- *   • No response body. The reporter gets a 204 either way it matters; this route must never become
- *     an oracle for anything.
+ * Invariants:
+ * - Bounded input: fields are length-capped, unparseable drops with a 4xx, nginx rate-limits the
+ *   POSTs (docs/logging.md).
+ * - Requests whose `Sec-Fetch-Site` is present and not `same-origin` are refused.
+ * - No response body — this route must never become an oracle for anything.
  */
 
 import { NextResponse } from "next/server";

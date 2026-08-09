@@ -15,7 +15,7 @@ import type { SpielerCreateSaisonOption } from "@/features/spieler/types";
  * Takes its data as props rather than fetching: the trigger renders above the page's data boundary,
  * and the route wraps this modal in its own `Suspense` so the fetch never blocks the shell.
  *
- * `saisonOptions` holds the RUNNING and PLANNED seasons (owner, 2026-08-07), unlike the club create
+ * `saisonOptions` holds the RUNNING and PLANNED seasons (decided 2026-08-07), unlike the club create
  * which offers planned ones only: a squad is filled in during its season, so adding a player to a
  * season already under way is the ordinary case. A season with no teams entered yet is still offered
  * — the form's team picker is then empty, which is the honest state and points at the club list.
@@ -39,7 +39,7 @@ export function AdminCreateSpielerModal({
           width={18}
           height={18}
         />
-        {/* Below `sm` the trigger is the bare plus continuing the search bar (owner, 2026-08-07). */}
+        {/* Below `sm` the trigger is the bare plus continuing the search bar (decided 2026-08-07). */}
         <span className="hidden sm:inline">Neuen Spieler anlegen</span>
       </Button>
 

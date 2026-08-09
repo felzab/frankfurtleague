@@ -22,7 +22,7 @@ import type { AdminTeamRow } from "../../types";
  * account on `AdminSpielorteTable`: the `items` + render-function form of `Table.Body` is what keeps
  * the rows alive across hidden re-renders, and `memo` is the cheap second layer.
  *
- * **The rows are every club; the Gruppe and Status columns are the selected season's** (owner,
+ * **The rows are every club; the Gruppe and Status columns are the selected season's** (decided
  * 2026-08-07). A club not entered in that season shows that instead of season data, and its
  * season-scoped fields are edited by picking the season in the sidemenu first.
  *
@@ -151,7 +151,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
   return (
     <>
-      {/* The phone layout: one card per team, no horizontal scrolling anywhere (owner, 2026-08-07).
+      {/* The phone layout: one card per team, no horizontal scrolling anywhere (decided 2026-08-07).
           The table below `md` forced the whole grid sideways; a stacked card holds the same data
           and the same controls at reading width. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
@@ -169,7 +169,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 <span className="fluid-xs text-foreground-muted truncate">{team.full_name}</span>
               </div>
             </div>
-            {/* Group and status share the row below the identity (owner, 2026-08-07). */}
+            {/* Group and status share the row below the identity (decided 2026-08-07). */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               {team.selected && <span className="fluid-sm text-foreground shrink-0 font-semibold">Gruppe {team.selected.gruppe}</span>}
               {renderStatusBadges(team)}
@@ -191,13 +191,13 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 </Table.Column>
                 {/* The three data columns are PINNED to their content's width with one px-3 inset
                 each, so every value sits the same distance from its neighbour and the leftover
-                width all goes to the name column (owner, 2026-08-07 — auto layout had been handing
+                width all goes to the name column (decided 2026-08-07 — auto layout had been handing
                 the spare width to Kürzel and Status while Gruppe got none). */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Kürzel
                 </Table.Column>
                 {/* Season-scoped columns; WHICH season is the sidemenu selector's, stated by the page
-                context rather than repeated per header (owner, 2026-08-07). */}
+                context rather than repeated per header (decided 2026-08-07). */}
                 <Table.Column className="bg-muted text-foreground-muted fluid-xs border-border w-24 border-b px-3 py-4 font-bold tracking-wider uppercase">
                   Gruppe
                 </Table.Column>
@@ -235,10 +235,10 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 
                       <Table.Cell className="px-3 py-4">
                         {/* The TeamCard's chip colour, so the Kürzel wears one tint on the admin surface
-                        and the public one (owner, 2026-08-07). */}
+                        and the public one (decided 2026-08-07). */}
                         {/* Fixed width, sized to the widest pair: WW measures 54.4px at this font with
                         the old px-3 padding, so w-14 holds every combination and the column stops
-                        wobbling between rows (owner, 2026-08-07). */}
+                        wobbling between rows (decided 2026-08-07). */}
                         <span className="bg-brand/50 text-foreground fluid-xs inline-flex w-14 items-center justify-center rounded-md py-1.5 font-extrabold tracking-wide shadow-sm">
                           {team.shorthand}
                         </span>

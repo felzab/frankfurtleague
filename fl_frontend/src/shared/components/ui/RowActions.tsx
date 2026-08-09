@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
  * three. They share one style here, so the targets match.
  *
  * The data columns are deliberately NOT shared — they genuinely differ per entity, and a
- * config-driven table is where that kind of abstraction stops paying (owner decision, 2026-07-30).
+ * config-driven table is where that kind of abstraction stops paying (decided 2026-07-30).
  *
  * `label` and `ariaLabel` are two different things and both are required. `label` is the
  * tooltip, which react-aria wires as `aria-describedby` — a description, announced after the name
@@ -135,7 +135,7 @@ export function RowActionDelete({
   onPress: () => void;
   /**
    * For a refusal this row can already see. The tooltip carries the reason, so `label` is what changes —
-   * a disabled control with the same wording as a live one tells the reader nothing (owner, 2026-08-08).
+   * a disabled control with the same wording as a live one tells the reader nothing (decided 2026-08-08).
    */
   isDisabled?: boolean;
 }) {

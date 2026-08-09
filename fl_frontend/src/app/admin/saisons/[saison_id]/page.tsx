@@ -60,7 +60,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
 
   /**
    * The outgoing season's unfinished matches — the precondition the ENDPOINT now enforces
-   * (`REQ-ACTIVATE-001`, owner, 2026-08-08), listed here so the block is actionable rather than a 409.
+   * (`REQ-ACTIVATE-001`, decided 2026-08-08), listed here so the block is actionable rather than a 409.
    *
    * **"Unfinished" is `ergebnis === null && !is_canceled`, and it mirrors `unplayed_spiel_nrs` exactly.**
    * Cancelling is the route past the refusal, so a cancelled fixture is settled: it is what turns a match

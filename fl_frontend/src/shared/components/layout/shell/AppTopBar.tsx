@@ -82,7 +82,7 @@ export function AppTopBar({
           />
         </button>
 
-        {/* **No brand on a phone at all** (owner): below `lg` this block is the hamburger and
+        {/* **No brand on a phone at all** (my call): below `lg` this block is the hamburger and
             nothing else, and the mark lives at the top of the drawer that button opens — full logo
             and wordmark, as it was. Here it appears from `lg`, where the rail is permanent and the
             block is that rail's width; the collapsed rail is 72px and takes the mark alone. */}
@@ -102,7 +102,7 @@ export function AppTopBar({
             clipped mid-letter rather than pushed onto a second line. Every label in the two nav
             structures fits at every width the app supports; this is the guard for the next one. */}
         {/* The glyph lives INSIDE the h1, on the text's own baseline — the exact placement the
-            editors' panel headings use, and the one where an icon truly aligns with text (owner,
+            editors' panel headings use, and the one where an icon truly aligns with text (decided
             2026-08-07: closer to the title, aligned like the Spiel editor). It inherits the h1's
             font size, so `InfoHint`'s 1em icon matches, and its own `ms-1.5` is the whole gap. A
             title long enough to truncate would clip it — the fits-at-every-width guarantee above is
@@ -136,7 +136,7 @@ export function AppTopBar({
           )}
         </h1>
 
-        {/* **The two account controls, inline and not behind a menu** (owner). They lived in the
+        {/* **The two account controls, inline and not behind a menu** (my call). They lived in the
             sidemenu's footer, where on a phone they sat behind a shut drawer — so the appearance
             control and the only way to end a session both needed a navigation panel opened first.
             The bar has room for both, and a dropdown holding two items is a click in front of each.
@@ -145,7 +145,7 @@ export function AppTopBar({
             and their gutter matches the one on the far side of the bar. `ms-auto` puts the pair at
             the end with no spacer element. */}
         <div className="ms-auto flex shrink-0 flex-row items-center gap-x-4">
-          {/* **From `lg` only** (owner): on a phone the bar has the title, the glyph and the sign-out
+          {/* **From `lg` only** (my call): on a phone the bar has the title, the glyph and the sign-out
               to fit, and the appearance control is the one of the four that is already reachable
               elsewhere — the sidemenu footer's options menu carries it at every width. */}
           <span className="hidden lg:flex">

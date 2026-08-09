@@ -18,7 +18,7 @@ import { ModalShell } from "./ModalShell";
  * **The loss carries the warning; the buttons follow the site's confirm pattern.** The count of
  * changes at stake is a warning-tinted chip, and the pair is one solid and one outline exactly as
  * `ConfirmDeleteModal` has them — the destructive action the dialog exists for is the primary,
- * the way back the secondary (owner, seventh review). Both stack full-width at every size — the
+ * the way back the secondary (seventh review). Both stack full-width at every size — the
  * slim dialog cannot seat the two labels side by side, and a pair that stacks only sometimes reads
  * as two designs.
  *
@@ -65,8 +65,8 @@ export function ConfirmDiscardModal({
 
         {/* One primary, one secondary — the same pair `ConfirmDeleteModal` and every two-button form
             on the site use: the action the dialog exists for is the solid one, the way back is the
-            outline (owner, seventh review — two solid fills read as two primaries). */}
-        {/* The same footer band as every other modal (owner, 2026-08-07). Stacked rather than
+            outline (seventh review — two solid fills read as two primaries). */}
+        {/* The same footer band as every other modal (decided 2026-08-07). Stacked rather than
             side by side here, because this pair is not symmetrical: one discards work.
             No width here — `MODAL_FOOTER` declares its own, and a `w-full` beside it wins on source
             order and pulls the band 2rem narrow. */}

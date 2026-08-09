@@ -3,29 +3,17 @@
 /**
  * SHARED · the filter bar's URL state
  *
- * The other half of `useDebouncedUrlQuery`: that hook owns `?q=`, this one owns one parameter per facet.
+ * The other half of `useDebouncedUrlQuery`: that hook owns `?q=`, this one owns one parameter
+ * per facet.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • **The URL is the only state.** There is no `useState` here, so a selection survives a reload, a
- *     back button and a shared link, and two halves of the page cannot disagree about it. It is the same
- *     reason `AdminSpieleActionRequiredView` keeps its section there.
- *   • **It writes with `window.history.replaceState`, not `router.replace`.** Every surface that filters
- *     already holds all its rows on the client, so a router navigation would re-render the route's server
- *     component — and on the CRUD pages re-issue its reads — to change which of the already-loaded rows
- *     are displayed. Next documents the History API as integrating with its router, so `useSearchParams`
- *     re-renders with the new value and nothing else runs.
- *   • `replaceState`, never `pushState`. Back out of a filtered list should leave the list, not walk the
- *     user backwards through the facets they tried.
- *   • **A write touches only the parameters it names, and reads the LIVE URL for the rest.** Both halves
- *     are needed and for the same reason: `replaceState` updates the address bar synchronously while
- *     `useSearchParams` re-renders afterwards, so a second press arriving before that render is working
- *     from a stale snapshot. Naming only what changed means the stale part is never written back.
- *   • A value the facet does not offer is dropped on read (`readFacetSelection`), so a hand-edited query
- *     string cannot select something the popover has no row for.
- *   • **The returned selection is not referentially stable and must not be depended on as if it were.**
- *     It is rebuilt per render from the params, like `useDebouncedUrlQuery`'s `urlValue` — which is why
- *     `applyFacets` returns its input unchanged when nothing is selected.
+ * Invariants:
+ * - The URL is the only state — a selection survives reload, back button and a shared link.
+ * - Writes use `replaceState`, not `router.replace` — the rows are already loaded, and a router
+ *   navigation would re-run the route's server reads.
+ * - `replaceState`, never `pushState` — back should leave the list, not walk the facets.
+ * - A write names its parameters and reads the live URL for the rest — never a stale snapshot.
+ * - A value the facet does not offer is dropped on read.
+ * - The returned selection is rebuilt per render and is not referentially stable.
  */
 import { useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";

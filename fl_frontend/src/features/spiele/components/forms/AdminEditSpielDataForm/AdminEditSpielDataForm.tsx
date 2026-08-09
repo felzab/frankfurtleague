@@ -183,7 +183,7 @@ export function AdminEditSpielDataForm({
 
   const [notiz, setNotiz] = useState<string | null>(spielData.notiz);
 
-  // ALWAYS closed on open (owner, seventh review, overruling the opened-when-played variant): the
+  // ALWAYS closed on open (seventh review, overruling the opened-when-played variant): the
   // deliberate flip is the guard, on every fixture alike, so a stray keystroke can neither invent a
   // 0:0 nor silently rewrite a recorded result.
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState(false);
@@ -249,7 +249,7 @@ export function AdminEditSpielDataForm({
   // still differs from the `spielData` this render was given. Its job ends the moment the
   // revalidated fixture arrives and the two agree — left latched, every LATER edit on a restored
   // tree read as not-dirty and both guards were bypassed, which is the "sometimes the discard
-  // dialog does not appear" the owner caught: it never appeared again after a save. A render-phase
+  // dialog does not appear" caught in review: it never appeared again after a save. A render-phase
   // adjustment rather than an effect: React restarts this component's render before committing, so
   // no frame ever shows the stale latch.
   if (hasSaved && !status.isDirty) setHasSaved(false);
@@ -333,7 +333,7 @@ export function AdminEditSpielDataForm({
   });
 
   /**
-   * The rail's mirror of every warning that appears inline somewhere in the form (owner, fifth
+   * The rail's mirror of every warning that appears inline somewhere in the form (fifth
    * review): a warning an admin scrolled past still has one place that lists it. Built from the same
    * state the inline callouts read, so the two can never tell different stories.
    */
@@ -371,7 +371,7 @@ export function AdminEditSpielDataForm({
 
   // A cancelled fixture with a DECIDED score is legal — a Wertung is entered exactly like this, and
   // the table counts it (ADR-0026) — but it is also the shape a mistaken cancellation takes, so it
-  // gets a warning rather than silence or a refusal (owner, eighth review).
+  // gets a warning rather than silence or a refusal (eighth review).
   const tore1 = team1Payload?.tore ?? null;
   const tore2 = team2Payload?.tore ?? null;
   const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
@@ -559,7 +559,7 @@ export function AdminEditSpielDataForm({
       // their previous state — nothing on the server does (ADR-0051). Built BEFORE leaving, because
       // `spielData` and `saisonSpiele` are this render's props and the toast outlives the page.
       //
-      // **Offered on EVERY save, not only a destructive one** (owner, 2026-08-06). Scoping it to
+      // **Offered on EVERY save, not only a destructive one** (decided 2026-08-06). Scoping it to
       // saves that voided a result answered "what did this destroy" and left "I did not mean to save
       // that" with no answer at all — which is the more common mistake and the one an admin notices
       // one second too late. It costs nothing extra: with no other fixture affected the replay is the
@@ -725,7 +725,7 @@ export function AdminEditSpielDataForm({
 
   return (
     <DraftStatusProvider status={status}>
-      {/* The shell (owner, eighth review): the inner container scrolls the page — header, panels,
+      {/* The shell (eighth review): the inner container scrolls the page — header, panels,
           rail — and the action bar is its STATIC sibling below, outside the scroll content, where
           nothing (overscroll bounce, the mobile URL bar, page-end spacing) can move it. `main`
           never scrolls on this route, because this form fills it exactly. */}

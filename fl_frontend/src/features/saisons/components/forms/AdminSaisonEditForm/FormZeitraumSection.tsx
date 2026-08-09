@@ -14,7 +14,7 @@ import type { CalendarDate } from "@internationalized/date";
 /**
  * When the season runs.
  *
- * **The season contains its matchdays, and both directions are enforced** (owner, 2026-08-08): a matchday
+ * **The season contains its matchdays, and both directions are enforced** (decided 2026-08-08): a matchday
  * cannot reach outside the season (`REQ-DATE-002`), and the season cannot shrink under a live matchday
  * (`REQ-DATE-004`) — which is what `spieltagBound` greys out in the pickers below, so the illegal day is
  * unpickable rather than a 409. What the dates deliberately do NOT constrain is a match: a fixture is
@@ -98,7 +98,7 @@ export function FormZeitraumSection({
           />
         </div>
 
-        {/* The same rule the payload schema and the model validator both hold (owner, 2026-08-08), said
+        {/* The same rule the payload schema and the model validator both hold (decided 2026-08-08), said
             here as well because the save bar is the other end of the page: a person editing the Ende
             should read why it will be refused beside the field, not only when they press save. */}
         {isEndBeforeStart && (

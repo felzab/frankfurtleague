@@ -1,14 +1,10 @@
 /**
- * The one text-field appearance. The style existed in two drifting copies across 12
- * fields: the four `AddressFields` had a brand-coloured focus border and the seven others had no
- * focus feedback at all — inside a single form, so a keyboard user saw the ring appear on
- * Straße/Nr./PLZ/Stadt and vanish on Name.
+ * SHARED · the one text-field appearance
  *
- * Carries no focus classes at all. The border-turns-brand treatment and the ring suppression that
- * goes with it are declared once for every field-shaped control in the unlayered block at the bottom
- * of `globals.css`, keyed off HeroUI's `data-slot` attributes. Repeating them here is how the app
- * ended up with fields that had the treatment and fields that did not — the Tore inputs, the date
- * and time pickers and the sign-in inputs were all still showing a ring.
+ * The style existed in two drifting copies across 12 fields — a brand focus border on four, no
+ * focus feedback on the rest, inside a single form. It carries no focus classes at all: the
+ * border-turns-brand treatment lives once in the unlayered block at the bottom of `globals.css`,
+ * keyed off HeroUI's `data-slot` attributes, and repeating it here is how the drift happened.
  *
  * `transition-colors` stays, so the border animates into brand rather than snapping.
  */
@@ -120,7 +116,7 @@ export const FIELD_ERROR = "fluid-xxs text-danger mt-1 font-bold";
 export const FORM_SECTION_HEADING = "fluid-xxs text-foreground-muted font-bold tracking-widest uppercase";
 
 /**
- * The date picker's popover and its calendar, declared once for all three pickers (owner, 2026-08-08).
+ * The date picker's popover and its calendar, declared once for all three pickers (decided 2026-08-08).
  *
  * **The popover carries no padding.** It is a positioning wrapper, and the calendar inside it is already a
  * bordered panel with its own — so `p-2` on the wrapper drew a second inset outside the border, which read
@@ -139,7 +135,7 @@ export const DATE_PICKER_POPOVER = "p-0";
 export const DATE_PICKER_CALENDAR = "p-3 sm:w-100 sm:max-w-100 sm:p-4 sm:text-base";
 
 /**
- * Below the trigger and aligned to its leading edge, for all three pickers (owner, 2026-08-08).
+ * Below the trigger and aligned to its leading edge, for all three pickers (decided 2026-08-08).
  *
  * HeroUI's `DatePicker.Popover` defaults to `"bottom"`, which centres the panel on the trigger — and the
  * calendar is far wider than the trigger it hangs from, so a centred panel overhangs the field on both

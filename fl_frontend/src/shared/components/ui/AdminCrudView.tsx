@@ -17,7 +17,7 @@ import type { Facet } from "../../utils/facets";
  * modal wiring. `AdminSchiedsrichterView` and `AdminSpielorteView` are per-entity declarations over it,
  * and are ~87% identical once the domain nouns are folded out.
  *
- * Generic rather than two thin siblings (owner decision, 2026-07-30): a third admin resource would
+ * Generic rather than two thin siblings (decided 2026-07-30): a third admin resource would
  * otherwise be a third copy, and here it costs a `renderTable` plus up to two modal renderers — both
  * of which are optional, because a resource may edit on a page and may have nothing to delete.
  *

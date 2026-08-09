@@ -22,7 +22,7 @@ import type { CalendarDate } from "@internationalized/date";
 
 /**
  * The disqualification, as the editor's danger zone — the match editor's Absage section, applied to
- * the one control on this page that removes a club from play (owner, 2026-08-07: the two Saison
+ * the one control on this page that removes a club from play (decided 2026-08-07: the two Saison
  * concerns split, this one last and in the danger tone).
  *
  * The record travels whole: the payload requires `disqualifikation` with no default, so lifting one

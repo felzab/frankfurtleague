@@ -5,20 +5,15 @@
  * `getAdminSession()` independently, so page rendering fails closed even if this matcher stops
  * matching.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - The matcher stays scoped to `/admin` — `auth()` is a Mongo round trip, never on a public load.
+ * - No `callbackUrl` on the redirect — honouring one later is an open redirect.
+ * - A server-action request is never redirected — the HTML reply breaks the RSC stream; the
+ *   action's own `getAdminSession()` is what refuses it.
+ * - This file is `proxy.ts`, not `middleware.ts` — the latter is the deprecated name.
  *
- *   • The matcher stays scoped to `/admin`. `auth()` resolves the session, which is a Mongo round
- *     trip, so it must never sit in front of a public page load.
- *   • No `callbackUrl` on the redirect. Nothing consumes one, and honouring it later introduces an
- *     open redirect unless the value is allowlisted.
- *   • A SERVER ACTION request is never redirected. Redirecting one replaces its RSC response with an
- *     HTML page and the client reports "An unexpected response was received from the server", which
- *     names nothing and cannot be handled. The action's own `getAdminSession()` is what refuses it.
- *   • This file is `proxy.ts`, not `middleware.ts` — the latter is the deprecated name.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/overview.md — the authentication section
+ * See:
+ * - docs/frontend/overview.md — the authentication section
  */
 
 import { NextResponse } from "next/server";

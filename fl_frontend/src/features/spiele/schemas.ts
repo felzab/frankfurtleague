@@ -1,41 +1,22 @@
 /**
  * SPIELE · models
  *
- * The Zod read model, the admin patch payload composed from it, and the draft types the edit form uses
- * while a field is mid-edit.
+ * The Zod read model, the admin patch payload composed from it, and the draft types the edit
+ * form uses mid-edit. Hand-mirrored by `fl_backend/app/api/spiele/schemas.py`; the contract test
+ * compares presence, requiredness, nullability, types and enums (ADR-0040) — the German messages
+ * and the regexes below are this file's alone.
  *
- * These are HAND-MIRRORED by `fl_backend/app/api/spiele/schemas.py` in Pydantic. There is no generation
- * step, so a constraint changed there must be changed here in the same commit.
+ * Invariants:
+ * - The patch composes from the field schemas, and from the STORED side, never the joined one —
+ *   writing `disqualifikation` back would denormalise it (ADR-0028).
+ * - A side is `null` until its occupant is known; `teamN_quelle` is an independent sibling, so
+ *   consumers read team, then `formatQuelle(quelle)`, then "Noch offen" (ADR-0042).
+ * - Zod's `strip` mode discards undeclared fields silently — how `saison_id` once went missing.
+ * - Draft types keep an emptied currency field `null` rather than silently `0`.
+ * - A shoot-out is its own scoreline (ADR-0044) — `computeErgebnisFor` answers "D" for penalties.
  *
- * `src/core/apiContract.test.ts` compares the two (ADR-0040) on presence, requiredness, nullability,
- * primitive type and enum members. It does NOT compare patterns, lengths or ranges — the German
- * messages and the regexes below are this file's alone, and are the first thing to check when
- * behaviour looks impossible.
- *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • The patch payload composes from the field schemas rather than redeclaring them, so the write
- *     shape cannot drift from the read shape. It composes from the STORED side, though, never the
- *     joined one: `disqualifikation` is joined per request and writing it back would denormalise it
- *     into the match document (ADR-0028, rule 4).
- *   • A fixture side is `null` when its occupant is not yet known, and `teamN_quelle` says where that
- *     occupant comes from (ADR-0042). The two are independent and nothing pairs them, so every
- *     consumer reads `team?.name ?? formatQuelle(quelle) ?? "Noch offen"` and never branches on a state.
- *   • `quelle` is a REFERENCE and carries no German. `formatQuelle` in `utils.ts` derives what a card
- *     shows, so the label exists in exactly one place instead of being stored per fixture.
- *   • Zod's default `strip` mode discards undeclared fields silently. A field the backend sends but
- *     this schema omits is lost with no error — that is how `saison_id` went missing.
- *   • Draft types exist so an emptied currency field is `null` rather than silently `0`. The strict
- *     schemas still reject `null`, so a cleared field fails with a German message on the field.
- *   • A shoot-out is its OWN scoreline in `elfmeterschiessen`, never a third number inside `ergebnis`
- *     (ADR-0044). Its counts decide the bracket and are invisible to the league table, so
- *     `computeErgebnisFor` still answers "D" for a fixture settled on penalties.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/backend/spec.md — section 3, what PATCH /spiele/{spiel_id} does with this payload
- *   docs/backend/spec.md — invariant I16: no database validator constrains a range, a pattern or a
- *   length, so these schemas and their Pydantic twin are the only place those constraints are stated
+ * See:
+ * - docs/backend/spec.md — sections 3 and 5: the write path, and I16 — constraints live here only
  */
 
 import z from "zod";
@@ -335,7 +316,7 @@ export const FLBracketFaultSpielSchema = z.object({
 export type FLBracketFaultSpiel = z.infer<typeof FLBracketFaultSpielSchema>;
 
 /**
- * One fixture fielding a team the season disqualified before the day it is played (owner, 2026-08-08).
+ * One fixture fielding a team the season disqualified before the day it is played (decided 2026-08-08).
  *
  * **The only one of the six that is not about the bracket**, and the only one that covers a group-phase
  * fixture: it compares the fixture's own date against a disqualification recorded on the junction row.

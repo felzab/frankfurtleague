@@ -8,7 +8,7 @@ import { useFieldStatus } from "./DraftStatusContext";
 import { FieldLabel } from "./FieldLabel";
 
 /**
- * The fixture's optional free-text note (roadmap item FE-2, owner, 2026-08-02).
+ * The fixture's optional free-text note (roadmap item FE-2, decided 2026-08-02).
  *
  * **Its own panel, between Ergebnis and Absage.** The note is about the played game — exciting
  * moments, anything worth a sentence — but it must not sit inside the Ergebnis panel, whose fields

@@ -77,7 +77,7 @@ function describeFanOut(count: number): string {
 
 /**
  * The club editor's form: four panels, a sticky summary rail, and one derivation behind both — the
- * match editor's shape (ADR-0050) over a club (owner, 2026-08-07: "a more minimal version of the
+ * match editor's shape (ADR-0050) over a club (decided 2026-08-07: "a more minimal version of the
  * Spieldaten editor"). Every field is controlled, judged when it is left with the same schemas the
  * actions parse, and marked in place when its draft differs from what is stored.
  *
@@ -100,7 +100,7 @@ export function AdminTeamEditForm({
   /** The selected season's context and membership — the sidemenu selector's season, resolved by the page. */
   saison: TeamSaisonMembership;
   today: string;
-  /** The page's answer to "may the group move": season not `future` and fixtures exist (owner's rule). */
+  /** The page's answer to "may the group move": season not `future` and fixtures exist (decided 2026-08-07). */
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */
   gruppeOffer: readonly GruppeOffer[];
@@ -310,7 +310,7 @@ export function AdminTeamEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       const collectedErrors: FieldErrors = {};
-      // Only what the admin cannot see from the form itself earns a sentence (owner, 2026-08-07):
+      // Only what the admin cannot see from the form itself earns a sentence (decided 2026-08-07):
       // the fan-out only when the name or Kürzel actually moved, the disqualification only when the
       // record itself changed. An untouched half contributes nothing to the toast.
       const renameTouched = isChanged("name") || isChanged("shorthand");
@@ -351,7 +351,7 @@ export function AdminTeamEditForm({
 
       if (failedNotes.length > 0) {
         setFieldErrors(collectedErrors);
-        // ALWAYS toasted, field errors or not (owner, 2026-08-07, for the shorthand conflict): the
+        // ALWAYS toasted, field errors or not (decided 2026-08-07, for the shorthand conflict): the
         // toast is what survives when a half that SUCCEEDED revalidates the route and remounts this
         // form. An inline message alone would be gone before it was read.
         appToast.danger(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Speichern fehlgeschlagen", {

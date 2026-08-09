@@ -33,7 +33,7 @@ import type { Key } from "@heroui/react";
  * job, and writing a second picker is how two date fields in one admin acquire two different popovers.
  * The cross-feature import is legal: that lint is scoped to `core` and `shared` (ADR-0012).
  *
- * **Both pickers are BOUNDED to the season's span** (`REQ-DATE-002`, owner, 2026-08-08). A matchday is a
+ * **Both pickers are BOUNDED to the season's span** (`REQ-DATE-002`, decided 2026-08-08). A matchday is a
  * block of that season's fixtures, so a span reaching outside it is refused at the endpoint — and greying
  * those days out is the strongest answer available, because the admin never picks one to be told about.
  *
@@ -157,7 +157,7 @@ export function SpieltagFormFields<T extends SpieltagFormDraft>({
           />
         </div>
         {/* Refused by the payload schema in the browser and by the model validator at the endpoint
-            (owner, 2026-08-08). Said here too, because a matchday's `beginn` also decides where it sits
+            (decided 2026-08-08). Said here too, because a matchday's `beginn` also decides where it sits
             in the season's list — a reversed span is a matchday disagreeing with itself about that. */}
         {isEndBeforeStart && (
           <Callout

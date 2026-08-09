@@ -1,30 +1,19 @@
 /**
  * TEAMS · models
  *
- * Mirrors `fl_backend/app/api/teams/schemas.py`. No generation step — a constraint changed there must
- * be changed here in the same commit, and `src/core/apiContract.test.ts` checks the wire contract
- * half of that (ADR-0040).
+ * Mirrors `fl_backend/app/api/teams/schemas.py`, no generation step; the contract test checks
+ * the wire half (ADR-0040).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - `FLTeam` flattens the club record, junction fields and a derived `statistik` (ADR-0026).
+ * - The grouped response requires ALL FOUR group keys, or the table page's parse fails.
+ * - `website_url` is scheme-restricted — it renders into an href on a public page.
+ * - There is ONE team shape; never a reduced mirror beside it (ADR-0034).
+ * - `inactive_since` is a date (ADR-0032); a disqualification is a record, absence is the null
+ *   (ADR-0059).
  *
- *   • `FLTeam` looks like one document and is not: the season-independent team record, plus `gruppe`
- *     and `disqualifikation` from a `saison_teams` junction row, plus a `statistik` the backend
- *     computes from that season's matches. All three sources are why those fields are season-dependent.
- *   • The grouped response requires ALL FOUR group keys. A backend that builds the map from the teams
- *     present omits an empty group, and this parse then fails and takes down the table page.
- *   • `website_url` is scheme-restricted, because it is rendered into an href on a public page.
- *   • There is ONE team shape. Never add a reduced mirror beside it (ADR-0034).
- *
- *  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   ADR-0032  `inactive_since` is the day the club left the league
- *   ADR-0034  one team shape; `GET /teams/{id}` is its own response
- *   ADR-0040  the wire contract is checked against the published OpenAPI document
- *   ADR-0059  a disqualification is a record, and its absence is the null
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/glossary.md — "Team", for the junction model and "Statistik", for how the table is derived
+ * See:
+ * - docs/glossary.md — "Team" for the junction model, "Statistik" for how the table is derived
  */
 
 import z from "zod";

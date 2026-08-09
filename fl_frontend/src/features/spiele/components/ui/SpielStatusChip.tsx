@@ -48,7 +48,7 @@ export function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus })
   return (
     <Chip
       size="sm"
-      /* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip` (owner, 2026-08-07). One radius for
+      /* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip` (decided 2026-08-07). One radius for
          every pill in the app: this chip, `SaisonPhaseChip` beside it, and the `LABEL_BADGE` /
          `COUNT_BADGE` recipes the admin surfaces are built from. A utility beats the component layer,
          so no `!` is needed. */

@@ -2,15 +2,11 @@
  * SPIELE · the Enter-key guard for the nested match form
  *
  * `AdminEditSpielDataForm` nests controls inside a `<Form action>`, where Enter would otherwise
- * trigger the browser's implicit submit. This is the single definition of that guard, and it serves
- * every site in the form that needs it.
+ * trigger the browser's implicit submit. The single definition of that guard.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • `preventDefault` and `stopPropagation` are both load-bearing and neither may be dropped: the
- *     first stops the implicit submit, the second stops the event reaching the outer `<Form>`.
- *   • The exemption list is deliberately narrow. A *closed* combobox input is not exempt — there Enter
- *     falls through to implicit submission, which is the case this guard exists for.
+ * Invariants:
+ * - Both `preventDefault` and `stopPropagation` are load-bearing: implicit submit, and the outer `<Form>`.
+ * - The exemption list stays narrow — a closed combobox input is exactly the case this guard exists for.
  */
 
 import type { KeyboardEvent } from "react";

@@ -1,7 +1,7 @@
 /**
  * SHARED · entrance motion
  *
- * The app's two arrival animations, and there are only two (owner decision, 2026-08-02). The
+ * The app's two arrival animations, and there are only two (decided 2026-08-02). The
  * exports say which is which and, more importantly, when each is wrong.
  */
 

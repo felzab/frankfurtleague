@@ -1,35 +1,18 @@
 /**
  * CORE · magic-link email
  *
- * The magic-link email. **This file is the one place to edit what admins receive.**
+ * The one place to edit what admins receive. Auth.js ships an English default template on a
+ * German-only site, so `core/auth.ts` passes `sendVerificationRequest` to the Resend provider,
+ * replacing it with `buildMagicLinkEmail`. It lives in `core/` because `core/auth.ts` consumes
+ * it and `core` may not import from `features` (ADR-0012).
  *
- * Auth.js ships a default template and, until this existed, that is what went out: an English
- * subject ("Sign in to …") and a generic body, on a German-only site. `core/auth.ts` passes
- * `sendVerificationRequest` to the Resend provider, which replaces that default with the functions
- * below — see `buildMagicLinkEmail`.
- *
- * It lives in `core/` rather than beside the rest of the auth feature because `core/auth.ts` is what
- * consumes it, and `core` may not import from `features` — the ESLint layer boundary, which caught
- * this on the first attempt.
- *
- * ## How to customise it
- *
- * - **Wording, subject, sender name** — edit the constants and template strings below. Nothing else
- *   imports them, so a change here cannot affect anything but the email.
- * - **Layout** — edit `renderHtml`. Keep it to table-free, inline-styled HTML: Gmail strips `<style>`
- *   blocks and Outlook ignores most modern CSS, so inline `style=""` on each element is the only
- *   thing that renders reliably across clients. Do not import the app's Tailwind classes here — the
- *   stylesheet does not travel with the email.
- * - **Plain-text part** — edit `renderText`. Always send one. A message with no text alternative
- *   scores badly with spam filters, and some clients show it in previews.
- *
- * ## What not to change without thinking
- *
- * - The link must be `url` exactly as passed. It carries a single-use token; rewriting, shortening
- *   or appending to it invalidates the sign-in.
- * - Do not put the recipient's address in the subject, and do not add tracking pixels or link
- *   wrappers: this is an authentication email, and both leak that the address is an allowlisted
- *   admin to anyone who can see the traffic.
+ * Invariants:
+ * - Layout stays table-free, inline-styled HTML — Gmail strips `<style>`, and Tailwind does not
+ *   travel with an email.
+ * - Always send the plain-text part: spam filters score a missing alternative badly.
+ * - The link is `url` exactly as passed — it carries a single-use token, and any rewrite breaks it.
+ * - No recipient address in the subject, no tracking pixels or link wrappers — both leak that
+ *   the address is an allowlisted admin.
  */
 
 import "server-only";

@@ -16,8 +16,8 @@ export type TeamRailBanner = { severity: "info" | "warning" | "danger"; title: s
 /**
  * The club editor's summary rail — the match editor's rail, minus the two cards a club has no
  * material for: there is no preview (a club record has no card that differs from its form) and no
- * open-items list (nothing waits on a club field). What remains is the half the owner asked every
- * page-owned form to carry: every inline warning mirrored into one place, and the unsaved changes
+ * open-items list (nothing waits on a club field). What remains is the half every
+ * page-owned form is asked to carry: every inline warning mirrored into one place, and the unsaved changes
  * listed by section.
  */
 export function TeamRail({ banners }: { banners: readonly TeamRailBanner[] }) {

@@ -3,33 +3,20 @@
 /**
  * SPIELE · server action
  *
- * The only writer in the slice, and the only place Spiel cache tags are invalidated.
+ * The only writer in the slice, and the only place Spiel cache tags are invalidated. The
+ * `"use server"` directive stays the first line — a misplaced one fails at request time.
  *
- * NOTE: the `"use server"` directive stays the first line of the file, above this block. A directive
- * prologue must not be preceded by anything a bundler might treat as a statement, and getting it
- * wrong fails at request time rather than at build time.
+ * Invariants:
+ * - Base tags invalidate unconditionally, granular only when a season id parses — the default
+ *   read path sends no `saison_id`, so the most-hit entries carry base tags only.
+ * - `saison_id` stays an argument, never on the patch body: Pydantic would drop it silently.
+ * - A failed season-id parse never fails the edit — work is not rejected over a cache concern.
+ * - The base tags cover the bracket fixtures the backend advanced (ADR-0001, ADR-0042).
+ * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the
+ *   toast, not the error page (docs/logging.md).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Base tags invalidate unconditionally; granular tags only when a season id parses. The base tags
- *     are not redundant — the default read path sends no `saison_id`, so the most-hit entries carry
- *     only those.
- *   • `saison_id` arrives as an argument and must never move onto the patch body: the backend model
- *     does not declare it and Pydantic would drop it silently.
- *   • A failed season-id parse never fails the edit. An admin's work is not rejected over a cache
- *     concern.
- *   • The base tags also cover the bracket fixtures the backend advanced. `updateTag("spiele")` clears
- *     every `getSpiele` entry whatever its filter, so the playoffs page is invalidated by the same
- *     call as the admin's own view and no per-match tag is wanted here (ADR-0001, ADR-0042).
- *   • Every action here starts with `getAdminSession()` and checks its return value — it neither
- *     throws nor redirects.
- *   • The action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
- *     and converts a thrown API error into the returned result -- a 409 must reach the form's toast,
- *     not the error page (docs/logging.md).
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — invariants I2, I3, I4, I7
+ * See:
+ * - docs/frontend/spec.md — invariants I2, I3, I4, I7
  */
 import { updateTag } from "next/cache";
 

@@ -1,10 +1,10 @@
 /**
- * `computeQualifyingTeamIds` and `computePlatzByTeamId` — the marker and the printed position.
+ * TEAMS · the qualifying marker and the printed position, tested
  *
- * Tested because both have to agree with a rule that lives in another language: the backend passes over
- * the same two kinds of team when it seeds a bracket slot (`_may_hold_a_platz`, ADR-0043), and nothing
- * in either toolchain would notice the sides drifting apart. A marked row the bracket does not advance,
- * or a printed "2" on a row the bracket numbers 3, is a confidently wrong public page.
+ * `computeQualifyingTeamIds` and `computePlatzByTeamId` have to agree with a rule that lives in
+ * another language: the backend passes over the same two kinds of team when it seeds a bracket
+ * slot (`_may_hold_a_platz`, ADR-0043), and nothing in either toolchain notices the sides
+ * drifting apart. A marked row the bracket does not advance is a confidently wrong public page.
  */
 
 import assert from "node:assert/strict";

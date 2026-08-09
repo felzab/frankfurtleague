@@ -32,7 +32,7 @@ export function AdminCrudShell({
 }) {
   return (
     <div className="max-w-page mx-auto flex w-full flex-col gap-8 p-6 sm:p-8">
-      {/* One row at EVERY width (owner, 2026-08-07): neither half depends on the resource list, so
+      {/* One row at EVERY width (decided 2026-08-07): neither half depends on the resource list, so
           the whole row paints before the table streams in. Below `sm` the two are one joined
           control — the search bar with the create trigger as its bare-plus continuation (no gap,
           shared seam; the corner and label flattening live in `SearchBar` and `formButton`'s

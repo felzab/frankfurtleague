@@ -41,7 +41,7 @@ function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] 
  * person. A club's group, by contrast, decides two tables and the seeding, which is why that one is
  * locked once a season is under way.
  *
- * A player may be entered into a `future` season AND into one already running (owner, 2026-08-07),
+ * A player may be entered into a `future` season AND into one already running (decided 2026-08-07),
  * where a club may not. Squads are filled in over time, and `is_nachgetragen` is the field that
  * records a late arrival — so the entry control derives it from the season's status rather than
  * asking, and a running season is a normal thing to add a player to rather than a refusal.
@@ -99,7 +99,7 @@ export function FormKaderSection({
   });
 
   // A season that has already started means this player arrived late, which is exactly what the flag
-  // records (owner, 2026-08-07). Derived rather than asked, so it cannot be forgotten.
+  // records (decided 2026-08-07). Derived rather than asked, so it cannot be forgotten.
   const entryIsNachgetragen = saison.saisonStatus !== "future";
 
   const handleEnterSaison = () => {
@@ -251,7 +251,7 @@ export function FormKaderSection({
               </Button>
             </div>
 
-            {/* Coloured rather than muted (owner, 2026-08-07): it announces a value the form is
+            {/* Coloured rather than muted (decided 2026-08-07): it announces a value the form is
                 choosing on the admin's behalf, which is exactly the kind of thing that must not read
                 as fine print. */}
             {entryIsNachgetragen && (

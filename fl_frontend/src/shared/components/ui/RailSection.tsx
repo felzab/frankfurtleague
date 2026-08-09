@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
  * the two that are review surfaces start folded on a phone — see `defaultOpenOnMobile`.
  *
  * **The fold control is an overlay button, and the layout is why.** The header row holds the title,
- * its `InfoHint`, the badge and the chevron; the InfoHint must sit NEXT TO the title (owner, fourth
+ * its `InfoHint`, the badge and the chevron; the InfoHint must sit NEXT TO the title (fourth
  * review) and must stay its own interactive element — nesting it in a `<button>` is two controls in
  * one. So the button is an absolutely-positioned cover labelled by the heading, everything decorative
  * is `pointer-events-none` so clicks fall through to it, and the InfoHint alone stacks above it.

@@ -90,7 +90,7 @@ export function FormAnsetzungSection({
         <Separator className="bg-border" />
 
         {/* No sub-group heading on these two: each group's first field label already names it —
-            "Spielort" over "Spielort" was the duplicated level the owner reported, and
+            "Spielort" over "Spielort" was the duplicated level reported in review, and
             `FORM_SECTION_HEADING`'s own rule forbids it. The separators still delimit the groups. */}
         <FormSpielortSection
           spielorte={spielorte}

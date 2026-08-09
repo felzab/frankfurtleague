@@ -16,8 +16,7 @@ import { tv } from "tailwind-variants";
  * it does what a horizontal rule cannot: it gives each group its own edges on a narrow screen, where a
  * rule between two stacks of fields is indistinguishable from a rule inside one.
  *
- * **A titled header rather than a heading floating in the body**, and that is the fix for the thing
- * the owner named: the previous version used `FORM_SECTION_HEADING` — an uppercase `fluid-xs`
+ * **A titled header rather than a heading floating in the body**, and that is the fix for the defect named in review: the previous version used `FORM_SECTION_HEADING` — an uppercase `fluid-xs`
  * micro-label — as the largest element in each panel, smaller than the inputs beneath it, which left
  * the page with no hierarchy to read. The panel now carries a real `fluid-base` title in its own
  * bordered strip, and that micro-label is demoted to marking sub-groups inside the body.
@@ -28,7 +27,7 @@ import { tv } from "tailwind-variants";
  * The header rounds its own top corners instead.
  *
  * `p-4 sm:p-5` on both slots: the phone needs the width more than it needs the inset, and that is the
- * surface the owner declared imperative.
+ * surface declared imperative in review.
  *
  * `tone="danger"` is for a section whose control does something the admin cannot undo by editing a
  * value back — the cancellation switch is the only one today. It follows the app's colour rule

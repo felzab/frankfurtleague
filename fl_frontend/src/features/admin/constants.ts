@@ -37,7 +37,7 @@ export const ADMIN_SIDEMENU_ICONS = {
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
-  // First, and DELIBERATELY UNNAMED (owner, 2026-08-07). Everything below it is scoped by a season --
+  // First, and DELIBERATELY UNNAMED (decided 2026-08-07). Everything below it is scoped by a season --
   // the selector at the top of this menu, the group a team holds, the squad a player is in, the matches
   // a Spieltag groups -- so the season sits above them all, and a heading here would be naming the thing
   // the whole menu is already about. `SidemenuNavLinks` renders no label for an empty name.
@@ -64,7 +64,7 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
 
   {
     category_name: "Spiele",
-    // The order is the order the four are REACHED IN (owner, 2026-08-08): what needs doing, then finding
+    // The order is the order the four are REACHED IN (decided 2026-08-08): what needs doing, then finding
     // one fixture, then the schedule those fixtures sit in, then the draw that decides the later ones. The
     // queue leads because it is the only entry that answers "is there anything to do at all" — the other
     // three are all "take me to a thing I already have in mind".

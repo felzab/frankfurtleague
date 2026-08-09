@@ -4,7 +4,7 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
 /**
  * A `SpielCard`-shaped placeholder: exact in its box model, deliberately vague in its contents.
  *
- * **Why the height can be exact** (owner's observation, and it holds): a `SpielCard`'s height depends
+ * **Why the height can be exact** (observed, and it holds): a `SpielCard`'s height depends
  * only on the viewport, never on its data. Every text run in it is single-line by construction — the
  * team names are `truncate` inside `min-w-0` tracks, so they cannot wrap — and the two buttons are a
  * fixed 35/38px. So the height is nothing but `fluid-*` metrics plus fixed padding.
@@ -15,7 +15,7 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
  * therefore computed by the same rules as the real card's, at every breakpoint, with no magic numbers
  * to drift.
  *
- * **Four shapes, deliberately** (owner, 2026-08-02). A placeholder is not a wireframe: hinting at
+ * **Four shapes, deliberately** (decided 2026-08-02). A placeholder is not a wireframe: hinting at
  * every element the real card contains — both date lines, all three bars in the matchup band, two
  * chips with their icon circles — reads as clutter rather than anticipation. It should say "a card
  * is coming" and stop. So the rows keep their exact geometry while the shapes inside them stay at

@@ -76,7 +76,7 @@ export function InfoHint({ label, children, trigger }: { label: string; children
 
           The default icon is an INLINE glyph, not a flex sibling: it lives inside the heading's own
           text flow. Centring in a flex row can never look right, because the text's visual mass
-          sits above its line box's centre (owner's diagnosis, ninth round). `align-middle` does the
+          sits above its line box's centre (diagnosed, ninth round). `align-middle` does the
           rest natively: per the CSS spec it pins the box's vertical midpoint to the parent's
           baseline plus half the parent's x-height — the middle of the text's visual mass — so any
           icon size and any text size stay aligned with no tuned constant. To resize the icon,

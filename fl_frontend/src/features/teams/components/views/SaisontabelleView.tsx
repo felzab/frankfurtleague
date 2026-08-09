@@ -32,7 +32,7 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
   return (
     /** Container for all the groups.
         This route had no entrance at all while its four siblings in the same nav each had one, so
-        the tables snapped into place where every other page eased in (owner, 2026-08-02). The rise
+        the tables snapped into place where every other page eased in (decided 2026-08-02). The rise
         goes on the container rather than on each group panel: the panels are a short stack, not a
         collection, and staggering two or three full-width tables reads as the page assembling
         itself rather than arriving. */

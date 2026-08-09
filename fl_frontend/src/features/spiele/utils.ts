@@ -1,25 +1,20 @@
 /**
  * SPIELE · derivations
  *
- * Pure derivation over a Spiel — no I/O and no caching, which is why it stays out of `queries.ts`
- * rather than being folded in. Parsing `ergebnis` lives here because its format is declared by
- * `FLSpielSchema`: it is Spiel domain knowledge, not something a `teams` view should re-implement.
+ * Pure derivation over a Spiel — no I/O and no caching, which is why it stays out of
+ * `queries.ts`. Parsing `ergebnis` lives here because `FLSpielSchema` declares its format: Spiel
+ * domain knowledge, not something a `teams` view should re-implement.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - `computeSpielStatus` lets cancellation override the date and excludes today from
+ *   `ausstehend`, unlike the server (ADR-0072) — a filter selects, a label partitions.
+ * - `computeErgebnisFor` answers "?" whenever uncertain — a two-way branch would render a
+ *   confident loss for a team that did not play.
+ * - It reads `ergebnis` alone: a shoot-out is "D" here, matching the league table — only the
+ *   bracket takes a winner from it (ADR-0044).
  *
- *   • `computeSpielStatus` treats cancellation as overriding the date. The server treats the two as
- *     independent filters, and its `ausstehend` includes today while this excludes it — deliberate
- *     on both counts (ADR-0072): a filter selects, a label partitions. The glossary carries the table.
- *   • `computeErgebnisFor` returns "?" for anything it cannot read with certainty, including a team id
- *     that is neither side and a side with no occupant yet. A two-way branch would score an unknown
- *     team as team2 and render a confident loss for a team that did not play.
- *   • `computeErgebnisFor` reads `ergebnis` ALONE, so a knockout settled on penalties is a "D" here.
- *     That is deliberate and it matches the league table, which counts the fixture as a draw — only
- *     the bracket takes a winner from a shoot-out (ADR-0044).
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/glossary.md — spiel_status, for the two definitions and why they differ
+ * See:
+ * - docs/glossary.md — spiel_status, for the two definitions and why they differ
  */
 
 import { SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
@@ -133,7 +128,7 @@ export const computeErgebnisFor = ({ spiel, teamId }: { spiel: FLSpiel; teamId: 
  * `PLACEHOLDER.slot`.
  *
  * **Every placing reads as an ordinal, first included** — "1. der Gruppe A", not "Gruppensieger A"
- * (owner, 2026-08-07). One form for the whole set is what lets a reader compare two slots at a glance
+ * (decided 2026-08-07). One form for the whole set is what lets a reader compare two slots at a glance
  * on the Finalrunden review, and a special case for one placing is a second thing to recognise for no
  * information: the ordinal already says the team won the group.
  */
@@ -538,7 +533,7 @@ export const formatBracketFault = (fault: FLBracketFault): string => {
 };
 
 /**
- * The same fault, worded for a note that sits directly beside the fixture it names (owner, 2026-08-08).
+ * The same fault, worded for a note that sits directly beside the fixture it names (decided 2026-08-08).
  *
  * `formatBracketFault` opens every sentence with "Spiel N", because a toast arrives with no fixture in
  * sight. A note attached to the card would repeat the number the card itself leads with — so these speak

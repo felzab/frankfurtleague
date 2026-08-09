@@ -63,7 +63,7 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
   // every render of this page, so the squad numbers cost a cache hit rather than a round trip.
   const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getSaisons(), getTeamMemberships(), getSpielerMemberships()]);
 
-  // RUNNING and planned seasons both (owner, 2026-08-07), unlike the club create's planned-only
+  // RUNNING and planned seasons both (decided 2026-08-07), unlike the club create's planned-only
   // rule: a squad is filled in during its season, so adding a player to one already under way is
   // the ordinary case. `isNachgetragen` is that season's own answer to "did this player arrive
   // late", derived here so the form never has to ask.

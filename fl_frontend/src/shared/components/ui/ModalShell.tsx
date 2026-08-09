@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
  */
 /**
  * **The horizontal padding lives on the HEADER and BODY, not on the dialog**, and that is what lets a
- * footer separator reach the dialog's edges (owner, 2026-08-07).
+ * footer separator reach the dialog's edges (decided 2026-08-07).
  *
  * With `p-4` on the dialog, `Modal.Body` was a scroll container whose padding box sat 1rem inside the
  * border — and `overflow-y: auto` computes `overflow-x` to `auto` too, so anything bleeding sideways
@@ -40,7 +40,7 @@ const modalShell = tv({
     size: {
       form: { dialog: "max-h-modal max-w-2xl", body: "flex-1 scrollbar-gutter-stable overflow-y-auto" },
       /* `max-w-sm`, one step under the old `max-w-md`: a confirmation carries one sentence and two
-         buttons, and the wider box read as an empty form (owner, sixth review). Both confirmation
+         buttons, and the wider box read as an empty form (sixth review). Both confirmation
          dialogs share the size, so the delete and the discard stay one family. */
       confirm: { dialog: "max-w-sm", header: "pt-2", body: "pb-2" },
     },
@@ -82,7 +82,7 @@ export function ModalShell({
         if (!open) onClose();
       }}
       variant="opaque">
-      {/* The blur lives on this EMPTY sibling, never on the backdrop itself (owner report,
+      {/* The blur lives on this EMPTY sibling, never on the backdrop itself (reported,
           2026-08-08). HeroUI's `variant="blur"` puts `backdrop-filter` on the ancestor that contains
           the whole dialog, and Chromium drops the filter — permanently, surviving close and reopen —
           once animated content composites inside the filtered element's subtree: the delete

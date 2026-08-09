@@ -1,21 +1,16 @@
 /**
  * SPIELE · cached reads
  *
- * The list read and the single read, both tagged and both invalidated by `actions.ts` in this same
- * slice, which is the pairing that keeps invalidation honest.
+ * The list read and the single read, both tagged and both invalidated by `actions.ts` in this
+ * same slice — the pairing that keeps invalidation honest.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Every granular tag declared here has a matching `updateTag` in `actions.ts` (ADR-0001).
+ * - Omitting `saison_id` means the current season — the most common entries carry the base tag only.
+ * - The single read declares the base tag only — a write rewrites fixtures it never named (ADR-0042).
  *
- *   • Every granular tag declared here has a matching `updateTag` in `actions.ts`. A tag nothing
- *     invalidates is not a caching strategy — it is decoration that reads like coverage.
- *   • Omitting `saison_id` means the current season, not all seasons. The backend resolves it, so the
- *     most common cache entries carry only the base tag.
- *   • The single read declares the base tag ONLY. A match write resolves the whole season's bracket and
- *     rewrites fixtures the request never named (ADR-0042), so no narrower tag describes it.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 4, the full cache-tag design
+ * See:
+ * - docs/frontend/spec.md — section 4, the full cache-tag design
  */
 
 import { cacheLife, cacheTag } from "next/cache";

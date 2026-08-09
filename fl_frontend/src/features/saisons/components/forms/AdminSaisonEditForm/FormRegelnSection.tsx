@@ -136,7 +136,7 @@ export function FormRegelnSection({
             />
           </div>
 
-          {/* Refused by `REQ-RULES-007` (owner, 2026-08-08), and said here as well because the two fields
+          {/* Refused by `REQ-RULES-007` (decided 2026-08-08), and said here as well because the two fields
               that cause it are the two directly above: the seeding walk asks each group for this many
               placings, and a group that cannot produce them leaves the bracket short. */}
           {rules.qualifiers_per_group > rules.teams_per_group && (

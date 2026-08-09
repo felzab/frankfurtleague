@@ -33,7 +33,7 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
 
   const selected = resolvedTheme === "dark" ? "dark" : "light";
 
-  // `compact` is the menu-row height (owner, 2026-08-08): inside the sidemenu's options menu the h-8
+  // `compact` is the menu-row height (decided 2026-08-08): inside the sidemenu's options menu the h-8
   // desktop form made the Modus row taller than the Abmelden row beside it, and a menu row's height
   // should come from the menu, not from whichever control it happens to hold. h-7 everywhere there;
   // the bars keep the responsive pair below.
@@ -56,7 +56,7 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
       <ToggleButton
         id="light"
         isIconOnly
-        // Shorter on a phone (owner, 2026-08-08). HeroUI's `size="sm"` toggle is `h-8`, which is right in a
+        // Shorter on a phone (decided 2026-08-08). HeroUI's `size="sm"` toggle is `h-8`, which is right in a
         // desktop footer and taller than it needs to be in a mobile one, where the switch sits under the nav
         // and every vertical pixel is scrolled past. `h-7` below `sm`, HeroUI's own height from there up.
         className={buttonHeight}

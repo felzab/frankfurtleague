@@ -27,7 +27,7 @@ export function AdminCreateSaisonModal() {
           width={18}
           height={18}
         />
-        {/* Below `sm` the trigger is the bare plus continuing the search bar (owner, 2026-08-07). */}
+        {/* Below `sm` the trigger is the bare plus continuing the search bar (decided 2026-08-07). */}
         <span className="hidden sm:inline">Neue Saison anlegen</span>
       </Button>
 

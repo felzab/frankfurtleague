@@ -39,7 +39,7 @@ export function EntityForm<TDraft>({
   successMessage: string;
   onClose: () => void;
   /**
-   * Render the required asterisks. **Only a form that CREATES something sets it** (owner,
+   * Render the required asterisks. **Only a form that CREATES something sets it** (decided
    * 2026-08-07): on a create every required field is genuinely a question, while on an edit every
    * value is already there and a column of red stars marks nothing the reader can act on.
    *
@@ -115,7 +115,7 @@ export function EntityForm<TDraft>({
             onPress={onClose}>
             Abbrechen
           </Button>
-          {/* No icon (owner, 2026-08-07). A checkmark on a button that has not yet done anything
+          {/* No icon (decided 2026-08-07). A checkmark on a button that has not yet done anything
               reads as "done" rather than "do it", and the label already says which action this is. */}
           <Button
             type="submit"

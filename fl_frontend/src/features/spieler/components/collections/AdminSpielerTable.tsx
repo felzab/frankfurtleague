@@ -19,7 +19,7 @@ import type { AdminSpielerRow } from "../../types";
 
 /**
  * The team Kürzel chip. Declared once because the phone layout's captain marker has to be the exact
- * same box (owner, 2026-08-07) — two hand-written copies would drift the moment either is touched.
+ * same box (decided 2026-08-07) — two hand-written copies would drift the moment either is touched.
  */
 const SHORTHAND_CHIP =
   "bg-brand/50 text-foreground fluid-xs inline-flex w-10 shrink-0 items-center justify-center rounded-md py-1 font-extrabold tracking-wide";
@@ -148,7 +148,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   );
 
   /**
-   * The captain's armband, as a chip beside the name (owner, 2026-08-07).
+   * The captain's armband, as a chip beside the name (decided 2026-08-07).
    *
    * `C` rather than "Kapitän": it is the marker the squad sheets already used — the six live rows
    * carried it inside the name field for want of anywhere else to put it — and the tooltip carries
@@ -174,7 +174,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   );
 
   /**
-   * The squad number's chip — EMPTY rather than absent when the player has none (owner, 2026-08-07).
+   * The squad number's chip — EMPTY rather than absent when the player has none (decided 2026-08-07).
    * A player without a number is normal, not an error, and a missing chip left a ragged hole in the
    * column while every neighbouring row had one. The empty chip holds the column's rhythm and reads
    * as "not filled in" rather than as a rendering fault.
@@ -183,7 +183,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     <span
       aria-label={spieler.selected?.nummer ? undefined : "Keine Nummer"}
       // A FIXED height rather than padding, so the empty chip is the same box as a filled one
-      // (owner, 2026-08-07). `py-1.5` sized the chip from its line box, and an empty span has none —
+      // (decided 2026-08-07). `py-1.5` sized the chip from its line box, and an empty span has none —
       // the two differed by the line height whatever character stood in for the number.
       className={`fluid-xs inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"

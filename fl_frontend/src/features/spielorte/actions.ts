@@ -5,21 +5,14 @@
  *
  * Full CRUD over venues. The `"use server"` directive stays the first line, above this block.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the toast.
+ * - The patch invalidates `spiele` too: a venue rename fans into every match embedding it.
+ * - Delete is a soft delete server-side — the action is named `delete…` but nothing is removed.
+ * - Errors come back as `FormState` with German field-level messages, never exceptions.
  *
- *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
- *     and converts a thrown API error into the returned result -- a 409 must reach the form's toast,
- *     not the error page (docs/logging.md).
- *   • Every action begins with `getAdminSession()` and CHECKS the result. It neither throws nor
- *     redirects, so calling it bare guards nothing.
- *   • The patch action invalidates `spiele` as well as `spielorte`: the backend fans a venue rename
- *     into every match embedding it, so match data really has changed.
- *   • Delete is a soft delete server-side. The action is named `delete…` but nothing is removed.
- *   • Errors come back as `FormState` rather than exceptions, with German field-level messages.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 3, the action inventory
+ * See:
+ * - docs/frontend/spec.md — section 3, the action inventory
  */
 import { updateTag } from "next/cache";
 

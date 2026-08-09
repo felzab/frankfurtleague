@@ -3,39 +3,23 @@
 /**
  * CORE · what a toast looks like
  *
- * The app's toast region, mounted once in `RootProviders` above the router so a toast survives the
- * navigation that raised it. `shared/utils/appToast.ts` is the other half of the pair — it owns what
- * a toast says and for how long, this owns how one is built.
+ * The app's toast region, mounted once in `RootProviders` above the router so a toast survives
+ * the navigation that raised it; `shared/utils/appToast.ts` owns what one says and for how long.
+ * In `core` because `RootProviders` mounts it and `core` may not import `shared` (ADR-0012).
+ * The markup is ours through `Toast.Provider`'s children render function — ordinary TSX the
+ * toolchain reads — rather than CSS overrides against vendored selectors (ADR-0053).
  *
- * **It lives in `core` because `RootProviders` mounts it**, and `core` may not import from `shared`
- * (ADR-0012). The dependency runs one way only: producers across `features` and `shared` call
- * `appToast`, nothing imports this file except the provider beside it.
- *
- * **The markup is ours, not HeroUI's, and that is the durability argument.** `Toast.Provider` takes a
- * `children` render function that replaces its default composition entirely
- * ([the documented extension point](https://www.heroui.com/docs/react/components/toast)), so the
- * structure below is ordinary TSX that the type checker, the linter and the formatter all read. The
- * alternative — leaving HeroUI's composition in place and overriding its appearance from
- * `globals.css` — reaches the same pixels through selectors that are vendored implementation detail,
- * and an upgrade that renames one of them takes the styling with it and reports nothing
- * (ADR-0053).
- *
- * **What is still in `globals.css`, and why it has to be**: the `.toast` shell itself (HeroUI writes
- * its `class`, so there is no element here to put a class on), and the close button's visibility,
- * which must stay keyed on `[data-frontmost]` — see the block there. Those two are the whole CSS
- * surface, they are written against **HeroUI 3.2.3**, and they are what an upgrade has to be checked
- * against.
- *
- * **One stylesheet is enough for both surfaces.** `toast.css` is imported by `globals.css`, which
- * loads on every route, so a toast raised on `/admin` is already styled — `admin.css` must not gain a
- * second copy (ADR-0023).
+ * Invariants:
+ * - The CSS surface is exactly the two `globals.css` rules ADR-0053 names, written against
+ *   HeroUI 3.2.3.
+ * - One stylesheet serves both surfaces (ADR-0023) — `admin.css` must not gain a second copy.
  */
 import { tv } from "tailwind-variants";
 
 import { Spinner, Toast } from "@heroui/react";
 
 /**
- * Severity, carried by two thin marks and nothing else (owner, 2026-08-06).
+ * Severity, carried by two thin marks and nothing else (decided 2026-08-06).
  *
  * **There is no icon, and its absence is the design rather than an omission.** A glyph in a tinted
  * 36px tile is how a `Callout` announces itself, and a callout has to — it sits inside a page among

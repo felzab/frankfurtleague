@@ -3,32 +3,19 @@
 /**
  * SPIELTAGE · server actions
  *
- * Full CRUD over matchdays, retirement included. The `"use server"` directive stays the first line,
- * above this block.
+ * Full CRUD over matchdays, retirement included. The `"use server"` directive stays the first
+ * line, above this block.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Every action checks `getAdminSession()` and runs in `runAdminMutation` (docs/logging.md).
+ * - Base tag only — the admin list and the public Spielplan span differently, so no granular tag
+ *   names one write (ADR-0001).
+ * - `spieltage` is the only resource invalidated — `GET /spiele` never joins `spieltage`.
+ * - Five 409s and none is a unique index: three guard the matchday's contents and two its
+ *   container; a matchday's place and name are derived, so there is nothing to claim (ADR-0064).
  *
- *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
- *     and converts a thrown API error into the returned result (docs/logging.md).
- *   • Every action begins with `getAdminSession()` and CHECKS the result.
- *   • Base tag only, on every action here. The admin list spans a season's matchdays including retired
- *     ones and the public Spielplan reads the default season, so no granular tag names what one write
- *     changes -- and a granular tag nothing invalidates is decoration (ADR-0001).
- *   • `spieltage` is the ONLY resource invalidated. A matchday joins into no second resource:
- *     `GET /spiele` never joins `spieltage`, which is the same fact that makes retirement safe.
- *   • **Five 409s, and not one is about a unique index.** No field of a matchday is unique and none needs
- *     to be -- its place in the season is derived and so is its name (ADR-0064), so there is
- *     nothing to claim. Three are about the matchday's own CONTENTS, which it does not know about:
- *     retiring one that holds a played result would take that result off the public Spielplan
- *     (`REQ-RETIRE-002`), a phase accounting for fewer matches than are attached would strand them
- *     (`REQ-SPIELTAG-002`), and a span shrunk below its own fixtures' dates would leave them outside it
- *     (`REQ-DATE-003`). Two are about its CONTAINER, and both can refuse the CREATE: a span outside the
- *     season it belongs to (`REQ-DATE-002`), and a season whose knockout phase is already under way, which
- *     takes no new matchdays at all (`REQ-SPIELTAG-003`).
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 3, the action inventory
+ * See:
+ * - docs/frontend/spec.md — section 3, the action inventory
  */
 import { updateTag } from "next/cache";
 

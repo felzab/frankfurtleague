@@ -5,19 +5,14 @@
  *
  * The `"use server"` directive stays the first line, above this block.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Sign-in is public by necessity and its id ships in a client chunk, so nginx rate-limits
+ *   POSTs to /signin — the only thing between this and an open email relay.
+ * - Auth.js errors are caught and reported as `FormState` — raw ones carry the submitted address.
+ * - `unstable_rethrow` wraps redirect handling: Next signals redirects by throwing.
  *
- *   • The sign-in action is PUBLIC and unauthenticated — it has to be, since it is how anyone signs
- *     in. Its action id ships in a client chunk, so anyone can POST it, which is why nginx rate-limits
- *     POSTs to /signin. That limit is the only thing standing between this and an open email relay.
- *   • Auth.js errors must be caught and reported as a `FormState`, never allowed to surface raw: they
- *     routinely carry the submitted email address.
- *   • `unstable_rethrow` is required around redirect handling — Next signals redirects by throwing, so
- *     a bare catch would swallow the navigation.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/ops/spec.md — invariant I4, the sign-in rate limit
+ * See:
+ * - docs/ops/spec.md — invariant I4, the sign-in rate limit
  */
 import { unstable_rethrow } from "next/navigation";
 

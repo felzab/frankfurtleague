@@ -3,16 +3,12 @@
 /**
  * SHARED · server-rejected fields
  *
- * The bridge between a server action's `fieldErrors` and react-aria's client-side validation, shared
- * by `EntityForm` and `AdminEditSpielDataForm` so the two cannot drift.
+ * The bridge between a server action's `fieldErrors` and react-aria's client-side validation,
+ * shared by `EntityForm` and `AdminEditSpielDataForm` so the two cannot drift.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • `reportValidity()` runs from an effect, never straight after `setFieldErrors`. react-aria
- *     applies custom validity in a layout effect, so any earlier call finds every field still valid.
- *   • A caller that suppresses its toast on a non-empty `fieldErrors` must handle `onUnhandledErrors`.
- *     A payload can be rejected on a path no input renders, and without that branch the submit fails
- *     in complete silence.
+ * Invariants:
+ * - `reportValidity()` runs from an effect — earlier, react-aria has not applied custom validity yet.
+ * - A toast-suppressing caller must handle `onUnhandledErrors`, or an unrendered path fails silently.
  */
 import { useEffect, useRef, useState } from "react";
 

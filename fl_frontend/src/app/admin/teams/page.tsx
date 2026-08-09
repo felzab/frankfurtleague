@@ -47,7 +47,7 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
   const requestedSaisonId = await resolveSaisonId(searchParams);
   const [saisonsRes, membershipsRes] = await Promise.all([getSaisons(), getTeamMemberships()]);
 
-  // Only PLANNED seasons are offered (owner, 2026-08-07): a team enters a season before it starts.
+  // Only PLANNED seasons are offered (decided 2026-08-07): a team enters a season before it starts.
   // Each carries its groups' fill state, so the form can disable a full group up front.
   const allMemberships = membershipsRes.teams.map((team) => team.memberships);
   const saisonOptions: TeamCreateSaisonOption[] = saisonsRes.saisons
@@ -67,7 +67,7 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
 }
 
 /**
- * EVERY team across every season, each row carrying the SELECTED season's junction data (owner,
+ * EVERY team across every season, each row carrying the SELECTED season's junction data (decided
  * 2026-08-07). One read: `GET /teams/memberships` answers the club-centric question the
  * season-scoped reads cannot, and `getSaisons` supplies the statuses the retire guard and the
  * status column need. A team in no season at all is listed too, with nothing season-scoped to show.

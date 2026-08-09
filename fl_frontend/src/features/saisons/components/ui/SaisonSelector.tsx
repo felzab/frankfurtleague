@@ -79,7 +79,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
 
   // Until React has attached to this subtree the trigger below is inert: the selector streams in as
   // finished markup long before hydration reaches it, and a press in that window opens nothing (the
-  // owner's "clicking it does literally nothing"). Showing the placeholder instead means the
+  // reported "clicking it does literally nothing"). Showing the placeholder instead means the
   // control only appears once it works. The server renders this branch too, so there is no mismatch.
   if (!isMounted) return <SaisonSlotSkeleton />;
 
@@ -98,7 +98,7 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: FLSaison[]
           // user the press landed — a season switch is a server round-trip, so without it the only
           // feedback is the page changing some time later.
           aria-busy={isSwitching}
-          // Brand border ONLY while open (owner, 2026-08-07): react-aria hands focus back to this
+          // Brand border ONLY while open (decided 2026-08-07): react-aria hands focus back to this
           // trigger when the popover dismisses — after the exit animation — so the field-focus
           // rule's focus arms kept the brand border on an outside click. The marker opts this one
           // control out of those arms in `globals.css`; the open state still paints brand there.

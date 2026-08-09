@@ -1,21 +1,15 @@
 /**
  * TEAMS · what the club editor's draft has changed and got wrong
  *
- * One derivation over one club's draft, read by everything on the edit page that says something about
- * a field: the label markers, the change list, the unsaved count, the action bar and the navigation
- * guard. Pure, so it is tested rather than clicked. The match editor's `draftStatus.ts` is the
- * pattern; this is the same idea over a simpler surface — a club has no action-required categories,
- * so there is no "expected" half.
+ * One derivation over one club's draft, read by everything on the edit page that says something
+ * about a field: label markers, change list, unsaved count, action bar, navigation guard. Pure,
+ * so it is tested rather than clicked; the match editor's `draftStatus.ts` is the pattern, minus
+ * the "expected" half — a club has no action-required categories.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • `path` is the field's dotted path in the payloads, and the SAME string is the input's `name`,
- *     the `FieldErrors` key and the anchor id. One string joins the label, the change row, the error
- *     and the jump link.
- *   • Every editable field has a row in `FIELD_DESCRIPTORS` and nothing reads a field any other way.
- *     A field with no row is invisible to the whole page.
- *   • The membership rows participate only while the club is IN the selected season — an absent
- *     junction row has no gruppe to change and no disqualification to lift.
+ * Invariants:
+ * - `path` is the payloads' dotted path AND the input `name`, `FieldErrors` key and anchor id.
+ * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
+ * - Membership rows participate only while the club is IN the selected season.
  */
 
 import { formatSpielDatum } from "@/shared/utils/format";

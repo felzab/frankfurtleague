@@ -63,7 +63,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
             />
           </span>
 
-          {/* The result in the status chips' tint formula -- the owner's reference chip look.
+          {/* The result in the status chips' tint formula -- the reference chip look.
               This is the bracket's card, so it is the one that most often carries a shoot-out: the
               line below it names how a level knockout was settled WITHOUT changing the score, which
               stays the draw the Saisontabelle counts (ADR-0044). It sits inside the `auto` track, so

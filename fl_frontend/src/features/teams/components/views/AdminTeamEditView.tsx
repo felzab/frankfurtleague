@@ -80,7 +80,7 @@ export function AdminTeamEditView({
             <header className="mb-6 flex w-full flex-col gap-y-2">
               <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-2">
                 <h2 className="fluid-2xl text-foreground font-extrabold tracking-tight">{team.name}</h2>
-                {/* The TeamCard's chip, so the Kürzel wears one colour everywhere (owner, 2026-08-07). */}
+                {/* The TeamCard's chip, so the Kürzel wears one colour everywhere (decided 2026-08-07). */}
                 <span className="bg-brand/50 text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-extrabold shadow-sm">
                   {team.shorthand}
                 </span>

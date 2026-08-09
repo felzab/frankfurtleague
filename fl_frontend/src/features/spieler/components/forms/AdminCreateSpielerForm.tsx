@@ -32,7 +32,7 @@ const EMPTY_DRAFT_BASE = {
  * One form on purpose: every squad read is season-scoped with a strict junction join (I11), so a
  * player created without a junction row would be invisible to the very list this form sits on.
  *
- * **Running and planned seasons are both offered** (owner, 2026-08-07), which is where this differs
+ * **Running and planned seasons are both offered** (decided 2026-08-07), which is where this differs
  * from the club create. A squad is filled in over time — a player joining mid-season is the normal
  * case rather than an exception — and `is_nachgetragen` is the field that records it. So the flag is
  * DERIVED from the chosen season's status rather than asked: picking a season already under way
@@ -83,7 +83,7 @@ export function AdminCreateSpielerForm({
                 <FieldError className={FIELD_ERROR} />
               </TextField>
 
-              {/* Required on the CREATE only (owner, 2026-08-07). The column stays nullable and the
+              {/* Required on the CREATE only (decided 2026-08-07). The column stays nullable and the
                   patch payload still accepts null, because squads imported before this form existed
                   have surnameless rows — but a player entered here always has one. */}
               <TextField

@@ -12,7 +12,7 @@ import { useDraftStatus } from "./DraftStatusContext";
  * **Not sticky any more, and that is the fix.** Three rounds of sticky geometry each left a way for
  * the bar to move — page-end padding beneath it, overscroll bounce, the mobile URL bar resizing the
  * viewport — because a sticky element lives INSIDE the scroll content. The form is now a shell: an
- * inner container scrolls the page, and this bar is its static sibling below (owner, eighth review:
+ * inner container scrolls the page, and this bar is its static sibling below (eighth review:
  * "the bar stays stuck to the bottom at all times, just the content scrolls"). Outside the scroll
  * content there is nothing left that can move it.
  *
@@ -28,7 +28,7 @@ import { useDraftStatus } from "./DraftStatusContext";
  * browser and the server is the authority — so an invalid count is reported and the button still
  * works; `useServerFieldErrors` moves focus to the first real rejection when the server answers.
  *
- * **It IS disabled while nothing has changed** (owner, 2026-08-06), and that is a different thing:
+ * **It IS disabled while nothing has changed** (decided 2026-08-06), and that is a different thing:
  * emptiness is not a judgement about whether a value is good, it is the arithmetic this bar already
  * performs to print "Keine Änderungen". A save with no changes writes the fixture back over itself,
  * re-resolves the season's bracket and raises an undo offer for an edit nobody made — so the button

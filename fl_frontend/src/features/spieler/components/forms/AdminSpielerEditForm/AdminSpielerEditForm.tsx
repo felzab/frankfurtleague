@@ -104,7 +104,7 @@ export function AdminSpielerEditForm({
   const [nummer, setNummer] = useState(storedMembership?.nummer ?? "");
   const [position, setPosition] = useState<FLSpielerPosition | null>(storedMembership?.position ?? null);
   const [stufe, setStufe] = useState<FLSpielerStufe | null>(storedMembership?.stufe ?? null);
-  // Read-only on this page (owner, 2026-08-07): it records how the entry came about and the create
+  // Read-only on this page (decided 2026-08-07): it records how the entry came about and the create
   // form derives it. Held in state anyway, because the patch replaces the row wholesale and must send
   // the stored value back unchanged — dropping it from the payload would clear it.
   const [isNachgetragen, setIsNachgetragen] = useState(storedMembership?.is_nachgetragen ?? false);
@@ -230,7 +230,7 @@ export function AdminSpielerEditForm({
       body: "Der Spieler zählt in dieser Saison zu keinem Kader. Nummer, Position und Stufe bleiben erhalten.",
     });
   }
-  // The nachgetragen note lives in the rail, which is what the rail is FOR (owner, 2026-08-07):
+  // The nachgetragen note lives in the rail, which is what the rail is FOR (decided 2026-08-07):
   // every standing remark about this player in one place, rather than a row inside a panel of
   // editable fields where it read as a control somebody had disabled.
   if (isNachgetragen) {
@@ -474,7 +474,7 @@ export function AdminSpielerEditForm({
                 />
 
                 {/* Last on the page and in the danger tone, beside the season it belongs to — the
-                    club editor's Disqualifikation panel in the same position (owner, 2026-08-07).
+                    club editor's Disqualifikation panel in the same position (decided 2026-08-07).
                     Only where a row exists: there is nothing to take out of a squad the player is
                     not in, and the Kader panel above offers the entry instead. */}
                 {storedMembership !== null && (

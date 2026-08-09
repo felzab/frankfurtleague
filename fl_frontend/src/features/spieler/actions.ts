@@ -3,32 +3,20 @@
 /**
  * SPIELER · server actions
  *
- * Full CRUD over people, plus the squad junction. The `"use server"` directive stays the first line,
- * above this block.
+ * Full CRUD over people, plus the squad junction. The `"use server"` directive stays the first
+ * line, above this block.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the form.
+ * - Base tag only, on every action: both admin reads span every season (ADR-0001).
+ * - `spieler` is the ONLY resource invalidated — nothing under `spiele` or `teams` reads a squad row.
+ * - A junction create 409 names reactivation: the unique index keeps indexing a retired row, and
+ *   creating never revives (ADR-0032).
+ * - Create-and-enter is one action over two requests, person first — a player with no junction
+ *   row is invisible to every season-scoped read.
  *
- *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
- *     and converts a thrown API error into the returned result -- a 409 must reach the form, not the
- *     error page (docs/logging.md).
- *   • Every action begins with `getAdminSession()` and CHECKS the result.
- *   • Base tag only, on every action here. Both admin reads span every season, and the public squad
- *     read is narrowed by team rather than by season, so no granular tag names what a save changes
- *     -- and a granular tag nothing invalidates is decoration (ADR-0001).
- *   • `spieler` is the ONLY resource invalidated. A squad row joins into no second resource: unlike
- *     the team junction, whose `disqualifikation` is joined into every match (I32), nothing under
- *     `spiele` or `teams` reads a squad row.
- *   • A junction create 409 is answered SPECIFICALLY. `uniq_spieler_id_saison_id` keeps indexing a
- *     RETIRED row, so the honest answer names reactivation rather than reporting a generic conflict
- *     (ADR-0032) -- creating never revives, because it would overwrite the number and position the
- *     retired row still carries.
- *   • Creating a player and putting them in a squad is ONE action over two requests, person first. A
- *     player with no junction row is invisible to every season-scoped read (I11), so a create that
- *     stopped after the first request would succeed into a state no page can show.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 3, the action inventory
+ * See:
+ * - docs/frontend/spec.md — section 3, the action inventory
  */
 import { updateTag } from "next/cache";
 

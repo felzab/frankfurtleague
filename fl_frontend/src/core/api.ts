@@ -1,22 +1,17 @@
 /**
  * CORE · API client
  *
- * The single door to FastAPI. Every slice's `queries.ts` and `mutations.ts` goes through `apiClient`;
- * nothing calls `fetch` directly.
+ * The single door to FastAPI. Every slice's `queries.ts` and `mutations.ts` goes through
+ * `apiClient`; nothing calls `fetch` directly.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Server-only — the bearer keys must never reach a client bundle.
+ * - Every response is Zod-validated before it is returned.
+ * - The timeout bounds the request and the body read — a stall after headers once hung the render.
+ * - Failures are typed: network, bad status, malformed data — each points at a different system.
  *
- *   • Server-only. The bearer keys are read from the server environment and must never reach a client
- *     bundle.
- *   • Every response is Zod-validated before it is returned. Nothing reaches a component unvalidated.
- *   • The timeout bounds the request AND the body read. Clearing the timer when `fetch` resolves left
- *     `res.json()` unbounded, so a backend that sent headers then stalled hung the render.
- *   • Failures are typed: network, bad status, malformed data. Reporting a parse failure as a network
- *     problem points the reader at the wrong system.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/overview.md — how this fits the read path
+ * See:
+ * - docs/frontend/overview.md — how this fits the read path
  */
 
 import "server-only";

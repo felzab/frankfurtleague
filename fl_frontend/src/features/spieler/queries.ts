@@ -1,19 +1,13 @@
 /**
  * SPIELER · cached reads
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Base tag only — both admin reads span every season, so no granular tag names a save (ADR-0001).
+ * - Only `vorname` is guaranteed present; a squad is filled in over time.
+ * - `getSpieler` flattens against one season; the admin surfaces read `getSpielerMemberships`.
  *
- *   • Base tag only. Every write here is either to the person, which is season-independent, or to a
- *     squad row whose season the caller of the granular tag would have to know — and both admin reads
- *     span every season, so no granular tag would name what a save changes (ADR-0001's rule, applied).
- *   • Only `vorname` is guaranteed present on a player; surname, number, position and stufe may all be
- *     null, because a squad is filled in over time.
- *   • `getSpieler` is FLATTENED against one season and `getSpielerMemberships` is not. The admin
- *     surfaces read the second, and the reasons the first cannot serve them are on the endpoint.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 5, out-of-band invalidation
+ * See:
+ * - docs/frontend/spec.md — section 5, out-of-band invalidation
  */
 
 import { cacheLife, cacheTag } from "next/cache";

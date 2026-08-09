@@ -6,29 +6,18 @@
  * Full CRUD over clubs, plus the season junction. The `"use server"` directive stays the first
  * line, above this block.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the form.
+ * - The club patch invalidates `spiele` too: the rename fans into every match (ADR-0028).
+ * - A junction write invalidates the `spiele` AND `teams` pairs, base and granular — every match
+ *   side carries the junction's `disqualifikation` (ADR-0001).
+ * - A create 409 names the reactivate path on the field — `shorthand` stays unique over retired
+ *   clubs (ADR-0032).
+ * - Create-and-enter is one action over two requests, club first — a club with no junction row
+ *   is invisible to every season-scoped read.
  *
- *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
- *     and converts a thrown API error into the returned result -- a 409 must reach the form, not the
- *     error page (docs/logging.md).
- *   • Every action begins with `getAdminSession()` and CHECKS the result.
- *   • The club patch invalidates `spiele` as well as `teams`, because the backend fans the new name
- *     and shorthand into every match embedding them (ADR-0028 rule 3). Base tags only: the club is
- *     season-independent, so the rename touches every season's cache entries at once.
- *   • A JUNCTION write invalidates the `spiele` pair as well as the `teams` pair, base and granular
- *     both (ADR-0001). Every side of every match carries the team's `disqualifikation` joined from
- *     the junction (I32), so writing the junction changes what `GET /spiele` returns -- invalidating
- *     `teams` alone leaves every Spiel card showing a badge the league table has stopped showing.
- *   • A create 409 is answered SPECIFICALLY. `shorthand` is held unique across every club, retired
- *     ones included (ADR-0032), so the honest answer names the reactivate path rather than reporting
- *     a generic conflict -- and it lands on the field, not in a toast.
- *   • Creating a club and entering it into a season is ONE action over two requests, club first. A
- *     club with no junction row is invisible to every season-scoped read (I11), so a create that
- *     stopped after the first request would succeed into a state no page can show.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 3, the action inventory
+ * See:
+ * - docs/frontend/spec.md — section 3, the action inventory
  */
 import { updateTag } from "next/cache";
 

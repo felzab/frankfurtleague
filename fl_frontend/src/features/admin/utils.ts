@@ -1,24 +1,16 @@
 /**
  * ADMIN · action-required derivation
  *
- * Sorts matches into the categories the action-required view renders, ranks those categories by how
- * much each blocks the competition, and says the one thing about an entry that its category cannot.
- * Pure derivation, no I/O — it is a separate module from `queries.ts` so that non-caching code stays
- * out of a `"use cache"` file (ADR-0003).
+ * Sorts matches into the categories the action-required view renders, ranks them by how much
+ * each blocks the competition, and says the one thing about an entry its category cannot. Pure,
+ * no I/O — a separate module so non-caching code stays out of a `"use cache"` file (ADR-0003).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Declaration order in `ACTION_REQUIRED_LABELS` is render order, and that order is **urgency**:
- *     what stops the competition proceeding comes first (ADR-0056). `buildActionRequiredSections`
- *     walks the label table rather than the categorised record, so a reordering of one cannot leave
- *     the other behind.
- *   • The category union stays a literal union, not an index signature. The accumulator below is
- *     fully keyed, so a mistyped category is a compile error rather than a crash on `undefined`.
- *   • `categorizeActionRequired` is read by two surfaces — this list and the match editor — so its
- *     rules live here once and nothing re-implements them.
- *   • The one rule it does NOT own is what fills a bracket slot: `deriveSlotHerkunft` answers that in
- *     `spiele`, beside the reference it reads, because the wiring review asks the same question of the
- *     same two fields.
+ * Invariants:
+ * - `ACTION_REQUIRED_LABELS` order is render order, which is urgency (ADR-0056), and
+ *   `buildActionRequiredSections` walks the label table, so the two cannot split.
+ * - The category union stays a literal union — a mistyped category is a compile error.
+ * - `categorizeActionRequired` serves two surfaces, so its rules live here once.
+ * - What fills a bracket slot is `deriveSlotHerkunft`'s answer, in `spiele`, beside the fields.
  */
 
 import { deriveSlotHerkunft } from "@/features/spiele/utils";

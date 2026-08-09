@@ -53,7 +53,7 @@ export function SpielDraftPreview({
 
   return (
     <div className={`flex w-full flex-col gap-y-3 rounded-xl border p-3 ${isDirty ? "border-brand/50 bg-brand/5" : "border-border"}`}>
-      {/* Two rows, always: date and time, then the chips (owner, seventh review). One wrapping row
+      {/* Two rows, always: date and time, then the chips (seventh review). One wrapping row
           broke exactly on narrow cards — one chip on the first line, the other bleeding onto the
           next — and a layout that is sometimes one row and sometimes two reads as two designs. */}
       <div className="flex w-full flex-col gap-y-1.5">

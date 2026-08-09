@@ -53,7 +53,7 @@ export function SpielCardsList({
         if (!hasFaults) return card;
 
         // A faulted fixture is a NOTE plus a card, and the note sits OUTSIDE the card so the card
-        // stays purely what it is (owner, 2026-08-08). The wrapper carries the `role="listitem"` the
+        // stays purely what it is (decided 2026-08-08). The wrapper carries the `role="listitem"` the
         // grid expects — a note rendered as a bare sibling would be a non-listitem child of the list —
         // and the card inside gives its own role up, or every faulted fixture would announce twice.
         // A real element rather than `display: contents`, because the cascade staggers by
@@ -70,7 +70,7 @@ export function SpielCardsList({
                 <li key={sentence}>{sentence}</li>
               ))}
             </ul>
-            {/* The connectors: one short stem at each end of the note, mirrored (owner, 2026-08-08),
+            {/* The connectors: one short stem at each end of the note, mirrored (decided 2026-08-08),
                 so the note and the card read as one drawn shape rather than a box floating over an
                 unrelated card. `bg-danger/30` matches the note's border. */}
             <div
@@ -93,8 +93,8 @@ export function SpielCardsList({
           — so mounting unconditionally would put a full Modal.Backdrop / Container / Dialog tree
           plus its react-aria overlay machinery on first paint at every one of them, to show nothing.
           The cost is the close animation: unmounting on `null` skips HeroUI's exit transition, so the
-          modal disappears rather than fading. Accepted by the owner, 2026-07-31, who valued the mount
-          saving over the transition. */}
+          modal disappears rather than fading. Accepted 2026-07-31 — the mount
+          saving is valued over the transition. */}
       {selectedSpiel && (
         <SpielDetailsModal
           spielData={selectedSpiel}
