@@ -1,29 +1,16 @@
 """
-scripts/check_docs.py - the documentation gate.
+SCRIPTS · the documentation gate
 
 Run by verify.sh. It is the mechanical half of the documentation standard's currency rules: the
-other defences depend on someone remembering, and this one does not. The check list, with what each
-failure means, lives in docs/_standard/chapters/5-currency.md (CUR-5) - the one place it is
+other defences depend on someone remembering, and this one does not. The check list, with what
+each failure means, lives in docs/_standard/chapters/5-currency.md (CUR-5) — the one place it is
 written, so it is deliberately not restated here.
 
- SCANNING RULES ------------------------------------------------------------------------------------
-
- Fenced code blocks are stripped before anything is extracted. A link or citation inside a fence is
- a worked example, not a reference, and templates are made almost entirely of those.
-
- Placeholder text is skipped wherever it appears: anything containing < > { } * ? or the literal
- NNNN. Templates ship `<sha>` and `ADR-NNNN` on purpose.
-
- Source files carry the same citations as documentation and rot the same way, so their COMMENTS are
- scanned too (INC-6). Only comments: a path-shaped string in executable code is data, not a claim.
-
- BRANCH SCOPE --------------------------------------------------------------------------------------
-
- Three checks read the branch rather than the tree: stamp freshness (an edited stamped page moves
- its stamp), branch impact (a stamped page whose cited files materially changed restamps, CUR-4),
- and the history phrases (COR-3). Material means more than comments, decided by the same parser
- classifier the scope check uses - check_scope.is_comment_only - so the two gates cannot disagree
- about what a comment is.
+Invariants:
+- Fenced code blocks are stripped first; placeholder text (< > { } * ? or NNNN) is skipped.
+- Source comments are scanned exactly like documentation (INC-6) — only comments, never code.
+- Three checks read the branch, not the tree: stamp freshness, branch impact (CUR-4), history phrases.
+- Material means more than comments, decided by `check_scope.is_comment_only` — one classifier, two gates.
 """
 
 from __future__ import annotations

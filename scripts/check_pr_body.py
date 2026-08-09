@@ -1,46 +1,17 @@
 """
-scripts/check_pr_body.py - the pull request body gate.
+SCRIPTS · the pull request body gate
 
 Reads one body on stdin or from a file and holds it to ADR-0036 and the form in
-docs/workflows/message-templates.md. Run by .github/workflows/pr-body.yml on every pull request,
-and by hand against an open one:
+docs/workflows/message-templates.md. A body is not in the repository and does not exist before
+the pull request does, so this cannot run in verify.sh — .github/workflows/pr-body.yml is the
+one place it is addressable, and it listens for `edited` so a corrected body turns green without
+a push. What fails and what merely reports is the table in message-templates.md.
 
-    gh pr view 48 --json body -q .body | python scripts/check_pr_body.py -
-
- WHY THIS IS NOT PART OF verify.sh -----------------------------------------------------------------
-
- A pull request body is not in the repository. There is nothing to check before the pull request
- exists, so the pre-push gate cannot see it and this runs only in CI - the one place the body is
- addressable. It is also why the workflow listens for `edited`: a body corrected after review has to
- be able to turn the check green without an unrelated push.
-
- WHAT IT CHECKS ------------------------------------------------------------------------------------
-
-  Failing, because each is objectively true or false without reading the branch:
-    1. the body is not empty, and is not the template with its placeholder prose still in it
-    2. it carries a Verified paragraph, bolded or not - every pull request here runs the gate, so
-       this is the one section that is never legitimately dropped
-    3. it does not index its commits: three or more list items each carrying a commit hash is the
-       shape ADR-0036 exists to refuse, because GitHub's Commits tab already renders it
-    4. the summary above the first heading is under 500 words
-
-  Reporting, because the boundary needs judgment:
-    5. the summary above the first heading runs past 200 words
-
- The other three headings - Decisions taken, Left undone, Governed by - are deliberately unchecked.
- The form says to drop a heading rather than pad it, so their absence is usually correct and a check
- would manufacture exactly the empty sections it warns against.
-
- WHY 200 AND 500 -----------------------------------------------------------------------------------
-
- The form asks for one orientation sentence plus one or two paragraphs. 200 words is a generous
- reading of that and 500 is past any reading of it: the body that prompted this check ran to 509
- words of summary, restating in prose what its own commits already said. Same split as
- check_commits.py, and for the same reason - a check that fails half of a legitimate style gets
- suppressed.
-
- Dependabot's pull requests are skipped entirely. The bot writes its own bodies and the form does
- not reach them.
+Invariants:
+- Verified is the one section never legitimately dropped; the other three headings are unchecked.
+- Three or more list items carrying commit hashes fail — the commit index ADR-0036 refuses.
+- The summary fails past 500 words and reports past 200, the same split check_commits.py uses.
+- Dependabot bodies are skipped entirely — the bot writes its own.
 """
 
 from __future__ import annotations
