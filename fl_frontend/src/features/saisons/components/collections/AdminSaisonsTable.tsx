@@ -24,7 +24,7 @@ import type { AdminSaisonRow } from "../../types";
  * actions are all reads and one edit link, and the seasons page is the one admin table with three
  * columns of facts and nothing destructive in it.
  *
- * **The rollover is not a row action** (owner, 2026-08-07). It lives on the season's own editor page,
+ * **The rollover is not a row action** (decided 2026-08-07). It lives on the season's own editor page,
  * where the incomplete-matches precondition has the room to be a list rather than a number.
  */
 export const AdminSaisonsTable = memo(function AdminSaisonsTable({
@@ -36,7 +36,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 }) {
   // One source for both layouts: the `md+` table's cells and the phone cards render these, so the two
   // presentations cannot disagree about a season's state.
-  // `h-7` on the status badge AND on the id chip beside it (owner, 2026-08-08): LABEL_BADGE sizes
+  // `h-7` on the status badge AND on the id chip beside it (decided 2026-08-08): LABEL_BADGE sizes
   // itself by padding and the id chip by its own, so the two sat at different heights in one row.
   // One fixed height, stated at both call sites, is what keeps them level.
   const renderStatusBadge = (saison: AdminSaisonRow) => {
@@ -46,7 +46,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
   };
 
   /**
-   * The season's span as two dates around a bis-Strich, shared by both layouts (owner, 2026-08-08).
+   * The season's span as two dates around a bis-Strich, shared by both layouts (decided 2026-08-08).
    * The dates carry the weight and the dash recedes: set entirely in one face, "01.09.2025 bis
    * 30.06.2026" read as one grey ribbon, and the word did more work than the dates. `tabular-nums`
    * keeps the digits in columns, so two rows' spans line up under each other.

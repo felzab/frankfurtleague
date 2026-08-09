@@ -8,7 +8,7 @@ import { SearchField } from "@heroui/react";
  * version had no accessible name (its only name came from the placeholder, which disappears as soon
  * as you type), no clear button and no `type="search"` semantics.
  *
- * Focus is shown as a border colour change on the group rather than a ring — the owner's decision,
+ * Focus is shown as a border colour change on the group rather than a ring — the decision
  * recorded at `globals.css`'s `--focus` note and applied identically by `FIELD_INPUT`. That is why
  * the input carries `outline-none`: the group owns the focus affordance, so a second indicator on
  * the inner input would double it.
@@ -16,7 +16,7 @@ import { SearchField } from "@heroui/react";
  * `className` is the caller's outer width only — the chrome is deliberately not configurable.
  * `attachEnd` is the one chrome exception, and it is a shape rather than a restyle: below `sm` the
  * bar's right edge flattens and loses its border so an attached control (the CRUD header's create
- * trigger) reads as its continuation (owner, 2026-08-07).
+ * trigger) reads as its continuation (decided 2026-08-07).
  */
 export function SearchBar({
   label,

@@ -74,7 +74,7 @@ async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]
  * The order is derived, so there is no next-free-position to work out (ADR-0064) — but `REQ-SPIELTAG-003`
  * refuses a create once the season's knockout phase is under way, and "under way" is the earliest
  * non-group matchday beginning today or earlier. That is a read this page is already making, so the
- * trigger can refuse BEFORE the request rather than opening a dialog onto a 409 (owner, 2026-08-08).
+ * trigger can refuse BEFORE the request rather than opening a dialog onto a 409 (decided 2026-08-08).
  *
  * The endpoint stays the authority: a page left open past midnight, or a knockout matchday re-dated in
  * another tab, both reach it.

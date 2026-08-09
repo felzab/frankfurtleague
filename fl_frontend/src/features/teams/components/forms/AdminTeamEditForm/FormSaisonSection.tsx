@@ -29,16 +29,16 @@ function SaisonBadge({ status }: { status: TeamSaisonContext["saisonStatus"] }) 
 
 /**
  * The club's membership of the SELECTED season — the one in the sidemenu's season selector, not a
- * list of every season (owner, 2026-08-07): the selector is the page's season context, so switching
+ * list of every season (decided 2026-08-07): the selector is the page's season context, so switching
  * it switches what this panel shows and writes.
  *
  * **The group is locked once the season is underway.** Moving a club between groups rewrites what
  * its results mean for two tables and the seeding, so the select renders only while the season is
- * `future` or the club has no fixture in it yet (owner's rule, 2026-08-07). A locked group is a
+ * `future` or the club has no fixture in it yet (decided 2026-08-07). A locked group is a
  * read-only row naming why; a legal swap of two clubs is a future control, not this select.
  *
  * A club NOT in the season gets exactly one affordance — entering it, with a group — and only while
- * the season is `future` (owner, 2026-08-07): a season's field is settled before it starts, so a
+ * the season is `future` (decided 2026-08-07): a season's field is settled before it starts, so a
  * running or past season shows why there is nothing to do instead. The picker offers the season's
  * own groups with their fill state, full ones disabled; `POST /teams/{team_id}/saisons` refuses the
  * same shapes (REQ-ENTER-001..003) and stays authoritative. Entering fires its own action
@@ -85,7 +85,7 @@ export function FormSaisonSection({
     <section className={panel.root()}>
       {/* `relative` + an absolutely placed badge, so the h2 keeps the exact flow every other panel
           heading has — wrapping it in a flex row is what pushed the info glyph off the text's
-          baseline (owner, 2026-08-07). */}
+          baseline (decided 2026-08-07). */}
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           <SaisonBadge status={saison.saisonStatus} />
@@ -167,7 +167,7 @@ export function FormSaisonSection({
             </div>
           </div>
         ) : (
-          // No entry affordance at all outside a planned season (owner, 2026-08-07): a season's
+          // No entry affordance at all outside a planned season (decided 2026-08-07): a season's
           // field is settled before it starts. The junction write refuses the same (REQ-ENTER-001).
           <Callout
             severity="info"

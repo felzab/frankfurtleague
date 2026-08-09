@@ -1,25 +1,14 @@
 /**
  * SHARED · the one way this app raises a toast
  *
- * Wraps HeroUI's `toast` so that the two things every producer used to get wrong are decided here
- * instead of at each call site: **how long the message stays**, and **which half of it is the
- * outcome**. `AppToaster` is the other half of the pair — it owns what a toast looks like, this owns
- * what one says and for how long.
+ * Wraps HeroUI's `toast` so the two things every producer used to get wrong are decided here:
+ * how long a message stays, and which half of it is the outcome. `AppToaster` owns what a toast
+ * looks like; this owns what one says and for how long (ADR-0053).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────
- *
- *   • **A title is an outcome, a description is the detail.** The title says what happened in one
- *     clause and is the only part a reader is guaranteed to take in; anything they would need in
- *     order to act goes in the description. A producer with one string passes a title and nothing
- *     else — never a sentence pair joined with ". " into the title, which is what
- *     `formatSpielUpdateMessage` used to hand over.
- *   • **Durations are derived, not chosen.** `timeout` is a last resort for the cases the formula
- *     cannot know about (an offer with an action on it, a request still in flight). Passing one
- *     because a message "feels long" is how the four-second default came to sit under a five-sentence
- *     fault report.
- *   • **Both halves are `string`, deliberately.** The duration is derived from their length, and a
- *     `ReactNode` cannot be measured — a node-valued title would silently take the floor duration.
- *     `indicator` and `actionProps.children` stay nodes because neither is read for time.
+ * Invariants:
+ * - A title is an outcome, a description is the detail — never a sentence pair joined into the title.
+ * - Durations are derived, not chosen; `timeout` is a last resort for what the formula cannot know.
+ * - Both halves are `string` — duration derives from length, and a `ReactNode` cannot be measured.
  */
 
 import { toast } from "@heroui/react";

@@ -101,7 +101,7 @@ export function Sidemenu<TIcon extends string>({
 
       {/* MAIN SCROLLABLE CONTENT
 
-          The gutter is reserved on BOTH edges while collapsed (owner, 2026-08-07). At 72px with `px-3`
+          The gutter is reserved on BOTH edges while collapsed (decided 2026-08-07). At 72px with `px-3`
           this container has 48px of content, and a one-edge reservation takes ~15px off the right alone —
           so every icon sat correctly centred in its own box and the whole column sat left of the rail's
           centre. `both-edges` spends the same strip twice and puts the centre back where the eye expects

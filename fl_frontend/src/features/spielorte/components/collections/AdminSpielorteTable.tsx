@@ -121,7 +121,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
 
   return (
     <>
-      {/* The phone layout: one card per venue, no horizontal scrolling anywhere (owner, 2026-08-07
+      {/* The phone layout: one card per venue, no horizontal scrolling anywhere (decided 2026-08-07
           — the teams table's card pattern, applied here as FE-13 asked). */}
       <div className="flex w-full flex-col gap-3 md:hidden">
         {filteredSpielorte.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}

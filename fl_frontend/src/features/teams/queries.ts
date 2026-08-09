@@ -1,29 +1,19 @@
 /**
  * TEAMS · cached read
  *
- * Teams are reference data and cached for days. The one thing that invalidates them is a Spiel result
- * edit, and the invalidation therefore lives in `features/spiele/actions.ts`, not here.
+ * Teams are reference data and cached for days. The one thing that invalidates them is a Spiel
+ * result edit — statistics are derived from the match documents on every read (ADR-0026), so a
+ * result edit changes this response without touching a team document. The invalidation therefore
+ * lives in `features/spiele/actions.ts`, and dropping it as "unrelated" strands a public table.
  *
- * **A result edit writes nothing a team query reads, and still changes this response.** Team
- * statistics are derived from the match documents on every read (ADR-0026), so editing a Spiel moves
- * the league table without touching a single team document. The invalidation in the Spiel action is
- * what connects the two; dropping it as "unrelated" would leave a visibly stale table on a public
- * page for up to a day.
+ * Invariants:
+ * - `teams:saison_id:*` is the only granular tag — no mutation changes the other dimensions.
+ * - A team with no junction row for the requested season is simply absent.
+ * - `statistik_scope` is cache KEY, not tag — the `teams` tag clears both scopes, as a result
+ *   edit needs.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • `teams:saison_id:*` is the only granular tag for this resource. No tags on gruppe,
- *     disqualification or the rest: no mutation in the app changes those dimensions.
- *   • A team is season-independent; gruppe and disqualifikation come from a junction the backend joins
- *     at read time, and statistik is computed from that season's matches. A team with no junction row
- *     for the requested season is simply absent.
- *   • `statistik_scope` is part of the cache KEY, not the tag set. The two scopes are two entries of
- *     the same resource, and the `teams` tag clears both — which is what a result edit needs, since a
- *     playoff result moves one of them and a Gruppenphase result moves both.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/glossary.md — "Team", for the junction model and "Statistik", for how the table is derived
+ * See:
+ * - docs/glossary.md — "Team" for the junction model, "Statistik" for how the table is derived
  */
 
 import { cacheLife, cacheTag } from "next/cache";

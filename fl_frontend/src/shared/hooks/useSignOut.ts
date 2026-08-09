@@ -16,7 +16,7 @@ import type { FormState } from "@/shared/types/types";
  * either one does, so the arming, the transition, the toast and the navigation live here and each
  * surface supplies only its own markup.
  *
- * **The two-press confirm is the whole point of the hook having state at all** (owner decision
+ * **The two-press confirm is the whole point of the hook having state at all** (decided
  * 2026-07-31): the first press arms, the second signs out. `disarm` is what each surface wires to its
  * own escape — a blur, an Escape key, a menu closing — because the gesture that means "never mind"
  * differs between a bar button and a menu row, while the reset itself does not.
@@ -28,10 +28,10 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
 
   // The armed state must survive nothing but a second press on the control itself. `onBlur` covers
   // a keyboard user; on iOS a tap on non-interactive content moves focus NOWHERE, so the armed
-  // button sat there until it was pressed again (owner, 2026-08-07). A capture-phase outside press
+  // button sat there until it was pressed again (decided 2026-08-07). A capture-phase outside press
   // is the reliable disarm — `pointerdown` AND `touchstart`, because a touch that becomes a scroll
   // can end in `pointercancel` on some mobile engines while `touchstart` has already fired, and the
-  // owner reported the armed control surviving exactly such taps. Double-firing is harmless: the
+  // armed control was seen surviving exactly such taps. Double-firing is harmless: the
   // second call sets state that is already false.
   useEffect(() => {
     if (!isConfirming) return;

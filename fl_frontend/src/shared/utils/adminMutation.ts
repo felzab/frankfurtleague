@@ -32,7 +32,7 @@ import type { FormState } from "@/shared/types/types";
 // Generic over the success shape: the create action resolves with `created_id`, the edit actions
 // with `updated_document`, and the failure branch narrows to the plain `FormState` both extend.
 /**
- * The generic form banner for a payload the schema refused, declared ONCE (owner, 2026-08-08).
+ * The generic form banner for a payload the schema refused, declared ONCE (decided 2026-08-08).
  *
  * Every slice's actions rendered its own copy of this sentence, which is how one of them came to end in
  * an exclamation mark while the rest of the corpus ends in a period. The message format is the one every

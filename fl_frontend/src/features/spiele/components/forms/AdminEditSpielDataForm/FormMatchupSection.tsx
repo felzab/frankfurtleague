@@ -84,7 +84,7 @@ export function FormMatchupSection({
       className={styles.root()}
       onKeyDownCapture={suppressEnterSubmit}>
       {/* This InfoHint is where the team-source vocabulary is explained — it used to be spread over a
-          `Description` per control, which is the "too much text" the owner reported. The fields keep
+          `Description` per control, which is the reported "too much text". The fields keep
           only what is needed while filling them in. */}
       <div className={styles.header()}>
         <h2 className={styles.heading()}>
@@ -143,7 +143,7 @@ export function FormMatchupSection({
         />
 
         {/* Full-bleed across the body's own padding, so it reads like the header's border
-            rather than an inset rule between the two pickers (owner, 2026-08-07). `w-auto` because
+            rather than an inset rule between the two pickers (decided 2026-08-07). `w-auto` because
             negative margins and `w-full` overflow together. */}
         <Separator className="bg-border -mx-4 h-px w-auto sm:-mx-5" />
 

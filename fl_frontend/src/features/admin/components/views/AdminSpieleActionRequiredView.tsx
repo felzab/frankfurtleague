@@ -36,7 +36,7 @@ const SECTION_PARAM = "section";
 /**
  * The count badge, graded by what the number means.
  *
- * **Green is reserved for zero** (owner, 2026-08-07): a category with nothing in it is the one state
+ * **Green is reserved for zero** (decided 2026-08-07): a category with nothing in it is the one state
  * that needs no attention, and it is the only state the success accent may describe. Everything else
  * takes its own urgency's accent, so the colour says how much the number costs rather than merely that
  * it is not zero — red where a later fixture cannot resolve, amber where standings are waiting, blue
@@ -45,7 +45,7 @@ const SECTION_PARAM = "section";
  * Every pair is the app's colour rule: the plain accent at `/15` is a fill, its `-strong` companion is
  * text on that fill — the pairing `SpielStatusChip` and `Callout` were both measured at.
  *
- * `none` is `is_canceled`, and it takes the same blue as `details` (owner, 2026-08-07): a cancelled
+ * `none` is `is_canceled`, and it takes the same blue as `details` (decided 2026-08-07): a cancelled
  * fixture asks nothing of anybody, which is exactly what the informational grade means, and a neutral
  * grey badge among seven coloured ones read as a control that had been switched off.
  */
@@ -86,13 +86,13 @@ export function AdminSpieleActionRequiredView({
   );
 
   // Derived here rather than in `buildActionRequiredSections`, which sorts matches and has no business
-  // deriving German. Keyed by `spiel_id` so each card can state its OWN reasons (owner, 2026-08-08):
+  // deriving German. Keyed by `spiel_id` so each card can state its OWN reasons (decided 2026-08-08):
   // one shared box named every fixture in the section and left the reader matching match numbers back
   // to cards by eye, which is exactly the work the card is there to save.
   const faultsBySpielId = useMemo(() => groupBracketFaultsBySpielId(bracketFaults), [bracketFaults]);
 
   /**
-   * All eight tabs, always, whatever the counts are (owner, 2026-08-06).
+   * All eight tabs, always, whatever the counts are (decided 2026-08-06).
    *
    * A strip that gains and loses tabs as fixtures are completed is a control that moves under the hand
    * using it, and the badge already says which categories are clear.
@@ -214,7 +214,7 @@ export function AdminSpieleActionRequiredView({
           </Tabs.ListContainer>
 
           {/* What the selected tab's one word covers, in the app's own "explain this surface"
-              affordance rather than as a line of prose over the grid (owner, 2026-08-07). `InfoHint`
+              affordance rather than as a line of prose over the grid (decided 2026-08-07). `InfoHint`
               and not `IconTooltip`: react-aria's tooltip opens on hover and focus and deliberately
               never on tap, so on the phone this page is worked from it would be unreachable. It reads
               the ACTIVE section, so one glyph serves all eight categories and the toolbar keeps its

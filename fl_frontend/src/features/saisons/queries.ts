@@ -3,23 +3,15 @@
  *
  * Seasons are the most stable data in the system and are cached for days.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Base tag only, and the only tag possible: `getSaisons` reads every season in one call (ADR-0001).
+ * - `actions.ts` clears it on every write; the rollover clears `spiele`, `spieltage`, `teams` too
+ *   (ADR-0002).
+ * - A Compass edit is served stale until the daily cacheLife expires — no invalidation endpoint (ADR-0035).
+ * - `getCurrentSaison` takes no filters: "current" is a backend determination.
  *
- *   • Base tag only, and here it is the only tag that could exist: a season is not season-scoped data,
- *     it IS the season, and `getSaisons` reads every one of them in a single call. A
- *     `saisons:saison_id:...` tag would name an entry nothing ever creates (ADR-0001).
- *   • The base tag IS invalidated — `actions.ts` in this slice clears it on every season write, and
- *     the rollover clears `spiele`, `spieltage` and `teams` with it, because an omitted `saison_id`
- *     means the current season (ADR-0002).
- *   • A hand edit made directly in MongoDB still goes around all of that and is served stale until the
- *     daily cacheLife expires or the container is recreated. There is no invalidation endpoint, by
- *     decision (ADR-0035).
- *   • `getCurrentSaison` takes no filters on purpose: "current" is a backend determination, and a
- *     second definition here would be one that could disagree.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 5, out-of-band invalidation
+ * See:
+ * - docs/frontend/spec.md — section 5, out-of-band invalidation
  */
 
 import { cacheLife, cacheTag } from "next/cache";

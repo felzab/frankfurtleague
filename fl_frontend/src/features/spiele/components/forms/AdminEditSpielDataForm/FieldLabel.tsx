@@ -28,7 +28,7 @@ const MARKER = "inline-flex size-5 shrink-0 items-center justify-center rounded-
  * - **Geändert** — the draft differs from what is stored, and **the hint is where the previous value
  *   lives**. It used to be a `vorher:` line under the label, and that line arrived exactly when the
  *   admin edited the field — a layout shift on every first keystroke, most visible where two goal
- *   fields share a row and one grew taller (owner, seventh review). A hint occupies no flow space,
+ *   fields share a row and one grew taller (seventh review). A hint occupies no flow space,
  *   so the answer is still one hover away and nothing moves.
  *
  * The wrapper carries `id={`feld-${path}`}` so the rail's open-items list can link straight to it, and

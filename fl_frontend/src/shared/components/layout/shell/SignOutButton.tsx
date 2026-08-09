@@ -35,7 +35,7 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       onKeyDown={(event) => {
         if (event.key === "Escape") disarm();
       }}
-      /* **One red at rest, one red when armed, and no hover step** (owner). The fill is there before
+      /* **One red at rest, one red when armed, and no hover step** (my call). The fill is there before
          the pointer arrives, because a control that only looks destructive on approach says nothing to
          a reader scanning the bar — and it does not brighten under the pointer, so the only thing that
          changes the colour is the state that matters. Armed also changes the label and the glyph, so
@@ -43,7 +43,7 @@ export function SignOutButton({ onSignOut }: { onSignOut: () => Promise<FormStat
       className={`text-danger flex h-9 shrink-0 items-center justify-center rounded-md font-semibold transition-colors disabled:opacity-60 ${
         isConfirming ? "bg-danger/20 px-3" : "bg-danger/10 px-2"
       }`}>
-      {/* Armed, the control is its QUESTION and nothing else (owner, 2026-08-07): the glyph goes,
+      {/* Armed, the control is its QUESTION and nothing else (decided 2026-08-07): the glyph goes,
           the label takes the resting glyph's size and sits centred — one thing to read, no icon to
           mis-align against it. At rest it is the one glyph, so the bar stays quiet. */}
       {isConfirming ? (

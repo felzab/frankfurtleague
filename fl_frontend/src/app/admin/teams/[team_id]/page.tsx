@@ -17,7 +17,7 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /**
  * The team editor (ADR-0050, adopted by FB-3). One team per URL; WHICH season's membership the
- * editor addresses is the sidemenu selector's `?saison_id=` (owner, 2026-08-07) — switching the
+ * editor addresses is the sidemenu selector's `?saison_id=` (decided 2026-08-07) — switching the
  * selector switches what the Saison panel shows and writes.
  *
  * No `generateMetadata` and no `generateStaticParams`, for the reasons the match editor records.
@@ -64,7 +64,7 @@ async function AdminTeamEditContent({
 
   const membership = team.memberships.find((candidate) => candidate.saison_id === selectedSaison.id) ?? null;
 
-  // The owner's rule (2026-08-07): the group may move only while the season has not started — no
+  // The rule (decided 2026-08-07): the group may move only while the season has not started — no
   // fixture of the team's exists in it yet — or while the season is still `future`.
   const teamSpiele = membership === null ? [] : (await getSpiele({ saison_id: selectedSaison.id, team_id: teamId, limit: 1 })).spiele;
   const gruppeLocked = selectedSaison.status !== "future" && teamSpiele.length > 0;
@@ -76,7 +76,7 @@ async function AdminTeamEditContent({
   };
 
   // What the group pickers may offer: the season's own groups with their fill state, counted over
-  // the same memberships read (owner, 2026-08-07 — a team enters only a group with space).
+  // the same memberships read (decided 2026-08-07 — a team enters only a group with space).
   const gruppeOffer = buildGruppeOffer(
     selectedSaison.id,
     selectedSaison.rules,

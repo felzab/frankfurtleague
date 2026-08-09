@@ -1,13 +1,10 @@
 /**
  * SCHIEDSRICHTER · cached read
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Base tag only, and sufficient: this slice's actions invalidate `schiedsrichter` on every write.
- *   • A referee rename also invalidates `spiele`, because the backend fans the new name into every
- *     match embedding it.
- *   • This is called with no arguments everywhere in the app. The filter parameters exist but are
- *     unexercised — do not assume they are tested behaviour.
+ * Invariants:
+ * - Base tag only, and sufficient: this slice's actions invalidate `schiedsrichter` on every write.
+ * - A referee rename also invalidates `spiele` — the backend fans the new name into every match.
+ * - Called with no arguments everywhere; the filter parameters are unexercised, not tested.
  */
 
 import { cacheLife, cacheTag } from "next/cache";

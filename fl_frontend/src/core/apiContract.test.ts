@@ -1,41 +1,22 @@
 /**
  * CORE · the Zod mirror, checked against the published API surface
  *
- * `fl_backend/app/api/*​/schemas.py` and the ten Zod modules beside this one are hand-maintained
- * mirrors with no generation step. This suite is what stops them drifting: it converts every exported
- * Zod schema to JSON Schema, pairs it with its component in the committed `fl_backend/openapi.json`,
- * and compares the wire contract field by field.
+ * The Pydantic schemas and the ten Zod modules beside this one are hand-maintained mirrors with
+ * no generation step; this suite converts every exported Zod schema to JSON Schema, pairs it with
+ * its component in the committed `fl_backend/openapi.json`, and compares the wire contract —
+ * presence, required, nullable, primitive type, enum members (ADR-0040). Patterns, lengths,
+ * bounds and messages are deliberately not compared: the two sides diverge there by design, and
+ * comparing validation policy produces failures nobody can act on.
  *
- *  WHAT IS COMPARED, AND WHY ONLY THIS ────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Every component and Zod schema is either paired or in an exception list with its reason.
+ * - Modules are walked and imported dynamically — a new slice is covered with nothing to
+ *   remember, and `core` gains no static import of `features` or `shared` (ADR-0012).
+ * - Nested objects are not recursed into: each is its own pair, so a drift names the smallest
+ *   component that moved.
  *
- *   Five facts per field — presence, required, nullable, primitive type, enum members. Those are what
- *   both sides MUST agree on for a body to round-trip, and a mismatch in any of them is a runtime parse
- *   failure on a page rather than a type error in a build.
- *
- *   Patterns, lengths, numeric bounds, formats and messages are deliberately NOT compared, because the
- *   two sides diverge there by design and the divergence is wanted: `CustomObjectIdStringSchema` carries
- *   a 24-hex regex that the backend's `CustomObjectId` erases into a bare string, and `z.int()` emits a
- *   maximum that Pydantic does not. Comparing validation policy rather than the wire contract produces
- *   failures nobody can act on, and a check that cries wolf collects exceptions until it proves nothing.
- *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Every component and every Zod schema is either PAIRED or written into an exception list with its
- *     reason. Silently skipping the unpairable is the failure mode that makes a green suite meaningless.
- *   • Modules are discovered by walking the tree and imported DYNAMICALLY. A new feature slice is
- *     covered with nothing to remember, and `core` acquires no static import of `features` or `shared`
- *     (ADR-0012).
- *   • Nested objects are NOT recursed into. Each is its own pair, so a drift is reported against the
- *     smallest component that actually moved rather than against everything containing it.
- *
- *  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   ADR-0040  the mirror is checked against the published document, not generated from it
- *   ADR-0012  the layer boundary this file honours by importing nothing statically
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   fl_backend/tests/api/test_openapi_document.py — what keeps the document this reads in step
+ * See:
+ * - fl_backend/tests/api/test_openapi_document.py — what keeps the document this reads in step
  */
 
 import assert from "node:assert/strict";

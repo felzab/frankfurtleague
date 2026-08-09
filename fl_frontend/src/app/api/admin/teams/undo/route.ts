@@ -2,28 +2,14 @@
  * APP · the club edit's undo
  *
  * Puts a club's own fields, its selected season's junction row, or both back the way they were —
- * one of the admin mutations that are route handlers rather than server actions
- * ([ADR-0062](../../../../../../../docs/_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md):
- * an undo belongs to a page-owned editor, and nothing else becomes a route handler).
+ * one of the admin mutations that are route handlers rather than server actions (ADR-0062, the
+ * E592 diagnosis). Revert to a server action when E592 is fixed upstream.
  *
- * **The short version.** The undo is offered by a toast that outlives the page that raised it, so by
- * the time it is pressed the browser has left `/admin/teams/[team_id]`. A server action dispatched
- * from the route it landed on makes Next re-render the editor segment it still holds in the router
- * tree, which raises Next's E592 invariant mid-stream and truncates the response — the whole
- * diagnosis is ADR-0062's. **Revert this to a server action when E592 is fixed upstream.**
- *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • **`revalidateTag`, never `updateTag`.** The latter is the server-action form and throws here
- *     (spec I14). The tags are the same set the editor's save invalidates, because an undo is a write.
- *   • **It guards itself.** `proxy.ts` matches `/admin/:path*` and does not reach `/api`, so the
- *     session check below is the only control on this route.
- *   • **The client holds both payloads**, because nothing on the server does: no admin write is
- *     recorded anywhere (roadmap BE-15), so the club's previous state exists only in the page that
- *     was looking at it. That bounds the offer to one page session.
- *   • **The club half restores first**, mirroring the save's order; a failure between the two halves
- *     is reported without invalidating, exactly as the match undo handles a partial batch — the
- *     caches are stale either way and the admin is being sent to look.
+ * Invariants:
+ * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.
+ * - It guards itself: `proxy.ts` matches `/admin/:path*` only, so the session check is the control.
+ * - The client holds both payloads — no admin write is recorded anywhere (roadmap BE-15).
+ * - The club half restores first, mirroring the save; a partial failure reports without invalidating.
  */
 
 import { revalidateTag } from "next/cache";

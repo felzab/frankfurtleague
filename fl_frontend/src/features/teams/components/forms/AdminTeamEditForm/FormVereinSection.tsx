@@ -22,7 +22,7 @@ import type { FLPostTeamPayload } from "@/features/teams/schemas";
  * **The Kürzel uppercases as it is typed** — the two letters are an identity held unique across
  * every club, retired ones included, so the field never lets a case variant look like a different
  * value. Whether the letters are actually free is the backend's to say; a 409 comes back onto this
- * field and into a toast (owner, 2026-08-07).
+ * field and into a toast (decided 2026-08-07).
  *
  * **The description is a preview with an edit control**, not an input: it is a paragraph, and a
  * one-line field made everything past its width practically uneditable. The modal edits a local

@@ -37,7 +37,7 @@ const OPERATION_PRESENTATION: Record<DraftOperation, { icon: typeof Plus; cls: s
  * Every unsaved edit, one line each, sectioned by the panel the field renders in.
  *
  * **A row is the field's label, the value as it will be saved, and an operation icon at the row's
- * end** (owner, sixth and seventh reviews). The earlier rows spelled the transition out — label,
+ * end** (sixth and seventh reviews). The earlier rows spelled the transition out — label,
  * struck old value, new value — and read as chaos once several accumulated; the icon now carries the
  * WHAT (added, removed, altered) and the row carries only the result. The icon is a hover hint
  * through the same mechanism as every info icon on the page — `cursor-help` and a hover fill say it
@@ -84,7 +84,7 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
                   ) : (
                     <span className="text-foreground min-w-0 truncate font-bold">{field.draftText}</span>
                   )}
-                  {/* At the row's END (owner, seventh review), and a two-line hint: the operation as
+                  {/* At the row's END (seventh review), and a two-line hint: the operation as
                       its heading, the previous value under it — for a removal as well as for an
                       alteration, since "what did I just delete" is the question the row's
                       strikethrough answers only while it fits. */}

@@ -125,7 +125,7 @@ export type SpielerTeamOption = {
  * One season the create form may enter a player into, with that season's teams.
  *
  * `isNachgetragen` is the season's own answer to "did this player join after it started", derived
- * from its status rather than asked (owner, 2026-08-07) — an `active` season is under way, a
+ * from its status rather than asked (decided 2026-08-07) — an `active` season is under way, a
  * `future` one has not begun.
  */
 export type SpielerCreateSaisonOption = {

@@ -75,7 +75,7 @@ export function SidemenuOptionsMenu({
       <Dropdown.Popover
         offset={8}
         placement={isDesktopCollapsed ? "right bottom" : "top"}
-        /* Below `lg` the menu takes the viewport less a 1rem margin each side (owner), rather than
+        /* Below `lg` the menu takes the viewport less a 1rem margin each side (my call), rather than
            matching the 310px drawer it opens from — which left both rows cramped around a segmented
            control. The popover is portalled, so overhanging the drawer costs nothing; react-aria keeps
            it on screen. From `lg` it matches the footer's content box again, which is what stops it
@@ -153,7 +153,7 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
          closing the menu, pressing Escape or clicking away all reset it, per the reset above. */
       shouldCloseOnSelect={false}
       onAction={press}
-      /* **One red at rest, one red when armed, and nothing in between** (owner). The fill does not
+      /* **One red at rest, one red when armed, and nothing in between** (my call). The fill does not
          brighten on approach: a hover step on the one destructive command in the menu made the row
          look like it was reacting when nothing had happened yet, and the state that matters — armed
          or not — was then competing with it. Both are `!`, because `globals.css`'s unlayered
@@ -170,7 +170,7 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
       className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
         isConfirming ? "bg-danger/20!" : "bg-danger/10!"
       }`}>
-      {/* Armed, the row is its QUESTION and nothing else (owner, 2026-08-07): the glyph goes and
+      {/* Armed, the row is its QUESTION and nothing else (decided 2026-08-07): the glyph goes and
           the label centres — one thing to read, no icon to mis-align against it. The tint and the
           label still both shift, so the state never rests on colour alone. */}
       <Label className={`fluid-sm text-danger min-w-0 flex-1 font-semibold ${isConfirming ? "text-center" : ""}`}>

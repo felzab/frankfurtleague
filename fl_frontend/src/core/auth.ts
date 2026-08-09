@@ -1,25 +1,19 @@
 /**
  * CORE · authentication
  *
- * Auth.js with a Resend magic-link provider. Admin is an email ALLOWLIST, not a stored role — checked
- * at sign-in and again when the session is built.
+ * Auth.js with a Resend magic-link provider. Admin is an email ALLOWLIST, not a stored role —
+ * checked at sign-in and again when the session is built.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - The ONE place the frontend touches MongoDB directly, and only the `authjs` database (ADR-0010).
+ * - `getAdminSession()` is the single admin policy; it neither throws nor redirects, so check it.
+ * - `useSecureCookies` is a string test — `new URL(...)` at module scope fails the image build,
+ *   whose builder stage has no AUTH_URL at all.
+ * - `role` is re-derived from ALLOWED_ADMIN_EMAILS on every session read, never stamped at
+ *   sign-in — removing an address takes effect on the next request, not at expiry.
  *
- *   • This is the ONE place the frontend touches MongoDB directly. It targets the separate `authjs`
- *     database and no business entity. All application data goes through FastAPI without exception.
- *   • `getAdminSession()` is the single definition of the admin policy. It neither throws nor
- *     redirects, so its return value must be checked — calling it bare guards nothing.
- *   • `useSecureCookies` is a string test, not `new URL(...)`. This is evaluated at module scope and
- *     the Docker builder stage has no AUTH_URL at all, so constructing a URL here fails the image
- *     build.
- *   • `role` is re-derived from ALLOWED_ADMIN_EMAILS on EVERY session read, not stamped at sign-in.
- *     That is what makes removing an address take effect on the next request rather than at expiry:
- *     the session row survives and stops authorizing anything.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/overview.md — the authentication section
+ * See:
+ * - docs/frontend/overview.md — the authentication section
  */
 
 import "server-only";

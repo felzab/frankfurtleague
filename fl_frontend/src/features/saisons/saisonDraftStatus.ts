@@ -2,22 +2,14 @@
  * SAISONS · what the season editor's draft has changed and got wrong
  *
  * One derivation over one season's draft, read by everything on the edit page that says something
- * about a field: the label markers, the change list, the unsaved count, the action bar and the
- * navigation guard. Pure, so it is tested rather than clicked. `spielerDraftStatus.ts` is the pattern
- * and this is the same idea over a season.
+ * about a field: label markers, change list, unsaved count, action bar, navigation guard. Pure,
+ * so it is tested rather than clicked; `spielerDraftStatus.ts` is the pattern.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • `path` is the field's dotted path in the payload, and the SAME string is the input's `name`, the
- *     `FieldErrors` key and the anchor id. One string joins the label, the change row, the error and
- *     the jump link.
- *   • Every editable field has a row in `FIELD_DESCRIPTORS` and nothing reads a field any other way. A
- *     field with no row is invisible to the whole page.
- *   • `status` is NOT a descriptor and cannot become one. The rollover is a control, not a field: it
- *     writes immediately through the one endpoint that may touch `status` and is never part of a draft
- *     the save bar counts (ADR-0033).
- *   • `id` is not one either. A season's id is the key every `saison_id` in the database references, so
- *     it is chosen once at create time and there is no edit that could move it.
+ * Invariants:
+ * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
+ * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
+ * - `status` is not a descriptor and cannot become one — the rollover is a control (ADR-0033).
+ * - `id` is not one either: every `saison_id` in the database references it, so it never moves.
  */
 
 import { STUFE_OPTIONS } from "@/features/spieler/constants";

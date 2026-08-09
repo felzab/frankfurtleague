@@ -3,22 +3,14 @@
 /**
  * SHARED · client-side field validation from the payload schema
  *
- * The other half of `useServerFieldErrors`. That hook holds the messages a server action returned; this
- * one produces the same messages in the browser, from the **same schema the action parses**, so the two
- * cannot state different rules about the same field (ADR-0050).
+ * The other half of `useServerFieldErrors`: that hook holds the messages a server action
+ * returned; this one produces the same messages in the browser from the SAME schema the action
+ * parses, so the two cannot state different rules (ADR-0050).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • The draft is parsed WHOLE and only the named paths are published. A field the user has not reached
- *     yet must not be marked invalid, and a schema cannot be asked about one field in isolation — a
- *     cross-field refinement has no single owner.
- *   • A verdict is `null` when the value satisfies the schema — recorded, not forgotten. That is what
- *     retracts the server's older complaint about the same field without writing to the server's own
- *     state, which is the part that must not be touched: `useServerFieldErrors` moves focus whenever its
- *     map changes, and it is right to, because a message that arrives from a submit should be found.
- *   • This hook never moves focus and never calls `reportValidity()`. Focus belongs to submit, where the
- *     user asked for the whole form to be judged; stealing it mid-form is the failure mode that makes
- *     eager validation worse than none.
+ * Invariants:
+ * - The draft parses WHOLE, only named paths publish — a cross-field refinement has no single owner.
+ * - A `null` verdict is recorded — it retracts the server's older complaint without touching its state.
+ * - This hook never moves focus and never calls `reportValidity()` — focus belongs to submit.
  */
 import { useCallback, useState } from "react";
 

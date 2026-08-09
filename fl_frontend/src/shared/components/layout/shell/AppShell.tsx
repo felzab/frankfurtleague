@@ -106,7 +106,7 @@ export function AppShell<TIcon extends string>({
           a shell bar must not do.
 
           The drawer is viewport-`fixed` rather than positioned against this row: below `lg` it
-          overlays the bar (owner), which a row-relative panel could not do. */}
+          overlays the bar (my call), which a row-relative panel could not do. */}
       {/* A dismiss shortcut for pointers, not a control: `aria-hidden` and not focusable on purpose,
           because the keyboard paths are the drawer's own close button and Escape. `fixed`, so it
           covers the bar too — the drawer overlays it, and a backdrop stopping short would leave a

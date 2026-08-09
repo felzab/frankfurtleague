@@ -15,7 +15,7 @@ import type { Key } from "@heroui/react";
  * A picked control, so it is judged on CHANGE rather than on blur (ADR-0050): a selection is
  * complete the moment it is made, and there is no half-entered value to be wrong about.
  *
- * **It offers the season's own groups, with their fill state** (owner, 2026-08-07): `offer` is the
+ * **It offers the season's own groups, with their fill state** (decided 2026-08-07): `offer` is the
  * season's first `number_of_groups` of the closed set, each row carrying how many of its
  * `teams_per_group` places are taken. A full group stays visible and disabled — the admin should see
  * WHY it cannot be picked rather than wonder where it went. The junction write refuses the same

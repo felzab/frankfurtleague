@@ -21,7 +21,7 @@ type DeleteResult = { success: boolean; message?: string; error?: string };
  * `AdminDeleteSpielortModal` were 133 and 125 lines that differed in six string literals, the
  * payload key and the action name.
  *
- * **Every caller in this app retires a row rather than removing one** (owner, 2026-08-07). All five admin
+ * **Every caller in this app retires a row rather than removing one** (decided 2026-08-07). All five admin
  * deletes are soft: the endpoint stamps `inactive_since` and the document stays, and the row it came from
  * renders a Reaktivieren control the moment the write lands (ADR-0032). So the verb and the escalation
  * sentence are the caller's, and they default to retirement — the copy that was hardcoded here said
@@ -170,7 +170,7 @@ export function ConfirmDeleteModal({
         )}
       </div>
 
-      {/* The same footer band as every other modal, from the same constant (owner, 2026-08-07):
+      {/* The same footer band as every other modal, from the same constant (decided 2026-08-07):
           a separator that reaches the dialog's edges, then the buttons. `justify-evenly` rather than
           the old `justify-end`, so the pair sits exactly as it does in the create and edit forms.
           No width here — `MODAL_FOOTER` declares its own, and a `w-full` beside it wins on source

@@ -147,7 +147,7 @@ export function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase })
   return (
     <Chip
       size="sm"
-      /* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip` (owner, 2026-08-07) — one radius for
+      /* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip` (decided 2026-08-07) — one radius for
          every pill in the app, matching `SpielStatusChip` beside it and the badge recipes in
          `shared/components/ui/badges.ts`. A utility beats the component layer, so no `!` is needed. */
       className={`rounded-md border-none px-1.5 py-0.5 ${PHASE_CLASSES[saisonPhase]}`}>

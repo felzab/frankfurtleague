@@ -1,14 +1,11 @@
 /**
+ * SHARED · list grouping
+ *
  * Groups `right` under `left` by a shared id, attaching each group at `targetKey`.
- *
- * `TKey extends string` rather than a plain `string` is what makes the return type name the attached
- * property instead of widening to an index signature — with the plain version the compiler could not
- * know the property was called `spiele`, which is what forced the codebase's only `as unknown as` at
- * the playoffs call site.
- *
- * The return is `Omit<L, TKey> & …`, not `L & …`. At runtime the spread means `targetKey` *replaces*
- * any same-named key on `L`; an intersection would instead claim the property has both types. With
- * `targetKey: "name"` that yields `string & FLSpiel[]`, so `.toUpperCase()` compiles and throws.
+ * `TKey extends string` is what makes the return type name the attached property instead of
+ * widening — the plain version forced the codebase's only `as unknown as`. The return is
+ * `Omit<L, TKey> & …`, not `L & …`: at runtime the spread REPLACES a same-named key, and an
+ * intersection would claim both types, so `.toUpperCase()` compiles and throws.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- L and R are arbitrary row shapes */
 export function joinCollections<

@@ -215,7 +215,7 @@ export function FormTeamPicker({
    * The Manuell warning is one severity — danger — however the side came to be manual.
    *
    * A graded version shipped first (standing manual sides as a quiet note, a fresh takeover as the
-   * alarm) and the owner overruled it after seeing it: a manual side on a knockout fixture is a
+   * alarm) and it was overruled on sight: a manual side on a knockout fixture is a
    * danger callout, always, because the cost of missing it — a slot no resolution will ever correct —
    * does not depend on when the side became manual. What stays graded is the ANNOUNCEMENT: only the
    * takeover the admin performs in this edit interrupts a screen reader, because only it is an event.
@@ -300,7 +300,7 @@ export function FormTeamPicker({
   // picked. Hiding it would make "why can I not find X" a support question; disabling it makes the
   // reason readable where the answer is refused. Two reasons exist: the team is disqualified, or it
   // already plays another fixture of this Spieltag (a team plays once per matchday — picking it here
-  // would silently field it twice, which is what the owner caught). The team this fixture already
+  // would silently field it twice, which is what review caught). The team this fixture already
   // holds is exempt from the occupancy rule by construction: `collectSpieltagTeamOccupancy` skips
   // the edited fixture. Eligibility is still the write path's question (ADR-0052): a disabled key is
   // UI, not a security control, and the stale form and the second tab go around it.
@@ -335,7 +335,7 @@ export function FormTeamPicker({
         {/* The selected team's NAME from the prop, not `Autocomplete.Value`. That component renders the
             chosen list ITEM's content, and a row's content is the name plus its chip with `ml-auto` -- so a
             disqualified team's closed trigger drew "Disqualifiziert" on top of its own name inside a
-            `truncate` span (owner, 2026-08-08). Same reason `SpieltagFormFields` reads its phase from the
+            `truncate` span (decided 2026-08-08). Same reason `SpieltagFormFields` reads its phase from the
             prop rather than from `Select.Value`.
             The badge is kept, as a SIBLING rather than inside the truncating span: it is the one piece of
             state a closed trigger genuinely has to carry, and losing it to fix the overlap would trade one
@@ -347,9 +347,9 @@ export function FormTeamPicker({
         {isSelectedDisqualified && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong shrink-0`}>Disqualifiziert</span>}
         {/* HeroUI hardcodes an English aria-label on this button; passing one overrides it. `size-7`
             because the default is a 20px target on the control that is the PRIMARY way a group
-            fixture's side is emptied — too small to see and to hit (owner, third review). */}
+            fixture's side is emptied — too small to see and to hit (third review). */}
         {/* Not offered while this side carries goals: emptying it would take them with it, and the
-            composed `ergebnis` with them, which `REQ-RESULT-001` refuses (owner, 2026-08-08). Switching
+            composed `ergebnis` with them, which `REQ-RESULT-001` refuses (decided 2026-08-08). Switching
             the team stays available through the list, and that is the correction this control was being
             reached for anyway. */}
         {!hasStoredGoals && (
@@ -468,9 +468,9 @@ export function FormTeamPicker({
                 textValue={item.key === recommendedChoice ? `${item.label} (empfohlen)` : item.label}
                 className="fluid-xs hover:bg-muted flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
                 {/* Success-tinted, not brand: brand text on a brand tint was the least readable chip
-                    on the page (owner, fifth review), and a recommendation is a positive signal.
+                    on the page (fifth review), and a recommendation is a positive signal.
                     `ml-auto`, like every list chip — two lists parking the same chip in two places
-                    read as two designs (owner, eighth review). */}
+                    read as two designs (eighth review). */}
                 <span className="min-w-0 truncate">{item.label}</span>
                 {item.key === recommendedChoice && (
                   <span className={`${LABEL_BADGE} bg-success/15 text-success-strong ml-auto shrink-0`}>Empfohlen</span>
@@ -595,7 +595,7 @@ export function FormTeamPicker({
           <Autocomplete.Trigger className={FIELD_TRIGGER}>
             {/* Rendered from the draft, not from the collection: the default render prints the
                 selected item's children, chip included — and the recommendation chip belongs in the
-                LIST only (owner, sixth review). */}
+                LIST only (sixth review). */}
             <Autocomplete.Value className="fluid-sm min-w-0 truncate">
               {() => {
                 const selected = feederSpiele.find((spiel) => spiel.spiel_nr === quelle.spiel_nr);
@@ -632,7 +632,7 @@ export function FormTeamPicker({
       )}
 
       {/* Danger whether the takeover happened just now or in an earlier session — the severity keys on
-          the STATE, not on who caused it (owner's decision, third review). `isAnnounced` still keys on
+          the STATE, not on who caused it (third review). `isAnnounced` still keys on
           the act: only the takeover performed in this edit is an event a screen reader should hear. It
           deliberately does NOT claim other fixtures are affected — clearing a source changes this
           slot's own maintenance and nothing else (ADR-0042). */}
@@ -676,7 +676,7 @@ export function FormTeamPicker({
       {/* The same derivation the public cards use, shown here so the admin sees the sentence the
           bracket will print rather than inferring it from three separate controls. Only while the slot
           is UNRESOLVED: once a team occupies it, the schedule prints the team's name and this line
-          would claim otherwise (owner, third review). */}
+          would claim otherwise (third review). */}
       {derivedLabel !== null && teamPayload === null && (
         <p className="fluid-xxs text-foreground-muted leading-normal font-medium">
           Im Spielplan erscheint: <strong className="text-foreground">{derivedLabel}</strong>

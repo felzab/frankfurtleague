@@ -149,7 +149,7 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
       {/* Bottom Status & Copyright Bar. Both children are request-time holes in the static shell:
           the copyright year reads the clock and the status pings the backend. Each gets its own
           boundary so the shell shows a placeholder and the real values stream in.
-          Placeholders rather than stand-in text (owner, 2026-08-02): text in a fallback makes the row
+          Placeholders rather than stand-in text (decided 2026-08-02): text in a fallback makes the row
           change its wording mid-paint, and a partial sentence asserts something not yet known. A bar
           says "still loading" without claiming anything, and reads as one state with the rest of the
           page's skeletons. */}

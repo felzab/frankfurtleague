@@ -1,28 +1,15 @@
 /**
  * SPIELER · models
  *
- * Mirrors `fl_backend/app/api/spieler/schemas.py`. No generation step — a constraint changed there
- * must be changed here in the same commit, and `src/core/apiContract.test.ts` checks the wire
- * contract half of that (ADR-0040).
+ * Mirrors `fl_backend/app/api/spieler/schemas.py`, no generation step; the contract test checks
+ * the wire half (ADR-0040).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Only `vorname` is mandatory. The rest may legitimately be absent for a squad entry that has not
- *     been filled in — and the nullability is not cosmetic: the backend already declared these fields
- *     nullable while this schema did not, so a real null threw `APIMalformedDataError` on a valid
- *     response.
- *   • `nummer` is a STRING and stays free text. A squad number is worn rather than counted, and it is
- *     not unique within a squad.
- *   • `position` and `stufe` are CLOSED SETS (ADR-0061), so a value outside either is a malformed
- *     response rather than an unusual player.
- *   • `FLSpieler` is one player FLATTENED against one season and carries no `saison_id`. The admin
- *     surfaces read `FLSpielerWithMemberships` instead, which is a different question (ADR-0034).
- *
- *  DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   ADR-0032  the person and the squad row retire independently
- *   ADR-0034  the write path is resource-first, and the admin read is its own question
- *   ADR-0061  position and stufe are closed sets
+ * Invariants:
+ * - Only `vorname` is mandatory — the nullability is real: a null once threw on a valid response.
+ * - `nummer` is a string and stays free text — worn rather than counted, not unique in a squad.
+ * - `position` and `stufe` are closed sets (ADR-0061) — outside values are malformed responses.
+ * - `FLSpieler` flattens one season; the admin surfaces read `FLSpielerWithMemberships` (ADR-0034).
+ * - The person and the squad row retire independently (ADR-0032).
  */
 
 import z from "zod";
@@ -171,7 +158,7 @@ const saisonSpielerPayloadFields = {
   position: FLSpielerPositionSchema.nullable(),
   stufe: FLSpielerStufeSchema.nullable(),
   // True when the player joined a season already under way. The create form derives it from the
-  // season's status (owner, 2026-08-07) rather than asking, so it cannot be forgotten.
+  // season's status (decided 2026-08-07) rather than asking, so it cannot be forgotten.
   is_nachgetragen: z.boolean(),
   // The squad's captain for this season. On the junction, because captaincy is a role within one
   // team for one season rather than a property of the person.
@@ -209,7 +196,7 @@ export type FLSaisonSpielerKeyPayload = z.infer<typeof FLSaisonSpielerKeyPayload
  */
 export const FLCreateSpielerFormPayloadSchema = z.object({
   ...spielerPayloadFields,
-  // Required HERE and nullable everywhere else (owner, 2026-08-07). The column stays nullable and
+  // Required HERE and nullable everywhere else (decided 2026-08-07). The column stays nullable and
   // the patch payload still accepts null, because squads imported before this form existed hold
   // surnameless rows and the league is not going to invent names for them — but a player entered
   // through this form always has one. The browser refuses the empty field first; this is the guard

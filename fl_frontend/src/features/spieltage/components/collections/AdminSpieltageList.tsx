@@ -21,7 +21,7 @@ import type { AdminSpieltagRow } from "../../types";
 /**
  * The season's matchdays, sectioned by phase and in the order they are played.
  *
- * **Not a table, and not the public Spielplan's tab strip either** (owner, 2026-08-07, ADR-0063). The
+ * **Not a table, and not the public Spielplan's tab strip either** (decided 2026-08-07, ADR-0063). The
  * Spielplan shows one matchday at a time because a reader's question is what is being played on it; the
  * admin's questions are comparisons BETWEEN matchdays — are the phases right, does the expected fixture
  * count match what is attached — and a strip showing one matchday hides both.
@@ -177,7 +177,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 className={`${card()} flex w-full flex-col gap-y-3 p-4 md:flex-row md:items-center md:gap-x-4 md:gap-y-0 ${
                   spieltag.inactive_since !== null ? "opacity-80" : ""
                 }`}>
-                {/* The ordinal and the identity share one row at EVERY width (owner, 2026-08-07). A
+                {/* The ordinal and the identity share one row at EVERY width (decided 2026-08-07). A
                     number belongs beside the thing it numbers, and giving it a phone row of its own
                     spends a whole row on one digit. From `md` the same row is the start of the
                     horizontal layout, so one wrapper serves both. */}

@@ -12,7 +12,7 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
 /**
  * Edits one matchday.
  *
- * **No `marksRequired`** (owner, 2026-08-07): on an edit every value is already there, so a column of red
+ * **No `marksRequired`** (decided 2026-08-07): on an edit every value is already there, so a column of red
  * stars marks nothing the reader can act on. `isRequired` still sits on the fields, which is what makes
  * the browser refuse an emptied one.
  *

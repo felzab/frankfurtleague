@@ -54,13 +54,13 @@ export const FLSaisonRulesSchema = z.object({
   // default on either side: a season that has never carried it must fail loudly rather than seed a
   // bracket from a number nobody chose.
   qualifiers_per_group: z.int().positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
-  // The season's capacity (owner, 2026-08-07): it runs the first `number_of_groups` of the closed
+  // The season's capacity (decided 2026-08-07): it runs the first `number_of_groups` of the closed
   // A-D set — the `.max(4)` — and each group takes `teams_per_group` rows. Required for the same
   // reason as the line above; the junction write refuses an entry outside these bounds
   // (REQ-ENTER-001..003).
   number_of_groups: z.int().positive({ error: "Eine Saison braucht mindestens 1 Gruppe." }).max(4, { error: "Es gibt höchstens 4 Gruppen." }),
   teams_per_group: z.int().positive({ error: "Eine Gruppe nimmt mindestens 1 Team auf." }),
-  // Which school levels this season's squads may hold (owner, 2026-08-07). A SUBSET of the league's
+  // Which school levels this season's squads may hold (decided 2026-08-07). A SUBSET of the league's
   // own closed set (ADR-0061) — the season picks from the vocabulary rather than redefining it — and
   // never empty, because a season offering no level makes every squad entry unfillable. Required
   // with no default, for the same reason the two above are.

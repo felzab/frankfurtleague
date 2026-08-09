@@ -1,22 +1,14 @@
 /**
  * SPIELTAGE · cached read
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Base tag only, cleared by `actions.ts` on every write — nothing narrower describes one (ADR-0001).
+ * - A Compass edit is served stale until the daily cacheLife expires (ADR-0035).
+ * - Matchdays arrive in played order (ADR-0064); no consumer re-sorts, and the bracket depends on it.
+ * - Omitting `saison_id` yields the current season — the backend resolves it.
  *
- *   • Base tag only, and `actions.ts` in this slice clears it on every matchday write. Nothing narrower
- *     would describe one: the admin list spans a season's matchdays including retired ones while the
- *     public Spielplan reads whichever season is current, so one write moves both (ADR-0001).
- *   • A hand edit made directly in MongoDB goes around that and is served stale until the daily
- *     cacheLife expires or the container is recreated. There is no invalidation endpoint, by decision
- *     (ADR-0035).
- *   • Matchdays come back in the order they are PLAYED, derived by the backend from `saison_phase` in
- *     bracket order, then `beginn`, then `name` (ADR-0064). No consumer re-sorts them, and the playoff
- *     bracket's column order depends on that arrival order being right.
- *   • Omitting `saison_id` yields the current season — the backend resolves it.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/glossary.md — Spieltag, and why it is not a Spiel
+ * See:
+ * - docs/glossary.md — Spieltag, and why it is not a Spiel
  */
 
 import { cacheLife, cacheTag } from "next/cache";

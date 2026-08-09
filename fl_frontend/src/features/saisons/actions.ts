@@ -3,29 +3,20 @@
 /**
  * SAISONS · server actions
  *
- * Creating a season, editing its dates and rules, and the rollover. The `"use server"` directive stays
- * the first line, above this block.
+ * Creating a season, editing its dates and rules, and the rollover. The `"use server"` directive
+ * stays the first line, above this block.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - Every action runs inside `runAdminMutation` — a 409 must reach the form, not the error page.
+ * - Every action begins with `getAdminSession()` and CHECKS the result.
+ * - Base tags only: a season IS the season, so no granular tag names anything (ADR-0001).
+ * - `status` reaches no payload — `activateSaisonAction` calls the one endpoint that may (ADR-0033).
+ * - The rollover invalidates four resources: an omitted `saison_id` means the current season
+ *   (ADR-0002), so promoting changes `/spiele`, `/spieltage` and `/teams` too.
+ * - A rules edit invalidates `teams` as well — the table is scored from `rules` on read (ADR-0026).
  *
- *   • Every action body runs inside `runAdminMutation`, which seeds the correlation-id request scope
- *     and converts a thrown API error into the returned result -- a 409 must reach the form, not the
- *     error page (docs/logging.md).
- *   • Every action begins with `getAdminSession()` and CHECKS the result.
- *   • Base tags only. A season is not season-scoped data: it IS the season, so a granular
- *     `saisons:saison_id:...` tag would name the one entry that cannot exist -- `getSaisons` reads
- *     every season in one call (ADR-0001).
- *   • `status` reaches no payload here. `activateSaisonAction` is the only action that changes it, and
- *     it changes it by calling the one endpoint that may (ADR-0033).
- *   • **The rollover invalidates FOUR resources, and that is the point.** An omitted `saison_id` means
- *     the current season, resolved in the backend handler (ADR-0002), so promoting a season changes
- *     what `/spiele`, `/spieltage` and `/teams` return to a request that named no season at all.
- *   • A rules edit invalidates `teams` as well as `saisons`, because the league table is scored from
- *     `rules.win_points` and `draw_points` on every read rather than stored (ADR-0026).
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — section 3, the action inventory
+ * See:
+ * - docs/frontend/spec.md — section 3, the action inventory
  */
 import { updateTag } from "next/cache";
 
@@ -226,7 +217,7 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
 /**
  * The rollover. One call, one transaction on the backend, and the only path to `status: "active"`.
  *
- * **The outgoing season has to be finished** (`REQ-ACTIVATE-001`, owner, 2026-08-08). Demoting it to
+ * **The outgoing season has to be finished** (`REQ-ACTIVATE-001`, decided 2026-08-08). Demoting it to
  * `past` freezes its competitive rules and makes its derived table the record of what happened, so a
  * rollover across unplayed fixtures closes a competition that is not over. The panel disables the control
  * and lists what is open; the endpoint refuses it, and remains the authority.

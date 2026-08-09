@@ -3,20 +3,14 @@
 /**
  * SPIELE · what saving this draft would destroy, asked live
  *
- * Debounced `dry_run=true` against the write path, which applies the payload in memory and resolves
- * the bracket without writing (ADR-0051). What comes back is the save's own answer, so the warning
- * this drives names exactly the fixtures a save would take a stored result from — not the fixtures
- * that merely *could* lose one.
+ * Debounced `dry_run=true` against the write path, which applies the payload in memory and
+ * resolves the bracket without writing (ADR-0051) — the warning names exactly the fixtures a
+ * save would take a stored result from, not the fixtures that merely could lose one.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Keyed on the BRACKET-relevant fields alone. A venue or a kick-off time cannot move an occupant,
- *     so refetching on one would be a request per keystroke answering a question that has not changed.
- *   • A stale response is DISCARDED, never rendered. Requests are debounced but not serialised, so a
- *     slow early answer can arrive after a fast later one and would otherwise overwrite it — the
- *     warning would then name fixtures for a draft the admin has moved on from.
- *   • A failed preview clears the warning rather than showing a stale or an alarming one. The preview
- *     is an extra; an admin must never be blocked from saving because it could not be computed.
+ * Invariants:
+ * - Keyed on the bracket-relevant fields alone — a venue edit cannot move an occupant.
+ * - A stale response is discarded, never rendered: requests are debounced but not serialised.
+ * - A failed preview clears the warning — an admin is never blocked from saving over an extra.
  */
 import { useEffect, useRef, useState } from "react";
 

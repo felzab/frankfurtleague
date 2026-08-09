@@ -3,16 +3,12 @@
 /**
  * SHARED · debounced URL query
  *
- * The one implementation of "type into a box, filter from the URL". It replaced three copies that had
- * each grown their own `eslint-disable`.
+ * The one implementation of "type into a box, filter from the URL". It replaced three copies
+ * that had each grown their own `eslint-disable`.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • The URL is the source of truth: consumers filter on `urlValue`, the field displays `inputValue`.
- *     Filtering on the input instead makes browser back/forward stop working.
- *   • The hook's own writes are recorded and skipped by the sync effect. A `router.replace` on a route
- *     that awaits the request commits hundreds of ms later, and without that guard the sync rewinds
- *     the field and eats whatever was typed in between.
+ * Invariants:
+ * - The URL is the source of truth — filtering on the input instead breaks back/forward.
+ * - The hook's own writes are skipped by the sync effect, or a slow commit rewinds the field.
  */
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";

@@ -31,7 +31,7 @@ export function IconTooltip({
 
   return (
     /* `closeDelay` is stated rather than left to HeroUI, which resolves it from a CSS time and so
-       varies with the theme (owner, 2026-08-07: one disappearance delay everywhere, 200ms). Every
+       varies with the theme (decided 2026-08-07: one disappearance delay everywhere, 200ms). Every
        tooltip in the app is this component, so this is the whole website's answer. `delay={0}` is the
        OPEN delay and stays at zero: these labels name an icon the user is already pointing at. */
     <Tooltip

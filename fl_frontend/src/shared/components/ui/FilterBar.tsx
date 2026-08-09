@@ -16,7 +16,7 @@ import type { Selection } from "@heroui/react";
 /**
  * The filter control: one trigger, a popover of multi-selects, and the active choices as removable chips.
  *
- * **A popover rather than a row of dropdowns or a wall of chips** (owner, 2026-08-07). Spielsuche wants
+ * **A popover rather than a row of dropdowns or a wall of chips** (decided 2026-08-07). Spielsuche wants
  * seven dimensions and Saisons wants two, so the control has to scale across an order of magnitude: a
  * dropdown per facet wraps badly past three and hides which values are excluded, and every option
  * rendered inline is a wall on the big surfaces. One trigger scales; the chips underneath are what keep
@@ -61,7 +61,7 @@ export function FilterBar<TItem>({
   );
 
   return (
-    // A column of two rows rather than one wrapping row (owner, 2026-08-08). Wrapping meant seven active
+    // A column of two rows rather than one wrapping row (decided 2026-08-08). Wrapping meant seven active
     // filters pushed the list itself down the page by three rows of chips; scrolling them sideways keeps the
     // control one row tall whatever is selected, and puts the reset where it does not compete with a chip.
     <div className="flex w-full flex-col gap-2">
@@ -82,7 +82,7 @@ export function FilterBar<TItem>({
           <Popover.Content
             placement="bottom start"
             offset={8}>
-            {/* MASONRY columns, not a grid (owner, 2026-08-08). A grid aligns cells into rows, so one tall
+            {/* MASONRY columns, not a grid (decided 2026-08-08). A grid aligns cells into rows, so one tall
               facet stretched its whole row and left holes under its shorter neighbours — the "chaotic"
               read. CSS multi-column is what filter panels actually use for this: each facet keeps its
               own height, the columns fill top to bottom with no gaps, and `break-inside-avoid` keeps a
@@ -102,7 +102,7 @@ export function FilterBar<TItem>({
                 facets.length >= 5 ? "sm:w-[min(92vw,44rem)] lg:w-[min(92vw,64rem)] xl:w-[min(92vw,75rem)]" : "sm:w-[min(92vw,40rem)]"
               }`}>
               {/* The SCROLLER and the COLUMNS are two elements, and merging them is the bug this
-                  split fixes (owner, 2026-08-08): a height-capped multicol container does not scroll
+                  split fixes (decided 2026-08-08): a height-capped multicol container does not scroll
                   its overflow, it spawns ANOTHER column sideways — on a phone, `columns-1` plus
                   `max-h` produced a second column off the right edge. Unconstrained, the columns
                   balance to the content's own height and the scroller above them only scrolls down.
@@ -114,7 +114,7 @@ export function FilterBar<TItem>({
                     const counts = countFacetOptions(items, facets, selection, facet);
                     const picked = selection[facet.param] ?? [];
 
-                    // A facet with many options still flows its OPTIONS in two columns (owner,
+                    // A facet with many options still flows its OPTIONS in two columns (decided
                     // 2026-08-08), so the Team facet is nine rows rather than seventeen — the cell itself
                     // stays one masonry column wide, and the column layout absorbs whatever height remains.
                     const isWide = facet.options.length > 8;
@@ -126,7 +126,7 @@ export function FilterBar<TItem>({
                         // facet is sliced mid-option across two columns. `mb-3` rather than the parent's
                         // gap, because multicol has no row-gap — the bottom margin is the vertical rhythm.
                         className="border-border/70 mb-3 flex w-full min-w-0 break-inside-avoid flex-col gap-y-1 rounded-xl border p-1.5 last:mb-0">
-                        {/* A FIXED height, because the reset appears only once something is picked (owner,
+                        {/* A FIXED height, because the reset appears only once something is picked (decided
                         2026-08-08). Its intrinsic height exceeded the label's, so the header row grew on the
                         first selection and pushed every facet below it down — the popover appeared to jump
                         while being used. Reserving the row lets the button come and go without reflow. */}
@@ -166,7 +166,7 @@ export function FilterBar<TItem>({
                                 // A selected option stays enabled whatever its count — disabling it would make
                                 // it impossible to deselect, which is the one state this rule must not create.
                                 isDisabled={count === 0 && !isPicked}
-                                // The VALUE carries the emphasis and its count carries the brand (owner,
+                                // The VALUE carries the emphasis and its count carries the brand (decided
                                 // 2026-08-08): full-strength text for an option that would match something,
                                 // muted for one that would match nothing. `data-disabled:opacity-40` used to be
                                 // the only signal, which dimmed the whole row including its count.
@@ -190,34 +190,34 @@ export function FilterBar<TItem>({
 
         {/* The chips are what make a closed popover honest: they say what is narrowing the list, and each
             one removes exactly itself. Beside the trigger and scrolling sideways, so the control stays one
-            row tall however many are active (owner, 2026-08-08).
+            row tall however many are active (decided 2026-08-08).
 
             `ScrollShadow` at 16px rather than its 40px default: this is a 28px-tall strip, and a shadow the
             height of the content reads as a gradient over the chips rather than as an edge. `hideScrollBar`
             because the shadow IS the affordance here — a horizontal bar under a 28px row costs a third of it.
 
-            **The facet name is gone from the chip and kept in the `aria-label`** (owner, 2026-08-08). On a
+            **The facet name is gone from the chip and kept in the `aria-label`** (decided 2026-08-08). On a
             phone the name doubled every chip's width for information the values mostly carry themselves —
             „Viertelfinale“ does not need „Phase:“ in front of it. A screen reader still hears which filter
             it is, so the saving is visual only. */}
         {chips.length > 0 && (
           <ScrollShadow
             orientation="horizontal"
-            // 24 rather than the 16 this shipped at (owner, 2026-08-08): on a phone the shadow IS the
+            // 24 rather than the 16 this shipped at (decided 2026-08-08): on a phone the shadow IS the
             // only sign the strip scrolls, and at 16px over 28px-tall chips it read as anti-aliasing.
             size={24}
             hideScrollBar
             className="min-w-0 flex-1">
             <div className="flex flex-row items-center gap-2">
               {chips.map(({ facet, value, label }) => (
-                // Value, a straight divider, then the x (owner, 2026-08-08). The divider is its OWN
+                // Value, a straight divider, then the x (decided 2026-08-08). The divider is its OWN
                 // element rather than a border on the button: HeroUI's Button brings a radius and its
                 // own box, so a `border-l` there rendered kinked and the x rode off-centre. A 1px span
                 // cannot be anything but straight, and `w-7 justify-center p-0` centres the x by
                 // construction instead of by the button's padding happening to balance.
                 <span
                   key={`${facet.param}:${value}`}
-                  // `h-10`, the trigger's own height (owner, 2026-08-08): the chips and the button sit
+                  // `h-10`, the trigger's own height (decided 2026-08-08): the chips and the button sit
                   // in one row, and two heights in one row read as two controls that happen to touch.
                   className="border-brand/25 bg-brand/10 flex h-10 shrink-0 flex-row items-stretch overflow-hidden rounded-xl border">
                   <span className="fluid-xs text-foreground flex items-center px-2.5 font-bold whitespace-nowrap">{label}</span>

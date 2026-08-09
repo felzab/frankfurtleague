@@ -6,7 +6,7 @@
  * Module scope is load-bearing — `AdminCrudView`'s memo and the react-aria collection behind it both key
  * on the array's identity.
  *
- * **The Saison facet is why this file exists** (owner, 2026-08-07). The club list shows EVERY club across
+ * **The Saison facet is why this file exists** (decided 2026-08-07). The club list shows EVERY club across
  * every season with the selected season's junction data beside it, which is right — a club is
  * season-independent and the list is the only surface that can say so. But an admin arriving from a
  * season's row wanted that season's clubs, and there was no way to ask for them. Now there is, and the

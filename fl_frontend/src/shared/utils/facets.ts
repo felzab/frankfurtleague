@@ -1,26 +1,17 @@
 /**
  * SHARED · faceted filtering
  *
- * The pure half of the filter bar: what a facet is, how a selection narrows a list, and how many items
- * each option would leave. No React and no URL, so it is tested rather than clicked.
+ * The pure half of the filter bar: what a facet is, how a selection narrows a list, and how many
+ * items each option would leave. No React and no URL, so it is tested rather than clicked.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • **OR within a facet, AND across facets.** Picking two statuses widens the result; picking a status
- *     and a group narrows it. That is what every faceted search does, and getting it backwards makes the
- *     control feel broken rather than wrong.
- *   • An empty selection means "no opinion", never "match nothing". A facet the user has not touched
- *     contributes no predicate at all.
- *   • `read` returns EVERY value an item matches, so one item can satisfy several options of one facet.
- *     A season's `erlaubte_stufen` is the case that needs it.
- *   • **A count is computed with the facet's OWN selection removed.** Otherwise every unselected option
- *     in an active facet reads zero, which is the single most common way a filter UI lies: the number
- *     beside an option has to answer "what would I get if I picked this too", not "what do I have now".
- *   • Filtering runs BEFORE the fuzzy search on every surface. Both orders return the same items, and
- *     this one hands Fuse the smaller list.
- *   • A facet's `param` is its URL key and must be unique per surface, and never `q` or `saison_id`,
- *     which the search field and the season selector already own. `facets.test.ts` asserts that over
- *     every facet set in the app.
+ * Invariants:
+ * - OR within a facet, AND across facets — backwards feels broken rather than wrong.
+ * - An empty selection means "no opinion", never "match nothing".
+ * - `read` returns EVERY value an item matches — `erlaubte_stufen` needs several per item.
+ * - A count removes the facet's own selection — otherwise every unselected option in an active
+ *   facet reads zero, answering "what do I have" instead of "what would I get".
+ * - Filtering runs BEFORE the fuzzy search — same result, smaller list for Fuse.
+ * - A facet's `param` is unique per surface, never `q` or `saison_id` — `facets.test.ts` asserts it.
  */
 
 /** One choosable value of a facet. `count` is filled in by `countFacetOptions`, never by the caller. */

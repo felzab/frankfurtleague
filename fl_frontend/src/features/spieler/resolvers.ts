@@ -1,15 +1,12 @@
 /**
  * SPIELER · route-parameter resolution
  *
- * Bridges a dynamic route segment to a validated player id. Kept out of `queries.ts` because it is
- * not caching code, and folding it in would put a non-caching function inside a `"use cache"` module.
+ * Bridges a dynamic route segment to a validated player id. Out of `queries.ts` so a non-caching
+ * function stays out of a `"use cache"` module (ADR-0003).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • PARSE, do not cast. The type says `string`, but nothing checks what is actually in the URL, and
- *     the value is forwarded to the backend. An unvalidated segment becomes a backend request plus a
- *     distinct cache entry per variant — an unbounded cache-fill vector.
- *   • A bad player id ends the render. Unlike a season, there is no sensible fallback player.
+ * Invariants:
+ * - Parse, never cast — an unvalidated segment is a backend request and a cache entry per variant.
+ * - A bad player id ends the render; unlike a season, there is no sensible fallback player.
  */
 
 import { notFound } from "next/navigation";

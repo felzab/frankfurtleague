@@ -1,29 +1,18 @@
 /**
  * SPIELE · what the editor's draft has changed, is missing, and got wrong
  *
- * One derivation over one fixture's draft, read by everything on the edit page that says something
- * about a field: the label's markers, the change list, the open-items list, the unsaved count and the
- * navigation guard. Pure, so it is tested rather than clicked.
+ * One derivation over one fixture's draft, read by everything on the edit page that says
+ * something about a field: label markers, change list, open-items list, unsaved count,
+ * navigation guard. Pure, so it is tested rather than clicked. In `spiele`, not `shared`: it
+ * encodes Spiel domain knowledge, and ESLint forbids `shared` from importing `features`.
  *
- * In `spiele` and not `shared` for two reasons: it encodes Spiel domain knowledge — which fields exist,
- * how a `quelle` compares, what "empty" means for a bracket side — and ESLint forbids `shared` from
- * importing `features` at all.
+ * Invariants:
+ * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
+ * - "Expected" means the stored fixture's category and a still-empty draft — markers shrink live.
+ * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • `path` is the field's dotted path in `FLPatchSpielDataPayload`, and the SAME string is the input's
- *     `name`, the `FieldErrors` key and the anchor id. One string joins the label, the change row, the
- *     error and the jump link; three strings would drift.
- *   • A field is "expected" only when the STORED fixture put it in an action-required category AND the
- *     DRAFT is still empty. The category set is frozen at load and emptiness is live, so the markers
- *     shrink as the admin fills them in rather than staying on until a save.
- *   • Every editable field has a row in `FIELD_DESCRIPTORS` and nothing reads a field any other way.
- *     Adding a field is one row; a field with no row is invisible to the whole page, which is the
- *     failure this table exists to make impossible to introduce quietly.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/frontend/spec.md — the editor's invariants
+ * See:
+ * - docs/frontend/spec.md — the editor's invariants
  */
 
 import { formatEuro, formatSpielDatum, formatUhrzeit } from "@/shared/utils/format";
@@ -120,7 +109,7 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
 export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Absage";
 
 /**
- * How urgently an expected field is waited on. The split is the owner's (fourth review): a fixture
+ * How urgently an expected field is waited on. The split is deliberate (fourth review): a fixture
  * cannot HAPPEN without a date, a time, an occupied slot or — once played — a result, while a venue
  * and a referee are organisational and merely recommended. Marker colours and the open-items badges
  * both read this, so the yellow marker beside a field and the badge counting it can never disagree.
@@ -403,7 +392,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     read: (source) => source.is_canceled,
     // Both states have a word. `null` for the going-ahead state made a withdrawn absage read as an
     // emptied value — "entfernt", in the danger grade — when what happened is the fixture going
-    // back on (owner, fifth review).
+    // back on (fifth review).
     format: (value: boolean) => (value ? "Abgesagt" : "Angesetzt"),
   }),
 ];

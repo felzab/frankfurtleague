@@ -5,13 +5,10 @@
  *
  * The app's single Fuse configuration and the only place a search index is built.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Both stages stay memoized — the index and the result. Two of the three call sites this replaced
- *     rebuilt the index on every keystroke render.
- *   • The returned array must keep its identity across renders. A react-aria collection fed from it
- *     stops committing rows otherwise, which is why callers pass a module-scope `keys` array rather
- *     than an inline literal.
+ * Invariants:
+ * - Both stages stay memoized — call sites this replaced rebuilt the index per keystroke.
+ * - The returned array keeps identity across renders — react-aria collections stop committing
+ *   otherwise, so callers pass a module-scope `keys` array.
  */
 import { useMemo } from "react";
 

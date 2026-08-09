@@ -1,28 +1,19 @@
 /**
  * SPIELTAGE · derivations
  *
- * Pure derivation over a season's matchdays — no I/O and no caching, which is why it stays out of
- * `queries.ts` rather than being folded in (ADR-0003). Two things live here: the bracket's column order,
- * and the NAME a matchday is shown under, which no document stores (ADR-0064).
+ * Pure derivation over a season's matchdays — no I/O, no caching (ADR-0003). Two things live
+ * here: the bracket's column order, and the NAME a matchday is shown under, which no document
+ * stores (ADR-0064).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
+ * Invariants:
+ * - The bracket's edges are `teamN_quelle` only (ADR-0042) — position in a round is geometry,
+ *   not topology.
+ * - The LAST round anchors the walk, ordering each earlier one — which is why the backend's
+ *   derived arrival order has to be right rather than plausible (ADR-0064).
+ * - A fixture nothing references keeps its arrival order, after the referenced ones (ADR-0043).
  *
- *   • The bracket's edges live in `teamN_quelle` and nowhere else (ADR-0042). Position within a round
- *     is geometry, not topology: the 2026 draw feeds match 29 from 25 and 27, so any pairing derived
- *     from indices alone puts a match on the wrong branch.
- *   • Rounds arrive in the order they are PLAYED, and the LAST round anchors the walk: each earlier round
- *     is ordered by the round after it, so the two feeders of one fixture sit adjacent and in the order
- *     that fixture's own sides name them. That arrival order is the backend's derived one —
- *     `saison_phase` in bracket order, then `beginn`, then `_id` (ADR-0064) — and this walk is why it
- *     has to be right rather than merely plausible: anchoring on the wrong round mis-orders every
- *     column before it.
- *   • A fixture nothing references keeps its arrival order, after the referenced ones. A `gruppe`
- *     reference and a `null` contribute no edge — the first knockout round is seeded from the group
- *     phase and has no earlier round to order (ADR-0043).
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/glossary.md — Quelle, for the two variants and what they reference
+ * See:
+ * - docs/glossary.md — Quelle, for the two variants and what they reference
  */
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";

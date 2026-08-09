@@ -96,7 +96,7 @@ export type TeamCreateSaisonOption = {
 
 /**
  * One row of the admin club list: EVERY club across every season, carrying the selected season's
- * junction data where the club is entered there (owner, 2026-08-07 — the list is club-centric, the
+ * junction data where the club is entered there (decided 2026-08-07 — the list is club-centric, the
  * season columns follow the sidemenu selector). Assembled by the page from the per-season reads,
  * because the API's team reads are strictly season-scoped (I11).
  */
@@ -117,7 +117,7 @@ export type AdminTeamRow = {
 
 /**
  * Whether the group may be edited, decided by the page from the season's status and the club's
- * fixtures (owner's rule, 2026-08-07): editable only while the season is `future` or the club has
+ * fixtures (decided 2026-08-07): editable only while the season is `future` or the club has
  * no fixture in it. `draftChangesGruppe` is the form's own live addition — it is what raises the
  * warning callout while an edit is pending.
  */

@@ -1,21 +1,18 @@
 /**
  * SHARED · display formatting
  *
- * Everything that turns a stored value into something a German-speaking reader sees: currency, dates,
- * times, addresses, and the placeholders that stand in for absent data.
+ * Everything that turns a stored value into something a German-speaking reader sees: currency,
+ * dates, times, addresses, and the placeholders that stand in for absent data.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • One placeholder per category, taken from `PLACEHOLDER`. A component inventing its own is how the
- *     same missing result came to read three different ways on one screen.
- *   • Dates are formatted from the `YYYY-MM-DD` string with an explicit Europe/Berlin instant, never
- *     from a bare `new Date(...)` — the viewer's zone would otherwise shift the day.
+ * Invariants:
+ * - One placeholder per category, from `PLACEHOLDER` — inventions read three ways on one screen.
+ * - Dates format with an explicit Europe/Berlin instant — a bare `new Date(...)` shifts the day.
  */
 
 import type { FLAddress } from "../schemas";
 
 /**
- * The app's missing-data placeholders, one per category (owner decision, 2026-07-30).
+ * The app's missing-data placeholders, one per category (decided 2026-07-30).
  *
  * The rule is that a category looks the same everywhere it appears. Spelled at the call site
  * instead, the same absent value reads differently per component — a result as `"- : -"` on the main

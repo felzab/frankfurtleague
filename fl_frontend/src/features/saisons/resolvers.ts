@@ -1,23 +1,14 @@
 /**
  * SAISONS · route-parameter resolution
  *
- * Bridges `?saison_id=` to a value the query layer can pass through, and a `[saison_id]` segment to
- * the season an editor addresses. Kept out of `queries.ts` because it is not caching code.
+ * Bridges `?saison_id=` to a value the query layer can pass through, and a `[saison_id]` segment
+ * to the season an editor addresses. Kept out of `queries.ts` because it is not caching code.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Returning `undefined` is the point, not a fallback. The backend resolves an absent season to the
- *     current one, so passing nothing costs one round trip where looking the season up first cost two.
- *   • An ABSENT parameter reads no season list. The list is consulted only to check a value the URL
- *     actually carries, which is what keeps ADR-0002's hot path free of a pre-query lookup (ADR-0069).
- *   • A parameter naming no real season never reaches a query. It is stripped from the URL and the
- *     render restarts, so the page and `SaisonSelector` cannot disagree about which season is shown.
- *   • `apiClient` drops `undefined` params rather than serialising them, which is what lets callers
- *     pass the result straight through without branching.
- *
- *  SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────
- *
- *   docs/_decisions/0069-an-unknown-season-is-stripped-from-the-url.md
+ * Invariants:
+ * - Returning `undefined` is the point: the backend resolves an absent season to the current one.
+ * - An absent parameter reads no season list — the hot path stays free of a pre-query (ADR-0069).
+ * - A parameter naming no real season is stripped from the URL and the render restarts (ADR-0069).
+ * - `apiClient` drops `undefined` params, which lets callers pass the result straight through.
  */
 
 import { notFound, redirect } from "next/navigation";

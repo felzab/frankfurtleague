@@ -1,12 +1,10 @@
 /**
- * The content-area loader — deliberately a different shape from
- * `PageLoader`'s ringed spinner, because the two appear in different situations and the owner
- * wants them tellable at a glance: `PageLoader` = a whole page is loading (root `loading.tsx`);
- * this = the shell is already painted and only the content region is streaming (the dashboard and
- * admin `loading.tsx` files plus the two layout-level Suspense boundaries).
+ * SHARED · content-area loader
  *
- * Three staggered bouncing dots in the landing page's `bg-brand-solid` dot language. No text —
- * the a11y name comes from the label; sighted users get the distinct shape instead.
+ * Deliberately a different shape from `PageLoader`'s ringed spinner, so the two are tellable at
+ * a glance: `PageLoader` means a whole page is loading; this means the shell is painted and only
+ * the content region is streaming. Three staggered bouncing dots in the landing page's
+ * `bg-brand-solid` dot language; no text — the a11y name comes from the label.
  */
 export function ContentLoader() {
   return (

@@ -7,7 +7,7 @@ import { BrandLink } from "../../ui/BrandLink";
 /**
  * The drawer's own header, on the phone only.
  *
- * **The drawer overlays the bar rather than opening beneath it** (owner), so while it is open the
+ * **The drawer overlays the bar rather than opening beneath it** (my call), so while it is open the
  * bar's toggle is behind it — which is why the close control lives here, at the drawer's own right
  * edge, and why this row carries the brand: below `lg` the bar shows no mark at all, and the full
  * logo and wordmark belong on the panel that covers it.

@@ -7,7 +7,7 @@ import { Minus, Plus } from "@gravity-ui/icons";
  *
  * The two wants cannot be had from one `step` prop: react-aria's `step` drives the buttons AND
  * snaps typed values to the nearest multiple on commit, so `step={5}` silently turned a typed 12 €
- * into 10 €. The owner wants both — buttons that move in fives, and any integer typable (seventh
+ * into 10 €. Both are wanted — buttons that move in fives, and any integer typable (seventh
  * review) — so the field carries no `step` at all (typed values stay free; the handlers round
  * non-integers) and these buttons do the fives themselves.
  *

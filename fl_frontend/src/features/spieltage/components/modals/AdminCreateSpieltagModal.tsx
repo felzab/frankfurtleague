@@ -16,7 +16,7 @@ import type { FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
  * picker in the form. The order is derived, so there is no next-free-position to compute either (ADR-0064).
  *
  * TWO states in which no matchday can be created, and the dialog refuses BEFORE the request in both
- * (owner, 2026-08-08). `saisonId` is null where the league has no seasons at all — a fresh database — and
+ * (decided 2026-08-08). `saisonId` is null where the league has no seasons at all — a fresh database — and
  * the dialog says so rather than offering a form that cannot submit. And `REQ-SPIELTAG-003` refuses the
  * create once the season's knockout phase is under way, which the page can see: `knockoutBeginn` is the
  * earliest non-group matchday's start, so the trigger is disabled with the reason in its own label instead
@@ -66,7 +66,7 @@ export function AdminCreateSpieltagModal({
             width={18}
             height={18}
           />
-          {/* Below `sm` the trigger is the bare plus continuing the search bar (owner, 2026-08-07). The
+          {/* Below `sm` the trigger is the bare plus continuing the search bar (decided 2026-08-07). The
               disabled label replaces it rather than sitting beside it: a disabled control whose wording is
               unchanged says nothing about why. */}
           <span className="hidden sm:inline">{isKnockoutUnderWay ? "KO.-Runde läuft" : "Neuen Spieltag anlegen"}</span>

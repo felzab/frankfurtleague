@@ -1,23 +1,16 @@
 /**
  * SPIELE · what the Spielsuche can be narrowed by
  *
- * Roadmap item FE-5, folded into the filter work because it is the same control (owner, 2026-08-07).
+ * Roadmap item FE-5, folded into the filter work because it is the same control (decided
+ * 2026-08-07).
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • **The options for Team, Ort and Schiedsrichter are DERIVED from the matches in hand**, not fetched.
- *     The view already holds the season's fixtures, so every club that plays, every venue that hosts and
- *     every referee assigned is in them — and a facet built that way can never offer a value that would
- *     narrow to nothing.
- *   • **The admin set is larger, and the difference is completeness rather than access.** Ergebnis,
- *     Ansetzung and Schiedsrichter answer "what still needs entering", which is an admin's question about
- *     their own data; the public set is the four facets a visitor would recognise as ways to find a match.
- *   • `status` is DERIVED and not stored, so it reads through `computeSpielStatus` — the same function the
- *     cards label themselves with, so a chip reading „HEUTE“ and the facet that finds it cannot disagree.
- *     The backend's own `spiel_status` filter defines `ausstehend` more widely on purpose (ADR-0072); this
- *     filters on the client, so the label's definition is the one that applies and the one on screen.
- *   • Every facet is built inside one `useMemo` per surface, keyed on the fixture list, because
- *     `AdminCrudView`'s collection-identity constraint applies to the Spielsuche's own Fuse memo too.
+ * Invariants:
+ * - Team, Ort and Schiedsrichter options derive from the matches in hand, never fetched — a
+ *   facet built that way cannot offer a value that narrows to nothing.
+ * - The admin set is larger than the public one; the difference is completeness, not access.
+ * - `status` reads through `computeSpielStatus`, the cards' own function (ADR-0072) — the chip
+ *   and the facet cannot disagree.
+ * - Every facet is built inside one `useMemo` per surface, keyed on the fixture list.
  */
 
 import { PHASE_LABELS } from "@/features/saisons/constants";

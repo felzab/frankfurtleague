@@ -1,33 +1,26 @@
 /**
  * SHARED · button recipes
  *
- * Two families, deliberately kept apart (owner decision, 2026-07-31): `formButton` for controls inside
- * a form, `ctaButton` for links and one-off buttons outside one. Restyling forms must never silently
- * restyle the marketing pages, and the form base's `disabled:` handling is dead weight on a link.
+ * Two families, deliberately kept apart (decided 2026-07-31): `formButton` for controls inside a
+ * form, `ctaButton` for links and one-off buttons outside one. Restyling forms must never
+ * silently restyle the marketing pages.
  *
- *  INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────
- *
- *   • Interaction state lives in a family's `base`, never at a call site — that is what keeps one
- *     gesture from acquiring several magnitudes across the app.
- *   • Transition properties are named individually. `transition-all` is not used here: the
- *     reduced-motion escape is declared once in `globals.css` and depends on knowing what moves.
- *   • **A named list says `scale`, never `transform`.** Tailwind v4 emits `scale-*` as the standalone
- *     `scale` property, so a list naming `transform` interpolates something that never changes and
- *     both gestures — the hover lift and the press — snap instead of easing. Nothing in the toolchain
- *     can see it: the class is valid, the property is real, and the two never meet. The
- *     `transition-transform` SHORTHAND is safe, because v4 expands it to `transform,translate,scale,
- *     rotate`; only a hand-written list has to name what actually moves.
- *   • Opaque fills carry their paired `-solid-foreground`, never `text-foreground`. `--fg-base` flips
- *     between themes and the fills do not, so a theme-flipping foreground on a fixed fill can only be
- *     legible in one of the two.
+ * Invariants:
+ * - Interaction state lives in a family's `base`, never at a call site.
+ * - Transition properties are named individually — the reduced-motion escape needs to know what moves.
+ * - A named list says `scale`, never `transform` — v4 emits `scale-*` as the standalone `scale`
+ *   property, so a `transform` list interpolates nothing and both gestures snap.
+ * - The `transition-transform` shorthand is safe — v4 expands it to what actually moves.
+ * - Opaque fills carry `-solid-foreground`, never `text-foreground` — `--fg-base` flips between
+ *   themes and the fills do not.
  */
 
 import { tv } from "tailwind-variants";
 
 /**
  * The CTA family — `<Link>`s and one-off buttons OUTSIDE forms: the landing-page hero, the
- * error/404 panels, dashboard not-found. Deliberately a separate recipe from `formButton` (owner
- * decision, 2026-07-31): restyling forms must never silently restyle the marketing pages, and the
+ * error/404 panels, dashboard not-found. Deliberately a separate recipe from `formButton` (decided
+ * 2026-07-31): restyling forms must never silently restyle the marketing pages, and the
  * form base's disabled styling is dead weight on a link. One recipe is what keeps the nine call
  * sites agreeing on height and hover feedback.
  */
@@ -53,13 +46,13 @@ export const formButton = tv({
       // `-solid` + its paired foreground, the same pairing every other opaque feedback fill uses.
       // `bg-danger` is a tint colour: under `text-foreground` it measured 4.10:1 in the light theme
       // and 3.76:1 in the dark one, because `--fg-base` flips between themes while the fill does not.
-      // This pair holds one value in both themes and measures 6.47:1 (owner, 2026-08-01, closing the
+      // This pair holds one value in both themes and measures 6.47:1 (decided 2026-08-01, closing the
       // decision this line was waiting on).
       destructive: "bg-danger-solid text-danger-solid-foreground shadow-danger/25 tracking-wide shadow-lg",
       /** The "Neuen X anlegen" page-header buttons. The height MIRRORS `SearchBar`'s group
        * (`h-12 lg:h-15`) at every breakpoint — the two share the CRUD header row, and one growing
-       * without the other is the mismatch the owner reported. Below `sm` the trigger is the bare
-       * plus continuing the search bar (owner, 2026-08-07): its left corners flatten onto the
+       * without the other is the reported mismatch. Below `sm` the trigger is the bare
+       * plus continuing the search bar (decided 2026-08-07): its left corners flatten onto the
        * bar's right edge, and each modal hides its label text at that width. */
       trigger:
         "bg-brand-solid text-brand-solid-foreground flex h-12 shrink-0 items-center justify-center gap-x-2 font-bold shadow-sm max-sm:rounded-l-none max-sm:px-4 lg:h-15",
@@ -76,7 +69,7 @@ export const formButton = tv({
  *
  * **The negative margin is the whole point and is measured against `ModalShell`.** A border drawn inside
  * the body's padding stops short of the dialog's edges and reads as a stray line rather than as the
- * boundary between what you fill in and what you press (owner, 2026-08-07). `ModalShell` puts the
+ * boundary between what you fill in and what you press (decided 2026-08-07). `ModalShell` puts the
  * horizontal inset on its BODY as `px-4` and zeroes HeroUI's own body margin so that 1rem is the whole
  * of it — so `-mx-4` cancels exactly that, `w-[calc(100%+2rem)]` restores the width the margin took,
  * and `px-4` puts the buttons back in line with the fields above them.

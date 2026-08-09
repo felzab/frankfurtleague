@@ -15,7 +15,7 @@ import { tv } from "tailwind-variants";
  * different hover answers — one shadow-only, one none at all, one scale-plus-border. One gesture had
  * three magnitudes across the app.
  *
- * Owner decisions (2026-07-30): radius is `rounded-2xl`, matching the panels cards sit in (modals,
+ * Decided 2026-07-30: radius is `rounded-2xl`, matching the panels cards sit in (modals,
  * tables and empty states are all `rounded-2xl`); the clickable gesture is `hover:border-brand`
  * plus `hover:scale-hover`.
  *

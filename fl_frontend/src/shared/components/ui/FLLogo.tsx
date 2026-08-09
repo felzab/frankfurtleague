@@ -16,7 +16,7 @@ import { useId } from "react";
  * the browser and in librsvg when the PNGs are built, and librsvg has no Impact.
  *
  * The previous mark was a sphere panelled with stars - UEFA's Champions League device. Replaced on
- * the owner's instruction (2026-08-01).
+ * instruction, 2026-08-01.
  */
 export function FLLogo({ className = "size-8" }: { className?: string }) {
   // The filter id must be unique per instance: up to four logos share a page, duplicate ids are

@@ -14,7 +14,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 /**
  * Taking a player out of ONE season's squad — the editor's danger zone, in the same shape as the club
- * editor's Disqualifikation panel and the match editor's Absage (owner, 2026-08-07: last on the page,
+ * editor's Disqualifikation panel and the match editor's Absage (decided 2026-08-07: last on the page,
  * in the danger tone).
  *
  * **It writes to `saison_spieler` and nothing else.** The person is untouched: they stay in the

@@ -20,7 +20,7 @@ import type { FLAddress } from "@/shared/schemas";
  * the create dialog too, and this panel only swaps its plain labels for the editor's marker-carrying
  * ones. Stadtteil is optional there. An address without one is complete.
  *
- * **The header's globe opens the DRAFT address on Google Maps** (owner, 2026-08-07), so what was just
+ * **The header's globe opens the DRAFT address on Google Maps** (decided 2026-08-07), so what was just
  * typed can be checked against the map before it is saved. Offered only once street and city are
  * filled in — searching for half an address helps nobody.
  */
@@ -54,7 +54,7 @@ export function FormAdresseSection({
                   : "text-foreground-muted/40 cursor-not-allowed"
               }`}>
               {/* The same glyph the website field's follow-link uses, so "opens elsewhere" has
-                  one icon on this page (owner, 2026-08-07). */}
+                  one icon on this page (decided 2026-08-07). */}
               <ArrowUpRightFromSquare
                 aria-hidden="true"
                 width={18}
