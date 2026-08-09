@@ -93,6 +93,29 @@ CHAPTERS_DIR: Final = REPO_ROOT / "docs" / "_standard" / "chapters"
 # switched off.
 LINE_CITATION_RE: Final = re.compile(r"`([^`\n]*\.[A-Za-z]{2,5}:\d+(?:-\d+)?)`")
 
+# INC-2's module-header shapes, checked only where that rule binds (the chapter's Applies-to
+# subtrees, by suffix). Presence is never checked: INC-2 fixes the shape of a header that exists,
+# so a file that opens with `//` line comments, or with none, passes unchecked.
+HEADER_SCOPES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+    ("fl_frontend/src/", (".ts", ".tsx")),
+    ("fl_backend/app/", (".py",)),
+    ("fl_backend/tests/", (".py",)),
+    ("scripts/", (".py",)),
+)
+HEADER_CAP: Final = 20
+# A directive stays above the header (INC-7), so the header scan steps over it.
+DIRECTIVE_RE: Final = re.compile(r"^\s*([\"'])use (client|server|strict)\1;?\s*$")
+PY_DOCSTRING_OPEN_RE: Final = re.compile(r"^[rRuU]?(\"\"\"|''')")
+# The title separator is U+00B7. Ruled lines and shouty label rows are the retired header
+# vocabulary INC-2 replaced. A label line is one or two capitalised words ending in a colon --
+# anything longer is wrapped prose, and flagging prose is the false positive that gets a check
+# switched off.
+HEADER_TITLE_RE: Final = re.compile(r"\S+ · \S.*")
+HEADER_RULED_RE: Final = re.compile(r"─{3,}|-{8,}")
+HEADER_SHOUTY_RE: Final = re.compile(r"[A-Z][A-Z ']{3,}")
+HEADER_LABEL_RE: Final = re.compile(r"[A-Z][A-Za-z]*( [A-Za-z]+)?:")
+HEADER_LABELS: Final[tuple[str, ...]] = ("Invariants:", "See:")
+
 # The ADR anatomy DEC-2 fixes, in order. adr-meta checks the shape; the reasoning lives in the rule.
 ADR_META_ORDER: Final[tuple[str, ...]] = ("Status", "Date", "Surface", "Supersedes", "Superseded by", "Source")
 ADR_META_RE: Final = re.compile(r"^\*\*(Status|Date|Surface|Supersedes|Superseded by|Source):\*\*\s*(.*)$")
@@ -322,6 +345,95 @@ def _check_citation(citation: str, rel: str) -> list[Finding]:
     return []
 
 
+def _header_scoped(rel: str, suffix: str) -> bool:
+    """True where INC-2 binds a file's header to its shape."""
+    return any(rel.startswith(prefix) and suffix in suffixes for prefix, suffixes in HEADER_SCOPES)
+
+
+def _module_header(raw: str, suffix: str) -> list[str] | None:
+    """The module header's lines, delimiters included, or None where the file carries none.
+
+    TypeScript: the leading block comment, stepping over blank lines and a directive (INC-7). A
+    leading run of `//` comments is not a header, so a file opening with one returns None and is
+    not checked. Python: the module docstring, which is only a docstring as the first statement;
+    a `#` line above it (a shebang) does not end the scan. An unterminated delimiter runs to the
+    end of the file, which the line cap then fails -- the conservative direction.
+    """
+    lines = raw.split("\n")
+    i = 0
+    if suffix == ".py":
+        while i < len(lines) and (not lines[i].strip() or lines[i].lstrip().startswith("#")):
+            i += 1
+        if i == len(lines):
+            return None
+        opened = PY_DOCSTRING_OPEN_RE.match(lines[i].lstrip())
+        if opened is None:
+            return None
+        quote = opened.group(1)
+        if quote in lines[i].lstrip()[opened.end() :]:  # a one-line docstring closes on its own line
+            return lines[i : i + 1]
+        start = i
+        i += 1
+        while i < len(lines) and quote not in lines[i]:
+            i += 1
+        return lines[start : i + 1]
+
+    while i < len(lines) and (not lines[i].strip() or DIRECTIVE_RE.match(lines[i])):
+        i += 1
+    if i == len(lines) or not lines[i].lstrip().startswith("/*"):
+        return None
+    start = i
+    while i < len(lines) and "*/" not in lines[i]:
+        i += 1
+    return lines[start : i + 1]
+
+
+def _header_line(line: str, suffix: str) -> str:
+    """One header line with its comment decoration removed -- the text INC-2's shapes apply to."""
+    text = line.strip()
+    if suffix == ".py":
+        text = PY_DOCSTRING_OPEN_RE.sub("", text)
+        return text.removesuffix('"""').removesuffix("'''").strip()
+    text = text.removesuffix("*/").strip()
+    for opener in ("/**", "/*", "*"):
+        if text.startswith(opener):
+            return text[len(opener) :].strip()
+    return text
+
+
+def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
+    """A module header in INC-2's scope keeps INC-2's shape.
+
+    The retired vocabulary -- ruled lines, shouty label rows, foreign list labels, an oversized
+    block -- passes every compiler and linter, so nothing but this check stops it creeping back.
+    """
+    header = _module_header(raw, suffix)
+    if header is None:
+        return []
+    found: list[Finding] = []
+    if len(header) > HEADER_CAP:
+        found.append(
+            Finding(
+                "fail",
+                "module-header",
+                rel,
+                f"the module header runs {len(header)} lines -- INC-2 caps it at {HEADER_CAP} including delimiters",
+            )
+        )
+    stripped = [_header_line(line, suffix) for line in header]
+    title = next((text for text in stripped if text), "")
+    if not HEADER_TITLE_RE.fullmatch(title):
+        found.append(Finding("fail", "module-header", rel, f"the header's first content line is not `<token> · <text>` (INC-2): '{title}'"))
+    for text in stripped:
+        if HEADER_RULED_RE.search(text):
+            found.append(Finding("fail", "module-header", rel, f"ruled line in the module header -- INC-2 bans drawn rules: '{text}'"))
+        elif HEADER_SHOUTY_RE.fullmatch(text):
+            found.append(Finding("fail", "module-header", rel, f"upper-case label row in the module header (INC-2): '{text}'"))
+        elif HEADER_LABEL_RE.fullmatch(text) and text not in HEADER_LABELS:
+            found.append(Finding("fail", "module-header", rel, f"header list label other than Invariants: or See: (INC-2): '{text}'"))
+    return found
+
+
 def check_file(path: Path, existing_adrs: set[str], existing_rules: set[str]) -> list[Finding]:
     """Every per-file check, for one file."""
     rel = path.relative_to(REPO_ROOT).as_posix()
@@ -333,6 +445,9 @@ def check_file(path: Path, existing_adrs: set[str], existing_rules: set[str]) ->
     body = strip_fences(raw) if is_markdown else comments_only(raw, path.suffix)
 
     found: list[Finding] = []
+
+    if not is_markdown and _header_scoped(rel, path.suffix):
+        found.extend(check_module_header(rel, raw, path.suffix))
 
     for number in sorted(set(ADR_RE.findall(body))):
         if number not in existing_adrs:

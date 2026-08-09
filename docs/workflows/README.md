@@ -1,6 +1,6 @@
 # Workflows
 
-**Verified against:** `792c026`, 2026-08-09
+**Verified against:** `6b65889`, 2026-08-09
 **Scope:** how work gets from an idea to production, and the recurring operational tasks
 
 Cross-cutting, like the glossary — this belongs to no single surface. Its sibling

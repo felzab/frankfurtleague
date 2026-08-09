@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `5d70e9f`, 2026-08-09
+**Verified against:** `6b65889`, 2026-08-09
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Operational procedures live in [`../../scripts/README.md`](../../scripts/README.md). This page covers
