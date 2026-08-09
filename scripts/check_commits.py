@@ -1,45 +1,18 @@
 """
-scripts/check_commits.py - the commit message gate.
+SCRIPTS · the commit message gate
 
 Run by verify.sh inside the docs scope, because in this repository the commit bodies ARE
-documentation: merges are never squashed precisely so they survive (docs/workflows/README.md,
-Pull requests). The form they follow is docs/workflows/message-templates.md.
+documentation: merges are never squashed precisely so they survive. What fails and what merely
+reports, and why the two lists differ, is the table in docs/workflows/message-templates.md — the
+split keeps a check that would fail half of a deliberate style from being suppressed.
 
- WHAT IT LOOKS AT ----------------------------------------------------------------------------------
+Invariants:
+- Only the branch's commits are read — base..HEAD, never history, which predates the convention.
+- Merge commits are skipped: GitHub writes those, and the merge button fixes their subject.
+- The subject reports past 72 characters and fails past 100; body lines fail past 100 too.
 
- Only the commits on this branch - base..HEAD, with base defaulting to main. Never history. The
- convention settled partway through this repository's life, and the commits before it read "WIP" and
- "Fixed bug"; holding them to the form would mean either a history rewrite or a permanently red gate.
-
- Merge commits are skipped. GitHub writes those and their subject is fixed by the merge button.
-
- WHAT IT CHECKS ------------------------------------------------------------------------------------
-
-  Failing, because each destroys something the body exists to carry, and each is objectively true or
-  false without reading the change:
-    1. the subject is `Scope: what changed`, with no trailing period
-    2. the second line is blank - without it, git treats the whole message as one subject
-    3. a body exists at all: a one-line commit records nothing a diff does not already show
-    4. no line runs past 100 characters, which means the wrap was never attempted
-    5. no trailer, no issue-closing keyword, no emoji
-
-  Reporting, because a hit is evidence rather than proof and a check that cries wolf gets ignored:
-    6. the subject runs past 72 characters
-    7. the scope is outside the recorded vocabulary - a genuinely new area is legitimate
-    8. nothing in the body records what was verified
-
- WHY SUBJECT LENGTH REPORTS RATHER THAN FAILS ------------------------------------------------------
-
- 72 is where GitHub truncates a commit title in a list view and where `git log --oneline` wraps an
- 80-column terminal, so it is the right target. It is the wrong hard limit HERE: measured over the
- last eighty non-merge commits, thirty-eight run past it, because the two-clause subject joined by
- ", and" is idiomatic in this repository and documented as such in both workflow pages. A check that
- fails half of a deliberate style is a check that gets suppressed (docs/_standard/chapters/5-currency.md).
-
- So 72 reports and 100 fails. Past 100 a subject is unreadable in every view rather than truncated in
- one, which is a different thing from missing a target. The same threshold governs body lines, where
- the convention asks for ~76: the check is aimed at a paragraph nobody wrapped, never at a line that
- ran four characters over.
+See:
+- docs/workflows/message-templates.md — the form, and the enforced-versus-reported table
 """
 
 from __future__ import annotations

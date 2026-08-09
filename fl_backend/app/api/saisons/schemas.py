@@ -45,7 +45,7 @@ class FLSaisonRules(BaseModel):
     # from a guess. See the runbook in ADR-0043.
     qualifiers_per_group: int = Field(gt=0)
 
-    # The season's capacity, read by `POST /teams/{team_id}/saisons` (owner, 2026-08-07): a team
+    # The season's capacity, read by `POST /teams/{team_id}/saisons` (decided 2026-08-07): a team
     # enters only a group the season offers -- the first `number_of_groups` of the closed A-D set,
     # which is what bounds it at 4 -- and only while that group holds fewer than `teams_per_group`
     # rows. REQUIRED with no default for exactly the reason `qualifiers_per_group` is; both keys are
@@ -54,7 +54,7 @@ class FLSaisonRules(BaseModel):
     number_of_groups: int = Field(gt=0, le=4)
     teams_per_group: int = Field(gt=0)
 
-    # Which school levels this season's squads may hold (owner, 2026-08-07). A SUBSET of the closed
+    # Which school levels this season's squads may hold (decided 2026-08-07). A SUBSET of the closed
     # set `FLSpielerStufe` declares -- that Literal is the vocabulary, and this is which of it a given
     # season runs, exactly as `number_of_groups` picks a prefix of the closed A-D set rather than
     # redefining it (ADR-0061).
@@ -97,7 +97,7 @@ class FLSaison(BaseModel):
     # DERIVED, and on no document (ADR-0065): `schedule_for` over `rules`, the same arithmetic
     # `spieltage.anzahl_spiele` already reports per matchday. Served because the matchday editor needs the
     # count for a phase the matchday does NOT have yet -- `anzahl_spiele` answers only for the phase it
-    # has, so without this the browser cannot refuse `REQ-SPIELTAG-002` before the request (owner,
+    # has, so without this the browser cannot refuse `REQ-SPIELTAG-002` before the request (decided
     # 2026-08-08). Serving it keeps the arithmetic in one place; mirroring it in TypeScript would be a
     # second copy with nothing holding the two equal, and a wrong copy REFUSES a phase the endpoint
     # accepts.

@@ -1,17 +1,14 @@
 """
-What a season's rules edit refuses — `find_rules_refusal`, pure and therefore in the default tier.
+SAISONS · what a season's rules edit refuses
 
-Seven rules, and each guards a state that no other layer refuses. They come in three kinds.
+`find_rules_refusal`, pure and therefore default tier. Seven rules in three kinds: four are
+narrowings that would strand data entered legally under the wider value; two are properties of
+the proposed rules alone; and one is the freeze on a finished season, where nothing is stranded
+and the result would be rewritten instead.
 
-FOUR are NARROWINGS: the rules decide the shape of the competition, so lowering one below what already
-exists strands data that was entered legally under the wider value — a group, a group's capacity, a wired
-placing, or a matchday's fixtures. TWO are properties of the proposed rules ALONE, needing nothing stored:
-the bracket must have a shape, and a group cannot qualify more teams than it holds. And ONE is the freeze
-on a finished season, a different kind of protection: nothing is stranded, the result is rewritten.
-
-The order the checks run in is asserted here too, because it is the order an admin can act on: telling
-somebody their group count strands a team is noise when the whole edit is refused for being on a past
-season.
+The order the checks run in is asserted too, because it is the order an admin can act on:
+telling somebody their group count strands a team is noise when the edit is refused for being on
+a past season.
 """
 
 import pytest
@@ -239,7 +236,7 @@ class TestAFinishedSeasonFreezes:
 
         The payload carries the whole `rules` object, so a date-only edit resubmits identical rules — and
         the freeze compares values rather than refusing the endpoint outright, precisely so that repair
-        stays possible (owner, 2026-08-07).
+        stays possible (decided 2026-08-07).
         """
 
         assert judge(status="past", stored=rules(), proposed=rules()) is None
@@ -277,7 +274,7 @@ class TestAFinishedSeasonFreezes:
 
 class TestNarrowingBelowAMatchdaysFixtures:
     """
-    The sixth rule, and the one that reaches furthest (owner, 2026-08-08).
+    The sixth rule, and the one that reaches furthest (decided 2026-08-08).
 
     A matchday's expected match count is derived from these rules (ADR-0065), so lowering
     `number_of_groups` or `teams_per_group` lowers it for every group-phase matchday of the season at
@@ -364,7 +361,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
 
 class TestAGroupCannotQualifyMoreThanItHolds:
     """
-    The seventh rule (owner, 2026-08-08), and it was a warning banner that saved.
+    The seventh rule (decided 2026-08-08), and it was a warning banner that saved.
 
     `qualifiers_per_group` above `teams_per_group` asks each group for more placings than it has teams,
     so the seeding walk requests a placing no standing will ever hold — the same incoherence

@@ -1,25 +1,16 @@
 """
 SAISONS · write endpoints
 
-Creating a season, editing its dates and scoring rules, and the rollover that moves the league from one
-season to the next.
+Creating a season, editing its dates and rules, and the rollover. The guard is router-level, so
+every endpoint added here is admin-guarded by construction (ADR-0034) — never move it onto one.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- Exactly one season is `active`; `activate_saison` is the only writer of `status` (ADR-0033).
+- There is no DELETE — retiring a season would orphan every spiel, spieltag and junction row.
+- A created season is always `future`, so a typo in a new id cannot roll over the live one.
 
-  • `verify_access_admin` is attached at ROUTER level, so every endpoint added to this file is guarded
-    by construction. Never move the guard onto an individual endpoint.
-  • EXACTLY ONE season is `active`, and nothing in the database can express that -- not a `$jsonSchema`
-    validator, not a unique index (ADR-0027). `activate_saison` is the only code path that writes
-    `status` at all, which is what makes the invariant enforceable in one place (ADR-0033).
-  • There is NO delete. A season that is over is `past`; deleting one would orphan every spiel,
-    spieltag and junction row referencing its id, none of which carries a cascade.
-  • A created season is always `future`. Creating and activating in one step would make an ordinary
-    typo in a new season's id a silent rollover of the live one.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/_decisions/0033-one-active-season-and-one-path-to-it.md -- the decision and what it rejected
-  docs/backend/spec.md -- section 3, the write path
+See:
+- docs/backend/spec.md — section 3, the write path
 """
 
 from typing import Annotated, Any
@@ -230,7 +221,7 @@ async def activate_saison(
     Both writes run in one transaction, so the league is never briefly without an active season and
     never briefly with two.
 
-    **The outgoing season has to be finished** (`REQ-ACTIVATE-001`, owner, 2026-08-08). Demoting it to
+    **The outgoing season has to be finished** (`REQ-ACTIVATE-001`, decided 2026-08-08). Demoting it to
     `past` freezes its competitive rules and makes its derived table the record of what happened, so
     rolling over across unplayed fixtures closes a competition that is not over. Entering the missing
     results or cancelling the fixtures is the way through; cancelling is what turns a match nobody will

@@ -1,52 +1,22 @@
 """
 SPIELE · models
 
-The Spiel read model, the admin patch payload, and the three embedded field models they share.
+The Spiel read model, the admin patch payload, and the embedded field models they share. All are
+hand-mirrored by `fl_frontend/src/features/spiele/schemas.ts`: a gate check compares presence,
+requiredness, nullability, primitive types and enum members (ADR-0040) — patterns, lengths and
+ranges stay yours to keep in step by hand.
 
-These are HAND-MIRRORED by `fl_frontend/src/features/spiele/schemas.ts` in Zod. There is no generation
-step, so a constraint changed here must be changed there in the same commit.
+Invariants:
+- The embedded field models are declared before the payload and `FLSpiel` that reference them.
+- The stored shape and the joined read shape are two models, and the stored one is the base (ADR-0028).
+- A side is `None` until its occupant is known; `teamN_quelle` is an independent sibling (ADR-0042).
+- Money fields carry no default: the patch writes wholesale, so a default would zero real values.
+- `ergebnis` uses `[0-9]`, never `\\d` — the two ends must agree about what a digit is.
+- A shoot-out is its own scoreline in `elfmeterschiessen`, never inside `ergebnis` (ADR-0044).
 
-A gate check compares the two (ADR-0040): edit a model here, regenerate the published document with
-`python -m tests.openapi_document --write`, and `fl_frontend/src/core/apiContract.test.ts` fails naming
-any field whose presence, requiredness, nullability, primitive type or enum members moved. It does NOT
-compare patterns, lengths or ranges — those are still yours to keep in step by hand, and are the first
-thing to check when behaviour looks impossible.
-
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • The three embedded field models are declared BEFORE the payload and FLSpiel that reference them --
-    see the note below, this has bitten before.
-  • The STORED shape and the JOINED read shape are two models, and the stored one is the base.
-    `FLSpiel`/`FLSpielTeamField` are what a raw document validates as and what a write dumps;
-    `FLSpielJoined`/`FLSpielTeamFieldJoined` add what `build_spiele_pipeline` looks up. A joined field
-    on the stored pair would be written into the document by the very next admin edit (ADR-0028,
-    rule 4), and a default on it would make six internal reads assert that nobody is disqualified.
-  • Every response carrying matches carries the JOINED shape -- both reads and the action-required
-    list. One wire shape, because the frontend mirrors all three with one `FLSpielSchema`.
-  • A fixture side is `None` when its occupant is not yet known, and `teamN_quelle` says where that
-    occupant comes from (ADR-0042). The two fields are INDEPENDENT and nothing pairs them:
-    `quelle` is a fact about the FIXTURE and stays true once the team arrives, while the team field is a
-    display copy the rename fan-out maintains (ADR-0028, rules 2 and 3). All four combinations are
-    meaningful, so a reader takes the team, then the label derived from `quelle`, then "Noch offen", and
-    never asks which state it is in.
-  • `quelle` is a REFERENCE, not a label. It carries no German and no display text: the two variants are
-    the two ways a bracket slot is fed -- by a group placing, which is every first knockout round, and
-    by an earlier match, which is every round after it. The frontend derives what a card shows.
-  • Money fields (`mietpreis`, `payment`) carry NO default. The admin patch writes the payload back
-    wholesale with `$set`, so a default lets a request omitting the field silently overwrite a real
-    value with 0.
-  • `ergebnis` is pattern-constrained rather than free text, and uses `[0-9]` rather than `\\d`: the
-    backend's regex engine treats `\\d` as Unicode-aware, and `Number("٢")` in JavaScript is NaN, so the
-    two ends would disagree about what a digit is.
-  • A shoot-out is its OWN scoreline in `elfmeterschiessen` and never a third number inside `ergebnis`
-    (ADR-0044). The two counts are not goals: they decide the bracket and are invisible to the league
-    table, which scores the fixture as the draw it was.
-  • `saison_id` is exactly 4 characters, matching FLSaison.id.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/backend/spec.md -- section 4, the field-constraint table
-  docs/glossary.md -- Ergebnis, Tore, saison_phase
+See:
+- docs/backend/spec.md — section 4, the field-constraint table
+- docs/glossary.md — Ergebnis, Tore, saison_phase
 """
 
 from collections.abc import Mapping
@@ -299,7 +269,7 @@ class FLBracketFaultOccupant(BaseModel):
 
     **A fixture played BEFORE the disqualification is not a fault.** The team was eligible on the day, so
     the match and its result stand -- `find_eligibility_refusal` permits entering that result for the same
-    reason (owner, 2026-08-08). What is reported is a fixture on or after the effective day.
+    reason (decided 2026-08-08). What is reported is a fixture on or after the effective day.
 
     `spiel_datum` is null where the fixture carries no date, which is reported: an undated fixture cannot
     be shown to have been played in time, and that is the same refuse-by-default reading the write path
@@ -333,7 +303,7 @@ FLBracketFault = Annotated[
 
 class FLSpielBooking(BaseModel):
     """
-    The three fields the clash rule reads off ANOTHER fixture, validated (owner, 2026-08-08).
+    The three fields the clash rule reads off ANOTHER fixture, validated (decided 2026-08-08).
 
     Its own model rather than `FLSpiel`, because the clash read spans every season and projects three keys
     -- validating whole fixtures there would read every field of every match in the database to compare two
@@ -440,7 +410,7 @@ class FLSpiel(BaseModel):
     saison_id: str = Field(min_length=4, max_length=4)
 
     # An optional free-text note on the fixture -- exciting moments, anything worth a sentence
-    # (owner, 2026-08-02). DEFAULTED, unlike `elfmeterschiessen`'s required key: nothing anywhere
+    # (decided 2026-08-02). DEFAULTED, unlike `elfmeterschiessen`'s required key: nothing anywhere
     # distinguishes a missing key from a stored null -- both mean "no note" -- so requiring the key
     # would buy a backfill of every live document for a distinction with no consumer. The bracket
     # resolution never touches it: a voided fixture keeps its note for the admin to rewrite, because

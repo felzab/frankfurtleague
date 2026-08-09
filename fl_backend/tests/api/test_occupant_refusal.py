@@ -1,22 +1,15 @@
 """
-The write path's occupant rules, and the payload normalisation both of its paths share.
+SPIELE · the write path's occupant rules, and the payload normalisation both paths share
 
-Three pure functions, so every case runs in the default tier with no container:
+Three pure functions, so every case runs in the default tier: `apply_payload_to_spiel` — the
+normalisation the save and the `dry_run=true` preview both apply, tested here because a drift
+would be invisible everywhere else (ADR-0051); `find_eligibility_refusal` — a disqualified team,
+keyed on the fixture's date (ADR-0052); and `judge_spieltag_occupancy` — a team fielded twice on
+one matchday, moved or refused (ADR-0052).
 
-- `apply_payload_to_spiel` — the normalisation the save and the `dry_run=true` preview both apply
-  (ADR-0051). Tested here because a drift between the two would be invisible everywhere else: both
-  would simply agree on the wrong answer.
-- `find_eligibility_refusal` — a disqualified team, keyed on the fixture's DATE, and a team with no row
-  for the season (ADR-0052).
-- `judge_spieltag_occupancy` — a team fielded twice on one matchday, moved or refused (ADR-0052).
-
-Refusals are asserted on their CODE, never on their message. The code is the API contract and is what
-the form reads to decide which field the message belongs to; the message is an English log detail and
-these tests must not break over its phrasing.
-
-The season under test is one Spieltag of two group fixtures plus a second Spieltag holding the
-knockout round, which is the smallest shape in which "same matchday" and "different matchday" are both
-expressible.
+Refusals are asserted on their code, never their message. The season under test is one Spieltag
+of two group fixtures plus the knockout round — the smallest shape in which "same matchday" and
+"different matchday" are both expressible.
 """
 
 from typing import Any, Callable
@@ -274,7 +267,7 @@ class TestEligibility:
 
     def test_a_fixture_played_before_the_disqualification_stays_fillable(self, season):
         """
-        The case the date makes possible (owner, 2026-08-08), and the reason a boolean was not enough.
+        The case the date makes possible (decided 2026-08-08), and the reason a boolean was not enough.
 
         A match played in March, entered in April, by a team disqualified in between: recording what
         happened is not the same act as putting an ineligible team into a match still to come. A blanket
@@ -298,7 +291,7 @@ class TestEligibility:
 
     def test_a_cancelled_group_fixture_may_hold_a_disqualified_team(self, season):
         """
-        The carve-out (owner, 2026-08-08), and the one case where the fixture's date is irrelevant.
+        The carve-out (decided 2026-08-08), and the one case where the fixture's date is irrelevant.
 
         Cancelling a group fixture RECORDS that the match did not happen, so a disqualified team is exactly
         who belongs on it — the row keeps the group's schedule complete and lets the table account for the
@@ -519,7 +512,7 @@ def occupant_faults(*fixtures: dict[str, Any]) -> list:
 
 class TestTheDisqualifiedOccupantFault:
     """
-    A fixture fielding a team the season disqualified before the day it is played (owner, 2026-08-08).
+    A fixture fielding a team the season disqualified before the day it is played (decided 2026-08-08).
 
     Derived, never stored, and it empties nothing: what to do about the fixture — cancel it, award it, or
     replace the team — is a competition decision (ADR-0047, roadmap FB-9).
@@ -616,7 +609,7 @@ class TestTheDisqualifiedOccupantFault:
 
 class TestRemovingATeamFromAPlayedFixture:
     """
-    A side carrying goals may be SWITCHED but not EMPTIED (owner, 2026-08-08).
+    A side carrying goals may be SWITCHED but not EMPTIED (decided 2026-08-08).
 
     `ergebnis` is composed from the two `tore`, and `tore` lives inside the side — so removing the team
     takes its goals with it and the result collapses. What is left is a match that was played, whose score

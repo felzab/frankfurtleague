@@ -1,22 +1,14 @@
 """
 SHARED · custom pydantic types
 
-The scalar types every entity model is built from: ObjectId, the date and time string formats, and the
-scheme-restricted external URL.
+The scalar types every entity model is built from: ObjectId, the date and time string formats,
+and the scheme-restricted external URL.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Dates are `YYYY-MM-DD` STRINGS, not `date` objects, and are compared lexicographically throughout
-    the service. The format sorts correctly, which is the only reason that works -- it is not
-    negotiable.
-  • `DATE_REGEX` alone accepts impossible dates such as 2026-02-31, so a calendar validator runs after
-    it. The regex constrains shape; only `date.fromisoformat` constrains reality.
-  • `CustomExternalUrl` restricts the SCHEME. A bare "is this a URL" check accepts `javascript:` and
-    `data:`, which become XSS sinks the moment React renders them into an href. It parses rather than
-    pattern-matches, mirroring the frontend's own check.
-  • ObjectId serialisation is context-dependent: `keep_oid` returns the ObjectId for a database write,
-    otherwise a string for the wire. A model dumped for Mongo without that context writes strings and
-    silently breaks every subsequent id comparison.
+Invariants:
+- Dates are `YYYY-MM-DD` strings compared lexicographically — the format sorts, so it works.
+- `DATE_REGEX` accepts impossible dates; `date.fromisoformat` runs after it and constrains reality.
+- `CustomExternalUrl` restricts the scheme — a bare URL check accepts `javascript:`, an XSS sink.
+- ObjectId serialisation is context-dependent: `keep_oid` for a database write, string for the wire.
 """
 
 import re

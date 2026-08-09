@@ -39,7 +39,7 @@ def build_schiedsrichter_filter(
 # =====================================================================================================
 # RETIRING IT
 # =====================================================================================================
-# The referee is still assigned to a fixture nobody has played (owner, 2026-08-08). The same rule
+# The referee is still assigned to a fixture nobody has played (decided 2026-08-08). The same rule
 # `REQ-RETIRE-003` states for a venue, and for the same reason: retiring them removes them from every
 # picker while they are still down to officiate. A played fixture never blocks, because its
 # `schiedsrichter` is an embedded record of who officiated (ADR-0028 rule 2).

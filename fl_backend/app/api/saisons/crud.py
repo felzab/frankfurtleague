@@ -1,21 +1,14 @@
 """
 SAISONS · current-season resolution
 
-The single definition of "which season is current". `/saisons/current` and the `saison_id` default on
-`/spiele`, `/spieltage` and `/teams` all route through here, so four endpoints cannot answer the
-question differently.
+The single definition of "which season is current": `/saisons/current` and the `saison_id`
+default on `/spiele`, `/spieltage` and `/teams` all route through here, so four endpoints cannot
+answer the question differently.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Exactly one season is assumed to carry `status: "active"`. Nothing in the schema or an index
-    enforces it -- see the note on `pull_current_saison`.
-  • A missing active season RAISES rather than degrading to an unfiltered query. With the season
-    default in place, "no current season" would otherwise silently mean "every season at once".
-  • `rules` is live, not decorative: `/teams` scores its derived table with it (ADR-0026), so a
-    season's win and draw points reach the league table and a change to them is a behaviour change.
-  • Every read here is served from the in-process cache when it can be (ADR-0070). Misses fetch the
-    FULL document and never a projection: the cache stores one shape, and every caller picks the
-    keys it wants from a copy. The season write path drops the cache as it saves.
+Invariants:
+- A missing active season raises — degrading to an unfiltered query would mean "every season".
+- `rules` is live: `/teams` scores its derived table with it (ADR-0026), so an edit is behaviour.
+- Misses fetch the full document, never a projection — the cache stores one shape (ADR-0070).
 """
 
 from typing import Any, Mapping

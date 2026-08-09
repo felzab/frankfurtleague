@@ -1,23 +1,14 @@
 """
 SPIELTAGE · write endpoints
 
-Matchdays: named blocks of fixtures inside a season.
+Matchdays: named blocks of fixtures inside a season. Guarded at router level by
+`verify_access_admin` (ADR-0034).
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
-    construction. Never move the guard onto an individual endpoint.
-  • **No payload here carries a position, and none may gain one** (ADR-0064). A matchday's place in its
-    season is derived from `saison_phase` and `beginn` -- both of which have to be right anyway -- so
-    there is nothing to set and no two matchdays can claim the same place.
-  • Deletion is SOFT. `spiele.spieltag_id` points here and nothing cascades, so a hard delete would
-    leave matches referencing a matchday that no longer exists.
-  • **Soft is not harmless.** A retired matchday leaves `GET /spieltage`, and the public Spielplan joins
-    fixtures onto the matchdays it received -- so retiring one takes its matches off that page with it.
-    `REQ-RETIRE-002` refuses the retirement while any of them carries a result (owner, 2026-08-08).
-  • `anzahl_spiele` is on no payload here. It is derived from the season's rules and this matchday's
-    phase (ADR-0065), so the PHASE is what a write can get wrong -- and `REQ-SPIELTAG-002` refuses one
-    accounting for fewer fixtures than the matchday already holds.
+Invariants:
+- No payload carries a position and none may gain one — a matchday's place is derived (ADR-0064).
+- Deletion is soft: `spiele.spieltag_id` points here and nothing cascades.
+- Soft is not harmless — `REQ-RETIRE-002` refuses retiring a matchday holding a played match.
+- `anzahl_spiele` is derived (ADR-0065); `REQ-SPIELTAG-002` refuses a phase too small for its fixtures.
 """
 
 from typing import Annotated
@@ -70,7 +61,7 @@ async def post_spieltag(
     why the payload carries none (ADR-0064).
 
     **Two refusals.** A season whose knockout phase is already under way takes no new matchdays at all
-    (`REQ-SPIELTAG-003`, owner, 2026-08-08) — "under way" meaning its earliest non-group matchday begins
+    (`REQ-SPIELTAG-003`, decided 2026-08-08) — "under way" meaning its earliest non-group matchday begins
     today or began earlier, which is a date rather than a result. And the span has to sit inside the
     season's own (`REQ-DATE-002`).
     """
@@ -200,7 +191,7 @@ async def delete_spieltag(
     the reason this is soft rather than a delete: a hard one would leave every one of those matches
     pointing at nothing.
 
-    **It is refused while any of them carries a result** (`REQ-RETIRE-002`, owner, 2026-08-08). Resolvable
+    **It is refused while any of them carries a result** (`REQ-RETIRE-002`, decided 2026-08-08). Resolvable
     is not the same as visible: a retired matchday leaves `GET /spieltage`, and the public Spielplan joins
     fixtures onto the matchdays it received — so this retirement takes played results off that page. An
     unplayed matchday retires freely, which is the one somebody created by mistake.

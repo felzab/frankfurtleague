@@ -1,25 +1,17 @@
 """
 SPIELE · read endpoint
 
-Serves `GET /spiele`, the most-hit endpoint in the application. Read-only; every Spiel mutation lives in
-the admin router.
+Serves `GET /spiele`, the most-hit endpoint in the application; every mutation lives in the admin
+router. Authorization is the router-level `verify_access_base` dependency.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- Omitting `saison_id` means the current season, resolved in the handler (ADR-0002).
+- `saison_phase="playoffs"` is a query-only alias for `!= "gruppenphase"`, never a stored value.
+- Both reads run `build_spiele_pipeline` — a plain `find` misses the joined `disqualifikation`
+  and returns a shape `FLSpielJoined` refuses loudly (ADR-0028).
 
-  • Omitting `saison_id` means the CURRENT season, not every season. The resolution must stay in the
-    handler: a Pydantic field default is a constant and cannot query the database.
-  • `saison_phase="playoffs"` is a query-only alias compiled to `saison_phase != "gruppenphase"`. It is
-    never a stored value -- you will not find it on a document.
-  • Authorization comes from the router-level `verify_access_base` dependency. A new endpoint added
-    here inherits it.
-  • BOTH reads go through `build_spiele_pipeline`, and neither may go back to a plain `find`. The
-    disqualification each side carries is JOINED from `saison_teams` and stored on no match document
-    (ADR-0028, rule 4), so a `find` here returns a shape `FLSpielJoined` cannot validate -- which is
-    the failure being loud rather than a badge quietly going missing.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/backend/spec.md -- section 2, the full parameter contract
+See:
+- docs/backend/spec.md — section 2, the full parameter contract
 """
 
 from fastapi import APIRouter, Depends

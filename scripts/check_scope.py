@@ -1,50 +1,18 @@
 """
-scripts/check_scope.py - does this gate run cover what the branch actually changed?
+SCRIPTS · does this gate run cover what the branch actually changed?
 
 Run by verify.sh as its first step, because the scope flags are chosen by whoever types them and
-nothing else reads the diff back. The rule being held is CLAUDE.md's gate section: the scope must
-cover every surface the branch touched, and a comment-only edit is a documentation change whatever
-file holds it - so correcting a citation inside src/core/config.ts is `--docs`, not the full form.
+nothing else reads the diff back. The rule held is CLAUDE.md's gate section: the scope covers
+every surface the branch touched, and a comment-only edit is a documentation change whatever
+file holds it. Only a missed images scope refuses; every other gap is reported — the reasoning,
+and why anything a parser cannot prove counts as code, is ADR-0037.
 
- WHY IT REFUSES ONE THING AND ONLY REPORTS THE REST ------------------------------------------------
-
- The two ways of being wrong are not comparable. A full gate run for a comment costs minutes of
- Docker. A `--docs` run for a change that touches a packaging path means the image build never ran
- before the push, and a packaging break is the one class the frontend toolchain cannot see at all
- (scripts/README.md, the images scope). So the images scope is the floor: missing it FAILS. Every
- other missing scope is reported, because the run may be a deliberate mid-work one and a check that
- refuses those gets suppressed (docs/_standard/chapters/5-currency.md). The reasoning is ADR-0037.
-
- The classifier only ever SUPPRESSES a complaint - it can make the check quieter about a
- comment-only edit, never quieter about anything else, and it removes no CI job. Anything it cannot
- prove is comment-only counts as code.
-
- WHAT IT CAN PROVE ---------------------------------------------------------------------------------
-
- Only where a real parser answers exactly. There is no line-level `#` rule anywhere in here.
-
-   .ts, .tsx   TypeScript's own parser and printer, via scripts/ts_normalize.mjs. A `//` inside a
-               string or a regular expression is not a comment, and only the parser knows that.
-   .py         ast.parse, whose tree carries no comments. Docstrings ARE nodes, so they are stripped
-               first: a docstring is documentation, and an edit confined to one is a docs change.
-   .toml       tomllib. A `#` inside a TOML string is not a comment either, and the parser knows.
-
- Everything else is code, including Dockerfiles, YAML and shell. Those are exactly where a naive
- `#` rule breaks - on a heredoc, or a `#` inside a string - and they are also where a wrong answer
- costs the most, so "cannot prove it" resolves to code rather than the rule being widened to fit
- them.
-
- WHERE THE PATH MAPPING COMES FROM -----------------------------------------------------------------
-
- scripts/ci_scopes.sh, run over the files whose change is NOT comment-only. That script is already
- the one copy of the path-to-scope mapping - both workflows read it - and a second copy here would
- drift from it silently. The comment-only files are added back as a plain documentation change,
- which is what they are.
-
- It maps to CI's scope names, two of which do not correspond one-to-one with a verify.sh flag:
- `backend` stands for `--backend` and `--db` together, because CI runs the backend-db job whenever
- it runs the backend one; and `format` is satisfied by `--frontend`, whose first step is prettier in
- write mode, and otherwise means `pnpm format` from fl_frontend/.
+Invariants:
+- The classifier only ever suppresses a complaint, and it removes no CI job.
+- Parsers, never a `#` rule: TypeScript via ts_normalize.mjs, `ast` with docstrings stripped, tomllib.
+- The path mapping is scripts/ci_scopes.sh — the one copy; a second here would drift silently.
+- CI's `backend` means `--backend` plus `--db`; `format` is `--frontend`'s prettier step, or
+  `pnpm format` from fl_frontend/ when the frontend scope does not run.
 """
 
 from __future__ import annotations

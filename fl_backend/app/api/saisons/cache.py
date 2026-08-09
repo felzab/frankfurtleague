@@ -1,29 +1,19 @@
 """
 SAISONS · the in-process season cache
 
-Season documents, cached in this process and dropped by the season write path. ADR-0002 made the
-current-season lookup the hot path of almost every read — `/spiele`, `/spieltage`, `/teams` and
-`/saisons/current` all resolve an omitted `saison_id` through it, and `/teams` reads the season's
-`rules` on every call besides — while the answer changes twice a year at most.
+Season documents, cached in this process and dropped by the season write path as it saves.
+ADR-0002 made the current-season lookup the hot path of almost every read, while the answer
+changes twice a year at most; the TTL only bounds the one write nothing observes — a hand edit in
+Compass — and keeps ADR-0035's property true through this layer too.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- Only found documents are stored: a miss keeps raising 404 from a fresh read, never a cached one.
+- Every read returns a deep copy — the stored document is shared by every future hit.
+- One process, one cache: a second uvicorn worker changes that arithmetic (ADR-0070).
 
-  • Only found documents are stored. A miss is never cached: an id that named nothing must keep
-    raising 404 from a fresh read, and "no active season" must stay the loud failure it is.
-  • Every read returns a deep copy. The stored document is shared by every future hit, so a caller
-    mutating its answer must corrupt nothing but its own copy.
-  • The TTL is a bound, not the mechanism. The three write endpoints drop the whole cache as they
-    save, so an edit made through the API is visible at once; the TTL exists for the write nothing
-    observes — a hand edit in Compass — and keeps ADR-0035's property true through this layer too:
-    staleness stays bounded by a cache lifetime, never by the life of the process.
-  • One process, one cache. The backend runs a single uvicorn worker (`fl_backend/Dockerfile`), so
-    the write-path drop reaches every cache there is. A second worker would change that arithmetic;
-    the ADR records it as the assumption to re-check.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/_decisions/0070-the-season-document-is-cached-in-process.md — the decision and the bound
-  app/api/saisons/crud.py — the resolution point this cache sits behind
+See:
+- ADR-0070 — the season document is cached in process
+- app/api/saisons/crud.py — the resolution point this cache sits behind
 """
 
 import time

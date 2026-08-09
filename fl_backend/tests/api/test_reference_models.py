@@ -1,8 +1,9 @@
 """
-The remaining constrained models: spielorte, schiedsrichter, spieler, spieltage, saisons.
+API · the remaining constrained models: spielorte, schiedsrichter, spieler, spieltage, saisons
 
-One module rather than five, because each carries only a handful of constraints and splitting them
-would be more navigation than signal. Split it the moment any one of them grows real behaviour.
+One module rather than five, because each carries only a handful of constraints and splitting
+them would be more navigation than signal. Split it the moment any one of them grows real
+behaviour.
 """
 
 import pytest
@@ -114,7 +115,7 @@ class TestSpieler:
         """Positive baseline for the player model."""
         assert FLSpieler.model_validate(spieler()).vorname == "Max"
 
-    # Owner decision: a player must have a first name; the rest may be absent while a squad entry
+    # Decided: a player must have a first name; the rest may be absent while a squad entry
     # is still being filled in. The frontend mirrors exactly this split.
     def test_requires_a_first_name(self, spieler):
         """`vorname` is the one mandatory field — a squad entry with nothing at all is not a player."""
@@ -306,7 +307,7 @@ class TestSaison:
 
 class TestSpielBooking:
     """
-    The clash rule's projection, which is validated rather than read as a raw dict (owner, 2026-08-08).
+    The clash rule's projection, which is validated rather than read as a raw dict (decided 2026-08-08).
 
     `find_clash_refusal` ACTS on these values — it splits `uhrzeit` into three parts to compare times — and
     the read behind them is a bare projection over every season rather than a validated fixture list. The

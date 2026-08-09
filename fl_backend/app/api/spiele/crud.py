@@ -1,51 +1,22 @@
 """
 SPIELE · bracket advancement, the preview of it, and the derived fault list
 
-The one database-facing half of auto-advance. `resolve_bracket` in `services.py` decides what every
-slot in a season should hold; this module reads the season, hands it over, and writes back the
-fixtures whose answer differs (ADR-0042). `find_bracket_faults` runs the same resolution over every
-season and keeps only what it reported, writing nothing (ADR-0047). `preview_bracket_after_patch` runs
-it over ONE season rebuilt in memory, which is what `dry_run=true` answers with (ADR-0051).
+The database-facing half of auto-advance: `resolve_bracket` in `services.py` decides what every
+slot should hold; this module reads the season, hands it over, and writes back the fixtures whose
+answer differs (ADR-0042). All three callers — save, fault list, preview — go through
+`_resolve_one_saison`, so they cannot disagree about who finished second.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- The preview and `find_bracket_faults` write nothing and take no session (ADR-0047, ADR-0051).
+- A release is applied before the resolution — the two orders name different fixtures (ADR-0052).
+- Reads take the caller's session, or the resolution runs on the pre-write snapshot and moves nothing.
+- Team fields go through `_stored_side` with `keep_oid` — a joined dump would denormalise (ADR-0028).
+- The `$set` names its keys: `mietpreis` and `payment` record what was agreed for that match (ADR-0028).
+- `teamN_quelle` is never written — clearing it is how a slot is taken into manual charge (ADR-0042).
+- The group standing is read through `build_team_pipeline`, the pipeline `GET /teams` runs (ADR-0026).
 
-  • All THREE callers go through `_resolve_one_saison`. The fault list an admin re-asks for, the one a
-    save reports and the one a preview promises have to be the same list, and two implementations of
-    the standings read would be two answers to who finished second.
-  • The preview writes NOTHING and takes no session, exactly as `find_bracket_faults` does. It answers
-    a question; a transaction would take a write lock for one.
-  • A release is applied BEFORE the resolution, on both paths. A slot the release opened can be
-    refilled by the resolution that follows it, so the two orders name different fixtures (ADR-0052).
-  • `find_bracket_faults` writes NOTHING and takes no session. It is a read on an admin route, outside
-    any transaction, and reporting a contradiction is never licence to resolve it (ADR-0047).
-  • The read takes the caller's SESSION. `advance_bracket_winners` runs after `patch_spiel_data` has
-    written the result that triggers it, and a read without the session sees the last committed
-    snapshot instead -- so it would resolve the bracket from the match as it was before the write and
-    advance nothing.
-  • The team fields go through `_stored_side`, which dumps the STORED field set and nothing else. The
-    read endpoints serve a side carrying a joined `disqualifikation`, and a write that dumped one would
-    denormalise it into the document (ADR-0028, rule 4).
-  • The team fields are dumped with `context={"keep_oid": True}`. Without it `team_id` serialises to a
-    string, the `spiele` `$jsonSchema` validator rejects the write, and the transaction takes the
-    admin's own edit down with it.
-  • The `$set` NAMES its keys and never writes a whole match document. `ort.mietpreis` and
-    `schiedsrichter.payment` record what was agreed for that match, and rewriting them would rewrite
-    history (ADR-0028, rule 2).
-  • `teamN_quelle` is never written. It describes where a side of the fixture comes from, which stays
-    true once the winner arrives (ADR-0042), and clearing it is the admin's only way to take a slot into
-    manual charge -- a write here would silently take it back (ADR-0042).
-  • The GROUP STANDING is read through `build_team_pipeline`, the same pipeline `GET /teams` uses. A
-    second, Python implementation of ADR-0026's counting rule would be a second answer to "how many
-    points does this team have", and the bracket and the table would eventually disagree.
-  • The standing is read AT ALL only when some slot's `quelle` names a group placing. Deciding a
-    group's placings is the expensive half of a result entry, and a group no slot reads from buys
-    nothing with it -- a season whose bracket is match-fed end to end never runs the aggregation.
-  • Both reads take the caller's SESSION, for the reason above: the standing has to include the result
-    this request has just written, or a group that the edit completes still reads as unfinished.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/backend/spec.md -- section 3, the write path step by step
+See:
+- docs/backend/spec.md — section 3, the write path step by step
 """
 
 from typing import Any, Mapping, Sequence
@@ -186,7 +157,7 @@ async def find_bracket_faults(
         faults.extend(resolution.bracket_faults)
         faulted_ids.update(fault.spiel_id for fault in resolution.bracket_faults)
 
-    # The sixth fault, derived from the JOINED fixtures rather than from the resolution (owner,
+    # The sixth fault, derived from the JOINED fixtures rather than from the resolution (decided
     # 2026-08-08). It is not a property of the bracket -- it compares a fixture's date against a
     # disqualification recorded on the junction row -- so it sits beside the walk rather than inside it,
     # and it covers group-phase fixtures, which no bracket rule looks at. The join already carries each
@@ -218,7 +189,7 @@ async def pull_saison_membership(
     A team absent from the returned map holds no row at all, which is a distinct refusal from being
     disqualified: the first is a dangling reference and the second is a decision somebody recorded.
 
-    **The value is the disqualification's DATE, not a boolean** (owner, 2026-08-08). A disqualification
+    **The value is the disqualification's DATE, not a boolean** (decided 2026-08-08). A disqualification
     takes effect on a day, so a fixture played before that day was played legally and stays editable --
     entering its result is recording history, not fielding an ineligible team. `find_eligibility_refusal`
     compares the fixture's own date against this, which it cannot do from a boolean.

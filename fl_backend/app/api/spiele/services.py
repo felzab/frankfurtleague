@@ -1,81 +1,22 @@
 """
 SPIELE · query construction, the playoff bracket, and what the write path refuses
 
-Pure throughout -- no I/O, no collection access -- which is what makes the query semantics, the
-advancement algorithm and every refusal rule testable without a database. Six halves:
+Pure throughout — no I/O — so the query semantics, the advancement algorithm and every refusal
+rule are testable without a database. `resolve_bracket` computes what every slot should hold,
+reports stored faults (ADR-0047) and names the result each advancement destroys (ADR-0051);
+`find_wiring_refusal` and the occupant pair decide what a patch may claim (ADR-0046, ADR-0052).
 
-  • `build_spiele_filter` / `build_spiele_sort` translate `FLSpieleFilterParams` into a Mongo filter
-    document and a sort specification.
-  • `build_spiele_pipeline` wraps those into the aggregation every match-serving endpoint runs, whose
-    one `$lookup` joins each side's disqualification from `saison_teams` (ADR-0028 rule 4).
-  • `apply_payload_to_spiel` normalises one patch payload into the fixture it produces. The SAVE and
-    the `dry_run=true` PREVIEW both go through it, which is what stops the two disagreeing (ADR-0051).
-  • `resolve_bracket` computes what every bracket slot in a season should hold, reports every stored
-    fault it walked past (ADR-0047), and names the result each advancement destroys (ADR-0051).
-  • `find_wiring_refusal` decides whether a patch's wiring is one the season can hold (ADR-0046).
-  • `find_eligibility_refusal` and `judge_spieltag_occupancy` decide the same about its OCCUPANTS: a
-    disqualified team is refused, and a team already playing this Spieltag is moved or refused
-    (ADR-0052).
+Invariants:
+- `saison_phase="playoffs"` compiles to `!= "gruppenphase"` — a query alias, never a stored value.
+- `spiel_status` compiles to dates; `ausstehend` includes today, unlike the frontend's (ADR-0072).
+- The disqualification lookup keys on each document's own `saison_id`, never a caller-resolved one.
+- A slot with a `quelle` is `resolve_bracket`'s; clearing it is the whole manual override (ADR-0042).
+- "Nothing to look up" leaves a slot alone; "the reference names nobody" empties it (ADR-0047).
+- Containing a fault and reporting it are separate, and every one of the five is both (ADR-0047).
+- An occupant refusal applies only to a team the payload newly fields (ADR-0052).
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • `saison_phase="playoffs"` compiles to `!= "gruppenphase"`. It is a query alias and never a stored
-    value.
-  • `spiel_status` compiles to a date or cancellation filter (ADR-0072). Note `ausstehend` is `>= today`, so it
-    INCLUDES today -- the frontend's own status derivation excludes it and labels those matches
-    `heute`. The two definitions differ deliberately; see the glossary before changing either.
-  • `unbekannt` has no branch and therefore filters nothing: passing it returns everything.
-  • The lookup keys on each DOCUMENT'S own `saison_id`, never on one the caller resolved. Three of the
-    four callers span more than one season, and a fixed season would report a team's disqualification
-    from the wrong one.
-  • A joined side is only ever produced by the pipeline. Nothing here constructs an
-    `FLSpielTeamFieldJoined`, and `resolve_bracket` builds the STORED `FLSpielTeamField`, because what
-    it builds is written back to the document (ADR-0028, rule 4).
-  • `team_id` matches either side of the fixture, so it needs `$or` rather than a field equality.
-  • A slot with a `quelle` is maintained by `resolve_bracket` and by nothing else; a slot without one is
-    the admin's, and nothing here writes it. That one rule is the whole manual-override story -- there is
-    no override flag, and clearing the `quelle` is how a person takes a slot back (ADR-0042).
-  • BOTH variants resolve. A `spiel` reference is the side that came out of an earlier match; a `gruppe`
-    reference is the team a group's standing has already put at that placing beyond doubt (ADR-0043).
-  • A KNOCKOUT fixture whose goals finished level is decided by its `elfmeterschiessen` and by nothing
-    else. The counts are read HERE and nowhere in the league table, which scores the match as a draw --
-    the two disagree about the same fixture deliberately (ADR-0044). A `gruppenphase` fixture is never
-    decided that way: a group draw is a final result.
-  • "Nothing to look up" LEAVES A SLOT ALONE; "the reference names nobody" EMPTIES it. The first covers a
-    `spiel_nr` the season has no match for, a chain of references that closes on itself, and a `platz`
-    its group can never produce -- all data-entry mistakes, and erasing a team over one destroys more
-    than it reports. The second is a real answer and is how a corrected result reaches the final.
-  • A fixture whose two references resolve to ONE club is the same class of mistake, contained the
-    same way: it is not maintained, its stored sides stand, and everything downstream derives from
-    that stored state -- never from the contradiction. The containment is transitive by construction,
-    because the memo records the fixture as unchanged rather than as changed-then-refused.
-  • CONTAINING a fault and REPORTING it are separate, and every one of the five is both. The five are the
-    two `gruppe` states, a `spiel_nr` naming no match, a cycle, and a fixture resolving to one club --
-    they reach `bracket_faults` and change no slot (ADR-0047). Reporting a shape is never licence to act
-    on it.
-  • A placing that is not decided YET is nobody's problem and is reported to nobody. Only states a
-    further result cannot fix reach `bracket_faults`.
-  • The containment above and `find_wiring_refusal` are two boundaries, not one rule applied twice: the
-    write path REFUSES wiring the season cannot hold, and the resolution CONTAINS the same shapes when
-    they are already stored -- data that never passed through the endpoint still resolves without loss
-    (ADR-0046).
-  • An occupant refusal applies only to a team the payload NEWLY fields. Without that clause a fixture
-    already holding an ineligible team becomes uneditable -- including by the edit that would fix it.
-  • A Spieltag clash MOVES a manual side and REFUSES against a maintained one. Emptying a side that
-    carries a `quelle` is reverted by the next resolution, so it would report a success that does not
-    hold (ADR-0052).
-  • `resolve_bracket` returns typed model values and never a Mongo update document. Serialising an
-    embedded team is a storage concern and belongs in `crud.py`, which knows about `keep_oid`.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/glossary.md -- spiel_status, for the two definitions side by side
-  docs/_decisions/0042-a-result-entry-resolves-the-whole-bracket.md -- the model and the algorithm
-  docs/_decisions/0043-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md
-  docs/_decisions/0044-a-shoot-out-is-its-own-scoreline.md -- why the table still counts it as a draw
-  docs/_decisions/0047-a-bracket-fault-is-derived-on-demand.md -- the five faults and where they surface
-  docs/_decisions/0051-a-voided-result-is-named-before-it-is-lost.md -- the dry run and what it reports
-  docs/_decisions/0052-a-team-is-fielded-once-per-spieltag.md -- the occupant rules and move-or-refuse
+See:
+- docs/glossary.md — spiel_status, the two definitions side by side
 """
 
 from dataclasses import dataclass
@@ -738,7 +679,7 @@ class WriteRefusal:
 
 # A team the season records as disqualified was newly fielded on a fixture played on or after the day
 # that took effect. Declared state, set by a person and changed by no result -- but it takes effect on a
-# DAY, so a fixture dated before it was played legally and may still be edited (owner, 2026-08-08).
+# DAY, so a fixture dated before it was played legally and may still be edited (decided 2026-08-08).
 #
 # Two carve-outs, both narrow. A team already stored on the fixture may be resubmitted, or the fixture that
 # needs fixing would be the one nobody can open. And a CANCELLED GROUP fixture may hold one outright: that
@@ -755,7 +696,7 @@ ELIGIBILITY_NO_MEMBERSHIP = "REQ-ELIGIBILITY-002"
 # resolution maintains -- so emptying it would be undone on the next pass.
 SPIELTAG_OCCUPIED = "REQ-SPIELTAG-001"
 
-# A side carrying a result was emptied (owner, 2026-08-08). `ergebnis` is composed from the two `tore`, and
+# A side carrying a result was emptied (decided 2026-08-08). `ergebnis` is composed from the two `tore`, and
 # `tore` lives INSIDE the side -- so removing the team takes its goals with it and the composed result
 # collapses to null. What is left is a match that was played, whose score is gone, and whose one side is
 # empty; and no legitimate act reaches it, because a match that was played had two sides.
@@ -789,7 +730,7 @@ def find_eligibility_refusal(
     competes, read from `saison_teams` inside the caller's transaction. A team absent from it holds no row
     for the season at all, which is the second rule below.
 
-    **The disqualification rule is keyed on the fixture's date** (owner, 2026-08-08). A match played
+    **The disqualification rule is keyed on the fixture's date** (decided 2026-08-08). A match played
     before the disqualification took effect was played legally, so fielding that team on it stays
     permitted -- recording the result of a match that happened is not the same act as putting an
     ineligible team into one that has not. The comparison uses the PAYLOAD's `datum`, because that is the
@@ -798,7 +739,7 @@ def find_eligibility_refusal(
     A fixture with NO date is refused, and that is the refuse-by-default posture rather than an oversight:
     "we cannot tell when this was played" is not evidence that it was played in time.
 
-    **A CANCELLED GROUP-PHASE fixture may hold a disqualified team whatever the dates say** (owner,
+    **A CANCELLED GROUP-PHASE fixture may hold a disqualified team whatever the dates say** (decided
     2026-08-08). That is what cancelling a group fixture records: the team was not there, and the match did
     not happen. The row exists so the group's schedule stays complete and the table can account for it, so
     refusing the team on it would refuse the very entry that documents the absence.
@@ -830,7 +771,7 @@ def find_eligibility_refusal(
             )
 
         # A cancelled GROUP fixture is a record of a match that did not happen, so a disqualified team is
-        # exactly who belongs on it (owner, 2026-08-08). The phase is the stored fixture's: `saison_phase`
+        # exactly who belongs on it (decided 2026-08-08). The phase is the stored fixture's: `saison_phase`
         # is on no payload, so this write cannot move a knockout slot into the group phase to get past it.
         records_an_absence = payload.is_canceled and stored.saison_phase == "gruppenphase"
 
@@ -849,18 +790,18 @@ def find_eligibility_refusal(
     return None
 
 
-# The fixture's own date falls outside the span of the matchday it belongs to (owner, 2026-08-08). The
+# The fixture's own date falls outside the span of the matchday it belongs to (decided 2026-08-08). The
 # matchday is a named block of the season's fixtures and the public Spielplan prints this date under that
 # matchday's heading, so a fixture outside the block reads as a data error on a public page. The repair is
 # to widen the matchday rather than to except the fixture -- see the note in `spieltage/services.py`.
 FIXTURE_OUTSIDE_SPIELTAG = "REQ-DATE-001"
 
-# Another fixture already holds this venue, or this referee, within the buffer below (owner, 2026-08-08).
+# Another fixture already holds this venue, or this referee, within the buffer below (decided 2026-08-08).
 # Physically impossible, and easy to enter because neither picker shows availability. The same shape as
 # `REQ-SPIELTAG-001`, which refuses a team playing twice on one matchday.
 FIXTURE_DOUBLE_BOOKED = "REQ-CLASH-001"
 
-# How far apart two fixtures must be to share a venue and a referee, in minutes (owner, 2026-08-08: four
+# How far apart two fixtures must be to share a venue and a referee, in minutes (decided 2026-08-08: four
 # hours). A match plus its overrun, the changeover and the travel between them -- the league plays several
 # matches at one ground on a matchday, so the rule is a spacing rule rather than a ban.
 CLASH_BUFFER_MINUTES = 4 * 60
@@ -973,7 +914,7 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
 
 def find_disqualified_occupants(spiele: Sequence[FLSpielJoined]) -> list[FLBracketFaultOccupant]:
     """
-    Every fixture fielding a team the season disqualified before the day it is played (owner, 2026-08-08).
+    Every fixture fielding a team the season disqualified before the day it is played (decided 2026-08-08).
 
     Derived on demand and stored nowhere, like the five bracket faults beside it (ADR-0047). It needs no
     read of its own: `build_spiele_pipeline` already joins each side's `disqualifikation` record with its

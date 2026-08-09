@@ -1,20 +1,14 @@
 """
-The committed OpenAPI document is the one this service publishes.
+API · the committed OpenAPI document is the one this service publishes
 
 `fl_backend/openapi.json` is what the frontend's contract test compares its Zod mirror against
-(ADR-0040). That comparison is only worth as much as the document's freshness, so this suite is the
-thing that keeps it fresh: change a Pydantic model without regenerating, and the gate fails here
-naming the component that moved.
+(ADR-0040), so this suite is what keeps it fresh: change a Pydantic model without regenerating,
+and the gate fails here naming the component that moved. It runs in the default tier —
+`create_app(build_test_config())` needs no server, no database and no `.env`.
 
-It runs in the DEFAULT tier. `create_app(build_test_config())` needs no server, no database and no
-`.env`, so the whole check is a dict comparison.
-
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • The committed document equals the built one, compared as PARSED JSON. Never as bytes: `pnpm format`
-    runs prettier over the whole repository, so the file's formatting is not this module's to assert.
-  • The document is compared whole. Comparing only `components` would miss a route added, removed or
-    re-pathed, and the frontend pairs on component names that a moved route can orphan.
+Invariants:
+- The documents are compared as parsed JSON, never bytes — prettier owns the file's formatting.
+- The document is compared whole: `components` alone misses a route added, removed or re-pathed.
 """
 
 import pytest

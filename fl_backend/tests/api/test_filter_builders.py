@@ -1,13 +1,10 @@
 """
-The filter builders, plus the matchday order — the pure half of each feature's `services.py`.
+API · the filter builders, plus the matchday order — the pure half of each `services.py`
 
-An ordering is pure in exactly the way a filter builder is: a list in, a list out, no collection and no
-await, so it belongs in this file rather than in one of its own.
-
-These are the first behaviour tests outside model validation, and they fit the suite's no-I/O
-boundary: a builder takes a filter model and returns a dict, with no collection and no await
-anywhere in the call. Anything that asserts the *routers* apply these correctly needs an HTTP
-client and a database, which this suite deliberately does not have — see `tests/README.md`.
+An ordering is pure in exactly the way a filter builder is: a list in, a list out, no collection
+and no await, so it belongs here rather than in a file of its own. Anything asserting that the
+routers apply these correctly needs an HTTP client and a database, which this suite deliberately
+does not have — see `tests/README.md`.
 """
 
 from bson import ObjectId

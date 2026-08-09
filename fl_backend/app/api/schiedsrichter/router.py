@@ -1,17 +1,12 @@
 """
 SCHIEDSRICHTER · read endpoint
 
-Referees. Read-only here; create, update and delete are admin-authorized and live in the admin router.
+Read-only; create, update and delete are admin-authorized and live in the admin router.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Deletion is SOFT (`inactive_since`, ADR-0032), for the same reason as venues: matches embed a
-    copy of the referee, and a hard delete would orphan every match they officiated.
-  • `payment` is the fee in whole euros, with no default. It is NOT propagated when a referee is
-    renamed -- the fee recorded on a match is what was agreed for that match, and rewriting it would
-    rewrite history.
-  • The frontend calls this with no arguments, always. The filter parameters exist but are unused in
-    practice, which is worth knowing before optimising for them.
+Invariants:
+- Deletion is soft (`inactive_since`, ADR-0032): matches embed a copy of the referee.
+- `payment` is whole euros, no default, and is not propagated by a rename — history stays put.
+- The frontend calls this with no arguments, always; the filter parameters are unused in practice.
 """
 
 from fastapi import APIRouter, Depends

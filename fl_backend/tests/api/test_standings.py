@@ -1,17 +1,13 @@
 """
-The group standing: the tiebreak chain, who may hold a placing, and when a placing becomes final.
+TEAMS · the group standing: the tiebreak chain, and when a placing becomes final
 
-`build_gruppen` and `build_decided_standings` are pure, so every case here runs in the default tier with
-no container — including the ones that matter most, which are about results that have NOT happened yet
-and could not be staged in a database at all (ADR-0043).
+`build_gruppen` and `build_decided_standings` are pure, so every case runs in the default tier —
+including the ones that matter most, which are about results that have NOT happened yet and
+could not be staged in a database at all (ADR-0043). The last case takes the standing back into
+`resolve_bracket`, because a slot seeded from an undecided placing is the confidently-wrong
+public page this design exists to prevent.
 
-The last case takes the standing back into `resolve_bracket`, because the two halves are only worth
-anything joined: a placing nobody seeds is a number, and a slot seeded from an undecided placing is the
-confidently-wrong public page this design exists to prevent.
-
-Ids are a fixed prefix plus the team or match number, so a failing case names what it came from. Both
-prefixes are 20 hex characters and the suffix is decimal, so every result is a valid 24-character
-ObjectId.
+Ids are a fixed prefix plus the team or match number, so a failing case names what it came from.
 """
 
 from typing import Any, Callable

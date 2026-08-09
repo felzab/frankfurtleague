@@ -1,19 +1,14 @@
 """
 SPIELER · aggregation pipeline
 
-Builds the read pipeline for `GET /spieler`. Players follow the same two-document shape as teams: the
-`spieler` record holds what does not change between seasons, and a `saison_spieler` junction holds what
-does. The pipeline joins them and flattens the result into `FLSpieler`.
+Builds the read pipeline for `GET /spieler`. Players follow the same two-document shape as teams:
+`spieler` holds what does not change between seasons, the `saison_spieler` junction what does;
+the pipeline joins them and flattens the result into `FLSpieler`.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Season-specific filters are injected INSIDE the `$lookup` sub-pipeline, not applied after the join.
-    Filtering afterwards would materialise every season's row for every player first.
-  • Filter values keep their ObjectId type through `model_dump(context={"keep_oid": True})`. Dumping
-    without that context turns ids into strings, which then match nothing.
-  • `build_spieler_pipeline` FLATTENS, and `build_spieler_memberships_pipeline` does not. One row per
-    player per season is what a squad list wants and is exactly what the admin list cannot use; the
-    two shapes are two questions and neither is derivable from the other (ADR-0034).
+Invariants:
+- Season filters are injected inside the `$lookup` sub-pipeline, never applied after the join.
+- Filter values keep their ObjectId type via `model_dump(context={"keep_oid": True})`.
+- `build_spieler_pipeline` flattens and `build_spieler_memberships_pipeline` does not (ADR-0034).
 """
 
 from typing import Any, Iterable, Mapping
@@ -138,7 +133,7 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
     the list badges them and offers the reactivate -- and a player with no squad row at all comes
     back with an empty list rather than disappearing or failing to validate.
 
-    Sorted by FORENAME then surname (owner, 2026-08-07), which is how the admin list reads and how
+    Sorted by FORENAME then surname (decided 2026-08-07), which is how the admin list reads and how
     the other admin lists are ordered. `nachname` is nullable and MongoDB sorts null before every
     string, so two players sharing a forename put the surnameless one first rather than scattering.
     """
@@ -175,13 +170,13 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
 # WHAT A SQUAD WRITE REFUSES
 # =====================================================================================================
 
-# The squad row names a team holding no `saison_teams` row for that season (owner, 2026-08-08). A player
+# The squad row names a team holding no `saison_teams` row for that season (decided 2026-08-08). A player
 # listed for a club that is not in the competition, which is the same dangling reference
 # `REQ-ELIGIBILITY-002` refuses on the match side -- and it was open here while closed there.
 SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
 
 # Two players in one team and one season wearing the same number. Refused only where the write INTRODUCES
-# the collision (owner, 2026-08-08): a row nobody touches keeps whatever number it holds, so existing data
+# the collision (decided 2026-08-08): a row nobody touches keeps whatever number it holds, so existing data
 # is never made uneditable, and the same clause shape `find_eligibility_refusal` uses for a newly fielded
 # team applies here for a newly taken number.
 SQUAD_NUMMER_TAKEN = "REQ-SQUAD-002"

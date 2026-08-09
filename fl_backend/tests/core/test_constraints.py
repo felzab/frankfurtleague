@@ -1,27 +1,14 @@
 """
-The declared constraints, checked as data (ADR-0027).
+CORE · the declared constraints, checked as data (ADR-0027)
 
-Three separate jobs, and the middle one is the reason this file matters more than its length suggests:
+Three jobs: the validators are well-formed; they have not drifted from the Pydantic models —
+hand-mirroring is this codebase's main drift risk, and the mirror test fails by name when a
+field is added to one copy only; and the scope ADR-0027 drew is still the scope, because
+widening it is a one-word edit that would otherwise pass review.
 
-  1. The validators are well-formed — every required field has a declared type, every index names keys
-     the validator knows about.
-  2. **They have not DRIFTED from the Pydantic models.** A `$jsonSchema` is a third copy of the schema
-     after Pydantic and the Zod mirror, and hand-mirroring is this codebase's main drift risk. Both
-     copies here are importable Python in one process, so the check is fifteen lines and
-     `test_every_mirrored_model_matches_its_validator` is it. Add a field to `FLSpiel` and forget
-     `constraints.py`, and the default `pytest` run fails by name. The Zod mirror is checked too, and
-     needs a published document as the intermediary to do it (ADR-0040).
-  3. The scope ADR-0027 drew is still the scope. Types, presence and enums; no ranges, no patterns, no
-     lengths. `test_no_validator_constrains_a_range_or_a_format` is that decision made enforceable,
-     because widening it is a one-word edit that would otherwise pass review.
-
-Job 2 is really two checks, and the second was missing until ADR-0061 added two more hand-copied enums
-and had to rely on it. `test_every_mirrored_model_matches_its_validator` compares field NAMES and stops
-there, so a validator whose `enum` had drifted from its `Literal` passed every test in this file and
-failed against the live database instead. `test_every_validator_enum_matches_its_literal` closes that.
-
-The sibling `test_constraints_execution.py` asserts what MongoDB does with all of this. Neither
-replaces the other: this file fails when a rule is missing, that one when a rule is present and wrong.
+Invariants:
+- Field names and enum members are checked separately — a drifted `enum` once passed the name check.
+- `test_constraints_execution.py` is the other half: this fails on a missing rule, that on a wrong one.
 """
 
 from typing import Any, Mapping, get_args

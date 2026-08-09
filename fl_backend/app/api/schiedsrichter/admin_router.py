@@ -1,21 +1,14 @@
 """
 SCHIEDSRICHTER · write endpoints
 
-Referees. Every mutation sits beside the reads for the resource it changes, in a second router whose
-guard is `verify_access_admin` (ADR-0034).
+Referees. Every mutation sits beside the reads for its resource, in a second router guarded at
+router level by `verify_access_admin` (ADR-0034) — never move the guard onto an endpoint.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
-    construction. Never move the guard onto an individual endpoint.
-  • Renaming a referee fans the NAME out into every match embedding it -- and only the name.
-    `payment` is deliberately not propagated: the fee recorded on a match is what was agreed for that
-    match, and rewriting it would rewrite history.
-  • `default_payment` carries no default, for the same reason as a venue's rent: the patch writes the
-    payload back wholesale.
-  • Deletion is SOFT. Matches embed a copy of the referee and reference them by id.
-  • `kontakt` is personal data and is null on every referee today. The shape is required to be present,
-    never to be filled in.
+Invariants:
+- A rename fans out only the name: `payment` on a match records what was agreed for that match.
+- `default_payment` carries no default — the patch writes the payload back wholesale.
+- Deletion is soft: matches embed a copy of the referee and reference them by id (ADR-0032).
+- `kontakt` is personal data: the shape must be present, never filled in.
 """
 
 from typing import Annotated

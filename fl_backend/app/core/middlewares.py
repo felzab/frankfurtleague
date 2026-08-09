@@ -1,15 +1,11 @@
 """
 CORE · request middleware
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+The correlation-id and access-log middleware registered by `app/main.py`.
 
-  • The correlation id is taken from the `X-Correlation-ID` header when present AND well-formed, and
-    generated otherwise. Honouring a well-formed header is what correlates a request across nginx and
-    both services; refusing a malformed one is what keeps an attacker-chosen string out of every log
-    line this request produces.
-  • Every request gets exactly one access line, with the correlation id on it. uvicorn's own access
-    log is disabled in the container (Dockerfile CMD), so this middleware is the only per-request
-    record the backend writes.
+Invariants:
+- `X-Correlation-ID` is honoured only when well-formed — a malformed one is attacker-chosen log text.
+- Every request gets exactly one access line, with the correlation id on it; uvicorn's own is off.
 """
 
 import re

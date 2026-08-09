@@ -1,8 +1,8 @@
 """
-The custom string types.
+SHARED · the custom string types
 
-The date test is the one that matters: DATE_REGEX alone accepts 2026-02-31 and 2026-04-31, because a
-regex cannot know how many days a month has, so a real calendar check sits behind it.
+The date test is the one that matters: `DATE_REGEX` alone accepts 2026-02-31, because a regex
+cannot know how many days a month has, so a real calendar check sits behind it.
 """
 
 import pytest

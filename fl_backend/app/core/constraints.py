@@ -1,49 +1,22 @@
 """
 CORE · database constraints
 
-The nine `$jsonSchema` validators and the four unique indexes the database enforces on itself, plus the
-routine that applies them on every boot (ADR-0027). Declared here rather than clicked into the Atlas
-console, so they are versioned, reviewable in a diff, and restored with the cluster.
+The nine `$jsonSchema` validators and the four unique indexes the database enforces on itself,
+applied on every boot (ADR-0027); `--check` reports violations and the cross-document rules
+without writing anything. Declared here rather than clicked into Atlas, so they are versioned and
+restored with the cluster. The database user needs `collMod`, which `readWrite` does not carry —
+the wrong user builds every index, attaches no validator, and startup then refuses.
 
-`--check` additionally reports the CROSS-DOCUMENT rules the write path enforces and the database
-cannot (`report_relations`). They are reported and never applied: the two mechanisms above each see
-one document, and the rules there are relations between several.
+Invariants:
+- Validators assert types, required fields and enums — never ranges, patterns or lengths (ADR-0027).
+- They are hand-written, never generated from the models (ADR-0031).
+- `additionalProperties` is never `false`, or every field addition is a deploy-ordering problem.
+- Applying is idempotent, nothing is ever removed automatically, and a startup failure is fatal.
+- Run `--check` before deploying a change here — a unique index cannot build over violating data.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • The validators assert BSON TYPES, REQUIRED FIELDS and the enumerations that are already `Literal`s
-    in the Pydantic models -- and nothing else. No ranges, no patterns, no lengths, no cross-field
-    rules: those stay Pydantic's. The line is drawn there because those three are the constraints whose
-    violation is SILENT; a bad range or a bad length fails Pydantic loudly on the very next read.
-    `test_no_validator_constrains_a_range_or_a_format` enforces the boundary, so widening it fails the
-    default test tier rather than passing review as an improvement.
-  • They are HAND-WRITTEN and must not be generated from the models (ADR-0031). A model changed without
-    its validator is caught by `test_every_mirrored_model_matches_its_validator`, not by memory.
-  • `additionalProperties` is never `false`. Forbidding unknown keys would turn every future field
-    addition into a deploy-ordering problem between this file and the writer of that field, and
-    Pydantic ignores extra keys on read for the same reason.
-  • Applying is IDEMPOTENT. `collMod` overwrites the validator with the one declared here, so this file
-    is the source of truth rather than whatever the cluster happens to hold.
-  • Nothing is ever REMOVED. An index this module stops declaring stays until it is dropped by hand,
-    because dropping one automatically would let a bad merge silently switch off a uniqueness rule.
-  • Startup FAILS LOUDLY if any of it cannot be applied. A skipped validator is a database that
-    quietly stopped enforcing what this repository claims it enforces, which is worse than no
-    validator at all.
-  • A `unique` index cannot be built over data that already violates it. `--check` reports both kinds
-    of violation without writing anything, and is what to run BEFORE deploying a change to this file.
-
- THE DATABASE USER NEEDS `collMod` ────────────────────────────────────────────────────────────────────────
-
-  A `dbAdmin` action that `readWrite` does not carry, though both carry `createIndex` -- so the wrong
-  user builds every index here and attaches no validator, and the application then refuses to start.
-  `--check` reports it. Which users hold what: docs/ops/overview.md.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/_decisions/0027-the-database-enforces-its-own-invariants.md -- the decision and what it rejected
-  docs/_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md -- why this is by hand
-  docs/backend/spec.md -- invariants I15-I17
-  docs/workflows/README.md -- when to run --check, and how a data change is ordered against a deploy
+See:
+- docs/backend/spec.md — invariants I15–I17
+- docs/workflows/README.md — how a data change is ordered against a deploy
 """
 
 import argparse

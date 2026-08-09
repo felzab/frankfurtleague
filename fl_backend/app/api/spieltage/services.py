@@ -1,32 +1,18 @@
 """
 SPIELTAGE · filter construction and the derived order
 
-Pure translation of `FLSpieltageFilterParams` into a Mongo filter and sort, plus the one expression of
-a matchday's position. No I/O.
+Pure translation of `FLSpieltageFilterParams` into a Mongo filter and sort, plus the one
+expression of a matchday's position: `order_spieltage` is the only place in the system that says
+what "the third matchday" means (ADR-0064).
 
-**A matchday's position is derived, not stored** (ADR-0064). `order_spieltage` is where that order
-lives, and it is the only place in the system that says what "the third matchday" means.
+Invariants:
+- The natural order is total: `PHASE_RANK[saison_phase]`, then `beginn`, then `_id`.
+- The phase leads — date alone would let a Halbfinale render ahead of a Viertelfinale.
+- `order_spieltage` sorts in Python, after the read: `$sort` would order phases lexically.
+- The Mongo sort still approximates the natural order, so `limit` selects the right prefix.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • The natural order is TOTAL: `PHASE_RANK[saison_phase]`, then `beginn`, then `_id`. Two matchdays can
-    share a phase and a date -- nothing refuses that -- so the id is what keeps the order stable across
-    two calls rather than leaving Mongo's document order to decide. It is the id rather than the name
-    because a matchday HAS no name: the reader composes one from the phase and the position this order
-    produces, so ordering by it would be circular (ADR-0064).
-  • The phase leads, and that is the correctness half. Ordering by date alone would let a Halbfinale
-    dated before a Viertelfinale render ahead of it, which is exactly the defect a stored position used
-    to make possible in the other direction.
-  • `order_spieltage` sorts in PYTHON, after the read. A `$sort` on `saison_phase` would order the four
-    phases lexically -- finale, gruppenphase, halbfinale, viertelfinale -- which is not the order they
-    are played in, and a plain `find` has no stage to compute a rank in.
-  • The Mongo sort still approximates the natural order, so `limit` selects the right prefix. At a
-    season's half-dozen matchdays that is theoretical; it stops being theoretical if a caller ever
-    lowers the limit.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/domain.md -- what a derived field is, and why a position is one
+See:
+- docs/domain.md — what a derived field is, and why a position is one
 """
 
 from typing import Any, Sequence
@@ -91,7 +77,7 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
 # Retiring a matchday that holds a match with a result. A retired matchday is excluded from
 # `GET /spieltage`, and the public Spielplan joins fixtures onto the matchdays it received -- so this
 # retirement does not merely hide a container, it unpublishes results the league actually produced
-# (owner, 2026-08-08).
+# (decided 2026-08-08).
 SPIELTAG_HOLDS_PLAYED = "REQ-RETIRE-002"
 
 # The matchday would hold more fixtures than its phase accounts for. Too FEW is legal and stays legal --
@@ -152,9 +138,9 @@ def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int) -> 
 # =====================================================================================================
 #
 # Three rules, one family, and they all say the same thing in different places: a span contains what sits
-# inside it (owner, 2026-08-08). A season contains its matchdays, a matchday contains its fixtures.
+# inside it (decided 2026-08-08). A season contains its matchdays, a matchday contains its fixtures.
 #
-# **A postponed match means PROLONGING the matchday, and there is deliberately no exception** (owner,
+# **A postponed match means PROLONGING the matchday, and there is deliberately no exception** (decided
 # 2026-08-08). A matchday's `beginn`/`ende` DESCRIBES when its fixtures are played rather than planning
 # when they must be, so a fixture moving to the 20th means the matchday now runs to the 20th -- editing
 # `ende` makes the data true. A per-fixture escape hatch would need a marker saying "this one may sit
@@ -211,11 +197,11 @@ def find_spieltag_span_refusal(
     return None
 
 
-# A matchday created once the season's knockout phase has started (owner, 2026-08-08). A season's schedule
+# A matchday created once the season's knockout phase has started (decided 2026-08-08). A season's schedule
 # is settled before the bracket is under way: a group matchday created afterwards belongs to a phase nobody
 # can still play, and the group table is by then being read as final.
 #
-# **"Started" is a DATE, not a result** (owner, 2026-08-08): the earliest non-group matchday of the season
+# **"Started" is a DATE, not a result** (decided 2026-08-08): the earliest non-group matchday of the season
 # begins today or has already begun. Deliberately NOT "a knockout fixture carries a result", which is the
 # definition `unplayed_spiel_nrs` and `REQ-RETIRE-002` use for their own questions -- those ask whether a
 # match has been played, and this one asks whether the phase is under way. A bracket that kicked off this
@@ -235,8 +221,8 @@ def find_spieltag_create_refusal(*, earliest_knockout_beginn: str | None, today:
     morning is under way, and a rule that waited until tomorrow would permit a matchday for a round already
     being played.
 
-    The refusal covers every phase rather than only the knockout ones, which is the stricter reading the
-    owner asked for. **The way past it is to move the knockout matchday's date**, which is a real change to
+    The refusal covers every phase rather than only the knockout ones — the stricter reading, chosen
+    deliberately. **The way past it is to move the knockout matchday's date**, which is a real change to
     the schedule rather than a step in setting one up.
     """
 
