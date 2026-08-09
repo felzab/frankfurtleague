@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `3014d32`, 2026-08-08
+**Verified against:** `5d70e9f`, 2026-08-09
 
 Findings and undecided questions with real analysis, plus my ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend
@@ -50,12 +50,11 @@ is a claim about another row, so a closure changes statuses nobody edited. The d
 | 6   | BE-15 | An admin action log, and a smarter undo over it         | BE, DB, FE  | L      | Open     | — (ADR-0051's follow-on)  |
 | 7   | LOG-2 | Full trace context: `traceparent`, spans, a destination | FE, BE, Ops | L      | Open     | — (ADR-0039 is the floor) |
 | 8   | FB-15 | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —                         |
-| 9   | DOC-1 | A stamp-only edit propagates the branch-impact check    | Docs        | S      | Open     | —                         |
-| 10  | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
-| 11  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
-| 12  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
-| 13  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
-| 14  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
+| 9   | BE-7  | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | audit pass B4             |
+| 10  | BE-6  | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | audit pass B2             |
+| 11  | BE-14 | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | trigger recorded          |
+| 12  | OPS-2 | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | trigger recorded          |
+| 13  | OPS-3 | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | trigger recorded          |
 
 ## The bracket, end to end
 
@@ -108,7 +107,7 @@ closed.
   by hand.
 
 **One entry remains, concluded and not scheduled.**
-**[BE-14](#12--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
+**[BE-14](#11--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** — the seeding walk is
 capped at ten outstanding fixtures, which is a group of five, and a group of six would stop seeding
 with nothing said. The audit established that no faster exact algorithm exists to replace it, so the
 cap is a design boundary rather than debt.
@@ -164,7 +163,7 @@ and the rollover control sits on the season's own editor
 no prompt for is its SEQUENCE, which is [FB-16](#1--fb-16--nothing-announces-that-a-season-rollover-is-due)
 and a different kind of thing.
 
-**[BE-14](#12--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** is not a session of
+**[BE-14](#11--be-14--the-certainty-walk-gives-up-in-a-group-of-six-or-more)** is not a session of
 the string, and is concluded: its cap is measured as a boundary the competition's size does not
 reach. FB-9's eligibility design shipped with the string's editor work and is closed — row 40 of
 [`closed-items.md`](closed-items.md).
@@ -227,10 +226,8 @@ mirror that falls behind a gate failure that names the field). FE-3 is presentat
 surface that already exists. The three after it are prospective rather
 than dependent: BE-12 is real now that the spieler pages make retiring a row possible at all, BE-15
 becomes real the moment a second person can write, and LOG-2 improves the fidelity of a logging
-convention that already works. FB-15 names
-the group swap the team editor's lock leaves as the one defensible mid-season move, and DOC-1
-closes the tier: a documentation-gate design question that costs an afternoon and taxes every
-docs-heavy branch until it is answered.
+convention that already works. FB-15 closes the tier: the group swap the team editor's lock names
+as the one defensible mid-season move.
 
 ### 2 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 
@@ -501,32 +498,6 @@ to, and it now exists. Decide when one of the two is next touched.
 **Path:** independent. Nothing blocks it, and it blocks nothing — the lock in the club editor is the
 interim answer, and today's data has no case that needs a swap.
 
-### 9 · DOC-1 — A stamp-only edit propagates the branch-impact check
-
-**My question, raised 2026-08-08 out of the restamping that followed one chapter edit.** The
-`branch-impact` check (`scripts/check_docs.py :: check_branch_impact`) counts every markdown delta
-as material, because the comment-only classifier can prove nothing about markdown — and a moved
-stamp line is a markdown delta. The remedy the check prescribes is therefore an edit that re-arms
-the check: restamping a page makes every stamped page citing it due for a restamp of its own, ring
-by ring, until the citation graph closes. On 2026-08-08 a change to
-`docs/_standard/chapters/5-currency.md` propagated through three rings and eight pages whose cited
-claims had not changed.
-
-That run was cheap — every page in the closure had been re-verified the day before — but the price
-scales with time since the last sweep: on a branch cut months later, each ring demands a real
-re-verification of pages whose cited content did not move. A re-verification demanded for no
-content reason is the check crying wolf, which is the failure CUR-4's own reasoning names.
-
-**The trade.** Teaching the material test that a markdown delta consisting only of stamp lines is
-not material ends the cascade at the pages whose claims a branch actually touched — one narrow
-carve-out in a deliberately conservative classifier. Keeping the rule as it stands treats each
-cascade as a periodically forced re-verification sweep, at the risk that ring restamps done under
-deadline decay into the blind restamp CUR-4 forbids. Deciding this before the next
-documentation-heavy branch is what makes it worth an afternoon.
-
-**Path:** independent. Nothing blocks it; every branch that edits a page other stamped pages cite
-pays the cascade until it is decided.
-
 ---
 
 ## Tier 4 — standing cautions and watch items
@@ -536,7 +507,7 @@ elsewhere: two are seeded into backend audit passes and two into ops. BE-14 is t
 carries its own trigger — a group of six teams — because no pass covers a constant that is correct at
 today's group size and wrong at a larger one.
 
-### 10 · BE-7 — `typing` imports instead of `collections.abc`
+### 9 · BE-7 — `typing` imports instead of `collections.abc`
 
 Several backend modules import `Mapping`/`Sequence`/`Optional`/`Callable` from `typing` — aliases
 deprecated since Python 3.9, on a project running far newer. **Deliberately not fixed piecemeal:**
@@ -544,7 +515,7 @@ modernising one module while the rest keep the old spelling is worse than unifor
 decision is to enable ruff's `UP` rules and migrate in one pass — which backend audit pass B4's
 typing check owns.
 
-### 11 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 10 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 Its `json_or_python_schema` passes a bare `str_schema()` for the JSON branch, so
 `model_validate_json` accepts **any string** as an ObjectId while `model_validate` rejects it.
@@ -553,7 +524,7 @@ the existing tests certify a guarantee that holds in only one of the two modes. 
 routes through `model_validate_json`, an arbitrary string reaches a Mongo `_id` filter. Found
 2026-07-30. Seeded into backend audit pass B2's validation-mode check.
 
-### 12 · BE-14 — The certainty walk gives up in a group of six or more
+### 11 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Found 2026-08-05, reviewing the bracket after FB-8 closed. Not a defect today, and the numbers say why.**
 
@@ -612,7 +583,7 @@ and nobody needs to until a group grows.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 13 · OPS-2 — nothing validates the contents of a restored `.env`
+### 12 · OPS-2 — nothing validates the contents of a restored `.env`
 
 **Found 2026-08-01**, the hard way, during the server re-clone that followed the history rewrite.
 
@@ -650,7 +621,7 @@ diagnosis is worth a new way for `deploy.sh` to refuse.
 site cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 14 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 13 · OPS-3 — the crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Found 2026-08-01 while diagnosing a missing WhatsApp link preview. Not acted on.**
 

@@ -312,6 +312,7 @@ the ADR.
 | 0066 | Import `app/core/domain.py` from `app/`; generate it; make it the path a write is checked against                                                                                                |
 | 0068 | Spell a collection name as a literal; give FIELD names the same treatment                                                                                                                        |
 | 0069 | Fetch the season list when `?saison_id=` is absent; drop either half of the two-sided validation                                                                                                 |
+| 0073 | Count a stamp-line-only markdown delta as material to `branch-impact`; remove the carve-out as "conservatism"                                                                                    |
 
 ## 8. Documentation
 

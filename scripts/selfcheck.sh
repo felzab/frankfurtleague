@@ -272,8 +272,10 @@ step "12. The assistant hooks refuse what they exist to refuse"
 # failure nobody observes — a refusal that does not happen announces nothing. That is not
 # hypothetical: guard-branch.sh shipped a containment test that four ordinary spellings of an
 # inside path walked straight past, and nothing in the repository could have said so. These probes
-# run the two branch guards and the compose guard the way the hook runner does — a JSON payload on
-# stdin, the verdict on stdout — against a throwaway repository whose branch each case controls.
+# run the two branch guards, the compose guard and the rules-index hook the way the hook runner
+# does — a JSON payload on stdin, the verdict on stdout — the guards against a throwaway
+# repository whose branch each case controls, the rules-index hook against this repository, whose
+# index is what it exists to serve.
 #
 # The throwaway repo sits under the repo root for the same MSYS reason as the classifier fixtures:
 # an absolute /tmp path gets rewritten into a Windows one before bash can use it.
@@ -350,8 +352,34 @@ else
     note_fail "could not build the throwaway repository for the hook probes"
   fi
 
-  rm -rf "$hookfx"
-  trap - EXIT
+  # docs-rules-index.sh is the one informational hook, and both of its directions fail silently:
+  # one that stopped emitting would never show the standard to another session, and one that
+  # stopped staying quiet would restate a page of rules on every edit. Probed from the repo root,
+  # because the index it serves is this repository's, under throwaway session ids cleaned up below.
+  rules_hook="${REPO_ROOT}/.claude/hooks/docs-rules-index.sh"
+  probe_rules() { # $1 payload on stdin — from the repository root
+    printf '%s' "$1" | bash "$rules_hook" 2>/dev/null || true
+  }
+  expect_silent() { # $1 label · $2 hook output — the contract is silence
+    if [[ -z "$2" ]]; then info "$1 — silent"; else note_fail "$1: expected silence, got '$2'"; fi
+  }
+  rules_md_payload()  { printf '{"session_id":"%s","tool_input":{"file_path":"%s","content":"x"}}' "$1" "$2"; }
+  rules_src_payload() { printf '{"session_id":"%s","tool_input":{"file_path":"%s","new_string":"const a = 1;"}}' "$1" "$2"; }
+
+  # The root AS THE HOOK SEES IT, for the same reason the guard probes derive theirs: the hook asks
+  # git, git prints the Windows spelling, and a payload built from the MSYS spelling in REPO_ROOT
+  # would resolve to a different drive path inside node and read as outside the repository.
+  rules_root="$(git -C "$REPO_ROOT" rev-parse --show-toplevel 2>/dev/null)"
+  sid="sc-$$"
+  out="$(probe_rules "$(rules_md_payload "$sid" "${rules_root}/docs/README.md")")"
+  case "$out" in
+    *hookSpecificOutput*) info "rules hook: first repo .md edit — emitted" ;;
+    *) note_fail "rules hook: expected the index on a first repo .md edit, got '${out:-nothing}'" ;;
+  esac
+  expect_silent "rules hook: same session again"    "$(probe_rules "$(rules_md_payload "$sid" "${rules_root}/docs/README.md")")"
+  expect_silent "rules hook: comment-free source"   "$(probe_rules "$(rules_src_payload "${sid}-b" "${rules_root}/fl_frontend/src/probe.ts")")"
+  expect_silent "rules hook: path outside the repo" "$(probe_rules "$(rules_md_payload "${sid}-c" "${rules_root}/../outside.md")")"
+  rm -f "$(node -e 'process.stdout.write(require("os").tmpdir())')"/claude-docs-rules-index-sc-* 2>/dev/null || true
 fi
 
 printf '\n'

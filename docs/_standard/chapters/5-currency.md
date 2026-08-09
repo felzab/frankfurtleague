@@ -1,6 +1,6 @@
 # Currency
 
-**Verified against:** `3014d32`, 2026-08-08\
+**Verified against:** `5d70e9f`, 2026-08-09\
 **Applies to:** every stamped page, and every change that touches what a documented claim
 describes.
 
@@ -81,7 +81,9 @@ without re-reading the page falsifies it. What no branch touched is not this rul
 counted in commits would fail branches for files they never touched, and a check that cries wolf
 gets suppressed.
 
-**Exceptions:** a page added on the branch — there is no earlier stamp to move.
+**Exceptions:** a page added on the branch — there is no earlier stamp to move. And a cited
+page whose whole delta is stamp lines — a restamp re-verifies its own page and changes nothing a
+citer cites, so it re-arms nothing (ADR-0073).
 
 **Enforced by:** gate checks `branch-impact` and `stamp`.
 

@@ -94,6 +94,7 @@ was taken**, not when the file was written.
 | [0070](0070-the-season-document-is-cached-in-process.md)                          | The season document is cached in-process, dropped by its writes, TTL-bounded | backend                | Accepted | 2026-08-08 |
 | [0071](0071-a-path-identifies-a-query-validates.md)                               | A malformed id is a 404 in a path and a 422 in a query                       | backend                | Accepted | 2026-08-08 |
 | [0072](0072-a-status-filter-is-not-a-status-label.md)                             | `ausstehend` includes today as a filter and excludes it as a label           | frontend, backend      | Accepted | 2026-08-08 |
+| [0073](0073-a-restamp-is-not-a-material-change.md)                                | A markdown delta of stamp lines only does not re-arm `branch-impact`         | ops                    | Accepted | 2026-08-09 |
 
 `Surface` lists every surface a decision touches. A decision spanning two is normal and is the reason
 this folder is flat.

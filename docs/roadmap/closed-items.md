@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `3014d32`, 2026-08-08
+**Verified against:** `5d70e9f`, 2026-08-09
 
 Every item that has left [`open-items.md`](open-items.md), one row each. This is a **log, not a
 backlog**: nothing here is waiting for anything, and nothing here is re-opened by editing it — a
@@ -71,6 +71,7 @@ OPS-6 and OPS-7 are both retired here.
 | 42  | OPS-9 | The assistant hooks gated every session and nothing linted or executed any of them                 | Ops         | S      | —                            | [`1d98034`](https://github.com/felzab/frankfurtleague/commit/1d98034) |
 | 43  | FE-2  | A match had nowhere to carry a sentence about itself, and the editor nothing to write one with     | FE (+BE)    | S      | — (batch with FB-7, FE-1)    | [`0efa98e`](https://github.com/felzab/frankfurtleague/commit/0efa98e) |
 | 44  | FE-6  | The error page logged everything and offered its reader no way to say what they were doing         | FE          | S      | —                            | [`11497ba`](https://github.com/felzab/frankfurtleague/commit/11497ba) |
+| 45  | DOC-1 | A stamp-only markdown edit re-armed the branch-impact check on every page citing the restamped one | Docs        | S      | —                            | [`e578e0e`](https://github.com/felzab/frankfurtleague/commit/e578e0e) |
 
 ## What each one produced
 
@@ -284,3 +285,5 @@ no row here — its commit is the whole story.
   against that third handler and was overruled; ADR-0062 records the argument that lost.
   It discharged FB-5's obligation, made **BE-12** real for the first time — a squad row can now be
   retired — and left **FB-6** as the last of the admin-surface string.
+- **DOC-1** → [ADR-0073](../_decisions/0073-a-restamp-is-not-a-material-change.md), the carve-out
+  that ends the restamp cascade at the pages whose cited content actually changed.
