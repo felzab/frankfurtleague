@@ -1,8 +1,8 @@
 """
-FLKontakt — email and phone validation.
+SHARED · FLKontakt — email and phone validation
 
-The backend once applied **none**: both fields were a bare optional string, so the only
-check anywhere was the frontend's. These tests pin the rules now that the backend owns them.
+The frontend mirrors these rules; the backend copy is the one that guards direct API writes, and
+these tests pin it — a bare optional string here would leave the frontend as the only check.
 """
 
 import pytest

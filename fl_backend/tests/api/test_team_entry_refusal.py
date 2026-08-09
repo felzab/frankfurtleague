@@ -1,7 +1,7 @@
 """
-The rules guarding `POST /teams/{team_id}/saisons`.
+TEAMS · the rules guarding `POST /teams/{team_id}/saisons`
 
-Owner's rule, 2026-08-07: a team enters only a `future` season, only into a group that season offers,
+Decided 2026-08-07: a team enters only a `future` season, only into a group that season offers,
 and only while that group has space. Pure, so the default tier covers it without a container.
 """
 

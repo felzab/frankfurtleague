@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `5d70e9f`, 2026-08-09
+**Verified against:** `792c026`, 2026-08-09
 
 Findings and undecided questions with real analysis, plus my ranked backlog. Each entry
 keeps its full reasoning so the eventual decision is taken with the analysis in hand. The backend

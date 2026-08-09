@@ -1,14 +1,13 @@
 """
-The API envelope.
+SHARED · the API envelope
 
-Every response model extends BaseAPIResponse, and the frontend's BaseAPIResponseSchema requires
-`acknowledged` on every one of its response schemas. These tests pin the contract from the backend side
-so a future model added without the envelope fails here rather than at a browser.
+Every response model extends `BaseAPIResponse`, and the frontend requires `acknowledged` on
+every response schema — these tests pin the contract from the backend side, so a model added
+without the envelope fails here rather than at a browser.
 
-`test_declares_the_envelope_on_every_untyped_route` covers the routes whose body is small enough to be
-tempting to hand-build as a bare `JSONResponse`. An undeclared shape is a real shape the frontend schema
-can only guess at, so each one is a declared model and this pins it — including the defaults, which are
-what a caller receives when the route has nothing to report.
+`test_declares_the_envelope_on_every_untyped_route` covers the routes small enough to tempt a
+bare `JSONResponse`: an undeclared shape is a real shape the frontend schema can only guess at,
+so each one is a declared model — including the defaults.
 """
 
 import inspect

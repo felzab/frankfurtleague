@@ -1,14 +1,13 @@
 """
-The failure contract on the wire.
+CORE · the failure contract on the wire
 
 Every failure body is `{error_code, correlation_id}`, the code on the wire and in the log is the
 exception's own, and every request produces exactly one access line.
 
-Driven through TestClient WITHOUT the lifespan, deliberately: a plain client never opens the
-database, so `get_db_client` raises `DB-CONN-001` on the first guarded read -- which exercises
-`base_api_exception_handler` with a real code instead of a hand-mocked exception. That handler once
-logged seven of the eight documented codes as a fallback string (`docs/roadmap/closed-items.md`,
-LOG-1), which is the regression this file pins.
+Driven through TestClient without the lifespan, deliberately: a plain client never opens the
+database, so the first guarded read raises a real `DB-CONN-001` instead of a hand-mocked
+exception. That handler once logged seven of the eight documented codes as a fallback string
+(`docs/roadmap/closed-items.md`, LOG-1), which is the regression this file pins.
 """
 
 import logging

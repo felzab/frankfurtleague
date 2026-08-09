@@ -1,20 +1,15 @@
 """
-`build_spiele_pipeline` executed by a real MongoDB (ADR-0030).
+SPIELE · `build_spiele_pipeline` executed by a real MongoDB (ADR-0030)
 
-The same split as the team pipeline's two suites: `test_spiele.py` asserts what the models accept and
-this asserts what MongoDB computes. Only a database can prove a `$lookup` correlates on the right
-keys, that `$mergeObjects` keeps the stored ones, and that a null side survives all of it.
+The same split as the team pipeline's two suites: `test_spiele.py` asserts what the models
+accept and this asserts what MongoDB computes — only a database proves a `$lookup` correlates on
+the right keys and a null side survives it. What is proved is one rule with four edges: a side
+carries the `disqualifikation` of the junction row for its own team and THIS fixture's season
+(ADR-0028, ADR-0059), and the 2025 fixture is the sharpest edge, because every wrong join key
+passes the 2026 cases and fails that one.
 
-Every test here is marked `db` and therefore deselected by default. Run them with:
-
-    cd fl_backend && uv run pytest -m db
-
+Every test is marked `db` and deselected by default: `cd fl_backend && uv run pytest -m db`.
 The corpus and its reasoning are documented in `conftest.py`; this module asserts against them.
-
-WHAT IS BEING PROVED, and it is one rule with four edges: a side carries the `disqualifikation` of
-the junction row for ITS OWN team and THIS fixture's season, and `null` whenever there is no such row
-or the row holds none (ADR-0028 rule 4, ADR-0059). The 2025 fixture is the sharpest of the four,
-because every wrong way to key the join passes the 2026 cases and fails that one.
 """
 
 from typing import Any

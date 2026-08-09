@@ -33,7 +33,7 @@ def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
 # =====================================================================================================
 # RETIRING IT
 # =====================================================================================================
-# The venue is still booked for a fixture nobody has played (owner, 2026-08-08). Retiring it takes it out
+# The venue is still booked for a fixture nobody has played (decided 2026-08-08). Retiring it takes it out
 # of every picker while matches are still scheduled there, which is the state the soft delete exists to
 # prevent, reached through the soft delete itself -- exactly the reasoning behind `REQ-RETIRE-001` for a
 # club, which this endpoint had no equivalent of.

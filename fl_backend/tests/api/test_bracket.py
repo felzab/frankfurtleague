@@ -1,12 +1,13 @@
 """
-The playoff bracket: resolving a season's slots from the references its fixtures carry.
+SPIELE · resolving a season's bracket slots from the references its fixtures carry
 
-`resolve_bracket` is the whole of auto-advance's logic and it is pure, so every case below runs in the
-default tier with no container — the walks that matter (a bracket nobody has propagated, a corrected
-quarter-final reaching the final) are proven here rather than against a database (ADR-0042).
+`resolve_bracket` is the whole of auto-advance's logic and it is pure, so every case runs in the
+default tier with no container — the walks that matter (a bracket nobody has propagated, a
+corrected quarter-final reaching the final) are proven here rather than against a database
+(ADR-0042).
 
-Ids are built from a fixed prefix plus the match or team number, so a failing case names the fixture it
-came from. Both prefixes are 20 hex characters and the suffix is decimal, so every result is a valid
+Ids are a fixed prefix plus the match or team number, so a failing case names the fixture it came
+from; both prefixes are 20 hex characters and the suffix is decimal, so every result is a valid
 24-character ObjectId.
 """
 

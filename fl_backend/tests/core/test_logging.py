@@ -1,10 +1,10 @@
 """
-The logging contract, from the backend side.
+CORE · the logging contract, from the backend side
 
-`docs/logging.md` promises one JSON document per line whose field set matches the frontend logger's,
-a correlation id on every record, and an error code that survives as a structured field. Nothing in
-the toolchain sees a log line, so these tests are the only net under those claims (they were false
-once: seven of the eight documented codes logged as a fallback string, and no test noticed).
+`docs/logging.md` promises one JSON document per line whose field set matches the frontend
+logger's, a correlation id on every record, and an error code surviving as a structured field.
+Nothing in the toolchain sees a log line, so these tests are the only net under those claims —
+they were false once: seven of the eight documented codes logged as a fallback string.
 """
 
 import json

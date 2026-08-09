@@ -1,9 +1,9 @@
 """
-The in-process season cache: what it serves, what it copies, and what drops it (ADR-0070).
+SAISONS · the in-process season cache: what it serves, copies, and drops (ADR-0070)
 
 Default tier — the "collection" is a counting stub, because what is under test is the cache's
-contract, not Mongo: a hit issues no query, a returned document is a copy and not the stored one,
-a 404 is never cached, and the TTL turns a stale entry back into a miss.
+contract, not Mongo: a hit issues no query, a returned document is a copy and not the stored
+one, a 404 is never cached, and the TTL turns a stale entry back into a miss.
 """
 
 import asyncio

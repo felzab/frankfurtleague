@@ -1,19 +1,15 @@
 """
 CORE · application exceptions
 
-Every failure carries an `error_code` alongside its message, so a log line names a specific failure
-rather than a status class. The codes are listed in the backend spec and are part of the API contract.
+Every failure carries an `error_code` alongside its message, so a log line names a specific
+failure rather than a status class. The codes are part of the API contract.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- A new failure mode gets a new error code, never a reused one.
+- The `Retry-After` and `WWW-Authenticate` headers on the two carrier exceptions are contract.
 
-  • A new failure mode gets a new error code, never a reused one -- the codes are what make logs
-    greppable.
-  • `DatabaseUnavailableException` carries `Retry-After`; `RequestAuthorizationException` carries
-    `WWW-Authenticate`. Both headers are part of the response contract, not decoration.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/logging.md -- the error-code table and the failure-body contract
+See:
+- docs/logging.md — the error-code table and the failure-body contract
 """
 
 from typing import Any, Mapping, Optional

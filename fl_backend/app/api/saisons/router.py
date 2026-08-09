@@ -1,26 +1,16 @@
 """
 SAISONS · read endpoints
 
-Writing them is `admin_router.py`, which is a separate module so the two authorization levels never
-share a file.
+Writing them is `admin_router.py`, a separate module so the two authorization levels never share
+a file (ADR-0034).
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- `/current` is declared before `/{saison_id}` and must stay there — matching is declaration order.
+- A season id is exactly 4 characters, matching every `saison_id` that references one.
+- `rules.win_points` / `draw_points` score every derived league table on read (ADR-0026).
 
-  • `/current` is declared BEFORE `/{saison_id}` and must stay there. Route matching is by declaration
-    order, so with them swapped the literal path is captured by the id parameter and "current" is
-    looked up as a season id -- a 404 on the endpoint most of the site depends on.
-  • A season id is exactly 4 characters. `FLSpiel.saison_id` and `FLSpieltag.saison_id` both require
-    that of whatever they reference, so a longer id here would validate and then break every match and
-    matchday pointing at it.
-  • `/current` is what every other router calls to resolve an omitted `saison_id`. It sits on the hot
-    path of most page loads.
-  • `rules.win_points` / `draw_points` are what `GET /teams` scores its derived league table with
-    (ADR-0026). Editing them changes every table for that season on the next read -- there is no
-    stored copy to migrate, and equally nothing to warn that the numbers moved.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/frontend/spec.md -- section 5, how a direct edit here is propagated to the frontend cache
+See:
+- docs/frontend/spec.md — section 5, how a direct edit here reaches the frontend cache
 """
 
 from fastapi import APIRouter, Depends

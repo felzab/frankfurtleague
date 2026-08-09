@@ -1,16 +1,14 @@
 """
-Shared fixtures for the schema suite, plus the one real `mongod` the whole session shares.
+TESTS · shared fixtures for the schema suite, plus the one real `mongod` the session shares
 
-Every payload fixture is a **factory** returning a fresh, fully valid payload dict. Tests then
-override the one field under test, so each case states exactly what makes it invalid and no test can
-leak state into another through a shared mutable dict.
+Every payload fixture is a factory returning a fresh, fully valid payload dict; tests override
+the one field under test, so each case states exactly what makes it invalid and none can leak
+state through a shared mutable dict. Payloads are keyed the way MongoDB serves them — `_id`,
+not `id` — because that is the validation alias the models declare.
 
-Payloads are keyed the way MongoDB serves them — `_id`, not `id` — because that is the validation
-alias the models declare and therefore the shape they are actually validated against in production.
-
-The container fixtures at the bottom live here rather than in `api/conftest.py` because two suites now
-want a database: the executing team-pipeline tests and the executing constraint tests. Session-scoped,
-so one container serves both (ADR-0030).
+The container fixtures live here rather than in `api/conftest.py` because two suites want a
+database: the executing pipeline tests and the executing constraint tests. Session-scoped, so
+one container serves both (ADR-0030).
 """
 
 import copy

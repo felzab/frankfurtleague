@@ -1,32 +1,20 @@
 """
 TEAMS · read endpoints
 
-`GET /teams` in two shapes, discriminated by a `format` field on the response -- a plain list, or the
-four groups -- plus `GET /teams/{team_id}` for one team. Writing them is `admin_router.py`, a separate
-module so the two authorization levels never share a file.
+`GET /teams` in two shapes discriminated by `format` — a plain list, or the four groups — plus
+`GET /teams/{team_id}` for one team. Writing them is `admin_router.py` (ADR-0034).
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- Omitting `saison_id` means the current season, and flips the strict junction join on.
+- The season is resolved to a document, because the table is scored with its `rules` (ADR-0026).
+- `statistik_scope` defaults to `gruppenphase` — the league table is the no-argument answer (ADR-0029).
+- The grouped response always contains all four group keys, even when a group is empty.
+- Only the grouped shape reads the season's matches — it is a standing, the flat list is not (ADR-0043).
+- The head-to-head reads the same matches `statistik_scope` counted.
 
-  • Omitting `saison_id` means the current season. Beyond the default itself, this flips `strict_join`
-    on in the pipeline -- and that is the point: without a season the `$lookup` returns one row per
-    season a team ever played in.
-  • The season is resolved to a DOCUMENT, not just an id, because the derived table is scored with
-    that season's own `rules` (ADR-0026). One query answers both.
-  • `statistik_scope` defaults to `gruppenphase`, so the shape a caller gets by saying nothing is the
-    league table (ADR-0029). `gesamt` is the opt-in, not the other way round.
-  • The grouped response always contains all four group keys, even when a group is empty. It once built
-    the map from the teams present, so a season with nobody in group D omitted "D" and the frontend
-    parse failed, taking down /dashboard/saisontabelle.
-  • ONLY the grouped shape reads the season's matches. It is a standing, so it is ordered by the
-    tiebreak chain, whose last criterion is a head-to-head table (ADR-0043); the flat list is sorted by
-    name, is not a standing, and pays for none of it.
-  • That read is filtered to the SAME matches `statistik_scope` counted. A head-to-head drawn from a
-    wider set than the points it is separating would break a tie on results the points never saw.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  app/api/teams/services.py -- the pipeline, how `statistik` is derived, and the standing's own half
-  docs/backend/spec.md -- invariants I10, I11
+See:
+- app/api/teams/services.py — the pipeline, and the standing's own half
+- docs/backend/spec.md — invariants I10, I11
 """
 
 from typing import Any

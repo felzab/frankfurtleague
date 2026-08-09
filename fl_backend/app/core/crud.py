@@ -1,24 +1,16 @@
 """
 CORE · database access helpers
 
-Every raw MongoDB call in the application goes through one of these six functions. Nothing else calls
-Motor directly, which is what keeps session and transaction handling in one place.
+Every raw MongoDB call goes through one of these six functions — nothing else calls Motor
+directly, which keeps session and transaction handling in one place.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- `patch_one_in_db` returns the document as it was before the update (`ReturnDocument.BEFORE`).
+- The read helpers cap results at 1024 documents; a pipeline carries its own `$limit`.
+- A read inside a transaction takes that transaction's session, or it sees the pre-write snapshot.
 
-  • `patch_one_in_db` returns the document as it was BEFORE the update (ReturnDocument.BEFORE). Every
-    caller that needs the updated document asks for it explicitly -- the venue and referee patches do,
-    because they fan the new values out into the matches embedding them.
-  • The two read helpers cap results at 1024 documents. `aggregate_many_from_db` caps the cursor only;
-    a pipeline should carry its own `$limit`.
-  • A read that runs INSIDE a transaction must be given that transaction's session, or MongoDB serves
-    it the last committed snapshot -- so it cannot see the write the same handler just made. That is
-    why `pull_many_from_db` takes one: `advance_bracket_winners` resolves the bracket from a season it
-    reads back after `patch_spiel_data` has written the result that triggers the advancement.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/backend/spec.md -- invariant I2
+See:
+- docs/backend/spec.md — invariant I2
 """
 
 from typing import Any, Mapping, Sequence

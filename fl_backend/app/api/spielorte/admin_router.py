@@ -1,22 +1,14 @@
 """
 SPIELORTE · write endpoints
 
-Venues. Every mutation sits beside the reads for the resource it changes, in a second router whose
-guard is `verify_access_admin` (ADR-0034).
+Venues. Every mutation sits beside the reads for its resource, in a second router guarded at
+router level by `verify_access_admin` (ADR-0034).
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
-    construction. Never move the guard onto an individual endpoint.
-  • `maps_link` is DERIVED server-side from the name and address and is on no payload -- a client
-    cannot set it. Despite the name it is a Google Maps search string, not a URL, so it must never be
-    rendered into an href.
-  • `default_mietpreis` carries no default. The patch writes the payload back wholesale, so a Pydantic
-    default would let a request omitting the field overwrite a real rent with 0.
-  • Renaming a venue FANS OUT into every match embedding it. Without that, match cards show the old
-    name indefinitely.
-  • Deletion is SOFT. Matches embed a copy of the venue and reference it by id, so a hard delete would
-    orphan every historical match played there.
+Invariants:
+- `maps_link` is derived server-side and on no payload — a search string, never rendered as an href.
+- `default_mietpreis` carries no default: the patch writes the payload back wholesale.
+- A rename fans out into every match embedding the venue.
+- Deletion is soft — matches embed a copy and reference it by id (ADR-0032).
 """
 
 from typing import Annotated
@@ -130,7 +122,7 @@ async def delete_spielort(
     Matches embed a copy of the venue, so a hard delete would orphan every historical match that used
     it. Returns the updated document rather than a bare acknowledgement.
 
-    **It is refused while an unplayed fixture is still booked here** (`REQ-RETIRE-003`, owner,
+    **It is refused while an unplayed fixture is still booked here** (`REQ-RETIRE-003`, decided
     2026-08-08). Retiring the venue takes it out of every picker while matches are still scheduled at it,
     which is the state this soft delete exists to prevent, reached through the soft delete itself — the
     reasoning `REQ-RETIRE-001` already applies to a club. A PLAYED fixture never blocks: its `ort` is an

@@ -1,34 +1,19 @@
 """
 APP · the application factory
 
-Builds the FastAPI application: logging, exception handlers, three middlewares, fifteen routers --
-`system`, then a read and a write router for each of the seven resources (ADR-0034).
+Builds the FastAPI application: logging, exception handlers, three middlewares, fifteen routers —
+`system`, then a read and a write router per resource (ADR-0034). `create_app()` is a function so
+the composition root is a choice rather than an import side effect: `app/asgi.py` is the entry
+point, tests build their own app, and importing this module needs no environment.
 
-**This module creates no application when imported.** `create_app()` is a function so that the
-composition root is a choice rather than an import side effect: the process entry point is
-`app/asgi.py`, and a test builds its own app with its own settings. Importing this module therefore
-needs no environment at all.
+Invariants:
+- Middleware runs in reverse registration order — `CorrelationIdMiddleware`, last, runs first.
+- `setup_custom_logger` runs before the app is constructed, so a construction failure logs right.
+- Every router is registered here — an unmounted router serves nothing and fails silently.
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Middleware order is significant. Starlette applies them in reverse registration order, so
-    CorrelationIdMiddleware -- registered last -- runs first and a correlation id exists before
-    anything else can log.
-  • `setup_custom_logger` runs BEFORE the app is constructed, so a failure during construction is
-    itself logged in the right format.
-  • Every router is registered here. A router that is written but not included serves nothing and
-    fails silently -- there is no error for a route that was never mounted.
-
- KNOWN GAP ────────────────────────────────────────────────────────────────────────────────────────────────
-
-  The app declares no `title` or `description`, so /openapi.json carries no service-level prose. The
-  Swagger UI is also not publicly routed -- nginx sends /api here, but FastAPI's own /docs sits at the
-  app root, which nginx sends to Next.
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  app/asgi.py -- the process entry point
-  docs/backend/overview.md
+See:
+- app/asgi.py — the process entry point
+- docs/backend/overview.md
 """
 
 from fastapi import FastAPI

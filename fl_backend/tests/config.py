@@ -1,13 +1,11 @@
 """
-The settings an application under test is built with.
+TESTS · the settings an application under test is built with
 
-A module rather than a fixture, because two callers need it at different times: `conftest.py` exposes
-it as a fixture, and `api/test_admin_guard.py` needs an app at MODULE level — its cases are
-parametrised over the published operations, and pytest resolves parametrisation during collection,
-before any fixture runs.
-
-Not in `conftest.py` itself: under `--import-mode=importlib` pytest loads that file under its own
-module name, so importing it again would produce a second copy of every fixture.
+A module rather than a fixture, because two callers need it at different times: `conftest.py`
+exposes it as a fixture, and `api/test_admin_guard.py` needs an app at module level — pytest
+resolves parametrisation during collection, before any fixture runs. Not in `conftest.py`
+itself: under `--import-mode=importlib` pytest loads that file under its own module name, so
+importing it again would produce a second copy of every fixture.
 """
 
 from pydantic import SecretStr

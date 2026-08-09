@@ -1,38 +1,19 @@
 """
 SPIELER · write endpoints
 
-People, and their membership of a team's squad for a season. Two surfaces, because those are two
-different facts: a player moving clubs is not a new person, and a person leaving the league is not the
-same as a squad row ending.
+People, and their membership of a team's squad for a season — two surfaces, because a player
+moving clubs is not a new person. Guarded at router level by `verify_access_admin` (ADR-0034).
 
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
+Invariants:
+- Deletion is soft on both collections, and they retire independently (ADR-0032).
+- Creating a squad row 409s on a repeat — `reactivate` is what brings a player back (ADR-0032).
+- `nummer` is a string: squad numbers are worn, not counted.
+- `position` and `stufe` are closed sets (ADR-0061), here and in the `saison_spieler` validator.
+- `/spieler/{spieler_id}/saisons/{saison_id}` addresses a junction row, never the season (ADR-0034).
+- `GET /memberships` returns people carrying junction rows — deliberately, like the teams twin.
 
-  • `verify_access_admin` is attached at ROUTER level, so every endpoint added here is guarded by
-    construction. Never move the guard onto an individual endpoint.
-  • Deletion is SOFT on both collections, and they retire INDEPENDENTLY. Retiring a person leaves their
-    squad history intact; retiring a squad row leaves the person playing elsewhere.
-  • Creating a squad row is a plain insert and 409s on a repeat, because `uniq_spieler_id_saison_id`
-    keeps indexing a retired one. Bringing a player back into a season they already have a row for is
-    `POST .../saisons/{saison_id}/reactivate`, never a second create.
-  • `nummer` is a STRING. Squad numbers are worn, not counted.
-  • `position` and `stufe` are CLOSED SETS (ADR-0061), enforced by the payload models here and by the
-    `saison_spieler` validator underneath them.
-  • `/spieler/{spieler_id}/saisons/{saison_id}` addresses a JUNCTION ROW -- this player's team, number,
-    position and stufe for that season -- and never the season document, which lives at
-    `/saisons/{saison_id}`. A GET added here must return junction rows (ADR-0034).
-  • `GET /memberships` is the exception to the line above and is deliberate: it is player-centric, so it
-    returns PEOPLE carrying their junction rows rather than junction rows. It sits here because only the
-    admin surface asks it, exactly as `GET /teams/memberships` does.
-
- DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
-
-  ADR-0032  soft deletion is a date, and creating never revives
-  ADR-0034  the junction is addressed by its natural key, under the entity
-  ADR-0061  position and stufe are closed sets
-
- SEE ALSO ─────────────────────────────────────────────────────────────────────────────────────────────────
-
-  docs/glossary.md -- "the season junctions"
+See:
+- docs/glossary.md — "the season junctions"
 """
 
 from typing import Annotated
@@ -291,7 +272,7 @@ async def patch_saison_spieler(
     `position` and `stufe` are closed sets (ADR-0061), so a value outside either is a 422 rather than
     a second spelling of a position the league already has. `nummer` stays free TEXT — a squad number is
     worn rather than counted — but it is no longer free to collide: `REQ-SQUAD-002` refuses a number this
-    write would newly take from another player in the same squad (owner, 2026-08-08). Resubmitting the
+    write would newly take from another player in the same squad (decided 2026-08-08). Resubmitting the
     stored number always passes, so an existing duplicate stays editable.
     """
 

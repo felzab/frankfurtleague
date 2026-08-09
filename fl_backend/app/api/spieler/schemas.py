@@ -1,22 +1,13 @@
 """
 SPIELER · models
 
-Only `vorname` is required. Everything else may be null while a squad entry is still being filled in,
-so every consumer must handle a missing surname, number or position. `nummer` is a STRING, not an int.
+Only `vorname` is required — everything else may be null while a squad entry is still being
+filled in. Mirrored by `FLSpielerSchema` in the frontend.
 
-Mirrored by FLSpielerSchema in the frontend.
-
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • `position` and `stufe` are CLOSED SETS (ADR-0061). A document outside either is a malformed
-    document, not an unusual player, and the `saison_spieler` validator refuses one.
-  • `nummer` is a STRING and stays free text. A squad number is worn rather than counted: it is not
-    unique within a squad, and seven rows across three teams already share one with a team-mate.
-
- DECISIONS ────────────────────────────────────────────────────────────────────────────────────────────────
-
-  ADR-0032  soft deletion is a date, and the person and the squad row retire independently
-  ADR-0061  position and stufe are closed sets
+Invariants:
+- `position` and `stufe` are closed sets (ADR-0061); the `saison_spieler` validator refuses others.
+- `nummer` is a string and stays free text — not unique within a squad, worn rather than counted.
+- The person and the squad row retire independently (ADR-0032).
 """
 
 from typing import Literal
@@ -120,7 +111,7 @@ class FLPostSaisonSpielerPayload(BaseModel):
     Every field is required, including the three a squad often does not know yet: a caller states
     `null` rather than omitting, which is what keeps `is_nachgetragen` an answer rather than a
     default nobody chose. That flag decides whether a player reads as a late arrival, and the one
-    thing it must not be is quietly `False` because a caller forgot it (owner, 2026-08-07).
+    thing it must not be is quietly `False` because a caller forgot it (decided 2026-08-07).
     """
 
     saison_id: str = Field(min_length=4, max_length=4)

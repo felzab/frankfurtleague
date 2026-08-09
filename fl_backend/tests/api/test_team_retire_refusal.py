@@ -1,7 +1,7 @@
 """
-The rule guarding `DELETE /teams/{team_id}`.
+TEAMS · the rule guarding `DELETE /teams/{team_id}`
 
-Owner's rule, 2026-08-07: a club retires only once every season it is entered in is `past`. Pure, so
+Decided 2026-08-07: a club retires only once every season it is entered in is `past`. Pure, so
 the default tier covers it without a container.
 """
 

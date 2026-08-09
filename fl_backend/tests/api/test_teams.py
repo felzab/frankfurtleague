@@ -1,8 +1,8 @@
 """
-FLTeam, FLTeamStatistik and FLGruppen.
+TEAMS · FLTeam, FLTeamStatistik and FLGruppen
 
-FLGruppen carries the only behavioural change in this area, so it gets the most
-attention here: it must always emit all four groups, and must refuse a team it cannot place.
+FLGruppen carries the only behavioural change in this area, so it gets the most attention here:
+it must always emit all four groups, and must refuse a team it cannot place.
 """
 
 import pytest

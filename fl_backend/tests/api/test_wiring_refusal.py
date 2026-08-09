@@ -1,17 +1,14 @@
 """
-The write path's wiring refusal: which bracket edits the season cannot hold (ADR-0046).
+SPIELE · which bracket edits the season cannot hold (ADR-0046)
 
-`find_wiring_refusal` is pure, so every case runs in the default tier with no container. The rules it
-enforces are contradictions rather than preferences — wiring on a group fixture, a source the season
-cannot honour, one outcome feeding two slots, a hand-set team on a maintained side — and each case
-below is one of them, plus the legal edit that sits right beside it and must keep working.
+`find_wiring_refusal` is pure, so every case runs in the default tier. The rules are
+contradictions rather than preferences — wiring on a group fixture, a source the season cannot
+honour, one outcome feeding two slots, a hand-set team on a maintained side — and each case
+below is one of them, plus the legal edit beside it that must keep working.
 
-The refusal is asserted on by substring rather than by full message: the message is a log detail for
-an English-reading operator, and the tests should not break over its phrasing — only over which rule
-fired, which the named field and the named match number pin down.
-
-The season under test mirrors the real 2026 shape at its smallest: two group fixtures, two
-quarter-finals, two semi-finals (one wired, one manual), and a final fed by both semis.
+The refusal is asserted by substring rather than full message; the season under test mirrors the
+real 2026 shape at its smallest: two group fixtures, two quarter-finals, two semi-finals (one
+wired, one manual), and a final fed by both.
 """
 
 from typing import Any, Callable

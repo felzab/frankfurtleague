@@ -1,26 +1,15 @@
 """
-Every mutation is admin-guarded, checked against the published API surface.
+API · every mutation is admin-guarded, checked against the published surface
 
-[ADR-0034](../../../docs/_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md) puts
-the guard on the ROUTER rather than on each endpoint, so an endpoint reaches the wrong authorization
-only by being written in the wrong file. This suite is the net under that: it walks the operations the
-service actually publishes and asserts each non-GET one resolves to a route carrying
-`verify_access_admin`.
+ADR-0034 puts the guard on the router, so an endpoint reaches the wrong authorization only by
+being written in the wrong file — this suite is the net under that. The inventory comes from
+`app.openapi()["paths"]`, never `app.routes`: FastAPI does not flatten included routes, so a
+check over `app.routes` walks four framework routes and passes while proving nothing.
 
-**The inventory comes from `app.openapi()["paths"]`, never from `app.routes`.** FastAPI does not
-flatten included routes into `app.routes` — they sit behind `_IncludedRouter` — so a check written
-against `app.routes` walks four framework routes, finds no mutation to complain about, and passes
-while proving nothing.
-
- INVARIANTS ───────────────────────────────────────────────────────────────────────────────────────────────
-
-  • Every non-GET operation carries `verify_access_admin`. This is the rule the suite exists for.
-  • No operation carries two of the three guards. Two guards is not stricter than one -- both must
-    pass, so the effective key becomes whichever is checked first, and the route is reachable by
-    neither key alone.
-  • A GET is NOT required to be base-guarded: `GET /spiele/action_required` is admin-authorized on
-    purpose (ADR-0013), and the system probes use their own key. Asserting "GET means base" would
-    make this suite fail on three correct endpoints.
+Invariants:
+- Every non-GET operation carries `verify_access_admin`.
+- No operation carries two of the three guards — both must pass, so neither key alone reaches it.
+- A GET need not be base-guarded: `GET /spiele/action_required` is admin on purpose (ADR-0013).
 """
 
 import re
