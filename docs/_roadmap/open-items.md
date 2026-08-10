@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `75826c9`, 2026-08-10\
+**Verified against:** `e7c8163`, 2026-08-10\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -72,14 +72,13 @@ chosen by feel.
 | 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
 | 10  | BE-15  | Nothing records who changed what, or what it replaced   | FE, BE, DB  | L      | Open     | —          |
 | 11  | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
-| 12  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Closed   | —          |
-| 13  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
-| 14  | BE-6   | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | —          |
-| 15  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
-| 16  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
-| 17  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
-| 18  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
-| 19  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
+| 12  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
+| 13  | BE-6   | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | —          |
+| 14  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
+| 15  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
+| 16  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
+| 17  | DOC-3  | A rule pattern reaches less than the rule it enforces   | Docs        | —      | Standing | —          |
+| 18  | DOC-4  | A stamp is required by a path and owed by a claim       | Docs        | —      | Standing | —          |
 
 **No entry in this file blocks another**, which is why every `Depends on` cell is an em dash. What
 each entry waits on that is _not_ an entry — a page, a decision, a scheduled audit pass — is on its
@@ -143,12 +142,11 @@ no business refusing, and a classifier that spends a process per file to answer 
 diff. FE-3 is presentation work on a surface that already exists. OPS-12 and DOC-2 are each a
 boundary nothing currently watches — a generated file against the generator that owns it, and the
 documentation standard's enforcement claims against the gate, which resolves them in the direction
-that overstates and not in the direction that understates. BE-12, BE-15 and LOG-2 are prospective
+that overstates and not in the direction that understates. BE-12, BE-15 and LOG-2 close the tier and are prospective
 rather than dependent:
 BE-12 is real now that the spieler pages make retiring a row possible at all, BE-15 becomes real the
 moment a second person can write, and LOG-2 improves the fidelity of a logging convention that
-already works. FB-15 closes the tier with the group swap the team editor's lock names as the one
-defensible mid-season move.
+already works.
 
 ### 2 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 
@@ -514,50 +512,6 @@ validated or replaced the same way.
 collector fits on the current host beside the capped services. Each is input to step 1 and neither
 should be guessed.
 
-### 12 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
-
-**Status:** Closed\
-**Surfaces:** FE, BE\
-**Effort:** M\
-**Path:** Independent — the lock in the club editor is the interim answer.
-
-**Concluded by [ADR-0062](../_decisions/0062-a-group-change-is-a-swap-or-it-is-refused.md).**
-`POST /saisons/{saison_id}/gruppen/swap` exchanges two clubs' groups across both `saison_teams` rows in
-one transaction, refusing a pair that is not a swap (`REQ-SWAP-001`) and any swap once a knockout
-fixture carries a result (`REQ-SWAP-002`); the control is a panel on `/admin/saisons/[saison_id]`, and
-`REQ-ENTER-004`'s lock on a single move is untouched. The endpoint question the entry shared with the
-draw editor is answered for this surface alone — ADR-0045's remains its own.
-
-**Two findings were rehomed rather than fixed here.** The suite could execute no transaction at all,
-because its `mongod` is a standalone; that is now a second, replica-set container in
-`fl_backend/tests/conftest.py` and is recorded in the ADR's Consequences. And a `past` season whose
-knockout carries no result is still swappable, where `REQ-RULES-005` freezes the same season's scoring —
-also in Consequences, as a bound deliberately not taken.
-
-**The club editor locks the Gruppe select the moment the selected season is underway and the club has a
-fixture in it** (my item, 2026-08-07, out of the admin teams work). A group decides which table counts
-the club's results and which bracket slot its placing seeds
-([ADR-0035](../_decisions/0035-a-group-placing-is-ranked-by-one-chain-and-seeded-only-when-final.md)),
-so moving one club
-mid-season falsifies the table and the bracket at once. The lock's own message names the move that
-would be defensible: **two clubs exchanging groups**, which keeps each group's size and each schedule
-intact.
-
-**Why it is not a pair of junction PATCHes.** `PATCH /teams/{team_id}/saisons/{saison_id}` addresses
-one row, so a swap done as two calls has a window in which one group is a club short and the other a
-club over — and a failure after the first call leaves the season in that state. A swap is one decision
-and wants one transaction over two junction rows, which no endpoint offers. This is the same endpoint
-question the draw editor recorded for fixtures
-([ADR-0045](../_decisions/0045-a-draw-is-reviewed-as-a-table-of-provenance.md)), on a smaller surface.
-
-**A further bound, also mine:** once the knockout rounds have begun, no swap is defensible either — the
-standings have been consumed by the seeding, and a group change behind a played bracket rewrites what
-its slots meant. The control must refuse then, not merely warn.
-
-**Where it lands is open.** The club editor addresses one club, so a two-club operation sits awkwardly
-there; `/admin/saisons/[saison_id]` addresses the season, which is the thing a swap belongs to, and it
-exists. Decide when either is next touched. Today's data has no case that needs a swap.
-
 ---
 
 ## Tier 4 — standing cautions and watch items
@@ -569,7 +523,7 @@ because no pass covers either. DOC-3 and DOC-4 close the tier with the documenta
 limits: each names a rule the gate decides by a narrower test than the rule states, and each fails by
 saying nothing.
 
-### 13 · BE-7 — `typing` imports instead of `collections.abc`
+### 12 · BE-7 — `typing` imports instead of `collections.abc`
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -581,7 +535,7 @@ deprecated since Python 3.9, on a project running far newer. **Deliberately not 
 modernising one module while the rest keep the old spelling is worse than uniformity. The recorded
 decision is to enable ruff's `UP` rules and migrate in one pass.
 
-### 14 · BE-6 — `CustomObjectId` validates nothing in JSON mode
+### 13 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -595,7 +549,7 @@ already-parsed dicts — which is precisely why the existing tests certify a gua
 Python mode alone. If anything ever routes through `model_validate_json`, an arbitrary string reaches
 a Mongo `_id` filter. Found 2026-07-30.
 
-### 15 · BE-14 — The certainty walk gives up in a group of six or more
+### 14 · BE-14 — The certainty walk gives up in a group of six or more
 
 **Status:** Standing\
 **Surfaces:** BE\
@@ -656,7 +610,7 @@ deduplicated, but inside a transaction, whose lifetime is bounded.
 **Trigger to revisit:** a season drawn with six or more teams in any group, or any change to how groups
 are sized.
 
-### 16 · OPS-2 — Nothing validates the contents of a restored `.env`
+### 15 · OPS-2 — Nothing validates the contents of a restored `.env`
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -695,7 +649,7 @@ a faster diagnosis is worth a new way for `deploy.sh` to refuse.
 cannot tolerate the minutes between a bad deploy and a human reading the log. Ops audit pass O1
 (`docs/_auditing/prompts/ops/1-build-deploy.md`, check 4) covers script failure modes and owns this.
 
-### 17 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
+### 16 · OPS-3 — The crawler policy is split between robots.txt and Cloudflare, and neither knows about the other
 
 **Status:** Standing\
 **Surfaces:** Ops\
@@ -740,7 +694,7 @@ it. The 403 is invisible from the codebase.
 the table above takes one `curl` per agent and distinguishes an edge block from a markup problem
 immediately — which is exactly the distinction that cost time this round.
 
-### 18 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
+### 17 · DOC-3 — A rule pattern in the documentation gate reaches less than the rule it enforces
 
 **Status:** Standing\
 **Surfaces:** Docs\
@@ -774,7 +728,7 @@ answer has to find is a way to reach the indented block without reaching indente
 **Trigger to revisit:** a chapter added to the standard under a prefix the patterns do not carry, or
 the first page that needs a metadata block indented.
 
-### 19 · DOC-4 — A stamp is required by a path and owed by a claim
+### 18 · DOC-4 — A stamp is required by a path and owed by a claim
 
 **Status:** Standing\
 **Surfaces:** Docs\
