@@ -5,19 +5,25 @@ Every payload fixture is a factory returning a fresh, fully valid payload dict k
 than `id`; tests override the one field under test. What that buys, and when to reach for
 `assert_rejects` instead of a bare `pytest.raises`, are `docs/backend/spec.md` §1.6's.
 
-The container fixtures live here rather than in `api/conftest.py` because two suites want a
-database: the executing pipeline tests and the executing constraint tests. Session-scoped, so
-one container serves both (ADR-0023).
+The container fixtures live here rather than in `api/conftest.py` because several suites want a
+database. Session-scoped, so one `mongod` serves all of them (ADR-0023) — and a second, on a
+single-node replica set, serves the tests that open a transaction, which a standalone refuses.
+
+Invariants:
+- Both containers are lazy: nothing starts until a `db`-marked test asks for one.
 """
 
 import copy
 import logging
+import re
+import time
 from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
 from fastapi import FastAPI
 from pydantic import BaseModel, ValidationError
+from pymongo import MongoClient
 from pymongo.database import Database
 
 from app.core.config import BackendConfig
@@ -337,3 +343,65 @@ def mongo_database(mongo_container: Any) -> Iterator[Database]:
         yield client["fl_test"]
     finally:
         client.close()
+
+
+# How long to wait for the single node below to elect itself. Generous, because it is a container
+# start on a cold machine and not an operation whose latency means anything.
+REPLICA_SET_ELECTION_TIMEOUT_S = 60
+
+
+@pytest.fixture(scope="session")
+def mongo_replica_set_url() -> Iterator[str]:
+    """
+    A connection URL onto a single-node replica set, for the tests that open a TRANSACTION.
+
+    **`mongo_container` above cannot serve these, and the failure is not subtle**: a standalone `mongod`
+    answers any transaction with `IllegalOperation` — "transaction numbers are only allowed on a replica
+    set member or mongos" — so the write paths that take one (`swap_gruppen`, `activate_saison`,
+    `patch_spiel_data`) are unreachable there. Sessions and transactions need a replica set, and this
+    starts the smallest one there is.
+
+    **No authentication, and that is what keeps it to one container.** `mongod` refuses to start with
+    `--replSet` and `--auth` unless it is also given a keyFile for internal authentication, and a keyFile
+    is a bind-mounted file whose permissions `mongod` checks — which is the fragile half on a Windows
+    host. The suite's other container keeps its credentials, because three constraint tests create
+    limited users and connect as them, and those need auth enabled. So the two containers exist for two
+    genuinely different reasons rather than by duplication.
+
+    A SECOND container, and lazily: this is session-scoped like the first, so nothing starts it until a
+    test asks, and the default tier never sees either.
+
+    `directConnection=true` is required rather than cosmetic. The replica set advertises itself as
+    `127.0.0.1:27017`, which is the address INSIDE the container; a client doing ordinary topology
+    discovery would follow that and find nothing. A direct connection talks to the mapped port and skips
+    discovery, which is exactly right for a set with one member.
+    """
+
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.wait_strategies import LogMessageWaitStrategy
+
+    container = (
+        DockerContainer("mongo:8")
+        .with_command("--replSet rs0 --bind_ip_all")
+        .with_exposed_ports(27017)
+        .waiting_for(LogMessageWaitStrategy(re.compile(r"waiting for connections", re.IGNORECASE)))
+    )
+
+    with container:
+        url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true"
+
+        client = MongoClient(url)
+        try:
+            client.admin.command("replSetInitiate", {"_id": "rs0", "members": [{"_id": 0, "host": "127.0.0.1:27017"}]})
+
+            # Initiation returns before the node has elected itself, and the first write after it would
+            # fail with `NotWritablePrimary` — which reads as a broken test rather than as a race.
+            deadline = time.monotonic() + REPLICA_SET_ELECTION_TIMEOUT_S
+            while not client.admin.command("hello").get("isWritablePrimary"):
+                if time.monotonic() > deadline:
+                    pytest.fail(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
+                time.sleep(0.25)
+        finally:
+            client.close()
+
+        yield url
