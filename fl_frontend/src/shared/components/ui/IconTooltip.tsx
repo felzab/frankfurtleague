@@ -50,9 +50,9 @@ export function IconTooltip({
         role="presentation">
         {children}
       </Tooltip.Trigger>
-      {/* `break-all` is HeroUI's and wrong for prose: it splits a word wherever the line ends, which
-          is what leaves two letters on the last row. `text-balance` evens the rest out. The measure
-          stays HeroUI's `max-w-xs`, about 45 characters at this size. */}
+      {/* `break-all` is HeroUI's and wrong for prose: it splits a word wherever the line ends, leaving
+          two letters on the last row. `text-balance` evens the rest, and is ignored below the
+          browserslist floor. The measure stays HeroUI's `max-w-xs`. */}
       <Tooltip.Content
         placement={placement}
         className={`bg-surface border-border fluid-xs rounded-md border px-2.5 py-1 text-balance break-normal shadow-lg ${tone === "danger" ? "text-danger" : "text-foreground"}`}>
