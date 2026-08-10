@@ -21,6 +21,7 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
 import { APIBadStatusError } from "@/core/errors";
+import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
 import { FLTeamsMembershipsResponseSchema, FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
 
@@ -84,9 +85,12 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
  * **Uncached, and it stays uncached (ADR-0009).** `"use cache"` keys on a function's arguments and
  * never on caller identity, so a zero-argument admin-authed read cached here is one shared slot
  * holding data fetched with credentials no later caller presented. It carries no cache tag either:
- * a tag only means something inside a cache scope. The cost is one backend request per admin page
- * load.
+ * a tag only means something inside a cache scope. Being uncached is also what lets it run inside
+ * `runWithIncomingCorrelationId` (`docs/logging/spec.md`). What a page load costs is
+ * `docs/frontend/spec.md` section 1.2.
  */
 export async function getTeamMemberships(): Promise<FLTeamsMembershipsResponse> {
-  return apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" });
+  return runWithIncomingCorrelationId(() =>
+    apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" }),
+  );
 }

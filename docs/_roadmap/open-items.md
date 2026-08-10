@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `84d43da`, 2026-08-10\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -472,7 +472,7 @@ packages. **Neither upstream claim was re-verified when this entry was written**
   hand-rolled scope provably cannot reach: `"use cache"` forbids request APIs, so no application code
   can carry the request's id into a cache fill (`docs/logging/spec.md`, the cache-fill boundary).
   OpenTelemetry propagates through the framework's own internals instead. It covers every cached read;
-  the uncached page-render query already joins.
+  the uncached page-render reads already join.
 - **Timings become a tree rather than separate numbers.** Today nginx reports `upstream_duration_s` and
   the backend reports `duration_ms`, and relating them is manual. A span tree shows where a slow
   request actually spent its time, including inside Mongo.
@@ -499,7 +499,7 @@ independent of tracing.
 
 **The avoidable half of the propagation gap is closed**, so this entry does not carry it:
 `fl_frontend/src/shared/utils/correlationScope.ts :: runWithIncomingCorrelationId` seeds the scope for
-every dynamic caller, the uncached page-render query included. What is left for OpenTelemetry is the
+every dynamic caller, the uncached page-render reads included. What is left for OpenTelemetry is the
 half no application code can reach.
 
 **What it would supersede.** ADR-0032's decision that the identifier is a single id on a custom header.

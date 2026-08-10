@@ -1,9 +1,9 @@
 /**
  * ADMIN · action-required query
  *
- * The one query in the codebase that is deliberately NOT cached: it returns admin-authorized
- * data, which has no business in a cache shared across every visitor (ADR-0009). Do not "fix"
- * the inconsistency by adding `"use cache"`.
+ * Deliberately NOT cached, as every admin-authed read is: it returns admin-authorized data, which
+ * has no business in a cache shared across every visitor (ADR-0009). Do not "fix" the inconsistency
+ * by adding `"use cache"`.
  *
  * Invariants:
  * - Being uncached is what lets it run inside `runWithIncomingCorrelationId` (docs/logging/spec.md).

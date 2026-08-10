@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `84d43da`, 2026-08-10\
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -55,7 +55,7 @@ behaviour looks impossible; what holds the two together is [`spec.md`](spec.md) 
 
 Reads are cached with `"use cache"`, and lifetimes reflect how volatile the data is: matches for hours,
 reference data for days, system endpoints for minutes. The function-by-function table is
-[`spec.md`](spec.md) §1.2, which read is deliberately uncached is there too, the tag design is §1.4,
+[`spec.md`](spec.md) §1.2, which reads are deliberately uncached is there too, the tag design is §1.4,
 and what an edit made straight in MongoDB costs is §1.5.
 
 ## Rendering

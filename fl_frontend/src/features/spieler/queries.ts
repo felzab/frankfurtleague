@@ -15,6 +15,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
+import { runWithIncomingCorrelationId } from "@/shared/utils/correlationScope";
 
 import { FLSpielerListResponseSchema, FLSpielerMembershipsResponseSchema } from "./schemas";
 
@@ -47,8 +48,11 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
  * **Uncached, and it stays uncached (ADR-0009).** `"use cache"` keys on a function's arguments and
  * never on caller identity, so a zero-argument admin-authed read cached here is one shared slot
  * holding data fetched with credentials no later caller presented. It carries no cache tag either:
- * a tag only means something inside a cache scope.
+ * a tag only means something inside a cache scope. Being uncached is also what lets it run inside
+ * `runWithIncomingCorrelationId` (`docs/logging/spec.md`).
  */
 export async function getSpielerMemberships(): Promise<FLSpielerMembershipsResponse> {
-  return apiClient<FLSpielerMembershipsResponse>("/spieler/memberships", FLSpielerMembershipsResponseSchema, { authType: "admin" });
+  return runWithIncomingCorrelationId(() =>
+    apiClient<FLSpielerMembershipsResponse>("/spieler/memberships", FLSpielerMembershipsResponseSchema, { authType: "admin" }),
+  );
 }
