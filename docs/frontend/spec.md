@@ -1,6 +1,6 @@
 # Frontend — spec
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `75826c9`, 2026-08-10\
 **Scope:** `fl_frontend/src/`
 
 | Section                                                                                               | Answers                                                |
@@ -30,20 +30,20 @@
 
 The Notes column lists everything a slice holds beyond the four columns and its `components/` folder.
 
-| Slice            | queries | mutations | actions | schemas | Notes                                                                                                                                  |
-| ---------------- | :-----: | :-------: | :-----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `draftStatus.ts`, `facets.ts`, `resolvers.ts`, `types.ts`, `utils.ts`, tests                                |
-| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `types.ts`, `utils.ts`, tests                                                                  |
-| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `types.ts`                                                                                     |
-| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `teamDraftStatus.ts`, `types.ts`, `utils.ts`, tests          |
-| `saisons`        |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover — no delete; `constants.ts`, `facets.ts`, `resolvers.ts`, `saisonDraftStatus.ts`, `types.ts`, `utils.ts`, tests |
-| `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `spielerDraftStatus.ts`, `types.ts`, `utils.ts`, tests        |
-| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `types.ts`, `utils.ts`, tests                                                                  |
-| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only; nothing else                                                                                                                |
-| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `types.ts`, `utils.ts`, tests                                                                              |
-| `auth`           |    —    |     —     |   ✅    |    —    | `handleSignIn` + `signOutAction`; nothing else                                                                                         |
-| `dashboard`      |    —    |     —     |    —    |    —    | Components + `constants.ts`                                                                                                            |
-| `meta`           |    —    |     —     |    —    |    —    | Components + `constants.ts`, `types.ts`                                                                                                |
+| Slice            | queries | mutations | actions | schemas | Notes                                                                                                                                              |
+| ---------------- | :-----: | :-------: | :-----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spiele`         |   ✅    |    ✅     |   ✅    |   ✅    | Owns the Spiel write path; `draftStatus.ts`, `facets.ts`, `resolvers.ts`, `types.ts`, `utils.ts`, tests                                            |
+| `spielorte`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `types.ts`, `utils.ts`, tests                                                                              |
+| `schiedsrichter` |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `types.ts`                                                                                                 |
+| `teams`          |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + season junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `teamDraftStatus.ts`, `types.ts`, `utils.ts`, tests                      |
+| `saisons`        |   ✅    |    ✅     |   ✅    |   ✅    | Create, edit, rollover, group swap — no delete; `constants.ts`, `facets.ts`, `resolvers.ts`, `saisonDraftStatus.ts`, `types.ts`, `utils.ts`, tests |
+| `spieler`        |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD + squad junction; `constants.ts`, `facets.ts`, `resolvers.ts`, `spielerDraftStatus.ts`, `types.ts`, `utils.ts`, tests                    |
+| `spieltage`      |   ✅    |    ✅     |   ✅    |   ✅    | Full CRUD; `constants.ts`, `facets.ts`, `types.ts`, `utils.ts`, tests                                                                              |
+| `system`         |   ✅    |     —     |    —    |   ✅    | Read-only; nothing else                                                                                                                            |
+| `admin`          |   ✅    |     —     |    —    |    —    | Aggregator; `constants.ts`, `types.ts`, `utils.ts`, tests                                                                                          |
+| `auth`           |    —    |     —     |   ✅    |    —    | `handleSignIn` + `signOutAction`; nothing else                                                                                                     |
+| `dashboard`      |    —    |     —     |    —    |    —    | Components + `constants.ts`                                                                                                                        |
+| `meta`           |    —    |     —     |    —    |    —    | Components + `constants.ts`, `types.ts`                                                                                                            |
 
 `utils.ts`, `resolvers.ts` and `facets.ts` are sanctioned optional modules. `utils.ts` and
 `resolvers.ts` exist separately from `queries.ts` because they hold non-caching code, and folding them
@@ -133,6 +133,11 @@ changes what every public page shows to a visitor who named no season, for two s
 immediately, so there is no window in which it goes unnoticed. It confirms in place instead
 ([ADR-0050](../_decisions/0050-a-matchday-list-is-the-seasons-skeleton.md)).
 
+**The group swap on the same page also confirms in place, for a different reason: it is its own
+inverse** ([ADR-0062](../_decisions/0062-a-group-change-is-a-swap-or-it-is-refused.md)). Running it
+again on the same pair restores the season, so a fifteen-second window and a fifth route handler would
+be machinery for a reversal the panel states in a sentence.
+
 | Action                          | Slice          | Invalidates                                                          |
 | ------------------------------- | -------------- | -------------------------------------------------------------------- |
 | `patchAdminSpielDataAction`     | spiele         | `spiele`, `teams`, + `spiele:saison_id:{id}`, `teams:saison_id:{id}` |
@@ -160,6 +165,7 @@ immediately, so there is no window in which it goes unnoticed. It confirms in pl
 | `postSaisonAction`              | saisons        | `saisons`                                                            |
 | `patchSaisonAction`             | saisons        | `saisons`, `teams`                                                   |
 | `activateSaisonAction`          | saisons        | `saisons`, `spiele`, `spieltage`, `teams`                            |
+| `swapGruppenAction`             | saisons        | `teams`, + `teams:saison_id:{id}`                                    |
 | `postSpieltagAction`            | spieltage      | `spieltage`                                                          |
 | `patchSpieltagAction`           | spieltage      | `spieltage`                                                          |
 | `deleteSpieltagAction`          | spieltage      | `spieltage`                                                          |

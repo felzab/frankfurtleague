@@ -332,9 +332,8 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
       return { success: false, error: "Beim Tausch der Gruppen ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // Both layers for this season (ADR-0001): the base tag serves every read that named no season, and
-    // the granular one the reads that named this one. A group decides which table counts a club's
-    // results, so every standing of the season answers differently from here on.
+    // Both layers for this season (ADR-0001): the base tag serves the reads that named no season, the
+    // granular one those that named this one. A group decides which table counts a club's results.
     updateTag("teams");
     updateTag(`teams:saison_id:${validated.data.saison_id}`);
 

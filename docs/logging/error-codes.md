@@ -1,6 +1,6 @@
 # Logging — error codes
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `75826c9`, 2026-08-10\
 **Scope:** every `error_code` value either service emits, and the response body that carries it.
 
 **Every failure response body is `{error_code, correlation_id}` and nothing else** — messages,
@@ -54,6 +54,8 @@ request would have succeeded against a different state of the database
 | `REQ-ENTER-002`       | 409    | A team was entered into, or moved to, a group the season does not run                                                                          |
 | `REQ-ENTER-003`       | 409    | A team was entered into, or moved to, a group already holding `teams_per_group` rows                                                           |
 | `REQ-ENTER-004`       | 409    | A group change reached a team whose fixtures the started season has already drawn                                                              |
+| `REQ-SWAP-001`        | 409    | A group swap named something other than two clubs of that season standing in different groups (ADR-0062)                                       |
+| `REQ-SWAP-002`        | 409    | A group swap reached a season whose knockout rounds already carry a result (ADR-0062)                                                          |
 | `REQ-RETIRE-001`      | 409    | A club entered in an `active` or `future` season was asked to retire                                                                           |
 | `REQ-RETIRE-002`      | 409    | A matchday holding a played match was asked to retire, which would unpublish that result                                                       |
 | `REQ-RETIRE-003`      | 409    | A venue still booked for an unplayed fixture was asked to retire                                                                               |

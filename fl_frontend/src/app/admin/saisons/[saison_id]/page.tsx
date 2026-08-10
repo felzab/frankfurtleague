@@ -57,9 +57,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     // Only fetched where there is something to warn about. A season that is already active has no
     // rollover to present, and one with no incumbent has no outgoing fixtures to check.
     outgoingSaisonId === null || saison.status === "active" ? Promise.resolve(null) : getSpiele({ saison_id: outgoingSaisonId }),
-    // This season's clubs, for the swap control. `include_inactive` because this is an admin picker
-    // and a retired club can still hold a junction row in a season that has been played (ADR-0025) —
-    // hiding it would make a swap the endpoint accepts look impossible.
+    // This season's clubs, for the swap control. `include_inactive` because this is an admin picker,
+    // and hiding a retired club that still holds a junction row (ADR-0025) would make a swap the
+    // endpoint accepts look impossible.
     getTeams({ saison_id: saison.id, include_inactive: true }),
     // `playoffs` is the query alias for "not gruppenphase" and is exactly the set `REQ-SWAP-002`
     // counts, so the page asks the endpoint's own question rather than fetching a whole season to

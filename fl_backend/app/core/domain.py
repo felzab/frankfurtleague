@@ -462,7 +462,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SAISON_TEAMS,
         "gruppe",
         Editability.CONDITIONAL,
-        "held to the groups the season runs and to their capacity on every write; a row is created only while the season is `future`",
+        "held to the groups the season runs and to their capacity on every write; a row is created only while the season is `future`, "
+        "a single move is refused once the started season has drawn its fixtures, and what stays open is a two-club swap (ADR-0062)",
         "app.api.teams.services.find_entry_refusal",
     ),
     FieldPolicy(

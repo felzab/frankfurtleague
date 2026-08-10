@@ -75,6 +75,7 @@ cited from code and the path must never move
 | [0059](0059-a-restamp-is-not-a-material-change.md)                                | A markdown delta of stamp lines only does not re-arm `branch-impact`         | ops                    | Accepted | 2026-08-09 |
 | [0060](0060-the-branch-guard-compares-canonical-paths.md)                         | The branch guard compares canonical paths, and denies what it cannot answer  | ops                    | Accepted | 2026-08-08 |
 | [0061](0061-the-signin-redirect-carries-no-callbackurl.md)                        | The sign-in redirect carries no `callbackUrl`                                | frontend               | Accepted | 2026-07-29 |
+| [0062](0062-a-group-change-is-a-swap-or-it-is-refused.md)                         | A mid-season group change is a swap of two clubs, in one transaction         | backend, frontend      | Accepted | 2026-08-10 |
 
 ## Read next
 

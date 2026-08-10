@@ -1,6 +1,6 @@
 # Glossary
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `75826c9`, 2026-08-10\
 **Purpose:** the German domain vocabulary — one entry per term, each giving what it is, where it lives, what catches people, and where the argument is written down.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs.
@@ -203,7 +203,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** two collections with no model of their own, joined at read time and never returned directly, which is what makes "a team" and "a player" season-scoped concepts although their base documents are not.\
 **In code:** `fl_backend/app/core/collections.py :: Collection`.\
-**Trap:** the two behave differently on the way out — `saison_spieler` carries `inactive_since` because a player leaves a squad, while `saison_teams` has no DELETE at all and disqualification is the only way out of a season; and a junction row is addressed under its entity at `/teams/{team_id}/saisons/{saison_id}`, where the `saisons` segment names a junction row rather than a season document.\
+**Trap:** the two behave differently on the way out — `saison_spieler` carries `inactive_since` because a player leaves a squad, while `saison_teams` has no DELETE at all and disqualification is the only way out of a season; and a junction row is addressed under its entity at `/teams/{team_id}/saisons/{saison_id}`, where the `saisons` segment names a junction row rather than a season document — except for the group swap, which writes two `saison_teams` rows at once and so is addressed on the season (ADR-0062).\
 **See:** [ADR-0026](_decisions/0026-one-active-season-and-one-path-to-it.md), [ADR-0027](_decisions/0027-the-write-path-is-resource-first-in-a-second-router.md).
 
 ---

@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `75826c9`, 2026-08-10\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -72,7 +72,7 @@ chosen by feel.
 | 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
 | 10  | BE-15  | Nothing records who changed what, or what it replaced   | FE, BE, DB  | L      | Open     | —          |
 | 11  | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
-| 12  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —          |
+| 12  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Closed   | —          |
 | 13  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
 | 14  | BE-6   | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | —          |
 | 15  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
@@ -516,10 +516,23 @@ should be guessed.
 
 ### 12 · FB-15 — A mid-season group move is only defensible as a swap, and nothing offers one
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, BE\
 **Effort:** M\
 **Path:** Independent — the lock in the club editor is the interim answer.
+
+**Concluded by [ADR-0062](../_decisions/0062-a-group-change-is-a-swap-or-it-is-refused.md).**
+`POST /saisons/{saison_id}/gruppen/swap` exchanges two clubs' groups across both `saison_teams` rows in
+one transaction, refusing a pair that is not a swap (`REQ-SWAP-001`) and any swap once a knockout
+fixture carries a result (`REQ-SWAP-002`); the control is a panel on `/admin/saisons/[saison_id]`, and
+`REQ-ENTER-004`'s lock on a single move is untouched. The endpoint question the entry shared with the
+draw editor is answered for this surface alone — ADR-0045's remains its own.
+
+**Two findings were rehomed rather than fixed here.** The suite could execute no transaction at all,
+because its `mongod` is a standalone; that is now a second, replica-set container in
+`fl_backend/tests/conftest.py` and is recorded in the ADR's Consequences. And a `past` season whose
+knockout carries no result is still swappable, where `REQ-RULES-005` freezes the same season's scoring —
+also in Consequences, as a bound deliberately not taken.
 
 **The club editor locks the Gruppe select the moment the selected season is underway and the club has a
 fixture in it** (my item, 2026-08-07, out of the admin teams work). A group decides which table counts

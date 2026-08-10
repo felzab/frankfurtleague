@@ -337,9 +337,8 @@ async def swap_gruppen(
     async def exchange_the_two_gruppen(session: AsyncIOMotorClientSession) -> FLSwapGruppenResponse:
         """The whole swap: judge, then write both rows. Everything it decides on is read in-session."""
 
-        # Read THROUGH the session and inside the transaction, because these rows decide what is written:
-        # a retry after a write conflict has to judge them as they are then, not as this request first
-        # saw them. One read for both clubs -- the junction's natural key makes at most one row each.
+        # Read THROUGH the session, because these rows decide what is written: a retry after a write
+        # conflict has to judge them as they are then, not as this request first saw them.
         rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": [swap_data.team1_id, swap_data.team2_id]}},
@@ -349,9 +348,10 @@ async def swap_gruppen(
         gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
 
         # Counted rather than listed: the rule asks whether the bracket has begun, and one played
-        # knockout fixture is the whole answer. `count_documents` directly on the collection, because no
-        # helper here takes a session -- and it must, or it would read the snapshot from before this
-        # transaction.
+        # knockout fixture answers it.
+
+        # Straight on the collection, because no helper takes a session -- and without one this would
+        # read the snapshot from before the transaction.
         played_knockout = await spiele_collection.count_documents(
             {"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}, "ergebnis": {"$ne": None}},
             session=session,
@@ -370,10 +370,10 @@ async def swap_gruppen(
         # The refusal above proved both rows exist and hold different groups, so each club's target is
         # simply the other's current group.
 
-        # Built BEFORE the writes and then written FROM, rather than assembled from them afterwards. Two
-        # things follow: a stored group outside the closed A-D set is refused by this model before
-        # anything is written (a `saison_teams` row hand-edited past its validator is where one comes
-        # from), and the echo cannot disagree with what landed, because it is the same object.
+        # Built BEFORE the writes and then written FROM, rather than assembled from them afterwards.
+
+        # Two things follow: this model refuses a stored group outside the closed A-D set before anything
+        # is written, and the echo cannot disagree with what landed -- it is the same object.
         swapped = FLSwapGruppenResponse(
             saison_id=saison_id,
             team1_id=swap_data.team1_id,
@@ -398,7 +398,7 @@ async def swap_gruppen(
         return swapped
 
     # `with_transaction` rather than a bare `start_transaction`, which is `patch_spiel_data`'s choice and
-    # for its reason: two admins editing one season can write-conflict on these rows, and the callback
-    # re-reads everything it judges on, so it is safe to retry.
+    # for its reason: two admins on one season can write-conflict here, and the callback re-reads
+    # everything it judges on, so it is safe to retry.
     async with await db.start_session() as session:
         return await session.with_transaction(exchange_the_two_gruppen)

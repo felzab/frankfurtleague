@@ -32,9 +32,9 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = "fl_swap_test"
 
-# The server's code for "this write failed the collection's validator", as `test_constraints_execution.py`
-# also asserts on. Named rather than caught broadly, so a transaction that failed for some other reason
-# cannot be read as the rollback this suite is proving.
+# The server's code for "this write failed the collection's validator", which
+# `test_constraints_execution.py` also asserts on. Named rather than caught broadly, so a transaction
+# failing for another reason cannot read as the rollback this suite proves.
 DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"

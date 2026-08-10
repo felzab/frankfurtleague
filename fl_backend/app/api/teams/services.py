@@ -741,15 +741,16 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
-# A group SWAP: two clubs exchanging groups inside one season (ADR-0062). Beside the entry codes rather
-# than among them, because a swap is neither an entry nor the move `REQ-ENTER-004` locks -- each group
-# keeps its size and every drawn fixture keeps its opponents, which is exactly what makes it defensible
-# where a move is not.
+# A group SWAP: two clubs exchanging groups inside one season (ADR-0062).
 
-# The two ids do not name two clubs of this season standing in different groups. One club named twice, a
-# club holding no junction row, and two clubs of one group are the three shapes, and the remedy is the
-# same for all three: the control offers only pairs that ARE a swap, so a request carrying one is stale
-# or racing another admin.
+# Beside the entry codes rather than among them, because a swap is neither an entry nor the move
+# `REQ-ENTER-004` locks: each group keeps its size and every drawn fixture keeps its opponents.
+
+# The two ids do not name two clubs of this season standing in different groups: one club named twice, a
+# club holding no junction row, or two clubs of one group.
+
+# One code for the three, because the remedy is the same -- the control offers only pairs that ARE a
+# swap, so a request carrying one is stale or racing another admin.
 SWAP_NOT_A_SWAP = "REQ-SWAP-001"
 
 # The knockout rounds have started, so the standings these groups produce have already been consumed by
