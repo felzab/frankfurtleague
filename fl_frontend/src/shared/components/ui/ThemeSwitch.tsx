@@ -55,9 +55,9 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
       <ToggleButton
         id="light"
         isIconOnly
-        // The size a segmented control is given elsewhere, a step up on a wider viewport (decided
-        // 2026-08-10). On the button because `ToggleButtonGroup` is `h-auto`; the width comes with
-        // it, or an icon-only half ends up taller than it is wide.
+        // Spelled here rather than left to HeroUI's size variant: `ToggleButtonGroup` is `h-auto`, so
+        // the buttons are the whole control's height (decided 2026-08-10). The width comes with it,
+        // or an icon-only half ends up taller than it is wide.
         className={buttonSize}
         aria-label="Helle Darstellung">
         <Sun className="size-4" />
