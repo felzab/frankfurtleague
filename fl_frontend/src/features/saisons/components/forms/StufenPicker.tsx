@@ -23,12 +23,20 @@ import type { Key } from "@heroui/react";
  * A selected chip keeps its fill and brightens its border, so a control already at full strength answers the
  * pointer without a second background competing with the fill.
  *
+ * **A selected chip's FOCUS RING takes the fill's paired foreground rather than `--focus`** (WCAG 1.4.11).
+ * `--focus` is `--fg-base`, and `globals.css` already records that pair as unusable at the `--fg-on-brand`
+ * declaration: near-black measures 1.97:1 on this maroon, where 3:1 is the floor. HeroUI pins the group's
+ * ring INSET with a zero offset, so it cannot escape the fill onto the panel and be judged against that
+ * instead — recolouring it is the fix that changes no geometry. White on the maroon is 10.02:1, and it is
+ * the same value the chip's own text already takes. Nothing else in the app moves off `--focus`.
+ *
  * Local to this file rather than shared: one call site, and `TAB_ITEM` is where the shared version would
  * belong if a second picker ever wants it.
  */
 const STUFE_CHIP =
   "border-border bg-muted text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground " +
   "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
+  "data-[selected=true]:ring-brand-solid-foreground " +
   "data-[selected=true]:data-hovered:bg-brand-solid data-[selected=true]:data-hovered:border-foreground " +
   "fluid-xs h-9 min-w-16 gap-x-1 rounded-lg border px-3 font-extrabold tracking-wide transition-colors";
 
