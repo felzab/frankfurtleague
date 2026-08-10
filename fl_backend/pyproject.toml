@@ -29,7 +29,7 @@ dependencies = [
     "motor>=3.7.1",
     "pydantic>=2.13.4",
     "pydantic-core>=2.46.4",
-    "pydantic-settings>=2.14.2",
+    "pydantic-settings>=2.15.0",
     "pygments>=2.20.0",
     "pymongo>=4.17.0",
     "python-dotenv>=1.2.2",
@@ -37,13 +37,13 @@ dependencies = [
     "pyyaml>=6.0.3",
     "rich>=15.0.0",
     "rich-toolkit>=0.20.1",
-    "rignore>=0.7.6",
+    "rignore>=0.8.1",
     "sentry-sdk>=2.63.0",
     "shellingham>=1.5.4",
     "sniffio>=1.3.1",
-    "starlette>=1.3.1",
+    "starlette>=1.4.1",
     "style>=1.1.6",
-    "typer>=0.26.7",
+    "typer>=0.27.1",
     "typing-extensions>=4.15.0",
     "typing-inspection>=0.4.2",
     "tzdata>=2026.2",
@@ -56,7 +56,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "ruff>=0.16.0",
+    "ruff>=0.16.2",
     # The type checker the editor already runs as Pylance. In the venv so `verify.sh` runs the SAME
     # one, rather than the gate and the editor disagreeing about whether the code is correct.
     "pyright>=1.1.406",
