@@ -23,7 +23,7 @@ import type { SaisonDraftFields, SaisonRolloverContext } from "@/features/saison
  * that writes `status` is the rollover, which is a whole panel rather than a button (ADR-0026). So the
  * header names the season, and every write on this page is below it.
  *
- * **The season's dates and its status are stated where they can be changed** — the Zeitraum panel's two
+ * **The season's dates and its status are stated where they can be changed** — the Zeitraum panel's
  * pickers and the Umstellung panel's badge. The header repeats neither: a value shown twice on one screen
  * is a value that can be read as two.
  */

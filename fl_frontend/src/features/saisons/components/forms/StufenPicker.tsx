@@ -14,9 +14,10 @@ import type { Key } from "@heroui/react";
 
 /**
  * One level's chip, in the tab strip's selected language (`formFieldStyles.ts :: TAB_ITEM`) rather than
- * HeroUI's own: untouched, `--accent-soft` over `--default` separates the two states by about three points
- * of lightness in the light theme and puts the SELECTED chip twelve points DARKER than an unselected one in
- * the dark theme, where the picker reads inverted.
+ * HeroUI's own. Untouched, `--accent-soft` over `--default` barely separates the two states, and the
+ * backdrop decides by how much — measured against `formPanel`'s `bg-surface`, which is the surface this
+ * picker actually sits on, the selected chip is about 3 points of lightness away from an unselected one in
+ * the light theme and about 4 points DARKER than one in the dark theme, where the picker reads inverted.
  *
  * **Hover LIFTS an unselected chip to `bg-surface` instead of darkening it**, the tab strip's rule and for
  * its reason: the chip at rest is already the recessed `bg-muted`, and a darkening hover is invisible on it.
@@ -63,7 +64,7 @@ const STUFE_CHIP =
  *
  * **Two signals separate the states, never colour alone (WCAG 1.4.1):** the fill `STUFE_CHIP` carries,
  * and a check glyph rendered in every chip and revealed only in a chosen one — reserving its box is what
- * stops six chips reflowing as the set is picked.
+ * stops the row reflowing as the set is picked.
  */
 export function StufenPicker({
   value,

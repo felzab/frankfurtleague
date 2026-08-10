@@ -49,8 +49,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const outgoing = saisonsRes.saisons.find((candidate) => candidate.status === "active") ?? null;
   const outgoingSaisonId = outgoing === null || outgoing.id === saison.id ? null : outgoing.id;
 
-  // `include_inactive` matches every other admin read of a season's matchdays, so the three share one
-  // cache entry rather than keying a second on this page alone. What binds the dates is filtered below.
+  // Retired matchdays come back too; the filter below drops them, because only the live ones bound the
+  // dates. The flag matches the other admin reads of a season's matchdays, so a cached entry is
+  // sometimes shared, never reliably.
   const [spieltageRes, outgoingSpieleRes] = await Promise.all([
     getSpieltage({ saison_id: saison.id, include_inactive: true }),
     // Only fetched where there is something to warn about. A season that is already active has no

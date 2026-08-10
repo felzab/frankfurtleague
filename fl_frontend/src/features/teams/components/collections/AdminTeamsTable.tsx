@@ -73,7 +73,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       {team.selected?.disqualifikation != null && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>Disqualifiziert</span>}
       {team.inactive_since === null && team.selected !== null && team.selected.disqualifikation === null && (
         <>
-          {/* The season's own three words, for the reason `AdminSpielerTable` states: „Aktiv“ is the
+          {/* The season's own vocabulary, for the reason `AdminSpielerTable` states: „Aktiv“ is the
               filter's word for „nicht stillgelegt“, a different fact about a different subject. */}
           {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>}
           {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}
