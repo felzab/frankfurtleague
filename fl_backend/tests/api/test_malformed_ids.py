@@ -65,6 +65,9 @@ def test_a_well_formed_path_id_is_not_a_404(client: TestClient):
     assert client.get(f"/api/v0/spiele/{HEX_ID}", headers=AUTH).status_code != 404
 
 
+# No `db` marker: nothing here reaches a database, because 422 arrives ahead of any query. With
+# no client attached the same request answers 503 instead, which is what
+# `fl_backend/tests/api/test_error_responses.py` records.
 @pytest.mark.parametrize("team_id", ["not-an-id", NON_HEX_ID, HEX_ID[:-1]])
 def test_a_malformed_query_id_is_a_422(client: TestClient, team_id: str):
     """The same values in the other spelling, where no convertor stands in front of them and the filter model refuses each."""
