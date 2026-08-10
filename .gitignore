@@ -5,6 +5,50 @@
 # contain one.
 certs/
 
+# The rest of the credential shapes, ignored tree-wide rather than per package. This is the list
+# .claude/settings.json denies to the Read, Write and Edit tools, mirrored here because those tools
+# are not the only route into a commit: a file dropped by a shell command, an installer or an
+# external editor is git's problem alone. Unanchored on purpose -- a private key is a private key
+# wherever it lands, and the two package directories are not the only places one can land.
+.env*
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.p8
+*.pk8
+id_rsa*
+id_ed25519*
+id_ecdsa*
+credentials.json
+*-service-account*.json
+kubeconfig
+secrets/
+
+# Where this list deliberately stops. It covers the private-key and keystore CONTAINERS (PEM, DER's
+# certificate spellings, PKCS#8 and PKCS#12 under both their extensions) and OpenSSH's three default
+# private-key names, because those are the shapes that leak a secret by being committed. It does not
+# chase public material (a .pub, a .csr, a certificate chain), files that live in $HOME rather than a
+# repository, or names too generic to pattern without swallowing real source -- `token`, `auth`,
+# `config`. A shape outside this list is a deliberate omission, not an oversight; widen it here.
+
+# Not a key file but a config file that grows one: a registry auth token lands here the moment
+# anyone runs `pnpm login` or `npm config set //registry…:_authToken`, and the file is otherwise
+# unremarkable enough to be committed without a second look. No .npmrc is tracked, so nothing is
+# hidden by this -- a deliberate one would need `git add -f` and a reason.
+.npmrc
+
+# The throwaway directories the gate builds and reclaims: .tmp-nginx-check (scripts/verify.sh) and
+# .tmp-scope-fixtures / .tmp-hook-fixtures (scripts/selfcheck.sh). An EXIT trap does not run on
+# Ctrl-C, so an interrupted run leaves one behind, and an unignored leftover counts as an untracked
+# change that matches no scope arm -- the next scoped run then refuses, naming fixture files as the
+# reason an image was not rebuilt. Ignoring them holds for SIGKILL too, which no trap survives, and
+# it is also what lets guard-branch-bash.sh release the fixture writes on main: that exemption asks
+# git whether a path is ignored and untracked (ADR-0060).
+.tmp-*/
+
 # Docker Desktop on Windows creates these when a bind-mount path is mangled by
 # Git Bash MSYS path conversion (":" separators become ";C:\..."). Empty and useless.
 # Prevent them by prefixing a hand-typed bind mount with MSYS_NO_PATHCONV=1, per CLAUDE.md §5.
@@ -15,11 +59,24 @@ certs/
 # this file is the per-developer override and must never be committed.
 .claude/settings.local.json
 
+# Nested git worktrees. A parallel session may put its checkout inside this repository, and each
+# one is a whole second tree -- node_modules, .next, .venv and all. Git keeps them out through
+# .git/info/exclude today, which is machine-local and absent from a fresh clone, so the first
+# session to create one there would see the entire checkout as untracked changes.
+.claude/worktrees/
+
 # Python bytecode. scripts/ holds plain scripts that are normally run, not imported, so this only
 # fills when something imports one -- a test harness, or a REPL. Either way it is a build artifact
 # and one was committed once.
 __pycache__/
 *.pyc
+
+# Tool caches, at every level they appear: the gate runs ruff and pytest from the root, from
+# scripts/ and from fl_backend/, and each working directory grows its own. Both tools also write a
+# .gitignore inside the cache, which is why none of these has ever surfaced -- this does not rest
+# on a tool continuing to do that.
+.pytest_cache/
+.ruff_cache/
 
 # Audit working documents (pass reports, remediation ledger, wave reports). Local-only by design:
 # the repo is public, and committing them would publish unfixed findings while they are being

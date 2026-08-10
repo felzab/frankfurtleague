@@ -14,6 +14,19 @@ __pycache__
 # again on the next regeneration, and the diff of a reformat would bury the schema change it carries.
 fl_backend/openapi.json
 
+# Nested git worktrees. A parallel session may create its checkout INSIDE this repository, and each
+# one carries its own node_modules, .next and .venv -- so a formatter that walks the filesystem
+# enters eight copies of the tree and reports parse errors against files that are another branch's
+# problem. Git keeps them out through .git/info/exclude, which is machine-local and which prettier
+# never reads, so the exclusion has to be stated here. The whole directory rather than what happens
+# to sit in it today: every tool that enumerates by walking hits this, and the checkouts come and go.
+.claude/worktrees/
+
+# The throwaway directories scripts/verify.sh and scripts/selfcheck.sh build and reclaim. Spelled
+# exactly as .gitignore spells them: an EXIT trap does not run on Ctrl-C, so a leftover set of
+# TypeScript fixtures would otherwise fail the format check long after the run that made them.
+.tmp-*/
+
 # Local, machine-specific files that are not part of the tree the gate measures.
 .vscode
 .pytest_cache
