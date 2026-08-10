@@ -1,8 +1,8 @@
 /**
  * TEAMS · the public team page
  *
- * Composition only: five sections, each its own component, and the page itself stays on the server.
- * Two leaves carry the `"use client"` — the fixture rail, which owns the details modal, and the back
+ * Composition only: each section is its own component, and the page itself stays on the server. Two
+ * leaves carry the `"use client"` — the fixture rail, which owns the details modal, and the back
  * control, which owns `router.back()`.
  *
  * Invariants:

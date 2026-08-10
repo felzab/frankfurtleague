@@ -1,9 +1,9 @@
 /**
  * TEAMS · the season's figures
  *
- * The five numbers the page asks `GET /teams` for at `statistik_scope=gesamt`, which counts every
- * phase — this is the only surface that shows them (ADR-0022). The line under the heading is what
- * keeps them from reading as a bug beside the Saisontabelle's group-phase figures.
+ * The figures the page asks `GET /teams` for at `statistik_scope=gesamt`, which counts every phase —
+ * this is the only surface that shows them (ADR-0022). The line under the heading is what keeps them
+ * from reading as a bug beside the Saisontabelle's group-phase figures.
  */
 
 import { Card } from "@heroui/react";

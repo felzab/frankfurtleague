@@ -3,9 +3,9 @@
 /**
  * TEAMS · the season's fixtures, on a rail
  *
- * The one Client Component of the team page, and the boundary is drawn here on purpose: it holds the
- * details modal's state and hands each card the callback that opens it, which a Server Component may
- * not pass across (`docs/frontend/spec.md :: I13`).
+ * The boundary is drawn at this section on purpose: it holds the details modal's state and hands
+ * each card the callback that opens it, which a Server Component may not pass across
+ * (`docs/frontend/spec.md :: I13`).
  *
  * Invariants:
  * - The compact card is this rail's alone and is never merged with its two siblings (ADR-0005).

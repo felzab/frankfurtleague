@@ -97,7 +97,7 @@ describe("computePlatzByTeamId", () => {
 const SUBJECT = TEAM_ID(1);
 const OPPONENT = TEAM_ID(2);
 
-/** One fixture, reduced to the four fields the season's progress is read from. */
+/** One fixture, reduced to the fields the season's progress is read from. */
 const fixture = ({
   phase,
   ergebnis = null,

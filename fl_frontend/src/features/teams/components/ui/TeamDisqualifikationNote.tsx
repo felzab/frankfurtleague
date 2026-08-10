@@ -5,8 +5,8 @@
  * field is not null (ADR-0047). `grund` is written for publication and reaches the reader as typed:
  * never mapped to a label, never shortened.
  *
- * Not a `Callout`: that component's three grades all describe what an admin's save is about to do,
- * and the only one that fits a standing public fact is tinted for information rather than for the
+ * Not a `Callout`: that component's grades each describe what an admin's save is about to do, and
+ * the only one that fits a standing public fact is tinted for information rather than for the
  * gravest thing this page states.
  */
 
@@ -18,8 +18,8 @@ export function TeamDisqualifikationNote({ disqualifikation }: { disqualifikatio
   if (disqualifikation === null) return null;
 
   return (
-    // A landmark rather than a plain div: the note is the one thing on this page a reader may have
-    // come for, and it sits between two sections that carry headings it must not be mistaken for.
+    // A landmark rather than a plain div: the note is what a reader may have come for, and it sits
+    // among sections that carry headings it must not be mistaken for.
     <section
       aria-label="Disqualifikation"
       className="border-danger/40 bg-danger/15 flex w-full flex-col gap-y-1.5 rounded-2xl border p-4 sm:p-6">
