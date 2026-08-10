@@ -1,6 +1,6 @@
 # Closed items
 
-**Verified against:** `7555ecd`, 2026-08-09
+**Verified against:** `be2f950`, 2026-08-10
 
 Every item that has left [`open-items.md`](open-items.md) has a row here. This is a log: nothing in
 it is waiting for anything, and a regression is a new item with a new ID rather than an edit to a
@@ -63,3 +63,4 @@ the rule that the row is a pointer while the closing commit's body is the record
 | FE-2  | A match had nowhere to carry a sentence about itself, and the editor nothing to write one with     | FE (+BE)    | S      | — (batch with FB-7, FE-1)    | [`0efa98e`](https://github.com/felzab/frankfurtleague/commit/0efa98e) |
 | FE-6  | The error page logged everything and offered its reader no way to say what they were doing         | FE          | S      | —                            | [`11497ba`](https://github.com/felzab/frankfurtleague/commit/11497ba) |
 | DOC-1 | A stamp-only markdown edit re-armed the branch-impact check on every page citing the restamped one | Docs        | S      | —                            | [`e578e0e`](https://github.com/felzab/frankfurtleague/commit/e578e0e) |
+| FE-3  | The team page's progress line named no milestone, and nothing public said why a team was out       | FE          | M      | —                            | [`be2f950`](https://github.com/felzab/frankfurtleague/commit/be2f950) |
