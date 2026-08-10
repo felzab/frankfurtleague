@@ -49,8 +49,8 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const outgoing = saisonsRes.saisons.find((candidate) => candidate.status === "active") ?? null;
   const outgoingSaisonId = outgoing === null || outgoing.id === saison.id ? null : outgoing.id;
 
-  // Retired matchdays included, for the reason the list page states: a retired matchday still holds
-  // matches, so a season with one is not a season without a schedule.
+  // `include_inactive` matches every other admin read of a season's matchdays, so the three share one
+  // cache entry rather than keying a second on this page alone. What binds the dates is filtered below.
   const [spieltageRes, outgoingSpieleRes] = await Promise.all([
     getSpieltage({ saison_id: saison.id, include_inactive: true }),
     // Only fetched where there is something to warn about. A season that is already active has no
@@ -114,7 +114,6 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
         rules: saison.rules,
       }}
       rollover={rollover}
-      spieltageCount={spieltageRes.spieltage.length}
       spieltagBound={spieltagBound}
     />
   );
