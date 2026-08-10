@@ -22,11 +22,11 @@ import { SpielerFieldLabel } from "./SpielerFieldLabel";
 import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
 
-/** The season's own state, said in one badge beside its id. */
+/** The season's own state, said in one badge beside its id — the app's one wording and one palette. */
 function SaisonBadge({ status }: { status: SpielerSaisonContext["saisonStatus"] }) {
   if (status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>;
-  if (status === "future") return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Geplant</span>;
-  return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Beendet</span>;
+  if (status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>;
+  return <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>;
 }
 
 /**
