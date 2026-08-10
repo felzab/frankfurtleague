@@ -54,13 +54,11 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
             <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
           </div>
 
-          {/* The same details-modal affordance SpielCard has, sized to the slimmer row. `shrink-0`
-              because a tap target must keep its box whatever the row does around it. */}
-          {/* The tooltip is SpielCard's, for the reason given there. Its trigger `<div>` lands
-              between the row and the button, so the row classes move to the SPAN outside it —
-              `ml-auto` on the button would have nothing left to push against. */}
+          {/* SpielCard's affordance and tooltip, sized to the slimmer row. The row's classes sit on
+              the span because the trigger div lands between them, `flex` so it adds no line box,
+              `shrink-0` so a tap target keeps its box whatever the row does. */}
           {onOpenInfoModal && (
-            <span className="ml-auto shrink-0 self-start">
+            <span className="ml-auto flex shrink-0 self-start">
               <IconTooltip label="Spielinfo">
                 <Button
                   isIconOnly
