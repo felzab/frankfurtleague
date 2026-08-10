@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `be2f950`, 2026-08-10\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -66,7 +66,7 @@ chosen by feel.
 | 3   | FE-1   | A fixture carries one date, not a play window           | FE, BE      | XL     | Open     | —          |
 | 4   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
 | 5   | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
-| 6   | FE-3   | TeamDetailsView's progress line names no milestone      | FE          | M      | Open     | —          |
+| 6   | FE-3   | TeamDetailsView's progress line names no milestone      | FE          | M      | Closed   | —          |
 | 7   | BE-12  | Nothing purges a row whose `inactive_since` is old      | BE, DB      | M      | Open     | —          |
 | 8   | OPS-12 | Nothing checks a generated file against its generator   | FE, Ops     | S      | Open     | —          |
 | 9   | DOC-2  | An enforcement claim is resolved in one direction only  | Docs        | M      | Open     | —          |
@@ -274,7 +274,7 @@ attributable to them. The mechanism above is read from the code; the magnitude i
 
 ### 6 · FE-3 — TeamDetailsView's season progress line names no milestone
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE\
 **Effort:** M\
 **Path:** Independent — the record it renders exists and the fetch it needs is written.
@@ -297,6 +297,19 @@ Contents the rework must carry:
 
 The compact card this view is the only consumer of already survives narrow screens (the `FE-8` row of
 [`closed-items.md`](closed-items.md)).
+
+**What concluded it.** `TeamDetailsView` is a Server Component composing five leaves under
+`fl_frontend/src/features/teams/components/ui/`, and `"use client"` sits on the two that need a
+browser — the fixture rail, which owns the details modal, and the back control. The statistics keep
+the `gesamt` scope and the line of copy that explains it (ADR-0022), the disqualification note
+renders `grund` as authored (ADR-0047), and the milestones come from
+`fl_frontend/src/features/teams/utils.ts :: computeSaisonVerlauf`, derived from the fixtures the page
+already fetches — no endpoint, no stored field, no second request.
+
+No ADR was written, because the two refusals the milestones rest on are already ratified: a group
+placing is reported only once no remaining result can change it (ADR-0035), and a shoot-out names a
+winner to the bracket alone (ADR-0036). Nothing was rehomed — the work found no finding outside its
+own scope.
 
 ### 7 · BE-12 — Nothing purges a row whose `inactive_since` is old enough
 
