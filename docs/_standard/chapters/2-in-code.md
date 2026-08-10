@@ -1,6 +1,6 @@
 # In-code documentation
 
-**Verified against:** `7555ecd`, 2026-08-10\
+**Verified against:** `3ab1688`, 2026-08-10\
 **Applies to:** source files — `fl_frontend/src`, `fl_backend/app`, `fl_backend/tests`,
 `scripts/` and `.claude/hooks/`: module headers, symbol docs, inline comments and test docstrings.
 The hooks are exempt from INC-2 alone: their uniform label rows are what keeps a folder of
@@ -119,12 +119,14 @@ code outside this repository is pinned to a commit: a `blob/main/…#L36-L49` li
 three commits later points at whatever now occupies those lines, which is worse than a dead link
 because it still looks right. The gate scans comments exactly as it scans a spec sheet, and holds
 them to the same checks: every tracked TypeScript, JavaScript, Python and shell file, and — beyond
-this chapter's scope — every tracked `.conf` file, `.yml` file and Dockerfile, wherever it sits:
-`nginx/`'s configuration, the compose files, the image definitions and `.github/`'s workflow, issue
-and action configuration, which COR-6 binds as it binds any other written artifact. Executable code
-is not scanned: a path-shaped string in a function body is data the program uses, not a claim made
-to a reader. A path written into a comment without backticks is read too, because the citation
-checks see only backticked tokens and an unmarked path is how a dead one survives a green gate.
+this chapter's scope — every tracked configuration file scanned beside them
+(`scripts/check_docs.py :: SCANNED_SUFFIXES`), Dockerfiles included, wherever it sits: `nginx/`'s
+configuration, the compose files, the image definitions, the package and tool manifests, and
+`.github/`'s workflow, issue and action configuration, which COR-6 binds as it binds any other
+written artifact. Executable code is not scanned: a path-shaped string in a function body is data
+the program uses, not a claim made to a reader. A path written into a comment without backticks is
+read too, because the citation checks see only backticked tokens and an unmarked path is how a dead
+one survives a green gate.
 
 **Why:** a dangling reference beside code misleads more effectively than one in a document,
 because a comment sits where a reader trusts most.

@@ -1,6 +1,6 @@
 # Ops — overview
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `3ab1688`, 2026-08-10\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Three containers behind nginx on one host, deployed by pulling published images. There is no
@@ -20,7 +20,7 @@ graph TB
     cf["Cloudflare<br/>proxy — terminates public TLS"]
 
     subgraph net["Docker network: frankfurtleague-net"]
-        nginx["nginx:alpine<br/>:80 :443 — the only published ports"]
+        nginx["nginx:1.31-alpine<br/>:80 :443 — the only published ports"]
         fe["frontend :3000<br/>Next.js standalone, user nextjs"]
         be["backend :8000<br/>FastAPI"]
     end

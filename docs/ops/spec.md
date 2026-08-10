@@ -1,6 +1,6 @@
 # Ops — spec
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `3ab1688`, 2026-08-10\
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 | Section                                                | Answers                                                              |
@@ -30,7 +30,7 @@ on, and the scripts that carry them.
 | ---------- | ------------------------------------------------ | --------------- | --------------------------------- | ------------------------------------ |
 | `frontend` | `ghcr.io/felzab/frankfurtleague-frontend:latest` | none            | 1.5 CPU / 2 GB, 512 MB reserved   | `wget` on `/favicon.ico`             |
 | `backend`  | `ghcr.io/felzab/frankfurtleague-backend:latest`  | none            | 0.8 CPU / 512 MB, 128 MB reserved | `urllib` on `/api/v0/system/is_live` |
-| `nginx`    | `nginx:alpine`                                   | **80, 443**     | 0.5 CPU / 256 MB, 128 MB reserved | none                                 |
+| `nginx`    | `nginx:1.31-alpine`                              | **80, 443**     | 0.5 CPU / 256 MB, 128 MB reserved | none                                 |
 
 All three: `restart: unless-stopped`, and JSON file logging capped at 3 × 10 MB, on the
 `frankfurtleague-net` bridge network. **`cap_drop: ALL` and `no-new-privileges:true` are the two
