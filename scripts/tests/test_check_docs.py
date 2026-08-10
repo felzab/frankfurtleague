@@ -56,9 +56,9 @@ LABEL_SAMPLE: Final = "fl_backend/app/label.py"
 # A tracked path no ASCII listing can spell: without `git ls-files -z` it comes back quoted, resolves
 # to nothing, and drops out of the scan with whatever it carried.
 UMLAUT_MODULE: Final = "fl_backend/app/übersicht.py"
-# One file per scanned format that is not markdown or Python. `.toml`, `.yaml`, `.conf`, `.sh` and a
-# Dockerfile share the `#` reader but reach it three different ways -- by suffix, by fallback, and by
-# whole filename -- and `.json` has a reader of its own.
+# One file per scanned format that is neither markdown nor Python. `.toml`, `.yaml`, `.conf`,
+# `.sh` and a Dockerfile share the `#` reader but reach it three ways -- by suffix, by fallback,
+# by whole filename -- and `.json` has a reader of its own.
 TOML_CONFIG: Final = "fl_backend/pyproject.toml"
 YAML_CONFIG: Final = "fl_frontend/pnpm-workspace.yaml"
 JSON_CONFIG: Final = "fl_frontend/tsconfig.json"
@@ -444,9 +444,9 @@ def _corpus(checks: dict[str, frozenset[str]], fragments: tuple[str, ...]) -> di
         JSON_CONFIG: _page(
             "{",
             "  // A configuration file, scanned for its comments and nothing else.",
-            # The three negatives that separate a parser from a line rule. A `/*` in a value opens a
-            # runaway block under the C-style line reader, a `//` in a value reads as a comment, and
-            # a `#` proves this format is not sent to the shell reader. All three must stay silent.
+            # The three negatives separating a parser from a line rule: a `/*` in a value opens
+            # a runaway block under the C-style reader, a `//` in a value reads as a comment, and
+            # a `#` proves this format never reaches the shell reader. All three stay silent.
             '  "include": ["**/*.ts", "docs/gone-in-a-glob.md"],',
             '  "$schema": "https://example.invalid/docs/gone-in-a-url.md",',
             '  "note": "a # b"',

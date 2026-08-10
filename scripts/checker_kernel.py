@@ -31,9 +31,9 @@ from typing import Final, Literal, TextIO, TypeVar
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent
 
-# What verify.sh reads back. Three failing states because they ask for three different actions: fix
-# the change, fix the input the check was given, fix the environment. Only the checker can tell a
-# considered refusal from a broken interpreter, so only the checker can encode which one happened.
+# Three failing states, because they ask for three different actions: fix the change, fix the input
+# the check was given, fix the environment. Only the checker can tell a refusal from a broken
+# interpreter, so only the checker can encode which happened.
 EXIT_OK: Final = 0
 EXIT_FINDINGS: Final = 1
 EXIT_REFUSED: Final = 2
@@ -42,9 +42,9 @@ EXIT_INTERRUPTED: Final = 130
 
 PYTHON_FLOOR: Final = (3, 14)
 
-# The oldest interpreter that can still REACH these files, as against run them: `.githooks/commit-msg`
-# falls back to a system `python3`, and the oldest supported distribution ships 3.9. Below the floor
-# they must parse, or the refusal cannot print and the SyntaxError exits as a finding would.
+# The oldest interpreter that REACHES these files, not one that runs them: `.githooks/commit-msg`
+# falls back to a system `python3`, and the oldest supported distribution ships 3.9. Below the
+# floor they must still parse, or the refusal cannot print.
 PARSE_FLOOR: Final = (3, 9)
 
 DEFAULT_BASE: Final = "main"
@@ -52,9 +52,9 @@ DEFAULT_BASE: Final = "main"
 # At import rather than inside `run`, because there is nowhere earlier: a checker importing this has
 # already been compiled, so this is the first line of any of them that an old interpreter reaches.
 
-# NOTHING IN THIS FILE MAY USE SYNTAX NEWER THAN `PARSE_FLOOR`. A message about the runtime floor
-# cannot print from a file that will not compile, and the SyntaxError exits 1 -- a finding's code.
-# A comment is not a guard: `scripts/tests` asserts it, because this rule has been broken once.
+# NOTHING HERE MAY USE SYNTAX NEWER THAN `PARSE_FLOOR`. A message about the runtime floor cannot
+# print from a file that will not compile, and the SyntaxError exits 1 -- a finding's code.
+# A comment is not a guard, so `scripts/tests` asserts it.
 if sys.version_info < PYTHON_FLOOR:
     _have = ".".join(str(part) for part in sys.version_info[:3])
     _want = ".".join(str(part) for part in PYTHON_FLOOR)
@@ -62,9 +62,9 @@ if sys.version_info < PYTHON_FLOOR:
     print("  Run them from the backend virtualenv, which `cd fl_backend && uv sync --dev` creates.\n", file=sys.stderr)
     raise SystemExit(EXIT_CRASH)
 
-# A codepage must never decide whether a finding is printed. The emoji ban is the sharp case: its
-# finding quotes the offending subject, so on a Windows cp1252 handle -- which is every capture
-# `_lib.sh :: quietly` makes -- the one message that rule exists for is the one that cannot report.
+# A codepage must never decide whether a finding prints. The emoji ban is the sharp case: its
+# finding quotes the subject, so on a Windows cp1252 handle -- every capture `quietly` makes --
+# the one message that rule exists for cannot report.
 for _stream in (sys.stdout, sys.stderr):
     if isinstance(_stream, io.TextIOWrapper):
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -130,9 +130,9 @@ def resolve_base(base: str = DEFAULT_BASE) -> str | None:
     return git("merge-base", ref, "HEAD") or None
 
 
-# The old spelling of a bound type variable, on purpose: PEP 695's `def failures[F: Finding]` is a
-# SyntaxError below 3.12, and a kernel that will not compile cannot say which interpreter it wanted.
-# This one keeps the caller's own subclass through the filter, which is what `CommitFinding` needs.
+# The old spelling of a bound type variable, on purpose: PEP 695's `def failures[F: Finding]` is
+# a SyntaxError below 3.12, and a kernel that will not compile cannot name the interpreter it
+# wanted. It still carries the caller's own subclass.
 F = TypeVar("F", bound=Finding)
 
 
