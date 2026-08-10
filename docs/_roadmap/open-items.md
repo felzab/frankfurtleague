@@ -453,7 +453,7 @@ makes the gap visible on the one surface an admin uses most.
 **Status:** Open\
 **Surfaces:** FE, BE, Ops\
 **Effort:** L\
-**Path:** Independent — ADR-0032 is the floor it builds on, not a blocker.
+**Path:** Independent — ADR-0032 is a floor; tracing waits on new dependencies and on a destination.
 
 **Implement the industry-standard shape of the correlation scope this repository runs a subset of** (my
 item, 2026-08-05).
@@ -489,8 +489,11 @@ the end of it. So the ordering is:
 1. **Decide the destination first.** A self-hosted collector on the same box (Jaeger, Grafana
    Tempo/Loki, SigNoz), a hosted backend, or nothing. Each carries a resource cost on a server whose
    services are already capped by `docker-compose.yml`'s deploy limits, and a hosted one puts request
-   metadata for a public site into a third party.
-2. **Only then instrument.** The libraries are the cheap half.
+   metadata for a public site into a third party. Whichever answer wins, it lands in
+   `docker-compose.yml` and in `scripts/`, which is where the stack is defined and deployed — so this
+   step is an ops change before it is a code one.
+2. **Only then instrument.** The libraries are the cheap half, and each of them is a new dependency:
+   the backend's in `fl_backend/pyproject.toml`, the frontend's in `fl_frontend/package.json`.
 
 **One cheaper thing that is a real improvement on its own**, and a legitimate answer of "not yet" to
 the whole programme: **ship the logs off the host before they are lost.** A rotating copy, or a log
