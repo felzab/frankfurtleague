@@ -21,11 +21,8 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 export default function LandingPage() {
   return (
     <>
-      {/** Content section */}
       <section className="max-w-page flex w-full flex-col gap-5 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
-        {/* HERO HUB GRID */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-          {/* Primary Hero Box */}
           <div className="border-border bg-surface relative flex flex-col justify-between overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:p-8 lg:col-span-7">
             <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
 
@@ -51,7 +48,6 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* CTA's*/}
             <div className="border-border relative z-10 mt-8 flex flex-wrap items-center gap-3 border-t pt-8">
               <Link
                 href="/dashboard/spielplan#top"
@@ -68,9 +64,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* CTA's*/}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
-            {/* CTA Card 1: Teams */}
             <Link
               href="/dashboard/teams#top"
               prefetch={false}
@@ -82,7 +76,6 @@ export default function LandingPage() {
               <span className="fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
             </Link>
 
-            {/* CTA Card 2: Tabelle */}
             <Link
               href="/dashboard/saisontabelle#top"
               prefetch={false}
@@ -94,7 +87,6 @@ export default function LandingPage() {
               <span className="fluid-sm text-brand relative z-10 font-bold transition-transform group-hover:translate-x-1">→</span>
             </Link>
 
-            {/* CTA Card 3: Spielplan */}
             <Link
               href="/dashboard/spielplan#top"
               prefetch={false}
@@ -108,7 +100,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* SECONDARY INFO & CONTENT STRIP */}
         <div className="border-border bg-surface relative flex w-full flex-col items-center justify-between gap-6 overflow-hidden rounded-2xl border px-4 py-4 shadow-xs sm:px-6 lg:flex-row lg:py-6">
           <div className="relative z-10 flex items-center gap-3">
             <span className="bg-brand-solid min-h-2 min-w-2 animate-pulse rounded-full" />
@@ -132,7 +123,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* GAMES CONTAINER */}
       <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
         {/* The fallback is the real layout in skeleton form rather than a spinner, so the page holds
             roughly its final height while the matches load. A short fallback leaves the page a few
@@ -152,7 +142,7 @@ export default function LandingPage() {
 /**
  * The season named by the hero badge, from the same daily `saisons` cache the fixtures below read —
  * so a rollover through `/admin` moves the badge and the fixtures together, and neither can name a
- * season the other has left (ADR-0002, ADR-0035). `connection()` precedes the fetch per ADR-0009.
+ * season the other has left (ADR-0002, ADR-0028). `connection()` precedes the fetch per ADR-0006.
  */
 async function CurrentSaisonLabel() {
   await connection();

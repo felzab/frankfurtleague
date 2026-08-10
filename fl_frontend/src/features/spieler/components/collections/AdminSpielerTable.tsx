@@ -33,7 +33,7 @@ const SHORTHAND_CHIP =
  * player with no squad row in that season is listed too, showing that instead of squad data — which
  * is the state the memberships read exists to make visible and the season-scoped read cannot.
  *
- * **Two independent retirements meet on one row** (ADR-0032), and keeping them apart is this
+ * **Two independent retirements meet on one row** (ADR-0025), and keeping them apart is this
  * component's main job. The trash control retires the PERSON; a retired SQUAD ROW is badged with its
  * own restore control beside it, because reviving a row is a different endpoint that preserves the
  * number, position and stufe the row still carries. A row can be in either state, both, or neither.
@@ -56,8 +56,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const [, startReactivating] = useTransition();
 
   // The selector's season rides along on every row link, so the editor opens on the season this list
-  // is showing. Reading it here is safe: the parent view already subscribes this tree to the router
-  // (see the memo note), so no new re-render class is introduced.
+  // is showing. Reading it here is safe: the parent view already subscribes this tree to the router.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
   const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";
@@ -122,7 +121,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       </RowActionLink>
 
       {/* The SQUAD ROW's restore, offered only where there is a retired row to restore. Distinct
-          from the person's below, and it preserves the number, position and stufe (ADR-0032). */}
+          from the person's below, and it preserves the number, position and stufe (ADR-0025). */}
       {spieler.selected?.inactive_since != null && (
         <RowActionRestore
           label="Kadereintrag reaktivieren"
@@ -182,9 +181,8 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   const renderNummer = (spieler: AdminSpielerRow) => (
     <span
       aria-label={spieler.selected?.nummer ? undefined : "Keine Nummer"}
-      // A FIXED height rather than padding, so the empty chip is the same box as a filled one
-      // (decided 2026-08-07). `py-1.5` sized the chip from its line box, and an empty span has none —
-      // the two differed by the line height whatever character stood in for the number.
+      // A fixed height rather than padding, so the empty chip is the same box as a filled one
+      // (decided 2026-08-07). `py-1.5` sizes the chip from its line box, and an empty span has none.
       className={`fluid-xs inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>

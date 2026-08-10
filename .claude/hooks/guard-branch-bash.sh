@@ -12,6 +12,14 @@
 # path inside the repo. Reads (`git log`, `grep`, `cat`) are untouched, and so are writes that
 # clearly land outside the working tree.
 #
+# WHY IT CARRIES NO GITIGNORE EXEMPTION, WHERE guard-branch.sh DOES:
+#   That hook is handed one path and asks git whether it is ignored and untracked. A shell command
+#   names its write targets nowhere a matcher can reach them — `sed -i s/a/b/ src/x.ts && cat
+#   docs/audit/r.md` writes one path and mentions another — so the only available test is a substring
+#   of the command, and a substring exemption for `docs/audit` would release that command whole.
+#   A `>` into a gitignored path therefore still asks for a branch here. The Write tool is the route
+#   the audit commands actually take, and it is guarded by path.
+#
 # TARGET PLATFORM: any (Git Bash on Windows). node rather than jq — jq is not installed here.
 
 branch="$(git branch --show-current 2>/dev/null)"
@@ -28,12 +36,8 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 
 [ -n "$cmd" ] || exit 0
 
-# Anything whose only writes land outside the working tree is fine on any branch: the scratchpad,
-# the system temp dir, and the null device. Checked FIRST so a legitimate scratch write is never
-# blocked by the pattern match below.
-case "$cmd" in
-  *"/dev/null"*) ;;
-esac
+# Writes landing outside the working tree — the scratchpad, the system temp dir — are fine on any
+# branch, and are matched FIRST so a legitimate scratch write is never blocked by the pattern below.
 case "$cmd" in
   *scratchpad* | */tmp/* | *"AppData/Local/Temp"*) exit 0 ;;
 esac
@@ -43,8 +47,6 @@ case "$cmd" in
   *"checkout -b"* | *"switch -c"*) exit 0 ;;
 esac
 
-# Write shapes, in the order they actually occur here.
-#
 # Matched against a SPACE-PREFIXED copy so a verb at the very start of the command is caught: the
 # pattern for `rm` has to be " rm " to avoid matching inside a word, and `rm docs/x` has no leading
 # space of its own.
@@ -61,7 +63,8 @@ esac
 
 [ "$writes" = "1" ] || exit 0
 
-# A redirect into the null device only — nothing is written anywhere.
+# A redirect into the null device only — nothing is written anywhere. Tested after the write shapes,
+# because a command can redirect its chatter there while writing somewhere real.
 case "$cmd" in
   *">/dev/null"* | *"> /dev/null"*)
     case "$cmd" in

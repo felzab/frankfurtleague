@@ -3,7 +3,7 @@ SPIELTAGE · filter construction and the derived order
 
 Pure translation of `FLSpieltageFilterParams` into a Mongo filter and sort, plus the one
 expression of a matchday's position: `order_spieltage` is the only place in the system that says
-what "the third matchday" means (ADR-0064).
+what "the third matchday" means (ADR-0051).
 
 Invariants:
 - The natural order is total: `PHASE_RANK[saison_phase]`, then `beginn`, then `_id`.
@@ -47,7 +47,7 @@ def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
     it, `orderRoundsByWiring` anchors its walk on the last element of it, and the admin list sections by
     the phase it leads with. Nothing stores it, so nothing can contradict it.
 
-    **It is also what the DISPLAYED NAME is composed from** (ADR-0064), which is why the final tie-break is
+    **It is also what the DISPLAYED NAME is composed from** (ADR-0051), which is why the final tie-break is
     the id and not a name: a matchday has no name to break a tie with, and one derived from this order
     could not also decide it.
     """
@@ -58,11 +58,10 @@ def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
 def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
     query = filters.model_dump(include={"saison_id", "saison_phase"}, exclude_none=True)
 
-    # Phase
     if filters.saison_phase == "playoffs":
         query["saison_phase"] = {"$ne": "gruppenphase"}
 
-    # Retired matchdays stay out unless asked for (ADR-0032). Their matches are unaffected either way:
+    # Retired matchdays stay out unless asked for (ADR-0025). Their matches are unaffected either way:
     # this filters `spieltage`, and `GET /spiele` never joins it.
     if not filters.include_inactive:
         query["inactive_since"] = None
@@ -70,19 +69,14 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
     return query
 
 
-# =====================================================================================================
-# WHAT A MATCHDAY WRITE REFUSES
-# =====================================================================================================
-
-# Retiring a matchday that holds a match with a result. A retired matchday is excluded from
-# `GET /spieltage`, and the public Spielplan joins fixtures onto the matchdays it received -- so this
-# retirement does not merely hide a container, it unpublishes results the league actually produced
-# (decided 2026-08-08).
+# Retiring a matchday that holds a match with a result (decided 2026-08-08). A retired matchday is
+# excluded from `GET /spieltage`, and the public Spielplan joins fixtures onto what it received -- so
+# this unpublishes results the league produced.
 SPIELTAG_HOLDS_PLAYED = "REQ-RETIRE-002"
 
-# The matchday would hold more fixtures than its phase accounts for. Too FEW is legal and stays legal --
-# a season being set up passes through every count on the way to being complete -- but too many is a
-# state no setup passes through, because a single round robin fixes the number exactly (ADR-0065).
+# The matchday would hold more fixtures than its phase accounts for. Too few is legal: a season being
+# set up passes through every count. Too many is a state no setup passes through, because a single
+# round robin fixes the number (ADR-0052).
 SPIELTAG_OVER_ITS_PHASE = "REQ-SPIELTAG-002"
 
 
@@ -133,20 +127,9 @@ def find_spieltag_phase_refusal(*, attached_count: int, expected_count: int) -> 
     return None
 
 
-# =====================================================================================================
-# WHAT CONTAINS WHAT: THE DATE SPANS
-# =====================================================================================================
-#
-# Three rules, one family, and they all say the same thing in different places: a span contains what sits
-# inside it (decided 2026-08-08). A season contains its matchdays, a matchday contains its fixtures.
-#
-# **A postponed match means PROLONGING the matchday, and there is deliberately no exception** (decided
-# 2026-08-08). A matchday's `beginn`/`ende` DESCRIBES when its fixtures are played rather than planning
-# when they must be, so a fixture moving to the 20th means the matchday now runs to the 20th -- editing
-# `ende` makes the data true. A per-fixture escape hatch would need a marker saying "this one may sit
-# outside", which is a second statement of the same fact with nothing holding the two consistent: the
-# shape ADR-0042 refused for `is_manual` and ADR-0032 refused for a boolean beside a date. Extending
-# `ende` also costs no ordering, because matchdays sort by `beginn` (ADR-0064).
+# **A postponed match PROLONGS the matchday, with no exception**: an escape-hatch marker would be a
+# second statement of the same fact -- the shape ADR-0034 refused for `is_manual` and ADR-0025 for a
+# boolean beside a date.
 
 # The matchday's own span falls outside its season's. A matchday is a named block of that season's
 # fixtures, so one running before the season opens or after it closes is a block of a competition that
@@ -197,15 +180,9 @@ def find_spieltag_span_refusal(
     return None
 
 
-# A matchday created once the season's knockout phase has started (decided 2026-08-08). A season's schedule
-# is settled before the bracket is under way: a group matchday created afterwards belongs to a phase nobody
-# can still play, and the group table is by then being read as final.
-#
-# **"Started" is a DATE, not a result** (decided 2026-08-08): the earliest non-group matchday of the season
-# begins today or has already begun. Deliberately NOT "a knockout fixture carries a result", which is the
-# definition `unplayed_spiel_nrs` and `REQ-RETIRE-002` use for their own questions -- those ask whether a
-# match has been played, and this one asks whether the phase is under way. A bracket that kicked off this
-# morning with nothing entered yet has started; one drawn for next month has not, however complete it looks.
+# A matchday created once the knockout phase has started (decided 2026-08-08): a group matchday created
+# then belongs to a phase nobody can still play. **"Started" is a DATE, not a result** -- not the
+# question `REQ-RETIRE-002` asks.
 SPIELTAG_KNOCKOUT_STARTED = "REQ-SPIELTAG-003"
 
 

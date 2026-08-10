@@ -1,13 +1,13 @@
 # The documentation corpus
 
-**Verified against:** `09f903d`, 2026-08-08\
+**Verified against:** `7555ecd`, 2026-08-10\
 **Applies to:** the `docs/` tree — its layers, its layout, and every README in the repository.
 
 | ID    | Rule                                |
 | ----- | ----------------------------------- |
 | OUT-1 | Three layers, three update triggers |
 | OUT-2 | The folder layout                   |
-| OUT-3 | A README is orientation only        |
+| OUT-3 | A README is orientation, plus one   |
 | OUT-4 | The spec-sheet spine                |
 | OUT-5 | The overview spine                  |
 | OUT-6 | The glossary                        |
@@ -30,9 +30,9 @@ A new page is one of the three, or one of the named exceptions, or it does not g
 **Why:** each layer's update trigger is attached to work that happens anyway, which is what lets
 the corpus stay true without a scheduled review.
 
-**Exceptions:** the cross-cutting root files (OUT-8), the process folders (`docs/_standard/`,
-`docs/_auditing/`, `docs/workflows/`, `docs/roadmap/`), and `docs/domain.md` — a narrative over
-tables a test walks, so its claims are checked rather than reviewed (ADR-0066).
+**Exceptions:** the cross-cutting references (OUT-8), the process folders (`docs/_standard/`,
+`docs/_auditing/`, `docs/_git/`, `docs/_roadmap/`), and `docs/domain.md` — a narrative over
+tables a test walks, so its claims are checked rather than reviewed (ADR-0053).
 
 **Enforced by:** unenforced — review judgment.
 
@@ -57,36 +57,53 @@ surfaces and breaks its citations the day scope moves.
 
 **Example:** —
 
-### OUT-3 — A README is orientation only
+### OUT-3 — A README is orientation, plus at most one bounded body section
 
-**Rule:** a README carries a title naming the folder, a `Folder purpose:` line, a navigation
-table under a `## Folder overview` heading, and at most one "start here" pointer. No rules, no
-worked examples, no precedence, no term definitions. This binds every README in the repository —
-`docs/_standard/`'s and the repository root's included.
+**Rule:** a README carries a title naming the folder, a `Folder purpose:` line, a navigation table
+under a `## Folder overview` heading, and at most **one** body section — the single thing a reader
+needs before opening anything in the table. **Hard cap 120 lines.** The prohibitions bind inside the
+body section too: no rules, no worked examples, no precedence, no term definitions, which live in a
+chapter, a spec sheet or the glossary. A second body section means the content belongs in a spec.
+
+A closing `## Read next` is permitted and does not count against that bound, being navigation rather
+than a body section. It appears only where a page worth opening next is one the navigation table does
+not already send the reader to; where there is none, the section goes.
+
+This binds the README of every folder, `docs/_standard/`'s included. The repository's root
+`README.md` is the sole exception to this rule and to its template: it is the project's public
+landing page, addressed to a reader who has not cloned anything. The line cap is the one part that
+still reaches it.
 
 **Why:** a README that carries rules is a second copy of them, and the copy a reader lands on
-first is the one that goes stale.
+first is the one that goes stale. One bounded section keeps the orientation worth reading without
+letting it become that copy.
 
 **Exceptions:** —
 
-**Enforced by:** `/docs:audit` (the shape read).
+**Enforced by:** gate check `readme-cap` (the line cap); `/docs:audit` (the shape read).
 
 **Example:** [`templates/readme.md`](../templates/readme.md).
 
 ### OUT-4 — The spec-sheet spine
 
-**Rule:** a spec sheet opens with its stamp and scope, carries as many numbered contract sections
-as the surface needs, then always ends with the same three — Invariants, numbered `I<n>`, numbers
-permanent and never reused; then Violation → remedy; then Known-open. Every claim carries an
-anchored citation (COR-6), and every invariant states its failure mode.
+**Rule:** a spec sheet opens with its stamp, its scope and its section table (COR-7), then carries
+exactly four sections: `1. Contract`, which holds as many `1.<n>` subsections as the surface needs;
+`2. Invariants`, numbers permanent and never reused; `3. Violation → remedy`; and `4. Known-open`.
+An invariant is numbered `I<n>` on a surface sheet and `L<n>` on the logging sheet, because an id is
+resolved across every sheet and one prefix per sheet is what keeps a cited number unambiguous. Every
+claim carries an anchored citation (COR-6), and every invariant states its failure mode.
 
-**Why:** fixed closing sections make separate spec sheets read as one document, and permanent
-invariant numbers are what lets a comment or an ADR cite `I<n>` without the reference silently
-moving.
+**Why:** fixed closing sections make separate spec sheets read as one document, and a contract that
+grows inside section 1 is what keeps those numbers fixed — a fifth contract section would otherwise
+push Invariants down and silently repoint every citation of "section 3". Permanent invariant
+numbers do the same job one level down, for a comment or an ADR citing `I<n>`.
 
 **Exceptions:** —
 
-**Enforced by:** `/docs:audit` (the shape read); the citations by the gate.
+**Enforced by:** gate check `spec-spine` for the four sections and the contract's `1.<n>` numbering;
+gate check `invariant-row` for a row's column count, its number's uniqueness and its stated failure
+mode; gate check `invariant-id` for a cited number resolving to a defined invariant; gate checks
+`citation` and `path` for the anchors. The rest is `/docs:audit` (the shape read).
 
 **Example:** [`templates/spec-sheet.md`](../templates/spec-sheet.md).
 
@@ -102,21 +119,26 @@ owns, and the ceiling is what makes that drift visible.
 
 **Exceptions:** —
 
-**Enforced by:** `/docs:audit` (the shape read).
+**Enforced by:** gate check `overview-spine`, which requires the first section to be "How it is
+organised" and the last "Read next"; the ceiling and what belongs in between are `/docs:audit`'s
+(the shape read).
 
 **Example:** [`templates/surface-overview.md`](../templates/surface-overview.md).
 
 ### OUT-6 — The glossary
 
 **Rule:** the domain vocabulary lives in one central file, `docs/glossary.md`, one entry per term:
-the term as it appears in code, a one-line gloss, where it lives, and the pitfalls.
+a `### ` heading giving the term as code spells it and a one-line gloss, then the fields `Is`,
+`In code`, `Trap` and `See`, in that order. Where the code and the domain spell one thing
+differently, the spellings share an entry rather than taking one each.
 
 **Why:** the vocabulary is load-bearing and ambiguous in ways only the pitfall lines record, and
-scattering it per surface would strand the cross-cutting terms.
+scattering it per surface would strand the cross-cutting terms. `Trap` is the field a hurried entry
+drops and the one the glossary exists for.
 
 **Exceptions:** —
 
-**Enforced by:** unenforced — review judgment.
+**Enforced by:** gate check `glossary-entry` — the heading's shape, and the four fields in order.
 
 **Example:** a term whose stored values and query-only aliases differ — the pitfall line is what
 costs an hour to rediscover and thirty seconds to write down.
@@ -141,10 +163,11 @@ sheet as a directory tree, which is cheap to keep right.
 
 **Rule:** a surface is one of the three parts of the system a reader goes to as a whole —
 frontend (`fl_frontend/`), backend (`fl_backend/`), and ops (the compose files, `nginx/`,
-`scripts/`, the Dockerfiles). Documentation is organised by surface because that is the
-granularity at which a question has one answer. A surface is not a slice, not a layer, not a
-directory. Three pages belong to no surface: `docs/glossary.md`, `docs/logging.md` and
-`docs/domain.md`.
+`scripts/`, the Dockerfiles). Ops owns the scripts and what they guarantee; `docs/_git/` owns
+the pipeline that invokes them and the GitHub configuration, `.github/` included. Documentation is
+organised by surface because that is the granularity at which a question has one answer. A surface
+is not a slice, not a layer, not a directory. The references belonging to no surface are
+`docs/glossary.md`, `docs/logging/` and `docs/domain.md`.
 
 **Why:** "how does caching work", "how is a request authenticated" and "what happens on deploy"
 each has exactly one home, and that is the property worth organising around.

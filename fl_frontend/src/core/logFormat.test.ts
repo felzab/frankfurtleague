@@ -1,7 +1,7 @@
 /**
  * CORE · log format tests
  *
- * Pins the JSON contract shared with the backend (`docs/logging.md`): one document per line, the
+ * Pins the JSON contract shared with the backend (`docs/logging/spec.md`): one document per line, the
  * same field names, the same level vocabulary, the same error object shape. Nothing else in the
  * toolchain sees a log line, so this suite is the only net under those claims.
  */

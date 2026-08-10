@@ -19,8 +19,7 @@ import type { FLSchiedsrichterFilterParams } from "./types";
 export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = {}): Promise<FLSchiedsrichterListResponse> {
   "use cache";
 
-  // Base tag only. The granular tag that once sat here was misnamespaced (`spieler:`) and on a branch
-  // that never ran, since this is only ever called with no arguments.
+  // Base tag only: this is only ever called with no arguments, so nothing narrower describes it.
   cacheTag("schiedsrichter");
   cacheLife("days");
 

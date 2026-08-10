@@ -1,12 +1,12 @@
 """
 CORE · injectable dependencies
 
-Typed aliases for the nine collections, plus the German-time providers. Endpoints declare what
-they need rather than reaching for it, which is what makes them testable without a database.
+Typed aliases for the collections, plus the German-time providers. Endpoints declare what they
+need rather than reaching for it, which is what makes them testable without a database.
 
 Invariants:
-- Time is Europe/Berlin wall-clock injected as a `YYYY-MM-DD` string — the format sorts, which is
-  why lexicographic comparison works and why the format is not negotiable.
+- Time is Europe/Berlin wall-clock injected as a `YYYY-MM-DD` string, and the format is not
+  negotiable (`app/shared/schemas/custom.py`).
 - Injecting the date keeps "today" substitutable in tests.
 """
 
@@ -63,8 +63,8 @@ def get_germany_now() -> datetime:
 
 
 def get_german_date_str(germany_now: datetime = Depends(get_germany_now)) -> str:
-    return germany_now.strftime("%Y-%m-%d")  # YYYY-MM-DD
+    return germany_now.strftime("%Y-%m-%d")
 
 
 def get_german_time_str(germany_now: datetime = Depends(get_germany_now)) -> str:
-    return germany_now.strftime("%H:%M:%S")  # HH:MM:SS
+    return germany_now.strftime("%H:%M:%S")

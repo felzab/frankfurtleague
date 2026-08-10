@@ -1,29 +1,20 @@
 #!/usr/bin/env bash
 #
-# scripts/ci_scopes.sh — map the changed paths of a branch to verify.sh scopes.
-# TARGET PLATFORM: any (the CI runner is the consumer; it runs identically on a dev machine, which
-# is how the mapping is tested by hand).
+# SCRIPTS · map the changed paths of a branch to verify.sh scopes.
 #
-# Prints one `name=true|false` line per scope to stdout — scripts, docs, backend, frontend, ops,
-# images, format — exactly the shape `$GITHUB_OUTPUT` accepts. The human-readable summary goes to stderr so
-# it can never leak into the outputs. Both workflows consume this: verify.yml turns each line into
-# a job condition, and codeql.yml reads the frontend and backend lines to pick analysis languages.
-# Keeping the mapping here rather than inline in a workflow makes it one copy, testable by hand,
-# and covered by selfcheck.sh and shellcheck like every other script.
+# Prints one `name=true|false` line per scope on stdout, the shape `$GITHUB_OUTPUT` accepts, and the
+# human-readable summary on stderr, where it cannot leak into the outputs. Both workflows and
+# `scripts/check_scope.py` read this one copy, so selfcheck.sh and shellcheck cover the mapping like
+# any other script. Arms are matched most-specific-first and a path no arm recognises turns every
+# scope on, so a new kind of file can never silently skip validation.
 #
-# HOW IT DECIDES, most specific arm first; a file may light up several scopes. The mapping errs
-# conservative — a path no arm recognises turns every scope on, so a new kind of file can never
-# silently skip validation. Only the deliberate no-check list runs nothing.
-#
-# USAGE:
-#   ./scripts/ci_scopes.sh origin/main   scopes for the diff between HEAD and its merge base
-#                                        with the named ref
+#   ./scripts/ci_scopes.sh origin/main   scopes for the diff against the merge base with that ref
 #   ./scripts/ci_scopes.sh --all         every scope true — a push to main proves everything
-#   ./scripts/ci_scopes.sh --stdin       scopes for a file list read from stdin, one path per line,
-#                                        instead of one computed from a diff. scripts/check_scope.py
-#                                        uses this to ask the same mapping about a list it has
-#                                        already filtered, so there is still only one copy of it
+#   ./scripts/ci_scopes.sh --stdin       scopes for a file list on stdin, one path per line
 #   ./scripts/ci_scopes.sh --help
+#
+# See:
+# - docs/ops/spec.md — the scopes, what each needs, and why a path selects the ones it does
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
@@ -63,17 +54,19 @@ else
       # images job it exists to serve would never run on a change to it.
       .github/actions/*) all ;;
       scripts/*.sh) all ;;
-      # check_docs.py is the docs gate; anything else in scripts/ is documentation the
-      # self-check and prettier both cover.
+      # check_docs.py is the docs gate itself. Prettier has no Python parser, so this arm withholds
+      # `format`; the generic scripts/ arm below carries it for the .mjs and .json files it does
+      # format.
       scripts/check_docs.py) scripts=true; docs=true ;;
       # Markdown anywhere — including inside fl_frontend/ and fl_backend/ — is prose: the docs
       # gate and the formatter check it, and no test tier can say anything about it.
       *.md) docs=true; format=true ;;
       scripts/*) scripts=true; docs=true; format=true ;;
-      # Packaging inputs. The docs scope rides along wherever source comments are scanned for
-      # citations (.ts/.tsx/.js/.mjs/.cjs/.py — see check_docs.py, INC-6).
-      fl_frontend/Dockerfile|fl_frontend/.dockerignore) images=true ;;
-      fl_backend/Dockerfile|fl_backend/.dockerignore) images=true ;;
+      # Packaging inputs. The docs scope rides along because a comment in any of these is
+      # documentation, and INC-6 holds one to the citations a spec sheet carries — withhold `docs`
+      # and a comment-only edit here runs no documentation gate at all.
+      fl_frontend/Dockerfile|fl_frontend/.dockerignore) images=true; docs=true ;;
+      fl_backend/Dockerfile|fl_backend/.dockerignore) images=true; docs=true ;;
       fl_frontend/src/core/config.ts|fl_frontend/src/core/auth.ts|fl_frontend/src/instrumentation.ts)
         frontend=true; images=true; docs=true ;;
       # next.config.ts owns output:"standalone" and the file tracing the image copies;
@@ -82,29 +75,28 @@ else
       fl_frontend/package.json|fl_frontend/pnpm-lock.yaml|fl_frontend/next.config.ts|fl_frontend/pnpm-workspace.yaml)
         frontend=true; images=true ;;
       fl_backend/pyproject.toml|fl_backend/uv.lock) backend=true; images=true ;;
-      # The published API surface, which the frontend's contract test reads (ADR-0040). It must select
-      # the FRONTEND scope as well as the backend's, and that is the whole reason the document is
-      # committed: a change confined to fl_backend/ selects the backend scope alone, so a Pydantic model
-      # edit would otherwise never run the check that compares it against the Zod mirror. Regenerating
-      # the document is what carries the model change into the frontend job.
+      # The published API surface, which the frontend's contract test reads (ADR-0033). It selects
+      # the frontend scope too: a change confined to fl_backend/ would otherwise never run the check
+      # comparing a Pydantic model against its Zod mirror.
       fl_backend/openapi.json) backend=true; frontend=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
       fl_backend/*) backend=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx against prod.conf; prettier also
-      # formats the compose files (see `format` in fl_frontend/package.json).
-      docker-compose.yml|docker-compose.local.yml) ops=true; format=true ;;
-      nginx/*) ops=true ;;
+      # formats them (`fl_frontend/package.json`). Both carry `docs`, because their comments are
+      # documentation (INC-6).
+      docker-compose.yml|docker-compose.local.yml) ops=true; docs=true; format=true ;;
+      nginx/*) ops=true; docs=true ;;
       .prettierignore) format=true ;;
       # .gitattributes decides line endings at checkout, which is exactly what the scripts' CRLF
       # self-check exists to catch on a fresh clone.
       .gitattributes) scripts=true ;;
       # No automated check exists for these. A deliberate, named list — anything NOT named here
       # falls through to the conservative default below.
-      certs/*|.vscode/*|.gitignore|LICENSE|NOTICE) ;;
+      certs/*|.gitignore|LICENSE|NOTICE) ;;
       docs/*) docs=true; format=true ;;
       # The assistant hooks are shell scripts selfcheck.sh lints and probes, so a hook edit selects
-      # the scripts scope — matched before the .claude/* arm, which alone would map it to docs and
-      # leave the one check that executes hooks unrun on exactly the change that needs it.
+      # the scripts scope — matched before the .claude/* arm, which would map it to docs and leave
+      # the hook probes unrun on exactly the change that needs them.
       .claude/hooks/*) scripts=true; docs=true; format=true ;;
       .claude/*|.github/*) docs=true; format=true ;;
       *) all ;;

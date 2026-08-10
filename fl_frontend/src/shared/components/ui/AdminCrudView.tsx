@@ -63,14 +63,14 @@ export function AdminCrudView<TItem extends { id: string }>({
   renderTable: (args: { query: string; filteredItems: TItem[]; onEdit: (item: TItem) => void; onDelete: (item: TItem) => void }) => ReactNode;
   /**
    * Optional, because an editor is not necessarily a dialog: a resource whose form outgrew one edits
-   * on a page instead (ADR-0050), and its table renders a link where the others wire `onEdit`. Teams
-   * is that case; Schiedsrichter and Spielorte pass a modal.
+   * on a page instead (ADR-0040), and its table renders a link where the others wire `onEdit`. Teams
+   * and Spieler are those cases; the resources with dialog editors pass a modal.
    */
   renderEditModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
   /**
    * Optional, because not every resource can be removed: a season is never deleted and never retired —
    * one that is over is `past`, and deleting it would orphan every spiel, spieltag and junction row
-   * carrying its id (ADR-0033). Saisons is that case; the other four pass one.
+   * carrying its id (ADR-0026). Saisons is that case; every other resource passes one.
    */
   renderDeleteModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
 }) {
@@ -85,14 +85,9 @@ export function AdminCrudView<TItem extends { id: string }>({
   const filteredItems = useFuzzySearch({ items: narrowedItems, keys: searchKeys, query });
 
   return (
-    // Animated in on arrival, the way every other route shell is: a correctly-sized skeleton swap
-    // still reads as a snap if the real content simply *appears*, so the fallback (which a warm
-    // navigation never paints at all) hands over to a movement rather than to a jump.
-    //
-    // `gap-4` between the filter bar and the table, not the shell's `gap-8`: the bar belongs to the
-    // table it narrows, and at 2rem it read as a third section of the page. The distance from the
-    // search row above is still the shell's own `gap-8`, because that IS a section boundary. A slice
-    // with no facets renders no bar and therefore no gap at all.
+    // Animated in on arrival, as every route shell is: a correctly-sized skeleton swap
+    // still reads as a snap if the content simply appears. `gap-4` under the filter
+    // bar rather than the shell's `gap-8` -- the bar belongs to the table it narrows.
     <div className={`${PAGE_RISE} flex flex-col gap-4`}>
       {/* Counted over the UNFILTERED rows, so each option answers what it would leave rather than what
           the current selection already left. */}

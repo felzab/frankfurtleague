@@ -32,10 +32,9 @@ export function AdminProvider({
   saisonSpiele: FLSpiel[];
   children: ReactNode;
 }) {
-  // Memoised by hand because the React Compiler is deliberately off (see `next.config.ts`). A fresh
-  // object literal here is a new identity every render, which re-renders every `useAdmin()` consumer
-  // whenever only `children` changed. Low impact today — the provider is rendered by a server
-  // component — but it is a trap the moment this moves inside a client boundary.
+  // Memoised by hand because the React Compiler is deliberately off (ADR-0014). A fresh object
+  // literal here is a new identity every render, re-rendering every `useAdmin()` consumer whenever
+  // only `children` changed.
   const value = useMemo(() => ({ spielorte, schiedsrichter, teams, saisonSpiele }), [spielorte, schiedsrichter, teams, saisonSpiele]);
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;

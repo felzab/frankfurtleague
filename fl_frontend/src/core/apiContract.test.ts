@@ -1,17 +1,17 @@
 /**
  * CORE · the Zod mirror, checked against the published API surface
  *
- * The Pydantic schemas and the ten Zod modules beside this one are hand-maintained mirrors with
+ * The Pydantic schemas and the Zod `schemas.ts` modules beside this one are hand-maintained with
  * no generation step; this suite converts every exported Zod schema to JSON Schema, pairs it with
  * its component in the committed `fl_backend/openapi.json`, and compares the wire contract —
- * presence, required, nullable, primitive type, enum members (ADR-0040). Patterns, lengths,
+ * presence, required, nullable, primitive type, enum members (ADR-0033). Patterns, lengths,
  * bounds and messages are deliberately not compared: the two sides diverge there by design, and
  * comparing validation policy produces failures nobody can act on.
  *
  * Invariants:
  * - Every component and Zod schema is either paired or in an exception list with its reason.
  * - Modules are walked and imported dynamically — a new slice is covered with nothing to
- *   remember, and `core` gains no static import of `features` or `shared` (ADR-0012).
+ *   remember, and `core` gains no static import of `features` or `shared` (ADR-0008).
  * - Nested objects are not recursed into: each is its own pair, so a drift names the smallest
  *   component that moved.
  *
@@ -49,9 +49,9 @@ const NAME_ALIASES: Record<string, string> = {
   FLSchiedsrichterWriteResponse: "FLDeleteSchiedsrichterResponse",
   FLSpielortWriteResponse: "FLDeleteSpielortResponse",
 
-  // The backend has two match models because it also validates STORED documents: `FLSpiel` is what a
-  // raw document is, `FLSpielJoined` is what every endpoint serves. Only the second reaches the wire,
-  // and the frontend parses no stored document, so it has one shape and names it `FLSpiel`.
+  // The backend keeps a separate model for STORED documents, and only
+  // `FLSpielJoined` reaches the wire. The frontend parses no stored document, so
+  // it has one shape and names it `FLSpiel`.
   FLSpielJoined: "FLSpiel",
 };
 
@@ -67,14 +67,12 @@ const BACKEND_ONLY: Record<string, string> = {
   HTTPValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
   ValidationError: "FastAPI's validation error body; thrown on before any schema parses it",
 
-  // ADR-0034 gives every resource a GET /{id} for uniform addressability, and only /teams/{id} and
-  // /spiele/{id} are called. Three single reads therefore have no mirror, which the backend spec
-  // records as known-open. The season editor addresses a season through `getSaisons`, which it needs
-  // whole anyway for the rollover's outgoing season, so `/saisons/{id}` gains no caller either — but
-  // `FLSaisonsSingleResponse` is mirrored regardless, because `/saisons/current` returns that shape.
-  FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
-  FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
-  FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0034)",
+  // ADR-0027 gives every resource a GET /{id} for uniform addressability, and not
+  // every one is called; the uncalled ones have no mirror, which the backend spec
+  // records as known-open. `/saisons/current` is why the season pair is mirrored.
+  FLSchiedsrichterSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0027)",
+  FLSpielorteSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0027)",
+  FLSpieltageSingleResponse: "GET /{id} exists for uniform addressability and has no caller (ADR-0027)",
 };
 
 /**
@@ -115,9 +113,9 @@ const FRONTEND_ONLY: Record<string, string> = {
   // members are paired, so the union's contents are checked even though the union itself is not.
   FLTeamsResponse: "the discriminated union is published inline at GET /teams; both members are paired",
 
-  // The same shape of exemption, one level down: a discriminated union is published inline on each
-  // `teamN_quelle` property rather than as a component. `FLSpielQuelleGruppe` and `FLSpielQuelleSpiel`
-  // are both paired, so every field of both variants is still compared.
+  // The same exemption one level down: a discriminated union is published inline on
+  // each `teamN_quelle` property rather than as a component. Both variants are
+  // paired, so every field of both is still compared.
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
   // And once more, on the two responses that carry a fault list. All three variants are paired, so
@@ -144,7 +142,7 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSpieltagKeyPayload: "the matchday's DELETE and reactivate take the id from the path, with no request body",
 
   // One form creates the club AND enters it into a season — a club without a junction row would be
-  // invisible to every season-scoped read (I11) — so the action's argument spans two request bodies.
+  // invisible to every season-scoped read (backend spec I11) — so the argument spans two bodies.
   FLCreateTeamFormPayload: "the create action's own argument; the action splits it into two requests",
   // The same shape for players, and the same reason: a player without a squad row is invisible.
   FLCreateSpielerFormPayload: "the create action's own argument; the action splits it into two requests",
@@ -173,7 +171,6 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
 
 type JsonSchema = Record<string, unknown>;
 
-/** The five facts that make up the wire contract for one field. */
 type FieldFacts = {
   required: boolean;
   nullable: boolean;
@@ -189,7 +186,6 @@ function readDocument(): JsonSchema {
   }
 }
 
-/** Every `schemas.ts` under src/, so a new slice needs no edit here. */
 function findSchemaModules(dir: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -249,7 +245,6 @@ function collectBranches(node: JsonSchema, root: JsonSchema, into: JsonSchema[],
   into.push(resolved);
 }
 
-/** Reduce one property's schema node to the five facts. */
 function factsFor(node: JsonSchema, root: JsonSchema, required: boolean): FieldFacts {
   const branches: JsonSchema[] = [];
   collectBranches(node, root, branches);
@@ -302,7 +297,6 @@ function describeObject(node: JsonSchema, root: JsonSchema, allRequired: boolean
   return fields;
 }
 
-/** Component names reachable from a response body, transitively. Decides which get the rule above. */
 function responseReachable(document: JsonSchema): Set<string> {
   const components = ((document.components as JsonSchema | undefined)?.schemas ?? {}) as Record<string, JsonSchema>;
   const reached = new Set<string>();
@@ -330,8 +324,6 @@ function responseReachable(document: JsonSchema): Set<string> {
   }
   return reached;
 }
-
-// ── The fixtures every case below reads ──────────────────────────────────────────────────────────────
 
 const document = readDocument();
 const components = ((document.components as JsonSchema | undefined)?.schemas ?? {}) as Record<string, JsonSchema>;
@@ -426,10 +418,9 @@ describe("each pair agrees on the wire contract", () => {
       const converted = z.toJSONSchema(entry.schema, { io: "output" }) as JsonSchema;
       const frontend = describeObject(converted, converted, false);
 
-      // A `RootModel` over a constrained key map publishes `propertyNames`, not `properties` — there is
-      // no field list to compare. The invariant that matters is the one `FLGruppen`'s own docstring
-      // names: the backend seeds every group, and a response omitting one fails the Zod parse and takes
-      // the Saisontabelle down. So compare the key sets instead of exempting the pair.
+      // A `RootModel` over a constrained key map publishes `propertyNames`, not
+      // `properties`, so there is no field list to compare. The backend seeds every
+      // group and an omission fails the parse -- so compare the key sets instead.
       const keyEnum = (node.propertyNames as JsonSchema | undefined)?.enum as unknown[] | undefined;
       if (keyEnum && backend.size === 0) {
         assert.deepEqual(

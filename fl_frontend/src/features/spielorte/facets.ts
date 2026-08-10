@@ -35,7 +35,7 @@ export const SPIELORT_FACETS: readonly Facet<FLSpielort>[] = [
     ],
     // The bands are exclusive and exhaustive over a non-negative integer, so every venue matches exactly
     // one and the three counts add up to the list. `mietpreis` on a Spiel is a point-in-time copy and is
-    // deliberately not what this reads (ADR-0028 rule 2).
+    // deliberately not what this reads (ADR-0021 rule 2).
     read: (ort) => {
       if (ort.default_mietpreis === 0) return ["kostenlos"];
       return ort.default_mietpreis <= 100 ? ["bis_100"] : ["ueber_100"];

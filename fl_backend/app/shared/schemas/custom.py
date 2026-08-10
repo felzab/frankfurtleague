@@ -27,12 +27,8 @@ from pydantic import (
 )
 from pydantic_core import CoreSchema, core_schema
 
-# Regex for YYYY-MM-DD (e.g., 2026-06-08)
-# Ensures months are 01-12 and days are 01-31
 DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
-# Regex for HH:MM:SS (e.g., 14:30:00)
-# Ensures hours are 00-23, minutes 00-59, seconds 00-59
 TIME_REGEX = r"^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
 
 
@@ -55,9 +51,7 @@ class CustomObjectIdAnnotation:
             json_schema=core_schema.str_schema(),
             python_schema=core_schema.union_schema(
                 [
-                    # If it's already an ObjectId, allow it
                     core_schema.is_instance_schema(ObjectId),
-                    # If it's a string, validate it as an ObjectId
                     core_schema.chain_schema(
                         [
                             core_schema.str_schema(),
@@ -66,7 +60,6 @@ class CustomObjectIdAnnotation:
                     ),
                 ]
             ),
-            # How to serialize it to JSON
             serialization=core_schema.plain_serializer_function_ser_schema(serialize_oid, info_arg=True),
         )
 
@@ -74,15 +67,9 @@ class CustomObjectIdAnnotation:
 CustomObjectId = Annotated[ObjectId, CustomObjectIdAnnotation]
 
 
-# The path-parameter spelling, and deliberately the SAME type rather than a second one. A path segment
-# arrives as a string and the union branch above converts it, so this needs no converter of its own.
-# NEVER give it a converter of its own that declares `Annotated[str, ...]` while returning an ObjectId:
-# that lie is not cosmetic. Every endpoint's id parameter would type as `str`, and a type checker then
-# cannot see the write path's id handling at all -- a whole class of argument-type error goes unreported.
-#
-# Kept as a distinct NAME because it says where the value comes from, and because `by_id()` in
-# app/core/routing.py constrains the same parameter to 24 hex characters at the ROUTING layer -- the two
-# belong together and the name is what pairs them.
+# The path-parameter spelling, deliberately the SAME type. NEVER give it a converter declaring
+# `Annotated[str, ...]` while returning an ObjectId: every endpoint's id would type as `str` and a type
+# checker could not see the write path at all.
 CustomRouteObjectId = CustomObjectId
 
 
@@ -95,15 +82,12 @@ def parse_empty_string_to_none(value: Any) -> Any:
 CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
 
 
-# Regex for a phone number: digits, spaces, +, -, ( ) and . -- 3 to 20 characters.
-# Mirrors PHONE_REGEX in fl_frontend/src/shared/schemas.ts.
+# `fl_frontend/src/shared/schemas.ts :: PHONE_REGEX` mirrors this.
 PHONE_REGEX = r"^([+]?[\s0-9\-().]{3,20})$"
 
-# Hostname rule for an external URL. Byte-for-byte the regex zod uses for `z.regexes.domain`
-# (fl_frontend/node_modules/zod/v4/core/regexes.js), because ExternalUrlSchema tests the parsed
-# hostname against exactly this. Keeping the two identical is the point: a value must be accepted or
-# rejected the same way at both ends. It requires real domain labels, so it rejects bare hosts
-# ("localhost"), single-letter TLDs, underscores, and IP literals.
+# Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the parsed
+# hostname against exactly this and both ends must accept or reject a value alike. Bare hosts and IP
+# literals are rejected.
 DOMAIN_REGEX = re.compile(r"^([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$")
 
 EXTERNAL_URL_SCHEMES = frozenset({"http", "https"})
@@ -137,7 +121,7 @@ def refuse_reversed_span(*, start: str, end: str, start_label: str, end_label: s
     readable and becomes uneditable until it is corrected, which is the direction that leaves a way out.
 
     German, because this surfaces as a 422 field message the admin reads. `find_*_refusal` details go
-    the other way: English for the log, with the code carrying the meaning (docs/logging.md).
+    the other way: English for the log, with the code carrying the meaning (docs/logging/error-codes.md).
     """
 
     if end < start:
@@ -159,23 +143,21 @@ def validate_external_url(value: str) -> str:
     An http(s) URL safe to render into an href.
 
     Scheme-restricted on purpose: a bare "is this a URL" check accepts `javascript:` and `data:`,
-    which are XSS sinks once React renders them into an href (audit R3b S8.1).
+    which are XSS sinks once React renders them into an href.
 
     Parses rather than pattern-matches, mirroring what zod's ExternalUrlSchema does on the frontend:
     split the URL, check the scheme, then test the *hostname* against DOMAIN_REGEX. A single regex
-    over the whole string cannot do this correctly -- the previous one was anchored only at the
-    start, so every character after the host was unvalidated and the leading `^` was carrying the
-    entire scheme restriction on its own.
+    over the whole string cannot do this correctly -- one anchored only at the start leaves every
+    character after the host unvalidated, with the leading `^` carrying the scheme restriction alone.
 
     Deliberately not pydantic's AnyHttpUrl: that normalises the value, and appending a trailing
     slash would silently rewrite what is already stored and served.
     """
     try:
         parts = urlsplit(value)
-        # Read `.port` for its side effect: urlsplit is lazy, and an invalid port
-        # ("example.com:notaport") only raises when the attribute is accessed. `new URL` rejects it
-        # outright, so without this the backend would accept a URL the frontend refuses. Bound to a
-        # name because a bare attribute access reads as dead code (and ruff's B018 says so).
+        # Read `.port` for its side effect: urlsplit is lazy, so an invalid port only raises on access,
+        # and without this the backend accepts a URL `new URL` refuses. Bound to a name because a bare
+        # attribute access reads as dead code (ruff B018).
         _port = parts.port
     except ValueError as invalid_url_error:
         raise ValueError("URL could not be parsed") from invalid_url_error
@@ -189,11 +171,9 @@ def validate_external_url(value: str) -> str:
     if not host:
         raise ValueError("URL must point at a domain name")
 
-    # DOMAIN_REGEX is ASCII-only, and so is the WHATWG `hostname` zod tests -- but `new URL`
-    # punycodes on the way in, so zod sees "xn--kthe-...". urlsplit does not, so an umlaut domain
-    # would reach the regex verbatim and be rejected. Encode first, or a perfectly ordinary
-    # "https://käthe-kollwitz-schule.de" fails validation on the READ path and takes the whole teams
-    # API down with it.
+    # DOMAIN_REGEX is ASCII-only, and `new URL` punycodes on the way in, so zod sees "xn--...".
+    # urlsplit does not, so encode first -- otherwise an umlaut domain fails validation on the read
+    # path and takes the whole teams API with it.
     try:
         if host.isascii():
             # An "xn--" label that is not valid punycode passes DOMAIN_REGEX -- it is only ASCII

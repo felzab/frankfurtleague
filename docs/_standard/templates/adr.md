@@ -1,8 +1,7 @@
 <!--
 TEMPLATE — copy to docs/_decisions/<NNNN>-<short-slug>.md; delete this block.
 Rules: ../chapters/4-decisions.md
-  - Apply the trigger test first: would someone reasonably propose the opposite, and would you
-    have to re-derive the argument to refuse? If not, it is documentation, not an ADR.
+  - Apply DEC-1's trigger test first; if it fails, this is documentation, not an ADR.
   - An accepted ADR is never rewritten. Reversal is the next number plus two line edits here
     (Status, Superseded by). Numbers are never reused, and only an ADR that exists may be cited.
 -->

@@ -50,10 +50,9 @@ export function EntityForm<TDraft>({
 }) {
   const [isPending, startTransition] = useTransition();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
-  // Fires when the server rejected a path no field renders — without it the submit would fail in
-  // complete silence, because the toast below is suppressed whenever `fieldErrors` is non-empty.
-  // The description names the situation rather than the error: there is no field to look at, so
-  // "check the highlighted field" would send the reader hunting for one that does not exist.
+  // Fires when the server rejected a path no field renders — without it the submit fails in silence,
+  // because the toast below is suppressed whenever `fieldErrors` is non-empty. The description names
+  // the situation: there is no field to look at.
   const { fieldErrors, setFieldErrors, formRef } = useServerFieldErrors(() =>
     appToast.danger("Speichern fehlgeschlagen", {
       description: "Der Server hat eine Angabe beanstandet, die dieses Formular nicht anzeigt. Lade die Seite neu.",
@@ -88,10 +87,9 @@ export function EntityForm<TDraft>({
     <Form
       ref={formRef}
       validationErrors={fieldErrors}
-      // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks.
-      // On the form rather than per field, because the rule is about what KIND of form this is, and
-      // emitted only when ON — that rule is an opt-in, so an absent attribute already means "no
-      // marks" and every editor gets the right behaviour without carrying anything.
+      // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. On
+      // the form rather than per field, because the rule is about the kind of form; emitted only when
+      // on, so an absent attribute already means no marks.
       data-required-marks={marksRequired ? "on" : undefined}
       className="flex h-fit w-full flex-col gap-y-4 rounded-xl shadow-sm"
       action={handleSubmit}>

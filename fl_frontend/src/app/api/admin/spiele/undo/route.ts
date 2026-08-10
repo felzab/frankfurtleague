@@ -1,8 +1,8 @@
 /**
  * APP · the match edit's undo
  *
- * Puts a batch of fixtures back the way they were, in the order given (ADR-0051) — one of the
- * admin mutations that are route handlers rather than server actions (ADR-0062): the undo's toast
+ * Puts a batch of fixtures back the way they were, in the order given (ADR-0041) — one of the
+ * admin mutations that are route handlers rather than server actions (ADR-0049): the undo's toast
  * outlives the page that raised it, and a server action dispatched from the landing route
  * re-renders the abandoned editor segment, which trips Next's E592 invariant mid-stream and
  * truncates the response. Revert to a server action when E592 is fixed upstream.
@@ -10,7 +10,7 @@
  * Invariants:
  * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.
  * - It guards itself: `proxy.ts` matches `/admin/:path*` only, so the session check is the control.
- * - The client holds every payload — no admin write is recorded anywhere (roadmap BE-15).
+ * - The client holds every payload — no admin write is recorded anywhere.
  */
 
 import { revalidateTag } from "next/cache";
@@ -56,10 +56,9 @@ export async function POST(request: NextRequest) {
     for (const payload of payloads) {
       const operation = await patchAdminSpielData(payload);
       if (!operation.acknowledged) {
-        // The tags below are deliberately NOT invalidated on this path: some fixtures were written
-        // and some were not, so the caches are stale either way and the admin is being sent to look
-        // at the fixtures by hand. Reporting the count is the point — a partial restore is a worse
-        // state than either end of it.
+        // The tags below are deliberately not invalidated on this path: some fixtures are written and
+        // some are not, so the caches are stale either way and the admin is sent to check by hand.
+        // Reporting the count is the point.
         return {
           success: false as const,
           error: `Die Rücknahme wurde nach ${restored} von ${payloads.length} Spielen abgebrochen. Prüfe die betroffenen Spiele.`,
@@ -68,15 +67,13 @@ export async function POST(request: NextRequest) {
       restored += 1;
     }
 
-    // Guarded, which the save does not need to be. Every fixture above is already committed by the
-    // time this runs, so an invalidation that throws must not turn a restore that HAPPENED into a
-    // reported failure — the admin would go looking for work that was already done. The cost of
-    // swallowing it is a stale read, and the caller refreshes the router itself.
+    // Guarded, unlike the save: every fixture above is already committed by the time this runs, so an
+    // invalidation that throws must not turn a restore that happened into a reported failure. The cost
+    // of swallowing it is a stale read.
     try {
-      // `{ expire: 0 }` rather than a named profile: the second argument is how much staleness a
-      // reader may still be served, and an undo tolerates none — the admin is about to look at the
-      // fixture they just restored. It is the closest a route handler gets to `updateTag`, which is
-      // the server-action-only form and throws here (spec I14).
+      // `{ expire: 0 }` rather than a named profile: the second argument is how much staleness a reader
+      // may still be served, and an undo tolerates none. It is the closest a route handler gets to
+      // `updateTag`, which throws here (frontend spec I14).
       for (const tag of ["spiele", "teams", `spiele:saison_id:${saison_id}`, `teams:saison_id:${saison_id}`]) {
         revalidateTag(tag, { expire: 0 });
       }

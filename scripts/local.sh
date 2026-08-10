@@ -1,30 +1,22 @@
 #!/usr/bin/env bash
 #
-# scripts/local.sh — run the REAL production image on your own machine, behind the real nginx.
-# TARGET PLATFORM: Windows (your development machine).
+# SCRIPTS · run the real production image on your own machine, behind the real nginx.
 #
-# WHY THIS EXISTS, and why `pnpm dev` is not enough:
-#   `next dev` runs the app from source. It never produces the standalone build, never runs the
-#   startup environment gate, never goes through nginx, and never applies the security headers.
-#   Two defects got through EVERY dev-mode check because of that:
-#     - instrumentation.ts at the repo root compiles fine and is then dropped from the image,
-#       silently disabling the env gate and all production error logging;
-#     - a module-scope read of AUTH_URL that only fails in the builder stage, where there is no .env.
-#   This script is the only place those are visible before a deploy.
+# `next dev` runs the app from source, so it exercises neither the standalone build, the startup
+# environment gate, nginx nor the security headers. Two things it therefore cannot see:
+# `instrumentation.ts` at the repository root compiles and is then dropped from the image, silently
+# disabling the env gate and all production error logging; and a module-scope read of `AUTH_URL`
+# fails only in the builder stage, where there is no .env.
 #
-# USAGE:
 #   ./scripts/local.sh              build changed layers, start, wait for health
-#   ./scripts/local.sh --fresh      ALSO delete the volumes first (see below)
+#   ./scripts/local.sh --fresh      ALSO delete the volumes, and Next's build cache with them — for
+#                                   when the stack behaves in a way the code does not explain
 #   ./scripts/local.sh --logs       start, then follow the frontend log
-#   ./scripts/local.sh --down       stop the stack and exit; with --fresh, also delete the volumes
+#   ./scripts/local.sh --down       stop the stack; with --fresh, also delete the volumes
 #   ./scripts/local.sh --help
 #
-# WHY --fresh IS NOT THE DEFAULT:
-#   --fresh runs `docker compose down -v`, which deletes the named volumes. Those hold Next.js's
-#   build cache, so the next build has to redo work it had already done — typically minutes rather
-#   than seconds. The default is the fast path because it is correct the overwhelming majority of the
-#   time: Docker rebuilds any layer whose inputs changed. Reach for --fresh when the stack behaves in
-#   a way the code does not explain, which almost always means a stale cached asset.
+# See:
+# - docs/ops/spec.md — the environments, and what each of them does not cover
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 

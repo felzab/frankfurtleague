@@ -10,10 +10,9 @@ import { AdminShell } from "@/features/admin/components/ui/AdminShell";
 import { SaisonMetadataDisplay } from "@/features/saisons/components/ui/SaisonMetadataDisplay";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 
-// Not async, and that is the point. Awaiting the auth guard here, before any JSX, would make the
-// entire admin shell — bar, sidemenu, chrome — a dynamic hole. It lives in AdminAuthGuard below the
-// Suspense boundary instead, so this layout prerenders and only the session check and the page's own
-// data are resolved per request. See AdminAuthGuard for the security note.
+// Not async, and that is the point: awaiting the auth guard before any JSX would make the whole
+// admin shell a dynamic hole. It lives in AdminAuthGuard below the Suspense boundary, so only the
+// session check and the page's own data resolve per request.
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <AdminShell saisonMetadataDisplay={<SaisonMetadataDisplay />}>

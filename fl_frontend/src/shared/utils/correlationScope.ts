@@ -4,7 +4,7 @@
  * The one seam every DYNAMIC caller shares — a server action, a route handler, or an uncached read
  * inside a page render. It reads the id nginx minted for this request off the incoming headers and
  * runs the caller under it, so the caller's outbound requests carry the same id as the edge's own
- * access line instead of minting one each (`docs/logging.md`).
+ * access line instead of minting one each (`docs/logging/spec.md`).
  *
  * **Separate from `core/requestScope.ts`, which owns the storage, and it has to be.**
  * `core/logging.ts` imports that module and is itself reachable from the Edge middleware bundle

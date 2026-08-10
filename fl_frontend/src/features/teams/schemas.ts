@@ -2,15 +2,15 @@
  * TEAMS · models
  *
  * Mirrors `fl_backend/app/api/teams/schemas.py`, no generation step; the contract test checks
- * the wire half (ADR-0040).
+ * the wire half (ADR-0033).
  *
  * Invariants:
- * - `FLTeam` flattens the club record, junction fields and a derived `statistik` (ADR-0026).
+ * - `FLTeam` flattens the club record, junction fields and a derived `statistik` (ADR-0019).
  * - The grouped response requires ALL FOUR group keys, or the table page's parse fails.
  * - `website_url` is scheme-restricted — it renders into an href on a public page.
- * - There is ONE team shape; never a reduced mirror beside it (ADR-0034).
- * - `inactive_since` is a date (ADR-0032); a disqualification is a record, absence is the null
- *   (ADR-0059).
+ * - There is ONE team shape; never a reduced mirror beside it (ADR-0027).
+ * - `inactive_since` is a date (ADR-0025); a disqualification is a record, absence is the null
+ *   (ADR-0047).
  *
  * See:
  * - docs/glossary.md — "Team" for the junction model, "Statistik" for how the table is derived
@@ -29,7 +29,7 @@ export const FLGruppenNamesSchema = z.enum(["A", "B", "C", "D"], { error: "Bitte
 export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
 
 /**
- * Mirrors `FLDisqualifikation` — why a team is out of one season, and from when (ADR-0059).
+ * Mirrors `FLDisqualifikation` — why a team is out of one season, and from when (ADR-0047).
  *
  * A team is disqualified exactly when `FLTeam.disqualifikation` is not null. There is no boolean
  * beside it on either side of the wire, so no reader has two answers to choose between.
@@ -38,7 +38,7 @@ export type FLGruppenNames = z.infer<typeof FLGruppenNamesSchema>;
  * label, and never parsed for a category it does not carry.
  */
 export const FLDisqualifikationSchema = z.object({
-  // German because the junction editor binds this schema to its inputs (ADR-0050); on a response
+  // German because the junction editor binds this schema to its inputs (ADR-0040); on a response
   // parse the message is only ever logged.
   grund: z.string().nonempty({ error: "Bitte gib einen Grund an. Er wird öffentlich angezeigt." }),
   datum: CustomDateStringSchema,
@@ -64,7 +64,7 @@ export const FLTeamSchema = z.object({
 
   statistik: FLTeamStatistikSchema,
 
-  // Out of THIS season, or null while the team competes (ADR-0059). Joined from the junction by the
+  // Out of THIS season, or null while the team competes (ADR-0047). Joined from the junction by the
   // backend on every read, so it cannot go stale against a match document.
   disqualifikation: FLDisqualifikationSchema.nullable(),
   shorthand: z.string().length(2),
@@ -73,8 +73,8 @@ export const FLTeamSchema = z.object({
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
   website_url: ExternalUrlSchema,
   address: FLAddressSchema,
-  // The day this CLUB left the league, null while it plays (ADR-0032). Not the same thing as leaving
-  // one season -- that is `disqualifikation`, which lives on the junction (ADR-0033).
+  // The day this CLUB left the league, null while it plays (ADR-0025). Not the same thing as leaving
+  // one season -- that is `disqualifikation`, which lives on the junction (ADR-0026).
   inactive_since: CustomDateStringSchema.nullable(),
 });
 export type FLTeam = z.infer<typeof FLTeamSchema>;
@@ -83,7 +83,7 @@ export type FLTeam = z.infer<typeof FLTeamSchema>;
  * All four keys are required: the backend seeds every group, and an omitted one fails this parse.
  *
  * Each list arrives in STANDING order — points, goal difference, goals scored, then the head-to-head
- * table among whoever is still level (ADR-0043). Never re-sort one here: the same ordering seeds the
+ * table among whoever is still level (ADR-0035). Never re-sort one here: the same ordering seeds the
  * playoff bracket, and a second sort in the client is a second answer to who finished second.
  */
 export const FLGruppenSchema = z.object({
@@ -103,9 +103,9 @@ export type FLTeamsListResponse = z.infer<typeof FLTeamsListResponseSchema>;
 export const FLTeamsGroupedResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("grouped"),
   gruppen: FLGruppenSchema,
-  // The season's own `rules.qualifiers_per_group`, carried beside the table it applies to: the teams in
-  // a playoff place are a prefix of each list above, and a page cannot mark them without knowing where
-  // that prefix ends. On the grouped shape only — a flat list is sorted by name and is not a standing.
+  // The season's own `rules.qualifiers_per_group`, carried beside the table it applies to: the teams
+  // in a playoff place are a prefix of each list above, and a page cannot mark them without knowing
+  // where that prefix ends.
   qualifiers_per_group: z.int().positive(),
 });
 export type FLTeamsGroupedResponse = z.infer<typeof FLTeamsGroupedResponseSchema>;
@@ -115,15 +115,13 @@ export type FLTeamsResponse = z.infer<typeof FLTeamsResponseSchema>;
 
 /**
  * Deliberately outside `FLTeamsResponseSchema`: that union discriminates the shapes ONE endpoint can
- * return, and `GET /teams/{team_id}` is a different endpoint returning exactly one (ADR-0034).
+ * return, and `GET /teams/{team_id}` is a different endpoint returning exactly one (ADR-0027).
  */
 export const FLTeamsSingleResponseSchema = BaseAPIResponseSchema.extend({
   format: z.literal("single"),
   team: FLTeamSchema,
 });
 export type FLTeamsSingleResponse = z.infer<typeof FLTeamsSingleResponseSchema>;
-
-// ── The write path (FB-3) ────────────────────────────────────────────────────────────────────────────
 
 /**
  * The club's own fields, shared by create and patch — `PATCH /teams/{team_id}` replaces them
@@ -132,7 +130,7 @@ export type FLTeamsSingleResponse = z.infer<typeof FLTeamsSingleResponseSchema>;
  */
 const teamPayloadFields = {
   name: z.string().nonempty({ error: "Bitte gib einen Namen ein." }),
-  // Exactly two characters, held unique across every club — retired ones included (ADR-0032).
+  // Exactly two characters, held unique across every club — retired ones included (ADR-0025).
   shorthand: z.string().length(2, { error: "Das Kürzel besteht aus genau 2 Zeichen." }),
   description: z.string().max(4096, { error: "Die Beschreibung darf höchstens 4096 Zeichen lang sein." }),
   full_name: z.string().nonempty({ error: "Bitte gib den vollständigen Namen ein." }),
@@ -162,8 +160,8 @@ export type FLReactivateTeamPayload = z.infer<typeof FLReactivateTeamPayloadSche
 /**
  * What one form submits to create a club AND enter it into a season, which the action splits into
  * two requests (`POST /teams`, then `POST /teams/{id}/saisons`). One form on purpose: every list
- * read is season-scoped with a strict junction join (I11), so a club created without a junction row
- * would be invisible to every surface that could give it one.
+ * read is season-scoped with a strict junction join (backend spec I11), so a club created without a
+ * junction row is invisible to every surface that could give it one.
  */
 export const FLCreateTeamFormPayloadSchema = z.object({
   ...teamPayloadFields,
@@ -202,7 +200,7 @@ export type FLTeamMembership = z.infer<typeof FLTeamMembershipSchema>;
 
 /**
  * Mirrors `FLTeamWithMemberships` — the stored club record plus every season membership it holds.
- * The admin list's one read; a different question from `FLTeam`, not a projection of it (ADR-0034).
+ * The admin list's one read; a different question from `FLTeam`, not a projection of it (ADR-0027).
  */
 export const FLTeamWithMembershipsSchema = FLTeamRecordSchema.extend({
   memberships: z.array(FLTeamMembershipSchema),
@@ -221,7 +219,7 @@ export type FLPostTeamResponse = z.infer<typeof FLPostTeamResponseSchema>;
 
 export const FLPatchTeamResponseSchema = BaseAPIResponseSchema.extend({
   updated_document: FLTeamRecordSchema,
-  // How many embedded copies the rename reached (ADR-0028 rule 3). The fan-out is the half of the
+  // How many embedded copies the rename reached (ADR-0021 rule 3). The fan-out is the half of the
   // endpoint that fails silently, so the count is surfaced in the save toast rather than dropped.
   fanned_out_to_spiele: z.int().nonnegative(),
 });
@@ -246,7 +244,7 @@ export const FLPatchSaisonTeamPayloadSchema = z.object({
   team_id: CustomObjectIdStringSchema,
   saison_id: z.string().length(4),
   gruppe: FLGruppenNamesSchema,
-  // The whole record, or `null` to lift one. REQUIRED with no default on either side (ADR-0059): a
+  // The whole record, or `null` to lift one. REQUIRED with no default on either side (ADR-0047): a
   // form that omits it gets a 422, never a team quietly reinstated.
   disqualifikation: FLDisqualifikationSchema.nullable(),
 });

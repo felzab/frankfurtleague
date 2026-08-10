@@ -16,13 +16,13 @@ import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
   // connection() for the same reason the page has one: the Docker builder stage has no reachable
-  // FastAPI, so an unguarded getTeam() here would fail `docker compose build` (ADR-0009).
+  // FastAPI, so an unguarded getTeam() here would fail `docker compose build` (ADR-0006).
   await connection();
   const team_id = await resolveTeamId(props.params);
 
-  // getTeam is "use cache", so this duplicates no round-trip with the page render below -- but only
-  // while the two calls pass the SAME filters. `statistik_scope` is part of the cache key, so leaving
-  // it off here would silently double the work and fetch a table this page never renders.
+  // `getTeam` is "use cache", so this duplicates no round-trip with the page render
+  // below -- but only while both calls pass the SAME filters. `statistik_scope` is
+  // part of the cache key, so omitting it here doubles the work silently.
   const teamRes = await getTeam(team_id, {
     saison_id: await resolveSaisonId(props.searchParams),
     statistik_scope: "gesamt",
@@ -74,12 +74,9 @@ async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   const [teamRes, spieleRes] = await Promise.all([
-    // "gesamt", not the default: this page shows the team's whole season, playoffs included, and it is
-    // the only surface that does (ADR-0029). The timeline below already lists every phase, so a
-    // Gruppenphase-only header would contradict the cards under it.
-    // Resolves null for "no such team" — the 404 → null conversion lives inside the query, because a
-    // production build redacts an error thrown out of a "use cache" scope and no call site can
-    // recognise it. Everything else still throws and reaches dashboard/error.tsx and onRequestError.
+    // "gesamt", not the default: this page shows the team's whole season, playoffs
+    // included, and is the only surface that does (ADR-0022). It resolves null for
+    // "no such team" -- the 404 conversion is the query's, for the reason stated there.
     getTeam(team_id, { saison_id: specifiedSaisonId, statistik_scope: "gesamt" }),
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
   ]);
@@ -88,7 +85,7 @@ async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
     notFound();
   }
 
-  // Legal here: the scope is already dynamic via the connection() above (ADR-0009).
+  // Legal here: the scope is already dynamic via the connection() above (ADR-0006).
   const today = getGermanTodayStr();
 
   return (

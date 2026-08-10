@@ -78,7 +78,7 @@ def test_accepts_a_match_with_no_date_venue_or_referee(spiel):
 
 class TestUnresolvedSides:
     """
-    A bracket slot whose occupant the group phase has not produced yet (ADR-0042).
+    A bracket slot whose occupant the group phase has not produced yet (ADR-0034).
 
     The four cases below are the four combinations of `teamN` and `teamN_quelle`, and the point of
     the parametrised one is that ALL of them validate. Nothing pairs the two fields, so no case here
@@ -124,9 +124,8 @@ class TestUnresolvedSides:
         Nullable, and REQUIRED — no Pydantic default.
 
         A default would let a document that has never carried the key read as `None`, which is exactly
-        the state the pre-deploy seeding step exists to remove. Without this, that step could be
-        skipped and nothing would say so until a bracket edit silently wrote the field for the first
-        time on one document out of thirty-one.
+        the state the pre-deploy seeding step exists to remove. Without this, that step could be skipped
+        and nothing would say so until a bracket edit silently wrote the field for the first time.
         """
         incomplete = spiel()
         del incomplete[field]
@@ -139,7 +138,7 @@ class TestUnresolvedSides:
 
 class TestShootout:
     """
-    `elfmeterschiessen`: how a knockout that finished level was settled (ADR-0044).
+    `elfmeterschiessen`: how a knockout that finished level was settled (ADR-0036).
 
     A scoreline of its own, never a third number inside `ergebnis` — both ends parse that string to
     derive win/draw/loss, and the league table counts this fixture as the draw it was.
@@ -223,8 +222,8 @@ class TestEmbeddedFields:
         with pytest.raises(ValidationError):
             FLSpiel.model_validate(spiel(ort=spiel_ort_field(**{field: ""})))
 
-    # Decided: a rental price is whole euros. Stored values were float in 12 of 31
-    # documents, but every one was integral -- Pydantic coerces those and rejects a fraction.
+    # A rental price is whole euros. Some stored values are floats and every one is integral (measured
+    # 2026-08-09) -- Pydantic coerces those and rejects a fraction.
     def test_coerces_an_integral_float_rent(self, spiel, spiel_ort_field):
         """Historic documents stored the rent as a float. Integral values coerce rather than failing the read path."""
         parsed = FLSpiel.model_validate(spiel(ort=spiel_ort_field(mietpreis=80.0)))
@@ -242,9 +241,9 @@ class TestEmbeddedFields:
         with pytest.raises(ValidationError):
             FLSpiel.model_validate(spiel(ort=spiel_ort_field(mietpreis=-1)))
 
-    # mietpreis must be REQUIRED, not defaulted. The admin PATCH writes this payload back wholesale
-    # with $set, so a default let a request omitting the field silently overwrite a venue's stored
-    # rent with 0 -- while the sibling `payment` correctly 422'd in the same situation.
+    # mietpreis must be required, not defaulted. The admin PATCH writes this payload back wholesale
+    # with `$set`, so a default lets a request omitting the field overwrite a venue's stored rent
+    # with 0.
     @pytest.mark.parametrize("field", ["mietpreis", "name", "maps_link", "spielort_id"])
     def test_requires_every_venue_field(self, spiel, spiel_ort_field, field):
         """No field may have a DEFAULT: the admin PATCH writes wholesale, so a default silently overwrites a real rent with 0."""

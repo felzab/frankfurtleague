@@ -8,7 +8,7 @@
  * The JSON field set is shared with the backend's `JSONFormatter` so one parser reads both streams:
  * `timestamp` (ISO 8601 UTC, milliseconds, `Z`), `level` (`INFO`/`WARNING`/`ERROR`), `service`,
  * `correlation_id`, `message`, optional `error_code`, and `error` as `{name, message, stack}`.
- * The contract is `docs/logging.md`.
+ * The contract is `docs/logging/spec.md`.
  */
 
 export type LogLevel = "INFO" | "WARNING" | "ERROR";
@@ -46,10 +46,9 @@ export function formatLogLine(format: "console" | "json", level: LogLevel, messa
     });
   }
 
-  // The console format -- chosen by LOG_FORMAT, not by the build, so nothing here may assume it
-  // only ever runs in development. The line shape mirrors the backend's console formatter
-  // (`fl_backend/app/core/logging.py :: LevelAwareFormatter`) -- padded level, local timestamp,
-  // `<id>`, dash, message -- so the two dev streams read as one convention.
+  // The console format -- chosen by LOG_FORMAT, not by the build, so nothing here may assume
+  // development. The line shape mirrors `fl_backend/app/core/logging.py :: LevelAwareFormatter`, so
+  // the two dev streams read as one convention.
   const color = level === "ERROR" ? "\x1b[31m" : level === "WARNING" ? "\x1b[33m" : "\x1b[34m";
   const reset = "\x1b[0m";
 

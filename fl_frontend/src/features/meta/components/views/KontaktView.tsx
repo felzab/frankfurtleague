@@ -30,10 +30,8 @@ export function KontaktView() {
       case "threads":
         return (
           // bg-field-fg, not bg-foreground as in the Footer: this icon sits on the green field card,
-          // where the foreground is always white in both themes. Following the Footer here would put
-          // the black logo on emerald in the light theme.
-          // inline-block for the same reason as the Footer's copy — this one is a flex item today,
-          // which blockifies it, but that is the parent's business and not something to depend on.
+          // where the foreground is white in both themes. inline-block for the Footer's reason — it
+          // is a flex item today, which blockifies it, but that is the parent's.
           <span
             aria-hidden="true"
             className="bg-field-fg inline-block size-8 mask-[url('/icons/footer/threads/threads_logo_black.svg')] mask-contain mask-center mask-no-repeat"
@@ -54,7 +52,6 @@ export function KontaktView() {
 
   return (
     <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
-      {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
         <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Frankfurt-League Kontakt</h1>
         <p className="fluid-sm sm:fluid-sm text-field-fg/80 mt-2 font-medium">Wir haben immer ein offenes Ohr für Dein Anliegen.</p>
@@ -62,7 +59,6 @@ export function KontaktView() {
 
       <div className="soccer-field-separator w-full" />
 
-      {/** Section 1: Offenheit */}
       <section className="flex w-full flex-col gap-y-3 sm:gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-3">
           <ArrowsExpand className="size-5 drop-shadow sm:size-6 lg:size-7" />
@@ -79,7 +75,6 @@ export function KontaktView() {
 
       <div className="soccer-field-separator w-full" />
 
-      {/** Section 2: Channels Grid */}
       <section
         role="list"
         className="grid w-full grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -9,17 +9,17 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 
 import type { AdminSpielerRow, SpielerTeamOption } from "@/features/spieler/types";
 
-// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The two
-// squad keys are flattened onto the row by the page precisely so they can be searched by name —
-// "Helmholtz" and "10" are how an admin looks a player up, not by id.
+// Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. The two squad
+// keys are flattened onto the row by the page so they can be searched by name — "Helmholtz" and
+// "10" are how an admin looks a player up.
 const SEARCH_KEYS = ["fullName", "selected.teamName", "selected.nummer"] as const;
 
 /**
- * The fourth declaration over `AdminCrudView` — Schiedsrichter, Spielorte and Teams are the others.
+ * One declaration over `AdminCrudView`, shared with the other admin list views.
  *
  * The items are player-centric rows spanning every season, with the selected season's squad row
  * beside them. `renderEditModal` is deliberately not passed: the player form edits on a page at
- * `/admin/spieler/[spieler_id]` (ADR-0050), so the table's pencil is a `<Link>` and the shared view
+ * `/admin/spieler/[spieler_id]` (ADR-0040), so the table's pencil is a `<Link>` and the shared view
  * renders no edit overlay.
  *
  * **The facets are the one set in the app that is built rather than declared**, because the team facet's

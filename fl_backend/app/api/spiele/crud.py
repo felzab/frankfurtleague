@@ -3,20 +3,20 @@ SPIELE · bracket advancement, the preview of it, and the derived fault list
 
 The database-facing half of auto-advance: `resolve_bracket` in `services.py` decides what every
 slot should hold; this module reads the season, hands it over, and writes back the fixtures whose
-answer differs (ADR-0042). All three callers — save, fault list, preview — go through
+answer differs (ADR-0034). Every caller — save, fault list, preview — goes through
 `_resolve_one_saison`, so they cannot disagree about who finished second.
 
 Invariants:
-- The preview and `find_bracket_faults` write nothing and take no session (ADR-0047, ADR-0051).
-- A release is applied before the resolution — the two orders name different fixtures (ADR-0052).
+- The preview and `find_bracket_faults` write nothing and take no session (ADR-0039, ADR-0041).
+- A release is applied before the resolution — the two orders name different fixtures (ADR-0042).
 - Reads take the caller's session, or the resolution runs on the pre-write snapshot and moves nothing.
-- Team fields go through `_stored_side` with `keep_oid` — a joined dump would denormalise (ADR-0028).
-- The `$set` names its keys: `mietpreis` and `payment` record what was agreed for that match (ADR-0028).
-- `teamN_quelle` is never written — clearing it is how a slot is taken into manual charge (ADR-0042).
-- The group standing is read through `build_team_pipeline`, the pipeline `GET /teams` runs (ADR-0026).
+- Team fields go through `_stored_side` with `keep_oid` — a joined dump would denormalise (ADR-0021).
+- The `$set` names its keys: `mietpreis` and `payment` record what was agreed for that match (ADR-0021).
+- `teamN_quelle` is never written — clearing it is how a slot is taken into manual charge (ADR-0034).
+- The group standing is read through `build_team_pipeline`, the pipeline `GET /teams` runs (ADR-0019).
 
 See:
-- docs/backend/spec.md — section 3, the write path step by step
+- docs/backend/spec.md — section 1.3, the write path step by step
 """
 
 from typing import Any, Mapping, Sequence
@@ -60,7 +60,7 @@ async def _resolve_one_saison(
     One season's bracket resolved against its own standings -- the read half of advancement.
 
     Shared by the write path, which then writes what disagrees, and by the fault derivation, which
-    writes nothing (ADR-0047). Both need the standings computed exactly the same way, and a second
+    writes nothing (ADR-0039). Both need the standings computed exactly the same way, and a second
     implementation of that would be a second answer to who finished second.
 
     The standing is read AT ALL only when some slot's `quelle` names a group placing: deciding a group's
@@ -73,10 +73,9 @@ async def _resolve_one_saison(
 
     standings: Mapping[FLGruppenNames, DecidedStanding] = {}
     if referenced_gruppen:
-        # The standing comes from the pipeline that serves `GET /teams`, so the bracket seeds from
-        # exactly the table the site shows -- one derivation of ADR-0026's counting rule, not two.
-        # `include_inactive` is left at its default for the same reason: a club the list hides must
-        # not hold a placing the bracket then honours.
+        # The standing comes from the pipeline serving `GET /teams`, so the bracket seeds from the
+        # table the site shows -- one derivation of ADR-0019, not two. `include_inactive` stays
+        # default: a hidden club must not hold a placing the bracket honours.
         teams_raw = await aggregate_many_from_db(
             collection=teams_collection,
             pipeline=build_team_pipeline(
@@ -88,7 +87,7 @@ async def _resolve_one_saison(
 
         # The group phase alone, matching the scope the statistics above were counted over: a
         # head-to-head drawn from playoff matches would break a tie on results those points never saw
-        # (ADR-0029).
+        # (ADR-0022).
         standings = build_decided_standings(
             teams=FLTeamListAdapter.validate_python(teams_raw),
             spiele=[spiel for spiel in spiele if spiel.saison_phase == "gruppenphase"],
@@ -105,11 +104,11 @@ async def find_bracket_faults(
     saisons_collection: AsyncIOMotorCollection,
 ) -> tuple[list[FLBracketFault], list[FLSpielJoined]]:
     """
-    Every derived fault in every season, and the fixtures they name (ADR-0047).
+    Every derived fault in every season, and the fixtures they name (ADR-0039).
 
     Derived on demand and stored nowhere. A fault is a contradiction between documents rather than a
     property of one, so no Mongo filter can express it and no `$jsonSchema` validator can refuse it
-    (ADR-0027) -- which is why this walks the seasons instead.
+    (ADR-0020) -- which is why this walks the seasons instead.
 
     **The cost is one read of `spiele`, one of `saisons`, and one teams aggregation per season whose
     bracket seeds from a group.** A season is about thirty fixtures and the walk over a group's
@@ -157,11 +156,9 @@ async def find_bracket_faults(
         faults.extend(resolution.bracket_faults)
         faulted_ids.update(fault.spiel_id for fault in resolution.bracket_faults)
 
-    # The sixth fault, derived from the JOINED fixtures rather than from the resolution (decided
-    # 2026-08-08). It is not a property of the bracket -- it compares a fixture's date against a
-    # disqualification recorded on the junction row -- so it sits beside the walk rather than inside it,
-    # and it covers group-phase fixtures, which no bracket rule looks at. The join already carries each
-    # side's `disqualifikation`, so this costs no extra read.
+    # The occupant fault, derived from the JOINED fixtures rather than the resolution: it compares a
+    # fixture's date against a disqualification on the junction row, so it sits beside the walk and
+    # covers group-phase fixtures too (ADR-0042).
     occupant_faults = find_disqualified_occupants(spiele)
     faults.extend(occupant_faults)
     faulted_ids.update(fault.spiel_id for fault in occupant_faults)
@@ -179,7 +176,7 @@ async def pull_saison_membership(
     session: AsyncIOMotorClientSession | None = None,
 ) -> dict[CustomObjectId, str | None]:
     """
-    Which teams hold a row for this season, and from which DAY each disqualified one is out (ADR-0052).
+    Which teams hold a row for this season, and from which DAY each disqualified one is out (ADR-0042).
 
     Read directly rather than through `build_team_pipeline`: that pipeline serves the league table, so
     it skips seasons a team has no matches in and filters `inactive_since` -- both of which would drop
@@ -205,9 +202,9 @@ async def pull_saison_membership(
         session=session,
     )
 
-    # `None` for a team that competes, the effective date for one that does not. A row whose
-    # `disqualifikation` is present always carries a `datum` -- the validator requires the key and
-    # `FLDisqualifikation` requires the field -- so the `.get` is for the null record, not a missing date.
+    # `None` for a team that competes, the effective date for one that does not. A present
+    # `disqualifikation` always carries a `datum`, so the `.get` is for the null record rather than a
+    # missing date.
     return {row["team_id"]: (row["disqualifikation"] or {}).get("datum") for row in rows}
 
 
@@ -220,7 +217,7 @@ async def preview_bracket_after_patch(
     releases: Sequence[SpieltagRelease],
 ) -> tuple[list[FLSpielAdvancement], list[FLSpielReleasedSide], list[FLBracketFault]]:
     """
-    What saving this payload would move and destroy -- computed without writing anything (ADR-0051).
+    What saving this payload would move and destroy -- computed without writing anything (ADR-0041).
 
     The season is rebuilt IN MEMORY with the patched fixture and every released side substituted in,
     and then handed to the same `_resolve_one_saison` the save uses. Not a second implementation of
@@ -261,7 +258,7 @@ def _stored_side(side: FLSpielTeamField | None) -> Mapping[str, Any] | None:
     `include` names the field set of `FLSpielTeamField` rather than dumping whatever the instance
     happens to carry, which is the same guard `patch_spiel_data` puts on its own `$set`. The read
     endpoints serve `FLSpielTeamFieldJoined`, whose `disqualifikation` is looked up per request and
-    belongs on no `spiele` document (ADR-0028, rule 4) -- so a joined side reaching this write is the
+    belongs on no `spiele` document (ADR-0021, rule 4) -- so a joined side reaching this write is the
     one way that decision could be reversed by accident, and it is closed here rather than by
     everyone remembering.
 
@@ -288,10 +285,10 @@ async def advance_bracket_winners(
     Resolve one season's bracket and write back every fixture whose slots disagree with it.
 
     Returns one entry per fixture actually written, in ascending `spiel_nr` order, naming **what each
-    write destroyed** as well as which fixture moved (ADR-0051) -- plus every stored fault the
-    resolution walked past (ADR-0047). Both lists are empty for the ordinary edit: a bracket that
+    write destroyed** as well as which fixture moved (ADR-0041) -- plus every stored fault the
+    resolution walked past (ADR-0039). Both lists are empty for the ordinary edit: a bracket that
     already agrees with its wiring is written to nowhere, and a group still being played reports
-    nothing, because a placing that is not decided yet needs no one's attention (ADR-0043).
+    nothing, because a placing that is not decided yet needs no one's attention (ADR-0035).
 
     **The whole season is resolved, not only the fixtures fed by the match that changed.** That costs
     one read of about thirty documents on an admin-only path, and it buys a result that does not depend
@@ -302,10 +299,9 @@ async def advance_bracket_winners(
     (`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`).
     """
 
-    # The helper's 1024-document cap is a comfortable ceiling here, not a risk to size: a season is
-    # about thirty fixtures, and a season could only outgrow the cap by two orders of magnitude. Named
-    # because the failure would be silent -- a reference to an unread match reads as dangling and the
-    # slot is quietly left alone -- so whoever changes what a season can hold finds the boundary here.
+    # The helper's 1024-document cap is a ceiling a season of about thirty fixtures cannot approach.
+    # Named because exceeding it fails silently: a reference to an unread match reads as dangling, and
+    # the slot is quietly left alone.
     spiele_raw = await pull_many_from_db(
         collection=spiele_collection,
         db_filter={"saison_id": saison_id},
@@ -322,13 +318,9 @@ async def advance_bracket_winners(
     )
 
     for advancement in resolution.advancements:
-        # `ergebnis` goes with the occupant: an advancement is only ever emitted when a side changed,
-        # so whatever was scored here was scored by a team no longer in the fixture. The goals are
-        # already stripped from both sides by `resolve_bracket`.
-        #
-        # `elfmeterschiessen` goes with it for exactly the same reason and must never be left behind:
-        # it is the rest of that result, and a shoot-out standing against a fixture with no goals would
-        # hand the slot BELOW it a winner derived from a match neither side played (ADR-0044).
+        # `ergebnis` goes with the occupant: an advancement is emitted only when a side changed, so
+        # what was scored here was scored by a team no longer in the fixture. `elfmeterschiessen` goes
+        # with it, or it seeds the slot below (ADR-0036).
         await patch_one_in_db(
             collection=spiele_collection,
             filter={"_id": advancement.spiel_id},
@@ -351,7 +343,7 @@ def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
     One advancement as the response reports it: the fixture, and the result the write destroyed.
 
     The one mapping from the internal write instruction to the wire shape, so the save and the
-    `dry_run=true` preview report an identical advancement (ADR-0051). The sides themselves are not
+    `dry_run=true` preview report an identical advancement (ADR-0041). The sides themselves are not
     reported -- the caller re-reads the season anyway, and naming them here would be a second, partial
     copy of the fixture.
     """
@@ -380,7 +372,7 @@ def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
     One fixture with the released side emptied -- the shape the write below stores and the preview shows.
 
     Pure, and shared by both for the same reason `apply_payload_to_spiel` is: a preview that models the
-    release differently from the write would name the wrong fixtures (ADR-0051).
+    release differently from the write would name the wrong fixtures (ADR-0041).
 
     **The side left behind loses its goals too**, exactly as an advancement strips both sides: they
     were scored against the team being removed, and goals standing against a fixture with no result is
@@ -406,7 +398,7 @@ async def release_spieltag_sides(
     session: AsyncIOMotorClientSession,
 ) -> list[FLSpielReleasedSide]:
     """
-    Empty each side another fixture gives up so a team can be fielded on this Spieltag (ADR-0052).
+    Empty each side another fixture gives up so a team can be fielded on this Spieltag (ADR-0042).
 
     Runs INSIDE the caller's transaction and BEFORE `advance_bracket_winners`, so the resolution that
     follows sees the released state and can refill a slot the release opened.

@@ -21,22 +21,19 @@ football league, at [frankfurtleague.de](https://frankfurtleague.de).
 ## About
 
 A public site for a Frankfurt schools' football league. Visitors browse the season plan, results, the
-group tables and the playoff bracket. A small number of admins enter results and manage venues and
-referees.
-
-It is a real, deployed application rather than a demo or a template — one server, one maintainer, a
-live audience each season.
+group tables and the playoff bracket; a small number of admins enter results and manage venues and
+referees. It is a real, deployed application rather than a demo or a template — one server, one
+maintainer, a live audience each season.
 
 ## Features
 
 **Public**
 
 - **Season plan** and **match history**, filtered to the selected season
-- **Group tables** for all four groups, ordered by points then goal difference
+- **Group tables** for every group the season runs, ordered by points then goal difference
 - **Playoff bracket**, rendered as a horizontally scrolling round-by-round tree
 - **Team pages** with each team's record, and **squad lists** per team
-- **Fuzzy match search** across teams, venues, dates and referees — including dates typed the German
-  way, `14.03.`
+- **Fuzzy match search** across teams, venues, dates and referees, German date spellings included
 - German throughout, with the domain vocabulary preserved rather than translated
 
 **Admin**
@@ -55,9 +52,9 @@ live audience each season.
 | **Auth**     | Auth.js — magic-link sign-in, admin by email allowlist                      |
 | **Deploy**   | Docker Compose behind nginx, on a single host                               |
 
-The browser never talks to FastAPI directly: every application read is a server-side fetch from the
-Next.js container. That one fact explains most of the architecture — why all caching lives in the
-frontend, and why the backend authenticates with shared API keys rather than user sessions.
+The app never calls FastAPI from the browser: every application read is a server-side fetch from the
+Next.js container, and the backend gates every request on a shared key. That one fact explains most of
+the architecture — why all caching lives in the frontend, and why the backend has no user sessions.
 
 ## Repository layout
 
@@ -74,13 +71,13 @@ docs/            the documentation set
 **[`docs/`](docs/) is the entry point**, and it is thorough — start with
 [`docs/README.md`](docs/README.md), which carries a reading path.
 
-|                                          |                                                                                                                                         |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [Glossary](docs/glossary.md)             | The domain vocabulary is **German** and load-bearing — `Spiel`, `Spieltag`, `Saison`, `Schiedsrichter`. Read this first                 |
-| [Decisions](docs/_decisions/)            | 17 ADRs. Why the codebase is shaped the way it is, including the alternatives that lost                                                 |
-| [Workflows](docs/workflows/)             | Branching, commits, PRs, deployment, rollback                                                                                           |
-| Per surface                              | [frontend](docs/frontend/overview.md) · [backend](docs/backend/overview.md) · [ops](docs/ops/overview.md) — an overview and a spec each |
-| [`scripts/README.md`](scripts/README.md) | The operational manual for every script                                                                                                 |
+|                                        |                                                                                                                                         |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [Glossary](docs/glossary.md)           | The domain vocabulary is **German** and load-bearing — `Spiel`, `Spieltag`, `Saison`, `Schiedsrichter`. Read this first                 |
+| [Decisions](docs/_decisions/)          | Why the codebase is shaped the way it is, including the alternatives that lost                                                          |
+| [Git](docs/_git/)                      | Branching, commits, PRs, the verification gate, and the repository settings that enforce them                                           |
+| Per surface                            | [frontend](docs/frontend/overview.md) · [backend](docs/backend/overview.md) · [ops](docs/ops/overview.md) — an overview and a spec each |
+| [`docs/ops/spec.md`](docs/ops/spec.md) | Every script, every gate scope, and what each one proves                                                                                |
 
 Several things here look like mistakes and are deliberate — three near-identical match cards, no barrel
 files, a `connection()` call that appears to defeat static rendering. Each has an ADR saying why.
@@ -88,13 +85,11 @@ files, a `connection()` call that appears to defeat static rendering. Each has a
 
 ## Contributing
 
-Short-lived topic branches off `main`, one PR each, merged with a merge commit.
+Short-lived topic branches off `main`, one PR each, merged with a merge commit. Commit messages carry
+real weight here — they explain _why_ and record what was verified, and they are kept rather than
+squashed; [`docs/_git/spec.md`](docs/_git/spec.md) is the convention.
 
-Commit messages carry real weight here — they explain _why_ and record what was verified, and they are
-kept rather than squashed. [`docs/workflows/`](docs/workflows/) shows the convention with real
-examples.
-
-Run `./scripts/verify.sh` before opening a PR. CI runs the same script.
+Run the gate before opening a PR, at the scope [`CONTRIBUTING.md`](CONTRIBUTING.md) names. CI runs it too.
 
 Full detail, including how to report a bug and where ideas go: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
@@ -109,17 +104,14 @@ in scope and how to report it privately.
 
 ## License
 
-**[Elastic License 2.0](LICENSE)** (`Elastic-2.0`) — source-available, not open source.
-
-You may use, copy, modify and redistribute the code, including commercially. You may **not** offer it
-to third parties as a hosted or managed service, and you must keep the copyright notices intact and
-mark any modifications.
+**[Elastic License 2.0](LICENSE)** (`Elastic-2.0`) — source-available, not open source. You may use,
+copy, modify and redistribute the code, including commercially. You may **not** offer it to third
+parties as a hosted or managed service, and you must keep the copyright notices intact and mark any
+modifications.
 
 **The name, the logo and the league's data are not covered by that licence** and are not licensed at
-all — see [`NOTICE`](NOTICE). Use of the trademarks is subject to applicable law.
-
-To ask for anything beyond that, get in touch via
-[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).
+all — see [`NOTICE`](NOTICE). Use of the trademarks is subject to applicable law. To ask for anything
+beyond that, get in touch via [frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).
 
 ## Links
 

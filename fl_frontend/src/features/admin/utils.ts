@@ -6,7 +6,7 @@
  * no I/O — a separate module so non-caching code stays out of a `"use cache"` file (ADR-0003).
  *
  * Invariants:
- * - `ACTION_REQUIRED_LABELS` order is render order, which is urgency (ADR-0056), and
+ * - `ACTION_REQUIRED_LABELS` order is render order, which is urgency (ADR-0044), and
  *   `buildActionRequiredSections` walks the label table, so the two cannot split.
  * - The category union stays a literal union — a mistyped category is a compile error.
  * - `categorizeActionRequired` serves two surfaces, so its rules live here once.
@@ -19,14 +19,14 @@ import { typedObjectEntries } from "@/shared/utils/type";
 import type { FLBracketFault, FLSpiel, FLSpielWithStoredSides } from "../spiele/schemas";
 import type { ActionRequiredCategory } from "../spiele/types";
 
-// Re-exported so the eight views and tests that already import the union from here keep working, and
-// so this module stays the obvious place to look for it. It is DECLARED in `spiele`, because it
-// classifies a Spiel and the edit page reads it too — see the note on the declaration.
+// Re-exported so this module stays the obvious place to look for it. It is
+// DECLARED in `spiele`, because it classifies a Spiel and the edit page reads
+// it too -- see the note on the declaration.
 export type { ActionRequiredCategory };
 
 /**
  * How far a category is from stopping the competition, which is the order the triage list works in
- * (ADR-0056). The three working grades also carry the colour, so a section's rank and its tint can
+ * (ADR-0044). The three working grades also carry the colour, so a section's rank and its tint can
  * never disagree.
  *
  * - `blocking` — a later fixture cannot resolve at all until somebody acts.
@@ -42,7 +42,7 @@ export type FLActionUrgency = "blocking" | "results" | "details" | "none";
  * established platforms order an organiser's queue by what blocks play, and that is the order below.
  *
  * **`short` is what the page shows and `name` is what it is called.** Eight tabs are rendered at all
- * times (ADR-0056), and eight full names do not fit one row at any width — the one-word form does, at
+ * times (ADR-0044), and eight full names do not fit one row at any width — the one-word form does, at
  * desktop width, which is what lets the strip be a strip rather than a scroller. `name` stays because
  * a category needs a full spelling somewhere a reader can find it, and `desc` is the line under the
  * strip that says what the one word covers.
@@ -106,7 +106,7 @@ export const ACTION_REQUIRED_LABELS: Record<ActionRequiredCategory, { name: stri
  *   missing a date or a referee, because chasing details on a cancelled fixture is noise.
  * - the four `*_missing` categories are **not** exclusive — one match can appear in several.
  * - `bracket_fault` membership is **read, not derived**. The backend computes it over whole seasons
- *   (ADR-0047) and this list holds a filtered handful of matches, so nothing here could recompute it.
+ *   (ADR-0039) and this list holds a filtered handful of matches, so nothing here could recompute it.
  *
  * `datum` and `today` are both `YYYY-MM-DD`, so the `<` comparison is lexicographic and correct.
  * It is strict: a match dated today with no result is not yet overdue.
@@ -132,9 +132,9 @@ export function categorizeActionRequired<T extends FLSpielWithStoredSides>(
   const faultedSpielIds = new Set(bracketFaults.map((fault) => fault.spiel_id));
 
   for (const spiel of spiele) {
-    // Before the cancellation branch, and deliberately not exclusive with it: a cancelled fixture whose
-    // wiring is broken still feeds whatever the bracket puts below it, so the fault outlives the
-    // cancellation and chasing it is not the noise that keeps the other categories off this match.
+    // Before the cancellation branch and not exclusive with it: a cancelled
+    // fixture with broken wiring still feeds whatever sits below it, so the
+    // fault outlives the cancellation.
     if (faultedSpielIds.has(spiel.id)) categorized.bracket_fault.push(spiel);
 
     if (spiel.is_canceled) {
@@ -151,16 +151,9 @@ export function categorizeActionRequired<T extends FLSpielWithStoredSides>(
       categorized.ergebnis_pending.push(spiel);
     }
 
-    // A knockout side with no team AND no source is filled by nothing: the resolution skips a slot
-    // without a `quelle` by design (ADR-0042), so this is the one legal state that stays broken by
-    // default — reported here so it surfaces before the fixture's date passes, not after
-    // (ADR-0046). A Gruppenphase fixture is exempt: an unfilled schedule is not an orphaned slot,
-    // and every group fixture legitimately carries no source forever. Mirrors the backend arm in
-    // `get_spiele_action_required`.
-    //
-    // `deriveSlotHerkunft` rather than the two null checks spelled out here: the wiring review badges
-    // the same three states per slot, and two spellings of `offen` is how that page and this one come
-    // to disagree about which fixtures need somebody.
+    // A knockout side with no team AND no source is filled by nothing, since the
+    // resolution skips a slot without a `quelle` (ADR-0034); Gruppenphase is exempt.
+    // `deriveSlotHerkunft` so this and the wiring review cannot spell `offen` twice.
     if (
       spiel.saison_phase !== "gruppenphase" &&
       (deriveSlotHerkunft(spiel.team1, spiel.team1_quelle) === "offen" || deriveSlotHerkunft(spiel.team2, spiel.team2_quelle) === "offen")
@@ -172,7 +165,6 @@ export function categorizeActionRequired<T extends FLSpielWithStoredSides>(
   return categorized;
 }
 
-/** One category and the matches under it, ranked. Every category is returned, empty ones included. */
 export type FLActionRequiredSection = {
   category: ActionRequiredCategory;
   spiele: readonly FLSpiel[];
@@ -204,7 +196,7 @@ const compareByUrgencyWithin = (a: FLSpiel, b: FLSpiel): number => {
  * one declaration. The two are keyed identically today and this does not depend on that staying true.
  *
  * Every category is returned, including the empty ones: the strip shows all eight at all times
- * (ADR-0056), so a section with nothing in it is a tab with a zero rather than something to omit.
+ * (ADR-0044), so a section with nothing in it is a tab with a zero rather than something to omit.
  */
 export function buildActionRequiredSections({
   spiele,

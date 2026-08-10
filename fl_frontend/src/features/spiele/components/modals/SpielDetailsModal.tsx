@@ -19,7 +19,7 @@ import type { FLSpiel, FLSpielQuelle, FLSpielTeamField } from "../../schemas";
  *
  * A resolved side is a plain link straight to the team — not a popover, for the reason recorded at the
  * call site. A side whose occupant is not yet known shows its provenance label as text, because there
- * is no team page to send anyone to (ADR-0042).
+ * is no team page to send anyone to (ADR-0034).
  */
 function TeamNameLine({ team, quelle, onNavigate }: { team: FLSpielTeamField | null; quelle: FLSpielQuelle | null; onNavigate: () => void }) {
   if (team === null) {
@@ -113,7 +113,6 @@ export function SpielDetailsModal({
                 </div>
               </Modal.Header>
               <Modal.Body className="text-foreground">
-                {/* Teams area  */}
                 <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
                   {/* Plain links, not a team popover (decided 2026-07-31). A popover
                       anchored inside a `position: fixed` overlay is mispositioned by react-aria,
@@ -139,19 +138,15 @@ export function SpielDetailsModal({
 
                 <Separator className="bg-border my-4 h-[2px]" />
 
-                {/* Details Grid */}
                 <div className="fluid-sm grid grid-cols-2 gap-4 whitespace-normal">
-                  {/** Datum */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Datum</h4>
                     <p className="text-foreground font-bold">{spielDatum}</p>
                   </div>
-                  {/** Uhrzeit */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Uhrzeit</h4>
                     <p className="text-foreground font-bold">{spielUhrzeit}</p>
                   </div>
-                  {/** Ort */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Ort</h4>
                     {spielData.ort ? (
@@ -166,7 +161,6 @@ export function SpielDetailsModal({
                       <p className="text-foreground font-bold">{PLACEHOLDER.entity}</p>
                     )}
                   </div>
-                  {/** Schiedsrichter */}
                   <div>
                     <h4 className="text-foreground-muted font-semibold">Schiedsrichter</h4>
                     <p className="text-foreground font-bold">{spielData.schiedsrichter?.name ?? PLACEHOLDER.entity}</p>

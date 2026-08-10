@@ -5,7 +5,7 @@
  *
  * The other half of `useServerFieldErrors`: that hook holds the messages a server action
  * returned; this one produces the same messages in the browser from the SAME schema the action
- * parses, so the two cannot state different rules (ADR-0050).
+ * parses, so the two cannot state different rules (ADR-0040).
  *
  * Invariants:
  * - The draft parses WHOLE, only named paths publish — a cross-field refinement has no single owner.

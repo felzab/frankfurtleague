@@ -36,13 +36,9 @@ def build_schiedsrichter_filter(
     return query
 
 
-# =====================================================================================================
-# RETIRING IT
-# =====================================================================================================
-# The referee is still assigned to a fixture nobody has played (decided 2026-08-08). The same rule
-# `REQ-RETIRE-003` states for a venue, and for the same reason: retiring them removes them from every
-# picker while they are still down to officiate. A played fixture never blocks, because its
-# `schiedsrichter` is an embedded record of who officiated (ADR-0028 rule 2).
+# The referee is still assigned to a fixture nobody has played (decided 2026-08-08) --
+# `REQ-RETIRE-003` for a venue, for the same reason. A played fixture never blocks: its
+# `schiedsrichter` is an embedded record (ADR-0021 rule 2).
 REFEREE_STILL_ASSIGNED = "REQ-RETIRE-004"
 
 

@@ -11,7 +11,7 @@ import type { SpieltagCreateDraft } from "@/features/spieltage/types";
 /**
  * Creates one matchday in the season the page is showing.
  *
- * **Nothing is preselected, and there is no position to preselect** (ADR-0064). Where the new matchday
+ * **Nothing is preselected, and there is no position to preselect** (ADR-0051). Where the new matchday
  * lands follows from the phase and the date the admin enters, so the form opens empty and the row appears
  * in its place — rather than opening on a guessed number the admin then has to check.
  */

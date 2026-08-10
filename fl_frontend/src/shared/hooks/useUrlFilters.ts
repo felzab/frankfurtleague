@@ -50,7 +50,6 @@ export function useUrlFilters<TItem>(facets: readonly Facet<TItem>[]) {
     [pathname],
   );
 
-  /** Adds or removes one option of one facet. */
   const toggle = useCallback(
     (param: string, value: string) => {
       const picked = selection[param] ?? [];

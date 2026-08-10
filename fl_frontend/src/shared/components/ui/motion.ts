@@ -17,10 +17,10 @@
  * `SpielplanView` is the one such case, where the root rises at mount and the panels cascade on
  * every later tab press.
  *
- * `ConfirmDeleteModal` spells this same string out by hand and is deliberately **not** wired to this
- * constant. Its step-2 alert panel reveals inside an already-open modal rather than arriving as a
- * route — a different class of motion that happens to look the same today. Binding it here would mean
- * a future change to the page rise silently moved it too.
+ * `FormRolloverSection` spells this same string out by hand and is deliberately **not** wired to
+ * this constant. Its confirmation panel reveals inside an already-open page rather than arriving as
+ * a route — a different class of motion that happens to look the same today. Binding it here would
+ * mean a future change to the page rise silently moved it too.
  */
 export const PAGE_RISE = "animate-in fade-in slide-in-from-bottom-4 duration-400";
 

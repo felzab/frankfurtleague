@@ -15,8 +15,7 @@ import { useState } from "react";
  *
  * Overlay state here is derived from the selected entity (`item !== null`), so clearing the
  * selection is what closes the modal. Rendering straight off that value blanks the dialog — or
- * unmounts it outright, which skips HeroUI's exit transition and reads as a hard flicker. Callers
- * render this retained value and drive `isOpen` from the live one.
+ * unmounts it outright, which skips HeroUI's exit transition and reads as a hard flicker.
  *
  * State rather than a ref: this feeds the render output, and a ref read during render is both a
  * lint error here and unsound under concurrent rendering. Adjusting state during render is React's

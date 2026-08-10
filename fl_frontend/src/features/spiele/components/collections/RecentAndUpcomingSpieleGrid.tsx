@@ -121,7 +121,6 @@ export async function RecentAndUpcomingSpieleGrid() {
 
   return (
     <section className="flex w-full flex-col gap-14 pb-10">
-      {/* UPCOMING GAMES SECTION */}
       <div className="flex w-full flex-col">
         <SectionHeader
           eyebrow="Matchdays"
@@ -134,7 +133,6 @@ export async function RecentAndUpcomingSpieleGrid() {
         />
       </div>
 
-      {/* RECENT GAMES SECTION */}
       <div className="flex w-full flex-col">
         <SectionHeader
           eyebrow="Rückblick"

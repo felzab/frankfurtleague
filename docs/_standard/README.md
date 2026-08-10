@@ -1,6 +1,6 @@
-# `_standard`
+# Documentation standard
 
-**Verified against:** `09f903d`, 2026-08-08
+**Verified against:** `7555ecd`, 2026-08-10
 
 **Folder purpose:** the rules every written artifact in this repository follows, and the templates
 to start from.
@@ -10,7 +10,7 @@ to start from.
 | Read                                                   | For                                          |
 | ------------------------------------------------------ | -------------------------------------------- |
 | [`rules-index.md`](rules-index.md)                     | Every rule in one line, grouped by chapter   |
-| [`chapters/0-precedence.md`](chapters/0-precedence.md) | Which source wins a disagreement             |
+| [`chapters/0-precedence.md`](chapters/0-precedence.md) | Which source wins, and how a rule is written |
 | [`chapters/1-core.md`](chapters/1-core.md)             | The rules binding every written artifact     |
 | [`chapters/2-in-code.md`](chapters/2-in-code.md)       | Module headers, symbol docs, comments, tests |
 | [`chapters/3-corpus.md`](chapters/3-corpus.md)         | The `docs/` tree: layers, layout, READMEs    |

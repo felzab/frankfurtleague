@@ -1,16 +1,12 @@
 """
 SAISONS · models
 
-The season model, its filter options and the two response shapes.
+The season model, its filter options and the response shapes.
 
-The 4-character id constraint is the load-bearing part: `FLSpiel.saison_id` and `FLSpieltag.saison_id`
-both require exactly that of whatever they reference, so a longer id validates here and then breaks
-every match and matchday pointing at it on read.
-
-`status` appears on no payload. It is not an ordinary field: exactly one season carries `active` and no
-validator can express that, so the value is reachable only through `POST /saisons/{id}/activate`, which
-moves the incumbent aside in the same transaction (ADR-0033). A season is never deleted either -- an
-old one is `past`, which is what "gone" means here.
+Invariants:
+- `status` is on no payload: exactly one season carries `active`, no validator can express that, and
+  `POST /saisons/{saison_id}/activate` moves the incumbent aside in one transaction (ADR-0026).
+- A season is never deleted -- an old one is `past`, which is what "gone" means here (ADR-0026).
 """
 
 from typing import Literal
@@ -22,8 +18,8 @@ from pydantic import BaseModel, Field, TypeAdapter, model_validator
 from app.api.spiele.schemas import FLSaisonPhase
 
 # The league's school-level vocabulary, imported rather than restated: `rules.erlaubte_stufen` names
-# WHICH of it a season runs and must not be able to name a level the league does not have (ADR-0061).
-# Acyclic -- the spieler slice imports nothing from this one.
+# which of it a season runs, and cannot name a level the league lacks (ADR-0048). Acyclic -- the
+# spieler slice imports nothing from here.
 from app.api.spieler.schemas import FLSpielerStufe
 from app.shared.schemas.custom import CustomDateString, refuse_reversed_span
 from app.shared.schemas.responses import BaseAPIResponse
@@ -35,37 +31,20 @@ FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 class FLSaisonRules(BaseModel):
     win_points: int = Field(gt=0)
     draw_points: int = Field(ge=0)
-    # How many of each group's teams reach the first knockout round. English, like the two above: it
-    # configures the competition rather than naming anything in it (ADR-0043).
-    #
-    # REQUIRED, with no default, and that is the load-bearing part. A default would let a season
-    # document that has never carried the key read as though it had, and the number would then be a
-    # constant chosen in this file -- which is what ADR-0026 refused for 3/1/0. It is read on every
-    # `GET /teams`, so a season missing it fails loudly on the next read rather than seeding a bracket
-    # from a guess. See the runbook in ADR-0043.
+    # How many of each group's teams reach the first knockout round. REQUIRED with no default: one
+    # would make the number a constant chosen in this file, which is what ADR-0019 refused for 3/1/0.
+    # See the runbook in ADR-0035.
     qualifiers_per_group: int = Field(gt=0)
 
-    # The season's capacity, read by `POST /teams/{team_id}/saisons` (decided 2026-08-07): a team
-    # enters only a group the season offers -- the first `number_of_groups` of the closed A-D set,
-    # which is what bounds it at 4 -- and only while that group holds fewer than `teams_per_group`
-    # rows. REQUIRED with no default for exactly the reason `qualifiers_per_group` is; both keys are
-    # owed on every existing document before this deploys, and `--check` reports which still lack
-    # them.
+    # The season's capacity, read by `POST /teams/{team_id}/saisons`: a team enters only a group the
+    # season offers -- a prefix of the closed A-D set -- and only while that group has room. No
+    # default, for the reason `qualifiers_per_group` has none.
     number_of_groups: int = Field(gt=0, le=4)
     teams_per_group: int = Field(gt=0)
 
-    # Which school levels this season's squads may hold (decided 2026-08-07). A SUBSET of the closed
-    # set `FLSpielerStufe` declares -- that Literal is the vocabulary, and this is which of it a given
-    # season runs, exactly as `number_of_groups` picks a prefix of the closed A-D set rather than
-    # redefining it (ADR-0061).
-    #
-    # REQUIRED with no default, for the reason `qualifiers_per_group` is: a default would let a
-    # season that has never carried the key read as though it had, and the offered levels would then
-    # be a constant chosen in this file. `--check` reports a document still lacking it.
-    #
-    # Not enforced against `saison_spieler` by any validator, and deliberately: a row's `stufe` is
-    # held to the LEAGUE's set, not to one season's, so narrowing a season cannot retroactively
-    # invalidate the squads of a season already played. This bounds what the form offers.
+    # A SUBSET of the closed set `FLSpielerStufe` declares (ADR-0048), required with no default. No
+    # validator holds `saison_spieler` to it -- this bounds what the FORM offers, so narrowing a season
+    # cannot invalidate one already played.
     erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
 
 
@@ -94,16 +73,9 @@ class FLSaison(BaseModel):
     status: FLSaisonStatus
     rules: FLSaisonRules
 
-    # DERIVED, and on no document (ADR-0065): `schedule_for` over `rules`, the same arithmetic
-    # `spieltage.anzahl_spiele` already reports per matchday. Served because the matchday editor needs the
-    # count for a phase the matchday does NOT have yet -- `anzahl_spiele` answers only for the phase it
-    # has, so without this the browser cannot refuse `REQ-SPIELTAG-002` before the request (decided
-    # 2026-08-08). Serving it keeps the arithmetic in one place; mirroring it in TypeScript would be a
-    # second copy with nothing holding the two equal, and a wrong copy REFUSES a phase the endpoint
-    # accepts.
-    #
-    # Injected before validation rather than computed on the model, because `schedule_for` imports
-    # `FLSaisonRules` from this module and a computed field here would close that import cycle.
+    # DERIVED, and on no document (ADR-0052). Served because the matchday editor needs the count for a
+    # phase the matchday does not have yet. Injected before validation, because a computed field would
+    # close an import cycle.
     schedule: tuple[FLSaisonPhaseSchedule, ...]
 
 
@@ -147,7 +119,7 @@ class FLPatchSaisonPayload(BaseModel):
         The same rule as on the create, and it is the one rule a `past` season's edit can still fail.
 
         `find_rules_refusal` freezes the competitive fields of a finished season and leaves the dates
-        editable precisely so a mistyped one can be repaired (ADR-0065) -- so this is what makes that
+        editable precisely so a mistyped one can be repaired (ADR-0052) -- so this is what makes that
         repair land on a value that is actually in order rather than on a second wrong one.
         """
 

@@ -1,14 +1,13 @@
 """
 TESTS · shared fixtures for the schema suite, plus the one real `mongod` the session shares
 
-Every payload fixture is a factory returning a fresh, fully valid payload dict; tests override
-the one field under test, so each case states exactly what makes it invalid and none can leak
-state through a shared mutable dict. Payloads are keyed the way MongoDB serves them — `_id`,
-not `id` — because that is the validation alias the models declare.
+Every payload fixture is a factory returning a fresh, fully valid payload dict keyed `_id` rather
+than `id`; tests override the one field under test. What that buys, and when to reach for
+`assert_rejects` instead of a bare `pytest.raises`, are `docs/backend/spec.md` §1.6's.
 
 The container fixtures live here rather than in `api/conftest.py` because two suites want a
 database: the executing pipeline tests and the executing constraint tests. Session-scoped, so
-one container serves both (ADR-0030).
+one container serves both (ADR-0023).
 """
 
 import copy
@@ -27,12 +26,12 @@ from tests.config import build_test_config
 
 # testcontainers removes its reaper container from an `atexit` hook, which makes an HTTP call, which
 # urllib3 logs at DEBUG -- by which point pytest has closed the stream its capture handler writes to.
-# The logging module catches that itself and prints "--- Logging error ---" with a full traceback to
-# stderr, AFTER a passing run and with the teardown having succeeded (the call returns 204).
-#
+
+# The logging module catches that itself and prints a full traceback to stderr, after a passing run
+# and with the teardown having succeeded.
+
 # Silenced at the source rather than by suppressing logging errors globally: `raiseExceptions = False`
-# would hide real handler failures too. urllib3's DEBUG stream is per-request chatter to the Docker
-# daemon and diagnoses nothing here -- a container that fails to start raises instead.
+# would hide real handler failures too, and urllib3's DEBUG stream diagnoses nothing here.
 logging.getLogger("urllib3").setLevel(logging.INFO)
 
 
@@ -64,10 +63,9 @@ def _factory(base: dict[str, Any]) -> PayloadFactory:
     """
     Returns a callable producing a fresh copy of `base`, with `**overrides` applied.
 
-    `deepcopy`, not a one-level dict comprehension: no fixture nests a dict inside a dict *today*,
-    so one level happens to be enough, but the first time one does (an `address` inside
-    `spiel_ort_field`, say) two calls in the same test would share the inner object and a mutation
-    to one would be visible in the other. Copying properly costs nothing at this size.
+    `deepcopy`, not a one-level dict comprehension: several bases nest dicts -- `team` embeds
+    `statistik()` and `address()`, `spiel` embeds four -- so a shallow copy would let two calls in one
+    test share the inner object, where a mutation to one is visible in the other.
     """
 
     def make(**overrides: Any) -> dict[str, Any]:
@@ -86,10 +84,9 @@ def assert_rejects() -> RejectsAssertion:
     """
     Assert a payload fails validation **because of a named field**, and return the error.
 
-    A bare `pytest.raises(ValidationError)` passes whatever went wrong, so a test meant to prove one
-    constraint can be satisfied by an unrelated typo in the payload — it stays green while the
-    constraint it names goes unenforced. Use this wherever more than one field could plausibly fail,
-    and always where the payload is hand-built rather than produced by a factory.
+    Use this wherever more than one field could plausibly fail, and always where the payload is
+    hand-built rather than produced by a factory — `docs/backend/spec.md` §1.6 carries the failure
+    mode it exists for.
 
     A fixture rather than a module-level function because `--import-mode=importlib` does not put
     `conftest` on `sys.path`; fixtures are how pytest shares helpers without an import.
@@ -189,7 +186,7 @@ def spiel(
             "team1": spiel_team_field(),
             "team2": spiel_team_field(team_id=SPIELER_ID, name="Lessing", shorthand="LE", tore=1),
             # A group-phase fixture: both sides are drawn by the schedule rather than fed by the
-            # standings or by an earlier match, so neither carries a source (ADR-0042).
+            # standings or by an earlier match, so neither carries a source (ADR-0034).
             "team1_quelle": None,
             "team2_quelle": None,
             "datum": "2026-03-15",
@@ -197,7 +194,7 @@ def spiel(
             "ort": spiel_ort_field(),
             "schiedsrichter": spiel_schiedsrichter_field(),
             "ergebnis": "2:1",
-            # Null on every fixture that did not finish level, which is almost all of them (ADR-0044).
+            # Null on every fixture that did not finish level, which is almost all of them (ADR-0036).
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_ID,
             "spiel_nr": 1,
@@ -246,7 +243,7 @@ def spieler() -> PayloadFactory:
             "stufe": "Q2",
             "nummer": "10",
             # `Angriff`, not `Sturm`: the two named the same position and the set closed on this one
-            # (ADR-0061). A fixture spelling it the other way describes a document nothing may store.
+            # (ADR-0048). A fixture spelling it the other way describes a document nothing may store.
             "position": "Angriff",
             "is_nachgetragen": False,
             "is_captain": False,
@@ -262,7 +259,7 @@ def spieltag() -> PayloadFactory:
         {
             "_id": SPIELTAG_ID,
             # No `name`: a matchday's is composed by the reader from its phase and its position, and this
-            # model has no field for one (ADR-0064).
+            # model has no field for one (ADR-0051).
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "anzahl_spiele": 4,
@@ -290,12 +287,11 @@ def saison() -> PayloadFactory:
                 "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
             },
             # Derived and on no document, like the matchday's `anzahl_spiele` above: the router injects
-            # it before validation (ADR-0065). Spelled out rather than computed so a change to
-            # `schedule_for` that this fixture no longer matches is visible here.
-            #
-            # These are the rules above: four groups of four give three group matchdays of eight
-            # matches, and eight qualifiers play the LAST three knockout rounds, never `achtelfinale`.
+            # it before validation (ADR-0052). Spelled out rather than computed, so a `schedule_for`
+            # change this fixture stops matching is visible here.
             "schedule": [
+                # Four groups of four give three group matchdays of eight matches, and eight
+                # qualifiers play the last three knockout rounds, never `achtelfinale`.
                 {"phase": "gruppenphase", "matchdays": 3, "matches_per_matchday": 8},
                 {"phase": "viertelfinale", "matchdays": 1, "matches_per_matchday": 4},
                 {"phase": "halbfinale", "matchdays": 1, "matches_per_matchday": 2},
@@ -305,7 +301,7 @@ def saison() -> PayloadFactory:
     )
 
 
-# ── The real mongod, for the `db` tier only (ADR-0030) ──────────────────────────────────────────────
+# The real mongod, for the `db` tier only (ADR-0023)
 
 
 @pytest.fixture(scope="session")
@@ -319,7 +315,7 @@ def mongo_container() -> Iterator[Any]:
 
     The import is deliberately inside the function. This module holds the fast schema suite's fixtures
     too, so it is imported on every run — importing `testcontainers` at module scope would make the
-    default tier depend on a package it never uses, and pytest would pay for it 250 times.
+    default tier depend on a package it never uses and pay for the import on every run.
 
     `testcontainers.community.mongodb` is the current path; `testcontainers.mongodb` still resolves
     and emits a DeprecationWarning.

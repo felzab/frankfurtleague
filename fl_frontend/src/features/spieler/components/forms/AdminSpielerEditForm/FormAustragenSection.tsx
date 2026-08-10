@@ -29,8 +29,8 @@ import { formatSpielDatum } from "@/shared/utils/format";
  * irreversible-looking control indistinguishable from a typo in a name field.
  *
  * Reversible either way, which is why the button is not a confirmation dialog: the row is soft
- * deleted (ADR-0032) and `reactivate` restores it with the number, position and stufe it still
- * carries. That is the same argument ADR-0051 makes for an undo over a confirmation.
+ * deleted (ADR-0025) and `reactivate` restores it with the number, position and stufe it still
+ * carries. That is the same argument ADR-0041 makes for an undo over a confirmation.
  */
 export function FormAustragenSection({
   spielerId,

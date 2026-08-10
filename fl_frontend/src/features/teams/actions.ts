@@ -8,16 +8,16 @@
  *
  * Invariants:
  * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the form.
- * - The club patch invalidates `spiele` too: the rename fans into every match (ADR-0028).
+ * - The club patch invalidates `spiele` too: the rename fans into every match (ADR-0021).
  * - A junction write invalidates the `spiele` AND `teams` pairs, base and granular — every match
  *   side carries the junction's `disqualifikation` (ADR-0001).
  * - A create 409 names the reactivate path on the field — `shorthand` stays unique over retired
- *   clubs (ADR-0032).
+ *   clubs (ADR-0025).
  * - Create-and-enter is one action over two requests, club first — a club with no junction row
  *   is invisible to every season-scoped read.
  *
  * See:
- * - docs/frontend/spec.md — section 3, the action inventory
+ * - docs/frontend/spec.md — section 1.3, the action inventory
  */
 import { updateTag } from "next/cache";
 
@@ -40,7 +40,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLDeleteTeamPayload, FLPatchTeamPayload, FLReactivateTeamPayload, FLSaisonTeamResponse, FLTeamRecord } from "./schemas";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
 
-// The shorthand's unique index spans retired clubs (ADR-0032), and reviving is deliberately not the
+// The shorthand's unique index spans retired clubs (ADR-0025), and reviving is deliberately not the
 // create's job -- so the message names the one path that is.
 const SHORTHAND_TAKEN =
   "Dieses Kürzel ist bereits vergeben, möglicherweise von einem stillgelegten Team. Reaktiviere dieses Team, statt es neu anzulegen.";
@@ -112,17 +112,15 @@ export async function postTeamAction(
       return { success: false, error: "Beim Anlegen des neuen Teams ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // The junction row, in the same action: without one the club is invisible to every season-scoped
-    // read (I11), including the list this form sits on. If this second request fails, the club
-    // EXISTS -- the error says so plainly rather than pretending nothing happened, because retrying
-    // the whole form would then 409 on the shorthand of the club just created.
+    // The junction row, in the same action: without one the club is invisible to
+    // every season-scoped read (backend spec I11). A failure here leaves the club
+    // EXISTING, which the message has to say -- retrying the form 409s.
     try {
       await postSaisonTeam({ team_id: postOperation.created_id, saison_id, gruppe });
     } catch (error) {
       updateTag("teams");
-      // A capacity refusal names its reason; the form pre-filters seasons and groups, so reaching
-      // one here means the picture changed under the form. Either way the club now EXISTS without a
-      // season, so the message says so instead of pretending nothing happened.
+      // The form pre-filters seasons and groups, so a refusal here means the picture changed under
+      // it. Either way the club EXISTS without a season, which the message has to say.
       const refusal = mapEntryRefusal(error);
       const reason = refusal?.error ?? refusal?.fieldErrors?.gruppe;
       return {
@@ -192,7 +190,6 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<{
   });
 }
 
-// This is a soft delete: the backend stamps `inactive_since` (ADR-0032).
 export async function deleteTeamAction(
   rawPayload: FLDeleteTeamPayload,
 ): Promise<{ success: boolean; updated_document?: FLTeamRecord; message?: string; error?: string; fieldErrors?: FieldErrors }> {
@@ -282,8 +279,8 @@ export async function postSaisonTeamAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // A 409 here is one of the capacity refusals (REQ-ENTER-001..003) or the unique index saying
-    // "already entered" -- each deserves its own words rather than the generic conflict message.
+    // A 409 here is one of the refusals `mapEntryRefusal` maps, or the unique index saying "already
+    // entered" -- each deserves its own words rather than the generic conflict message.
     let saisonTeam;
     try {
       saisonTeam = await postSaisonTeam(validated.data);
@@ -327,10 +324,9 @@ export async function patchSaisonTeamAction(
 
     const saisonTeam = await patchSaisonTeam(validated.data);
 
-    // BOTH resource pairs (ADR-0001), and the `spiele` pair is not optional: every side of every
-    // match carries this row's `disqualifikation` joined at read time (I32), so this write changes
-    // what `GET /spiele` returns for the whole season. `teams` alone would leave every Spiel card
-    // showing a DQ badge the league table has already stopped showing -- and nothing would report it.
+    // BOTH resource pairs (ADR-0001). Every match side carries this row's
+    // `disqualifikation` joined at read time (backend spec I32), so `teams` alone leaves
+    // a card showing a DQ badge the league table has stopped showing.
     invalidateSeasonScoped("teams", validated.data.saison_id);
     invalidateSeasonScoped("spiele", validated.data.saison_id);
 

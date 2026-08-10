@@ -32,7 +32,6 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
 }) {
   const handleCopyKontakt = async (schiedsrichter: FLSchiedsrichter) => {
-    // Collect available contact info cleanly
     const details = [schiedsrichter.name, schiedsrichter.kontakt.email, schiedsrichter.kontakt.telefon].filter(Boolean).join(" | ");
 
     const copied = await copyTextToClipboard(details);
@@ -101,7 +100,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   return (
     <>
       {/* The phone layout: one card per referee, no horizontal scrolling anywhere (decided 2026-08-07
-          — the teams table's card pattern, applied here as FE-13 asked). The school column stays
+          — the teams table's card pattern, applied here). The school column stays
           table-only: on a card it read as an unlabeled stray line, and the edit dialog carries it. */}
       <div className="flex w-full flex-col gap-3 md:hidden">
         {filteredSchiedsrichter.length === 0 && <div className={`${card()} w-full`}>{emptyState}</div>}
@@ -157,7 +156,6 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                   <Table.Row
                     id={schiedsrichter.id}
                     className="hover:bg-muted/40 border-border/50 border-b transition-colors last:border-b-0">
-                    {/* 1. Name */}
                     <Table.Cell className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <Person
@@ -169,20 +167,16 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                       </div>
                     </Table.Cell>
 
-                    {/* 2. Kontakt (Stacked Email and Phone) */}
                     <Table.Cell className="px-6 py-4">{renderKontakt(schiedsrichter)}</Table.Cell>
 
-                    {/* 3. Schule / Verein */}
                     <Table.Cell className="px-6 py-4">
                       <span className="fluid-sm text-foreground">
                         {schiedsrichter.schule || <span className="text-foreground-muted/50 italic">—</span>}
                       </span>
                     </Table.Cell>
 
-                    {/* 4. Honorar */}
                     <Table.Cell className="px-6 py-4">{renderHonorar(schiedsrichter)}</Table.Cell>
 
-                    {/* 5. Aktionen */}
                     <Table.Cell className="px-6 py-4">{renderActions(schiedsrichter)}</Table.Cell>
                   </Table.Row>
                 )}

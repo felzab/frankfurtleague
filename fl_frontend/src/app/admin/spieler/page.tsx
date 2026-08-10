@@ -29,10 +29,9 @@ function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string, takenBy
     .map((team) => ({ teamId: team.id, name: team.name, shorthand: team.shorthand, takenNummern: takenByTeam[team.id] ?? [] }));
 }
 
-// Not async, so the chrome never waits on the player list — the pattern of the three sibling pages.
-// The create modal needs the season and team lists (one form creates the player AND puts them in a
-// squad), so it gets its own boundary instead of making the whole page async. `connection()` sits
-// with each fetch it guards — ADR-0009 requires only that nothing fetches at build time.
+// Not async, so the chrome never waits on the player list
+// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). The create modal needs the season and team
+// lists — one form creates the player and puts them in a squad — so it gets its own boundary.
 export default function AdminSpielerPage(props: NextPageProps) {
   return (
     <AdminCrudShell
@@ -63,10 +62,9 @@ async function CreateSpielerModalLoader({ searchParams }: { searchParams: NextPa
   // every render of this page, so the squad numbers cost a cache hit rather than a round trip.
   const [saisonsRes, teamsRes, spielerRes] = await Promise.all([getSaisons(), getTeamMemberships(), getSpielerMemberships()]);
 
-  // RUNNING and planned seasons both (decided 2026-08-07), unlike the club create's planned-only
-  // rule: a squad is filled in during its season, so adding a player to one already under way is
-  // the ordinary case. `isNachgetragen` is that season's own answer to "did this player arrive
-  // late", derived here so the form never has to ask.
+  // Running and planned seasons both (decided 2026-08-07), unlike the club create's planned-only
+  // rule: a squad is filled in during its season. `isNachgetragen` is that season's own answer to
+  // whether a player arrived late.
   const saisonOptions: SpielerCreateSaisonOption[] = saisonsRes.saisons
     .filter((saison) => saison.status === "active" || saison.status === "future")
     .map((saison) => ({
@@ -147,10 +145,9 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
   return (
     <AdminSpielerView
       spieler={rows}
-      // The same list the create modal offers, for the team facet's options: a filter naming a club that
-      // plays in another season would narrow to nothing.
-      // No squad numbers: this list feeds the team FACET, which filters rows by club and never judges
-      // a shirt. `teamsInSaison` takes them for the create modal above, which does.
+      // The same list the create modal offers, for the team facet's options — a filter naming a club
+      // from another season would narrow to nothing. No squad numbers: the facet filters by club and
+      // never judges a shirt.
       teams={teamsInSaison(teamsRes.teams, selectedSaisonId, {})}
       selectedSaisonId={selectedSaisonId}
       selectedSaisonStatus={selectedSaisonStatus}

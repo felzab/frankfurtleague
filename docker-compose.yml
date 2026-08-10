@@ -12,7 +12,7 @@
 #   • nginx waits on both upstreams being HEALTHY, not merely started, so an unhealthy deploy is
 #     never served to anyone.
 #   • The moving `:latest` tag of each package is what `deploy.sh` pulls with no argument. Rollback
-#     pins the immutable `:sha-<commit>` tag instead. One package per service — see ADR-0017.
+#     pins the immutable `:sha-<commit>` tag instead. One package per service — see ADR-0012.
 #   • Keep this file and docker-compose.local.yml in step. A difference here is a difference the
 #     local stack will not have caught.
 #
@@ -30,9 +30,9 @@ x-logging: &default-logging
 services:
   frontend:
     env_file: ./fl_frontend/.env
-    # A MOVING tag. `publish.sh` re-points it at every publish, so `deploy.sh` with no argument means
-    # "the latest thing I published". Rollback pins the immutable `:sha-<commit>` tag instead.
-    # The package is public, so this pull needs no credentials on the server.
+    # A moving tag: `publish.sh` re-points it at every publish, so `deploy.sh` with no argument
+    # means the newest published image. A rollback pins the immutable `:sha-<commit>` instead. The
+    # package is public, so this pull needs no credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
     networks:
@@ -58,7 +58,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      # Next's standalone server needs a moment before it answers; without this the first two probes
+      # Next's standalone server needs a moment before it answers; without this the early probes
       # fail and the container is marked unhealthy on a perfectly good start.
       start_period: 20s
     deploy:
@@ -83,13 +83,13 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      # `/system/is_live` is the one unauthenticated endpoint, and it deliberately does not touch
-      # MongoDB -- a readiness check that needs the database fails for reasons a restart cannot fix.
-      # Use `/system/is_ready` for that, which is guarded.
-      #
-      # NOTE: the API version is HARDCODED here, and so is the backend's -- `API_VERSION` in
-      # app/core/config.py is a constant rather than a setting, precisely so the two can only
-      # disagree through a code change that touches both. Bump them together.
+      # `/system/is_live` is the one probe that needs no key, and it deliberately does not touch
+      # MongoDB — a liveness check that needs the database fails for reasons a restart cannot fix.
+      # `/system/is_ready` answers that question instead, and is guarded.
+
+      # The API version is hardcoded here and must match
+      # `fl_backend/app/core/config.py :: API_VERSION`, which records why it is a constant rather
+      # than a setting. Bump both.
       test:
         [
           "CMD",
@@ -112,7 +112,6 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
-    # The ONLY published ports in the stack. Everything else is internal to the compose network.
     ports:
       - "80:80" # HTTP, redirected to HTTPS by the server block
       - "443:443" # HTTPS
@@ -142,7 +141,7 @@ services:
           memory: "128M"
 
 # A single user-defined bridge. Containers resolve each other by service name -- `http://backend:8000`
-# and `http://frontend:3000` in nginx.conf are these names, not hosts.
+# and `http://frontend:3000` in nginx/prod.conf are these names, not hosts.
 networks:
   frankfurtleague-net:
     driver: bridge

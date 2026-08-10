@@ -1,11 +1,12 @@
 """
 SPIELTAGE · what a matchday write refuses
 
-Three pure functions, so all of it runs in the default tier. Both rules exist because a matchday
-is a container whose contents it does not know about: `REQ-RETIRE-002` refuses retiring one that
-holds a played match — the public Spielplan joins fixtures onto the matchdays it received, so
+Pure functions, so all of it runs in the default tier. The retire and phase rules exist because a
+matchday is a container whose contents it does not know about: `REQ-RETIRE-002` refuses retiring one
+that holds a played match — the public Spielplan joins fixtures onto the matchdays it received, so
 the results would go with the container — and `REQ-SPIELTAG-002` refuses a phase accounting for
-fewer matches than the matchday already holds (ADR-0065).
+fewer matches than the matchday already holds (ADR-0052). `REQ-SPIELTAG-003` is the create rule: a
+season whose knockout is under way takes no new matchday.
 
 Asserted on the code, never the message: the code is the contract the form reads.
 """
@@ -65,7 +66,7 @@ class TestChangingThePhase:
         The direction that stays permitted, deliberately.
 
         A season being set up holds fewer fixtures than its rules imply at every point on the way to
-        holding all of them (ADR-0065), so refusing here would refuse the setup rather than a mistake.
+        holding all of them (ADR-0052), so refusing here would refuse the setup rather than a mistake.
         """
 
         assert find_spieltag_phase_refusal(attached_count=0, expected_count=8) is None

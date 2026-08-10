@@ -2,7 +2,7 @@
  * CORE · correlation id tests
  *
  * The minted format must stay joinable with nginx's `$request_id` (32 lowercase hex), and the
- * validator must refuse anything that could smuggle content into a log line (`docs/logging.md`).
+ * validator must refuse anything that could smuggle content into a log line (`docs/logging/spec.md`).
  */
 
 import assert from "node:assert/strict";

@@ -17,16 +17,16 @@ import type { FLTeam } from "@/features/teams/schemas";
  *
  * **Before Ergebnis, and the Ergebnis panel's own hint is the argument.** It reads "Erst wenn beide
  * Seiten feststehen", because `PATCH /spiele/{spiel_id}` reads through an absent side as no goals at all
- * and a fixture with an unresolved slot can never carry a result (ADR-0042). A panel that states its own
+ * and a fixture with an unresolved slot can never carry a result (ADR-0034). A panel that states its own
  * precondition cannot sit above it.
  *
  * Each picker disables whichever team the other side already holds, so a match cannot be a team against
  * itself. The rule is unconditional because two unresolved sides are two nulls rather than one team
- * document occupying both (ADR-0042), and `null` disables nothing. The other side's DRAFT source rides
+ * document occupying both (ADR-0034), and `null` disables nothing. The other side's DRAFT source rides
  * along the same way, so the two sides cannot pick one outcome.
  *
  * A Gruppenphase fixture shows two team pickers and no source controls at all — its sides are drawn by
- * the schedule, and offering wiring there would offer a mechanism the write path refuses (ADR-0046).
+ * the schedule, and offering wiring there would offer a mechanism the write path refuses (ADR-0038).
  */
 export function FormMatchupSection({
   spielData,
@@ -45,7 +45,7 @@ export function FormMatchupSection({
   onValidateSelection,
 }: {
   /** The fixture as it was opened — its phase gates the source controls, its stored sides anchor
-   * both the result-toggle restore and the automatic sides' payload (ADR-0046). */
+   * both the result-toggle restore and the automatic sides' payload (ADR-0038). */
   spielData: FLSpiel;
   saisonSpiele: FLSpiel[];
   teams: FLTeam[];
@@ -55,7 +55,7 @@ export function FormMatchupSection({
    * Which fixture of the same Spieltag already fields each team, computed by the form.
    *
    * Lifted rather than derived here, because the form reads it too: a save refused for fielding a
-   * team twice has to land on the same side the picker would have disabled (ADR-0052), and two
+   * team twice has to land on the same side the picker would have disabled (ADR-0042), and two
    * derivations of "who is already playing" would eventually put the chip on one side and the error
    * on the other.
    */

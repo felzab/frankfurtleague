@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# PreToolUse hook on Edit|Write|NotebookEdit — refuses a write INTO THE REPOSITORY while HEAD is `main`.
+# PreToolUse hook on Edit|Write|NotebookEdit — refuses a write to a TRACKED FILE while HEAD is `main`.
 #
 # WHY THIS IS A HOOK AND NOT A CLAUDE.md RULE:
 #   `main` is protected and takes changes only through a PR, but nothing announces a mistake at the
@@ -10,21 +10,26 @@
 #
 # WHY IT LOOKS AT THE PATH:
 #   CLAUDE.md §2 exempts "a task that writes no tracked file — answering, reading, or writing only to
-#   the scratchpad", and guard-branch-bash.sh has always honoured that for shell writes. Deciding by
-#   the repository boundary rather than by a list of blessed directories keeps the two guards saying
-#   the same thing, and covers the scratchpad, the system temp directory and the plan file a planning
-#   session writes before it is allowed to branch — without naming any of them.
+#   the scratchpad", and guard-branch-bash.sh honours that for shell writes. What decides it here
+#   names no directory. The repository boundary covers the scratchpad, the system temp
+#   directory and the plan file a planning session writes before it is allowed to branch. Inside the
+#   repository, a path git reports as ignored AND untracked is the same exemption by the same words —
+#   which is what lets `/audit:*` and `/docs:audit` write their reports into gitignored `docs/audit/`
+#   with no branch step, the exception CLAUDE.md §1 names. Asking git rather than carrying a list of
+#   blessed directories means a path gitignored tomorrow is covered without editing this file.
 #
-# CONTRACT: prints nothing and exits 0 on any branch but `main`, and on `main` for a target outside
-# the working tree. Otherwise it prints the deny JSON the PreToolUse event understands, which stops
-# the tool call before it writes.
+# CREDENTIAL SHAPES ARE CHECKED FIRST AND BEAT THE EXEMPTION:
+#   `.env*`, `*.pem`, `id_rsa*`, `credentials.json` and `kubeconfig` are refused inside the repository
+#   whatever `.gitignore` says. This is not a credential control — `settings.json`'s deny list and
+#   CLAUDE.md §1 are that, and this hook is silent on every branch but `main`. It is the exemption
+#   above declining to swallow the one class of file whose whole purpose is to be gitignored.
 #
-#   WHAT IT DOES WHEN IT CANNOT TELL. Three questions decide the answer, and each has a "no idea"
-#   case: which branch HEAD is on, where the repository root is, and which file the tool is about to
-#   write. **git failing to answer either of the first two, and a payload naming no path, all deny** —
-#   a hole in this guard costs more than a false refusal, and a false refusal is one
-#   `git checkout -b` away from resolved. So does node being absent, since the path comparison runs
-#   there.
+# CONTRACT: prints nothing and exits 0 on any branch but `main`; on `main`, for a target outside the
+# working tree, and for an ignored, untracked, non-credential-shaped target inside it. Otherwise it
+# prints the deny JSON the PreToolUse event understands, which stops the tool call before it writes.
+#
+#   WHAT IT DOES WHEN IT CANNOT TELL. Every question below has a "no idea" case, and every one of
+#   them denies — git unable to answer, node absent, a payload naming no path (ADR-0060).
 #
 #   A DETACHED HEAD IS ALLOWED, and that is the one "cannot tell" case that is not a refusal.
 #   `git branch --show-current` prints nothing and succeeds when no branch is checked out, which is a
@@ -34,7 +39,7 @@
 # TARGET PLATFORM: any (Git Bash on Windows). node rather than jq — jq is not installed here.
 
 deny() {
-  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: this writes into the repository, and HEAD is main. main is protected and takes changes only through a PR. Create the topic branch BEFORE editing (CLAUDE.md 2) — any uncommitted work comes with you:  git checkout main && git pull --ff-only origin main && git checkout -b <short-kebab-name>. Writing to the scratchpad or another path outside the working tree is allowed on any branch."}}'
+  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: this writes a tracked file, and HEAD is main. main is protected and takes changes only through a PR. Create the topic branch BEFORE editing (CLAUDE.md 2) — any uncommitted work comes with you:  git checkout main && git pull --ff-only origin main && git checkout -b <short-kebab-name>. Allowed on any branch: a path outside the working tree such as the scratchpad, and a gitignored untracked path inside it such as docs/audit/ — except a credential-shaped name, which is refused here whatever .gitignore says."}}'
   exit 0
 }
 
@@ -56,15 +61,10 @@ fi
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$repo_root" ] || deny
 
-# Containment is decided by node, on CANONICAL paths, because every cheap textual test is wrong on
-# some input a tool call can legitimately produce. `<parent>/./frankfurtleague/x.py`, a `..` segment,
-# a doubled separator and the `//?/` and UNC spellings of a drive all name a file inside this
-# repository while sharing no useful prefix with what `git rev-parse` prints. `path.resolve` collapses
-# all of them; `path.relative` then answers containment without any prefix arithmetic.
-#
-# `..` as the first segment means the target climbed back out of the root, and an absolute result means
-# the two are on different drives. Empty means the target IS the root, which is a directory and not a
-# file, and is denied for the same reason a path that cannot be read is.
+# Containment is decided by node on canonical paths, never textually (ADR-0060). An inside verdict
+# appends the repository-relative path on its own line, because the git questions below are asked
+# about a path rather than about a boundary.
+
 # The backticks are Markdown in the embedded script's own comments; nothing here is meant to expand.
 # shellcheck disable=SC2016
 decision="$(REPO_ROOT="$repo_root" node -e '
@@ -97,16 +97,46 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
     const rel = path.relative(fold(root), fold(target));
 
     if (rel === "") return "deny";
-    if (path.isAbsolute(rel)) return "allow";
-    return rel === ".." || rel.startsWith(".." + path.sep) ? "allow" : "deny";
+    if (path.isAbsolute(rel)) return "outside";
+    if (rel === ".." || rel.startsWith(".." + path.sep)) return "outside";
+
+    // Re-derived unfolded and with forward slashes: git matches a pathspec as it is spelt, and the
+    // folded copy above exists only to answer containment.
+    return "inside\n" + path.relative(root, target).split(path.sep).join("/");
   })();
 
   process.stdout.write(verdict);
 });
 ' 2>/dev/null)"
 
-# Anything but an explicit "allow" denies — which covers node being absent, node crashing, and a
+# Anything but an explicit verdict denies — which covers node being absent, node crashing, and a
 # payload it could make no sense of.
-[ "$decision" = "allow" ] || deny
+verdict="$(printf '%s\n' "$decision" | head -n 1)"
+rel_path="$(printf '%s\n' "$decision" | tail -n +2)"
 
-exit 0
+if [ "$verdict" = "outside" ]; then
+  exit 0
+fi
+[ "$verdict" = "inside" ] || deny
+[ -n "$rel_path" ] || deny
+
+# Matched on every segment, not only the basename, so a directory carrying the name is caught too.
+# The leading slash is what lets one `*/name` pattern mean "any segment" including the first.
+lower="$(printf '%s' "$rel_path" | tr '[:upper:]' '[:lower:]')"
+case "/$lower" in
+  */.env* | *.pem | */id_rsa* | */credentials.json* | */kubeconfig*) deny ;;
+esac
+
+# Ignored AND untracked is CLAUDE.md §2's "writes no tracked file", asked of git rather than kept in
+# a list here. Every other status falls through to the refusal: git failing to answer must not read
+# as an exemption.
+git -C "$repo_root" check-ignore -q -- "$rel_path" >/dev/null 2>&1
+ignored=$?
+git -C "$repo_root" ls-files --error-unmatch -- "$rel_path" >/dev/null 2>&1
+tracked=$?
+
+if [ "$ignored" -eq 0 ] && [ "$tracked" -eq 1 ]; then
+  exit 0
+fi
+
+deny

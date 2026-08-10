@@ -10,12 +10,12 @@
  *   2. **Convert a thrown API error into the result the caller renders.** `apiClient` throws on any
  *      non-2xx; without this boundary the throw crosses the server-action boundary, Next redacts it
  *      to a digest, and the admin's toast is replaced by the whole error page — for a 409 that is an
- *      ordinary, expected outcome (ADR-0032). The failure is logged HERE, with its codes and id,
+ *      ordinary, expected outcome (ADR-0025). The failure is logged HERE, with its codes and id,
  *      because a handled error never reaches `onRequestError`.
  *
  * **Named for the mutation rather than the transport**, because it wraps both: the admin server
  * actions and the page-owned editors' undo route handlers. The handlers are handlers for a reason
- * recorded in [ADR-0062](../../../../docs/_decisions/0062-every-page-owned-editors-undo-is-a-route-handler.md)
+ * recorded in [ADR-0049](../../../../docs/_decisions/0049-every-page-owned-editors-undo-is-a-route-handler.md)
  * — everything in this wrapper applies to them unchanged, which is part of why that shape was chosen.
  */
 
@@ -37,7 +37,7 @@ import type { FormState } from "@/shared/types/types";
  * Every slice's actions rendered its own copy of this sentence, which is how one of them came to end in
  * an exclamation mark while the rest of the corpus ends in a period. The message format is the one every
  * refusal follows: Du-form imperative, no "Bitte", one period — and the reader is the capitalised Du,
- * per the copy section of docs/frontend/overview.md. The field messages beside it carry the specifics;
+ * per the copy rules in `docs/frontend/spec.md` §1.12. The field messages beside it carry the specifics;
  * this is only the banner saying the form as a whole did not go through.
  */
 export const VALIDATION_FAILED = "Überprüfe Deine Eingaben.";

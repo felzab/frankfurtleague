@@ -19,7 +19,7 @@ import type { AdminSpieltagRow } from "@/features/spieltage/types";
  * `saison_id` is on neither the draft nor the payload. Moving a matchday between seasons would strand its
  * matches, which carry their own and are not rewritten by this endpoint. Its POSITION is on neither
  * either, and for a different reason: the order is derived, so moving a matchday is editing its date
- * (ADR-0064).
+ * (ADR-0051).
  */
 export function AdminEditSpieltagForm({
   spieltag,

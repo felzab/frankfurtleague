@@ -36,7 +36,7 @@ export function WebsiteUrlField({
   /** The full URL, scheme included — the payload's own shape. */
   value: string;
   onChange: (nextUrl: string) => void;
-  /** Called when the field is left, for the page editor that judges on blur (ADR-0050). */
+  /** Called when the field is left, for the page editor that judges on blur (ADR-0040). */
   onFieldLeft?: () => void;
   /** The label node — the editor passes its marker-carrying `TeamFieldLabel`, the dialog a plain label. */
   labelSlot?: ReactNode;

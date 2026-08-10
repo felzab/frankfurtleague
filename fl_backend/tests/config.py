@@ -22,7 +22,7 @@ def build_test_config() -> BackendConfig:
     the suite, and a checkout with no `.env` at all runs it unchanged. A failure therefore means the
     code, never the machine.
 
-    Nothing here is dialled: the tests that want a real server get one from testcontainers (ADR-0030).
+    Nothing here is dialled: the tests that want a real server get one from testcontainers (ADR-0023).
     The three API keys are DISTINCT on purpose — `verify_api_key` compares with `compare_digest`, so
     identical values would let a test asserting that the admin router rejects the base key pass
     vacuously.

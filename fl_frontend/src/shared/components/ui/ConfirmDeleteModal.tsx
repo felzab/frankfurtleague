@@ -23,7 +23,7 @@ type DeleteResult = { success: boolean; message?: string; error?: string };
  *
  * **Every caller in this app retires a row rather than removing one** (decided 2026-08-07). All five admin
  * deletes are soft: the endpoint stamps `inactive_since` and the document stays, and the row it came from
- * renders a Reaktivieren control the moment the write lands (ADR-0032). So the verb and the escalation
+ * renders a Reaktivieren control the moment the write lands (ADR-0025). So the verb and the escalation
  * sentence are the caller's, and they default to retirement — the copy that was hardcoded here said
  * "endgültig löschen" and "kann nicht rückgängig gemacht werden" about writes that are reversed by one
  * press, which is the one thing a confirmation dialog must not get wrong.
@@ -83,13 +83,11 @@ export function ConfirmDeleteModal({
   }, [isOpen]);
 
   const handleDelete = () => {
-    // Step 1: User clicks the first time, advance to confirmation step
     if (confirmStep === 1) {
       setConfirmStep(2);
       return;
     }
 
-    // Step 2: User confirmed, execute server action
     startTransition(async () => {
       const res = await onConfirm();
 
@@ -137,12 +135,9 @@ export function ConfirmDeleteModal({
         ) : (
           /* `role="alert"` because this panel replaces the step-1 copy in place: without it the
              escalation is silent, and the only other signal is the button label quietly changing. */
-          /* Deliberately NOT animated (FE-7): a danger escalation should register at once rather
-             than fade in over 400ms. Its entrance animation was also the first recorded trigger for
-             the backdrop losing its blur, and what actually holds that fix now is ModalShell's
-             structure — the blur sits on an empty sibling no animation can run inside — so this
-             stays un-animated for the reading reason alone. `FormRolloverSection` keeps the same
-             panel animated on its page. */
+          /* Deliberately not animated: a danger escalation should register at once rather than fade
+             in over 400ms. ModalShell's blur sits on an empty sibling so no animation can run inside
+             it; `FormRolloverSection` keeps the same panel animated on its page. */
           <div
             role="alert"
             className="bg-danger/5 border-danger/20 flex flex-col gap-2 rounded-xl border p-4 shadow-sm">

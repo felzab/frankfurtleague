@@ -1,21 +1,17 @@
-// scripts/ts_normalize.mjs — do two versions of a TypeScript file differ by anything but comments?
-//
-// Called by scripts/check_scope.py, which has to answer that question exactly for the packaging
-// paths written in TypeScript — fl_frontend/src/core/config.ts, src/core/auth.ts,
-// src/instrumentation.ts and next.config.ts — and cannot get an exact answer from a regex: a `//`
-// inside a string, a template literal or a regular expression is not a comment. TypeScript's own
-// parser is already a dependency because tsc runs in the gate, so the comparison goes through it
-// rather than through a rule that guesses.
-//
-// HOW: parse both versions, then print each back through TypeScript's printer with `removeComments`
-// on. The printer emits from the syntax tree, so type annotations survive and only comments and
-// formatting are dropped — a type-only edit still reads as a change, which is what the gate needs.
-//
-// Prints `same` or `different` on stdout and exits 0. Exits 1 with a reason on stderr when it cannot
-// answer at all — typescript is not installed, or a version does not parse — and the caller then
-// treats the change as code, which is the safe direction.
-//
-//   node scripts/ts_normalize.mjs <old-file> <new-file>
+/**
+ * SCRIPTS · do two versions of a TypeScript file differ by anything but comments?
+ *
+ * `scripts/check_scope.py` has to answer that for the packaging paths written in TypeScript, which
+ * `scripts/ci_scopes.sh` names, and a regex cannot: a `//` inside a string, a template literal or a
+ * regular expression is not a comment. Both versions are printed back through TypeScript's own
+ * printer with `removeComments` on, which emits from the syntax tree — so type annotations survive
+ * and a type-only edit still reads as a change.
+ *
+ * Prints `same` or `different` and exits 0; exits 1 with a reason on stderr when it cannot answer at
+ * all, and the caller then treats the change as code, which is the safe direction.
+ *
+ *   node scripts/ts_normalize.mjs <old-file> <new-file>
+ */
 
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -39,9 +35,9 @@ const printer = ts.createPrinter({ removeComments: true });
 
 function normalize(path) {
   const text = readFileSync(path, "utf8");
-  // setParentNodes: true, because the printer walks parents when it emits. The script kind must
-  // follow the extension: a .tsx parsed as plain TS reads its JSX as syntax errors, and the parse
-  // refusal below would then count every comment-only .tsx edit as code.
+  // setParentNodes, because the printer walks parents as it emits. The script kind must follow the
+  // extension: a .tsx parsed as plain TS reads its JSX as syntax errors, and the refusal below then
+  // counts every comment-only .tsx edit as code.
   const source = ts.createSourceFile(
     path,
     text,

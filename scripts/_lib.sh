@@ -1,34 +1,23 @@
 #!/usr/bin/env bash
 #
-# scripts/_lib.sh — shared helpers. SOURCED by the other scripts, never run directly.
+# SCRIPTS · shared helpers — sourced by every other script, never run directly.
 #
-# Anything used by more than one script lives here so there is exactly one copy to fix.
+# Anything more than one script needs lives here, so there is one copy to fix. Sourcing it also
+# applies strict mode and installs the error trap.
 #
-# ---------------------------------------------------------------------------------------------------
-# Why the strict mode flags below matter (they are the difference between a script that stops on a
-# problem and one that carries on doing damage):
-#
-#   set -e            stop at the first command that fails, instead of running the rest anyway
-#   set -u            treat an unset variable as an error, so a typo cannot expand to an empty string
-#                     (the classic disaster being `rm -rf "$DIR/"` where $DIR was misspelled)
-#   set -o pipefail   a pipeline fails if ANY stage fails, not just the last one. Without it,
-#                     `docker build ... | tee log` reports success whenever `tee` succeeds.
-#   IFS=$'\n\t'       split words on newlines and tabs only, never on spaces, so a path containing a
-#                     space stays one argument
-# ---------------------------------------------------------------------------------------------------
+# See:
+# - docs/ops/spec.md — the script conventions, and the output standard these helpers implement
 
 set -euo pipefail
 IFS=$'\n\t'
 
-# Resolve the repo root from this file's own location and move there. Every script therefore behaves
-# identically no matter which directory it was called from — without this, a relative path fails
-# with a confusing "path not found" that depends on where the caller happened to stand.
+# Every script behaves identically whatever directory it was called from. Without this, a relative
+# path fails with a "path not found" that depends on where the caller happened to stand.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Absolute path of the script that sourced this file, resolved BEFORE the cd below.
-# --help reads a script's own header back, and a relative path stops resolving once we cd.
-# BASH_SOURCE[1] is the sourcing script; [0] is this file.
-# The ${x-default} form (no colon) survives `set -u` even when the array element does not exist.
+# Resolved BEFORE the cd below: `--help` reads a script's own header back, and a relative path stops
+# resolving once we cd. The ${x-default} form (no colon) survives `set -u` even when the array
+# element does not exist.
 _caller="${BASH_SOURCE[1]-${BASH_SOURCE[0]-$0}}"
 SELF="$(cd "$(dirname "$_caller")" && pwd)/$(basename "$_caller")"
 unset _caller
@@ -36,15 +25,10 @@ unset _caller
 cd "$REPO_ROOT"
 
 # --- Image naming -----------------------------------------------------------------------------------
-# One package per service on GitHub Container Registry, so the service name lives in the REPOSITORY
-# and the tag says only which build it is (ADR-0017):
-#
-#   ghcr.io/felzab/frankfurtleague-frontend:latest          <- moving pointer, what prod runs
-#   ghcr.io/felzab/frankfurtleague-frontend:sha-1a2b3c4     <- immutable, one per published commit
-#
-# The packages are PUBLIC, which is what makes anonymous pulls work: the server needs no docker
-# login and no token that can expire mid-deploy. A pull failing with an authentication error almost
-# always means a package was left private, not that credentials are missing.
+
+# One package per service (ADR-0012). The packages are public, which is what makes anonymous pulls
+# work — no docker login on the server, and no token that expires mid-deploy. A pull failing to
+# authenticate means a package was left private.
 REGISTRY="ghcr.io"
 # shellcheck disable=SC2034  # consumed by the scripts that source this file
 REPO_FRONTEND="${REGISTRY}/felzab/frankfurtleague-frontend"
@@ -56,29 +40,13 @@ IMAGE_FRONTEND="${REPO_FRONTEND}:latest"
 IMAGE_BACKEND="${REPO_BACKEND}:latest"
 
 # --- Output ----------------------------------------------------------------------------------------
-# THE OUTPUT STANDARD. Every script speaks through these helpers and nothing writes its own
-# formatting, so every script reads identically at a glance. The vocabulary, one verb per meaning:
-#
-#   ==> Title       step  — one phase of work. Bold, blank line before, starts the step timer.
-#    ok  message    ok    — a phase or check succeeded. A step that ran 3s or longer gets its
-#                           elapsed time appended automatically.
-#     ·  message    info  — neutral progress detail.
-#    --  message    skip  — something deliberately not run, and why. Dim, so it cannot be
-#                           mistaken for a pass.
-#    !!  message    warn  — wrong but not fatal. Goes to stderr.
-#     ✗  message    die   — fatal. Goes to stderr and exits non-zero.
-#
-# Two rules make the column discipline free at the call site:
-#   - every message column starts at column 7, and a MULTI-LINE message needs no hand alignment —
-#     the helpers indent continuation lines themselves. Write the message naturally.
-#   - supporting output that belongs to the line above it — a log excerpt, a findings list, a
-#     block of follow-up commands — goes through `detail`, which indents its arguments (or stdin)
-#     to the same column.
-#
-# Colour: on for a terminal, and in GitHub Actions, whose log renders ANSI. NO_COLOR set to
-# anything forces it off (https://no-color.org), FORCE_COLOR forces it on — except FORCE_COLOR=0,
-# which the npm ecosystem defines as "off" and which is honoured here the same way. Redirected
-# local logs therefore stay clean of escape codes.
+
+# Every script speaks through the helpers below and nothing writes formatting of its own. The verbs,
+# what each means and the line shape they print are the output standard in `docs/ops/spec.md` §1.7.
+
+# Colour is on for a terminal and in GitHub Actions, whose log renders ANSI. NO_COLOR forces it off
+# (https://no-color.org) and FORCE_COLOR forces it on — except FORCE_COLOR=0, which the npm
+# ecosystem defines as "off" and which is honoured the same way.
 if [[ -n "${NO_COLOR:-}" || "${FORCE_COLOR:-}" == "0" ]]; then
   _colour=0
 elif [[ -t 1 || -n "${FORCE_COLOR:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
@@ -94,9 +62,8 @@ else
 fi
 unset _colour
 
-# The single funnel: tag in a four-column gutter, message at column 7, continuation lines indented
-# to match. The tags arrive pre-padded — printf's %4s pads by BYTES, so it mis-pads the multibyte
-# `·` and `✗` — and everything below goes through here.
+# The funnel every verb below uses but `step` and `detail`, which own their line shapes. Tags arrive
+# pre-padded because printf's %4s pads by BYTES and mis-pads the multibyte tags.
 _emit() {
   local colour="$1" tag="$2" first=1 line
   shift 2
@@ -110,6 +77,7 @@ _emit() {
   done <<< "$*"
 }
 
+# One verb per meaning, each defined in `docs/ops/spec.md` §1.7.
 step() { _STEP_T0=$SECONDS; printf '\n%s==> %s%s\n' "$C_BOLD" "$*" "$C_RESET"; }
 info() { _emit "$C_BLUE"   "   ·" "$*"; }
 skip() { _emit "$C_DIM"    "  --" "$*"; }
@@ -126,17 +94,16 @@ ok() {
   _emit "$C_GREEN" "  ok" "$*${suffix}"
 }
 
-# Indents supporting output to the message column: each argument on its own line, or stdin when
-# called with none. Replaces every hand-rolled `sed 's/^/       /'` and aligned printf.
+# Supporting output belonging to the line above it — a log excerpt, a findings list, a block of
+# follow-up commands — indented to the same message column, from arguments or from stdin.
 detail() {
   if (( $# )); then printf '      %s\n' "$@"
   else sed 's/^/      /'
   fi
 }
 
-# Runs a command with its output captured, and prints that output through `detail` only when the
-# command fails — so a green run stays readable and a red one loses nothing. VERBOSE=1 streams the
-# tool's own output instead of capturing (verify.sh sets it from its own flag).
+# Captures a command's output and prints it through `detail` only on failure, so a green run stays
+# readable and a red one loses nothing. VERBOSE=1 streams instead of capturing.
 quietly() {
   local out rc=0
   if (( ${VERBOSE:-0} )); then
@@ -148,7 +115,6 @@ quietly() {
   return "$rc"
 }
 
-# 47 -> "47s"; 154 -> "2m 34s". For the ok timer and for a script's own total.
 fmt_duration() {
   local s="$1"
   if (( s < 120 )); then printf '%ss' "$s"
@@ -163,14 +129,12 @@ usage() {
   exit 0
 }
 
-# Report exactly what failed when a script dies unexpectedly.
-#
-# `set -e` otherwise exits in complete silence, leaving you to guess. The three values are passed in
-# at the moment the trap FIRES, which is what makes them accurate:
-#   $?            the exit status
-#   $LINENO       the failing line. It MUST be passed as an argument — referencing it inside the trap
-#                 body reports where the trap was defined, which is this file, not your script.
-#   $BASH_COMMAND the text of the command that failed, which is usually all you need to see.
+# Report exactly what failed when a script dies unexpectedly: `set -e` otherwise exits in complete
+# silence. The three values are passed in at the moment the trap fires, which is what makes them
+# accurate.
+
+# `$LINENO` must be passed as an argument — referenced inside the trap body it reports where the
+# trap was defined, which is this file rather than the script that failed.
 on_error() {
   local rc="$1" line="$2" cmd="$3"
   printf '\n' >&2
@@ -218,13 +182,12 @@ venv_python() {
   fi
 }
 
-# Any interpreter able to run the stdlib-only checkers in scripts/: the backend venv's if it is
-# there, otherwise whatever is on PATH. Prints nothing and returns 1 when there is none.
-#
-# Deliberately NOT venv_python, which dies. The scope check runs on every invocation of verify.sh,
-# including `--frontend` on a machine that has never created the backend virtualenv, and making
-# that run fail for a missing venv would be a new prerequisite bought for nothing. The caller
-# decides what an absent interpreter means.
+# Any interpreter able to run the stdlib-only checkers in scripts/: the backend venv's where it
+# exists, otherwise whatever is on PATH. Prints nothing and returns 1 when there is none.
+
+# Deliberately not `venv_python`, which dies: the scope check runs on every verify.sh invocation,
+# `--frontend` included, and failing that for a missing backend virtualenv buys a prerequisite for
+# nothing. The caller decides what an absent one means.
 any_python() {
   local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
   local nix="${REPO_ROOT}/fl_backend/.venv/bin/python"
@@ -247,12 +210,10 @@ git_branch() { git rev-parse --abbrev-ref HEAD; }
 git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
 
 # --- Health ----------------------------------------------------------------------------------------
-# Waits for a compose service to report healthy.
-#
-# This exists because "the container started" and "the app works" became different statements in
-# practice: on a bad environment variable the frontend stays up but returns 500 on every route, so the
-# healthcheck fails and nginx never serves traffic. That is deliberate fail-closed behaviour, and it
-# is invisible unless something actually waits for and reports the health state.
+
+# A started container and a working app are different statements: on a bad environment variable the
+# frontend stays up and 500s on every route, so the healthcheck fails and nginx serves nothing —
+# fail-closed, and invisible unless something waits on it.
 wait_healthy() {
   local compose_file="$1" service="$2" timeout="${3:-150}" waited=0 state cid
   info "waiting for '${service}' to become healthy (up to ${timeout}s)"
@@ -281,16 +242,13 @@ wait_healthy() {
   return 1
 }
 
-# Reads the commit an image was built from, out of the image's own OCI label. This is how the server
-# can answer "what is actually running?" without trusting a tag name that may have been moved.
-# Reads one OCI label off an image, or returns EMPTY if it is absent.
-#
-# `docker image inspect` SUCCEEDS and prints an empty line for a missing label, so a trailing
-# `|| echo unknown` never fires — hence the explicit emptiness test.
-#
-# These return the RAW value with exactly one sentinel: the empty string. Never a human-readable
-# sentence — deploy.sh compares the value and interpolates it into a suggested command, and a prose
-# sentinel breaks both. Formatting for humans belongs to the caller; see image_revision_display.
+# Reads one OCI label off an image, or returns empty where it is absent. `docker image inspect`
+# succeeds and prints an empty line for a missing label, so a trailing `|| echo unknown` never
+# fires — hence the explicit emptiness test.
+
+# These return the raw value with exactly one sentinel, the empty string: deploy.sh compares the
+# value and interpolates it into a suggested command, and a prose sentinel breaks both. Formatting
+# for humans belongs to the caller.
 _image_label() {
   local image="$1" label="$2" value=""
   value="$(docker image inspect --format "{{index .Config.Labels \"${label}\"}}" "$image" 2>/dev/null)" || true
@@ -303,7 +261,7 @@ image_created()  { _image_label "$1" "org.opencontainers.image.created";  }
 # Human-readable form for status output only. Never use this in a comparison or a command.
 image_revision_display() {
   local v; v="$(image_revision "$1")"
-  [[ -n "$v" ]] && printf '%s' "$v" || printf 'unlabelled (built before publish.sh added OCI labels)'
+  [[ -n "$v" ]] && printf '%s' "$v" || printf 'unlabelled (not built by publish.sh)'
 }
 image_created_display() {
   local v; v="$(image_created "$1")"

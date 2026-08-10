@@ -23,7 +23,7 @@ export type FLSaisonsFilterParams = {
 /**
  * The season's editable fields as the editor holds them — dates plus every field of `rules`.
  *
- * `status` is absent, and it is absent from the payload schemas for the same reason (ADR-0033): the
+ * `status` is absent, and it is absent from the payload schemas for the same reason (ADR-0026): the
  * rollover endpoint is the only code path that writes it. Nothing on this page can put it in a draft.
  */
 export type SaisonDraftFields = {
@@ -35,10 +35,10 @@ export type SaisonDraftFields = {
 /**
  * One row of the admin season list.
  *
- * `spieleOhneErgebnis` is what makes the list readable as a rollover surface: it is how many of the
- * season's matches carry no result, which is the precondition the rollover control presents rather
- * than enforces (ADR-0033), and a season with an outstanding count is one whose rollover deserves a
- * second look.
+ * `spieltageCount` and `teamsCount` are what make the list readable as a setup surface: together they
+ * say whether a season has a schedule and a field yet, which is the question the list is scanned for.
+ * Neither is the rollover precondition — that is the endpoint's (`REQ-ACTIVATE-001`), and the season
+ * editor's rollover panel is where it is shown.
  */
 export type AdminSaisonRow = {
   id: string;
@@ -48,7 +48,6 @@ export type AdminSaisonRow = {
   rules: FLSaisonRules;
   /** How many matchdays this season has, retired ones included. */
   spieltageCount: number;
-  /** How many teams hold a junction row for this season. */
   teamsCount: number;
 };
 

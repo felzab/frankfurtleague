@@ -3,13 +3,13 @@ CORE · structured logging
 
 One logger for the whole service: one JSON document per line in production, colourised human
 output in development. The field set is shared with the frontend logger so one parser reads both
-streams — the contract is `docs/logging.md`.
+streams — the contract is `docs/logging/spec.md`.
 
 Invariants:
 - The correlation id is a ContextVar set by `CorrelationIdMiddleware`, never a parameter.
-- Nothing writes to stdout directly — a stray `print` breaks one-document-per-line.
+- Nothing in the service writes to stdout directly — a stray `print` breaks one-document-per-line.
 - Log the field name, never the submitted value: payloads carry personal data.
-- uvicorn's access log is off in the container; the middleware writes the per-request line.
+- `uvicorn.access` is off here; `CorrelationIdMiddleware` owns the per-request line.
 """
 
 import json
@@ -27,7 +27,7 @@ FL_LOGGER_NAME = "frankfurtleague"
 # leaving the field absent, so a parser can rely on the key existing on every line.
 NO_REQUEST_SENTINEL = "SYSTEM"
 
-# Holds the id of the request currently being served. Set by CorrelationIdMiddleware.
+# Set by `fl_backend/app/core/middlewares.py :: CorrelationIdMiddleware`, read by every formatter below.
 correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default=NO_REQUEST_SENTINEL)
 
 # Optional structured fields a call site may pass via `extra=`. Listed once so both formatters and
@@ -36,14 +36,11 @@ STRUCTURED_EXTRAS = ("error_code", "method", "path", "status", "duration_ms")
 
 
 class CorrelationIdFilter(logging.Filter):
-    """Injects the current request's correlation id into every log record."""
-
     def filter(self, record: logging.LogRecord) -> bool:
         record.correlation_id = correlation_id_var.get()
         return True
 
 
-# ANSI Color Codes
 class LoggingColors:
     # \x1b[{BACKGROUND};{FOREGROUND}m
     DEBUG_BG = "\x1b[106;30m"  # Bright Cyan bg, Black text
@@ -88,18 +85,15 @@ class JSONFormatter(logging.Formatter):
 class LevelAwareFormatter(logging.Formatter):
     BASE_LAYOUT = "%(asctime)s | [%(module)s:%(lineno)d] <%(correlation_id)s>"
     FORMATS = {
-        # Standard levels: 1-line, perfectly aligned
         logging.DEBUG: f"{LoggingColors.DEBUG_BG}%(levelname)-8s{LoggingColors.RESET} {BASE_LAYOUT} - %(message)s",
         logging.INFO: f"{LoggingColors.INFO_BG}%(levelname)-8s{LoggingColors.RESET} {BASE_LAYOUT} - %(message)s",
         logging.WARNING: f"{LoggingColors.WARNING_BG}%(levelname)-8s{LoggingColors.RESET} {BASE_LAYOUT} - %(message)s",
-        # Error levels: Adds a line break, an icon, and aligns the message underneath the timestamp
         logging.ERROR: f"{LoggingColors.ERROR_BG}%(levelname)-8s{LoggingColors.RESET} {BASE_LAYOUT}\n         ❌ %(message)s",
         logging.CRITICAL: f"{LoggingColors.CRITICAL_BG}%(levelname)-8s{LoggingColors.RESET} {BASE_LAYOUT}\n         🚨 %(message)s",
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Pre-compile the formatters once in memory
         self._formatters = {level: logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S") for level, fmt in self.FORMATS.items()}
 
     def format(self, record: logging.LogRecord) -> str:
@@ -142,17 +136,16 @@ def setup_custom_logger(config: BackendConfig):
         "loggers": {
             FL_LOGGER_NAME: {
                 "level": config.log_level_app,
-                "propagate": True,  # This stops the double-printing!
+                # No handler of its own: the root console handler prints each record exactly once.
+                "propagate": True,
             },
             "motor": {"level": config.log_level_db, "propagate": True},
             "pymongo": {"level": config.log_level_db, "propagate": True},
             "uvicorn": {"level": "INFO", "propagate": True},
             "uvicorn.error": {"level": "INFO", "propagate": True},  # Startup/Shutdown
-            # Explicitly OFF, not merely omitted. `--no-access-log` (Dockerfile CMD) silences this
-            # logger before the app is imported -- but dictConfig resets every existing CHILD of a
-            # configured logger ("uvicorn" above) to propagate=True, so leaving it unlisted here
-            # re-enabled it and every request logged twice. CorrelationIdMiddleware writes the one
-            # access line (docs/logging.md).
+            # Explicitly OFF, not merely omitted: dictConfig resets every existing CHILD of a
+            # configured logger to propagate=True, so an unlisted `uvicorn.access` logs every request
+            # a second time despite `--no-access-log` (Dockerfile CMD).
             "uvicorn.access": {"level": "INFO", "propagate": False},
             "watchfiles": {"level": "WARNING", "propagate": True},  # File reloader
         },

@@ -1,10 +1,10 @@
 """
 CORE · the logging contract, from the backend side
 
-`docs/logging.md` promises one JSON document per line whose field set matches the frontend
+`docs/logging/spec.md` promises one JSON document per line whose field set matches the frontend
 logger's, a correlation id on every record, and an error code surviving as a structured field.
-Nothing in the toolchain sees a log line, so these tests are the only net under those claims —
-they were false once: seven of the eight documented codes logged as a fallback string.
+Nothing in the toolchain sees a log line, so these tests are the only net under those claims — a
+code missing from the formatter's field handling degrades to a fallback string unseen.
 """
 
 import json
@@ -89,7 +89,7 @@ class TestResolveCorrelationId:
         [
             None,
             "",
-            "PROBE-AAA",  # uppercase and dash: the stage-1 probe format is deliberately no longer honoured
+            "PROBE-AAA",  # uppercase and a dash: a well-formed id is lowercase hex, so this is re-minted
             "x" * 65,  # too long
             'a1b2","injected":"line',  # log-injection attempt
             "abc\ndef",
@@ -116,9 +116,9 @@ class TestLoggingSettings:
         )
 
     def test_the_default_format_is_json(self):
-        # A production .env that omits LOG_FORMAT must not colourise the container stream. Asserted
-        # on the FIELD, not an instance: constructing the settings reads the developer's real .env
-        # for anything not passed, so an instance test would measure this machine.
+        # A production .env that omits LOG_FORMAT must not colourise the container stream. Asserted on
+        # the field, not an instance: constructing the settings reads the developer's real .env for
+        # anything not passed.
         assert BackendConfig.model_fields["log_format"].default == "json"
 
     @pytest.mark.parametrize("value,expected", [("JSON", "json"), ("Console", "console")])

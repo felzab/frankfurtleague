@@ -12,7 +12,7 @@
  * - Errors come back as `FormState` with German field-level messages, never exceptions.
  *
  * See:
- * - docs/frontend/spec.md — section 3, the action inventory
+ * - docs/frontend/spec.md — section 1.3, the action inventory
  */
 import { updateTag } from "next/cache";
 
@@ -108,7 +108,6 @@ export async function patchSpielortAction(
   });
 }
 
-// This is a soft delete
 export async function deleteSpielortAction(
   rawPayload: FLDeleteSpielortPayload,
 ): Promise<{ success: boolean; updated_document?: FLSpielort; message?: string; error?: string; fieldErrors?: FieldErrors }> {

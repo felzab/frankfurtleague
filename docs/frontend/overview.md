@@ -1,6 +1,6 @@
 # Frontend — overview
 
-**Verified against:** `09f903d`, 2026-08-08
+**Verified against:** `7555ecd`, 2026-08-09\
 **Scope:** `fl_frontend/`
 
 A Next.js 16 application on the App Router, React 19, HeroUI v3 and Tailwind v4. It is both the website
@@ -12,232 +12,110 @@ lives here rather than in the backend.
 
 ```
 src/
-├── app/         routes only — thin. Fetch, then hand off to a feature component
-├── core/        infrastructure: api · auth · config · db · errors · logging · correlation · schemas · providers
-├── features/    twelve slices, one per business entity
-├── shared/      cross-slice components, hooks, types, utils
-└── proxy.ts     the admin route guard
+├── app/                routes only — thin. Fetch, then hand off to a feature component
+├── core/               infrastructure: api · auth · config · db · errors · logging · correlation · schemas · providers
+├── features/           one slice per business entity
+├── shared/             cross-slice components, hooks, types, utils
+├── instrumentation.ts  Next's instrumentation entry: the startup environment gate and the server error hook
+└── proxy.ts            the admin route guard
 ```
 
-**Slices** are the unit of organisation: `admin`, `auth`, `dashboard`, `meta`, `saisons`,
-`schiedsrichter`, `spiele`, `spieler`, `spielorte`, `spieltage`, `system`, `teams`. A slice holds its
-own `queries.ts`, `mutations.ts`, `actions.ts`, `schemas.ts`, `types.ts` and `components/`, and only the
-files it actually needs. Seven have a write path; `admin`, `dashboard`, `meta` and `system` have no
-`actions.ts` at all, and `auth` has one holding only the sign-in and the sign-out.
-
-Within a slice, components sit in category folders: `views`, `collections`, `forms`, `modals`,
-`providers`, `ui`. One extra level is permitted for a multi-section form; nothing nests deeper and
-nothing sits flat in `components/`.
+**Slices** are the unit of organisation: one directory per business entity under `src/features/`,
+holding its own `queries.ts`, `mutations.ts`, `actions.ts`, `schemas.ts`, `types.ts` and `components/`,
+and only the files it actually needs. Which slices exist and which modules each holds is
+[`spec.md`](spec.md) §1.1. Within a slice, components sit in category folders — `views`, `collections`,
+`forms`, `modals`, `providers`, `ui` — with one extra level permitted for a multi-section form; nothing
+nests deeper and nothing sits flat in `components/`.
 
 Two boundaries are **enforced by ESLint**, not convention: `core` may not import from `shared` or
-`features`, and `shared` may not import from `features`. Where a shared component needs feature data it
-takes it through props or children.
+`features`, and `shared` may not import from `features` ([`spec.md`](spec.md) I9). Where a shared
+component needs feature data it takes it through props or children. `admin` is the deliberate exception
+to slice independence — an **aggregator** that legitimately imports from other slices, which is why the
+lint is scoped to `core` and `shared` rather than banning cross-feature imports generally
+([ADR-0008](../_decisions/0008-admin-is-an-aggregator-slice.md)).
 
-`admin` is the deliberate exception to slice independence: it is an **aggregator**, and legitimately
-imports from four other slices because its context genuinely needs several lookup lists at once. This
-is why the import lint is scoped to `core` and `shared` rather than banning cross-feature imports
-generally — a blanket rule would flag dozens of correct sites. (ADR-0012.)
-
-**There are no barrel files anywhere, on purpose.** An `index.ts` re-exporting a slice defeats
-tree-shaking across the server/client boundary, which is exactly what the build is configured to
-preserve. Import from the file you mean. (ADR-0003.)
-
-**Exports are named**, everywhere under `src/`. Default exports appear only where Next.js requires
-them — `page`, `layout`, `error`, `loading`, `not-found`, `template`, `default`, and the `app/`
-metadata files. A route needing a default re-exports one explicitly. The reason is that a named export
-turns a filename/export mismatch or a misspelled import alias into a compile error instead of a silent
-rename.
+**There are no barrel files** ([`spec.md`](spec.md) I10,
+[ADR-0003](../_decisions/0003-no-barrel-files.md)) and **exports are named** except where Next.js
+requires a default ([`spec.md`](spec.md) I11). Import from the file you mean.
 
 ## Data flow
 
 A page calls a slice's `getX()` from `queries.ts`. That function is cached, declares its cache tags, and
-delegates to `apiClient` (`core/api.ts`), which adds a bearer key and a correlation id, enforces a
-15-second timeout across both the request and the body read, and validates the response with Zod before
-returning it. Nothing reaches a component unvalidated.
-
-Writes go the other way: a form calls a **server action** in `actions.ts`, which checks the admin
-session, validates the payload with Zod, calls `mutations.ts` to reach the backend, and then invalidates
-cache tags.
+delegates to `apiClient` (`fl_frontend/src/core/api.ts`), which adds a bearer key and a correlation id,
+enforces a timeout across both the request and the body read, and validates the response with Zod before
+returning it — nothing reaches a component unvalidated. Writes go the other way: a form calls a **server
+action** in `actions.ts`, which checks the admin session, validates the payload with Zod, calls
+`mutations.ts` to reach the backend, and then invalidates cache tags ([`spec.md`](spec.md) §1.3).
 
 Backend and frontend models are **hand-mirrored** — Pydantic on one side, Zod on the other, with no
 generation step. This is the main drift risk in the codebase and the first thing to check when
-behaviour looks impossible.
+behaviour looks impossible; what holds the two together is [`spec.md`](spec.md) I17.
 
 ## Caching
 
-Fifteen functions carry `"use cache"`. Lifetimes reflect how volatile the data is: matches for hours,
-reference data (teams, players, matchdays, seasons, venues, referees) for days, system endpoints for
-minutes.
+Reads are cached with `"use cache"`, and lifetimes reflect how volatile the data is: matches for hours,
+reference data for days, system endpoints for minutes. The function-by-function table is
+[`spec.md`](spec.md) §1.2, which read is deliberately uncached is there too, the tag design is §1.4,
+and what an edit made straight in MongoDB costs is §1.5.
 
-**Every** cache tag can now be invalidated by the app: matches, teams, players, venues, referees, seasons
-and matchdays all have a write surface, and each action clears its own tag as it saves. Only the `system`
-tag has no writer, because nothing writes the system endpoints. What is still edited out of band is a hand
-edit made directly in MongoDB, which invalidates nothing and is bounded by the daily lifetime
-([ADR-0035](../_decisions/0035-reference-data-staleness-is-bounded-by-cache-lifetime.md)).
-
-Granular (per-season) tags exist for exactly two resources, `spiele` and `teams`. Twenty other granular
-tags once existed and were deleted, because a tag that nothing can invalidate is not a caching strategy
-— it is decoration that reads like coverage. The full argument, including why per-status tags cannot
-work, is in [`spec.md`](spec.md) §4.
-
-One query is deliberately **not** cached: `getAdminSpieleActionRequired`, because it returns
-admin-authorized data and has no business in a shared cache. (ADR-0013.)
-
-## Rendering and the `connection()` guard
+## Rendering
 
 Data-fetching pages call `await connection()` before fetching. This looks like it defeats static
-rendering and is deliberate: the Docker builder stage has **no reachable backend**, so a page that
-tried to prerender its data would fail `docker compose build`. The layouts already split static chrome
-from `Suspense`-wrapped data holes, so partial prerendering still does its job, and the caching layer
-delivers the performance the prerender would have. Removing these calls breaks the build, not just
-performance. (ADR-0009.)
+rendering and is deliberate: the Docker builder stage has **no reachable backend**, so a page that tried
+to prerender its data would fail the image build rather than merely render slowly
+([`spec.md`](spec.md) I6, [ADR-0006](../_decisions/0006-connection-guards-every-data-fetch.md)).
 
-The requirement is that `connection()` precede the fetch — not that it sit in the page's default export.
-Where a page splits chrome from a data hole, it lives in the in-file async child that does the fetching.
+## Styling
 
-## Styling and the browser floor
+`fl_frontend/src/app/globals.css` is the style entry point for every route: the token layer, the
+`@theme` mapping, the focus exceptions, and the HeroUI import block.
+**`fl_frontend/src/app/admin/admin.css` is a second, smaller one**, imported by the admin layout and
+therefore loaded only under `/admin`, holding the component stylesheets no public route can reach
+([ADR-0016](../_decisions/0016-admin-only-css-split.md), which measures what that keeps out of a public page).
 
-`src/app/globals.css` is the style entry point for every route: the token layer, the `@theme` mapping,
-the two focus exceptions, and the HeroUI import block. **`src/app/admin/admin.css` is a second, smaller
-one**, imported by the admin layout and therefore loaded only under `/admin`. It holds the nine
-component stylesheets no public route can reach — the date/time pickers, the calendar and the
-autocomplete. Keeping them out of the public bundle is worth 67 KB a public page would otherwise
-download and parse, measured 2026-08-01 (ADR-0023).
-
-**Every one of the nine reaches the graph through a page under `/admin` by a static import**, so the
-membership question — can any public route reach this — is answered by reading the routes rather than by
-following a dynamic edge, which is how it had to be answered while the match form was a lazily imported
-modal (ADR-0050). The match editor at `app/admin/spiele/[spiel_id]` reaches all nine; the season editor,
-the season create dialog and the matchday dialogs reach the calendar, date-field and number-field
-stylesheets among them
-([ADR-0063](../_decisions/0063-a-matchday-list-is-the-seasons-skeleton.md)), which changes nothing about
-the membership because those routes are admin-only too. The rule itself is unchanged and the tie-break
-still runs the same way: public unless proven otherwise.
-
-**HeroUI is imported component-by-component, not as `@import "@heroui/styles"`.** This is HeroUI's own
-documented mechanism — the v3 release notes call it "ship only the CSS you use" — and it exists because
-that package's entry pulls in every component it ships while **Tailwind does not tree-shake CSS imported
-from a dependency**. The difference here is 715 KB of stylesheet against 329 KB, the surplus being
-`range-calendar`, `color-swatch-picker`, `checkbox`, `radio` and two button-group variants that this app
-never renders.
-
-The cost of that mechanism is one maintenance rule, and it is the whole reason the block carries a
-header: **a component whose CSS is not imported renders unstyled and fails nothing** — not `tsc`, not
-`next build`, not ESLint. See [Adding a HeroUI component](#adding-a-heroui-component) below.
+**HeroUI is imported component-by-component, not as `@import "@heroui/styles"`**: that package's entry
+pulls in every component it ships, and **Tailwind does not tree-shake CSS imported from a dependency**
+([ADR-0013](../_decisions/0013-per-component-heroui-css.md)). The cost of that mechanism is one
+maintenance rule, and it is the whole reason the import block carries a header: **a component whose CSS
+is not imported renders unstyled and fails nothing** — not `tsc`, not `next build`, not ESLint. The
+checklist that rule comes down to, both stylesheets included, is [`spec.md`](spec.md) §1.11.
 
 `browserslist` in `package.json` is Tailwind v4's own support matrix (Chrome/Edge 111, Firefox 128,
 Safari and iOS 16.4). It is not a guess about the audience: the stylesheet uses `oklch()`, `color-mix()`
-and `@property`, so a browser below that line cannot render this app at all. Raising the floor is worth
-roughly 35 KB gzipped across the client chunks in reduced syntax down-levelling.
+and `@property`, so a browser below that line cannot render this app at all. It does **not** govern
+Next's own polyfill bundle, which is [`spec.md`](spec.md) §4's.
 
-**It does not remove the polyfills PageSpeed reports under "Legacy JavaScript".** Those come from
-`next/dist/build/polyfills/polyfill-module.js`, which Next injects unconditionally and browserslist does
-not govern. Real size 1,380 bytes; Lighthouse's "14 KiB" is an estimate, and the audit is unscored.
-There is no supported way to drop it — do not spend time on that diagnostic.
+## Copy and metadata
 
-### Adding a HeroUI component
+The site addresses its reader as `Du` — informal, capitalised, never `Sie` — with a second register on
+top of that for refusal copy; which strings the rules reach, and why nothing mechanical can hold them,
+is [`spec.md`](spec.md) §1.12. Every route sets its own `title`, `description` and canonical, and
+`metadataBase` in the root layout is what lets the canonicals be paths; what an unset value ends up
+claiming, and why no route ships a `keywords` array, is §1.13.
 
-Importing the component in TSX is half the change. The other half, and **there are two stylesheets to
-check, not one**: `src/app/globals.css` loads everywhere, `src/app/admin/admin.css` loads only under
-`/admin` (ADR-0023).
-
-1. **Decide which file it belongs in.** It goes in `admin.css` only if no public route can reach it —
-   established from the import graph, following dynamic imports, not from folder names. `Select`,
-   `ListBox` and `CloseButton` all look admin-shaped and are not. **When in doubt, `globals.css`**: the
-   cost of guessing wrong that way is a few KB, the other way it is an unstyled admin form.
-2. Add `@import "@heroui/styles/components/<name>.css" layer(components);` **at the position it occupies
-   in `node_modules/@heroui/styles/dist/components/index.css`** — not at the end. HeroUI's file states
-   the order is load-bearing: shared primitives first, then the components that compose them.
-3. Check what the component renders _underneath_ it. A picker is a popover plus a listbox plus a button,
-   and each has its own stylesheet. The quickest check is to render it and read `[data-slot]` in the DOM:
-   any slot whose CSS is missing shows up as an unstyled box. **Sub-components can be public even when
-   the parent is not** — that is why `close-button` and `list-box` stayed in `globals.css`.
-4. **Grep both files before you finish.** A component in neither renders unstyled; a component in both
-   ships to visitors who never see it.
-5. Verify in the browser, not by reading the diff. Computed styles are the evidence — a border-radius, a
-   padding and a background that are not the browser defaults. For an `admin.css` entry that means
-   signing in and opening the admin page, because no public route will show the mistake.
-
-### Restyling one you already have
-
-**Reach for the component's own composition API before a stylesheet.** Several HeroUI components take a
-render function or per-slot `className`, and anything expressed that way is type-checked, linted and
-covered by `better-tailwindcss/no-unknown-classes`. A `.<component>__<slot>` rule in `globals.css` is
-none of those: those class names are vendored implementation detail, and a release that renames one
-takes the styling with it and reports nothing.
-
-The toast is the worked example — `Toast.Provider`'s `children` gives this app the whole composition,
-and CSS keeps only the two things markup cannot reach
-([ADR-0053](../_decisions/0053-a-toast-is-built-in-tsx-not-patched-in-css.md)). Where a stylesheet is
-genuinely the only route, **name the HeroUI version the rule was written against at the rule**, so the
-next upgrade knows what to re-read.
-
-## Copy — how the site addresses its reader
-
-**The reader is `Du` — informal, and capitalised everywhere** (my rule, 2026-08-04):
-`Du`, `Dein`, `Dir`, `Dich`, and never `Sie` or `Ihr`. The capital is the courtesy form German
-orthography permits for direct address, and it is what separates the reader's `Dich` from a third
-party's `dich` in the same sentence. When auditing, a sentence-initial `Du` is capitalised whatever
-the convention holds, so it is evidence of nothing.
-
-**Scope: what a user reads.** Rendered strings, form and toast copy, and the sign-in emails in
-`fl_frontend/src/core/authEmail.ts` are all in. German inside `/docs` and in code comments
-addresses developers, not users, and is out — except where a comment quotes a rendered string,
-which tracks the string.
-
-**Refusal copy carries a second register on top of this**, declared at
-`fl_frontend/src/shared/utils/adminMutation.ts :: VALIDATION_FAILED`: Du-form imperative, no
-"Bitte", one period — a FIELD message stays one sentence about the value, and a FORM message is
-two with the action second. Field messages are the one place "Bitte" stays ("Bitte gib einen Namen
-ein."): a field nudges toward input, a banner refuses it, and softening a refusal blurs which of
-the two the reader is looking at.
-
-**Nothing mechanical holds either rule.** A lint over the pronouns would have to know which string
-literals are user-facing, and nothing in the tree marks that — so both rules hold by review, which
-is why they are written here rather than in a linter config.
-
-## Metadata and indexing
-
-Every route sets its own `title`, `description` and canonical; `metadataBase` in the root layout is what
-lets the canonicals be paths. Two consequences worth knowing before editing metadata:
-
-- **A route that sets no metadata inherits the root layout's, canonical included** — including the
-  canonical URL, so an unset canonical claims to be the homepage rather than claiming nothing.
-- **`openGraph` is inherited or replaced whole, never merged field-by-field.** The root layout therefore
-  declares only the genuinely site-wide parts (`siteName`, `images`, `locale`, `type`); og:title and
-  og:description resolve from each page's own title and description.
-- **No route ships a `keywords` array, and none is added for a new route.** Google has ignored the
-  tag since 2009, Bing reads an overstuffed one as a spam signal, and no engine confirms a benefit —
-  so the tag is maintenance with no reader. Ranking terms belong in the title and description.
-
-## Authentication
+## Authentication and authorization
 
 Auth.js with a Resend magic-link provider and a MongoDB adapter. Two things are unusual and intentional.
 
-First, this is the **one place the frontend touches MongoDB directly**. It targets a separate `authjs`
-database, touches no business entities, and exists because the adapter has no HTTP transport and sits on
-the hot path of every authorization check. Application data goes through FastAPI without exception.
-(ADR-0010.)
+First, this is the **one place the frontend touches MongoDB directly**: a separate `authjs` database, no
+business entities, and it exists because the adapter has no HTTP transport and sits on the hot path of
+every authorization check. Application data goes through FastAPI without exception
+([ADR-0007](../_decisions/0007-authjs-owns-a-direct-mongoclient.md)).
 
 Second, **admin is an email allowlist**, not a stored role. `ALLOWED_ADMIN_EMAILS` is checked at sign-in
-and again when the session is built. `getAdminSession()` is the single definition of that policy —
-note that it neither throws nor redirects, so calling it without checking the return value guards
-nothing.
+and again when the session is built. `getAdminSession()` is the single definition of that policy, and
+its return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
-Sessions last 8 hours and magic links 15 minutes, both shortened from the library defaults. **Two
-mechanisms end a session before that, and they belong to different people.** The signed-in admin has
-the shell's own sign-out (`fl_frontend/src/features/auth/actions.ts :: signOutAction`), offered in two
-places — inline at the end of the top bar and as a row in the sidemenu footer's options menu — and
-arming on the first press to end the session on the second. An operator revoking somebody else
-removes the address from `ALLOWED_ADMIN_EMAILS`: the `session` callback re-derives `role` on every
-read, so the row survives and stops authorizing anything on the next request after the restart that
-change already needs.
-
-Route protection is layered: `proxy.ts` guards `/admin/:path*`, and `app/admin/layout.tsx` checks
+Session and magic-link lifetimes are both shortened from the library defaults
+(`fl_frontend/src/core/auth.ts`); what ends a session before its lifetime does is [`spec.md`](spec.md)
+§4. Route protection is layered: `fl_frontend/src/proxy.ts` guards `/admin/:path*`, and
+`fl_frontend/src/features/admin/components/providers/AdminAuthGuard.tsx :: AdminAuthGuard` — which the
+admin layout renders inside its `Suspense` boundary, so the shell still prerenders — checks
 independently, so rendering fails closed even if the matcher stops matching.
 
 ## Read next
 
-- [`spec.md`](spec.md) — cache tags, contracts, invariants
+- [`spec.md`](spec.md) — the cache design, the contracts and the invariants
 - [`../glossary.md`](../glossary.md) — the German domain vocabulary
 - [`../backend/overview.md`](../backend/overview.md) — the API this consumes
+- [`../ops/overview.md`](../ops/overview.md) — the container this runs in

@@ -5,8 +5,8 @@ One Motor client, created in the FastAPI lifespan and attached to `app.state`. C
 reached through the typed dependencies in `dependencies.py`, never constructed ad hoc.
 
 Invariants:
-- The app refuses to start if MongoDB is unreachable or the constraints cannot apply (ADR-0027).
-- `get_teams_collection` is the season-independent club document — the junction is separate (ADR-0026).
+- The app refuses to start if MongoDB is unreachable or the constraints cannot apply (ADR-0020).
+- `get_teams_collection` is the season-independent club document — the junction is separate (ADR-0019).
 
 See:
 - docs/backend/spec.md — invariant I9
@@ -33,7 +33,6 @@ from app.core.logging import fl_logger
 async def lifespan(app: FastAPI):
     config = get_config()
 
-    # Attach connection to app state
     app.state.db_client = AsyncIOMotorClient(
         host=config.mongodb_uri.get_secret_value(),
         serverSelectionTimeoutMS=config.db_server_selection_timeout,
@@ -43,11 +42,10 @@ async def lifespan(app: FastAPI):
     )
 
     try:
-        # Verify connection
         await app.state.db_client.admin.command("ping")
 
         # The database's own constraints, declared in this repository and reapplied on every boot so
-        # the cluster can never quietly hold a different set (ADR-0027).
+        # the cluster can never quietly hold a different set (ADR-0020).
         try:
             constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:
@@ -61,9 +59,6 @@ async def lifespan(app: FastAPI):
 
         yield
 
-    # No check for specific exceptions, so the server crashes immediately
-    except Exception:
-        raise
     finally:
         if app.state.db_client:
             app.state.db_client.close()
@@ -80,8 +75,8 @@ async def get_database(
     config: BackendConfig = Depends(get_config),
 ) -> AsyncIOMotorDatabase:
     # Through `Depends`, not `get_config()` directly: an app built with injected settings must reach
-    # THAT database name. Reading the global here would have every collection dependency quietly
-    # resolve against the real one while the guards used the injected keys.
+    # that database name. Reading the global would resolve every collection dependency against the
+    # real one.
     if not hasattr(request.app.state, "db_client"):
         raise DatabaseUnavailableException(error_code="DB-CONN-001")
     return request.app.state.db_client[config.db_base_name]

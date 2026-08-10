@@ -2,22 +2,18 @@ name: verify
 
 # The gate that `scripts/verify.sh` is, run as parallel jobs mapped to the surfaces a change
 # touches. The `changes` job diffs the pull request against its base and turns paths into scope
-# flags; each job below runs one `verify.sh` scope and starts only when its scope is touched. A
-# push to main runs every scope unconditionally — main is the record of whether a commit is
-# deployable, and the unfiltered run also backstops the path mapping itself.
+# flags; each job below runs one `verify.sh` scope and starts only when its scope is touched.
 #
-# The required status check on main is the `verify` job at the bottom: it aggregates every other
-# job and fails if any of them failed. It reports on every run — skipped scope jobs count as
-# passes — so the ruleset's required check never waits on a job that path filtering skipped.
+# Invariants:
+# - A push to main runs every scope unconditionally, which also backstops the path mapping.
 
 on:
   pull_request:
   push:
     branches: [main]
 
-# Least privilege. This workflow only reads the repository -- it publishes nothing, comments on
-# nothing, and needs no write scope. Declaring it here overrides whatever the repository default is,
-# so a permissive default cannot silently widen what a compromised dependency could reach.
+# Least privilege, declared here so a permissive repository default cannot silently widen what a
+# compromised dependency reaches. This workflow publishes nothing and comments on nothing.
 permissions:
   contents: read
 
@@ -28,9 +24,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Turns the changed paths into scope flags. The mapping itself lives in scripts/ci_scopes.sh —
-  # one copy, testable by hand, covered by selfcheck and shellcheck — and this job only feeds its
-  # stdout to $GITHUB_OUTPUT. It errs conservative: an unrecognised path turns every scope on.
+  # The path-to-scope mapping lives in scripts/ci_scopes.sh — one copy, covered by selfcheck and
+  # shellcheck — and this job only feeds its stdout to $GITHUB_OUTPUT. It errs conservative: an
+  # unrecognised path turns every scope on.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -53,8 +49,8 @@ jobs:
 
       - name: Map changed paths to scopes
         id: map
-        # Values reach the script through env, never by interpolating `${{ }}` into `run:` --
-        # that interpolation is the standard script-injection shape.
+        # Values reach the script through env, never by interpolating `${{ }}` into `run:`; the
+        # reason is written out in .github/workflows/pr-body.yml.
         env:
           BASE_REF: ${{ github.base_ref }}
           EVENT: ${{ github.event_name }}
@@ -65,11 +61,9 @@ jobs:
             ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
           fi
 
-      # Commit messages are checked HERE rather than in the docs job, because they are the one thing
-      # in this repository with no path: a frontend-only pull request skips the docs scope entirely,
-      # and its messages would then never be checked before a merge. This job runs on every pull
-      # request and already has the full history the range needs. It uses the runner's own python --
-      # scripts/check_commits.py imports nothing outside the standard library, on purpose.
+      # Commit messages are checked here, not in the docs job: they are the one thing with no path,
+      # so a frontend-only pull request would skip the docs scope and merge unchecked.
+      # `check_commits.py` stays stdlib-only, so the runner's own python suffices.
       - name: Check the branch's commit messages
         if: github.event_name == 'pull_request'
         env:
@@ -94,10 +88,9 @@ jobs:
         working-directory: fl_backend
         run: uv sync --dev
       - name: Ensure shellcheck is available
-        # selfcheck.sh check 9 falls back to pulling koalaman/shellcheck via Docker when there is no
-        # local binary, which is slow and needs the daemon. The GitHub runner image normally ships
-        # shellcheck already, so install only if it is genuinely missing rather than paying for an
-        # apt update on every run.
+        # selfcheck.sh falls back to pulling koalaman/shellcheck via Docker where no local binary
+        # exists, which is slow and needs the daemon. The runner image normally ships one, so this
+        # installs only where it is genuinely missing.
         run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
       - uses: pnpm/action-setup@v6.0.9
         with:
@@ -109,10 +102,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: fl_frontend/pnpm-lock.yaml
       - name: Install frontend dependencies
-        # Only typescript is wanted, and pnpm install is the only way to get it at the pinned
-        # version. Without it selfcheck.sh check 11 exercises the classifier's stdlib halves alone
-        # and its TypeScript half -- the delicate one, and the reason ADR-0037 uses a parser rather
-        # than a regex -- would be tested on no machine but the author's.
+        # Only typescript is wanted, and a pnpm install is the only way to get it at the pinned
+        # version. Without it the comment classifier's TypeScript half — the delicate one, and why
+        # ADR-0030 uses a parser rather than a regex — is exercised nowhere.
         working-directory: fl_frontend
         run: pnpm install --frozen-lockfile
       - name: Run the scripts scope
@@ -147,19 +139,17 @@ jobs:
           cache: pnpm
           cache-dependency-path: fl_frontend/pnpm-lock.yaml
       - name: Install frontend dependencies
-        # Only typescript is wanted, for the same reason the scripts job installs it: the branch-impact
-        # check classifies a changed .ts file through check_scope's comment-only classifier, whose
-        # TypeScript half needs the frontend's own parser (scripts/ts_normalize.mjs). Without it the
-        # classifier is required to answer "code", and a branch whose TypeScript changes are comments
-        # alone is asked for restamps it does not owe (CUR-4).
+        # branch-impact classifies a changed .ts file through `scripts/check_scope.py`, whose
+        # TypeScript half needs `scripts/ts_normalize.mjs`. Without it the answer degrades to
+        # "code", and the branch is asked for restamps it does not owe (CUR-4).
         working-directory: fl_frontend
         run: pnpm install --frozen-lockfile
       - name: Run the docs scope
         run: ./scripts/verify.sh --docs
 
-  # Prettier in check mode over everything its coverage list names. This job exists for changes
-  # OUTSIDE fl_frontend -- docs, workflows, compose files -- which the formatter still governs; when
-  # the frontend job runs, its own gate already includes the same check, so this one stands down.
+  # Prettier in check mode, for changes outside fl_frontend — docs, workflows, compose files —
+  # which the formatter still governs. When the frontend job runs it already includes the same
+  # check, so this one stands down.
   format:
     needs: changes
     if: needs.changes.outputs.format == 'true' && needs.changes.outputs.frontend != 'true'
@@ -171,8 +161,9 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@v6.0.9
         with:
-          # Read from `packageManager` in fl_frontend/package.json, so the pnpm version lives in
-          # exactly one place.
+          # Read from `packageManager` in fl_frontend/package.json. The image pins the same version
+          # independently at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`, and nothing compares the
+          # two — bump both.
           package_json_file: fl_frontend/package.json
       - uses: actions/setup-node@v7.0.0
         with:
@@ -204,11 +195,9 @@ jobs:
       - name: Run the backend scope
         run: ./scripts/verify.sh --backend
 
-  # The `db`-marked backend tests, which start a real mongod and execute the league-table pipeline
-  # against it (ADR-0030). A separate job rather than a step in `backend`: jobs run concurrently,
-  # so the mongod pull and run cost a pull request no extra wall-clock time. The `db` MARKER is a
-  # property of the test suite, not of this pipeline: `pytest -m db` selects these tests under any
-  # arrangement.
+  # The `db`-marked backend tests, which start a real mongod (ADR-0023). A separate job rather than
+  # a step in `backend`: jobs run concurrently, so the mongod pull costs no wall-clock time. The
+  # marker belongs to the suite, not to this pipeline.
   backend-db:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
@@ -233,17 +222,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # CI runs `pnpm build` on the RUNNER HOST, not inside the image -- so none of the Dockerfile's
-    # ENV lines apply here. These three reproduce what the builder stage sets, and fl_frontend/
-    # Dockerfile is the authority for what that is. Keep them in step with it.
+    # CI runs `pnpm build` on the runner host, never inside the image, so none of the Dockerfile's
+    # ENV lines apply. These reproduce them across its base and builder stages;
+    # `fl_frontend/Dockerfile` is the authority, and the two move together.
     env:
-      # `next build` collects page data, which evaluates modules that read the environment. There is
-      # no .env in a clean checkout, so the startup gate correctly rejects every variable and the
-      # build dies on the first module that reads config. This does NOT weaken the gate: the env
-      # schema is still enforced for real by local.sh and on every deploy.
+      # `next build` evaluates modules that read the environment, and a clean checkout has no .env,
+      # so the startup gate rejects every variable and the build dies. The schema is still enforced
+      # for real by local.sh and on every deploy.
       SKIP_ENV_VALIDATION: "true"
-      # Needed even with validation skipped: core/db.ts constructs a MongoClient at MODULE SCOPE, and
-      # `new MongoClient(undefined)` throws. Same placeholder the Dockerfile uses.
+      # Needed even with validation skipped: `fl_frontend/src/core/db.ts` constructs a MongoClient at
+      # MODULE SCOPE, and `new MongoClient(undefined)` throws. Same placeholder the Dockerfile uses.
       MONGODB_URI: mongodb://localhost:27017/placeholder
       # The Dockerfile disables telemetry in its base stage; the runner is not that image.
       NEXT_TELEMETRY_DISABLED: "1"
@@ -290,10 +278,9 @@ jobs:
       - name: Run the ops scope
         run: ./scripts/verify.sh --ops
 
-  # Both image builds plus the instrumentation.js presence check -- the two failures the frontend
-  # has been green for while the image was broken. On a pull request this runs only when a
-  # packaging input changed (Dockerfiles, lockfiles, config.ts, auth.ts, instrumentation.ts),
-  # which closes the old gap where no PR ever built an image; on main it always runs.
+  # Both image builds plus the instrumentation.js presence check — the failures no other scope can
+  # see, because the frontend scope builds on the runner and never inside the image.
+  # `scripts/ci_scopes.sh` lists the packaging inputs that select it.
   images:
     needs: changes
     if: needs.changes.outputs.images == 'true'
@@ -303,10 +290,9 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      # buildx talks to the Actions cache service itself and pulls only the blobs a build actually
-      # needs (ADR-0038), so there is no actions/cache step here and no cache directory to carry.
-      # This action exists only because the runner injects the service credentials into JavaScript
-      # actions and never into a `run:` step.
+      # buildx talks to the Actions cache service itself (ADR-0031), so there is no actions/cache
+      # step and no cache directory to carry. This action exists because the runner injects the
+      # service credentials into JavaScript actions alone.
       - uses: ./.github/actions/actions-runtime-env
       - name: Create a cache-capable builder
         # The default docker driver cannot export a build cache; the container driver can, and the
@@ -318,8 +304,7 @@ jobs:
         run: ./scripts/verify.sh --images
 
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
-  # It runs on every event -- skipped scope jobs read as success, failed or cancelled ones fail it --
-  # so path filtering can never leave the required check hanging.
+  # It runs on every event, so path filtering can never leave the required check hanging.
   verify:
     needs:
       [

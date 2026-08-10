@@ -1,15 +1,15 @@
 """
 API · every mutation is admin-guarded, checked against the published surface
 
-ADR-0034 puts the guard on the router, so an endpoint reaches the wrong authorization only by
-being written in the wrong file — this suite is the net under that. The inventory comes from
-`app.openapi()["paths"]`, never `app.routes`: FastAPI does not flatten included routes, so a
-check over `app.routes` walks four framework routes and passes while proving nothing.
+ADR-0027 puts the guard on the router, so an endpoint reaches the wrong authorization only by
+being written in the wrong file — this suite is the net under that. The inventory of record is
+`app.openapi()["paths"]`: `include_router` mounts each router as a `_IncludedRouter` wrapper
+rather than flattening it, so filtering `app.routes` for `APIRoute` finds only `GET /`.
 
 Invariants:
 - Every non-GET operation carries `verify_access_admin`.
-- No operation carries two of the three guards — both must pass, so neither key alone reaches it.
-- A GET need not be base-guarded: `GET /spiele/action_required` is admin on purpose (ADR-0013).
+- No operation carries more than one guard (`test_every_operation_carries_exactly_one_guard`).
+- A GET need not be base-guarded: `GET /spiele/action_required` is admin on purpose (ADR-0009).
 """
 
 import re
@@ -31,8 +31,8 @@ HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "opti
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
 # `/` is FastAPI's own hello-world route and belongs to no slice. `/system/is_live` is the container
-# healthcheck and is deliberately unguarded -- a healthcheck that needs a secret fails for the wrong
-# reasons (`app/core/security.py`). Both are GETs, so neither weakens the mutation rule above.
+# healthcheck and is deliberately unguarded -- one that needs a secret fails for the wrong reasons
+# (`app/core/security.py`). Both are GETs.
 UNGUARDED_BY_DESIGN = frozenset({"/", "/api/v0/system/is_live"})
 
 # `{spiel_id:objectid}` as OpenAPI publishes it, which is `{spiel_id}` -- FastAPI drops the convertor
@@ -46,7 +46,7 @@ def strip_convertors(path: str) -> str:
 
 
 def api_routes() -> Iterator[APIRoute]:
-    """Every APIRoute the app serves, reached through the `_IncludedRouter` wrappers that hide them."""
+    """Every APIRoute the app serves, reached through the `_IncludedRouter` wrappers that hold them."""
     for entry in APP.routes:
         original_router = getattr(entry, "original_router", None)
         candidates = original_router.routes if original_router is not None else [entry]
@@ -57,8 +57,7 @@ def api_routes() -> Iterator[APIRoute]:
 
 
 # `route.methods or ()` because Starlette types it `set[str] | None`. FastAPI always populates it, so
-# the fallback is unreachable -- but writing it is cheaper than asserting a framework's internals, and
-# it is what lets a type checker read this file at all.
+# the fallback is unreachable -- but writing it is cheaper than asserting a framework's internals.
 ROUTES_BY_OPERATION = {
     (strip_convertors(route.path), method.lower()): route
     for route in api_routes()
@@ -129,6 +128,6 @@ def test_the_mutation_inventory_is_the_size_the_write_path_built():
     A guard-coverage suite that finds no mutations passes vacuously, which is its own failure mode.
 
     Pinned to the count rather than to `> 0`: the inventory shrinking is exactly as interesting as it
-    growing, and both should be a deliberate edit to this line (ADR-0034 built 30 across seven slices).
+    growing, and both should be a deliberate edit to this line (ADR-0027 built 30 across seven slices).
     """
     assert len(MUTATIONS) == 30

@@ -25,9 +25,8 @@ export const ADMIN_SIDEMENU_ICONS = {
   PersonPencil,
   Persons,
   MapPin,
-  // The season's own glyph. Not a calendar, which is the Spieltage entry's below and the public
-  // Spielplan's: what that page edits is the competition's settings — the points, the groups, the
-  // levels — and the rollover, so a set of controls reads truer than a date range would.
+  // The season's own glyph, never a calendar -- that is the Spieltage entry's below. What this page
+  // edits is the competition's settings and the rollover, so controls read truer than a date range.
   Sliders,
   // The matchday list's, and the public Spielplan's own (`DASHBOARD_SIDEMENU_ICONS`): the same
   // matchdays seen for a different purpose, which the Finalrunden and Teams entries treat the same way.
@@ -37,10 +36,9 @@ export const ADMIN_SIDEMENU_ICONS = {
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
 
 export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
-  // First, and DELIBERATELY UNNAMED (decided 2026-08-07). Everything below it is scoped by a season --
-  // the selector at the top of this menu, the group a team holds, the squad a player is in, the matches
-  // a Spieltag groups -- so the season sits above them all, and a heading here would be naming the thing
-  // the whole menu is already about. `SidemenuNavLinks` renders no label for an empty name.
+  // First, and DELIBERATELY UNNAMED: everything below it is scoped by a season, so a heading here
+  // would name the thing the whole menu is already about. `SidemenuNavLinks` renders no label for an
+  // empty name.
   {
     category_name: "",
     sub_options: [
@@ -64,15 +62,13 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
 
   {
     category_name: "Spiele",
-    // The order is the order the four are REACHED IN (decided 2026-08-08): what needs doing, then finding
-    // one fixture, then the schedule those fixtures sit in, then the draw that decides the later ones. The
-    // queue leads because it is the only entry that answers "is there anything to do at all" — the other
-    // three are all "take me to a thing I already have in mind".
+    // The order these are REACHED IN: what needs doing, then one fixture, then the schedule they sit
+    // in, then the draw that decides the later ones. The queue leads because it alone answers "is
+    // there anything to do at all".
     sub_options: [
-      // "Handlungsbedarf", not "Übersicht": the page is a queue of the things needing an admin, ranked
-      // by what each one blocks (ADR-0056) — an overview is what `spielsuche` below is. The label is
-      // also the collapsed sidemenu's tooltip and the page's own title in the bar, so all three move
-      // together.
+      // "Handlungsbedarf", not "Übersicht": the page is a queue ranked by what each entry blocks
+      // (ADR-0044), and an overview is what `spielsuche` below is. This label is also the collapsed
+      // tooltip and the page title in the bar, so they move together.
       {
         id: "action_required",
         label: "Handlungsbedarf",
@@ -99,9 +95,9 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           ],
         },
       },
-      // The two structural surfaces come after the two that reach a single fixture: a Spieltag is the block
-      // matches belong to, and the Finalrunden are how the later ones are wired — both are read to check the
-      // shape of the season rather than to act on one match.
+      // The structural surfaces come after the ones that reach a single fixture: a Spieltag is the
+      // block matches belong to and the Finalrunden are how the later ones are wired, so both are
+      // read to check the season's shape rather than to act on one match.
       {
         id: "spieltage",
         label: "Spieltage",

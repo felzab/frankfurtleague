@@ -7,10 +7,10 @@
  * Invariants:
  * - Every granular tag declared here has a matching `updateTag` in `actions.ts` (ADR-0001).
  * - Omitting `saison_id` means the current season — the most common entries carry the base tag only.
- * - The single read declares the base tag only — a write rewrites fixtures it never named (ADR-0042).
+ * - The single read declares the base tag only — a write rewrites fixtures it never named (ADR-0034).
  *
  * See:
- * - docs/frontend/spec.md — section 4, the full cache-tag design
+ * - docs/frontend/spec.md — section 1.4, the full cache-tag design
  */
 
 import { cacheLife, cacheTag } from "next/cache";
@@ -26,9 +26,9 @@ import type { FLSpieleFilterParams } from "./types";
 export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLSpieleListResponse> {
   "use cache";
 
-  // The only granular tag kept for this resource (ADR-0001): the admin patch action invalidates it
-  // by season. No tags by phase or status: a result edit *changes* a match's status, so invalidating
-  // by status would need both the previous and the new value to be correct.
+  // The only granular tag kept for this resource (ADR-0001): the admin patch action invalidates it by
+  // season. No tags by phase or status — a result edit changes a match's status, so that would need
+  // both the previous and the new value to be correct.
   const tags: string[] = ["spiele"];
   if (filters.saison_id) tags.push(`spiele:saison_id:${filters.saison_id}`);
   cacheTag(...tags);
@@ -40,11 +40,11 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
 }
 
 /**
- * One match by its id, for the edit page whose subject IS that match (ADR-0050).
+ * One match by its id, for the edit page whose subject IS that match (ADR-0040).
  *
  * **The base tag alone, and that is not an oversight.** A season-scoped tag would need the season, which
  * is what this response exists to supply — and it would be wrong even if it were available: the patch
- * that resolves a bracket rewrites *other* fixtures of the same season (ADR-0042), so nothing narrower
+ * that resolves a bracket rewrites *other* fixtures of the same season (ADR-0034), so nothing narrower
  * than `spiele` describes what one match write invalidates. The action invalidates `spiele`
  * unconditionally on every match write, so this entry can never outlive an edit (ADR-0001).
  *

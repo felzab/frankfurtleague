@@ -17,14 +17,9 @@ const nextConfig: NextConfig = {
         permanent: true, // HTTP 308 (permanent, method-preserving) -- not 301
       },
       {
-        // The Spielhistorie was its own page and is now a filter on the Spielsuche (FE-5, owner,
-        // 2026-08-08). A REDIRECT rather than a deletion, because the route was in the sitemap, carried
-        // its own canonical URL and has been linked: dropping it would answer 404 to every one of those,
-        // where a 308 hands the accumulated search equity to the page that replaced it.
-        //
-        // `?status=vergangen` is the Status facet's own parameter and value, and it is what makes this a
-        // fold rather than a redirect to a blank search: `SpielsucheView` renders results as soon as a
-        // filter is active, without anything typed.
+        // `?status=vergangen` is the Status facet's own parameter and value, and it is what makes
+        // this a fold rather than a redirect to a blank search: `SpielsucheView` renders results as
+        // soon as a filter is active, without anything typed.
         source: "/dashboard/spielhistorie",
         destination: "/dashboard/spielsuche?status=vergangen",
         permanent: true,
@@ -34,13 +29,9 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Scoped to `public/`, which is everything under /icons — and NOT `immutable`, which is a
-        // promise that the bytes at a URL never change. That promise is only true for a
-        // content-hashed filename; these are stable URLs whose contents `pnpm brand` rewrites in
-        // place, so `immutable` made a changed asset unreachable for a month at every cache between
-        // here and the reader. It did exactly that to the Open Graph image (ADR-0024).
-        // `/_next/static` is untouched here: Next sets its own immutable header there, correctly,
-        // because those filenames carry a content hash.
+        // Scoped to `public/` — and not `immutable`: that promise holds only for a content-hashed
+        // filename, and `pnpm brand` rewrites these URLs in place (ADR-0017). `/_next/static` is
+        // untouched, where Next sets its own immutable header.
         source: "/icons/:path*",
         headers: [
           {
@@ -51,9 +42,9 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Development-only, all of it: Next reads `logging.fetches` and `logging.incomingRequests` in the
-  // dev server alone, which is also why the production frontend writes no per-request line of its
-  // own -- that record is nginx's access log (docs/logging.md).
+  // Development-only: Next reads `logging.fetches` and `logging.incomingRequests` in the dev server
+  // alone, which is why the production frontend writes no per-request line — that record is nginx's
+  // access log (docs/logging/spec.md).
   logging: {
     fetches: {
       fullUrl: false, // Prevents giant URLs in the terminal
@@ -65,16 +56,16 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["@heroui/react", "@gravity-ui/icons"],
   },
   output: "standalone",
-  // No `partialPrefetching`. Next's ISR guide presents it as `cacheComponents`' partner — Cache
-  // Components produces the App Shell, Partial Prefetching upgrades it once the params are known —
-  // and enabling it here was measured to change nothing this app needed. What it does change is how
-  // aggressively a route's payload is prefetched and retained on the client, which is the subsystem
-  // behind an admin opening the match editor on values that have since moved. **Turn it on only with
-  // a measurement showing what it buys, and re-check the editor's freshness in the same pass.**
+  // No `partialPrefetching`, although Next's ISR guide presents it as `cacheComponents`' partner:
+  // enabling it was measured to change nothing this app needed.
   // https://nextjs.org/docs/app/guides/incremental-static-regeneration-cache-components
+
+  // What it does change is how aggressively a route's payload is prefetched and retained on the
+  // client — the subsystem behind an admin opening the match editor on stale values. Turn it on
+  // only with a measurement, and re-check the editor's freshness.
   cacheComponents: true,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
-  // two admin views, both hand-written (ADR-0020).
+  // two admin views, both hand-written (ADR-0014).
 };
 
 export default nextConfig;

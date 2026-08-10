@@ -1,4 +1,4 @@
-# Holds a pull request body to ADR-0036 and docs/workflows/message-templates.md.
+# Holds a pull request body to ADR-0029 and docs/_git/templates.md.
 #
 # A SEPARATE workflow from verify.yml on purpose. This one has to listen for `edited`, so that a
 # body corrected after review turns the check green without an unrelated push — and subscribing
@@ -7,16 +7,14 @@
 #
 # It is therefore NOT part of verify.yml's aggregate `verify` job, which is the ruleset's required
 # check. To make this one block a merge as well, add `pr-body` to the required status checks on
-# `main` — the checklist is in docs/workflows/README.md, Repository settings.
+# `main` — the checklist is in docs/_git/spec.md, Repository settings.
 name: pr-body
 
 on:
   pull_request:
-    # `edited` is why this workflow is separate at all. `synchronize` is here for a different
-    # reason: GitHub resolves a required status check against the HEAD commit, so a check that does
-    # not re-run on a push leaves the newest commit with no result — and a required check with no
-    # result blocks the merge permanently rather than passing. The job is a checkout and one python
-    # run, so paying it per push is cheap insurance against that.
+    # `synchronize` earns its place as much as `edited`: GitHub resolves a required check against
+    # the HEAD commit, so a check that skips a push leaves the newest commit with no result — which
+    # blocks the merge permanently rather than passing.
     types: [opened, edited, reopened, ready_for_review, synchronize]
 
 permissions:
@@ -27,9 +25,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The job id is what GitHub lists in required status checks — the workflow's `name` never appears
-  # there. It matches the workflow's own name so that the entry in the ruleset reads as the thing it
-  # is, the way verify.yml's aggregate job is called `verify`.
+  # The job id is what GitHub lists in required status checks; the workflow's `name` never appears
+  # there. It matches that name so the ruleset entry reads as the thing it is, the way verify.yml's
+  # aggregate job is called `verify`.
   pr-body:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -40,8 +38,8 @@ jobs:
 
       - name: Check the pull request body
         # The body is attacker-controlled text on a public repository, so it reaches the script
-        # through the environment and stdin — never by interpolating `${{ }}` into `run:`, which is
-        # the standard script-injection shape. The same rule is stated in verify.yml's changes job.
+        # through the environment and stdin — never by interpolating `${{ }}` into `run:`, the
+        # script-injection shape every `run:` step here avoids.
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}

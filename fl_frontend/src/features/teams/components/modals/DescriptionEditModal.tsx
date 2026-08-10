@@ -35,9 +35,9 @@ export function DescriptionEditModal({
   const [draft, setDraft] = useState(value);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Re-seeded on the open TRANSITION, as a render-phase adjustment rather than an effect (the same
-  // pattern the match editor uses for its save latch): an open must start from what the form
-  // currently holds, and while the modal is open the draft is the admin's alone.
+  // Re-seeded on the open transition, as a render-phase adjustment rather than an effect: an open
+  // must start from what the form currently holds, and while the modal is open the draft is the
+  // admin's alone.
   const [wasOpen, setWasOpen] = useState(isOpen);
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen);

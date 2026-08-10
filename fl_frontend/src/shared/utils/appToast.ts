@@ -3,7 +3,7 @@
  *
  * Wraps HeroUI's `toast` so the two things every producer used to get wrong are decided here:
  * how long a message stays, and which half of it is the outcome. `AppToaster` owns what a toast
- * looks like; this owns what one says and for how long (ADR-0053).
+ * looks like; this owns what one says and for how long (ADR-0043).
  *
  * Invariants:
  * - A title is an outcome, a description is the detail — never a sentence pair joined into the title.
@@ -91,7 +91,6 @@ export const appToast = {
    */
   pending: (title: string) => toast(title, { isLoading: true, timeout: 0 }),
 
-  /** Closes one toast by the key its raiser returned. */
   close: (key: string) => toast.close(key),
   /** Closes every toast, including ones this page did not raise. Prefer `close` where a key exists. */
   clear: () => toast.clear(),

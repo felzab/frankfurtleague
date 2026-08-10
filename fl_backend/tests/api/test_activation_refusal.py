@@ -7,8 +7,8 @@ rules and makes the derived table the record, so rolling over across unplayed fi
 competition that is not finished, in the one operation editing afterwards cannot undo.
 
 Cancelling is the way through, not a loophole: a fixture nobody will ever play is settled by
-cancelling it — chosen (decided 2026-08-08) over the previous page, which counted the unplayed
-fixtures and activated anyway.
+cancelling it — chosen (decided 2026-08-08) over counting the unplayed fixtures and activating
+anyway.
 """
 
 import pytest

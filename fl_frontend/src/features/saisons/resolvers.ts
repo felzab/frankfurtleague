@@ -6,8 +6,8 @@
  *
  * Invariants:
  * - Returning `undefined` is the point: the backend resolves an absent season to the current one.
- * - An absent parameter reads no season list — the hot path stays free of a pre-query (ADR-0069).
- * - A parameter naming no real season is stripped from the URL and the render restarts (ADR-0069).
+ * - An absent parameter reads no season list — the hot path stays free of a pre-query (ADR-0055).
+ * - A parameter naming no real season is stripped from the URL and the render restarts (ADR-0055).
  * - `apiClient` drops `undefined` params, which lets callers pass the result straight through.
  */
 
@@ -33,7 +33,7 @@ const saisonIdSchema = z.string().trim().length(4).optional().catch(undefined);
  * `apiClient` drops `undefined` params rather than serialising them, so callers pass the result
  * straight through and no call site changes shape.
  *
- * **A value naming no real season ends the render and rewrites the URL without it** (ADR-0069).
+ * **A value naming no real season ends the render and rewrites the URL without it** (ADR-0055).
  * `SaisonSelector` already validates `?saison_id=` against the same list and falls back to the current
  * season, so a value only this side accepted left the sidemenu naming one season while the page below
  * queried another and rendered every row as empty. Validating here rather than in each page is what

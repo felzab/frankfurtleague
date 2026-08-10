@@ -1,25 +1,21 @@
 #!/usr/bin/env bash
 #
-# scripts/deploy.sh — put a published version live, or report what is live.
-# TARGET PLATFORM: Linux (the production server).
+# SCRIPTS · put a published version live, or report what is live.
 #
-# THIS SCRIPT NEVER BUILDS. It only pulls images that publish.sh already built and tested on your
-# development machine. A server that builds is a server that can fail a build — at the worst moment,
-# with the site down and no known-good image to fall back to.
+# It only pulls what `scripts/publish.sh` already built and checked: a server that builds is a server
+# that can fail a build, at the worst moment, with the site down and no known-good image to fall back
+# to. The commit currently live is read before anything changes, so a failed deploy has a rollback
+# target.
 #
-# WHAT IT DOES:
-#   1. checks the files nginx mounts actually exist (a missing one makes nginx fail to start)
-#   2. pulls the requested images
-#   3. records which image is currently live, so a failure has somewhere to go back to
-#   4. recreates the containers IN PLACE — no `docker compose down`, so the outage is seconds
-#   5. waits for both services to report healthy
-#   6. on success, prints the live security headers; on failure, prints the rollback command
-#
-# USAGE:
 #   ./scripts/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
 #   ./scripts/deploy.sh --status           report what is running right now, change nothing
 #   ./scripts/deploy.sh --help
+#
+# See:
+# - docs/ops/spec.md — the deploy contract this serves, and the tag retention a rollback needs
+# - docs/ops/overview.md — why rolling back is pulling a pinned tag rather than rebuilding
+# - docs/ops/runbooks.md — what the repository does and does not know about the host it runs on
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
@@ -44,10 +40,9 @@ if (( STATUS_ONLY )) && [[ -n "$PIN" ]]; then
 To deploy ${PIN}, drop --status."
 fi
 
-# Validate the pin's SHAPE here, with the other argument handling and before any environmental check.
-# Two reasons: a typo fails instantly rather than after a platform and Docker check, and without this
-# it reaches the registry and comes back as an opaque "manifest unknown" instead of a sentence naming
-# the problem.
+# Validate the pin's shape here, with the other argument handling: a typo fails instantly rather
+# than after a platform and Docker check, and without it the registry answers "manifest unknown"
+# instead of a sentence naming the problem.
 if [[ -n "$PIN" && ! "$PIN" =~ ^sha-[0-9a-f]{7,40}(-dirty)?$ ]]; then
   die "'${PIN}' does not look like a published tag.
 Expected sha-<commit>, for example sha-1a2b3c4.
@@ -59,8 +54,9 @@ require_docker
 require_file "$COMPOSE"
 
 # --- --status: answer "what is actually running?" ----------------------------------------------------
-# Reads the image's own OCI labels rather than the tag name, because a tag is a moving pointer and can
-# be retagged locally. The label is baked in at build time and cannot drift.
+
+# Reads the image's own OCI labels rather than the tag name, because a tag is a moving pointer and
+# can be retagged locally. The label is baked in at build time and cannot drift.
 if (( STATUS_ONLY )); then
   step "Currently running"
   for svc in frontend backend; do
@@ -77,9 +73,9 @@ if (( STATUS_ONLY )); then
            "$(printf '%-9s built    %s' "" "$(image_created_display "$img")")"
   done
   step "Published builds available to roll back to"
-  # Two calls, not one with both repos: `docker image ls` accepts at most one repository argument.
-  # Matched on the TAG, not a `-sha-` substring: the tag is `sha-1a2b3c4` with no service prefix
-  # (ADR-0017), so a substring match on `-sha-` reports "none pinned" forever.
+  # Two calls: `docker image ls` accepts at most one repository argument. Matched on the tag, not a
+  # `-sha-` substring — the tag is `sha-1a2b3c4` with no service prefix (ADR-0012), so a substring
+  # match reports "none pinned" forever.
   { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; \
     docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}'; } \
     | sort | grep -E ':sha-' | detail || \
@@ -88,6 +84,8 @@ if (( STATUS_ONLY )); then
 fi
 
 # --- preflight --------------------------------------------------------------------------------------
+# Everything the stack mounts or reads, before the pull rather than after: each failure below is
+# instant to detect, and a half-deployed stack is not.
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
 require_file "nginx/prod.conf"  "nginx mounts this read-only; if it is missing, Docker creates a DIRECTORY at that path and nginx fails with 'not a directory'."
@@ -117,8 +115,9 @@ info "frontend commit: $(image_revision_display "$IMAGE_FRONTEND")"
 info "backend  commit: $(image_revision_display "$IMAGE_BACKEND")"
 
 # --- remember the current version, for rollback -----------------------------------------------------
-# image_revision returns the raw commit, or EMPTY when the image carries no label. Empty is the only
-# sentinel, so every test here is a plain -n and no prose can be interpolated into a suggested command.
+
+# image_revision returns the raw commit, or empty where the image carries no label. Empty is the only
+# sentinel, so every test here is a plain -n and no prose reaches a suggested command.
 PREV_TAG=""
 prev_cid="$(docker compose -f "$COMPOSE" ps -q frontend 2>/dev/null || true)"
 if [[ -n "$prev_cid" ]]; then
@@ -131,6 +130,7 @@ if [[ -n "$prev_cid" ]]; then
 fi
 
 # --- recreate ---------------------------------------------------------------------------------------
+
 # No `docker compose down` first: compose replaces only the services whose image changed, and starts
 # the replacement before removing the old container where it can. `down` guarantees a full outage.
 step "Recreating containers"

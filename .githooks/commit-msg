@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 #
-# .githooks/commit-msg — refuse a commit message that breaks the convention, at the one moment
-# fixing it is free.
-# TARGET PLATFORM: any (Git Bash on Windows). Git runs this with the message file as $1.
+# GITHOOKS · refuse a commit message that breaks the convention, at the one moment fixing it is free.
 #
-# This hook is convenience, never the enforcement. `./scripts/verify.sh --docs` runs the same
-# checker over the whole branch and is what actually binds, because a hook lives in .git/config and
-# a fresh clone has none until someone runs the setup line in docs/workflows/message-templates.md.
-# Anything this catches, the gate catches too — later, and after a rebase costs something.
+# Convenience, never the enforcement. A clone that has not run `git config core.hooksPath .githooks`
+# has no hook at all (`docs/_git/spec.md :: 1.3 Commits`), so `./scripts/verify.sh --docs` over
+# the whole branch is what binds. Anything this catches, the gate catches too — later, and after a
+# rebase costs something.
 #
 # It never blocks on a missing interpreter: a contributor without the backend venv gets the gate's
 # verdict instead of a commit they cannot make.

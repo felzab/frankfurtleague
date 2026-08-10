@@ -6,7 +6,7 @@
  * - A venue rename also invalidates `spiele` — the backend fans the new name into every match.
  *
  * See:
- * - docs/frontend/spec.md — section 3, the action inventory
+ * - docs/frontend/spec.md — section 1.3, the action inventory
  */
 
 import { cacheLife, cacheTag } from "next/cache";

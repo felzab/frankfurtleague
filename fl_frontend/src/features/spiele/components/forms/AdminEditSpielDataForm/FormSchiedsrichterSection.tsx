@@ -37,13 +37,9 @@ export function FormSchiedsrichterSection({
     );
   };
 
-  // An emptied currency field arrives as NaN and must stay empty. Coercing it to 0 here is what let
-  // a cleared Honorar submit as 0 € without a word — indistinguishable
-  // from a referee who genuinely works for free. `null` fails the payload schema instead, which is
-  // the honest outcome. The `?? NaN` at the display boundary below is the other half and must stay:
-  // RAC types `value?: number`, so `value={null}` is a type error.
-  // `Math.round` for the same reason the Mietpreis rounds: decimals are typable now that the field
-  // carries no `step`, and the payload wants an integer.
+  // An emptied currency field arrives as NaN and must stay empty: coerced to 0, a
+  // cleared Honorar submits as 0 € and reads as a referee working for free. The
+  // `?? NaN` below is the other half -- RAC types `value?: number`.
   const handlePaymentChange = (newPayment: number) => {
     if (schiedsrichterPayload) {
       onSchiedsrichterChange({
@@ -84,7 +80,6 @@ export function FormSchiedsrichterSection({
         )}
       />
 
-      {/** Schiedsrichter Entschädigung */}
       <NumberField
         minValue={0}
         name="schiedsrichter.payment"

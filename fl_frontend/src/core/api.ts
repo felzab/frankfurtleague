@@ -34,7 +34,7 @@ const BASE_FETCH_URL = `${frontend_config.API_URL}/api/v${frontend_config.API_VE
 export interface FetchOptions extends RequestInit {
   authType?: "base" | "system" | "admin" | "none";
   timeoutMs?: number;
-  params?: Record<string, string | number | boolean | undefined | null>; // Allow these types
+  params?: Record<string, string | number | boolean | undefined | null>;
 }
 
 const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): Record<string, string> => {
@@ -60,7 +60,6 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
   return headers;
 };
 
-/** Boilerplate function which handles fetch responses */
 const handleFetchResponse = async ({
   res,
   correlationId,
@@ -87,10 +86,9 @@ const handleFetchResponse = async ({
     });
   }
 
-  // The backend's failure body is `{error_code, correlation_id}` (docs/logging.md). The code is
-  // what lets a caller react to the CLASS of failure -- a 409 from a unique index reads
-  // DB-COMMON-002 -- without parsing prose. Read defensively: an unparseable body must not turn a
-  // bad status into a second, misleading error.
+  // The backend's failure body is `{error_code, correlation_id}` (docs/logging/error-codes.md). The
+  // code lets a caller react to the class of failure without parsing prose. Read defensively: an
+  // unparseable body must not compound a bad status.
   const serverErrorCode = await res
     .clone()
     .json()
@@ -108,21 +106,16 @@ const handleFetchResponse = async ({
 };
 
 export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, options: FetchOptions = {}): Promise<T> => {
-  // The current request's id where a scope exists (server actions and route handlers seed one,
-  // shared/utils/adminMutation.ts), a freshly minted id otherwise. The unseeded case is the
-  // `"use cache"` fill: a cached execution is shared across requests by construction, so Next
-  // refuses request APIs there and no page-request id can exist -- the fill's outbound request gets
-  // an id of its own instead (docs/logging.md). Minting inside cached functions is deliberately
-  // safe: the id reaches only the X-Correlation-ID header and the error constructors, never the
-  // returned value, so a cache entry is fully determined by the response.
+  // The request's id where a scope exists, a fresh one otherwise. The unseeded case
+  // is the `"use cache"` fill, where Next refuses request APIs. Minting there is safe:
+  // the id reaches the header and the errors, never the returned value.
   const correlationId = getRequestCorrelationId() ?? mintCorrelationId();
 
   const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, ...customOptions } = options;
 
   // Built through Headers rather than spread. `FetchOptions extends RequestInit`, so a caller may
-  // legitimately pass a `Headers` instance or a `string[][]` -- and spreading either loses the data
-  // silently: `{...new Headers({a: "1"})}` is `{}`, and `{...[["a","1"]]}` is `{0: [...]}`, a
-  // garbage header name. No caller passes `headers` today; the type is what invites it.
+  // pass a `Headers` or a `string[][]`, and spreading either loses the data silently:
+  // `{...new Headers({a: "1"})}` is `{}`. The type is what invites it.
   const headers = new Headers(getFetchHeaders(authType));
   headers.set(CORRELATION_HEADER, correlationId);
   // Caller wins: a per-call header overrides the defaults above.
@@ -133,7 +126,6 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
-      // Skip null or undefined parameters
       if (value !== null && value !== undefined) {
         urlObj.searchParams.append(key, String(value));
       }
@@ -154,9 +146,9 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       originalError: error,
     });
 
-  // The timer is cleared in `finally` so it bounds the body read as well. Clearing it the moment
-  // `fetch` resolved -- which is when response *headers* arrive -- left `res.json()` unbounded, so a
-  // backend that sent headers and then stalled hung the render well past the 15 s budget.
+  // Cleared in `finally` so it bounds the body read as well: `fetch` resolves when response
+  // *headers* arrive, so clearing it there leaves `res.json()` unbounded and a backend that stalls
+  // after its headers hangs the render past the budget.
   let res: Response;
   let rawData: unknown;
   try {
@@ -174,9 +166,8 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
       // A stalled body aborts here rather than inside `fetch`.
       if (error instanceof Error && error.name === "AbortError") throw asNetworkError(error);
 
-      // Anything else means the response arrived and its body would not parse. That is malformed
-      // data, not a connection problem -- reporting it as one points the reader at the wrong system,
-      // which is the same mistake `handleFetchResponse` already avoids for non-JSON error responses.
+      // Anything else means the response arrived and its body would not parse: malformed data, not a
+      // connection problem. Reporting it as one points the reader at the wrong system.
       throw new APIMalformedDataError({
         message: "API returned a body that could not be parsed as JSON.",
         url: res.url,
@@ -191,9 +182,9 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
 
   const validated = schema.safeParse(rawData);
   if (!validated.success) {
-    // No console.log of the tree here: it fired unconditionally in production, emitted a raw object
-    // into a stream logging.ts otherwise keeps to one JSON document per line, and was redundant --
-    // the same tree travels on the error below and reaches the logger via instrumentation.ts.
+    // No console.log of the tree here: it would fire unconditionally in production and put a raw
+    // object into a stream `logging.ts` keeps to one JSON document per line. The same tree travels
+    // on the error below, to the logger.
     throw new APIMalformedDataError({
       message: "API returned malformed data.",
       url: res.url,

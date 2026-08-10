@@ -92,8 +92,8 @@ export function SidemenuNavLinks<TIcon extends string>({
  * stubs against 18–44 KB on the public routes.
  *
  * `usePathname()` stays in `Sidemenu`: the same file shows it only hangs when `fallbackRouteParams`
- * is non-empty, i.e. on a dynamic segment that was never prerendered. That is true of the two
- * `[team_id]` routes and nothing else, so it costs those two their shell and no others.
+ * is non-empty, i.e. on a dynamic segment that was never prerendered. That is true of every dynamic
+ * segment under this shell, so those routes lose their shell and the static ones do not.
  */
 export function SidemenuNavLinksWithSaisonQuery<TIcon extends string>(props: SidemenuNavLinksProps<TIcon>) {
   const searchParams = useSearchParams();

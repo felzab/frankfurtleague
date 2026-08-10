@@ -20,10 +20,9 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
   // date it. Click time would drift by however long the reader hesitated.
   const [occurredAt] = useState(() => new Date().toISOString());
 
-  // The three coordinates docs/logging.md asks a report to carry. A digest names an error CLASS —
-  // every network failure shares one — so the route and the time are what narrow it to the one log
-  // entry whose correlation id opens every surface's lines. A client crash has no digest, and
-  // saying so is itself a coordinate: it points at the client-error stream instead.
+  // The three coordinates docs/logging/spec.md asks a report to carry. A digest names an error class,
+  // so the route and the time narrow it to the one log entry. A client crash has no digest, and
+  // saying so points at the client-error stream instead.
   const reportSubject = `Fehlerbericht: ${error.digest ?? "Client-Fehler"} auf ${pathname}`;
   const reportBody = [
     "Hallo Frankfurt-League-Team,",
@@ -86,7 +85,7 @@ export function Error({ error, reset }: { error: Error & { digest?: string }; re
         </Link>
       </div>
 
-      {/* A mailto, deliberately not a form (roadmap FE-6): the crash itself is already logged on
+      {/* A mailto, deliberately not a form: the crash itself is already logged on
           both sides, so what a report adds is the human half — intent, steps, expectation — and a
           second public write path for that would guard nothing the rate-limited ingest route does
           not. The link is the quiet third action: useful, never competing with Erneut versuchen. */}

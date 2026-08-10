@@ -7,15 +7,15 @@
  * line, above this block.
  *
  * Invariants:
- * - Every action checks `getAdminSession()` and runs in `runAdminMutation` (docs/logging.md).
+ * - Every action checks `getAdminSession()` and runs in `runAdminMutation` (docs/logging/error-codes.md).
  * - Base tag only — the admin list and the public Spielplan span differently, so no granular tag
  *   names one write (ADR-0001).
  * - `spieltage` is the only resource invalidated — `GET /spiele` never joins `spieltage`.
  * - Five 409s and none is a unique index: three guard the matchday's contents and two its
- *   container; a matchday's place and name are derived, so there is nothing to claim (ADR-0064).
+ *   container; a matchday's place and name are derived, so there is nothing to claim (ADR-0051).
  *
  * See:
- * - docs/frontend/spec.md — section 3, the action inventory
+ * - docs/frontend/spec.md — section 1.3, the action inventory
  */
 import { updateTag } from "next/cache";
 
@@ -114,7 +114,7 @@ export async function postSpieltagAction(
     return {
       success: true,
       spieltag_id: postOperation.spieltag_id,
-      // No name to echo: one is composed by the reader from the phase and the position (ADR-0064), and
+      // No name to echo: one is composed by the reader from the phase and the position (ADR-0051), and
       // the position is only known once this matchday is in the list beside its siblings.
       message: "Spieltag angelegt.",
     };
@@ -160,9 +160,9 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0032). Its matches are left alone
-// and stay resolvable, which is the reason this is not a delete — but they do leave the public Spielplan
-// with the matchday, which is why a matchday holding a RESULT is refused (`REQ-RETIRE-002`).
+// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0025). Its matches stay
+// resolvable, but they leave the public Spielplan with the matchday, which is why one holding a
+// result is refused (`REQ-RETIRE-002`).
 export async function deleteSpieltagAction(rawPayload: FLSpieltagKeyPayload): Promise<{
   success: boolean;
   spieltag?: FLSpieltagWriteResponse;

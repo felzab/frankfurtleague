@@ -7,7 +7,8 @@ users before ever calling this service.
 
 Invariants:
 - Keys are compared with `secrets.compare_digest`, never `==`.
-- Guards attach at router level, so a new endpoint inherits its router's protection (ADR-0034).
+- A resource router guards at router level, so its endpoints inherit it (ADR-0027); the system
+  router guards per endpoint, and an endpoint added there is public unless it declares otherwise.
 - The expected key is read per request through `Depends(get_config)`, never captured at import.
 - `/system/is_live` is deliberately unguarded — it is the container healthcheck.
 
@@ -25,7 +26,8 @@ from pydantic import SecretStr
 from app.core.config import BackendConfig, get_config
 from app.core.exceptions import RequestAuthorizationException
 
-# Tell FastAPI to look for the "Authorization" header
+# `auto_error=False` so a missing header reaches `get_token` and answers `REQ-AUTH-001`; FastAPI's
+# own 403 would carry none of the error-code contract.
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -47,8 +49,8 @@ def verify_api_key(select_key: KeySelector, error_code: str) -> Callable:
     """
     Build a guard that compares the bearer token against one configured key.
 
-    The key is selected from the settings PER REQUEST. Capturing its value here instead would read the
-    environment at import time, which is what made importing a router require a populated `.env`.
+    The key is selected from the settings PER REQUEST. Capturing its value here instead would read
+    the environment at import time, which is the side effect `app/asgi.py` exists to confine.
     """
 
     def dependency(

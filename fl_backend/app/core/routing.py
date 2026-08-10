@@ -3,9 +3,9 @@ CORE · path parameter convertors
 
 One custom URL convertor, `objectid`, and the helper that spells a path with it. It exists
 because `GET /spiele/action_required` and `GET /spiele/{spiel_id}` live in different routers
-(ADR-0034), so declaration order cannot separate them — constraining the parameter to 24 hex
+(ADR-0027), so declaration order cannot separate them — constraining the parameter to 24 hex
 characters removes the ambiguity at its source, whatever order the routers are included in. A
-malformed id is therefore a 404 rather than a 422: a path identifies, a query validates (ADR-0071).
+malformed id is therefore a 404 rather than a 422: a path identifies, a query validates (ADR-0057).
 
 Invariants:
 - Registration is an import side effect — `by_id()` is what keeps this module's import real.
@@ -15,9 +15,8 @@ from starlette.convertors import Convertor, register_url_convertor
 
 CONVERTOR_NAME = "objectid"
 
-# A 24-character hex string, which is what `str(ObjectId(...))` produces. Deliberately NOT parsing to a
-# bson.ObjectId here: the endpoints annotate the parameter with `CustomRouteObjectId`, so parsing stays
-# in one place and this decides only whether the path matches at all.
+# A 24-character hex string, which is what `str(ObjectId(...))` produces. Deliberately not parsed here:
+# the endpoints annotate with `CustomRouteObjectId`, so this decides only whether the path matches.
 OBJECT_ID_REGEX = "[0-9a-fA-F]{24}"
 
 

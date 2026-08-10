@@ -74,11 +74,11 @@ describe("formatSpielDatum", () => {
     assert.equal(formatSpielDatum(null, "/"), "/");
   });
 
-  // The defect this replaced: `new Date("2026-07-28")` parses as UTC midnight and
-  // toLocaleDateString with no timeZone formats in the runtime's zone, so anyone west of UTC
-  // saw 27.07. Pinning process.env.TZ mid-process would not prove anything -- Node caches the
-  // ICU default zone -- so this asserts the mechanism directly: the T12:00:00Z anchor the
-  // function builds lands on the same calendar date in every zone the app can be viewed from.
+  // `new Date("2026-07-28")` parses as UTC midnight, and toLocaleDateString with no timeZone formats
+  // in the runtime's zone, so anyone west of UTC reads 27.07.
+
+  // Pinning process.env.TZ mid-process proves nothing -- Node caches the ICU default zone -- so this
+  // asserts the mechanism: the T12:00:00Z anchor lands on the same calendar date in every zone.
   it("anchors the instant so no viewer's zone can shift the day", () => {
     const anchored = new Date("2026-07-28T12:00:00Z");
     const naive = new Date("2026-07-28");

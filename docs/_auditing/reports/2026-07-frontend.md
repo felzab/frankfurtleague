@@ -1,9 +1,9 @@
 # Frontend audit & remediation — final report
 
-**Programme:** 2026-07-28 → 2026-08-01 · **Method:** [`docs/_auditing/`](../README.md)
+**Programme:** 2026-07-28 → 2026-08-01 · **Method:** [`docs/_auditing/`](../README.md)\
 **Scope:** `fl_frontend` in full (~169 `.ts`/`.tsx` files at audit time, Next.js 16 / React 19 /
 HeroUI 3 / Tailwind 4 / zod 4 / next-auth 5-beta), plus every backend and ops change the findings
-forced (`fl_backend` schema convergence and tests, nginx, Docker, scripts).
+forced (`fl_backend` schema convergence and tests, nginx, Docker, scripts).\
 **Outcome in one line:** five audit passes produced 188 findings (0 critical, 36 high); nine
 remediation waves closed all of them plus ~70 more discovered en route, ratified 16 architectural
 decisions into ADRs, and left the repo with an enforced verification gate, two test suites and a
@@ -35,7 +35,7 @@ outlive everything.
 | Client bundle                                                                        | baseline 734,544 B gzip                                         | 734,538 B (React Compiler trialled at +40 KB and removed)                                                                                                                                   |
 | Duplicated code collapsed                                                            | ~1,830 near-identical lines (largest single pair 499 lines)     | shared components (`ModalShell`, `EntityForm`, `AdminCrudView`, `InlineCreateAutocomplete`, …)                                                                                              |
 | `dark:` escape hatches / raw `text-white` / raw-palette utilities in `src`           | 17 / many / many                                                | 2 / 0 / 0                                                                                                                                                                                   |
-| Architectural decisions ratified                                                     | 0 recorded                                                      | 16 ADRs (`docs/_decisions/`), summarised in CLAUDE.md §9                                                                                                                                    |
+| Architectural decisions ratified                                                     | 0 recorded                                                      | 16 ADRs (`docs/_decisions/`), summarised in CLAUDE.md's ratified-decisions index                                                                                                            |
 | TypeScript strictness                                                                | baseline                                                        | + `noUncheckedIndexedAccess`, `noUnusedLocals`, `noImplicitOverride`, `noFallthroughCasesInSwitch`, at 0 errors                                                                             |
 | CI                                                                                   | none                                                            | `.github/workflows/verify.yml` — `verify.sh --quick` on PRs, full gate on `main`                                                                                                            |
 
@@ -90,7 +90,7 @@ and the accepted cost is recorded: a mistyped admin address gets no hint anythin
 Magic-link emails are now project-owned (`src/core/authEmail.ts`, German, 15-minute validity stated
 in the mail and the UI from one constant).
 
-**The CSP decision** (ADR-0016). The nonce + `'strict-dynamic'` policy the audit prescribed was
+**The CSP decision** (ADR-0011). The nonce + `'strict-dynamic'` policy the audit prescribed was
 built, shipped Report-Only, measured — and removed: 24 routes serve build-time HTML whose script
 tags can never carry a per-request token, and Next's `_global-error` must be a client component that
 can never be tokened or hashed, so the "strict" policy needed three mechanisms plus a permanent
@@ -119,7 +119,7 @@ removed; `frame-ancestors 'none'`, `base-uri`, `object-src`, `form-action` added
 `callbackUrl` in the proxy deleted rather than honoured (honouring it unvalidated is an open
 redirect); and `POST /api/revalidate` added for out-of-band reference-data edits — bearer-authed
 with `timingSafeEqual`, resource-enum-validated, and deliberately reachable only inside the compose
-network (retired decision 0015; ADR-0035 later removed the route).
+network (retired decision 0015; ADR-0028 later removed the route).
 
 ### 3.2 Broken and silently wrong output
 
@@ -163,7 +163,7 @@ shell); a mistyped team id destroyed the dashboard with a root 404; a backend ou
 "Team nicht gefunden" _and was never logged_ (a `.catch(() => null)` conflating not-found with
 broken, narrowed to 404); both `[team_id]` pages emitted the dashboard's title and canonical
 (telling crawlers every team page is a duplicate — `generateMetadata` added, starting with
-`await connection()` per ADR-0009); the sitemap stamped `new Date()` per request (now a build-time
+`await connection()` per ADR-0006); the sitemap stamped `new Date()` per request (now a build-time
 constant, flipping the route static); robots.txt disallowed `/admin` while the sitemap advertised
 it. A dead five-weight font (~100–150 KB on every first paint, zero glyphs rendered) was removed.
 
@@ -200,7 +200,7 @@ shells to stubs, and was reverted after measurement.
 write surface, and out-of-band Mongo edits are a real workflow — so edits were served stale for up
 to 24 h with no recourse. `POST /api/revalidate` (§3.1) plus an operator-run revalidation call
 close the gap; the durable fix (a real backend write path that revalidates itself, retiring the
-manual step) is recorded as open item BE-4 in `docs/roadmap/open-items.md`.
+manual step) is recorded as open item BE-4 in `docs/_roadmap/open-items.md`.
 
 ### 3.4 Layer boundaries and type integrity
 
@@ -209,7 +209,7 @@ imported from `admin` for a two-character constant; `spiele` and `spieltage` imp
 a loop. All broken — by slot props (`Footer` takes `serverStatusSlot`), by moving code to the slice
 that owns it, and by moving two views into the slice whose data they iterate. Enforced ever since
 by two `no-restricted-imports` blocks scoped to `core` and `shared` (a blanket cross-feature ban
-would flag 47 sites of which 44 are correct — `admin` is a sanctioned aggregator, ADR-0012).
+would flag 47 sites of which 44 are correct — `admin` is a sanctioned aggregator, ADR-0008).
 
 **Stringly-typed structures became checked**, which unblocked `noUncheckedIndexedAccess` at zero
 errors with no `?.` or `!` added: the sidemenu's icon indirection (a typo compiled and rendered no
@@ -252,7 +252,7 @@ returned everything. The wave collapsed them — `ModalShell`/`FormModal`/`Confi
 `useFuzzySearch` + shared `SearchBar`, `EmptyState` (eight previously blank views), shared
 formatters with one placeholder per category — resolving every behavioural divergence explicitly
 and every visual one to "both sides identical" unless I agreed otherwise. The standing
-limit: the three `SpielCard` variants are ratified as three components (ADR-0007); only their
+limit: the three `SpielCard` variants are ratified as three components (ADR-0005); only their
 derivation and chrome are shared.
 
 **NEW-T1 — the admin tables that emptied.** In no report: navigating admin pages left tables with
@@ -339,7 +339,7 @@ is declared `false` rather than deleted.
 ## 4. Decisions ratified
 
 The sixteen ADRs in [`docs/_decisions/`](../../_decisions/) are the programme's permanent decision
-record; CLAUDE.md §9 is their summary table. Highlights and why they exist: `connection()` precedes
+record; CLAUDE.md's ratified-decisions index is their summary table. Highlights and why they exist: `connection()` precedes
 every page fetch or `docker compose build` fails (0009) · Auth.js's direct MongoClient is the one
 sanctioned DB exception (0010) · zero barrel files (0003) · the three SpielCards stay three (0007)
 · no `generateStaticParams` (0011) · `admin` is an aggregator slice (0012) · the Spiel write path
@@ -465,7 +465,7 @@ finding identifiers, kept for greppability against commit messages and PR titles
   centering, `TeamPopoverMenu` everywhere, focus treatment v1, reduced-motion softening, design-
   language pass, scrollbar-gutter on `<html>`, playoff centering (`w-max`), sidemenu options menu +
   containment, edit form flattening + `useTransition` + two real submit bugs (`tore: NaN`, cleared
-  team), the Spiel write path moved to `spiele` (ADR-0005), truncation/overlay-on-navigation fixes
+  team), the Spiel write path moved to `spiele` (ADR-0004), truncation/overlay-on-navigation fixes
   (`useNavigationClosedOverlay`), NumberField null/NaN analysis · plus `RouterProvider` (menu links
   had been full page reloads), `useRetainedValue` (modals unmounting mid-transition),
   keystroke-dropping debounce fix.
@@ -509,7 +509,7 @@ finding identifiers, kept for greppability against commit messages and PR titles
   removing a cross-feature edge; the Zod-twin row followed its sources, not its own instruction) ·
   **R2-4.6** `QaQuestion` applied · **R2-4.8** `core/api.ts` internals unexported · **R2-4.9/4.10**
   dead glob; `allowJs: false` (deletion impossible — Next rewrites absent keys) · **R2-4.2/R3a-B5.1/
-  R3b-S4.1** kept per D1/ADR-0014.
+  R3b-S4.1** kept per D1/ADR-0010.
 - **8b:** **R2-5.1 + 5.7/5.8** named exports + folder moves (one PR, 96 files) · **R2-5.6** handler
   naming · (R2-5.2/5.3/5.4/5.5/5.10 had closed early in Wave 7's naming pass).
 - **8c:** **R3a-A2.1** D2 executed — 20 tags deleted, 2 wired · **R3a-A2.2/A2.3** superseded ·
@@ -525,12 +525,12 @@ finding identifiers, kept for greppability against commit messages and PR titles
 
 ## 7. Left open
 
-Tracked in [`docs/roadmap/open-items.md`](../../roadmap/open-items.md) unless
+Tracked in [`docs/_roadmap/open-items.md`](../../_roadmap/open-items.md) unless
 noted:
 
 - **BE-4** — no write path for `saisons`/`spieler`/`spieltage`; edits are direct-in-Mongo with
   manual revalidation. Building it retires the runbook script and the manual half (since removed by
-  ADR-0035).
+  ADR-0028).
 - **BE-9** — the "TBD" placeholder team vs nullable opponents. Analysis recorded; trigger: BE-4's
   scoping, or the first season where the missing junction row breaks a bracket.
 - **BE-6** — `CustomObjectId` validates nothing in JSON mode · **BE-7** — `typing` →

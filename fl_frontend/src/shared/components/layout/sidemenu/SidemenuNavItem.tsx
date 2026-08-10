@@ -23,13 +23,12 @@ export function SidemenuNavItem({
   const linkElement = (
     <Link
       onClick={onMobileClick}
-      // The active item was signalled by colour and weight alone, which assistive tech cannot see —
-      // seven identically-structured links with no way to tell which is the current page.
+      // Colour and weight alone are what assistive tech cannot see, and these are seven
+      // identically-structured links with no other way to tell which is the current page.
       aria-current={isActive ? "page" : undefined}
-      // Collapsed, this is a 36x36 SQUARE — `w-9 justify-center`, exactly what `SidemenuFooter`'s two
-      // controls are (decided 2026-08-07). It was `w-full` before, which made the hover and active fill a
-      // wide rectangle in the nav and a neat square four rows below it in the footer, and left the icon
-      // looking cramped in a box far wider than tall. Expanded, `w-full` is right: the row holds a label.
+      // Collapsed, this is a 36x36 square -- `w-9 justify-center`, what `SidemenuFooter`'s two
+      // controls are (decided 2026-08-07). Under `w-full` the fill is a wide rectangle in the nav and
+      // a neat square in the footer. Expanded, the row holds a label.
       className={`flex h-9 items-center rounded-md transition-colors ${
         isDesktopCollapsed ? "w-9 justify-center" : "w-full justify-start gap-2.5 px-3"
       } ${isActive ? "bg-brand/10 text-brand font-medium shadow-sm" : "text-foreground hover:bg-muted hover:text-foreground fluid-sm"}`}

@@ -1,12 +1,12 @@
 """
-TEAMS · `build_team_pipeline` executed by a real MongoDB (ADR-0030)
+TEAMS · `build_team_pipeline` executed by a real MongoDB (ADR-0023)
 
 The sibling `test_teams_pipeline.py` asserts what the pipeline SAYS; this asserts what MongoDB
 COMPUTES from it — a `$cond` picking the wrong side, a `$sum` over the wrong field, a scope
 filtering on a phase no document carries. The two are complementary and neither replaces the
 other.
 
-Every test is marked `db` and deselected by default: `cd fl_backend && uv run pytest -m db`.
+Every test is marked `db` and deselected by default (`fl_backend/tests/README.md`).
 The corpus and the expected figures are documented in `conftest.py`; this module asserts against
 them and does not restate the derivation.
 """
@@ -30,8 +30,8 @@ from .conftest import DISQUALIFIKATION, SAISON, SeededLeague
 
 pytestmark = pytest.mark.db
 
-# The levels the seeded season offers. Its own name so the rule lines stay readable, and typed as
-# the Literal list `FLSaisonRules` declares -- a bare list of `str` is invariant against it.
+# The levels the seeded season offers, typed as the Literal list `FLSaisonRules` declares -- a bare
+# list of `str` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 STANDARD_RULES = FLSaisonRules(
@@ -51,11 +51,11 @@ def rows(
     Run the real pipeline and return the documents, in pipeline order.
 
     `scope` is not defaulted, for the same reason the structural suite does not default it: the
-    default lives on the model and is itself the decision (ADR-0029). A test that wants the default
+    default lives on the model and is itself the decision (ADR-0022). A test that wants the default
     must get it from the model.
 
     `team_id` is a separate parameter rather than one of `**filters` because that is what it is on the
-    pipeline: `GET /teams/{team_id}` passes it as an argument, not as a filter field (ADR-0034).
+    pipeline: `GET /teams/{team_id}` passes it as an argument, not as a filter field (ADR-0027).
     """
     params = FLTeamsFilterParams(saison_id=SAISON, **filters)
     if scope is not None:
@@ -69,9 +69,7 @@ def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
     return {row["name"]: row["statistik"] for row in rows(league, **kwargs)}
 
 
-# ---------------------------------------------------------------------------------------------
-# The scope (ADR-0029)
-# ---------------------------------------------------------------------------------------------
+# The scope (ADR-0022)
 
 
 def test_the_default_scope_counts_only_the_gruppenphase(league: SeededLeague):
@@ -83,7 +81,7 @@ def test_the_gesamt_scope_adds_the_playoff_match(league: SeededLeague):
     """
     The same team, the same pipeline, one parameter apart.
 
-    This is the divergence ADR-0029 measured against the live database, reproduced from a fixture --
+    This is the divergence ADR-0022 measured against the live database, reproduced from a fixture --
     and the single assertion that would fail if the scope filtered on the wrong phase.
     """
     assert table(league, scope="gesamt")["Helmholtz"]["anzahl_gespielte_spiele"] == 4
@@ -103,9 +101,7 @@ def test_the_scopes_agree_for_a_team_with_no_playoff_match(league: SeededLeague)
     assert table(league)["Lessing"] == table(league, scope="gesamt")["Lessing"]
 
 
-# ---------------------------------------------------------------------------------------------
-# Which matches count (ADR-0026)
-# ---------------------------------------------------------------------------------------------
+# Which matches count (ADR-0019)
 
 
 def test_a_cancelled_match_carrying_a_result_still_counts(league: SeededLeague):
@@ -144,11 +140,6 @@ def test_a_match_from_another_season_does_not_count(league: SeededLeague):
     assert table(league)["Helmholtz"]["tore_geschossen"] == 5
 
 
-# ---------------------------------------------------------------------------------------------
-# The arithmetic
-# ---------------------------------------------------------------------------------------------
-
-
 def test_goals_are_oriented_towards_each_team(league: SeededLeague):
     """
     Both teams are embedded in one match document, so every figure depends on a `$cond` picking a side.
@@ -181,11 +172,6 @@ def test_a_defeat_is_worth_nothing(league: SeededLeague):
     assert table(league)["Bock"]["punkte"] == STANDARD_RULES.win_points
 
 
-# ---------------------------------------------------------------------------------------------
-# The join, and what it serves a team with nothing to count
-# ---------------------------------------------------------------------------------------------
-
-
 def test_a_team_with_no_counting_match_is_served_seven_zeroes(league: SeededLeague):
     """
     `$group` emits nothing at all for an empty input, so this is the `$ifNull` fallback and not a sum.
@@ -210,25 +196,20 @@ def test_the_junction_supplies_gruppe_and_disqualification(league: SeededLeague)
 
     assert by_name["Ohne"]["gruppe"] == "B"
     # The whole record travels, not a flag derived from it: the reason and the date are what FE-3's note
-    # renders, and a projection that flattened this to a boolean would pass a presence check (ADR-0059).
+    # renders, and a projection that flattened this to a boolean would pass a presence check (ADR-0047).
     assert by_name["Lessing"]["disqualifikation"] == DISQUALIFIKATION
     assert by_name["Helmholtz"]["disqualifikation"] is None
 
 
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):
     """
-    ADR-0026's whole point, made observable.
+    ADR-0019's whole point, made observable.
 
     Helmholtz's junction row carries a `statistik` of 99s. If any part of the pipeline read a stored
     copy -- or fell back to one -- these figures would be 99s instead of the derived numbers.
     """
     assert table(league)["Helmholtz"]["punkte"] == 4
     assert 99 not in table(league)["Helmholtz"].values()
-
-
-# ---------------------------------------------------------------------------------------------
-# The response shapes
-# ---------------------------------------------------------------------------------------------
 
 
 def test_the_result_validates_as_the_response_model(league: SeededLeague):

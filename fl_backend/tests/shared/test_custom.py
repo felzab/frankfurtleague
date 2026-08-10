@@ -53,12 +53,12 @@ def test_accepts_times_with_seconds(value):
     assert _Time.model_validate({"value": value}).value == value
 
 
-# The backend accepts none of these, and the frontend schema must not accept them either: a form
-# that submits a time this rejects produces a 422 the user cannot act on. This pins the backend half
-# of that contract, so the mirror has something to be checked against.
+# The backend accepts none of these, and the frontend schema must not either: a form submitting a
+# time this rejects produces a 422 the user cannot act on. This pins the backend half of that
+# contract.
 @pytest.mark.parametrize("value", ["14:30", "14:30:00.5", "24:00:00", "14:60:00", "2:30:00"])
 def test_rejects_times_without_seconds_or_out_of_range(value):
-    """Missing seconds and fractional seconds — the two shapes the frontend used to send and the API answered with 422."""
+    """Missing seconds and fractional seconds — the shapes the frontend mirror must reject identically."""
     with pytest.raises(ValidationError):
         _Time.model_validate({"value": value})
 
@@ -77,17 +77,13 @@ def test_rejects_times_without_seconds_or_out_of_range(value):
     ],
 )
 def test_accepts_http_and_https_urls(value):
-    """Both schemes, plus port, userinfo and an uppercase scheme — which a case-sensitive regex once rejected."""
+    """Both schemes, plus port, userinfo and an uppercase scheme, which zod lowercases off a parsed URL."""
     assert _Url.model_validate({"value": value}).value == value
 
 
-# The scheme allowlist is a security control, not tidiness: website_url is rendered into an href on
-# a public page, and React renders javascript: without complaint (audit R3b S8.1).
-#
-# The last four are the cases the previous regex-only check got wrong. The two embedding a valid URL
-# are the important ones: that regex was anchored only at the start, so its leading "^" carried the
-# entire scheme restriction on its own -- every other rejection case here passed even with the "^"
-# deleted, which meant nothing defended the control that actually mattered.
+# A security control, not tidiness: website_url is rendered into an href and React renders
+# javascript: without complaint. The cases EMBEDDING a valid URL matter most -- a check anchored only
+# at the start passes them.
 @pytest.mark.parametrize(
     "value",
     [
@@ -121,8 +117,8 @@ def test_rejects_non_http_schemes_and_bare_hosts(value):
 
 
 # The frontend accepts these because `new URL` punycodes the host before zod tests it. urlsplit does
-# not, so without encoding first an ordinary German umlaut domain would be rejected here -- on the
-# READ path, taking down every route that lists teams. A narrower rule than the regex it replaced.
+# not, so without encoding first an ordinary German umlaut domain is rejected here -- on the READ
+# path, taking down every route that lists teams.
 @pytest.mark.parametrize(
     "value",
     [
@@ -136,7 +132,6 @@ def test_accepts_internationalised_domains(value):
     assert _Url.model_validate({"value": value}).value == value
 
 
-# Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects.
 def test_object_id_round_trips_as_a_24_hex_string():
     """Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects."""
     parsed = _ObjectId.model_validate({"value": "6890a1b2c3d4e5f607182930"})

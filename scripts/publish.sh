@@ -1,43 +1,20 @@
 #!/usr/bin/env bash
 #
-# scripts/publish.sh — build the images and push them to GitHub Container Registry.
-# TARGET PLATFORM: Windows (your development machine).
+# SCRIPTS · build both images and push them to GitHub Container Registry.
 #
-# WHAT IT DOES, in order:
-#   1. refuses to run unless the git working tree is clean (so the tag means something)
-#   2. builds the frontend image, then the backend image
-#   3. only if BOTH built, pushes all four tags
-#   4. removes superseded LOCAL sha tags — never registry ones, see below
-#   5. prints the exact command to deploy or roll back to this build
+# Both images build, and the frontend is checked for `instrumentation.js`, before either is pushed:
+# a half-published pair lets production pull a frontend whose backend does not exist yet. Superseded
+# LOCAL sha tags are pruned afterwards, while registry retention stays a hand operation — a botched
+# delete destroys the rollback history `scripts/deploy.sh` reads, on the day it is needed most.
 #
-# WHY BOTH ARE BUILT BEFORE EITHER IS PUSHED: a half-published pair is worse than a failed build.
-# If the backend build fails after the frontend was already pushed, prod can pull a frontend that
-# expects a backend which does not exist yet.
-#
-# WHY LOCAL SHA TAGS ARE PRUNED AND REGISTRY ONES ARE NOT:
-#   deploy.sh rolls back by PULLING a pinned tag, so the registry is the rollback mechanism and a
-#   local sha tag is only a build byproduct. Left alone they never expire: each publish re-points
-#   the moving tag, but the superseded image keeps its own sha tag, so it never becomes dangling
-#   and `docker image prune` never reclaims it. That is ~750 MB per publish, accumulating with no
-#   upper bound. Pruning happens only after every push has succeeded, so the copy that matters is
-#   already in the registry before anything local is touched.
-#   Registry retention is deliberately NOT automated: a botched delete destroys rollback history,
-#   and rollback is the one thing that must work on your worst day. Prune it by hand, keeping
-#   roughly the last five per package. scripts/README.md has the procedure.
-#
-# TAGS PUSHED (one package per service, so the tag says only which build it is — ADR-0017):
-#   ghcr.io/felzab/frankfurtleague-frontend:latest        moving pointer — what deploy.sh pulls
-#   ghcr.io/felzab/frankfurtleague-frontend:sha-1a2b3c4   immutable — the rollback target
-#   ...and the same two for the backend package.
-#
-# Every image also carries OCI labels recording the commit and build time, so the server can report
-# what is running without trusting the tag name.
-#
-# USAGE:
 #   ./scripts/publish.sh                 build and push from a clean tree
-#   ./scripts/publish.sh --allow-dirty   deliberate hotfix; tag gets a -dirty suffix
+#   ./scripts/publish.sh --allow-dirty   deliberate hotfix; the tag gets a -dirty suffix
 #   ./scripts/publish.sh --dry-run       build and label, but do not push
 #   ./scripts/publish.sh --help
+#
+# See:
+# - ADR-0012 — one public package per service, so a tag says only which build it is
+# - docs/ops/spec.md — the registry, the token it needs, and the pruning procedure
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
@@ -79,8 +56,9 @@ info "frontend -> ${IMAGE_FRONTEND} + ${TAG_FE}"
 info "backend  -> ${IMAGE_BACKEND} + ${TAG_BE}"
 
 # --- build both before pushing either ---------------------------------------------------------------
-# OCI labels are the standard, tool-readable way to record provenance. `deploy.sh --status` reads them
-# back, which is how the server answers "which commit is live?" reliably.
+
+# `deploy.sh --status` reads these labels back, which is how the server answers "which commit is
+# live?" without trusting a tag name that can be moved.
 build_one() {
   local name="$1" dockerfile="$2" context="$3" moving="$4" pinned="$5"
   step "Building ${name}"
@@ -100,9 +78,10 @@ build_one "frontend" "fl_frontend/Dockerfile" "fl_frontend" "$IMAGE_FRONTEND" "$
 build_one "backend"  "fl_backend/Dockerfile"  "fl_backend"  "$IMAGE_BACKEND"  "$TAG_BE"
 
 # --- sanity check the frontend image before it can reach prod ---------------------------------------
-# At the repo root, instrumentation.ts compiles and passes the whole test gate, and is then silently
-# omitted from the standalone output — which disables the startup environment gate AND all production
-# error logging. One cheap check stops that ever shipping again.
+
+# At the repo root, instrumentation.ts compiles and passes the test gate, then is silently omitted
+# from the standalone output — which disables the startup environment gate and all production error
+# logging. One check keeps that out of the registry.
 step "Checking the frontend image is sound"
 if docker run --rm --entrypoint sh "$IMAGE_FRONTEND" -c '[ -f .next/server/instrumentation.js ]'; then
   ok "instrumentation.js is in the image (env gate + error logging will run)"
@@ -119,25 +98,29 @@ if (( DRY_RUN )); then
   exit 0
 fi
 
-step "Pushing four tags"
+step "Pushing the moving and pinned tag of each package"
 for t in "$IMAGE_FRONTEND" "$TAG_FE" "$IMAGE_BACKEND" "$TAG_BE"; do
   info "pushing ${t}"
-  # Progress deliberately NOT suppressed: a first push of a ~370 MB image is minutes of silence
-  # otherwise, which is indistinguishable from a hang.
+  # Progress deliberately NOT suppressed: a first push is minutes of silence otherwise, which is
+  # indistinguishable from a hang.
   docker push "$t" || die "push failed for ${t}.
 If this is an authentication error, log in with a token carrying write:packages:
   docker login ghcr.io -u felzab"
 done
-ok "all four tags pushed"
+ok "every tag pushed"
 
 # --- prune superseded LOCAL sha tags ---------------------------------------------------------------
-# Deliberately placed after the push loop: everything removed here is already in the registry, which
-# is the only copy deploy.sh reads. `docker image rm` on a tag untags it, and deletes the underlying
-# image only when no other tag points at it — so the moving tags built above are never at risk.
+
+# A superseded build keeps its own sha tag, so it never becomes dangling and `docker image prune`
+# never reclaims it. The registry is what `scripts/deploy.sh` rolls back from, which makes the local
+# sha tag a build byproduct.
+
+# Deliberately after the push loop: everything removed here is already in the registry, the only copy
+# deploy.sh reads. `docker image rm` untags, and deletes the image only when no other tag points at
+# it — so the moving tags built above are safe.
 step "Pruning superseded local sha tags"
-# `docker image ls` accepts at most ONE repository argument, so this is two calls rather than one
-# with both. Passing both fails, and the `|| true` below would swallow it — the prune would quietly
-# stop working and local sha tags would accumulate again with nothing to show for it.
+# `docker image ls` accepts at most one repository argument, so this is two calls. Passing both
+# fails, and the `|| true` below would swallow it — the prune would quietly stop working.
 superseded="$( { docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}'; \
                  docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}'; } \
   | grep -E ':sha-' \

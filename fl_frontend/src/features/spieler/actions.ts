@@ -8,15 +8,15 @@
  *
  * Invariants:
  * - Every action checks `getAdminSession()` and runs in `runAdminMutation` — a 409 reaches the form.
- * - Base tag only, on every action: both admin reads span every season (ADR-0001).
+ * - Base tag only, on every action: the cached spieler read spans every season (ADR-0001).
  * - `spieler` is the ONLY resource invalidated — nothing under `spiele` or `teams` reads a squad row.
  * - A junction create 409 names reactivation: the unique index keeps indexing a retired row, and
- *   creating never revives (ADR-0032).
+ *   creating never revives (ADR-0025).
  * - Create-and-enter is one action over two requests, person first — a player with no junction
  *   row is invisible to every season-scoped read.
  *
  * See:
- * - docs/frontend/spec.md — section 3, the action inventory
+ * - docs/frontend/spec.md — section 1.3, the action inventory
  */
 import { updateTag } from "next/cache";
 
@@ -56,7 +56,7 @@ import type {
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerCreateDraft } from "./types";
 
-// The index spans retired rows (ADR-0032), and reviving is deliberately not the create's job -- so
+// The index spans retired rows (ADR-0025), and reviving is deliberately not the create's job -- so
 // the message names the one path that is.
 const ALREADY_IN_SAISON =
   "Dieser Spieler hat in dieser Saison bereits einen Kadereintrag, möglicherweise einen ausgetragenen. " +
@@ -111,9 +111,9 @@ export async function postSpielerAction(
       return { success: false, error: "Beim Anlegen des neuen Spielers ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // The junction row, in the same action: without one the player is invisible to every
-    // season-scoped read (I11), including the list this form sits on. If this second request fails,
-    // the player EXISTS -- the error says so plainly rather than pretending nothing happened.
+    // The junction row, in the same action: without one the player is invisible to
+    // every season-scoped read (backend spec I11), the list this form sits on
+    // included. A failure here leaves the player EXISTING, which the message says.
     try {
       await postSaisonSpieler({
         spieler_id: postOperation.spieler_id,
@@ -127,13 +127,9 @@ export async function postSpielerAction(
       });
     } catch (error) {
       invalidateSpieler();
-      // A 409 here cannot be the player's own duplicate row -- they were created one request ago -- but
-      // it CAN be one of the two squad refusals (`REQ-SQUAD-001`/`002`), and both name something the
-      // admin can act on: the club is not in this season, or the number is taken. So the reason is read
-      // out and appended rather than swallowed.
-      //
-      // Either way the player now EXISTS without a squad entry, which the message has to say plainly.
-      // `runAdminMutation` has already logged the error with its correlation id.
+      // A 409 here cannot be the player's own duplicate row, but it CAN be a squad
+      // refusal naming something the admin can act on, so the reason is appended.
+      // Either way the player EXISTS without a squad entry, which the message says.
       const refusal = mapSquadRefusal(error);
       const because = refusal ? ` ${refusal.error ?? Object.values(refusal.fieldErrors ?? {})[0] ?? ""}` : "";
 
@@ -188,7 +184,7 @@ export async function patchSpielerAction(rawPayload: FLPatchSpielerPayload): Pro
   });
 }
 
-// A soft delete: the backend stamps `inactive_since` (ADR-0032). The player's squad rows are left
+// A soft delete: the backend stamps `inactive_since` (ADR-0025). The player's squad rows are left
 // alone -- the seasons they played still happened, and those squad lists should still name them.
 export async function deleteSpielerAction(
   rawPayload: FLDeleteSpielerPayload,
@@ -264,19 +260,18 @@ export async function postSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The 409 that matters on this surface: the unique index spans RETIRED rows, so "already there"
-    // includes a row the admin cannot currently see. Naming reactivation is the honest answer, and
-    // it lands as a form error rather than a toast because it is about what was submitted.
+    // The 409 that matters here: the unique index spans RETIRED rows, so "already
+    // there" includes one the admin cannot see. It lands as a form error rather
+    // than a toast, because it is about what was submitted.
     let saisonSpieler;
     try {
       // The club has to be in the season and the number has to be free (`REQ-SQUAD-001`/`002`). Both
       // land on the field that caused them, in the form that is still open.
       saisonSpieler = await postSaisonSpieler(validated.data);
     } catch (error) {
-      // THREE different 409s reach this call and the code separates them. The two named refusals are
-      // checked first, because the fallback has no code to inspect: a repeat row arrives from the unique
-      // index, so it is the 409 left over once `REQ-SQUAD-001`/`002` are ruled out. Without this ordering
-      // a full squad number would have been explained as "already in this season".
+      // Several different 409s reach this call and the code separates them. The named
+      // refusals are checked first, because the fallback has no code to inspect: a
+      // repeat row from the unique index is what is left once they are ruled out.
       const refusal = mapSquadRefusal(error);
       if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
       if (error instanceof APIBadStatusError && error.statusCode === 409) {
@@ -330,7 +325,7 @@ export async function patchSaisonSpielerAction(
 }
 
 // Soft, and independent of the person's own retirement: this takes the player out of ONE season's
-// squad and says nothing about whether they are still in the league (ADR-0032).
+// squad and says nothing about whether they are still in the league (ADR-0025).
 export async function deleteSaisonSpielerAction(
   rawPayload: FLSaisonSpielerKeyPayload,
 ): Promise<{ success: boolean; saison_spieler?: FLSaisonSpielerResponse; message?: string; error?: string; fieldErrors?: FieldErrors }> {

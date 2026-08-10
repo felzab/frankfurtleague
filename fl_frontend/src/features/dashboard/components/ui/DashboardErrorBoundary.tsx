@@ -16,9 +16,7 @@ export function DashboardErrorBoundary({ error, reset }: { error: Error & { dige
 
   const handleRetry = () => {
     startTransition(() => {
-      // 1. Force Next.js to clear the router cache and re-fetch the server data
       router.refresh();
-      // 2. Clear the error boundary UI so the fresh data can render
       reset();
     });
   };

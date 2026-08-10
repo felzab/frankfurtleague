@@ -5,10 +5,8 @@
  * checked at sign-in and again when the session is built.
  *
  * Invariants:
- * - The ONE place the frontend touches MongoDB directly, and only the `authjs` database (ADR-0010).
+ * - The ONE place the frontend touches MongoDB directly, and only the `authjs` database (ADR-0007).
  * - `getAdminSession()` is the single admin policy; it neither throws nor redirects, so check it.
- * - `useSecureCookies` is a string test — `new URL(...)` at module scope fails the image build,
- *   whose builder stage has no AUTH_URL at all.
  * - `role` is re-derived from ALLOWED_ADMIN_EMAILS on every session read, never stamped at
  *   sign-in — removing an address takes effect on the next request, not at expiry.
  *
@@ -41,10 +39,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Resend({
       from: "no-reply@frankfurtleague.de",
-      // 15 minutes, down from the provider's 24-hour default. A sign-in link is a bearer credential
-      // sitting in an inbox, so the window it is useful in should be the window someone actually
-      // needs to walk from "I asked for a link" to "I clicked it". `LINK_VALIDITY_TEXT` in
-      // `authEmail.ts` states this number to the reader -- keep the two in step.
+      // 15 minutes, down from the provider's 24-hour default: a sign-in link is a bearer credential
+      // sitting in an inbox. `LINK_VALIDITY_TEXT` in `authEmail.ts` states this number to the reader
+      // -- keep the two in step.
       maxAge: 15 * 60,
       /**
        * Replaces Auth.js's stock template, which sends an English subject ("Sign in to …") and a
@@ -75,7 +72,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return isUserAdmin(user?.email);
     },
     async session({ session, user }) {
-      // With a DB adapter, 'user' is the record from MongoDB
       session.user.role = isUserAdmin(user?.email) ? "admin" : "user";
       return session;
     },
@@ -84,27 +80,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // unthrottled entry point to the same email-send surface, on a URL the app never links to.
   pages: { signIn: "/signin", error: "/signin" },
 
-  // Default is a 30-day sliding window, for an interface whose only purpose is mutating league data.
-  // The lifetime is not the only revocation mechanism: the sidemenu's sign-out ends a session on
-  // demand, and the `session` callback above re-derives `role` on every read, so an address removed
-  // from the allowlist stops authorizing on the next request.
+  // 8 hours, down from a 30-day sliding default, for an interface whose only purpose is mutating
+  // league data. The lifetime is not the only revocation: sign-out ends a session on demand, and the
+  // `session` callback above re-derives `role` on every read.
   session: {
     maxAge: 60 * 60 * 8, // 8h -- one working session
     updateAge: 60 * 60, // refresh the DB row at most hourly
   },
 
   // Explicit rather than inherited from @auth/core's own derivation, so a change to its cookie
-  // defaults cannot silently drop the flag. config.ts already refuses a non-loopback http:// value.
+  // defaults cannot silently drop the flag. `config.ts` already refuses a non-loopback http:// value.
+
   // Deliberately a string test and not `new URL(...)`: this is evaluated at module scope, and the
-  // Docker builder stage has no AUTH_URL at all (SKIP_ENV_VALIDATION=true, no .env), so
-  // constructing a URL here throws and fails `docker compose build`. See ADR-0009.
+  // Docker builder stage has no AUTH_URL at all, so constructing a URL here fails the image build
+  // (ADR-0006).
   useSecureCookies: (frontend_config.AUTH_URL ?? "").toLowerCase().startsWith("https://"),
 
   logger: {
     error(error) {
-      // Matched on the type only. The previous `message.includes("AccessDenied")` clause was an
-      // unbounded substring test that would silently swallow any wrapped or aggregated error
-      // quoting the string -- and this stream is the main signal that authorization is misbehaving.
+      // Matched on the type only: an unbounded `message.includes("AccessDenied")` test would swallow
+      // any wrapped or aggregated error quoting the string, and this stream is the main signal that
+      // authorization is misbehaving.
       if (error?.name === "AccessDenied") {
         logger.warn("auth.access_denied", { name: error.name, error_code: "FE-AUTH-001" });
         return;
@@ -121,8 +117,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
  * The single definition of the admin policy. Returns the session when the caller is an admin, and
  * `null` when it is not -- the caller decides whether that means `redirect()` or a refused action.
  *
- * Named `get...`, not `require...`, on purpose: it neither throws nor redirects, so
- * `await getAdminSession();` on its own line guards nothing. **The return value must be checked.**
+ * Named `get...`, not `require...`, on purpose: `await getAdminSession();` on its own line guards
+ * nothing. **The return value must be checked.**
  *
  * One definition for all eight callers (seven server actions plus the proxy): spelling the test out
  * at each site would make a change of policy eight edits, and a missed one invisible.

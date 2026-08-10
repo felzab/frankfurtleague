@@ -8,7 +8,7 @@ the pipeline joins them and flattens the result into `FLSpieler`.
 Invariants:
 - Season filters are injected inside the `$lookup` sub-pipeline, never applied after the join.
 - Filter values keep their ObjectId type via `model_dump(context={"keep_oid": True})`.
-- `build_spieler_pipeline` flattens and `build_spieler_memberships_pipeline` does not (ADR-0034).
+- `build_spieler_pipeline` flattens and `build_spieler_memberships_pipeline` does not (ADR-0027).
 """
 
 from typing import Any, Iterable, Mapping
@@ -23,67 +23,56 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
 
     pipeline: list[Mapping[str, Any]] = []
 
-    # Dump the filters model, excluding null and sorting/pagination fields while keeping oids as oids.
-    # `include_inactive` is excluded too: it is a switch whose False means "add a filter", so dumping
-    # it by value would write `include_inactive: False` into the query as a field to match on.
+    # `include_inactive` is excluded from the dump: it is a switch whose False means "add a filter", so
+    # dumping it by value would write `include_inactive: False` into the query as a field to match on.
     active_filters = filters.model_dump(
         exclude_none=True,
         exclude={"limit", "sort_by", "order", "include_inactive"},
         context={"keep_oid": True},
     )
 
-    # Retired PEOPLE, filtered on the base collection before the join (ADR-0032).
+    # Retired PEOPLE, filtered on the base collection before the join (ADR-0025).
     if not filters.include_inactive:
         pipeline.append({"$match": {"inactive_since": None}})
 
-    # Build the Sub-Pipeline for early filtering
-    lookup_pipeline: list[Mapping[str, Any]] = [
-        # Always match the foreign key to the base player first
-        # spieler_id from saison_spieler matches to _id from spieler
-        {"$match": {"$expr": {"$eq": ["$spieler_id", "$$base_spieler_id"]}}}
-    ]
+    # A sub-pipeline rather than a post-join `$match`: every filter here narrows the junction BEFORE
+    # the rows are attached, so the join never carries a season this request did not ask for.
+    lookup_pipeline: list[Mapping[str, Any]] = [{"$match": {"$expr": {"$eq": ["$spieler_id", "$$base_spieler_id"]}}}]
 
     # Retired SQUAD ROWS, which is a different fact from a retired person: a player who left one
     # team's squad still plays. Filtered inside the join, so it narrows before anything is unwound.
     if not filters.include_inactive:
         lookup_pipeline.append({"$match": {"inactive_since": None}})
 
-    # Inject season-specific filters directly into the join.
-    # No 'saison_data.' prefix is needed because we are querying the season collection directly.
+    # No `saison_data.` prefix: inside the sub-pipeline the junction document IS the root.
     if active_filters:
         lookup_pipeline.append({"$match": active_filters})
 
-    # The Expressive Join
-    # 1. Looks at current spieler document
-    # 2. Searches the 'from' collection (saison_spieler) where spieler._id == saison_spieler.spieler_id
-    # 3. Appends all matches into the 'as' array (saison_data) in every spieler document
     pipeline.append(
         {
             "$lookup": {
                 "from": Collection.SAISON_SPIELER,
-                "let": {"base_spieler_id": "$_id"},  # Pass the base player's _id into the sub-pipeline
+                "let": {"base_spieler_id": "$_id"},
                 "pipeline": lookup_pipeline,
                 "as": AS_NAME,
             }
         }
     )
 
-    # Array flattening:
-    # 1. Takes every item from the saison_data array
-    # 2. Duplicates the base spieler document as many times as there are entries
-    # 3. Assigns each duplicated document one of the saison_data arrays entries
+    # One row per membership, so a player in two seasons is two documents -- which is the shape
+    # `GET /spieler` serves and the reason it cannot answer the admin list's question (ADR-0027).
     strict_join = bool(filters.saison_id or filters.team_id)
     pipeline.append(
         {
             "$unwind": {
-                "path": f"${AS_NAME}",  # The array that should be flattened (saison_data)
-                "preserveNullAndEmptyArrays": not strict_join,  # Excludes spieler documents without season specific data
+                "path": f"${AS_NAME}",
+                # Preserved unless a season or team filter is set: without one, a player with no squad
+                # row is still a player, and dropping them would make an unfiltered list incomplete.
+                "preserveNullAndEmptyArrays": not strict_join,
             }
         }
     )
 
-    # Projection:
-    # Project expected data
     pipeline.append(
         {
             "$project": {
@@ -104,8 +93,8 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
         }
     )
 
-    # Sorting:
-    # Now that the fields are all at the root, we can sort with just the string field name
+    # After the projection, so a bare field name reaches the root copy rather than the nested one.
+    # `vorname`/`nachname` are tiebreakers, so an equal sort key still orders deterministically.
     pipeline.append(
         {
             "$sort": {
@@ -116,8 +105,6 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams) -> list[Mapping[str, 
         }
     )
 
-    # Limiting:
-    # Limit the number of documents returned
     if getattr(filters, "limit", None) is not None:
         pipeline.append({"$limit": filters.limit})
 
@@ -166,19 +153,14 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
     ]
 
 
-# =====================================================================================================
-# WHAT A SQUAD WRITE REFUSES
-# =====================================================================================================
-
 # The squad row names a team holding no `saison_teams` row for that season (decided 2026-08-08). A player
 # listed for a club that is not in the competition, which is the same dangling reference
-# `REQ-ELIGIBILITY-002` refuses on the match side -- and it was open here while closed there.
+# `REQ-ELIGIBILITY-002` refuses on the match side.
 SQUAD_TEAM_NOT_IN_SAISON = "REQ-SQUAD-001"
 
-# Two players in one team and one season wearing the same number. Refused only where the write INTRODUCES
-# the collision (decided 2026-08-08): a row nobody touches keeps whatever number it holds, so existing data
-# is never made uneditable, and the same clause shape `find_eligibility_refusal` uses for a newly fielded
-# team applies here for a newly taken number.
+# Two players in one team and one season wearing the same number. Refused only where the write
+# introduces the collision (decided 2026-08-08): a row nobody touches keeps its number, so existing
+# data is never made uneditable.
 SQUAD_NUMMER_TAKEN = "REQ-SQUAD-002"
 
 

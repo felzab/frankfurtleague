@@ -35,16 +35,13 @@ export type FLSpielerDraftFields = {
   } | null;
 };
 
-/** The panel a field renders in — the change list's section heading. */
 export type FLSpielerFieldGroup = "Person" | "Kader";
 
-/** What the page knows about one editable field right now. */
 export type FLSpielerFieldStatus = {
   path: string;
   label: string;
   group: FLSpielerFieldGroup;
   isChanged: boolean;
-  /** The schema's message for this field, or `null`. */
   error: string | null;
   storedText: string | null;
   draftText: string | null;

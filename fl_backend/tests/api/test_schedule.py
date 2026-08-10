@@ -1,7 +1,7 @@
 """
 SAISONS · the schedule a season's rules imply — pure arithmetic, default tier
 
-These are the numbers `spieltage.anzahl_spiele` reports (ADR-0065). The season the league is
+These are the numbers `spieltage.anzahl_spiele` reports (ADR-0052). The season the league is
 actually playing is the fixture this file keeps returning to, because it is the one case where
 the answer is known independently of the arithmetic: 4 groups of 4 play 3 group matchdays of 8
 matches, then 4, 2 and 1.
@@ -168,7 +168,7 @@ class TestTheWholeSeason:
 
         Read off `/admin/spieltage` on 2026-08-07 — three group matchdays of 8, then 4, 2 and 1. Every
         number below was entered by hand into `anzahl_spiele` and every one of them agrees with the rules,
-        which is the evidence that the field was derivable all along (ADR-0065).
+        which is the evidence that the field was derivable all along (ADR-0052).
         """
 
         schedule = schedule_for(rules())

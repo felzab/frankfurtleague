@@ -8,26 +8,15 @@ import { BrandLink } from "../../ui/BrandLink";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
 import { TopNavLinksDropdown } from "./TopNavLinksDropdown";
 
-// Sync, and the dropdown is rendered bare: TopNavLinksDropdown holds no hooks that need a request
-// and no data, so a Suspense boundary around it would guard nothing and only add a resumable slot to
-// the PPR shell. The whole nav is part of the static shell.
-//
-// `px-4` with no `sm:px-6`: the sidemenu's header is `px-4` at every width, so the two bars put the
-// wordmark in the same place. A responsive step here shifts it 8px from `sm` up when crossing
-// between a public route and the dashboard.
-//
-// The menu's six links live here rather than inside the client component: they are static markup
-// with no interactivity of their own, so this file renders them on the server and passes them down.
-// `ThemeSwitch` is the one genuinely interactive leaf and stays a client island.
+// Sync, and the dropdown rendered bare: it holds no hooks needing a request, so a
+// Suspense boundary would guard nothing and add a resumable slot to the PPR shell.
+// `px-4` at every width, matching the sidemenu header, so the wordmark cannot shift.
 export function TopNav() {
   return (
     <nav className="flex h-(--navbar-height) w-full items-center justify-between px-4">
-      {/* Brand Logo Area */}
       <BrandLink />
 
-      {/* Navigation Links Area */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* Desktop Links (Hidden on Mobile) */}
         <div className="hidden items-center gap-1 lg:flex">
           <Link
             href="/dashboard"
@@ -41,7 +30,6 @@ export function TopNav() {
             Verwalten
           </Link>
 
-          {/* Semantic Divider instead of an empty hardcoded div (We use this div instead of a HeroUI Separator because of performance)*/}
           <div
             className="bg-border ml-2 h-8 w-px"
             aria-hidden="true"
@@ -49,7 +37,6 @@ export function TopNav() {
         </div>
 
         <TopNavLinksDropdown>
-          {/* SECTION 1: Mobile-Only Links */}
           <Dropdown.Section
             className="lg:hidden"
             aria-label="Dashboard-Links">
@@ -74,7 +61,6 @@ export function TopNav() {
 
           <Separator className="my-1 lg:hidden" />
 
-          {/* SECTION 2: Global Links */}
           <Dropdown.Section aria-label="Allgemeine Links">
             <Dropdown.Item
               id="about"
@@ -106,7 +92,6 @@ export function TopNav() {
 
           <Separator className="my-1" />
 
-          {/* SECTION 3: App Controls */}
           <Dropdown.Section aria-label="Einstellungen">
             {/* See the identical row in `SidemenuOptionsMenu` for why this row does not close. */}
             <Dropdown.Item

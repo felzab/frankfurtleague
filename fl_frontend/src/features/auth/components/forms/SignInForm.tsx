@@ -16,13 +16,9 @@ import type { FormState } from "@/shared/types/types";
 export function SignInForm() {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
-  // The action does not navigate, so this panel is what the user sees after a submit. It says the
-  // same thing for an allowlisted and a non-allowlisted address -- that neutrality is the whole
-  // point, and it is why the copy is conditional ("falls ... freigegeben") rather than a promise.
-  //
-  // `dismissedAt` is what lets "Andere Adresse verwenden" bring the form back: `useActionState` has
-  // no reset, and the previous result stays in state until the next submit, so the panel is keyed off
-  // the pair rather than off `state` alone.
+  // The action does not navigate, so this panel is what the user sees, and it says
+  // the same thing either way. `dismissedAt` is what lets "Andere Adresse verwenden"
+  // return the form: `useActionState` has no reset, so the panel is keyed on a pair.
   const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
   const isSubmitted = state?.success === true && state !== dismissedAt;
 
@@ -33,9 +29,9 @@ export function SignInForm() {
     // form in the app. The toast is kept for failures that belong to no field.
     if (hasFieldErrors(state.fieldErrors)) return;
 
-    // No "Schließen" action and no hand-set timeout any more: the close control is now permanently
-    // visible and hittable on the frontmost toast (ADR-0053), so a button whose only job was to
-    // dismiss duplicated it — and the duration follows the message length rather than a constant.
+    // No "Schließen" action and no hand-set timeout: the close control is
+    // permanently visible on the frontmost toast (ADR-0043), so a dismiss button
+    // duplicates it, and the duration follows the message length.
     appToast.danger("Anmeldung fehlgeschlagen", {
       description: state.error ?? "Ein unerwarteter Fehler ist aufgetreten.",
     });
@@ -44,7 +40,6 @@ export function SignInForm() {
   return (
     <div className="flex min-h-[calc(100vh-var(--navbar-height))] w-full flex-1 items-center justify-center px-4 py-8">
       <div className="border-border bg-surface/95 w-full max-w-[460px] rounded-3xl border p-8 shadow-2xl backdrop-blur-xl sm:p-10">
-        {/* Header */}
         <div className="flex flex-col items-center pb-6 text-center">
           <span className="mb-3 text-4xl sm:text-5xl">⚽</span>
           <h1 className="fluid-2xl text-foreground font-black tracking-tight uppercase">Einloggen</h1>
@@ -54,10 +49,9 @@ export function SignInForm() {
         <div className="border-border mb-8 h-[1px] w-full" />
 
         {isSubmitted ? (
-          /* Deliberately says "falls diese Adresse freigegeben ist" and never "wir haben gesendet".
-             The action returns the same result for an allowlisted and a rejected address, and this
-             panel is what the user sees in both cases — a confirmation that named a real outcome
-             would hand back exactly the membership test the action removes. */
+          /* Deliberately "falls diese Adresse freigegeben ist", never "wir haben
+             gesendet": the action answers identically either way, and a
+             confirmation naming a real outcome is the membership test again. */
           <div
             role="status"
             className="flex flex-col items-center gap-y-3 py-6 text-center">
@@ -104,7 +98,6 @@ export function SignInForm() {
               </Tabs.List>
             </Tabs.ListContainer>
 
-            {/* Admin Form */}
             <Tabs.Panel id="Admin">
               <Form
                 action={formAction}
@@ -140,7 +133,6 @@ export function SignInForm() {
               </Form>
             </Tabs.Panel>
 
-            {/* Spieler Form */}
             <Tabs.Panel id="Spieler">
               <Form className="flex flex-col gap-y-5">
                 <TextField

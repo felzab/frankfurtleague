@@ -18,7 +18,6 @@ export function SaisonDraftStatusProvider({ status, children }: { status: FLSais
   return <SaisonDraftStatusContext.Provider value={status}>{children}</SaisonDraftStatusContext.Provider>;
 }
 
-/** The whole picture, for the rail and the action bar. */
 export function useSaisonDraftStatus(): FLSaisonDraftStatus {
   const status = useContext(SaisonDraftStatusContext);
   if (status === undefined) {
@@ -27,7 +26,6 @@ export function useSaisonDraftStatus(): FLSaisonDraftStatus {
   return status;
 }
 
-/** One field's status by its payload path; `undefined` for a path with no descriptor. */
 export function useSaisonFieldStatus(path: string): FLSaisonFieldStatus | undefined {
   return useSaisonDraftStatus().byPath.get(path);
 }

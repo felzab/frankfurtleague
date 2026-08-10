@@ -83,7 +83,7 @@ class TestTheBracketMustHaveAShape:
         32 is a power of two and still has nowhere to play until a fifth knockout phase exists.
 
         The message names `MAX_QUALIFIERS` rather than a hardcoded 16, so adding a phase changes the bound
-        and the wording together (ADR-0065).
+        and the wording together (ADR-0052).
         """
 
         refusal = judge(proposed=rules(groups=4, per_group=8, qualifiers=8))
@@ -153,7 +153,7 @@ class TestNarrowingTheGroupCount:
         """
         The caller counts every junction row including disqualified ones, and this pins that reading.
 
-        A team never leaves a season (ADR-0033), so its place stays taken — the same rule `REQ-ENTER-003`
+        A team never leaves a season (ADR-0026), so its place stays taken — the same rule `REQ-ENTER-003`
         applies when refusing an entry into a full group.
         """
 
@@ -187,7 +187,7 @@ class TestNarrowingTheQualifiers:
         """
         A slot naming `2. der Gruppe A` in a season that now qualifies one per group.
 
-        The resolution CONTAINS that state and reports it as a bracket fault (ADR-0047) rather than
+        The resolution CONTAINS that state and reports it as a bracket fault (ADR-0039) rather than
         emptying the slot — but it reports it to whoever opens the triage list, not to whoever caused it.
         """
 
@@ -212,7 +212,7 @@ class TestAFinishedSeasonFreezes:
     )
     def test_refuses_a_change_to_any_of_the_three_frozen_fields(self, field, changed):
         """
-        The reason is that the league table is DERIVED (ADR-0026).
+        The reason is that the league table is DERIVED (ADR-0019).
 
         Editing the points of a finished season rewrites who won it, on the next read, with nothing
         anywhere recording what it said before.
@@ -245,7 +245,7 @@ class TestAFinishedSeasonFreezes:
         """
         Not frozen, because it bounds what a FORM offers and never what a stored squad row holds.
 
-        A row's level is held to the league's own closed set (ADR-0061), so narrowing a finished season
+        A row's level is held to the league's own closed set (ADR-0048), so narrowing a finished season
         cannot retroactively invalidate the squads it was played with.
         """
 
@@ -276,7 +276,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
     """
     The sixth rule, and the one that reaches furthest (decided 2026-08-08).
 
-    A matchday's expected match count is derived from these rules (ADR-0065), so lowering
+    A matchday's expected match count is derived from these rules (ADR-0052), so lowering
     `number_of_groups` or `teams_per_group` lowers it for every group-phase matchday of the season at
     once, and lowering `qualifiers_per_group` shortens the knockout ladder. Either can leave a matchday
     holding more fixtures than its own phase accounts for — which is the direction no season setup passes
@@ -361,7 +361,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
 
 class TestAGroupCannotQualifyMoreThanItHolds:
     """
-    The seventh rule (decided 2026-08-08), and it was a warning banner that saved.
+    `REQ-RULES-007` (decided 2026-08-08): a browser warning alone lets the save through.
 
     `qualifiers_per_group` above `teams_per_group` asks each group for more placings than it has teams,
     so the seeding walk requests a placing no standing will ever hold — the same incoherence

@@ -25,7 +25,7 @@ import type { FLActionUrgency } from "../../utils";
  * **It lives in the URL and nowhere else, and that is a correctness requirement rather than a
  * convenience.** The App Router keeps an admin tree alive between navigations, so a selection held in
  * `useState` — or inside an uncontrolled `Tabs` — survives a round trip to the editor and comes back
- * describing the page as it was, which is the failure class `docs/frontend/spec.md` §12 records
+ * describing the page as it was, which is the failure class `docs/frontend/spec.md` §1.10 records
  * against the editor's own draft. State derived from a search param cannot go stale that way, because
  * the URL is what changed; it is also what Next recommends for exactly this hazard, and it makes the
  * page linkable.
@@ -77,18 +77,16 @@ export function AdminSpieleActionRequiredView({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Memoised by hand because the React Compiler is deliberately off (see `next.config.ts`). Without
-  // it, every section switch re-partitions the whole match list — eight fresh arrays and an O(n) pass
-  // with six predicates per match — to produce the identical result.
+  // Memoised by hand because the React Compiler is deliberately off (see `next.config.ts`): without
+  // it, every section switch re-partitions the whole match list to produce the identical result.
   const sections = useMemo(
     () => buildActionRequiredSections({ spiele: overviewSpiele, today, bracketFaults }),
     [overviewSpiele, today, bracketFaults],
   );
 
-  // Derived here rather than in `buildActionRequiredSections`, which sorts matches and has no business
-  // deriving German. Keyed by `spiel_id` so each card can state its OWN reasons (decided 2026-08-08):
-  // one shared box named every fixture in the section and left the reader matching match numbers back
-  // to cards by eye, which is exactly the work the card is there to save.
+  // Derived here rather than in `buildActionRequiredSections`, which sorts matches and has no
+  // business deriving German. Keyed by `spiel_id` so each card states its OWN reasons: one shared
+  // box leaves the reader matching match numbers to cards by eye.
   const faultsBySpielId = useMemo(() => groupBracketFaultsBySpielId(bracketFaults), [bracketFaults]);
 
   /**
@@ -109,7 +107,7 @@ export function AdminSpieleActionRequiredView({
    * Moves the selection without leaving the page.
    *
    * `window.history.replaceState` rather than `router.replace`, and the reason is what this page
-   * costs: its query is deliberately uncached (ADR-0013), so a router navigation would re-read the
+   * costs: its query is deliberately uncached (ADR-0009), so a router navigation would re-read the
    * whole archive from FastAPI to change which of the already-loaded sections is on screen. The native
    * History API is Next's documented escape for exactly this — it "integrates into the Next.js
    * Router", so `useSearchParams` re-renders with the new value and browser history stays coherent.
@@ -141,17 +139,9 @@ export function AdminSpieleActionRequiredView({
   }
 
   return (
-    // Every class below that can be `SpielplanView`'s is `SpielplanView`'s, down to the breakpoints:
-    // the two are the same control doing the same job — a tab strip over a grid of match cards — and
-    // spelling either one by hand is how they came to differ. What is NOT shared is the selection:
-    // that strip is uncontrolled, and this one is driven from the URL for the reasons on
-    // `SECTION_PARAM`.
-    //
-    // `selectedKey` / `onSelectionChange` is HeroUI v3's controlled Tabs API, not `value` / `onChange`
-    // — the latter belongs to the field components (`Select`, `TimeField`), which HeroUI remaps.
-    // `Tabs` is a pass-through to React Aria: `TabsRoot` spreads its props straight into
-    // `react-aria-components/Tabs`, whose `TabListProps` declares exactly these three.
-    // See: https://heroui.com/react/llms-full.txt — "Controlled Tabs"
+    // Every class below that can be `SpielplanView`'s is: one control, one job. What is
+    // NOT shared is the selection, which here comes from the URL (`SECTION_PARAM`).
+    // `selectedKey` is HeroUI v3's Tabs API, never the field components' `value`.
     <Tabs
       selectedKey={activeSection.category}
       onSelectionChange={(key: Key) => selectSection(String(key))}
@@ -193,14 +183,9 @@ export function AdminSpieleActionRequiredView({
                   <Tabs.Tab
                     key={section.category}
                     id={section.category}
-                    /* The tab says `short`, and with eight of them that is what keeps the strip on one
-                     row at desktop width.
-
-                     **`w-fit` undoes HeroUI's `w-full` on `.tabs__tab`, and that is the whole width
-                     rule.** Left at `w-full` inside a list that is `min-w-full`, the tabs share the
-                     rail equally and a strip of three becomes three 400px slabs; `w-fit` sizes each to
-                     its own label instead, and the padding — `SpielplanView`'s, unchanged — is what
-                     keeps that from reading as cramped. */
+                    /* The tab says `short`, which is what keeps the strip on one row at desktop
+                     width. **`w-fit` undoes HeroUI's `w-full` on `.tabs__tab`**: left at `w-full`
+                     inside a `min-w-full` list, the tabs share the rail equally and become slabs. */
                     className={`${TAB_ITEM} flex h-11 w-fit items-center gap-x-2 px-5 whitespace-nowrap md:px-6`}>
                     {label.short}
                     <span className={`${COUNT_BADGE} ${isActive ? SELECTED_BADGE : isCleared ? CLEARED_BADGE : URGENCY_BADGE[label.urgency]}`}>
@@ -239,12 +224,9 @@ export function AdminSpieleActionRequiredView({
               title="Keine Spiele in dieser Kategorie!"
             />
           ) : (
-            // The app's one card grid, at the app's breakpoints, holding the app's one admin match
-            // card. The only thing this page adds to a card is its faults.
-            //
-            // Handed to EVERY section, not only `bracket_fault`: the fault check is deliberately not
-            // exclusive, so a fixture with a broken reference is also listed under its missing date —
-            // and the reason it blocks the bracket is worth reading wherever the fixture appears.
+            // The app's one card grid, holding its one admin match card. Faults go to EVERY section
+            // rather than `bracket_fault` alone: the check is not exclusive, and why a fixture
+            // blocks the bracket is worth reading wherever it appears.
             <div
               role="list"
               className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>

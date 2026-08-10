@@ -9,7 +9,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { FormModal } from "@/shared/components/ui/FormModal";
 
 /**
- * Takes no data at all, which makes it the simplest of the four create triggers.
+ * Takes no data at all, which makes it the simplest of the create triggers.
  *
  * The club and player creates need the season list because one form also enters the new row into a
  * season; a season has nothing to be entered into, so this trigger renders immediately with no `Suspense`

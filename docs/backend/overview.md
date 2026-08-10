@@ -1,17 +1,13 @@
 # Backend — overview
 
-**Verified against:** `09f903d`, 2026-08-08
+**Verified against:** `7555ecd`, 2026-08-09\
 **Scope:** `fl_backend/`
 
-A FastAPI application over MongoDB. **Fifteen routers**: `system`, plus a read and a write router for
-each of the seven resources. Reads are guarded by `verify_access_base` and writes by
-`verify_access_admin`, at ROUTER level, so an endpoint can only reach the wrong authorization by being
-written in the wrong file ([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)).
-
-The single fact that explains most of its shape: **no browser ever talks to this service.** nginx routes
-`/api` here, but the only client is the Next.js container making server-side calls. That is why
-authentication is three shared API keys rather than user sessions, why there is no CORS story worth
-speaking of, and why caching lives entirely in the frontend.
+A FastAPI application over MongoDB, with a read router and a write router per resource plus `system`.
+The single fact that explains most of its shape: **no browser ever talks to this service.** nginx
+routes `/api` here, but the only client is the Next.js container making server-side calls — which is
+why authentication is shared API keys rather than user sessions, and why caching lives entirely in the
+frontend. The endpoint inventory is [`spec.md`](spec.md) §1.1.
 
 ## How it is organised
 
@@ -22,8 +18,9 @@ fl_backend/
 │   ├── main.py        `create_app()`: middleware, router registration. Builds nothing on import
 │   ├── core/          infrastructure: config · db · security · crud · dependencies · routing
 │   │                  exceptions · exception_handlers · middlewares · logging
-│   │                  collections · constraints · domain — the three declarations
+│   │                  collections · constraints · domain — the declarations read as data
 │   ├── api/<entity>/  one package per entity: router · admin_router · schemas · services · crud
+│   │                  saisons adds cache.py (ADR-0056) and schedule.py (ADR-0052)
 │   └── shared/        schemas reused across entities (addresses, kontakt, custom types)
 └── tests/             pytest — schema constraints by default; `-m db` adds a real mongod
 ```
@@ -31,31 +28,27 @@ fl_backend/
 `api/<entity>/` is the repeating unit. `router.py` declares endpoints and does orchestration;
 `schemas.py` holds the Pydantic models; `services.py` holds pure query-building and computation; and
 `crud.py` holds slice-level database access that more than one endpoint needs, or that is too large to
-sit inside a handler. Not every entity has all five files — `services.py` exists only where there is
-real logic to hold, and `crud.py` only in `saisons` and `spiele`.
+sit inside a handler. A slice carries only the files it needs: `services.py` where there is real logic
+to hold, `crud.py` where more than one endpoint reaches the database the same way.
 
-Seven resources — `saisons`, `schiedsrichter`, `spiele`, `spieler`, `spielorte`, `spieltage`, `teams` —
-each with a `router.py` and an `admin_router.py`, plus `system`. All are mounted under
-`/api/v{API_VERSION}`, where `API_VERSION` is a **constant** in `app/core/config.py` rather than a
-setting: the version is a property of the code that implements it, so an environment able to set it
-could serve `/api/v2/` from code implementing v0.
+Every entity package under `app/api/` has a `router.py` and an `admin_router.py`, and all are mounted
+under `/api/v{API_VERSION}`, which is a constant of the code rather than a setting
+([`spec.md`](spec.md) §1.5).
 
 ## Authorization
 
-Three bearer keys, not user identities:
+Bearer keys, not user identities:
 
 | Key      | Guards                                | Used by                |
 | -------- | ------------------------------------- | ---------------------- |
-| `base`   | the seven read routers                | every normal page load |
-| `admin`  | the seven write routers               | every mutation         |
+| `base`   | every read router                     | every normal page load |
+| `admin`  | every write router                    | every mutation         |
 | `system` | `/system/is_ready` and `/system/info` | health and diagnostics |
 
-Comparison is constant-time (`secrets.compare_digest`). Guards are applied **at router level**, so a
-new endpoint inherits its router's protection rather than needing its own decorator — the one design
-choice here that actively prevents a class of mistake.
-
-`/system/is_live` is deliberately unguarded: it is the container healthcheck, and a healthcheck that
-needs a secret is a healthcheck that fails for the wrong reasons.
+Guards sit on the `APIRouter` rather than on an endpoint, so an endpoint reaches the wrong
+authorization only by being written in the wrong file ([`spec.md`](spec.md) I7). `/system/is_live` is
+deliberately unguarded: it is the container healthcheck, and a healthcheck that needs a secret is a
+healthcheck that fails for the wrong reasons.
 
 ## Data access
 
@@ -63,44 +56,21 @@ Motor, async throughout, with the client created once in the FastAPI `lifespan` 
 `app.state`. Collections are injected as typed dependencies (`SpieleCollection`, `TeamsCollection`, …)
 rather than reached for directly.
 
-**The application crashes at startup if MongoDB is unreachable.** `lifespan` pings the server and
-re-raises anything that fails. This is intentional: a container that starts without a database is a
-container that serves errors, and the healthcheck would rather it never come up.
+**The application refuses to start unless MongoDB answers and the database's own constraints apply.**
+`lifespan` pings the server, then `core/constraints.py` reapplies every `$jsonSchema` validator and
+unique index on every boot ([`spec.md`](spec.md) I9 and I15,
+[ADR-0020](../_decisions/0020-the-database-enforces-its-own-invariants.md)) — so the cluster cannot hold
+a set this repository does not describe, and a constraint survives a restore. The validators are a
+hand-written third copy of the schema rather than a generated one
+([ADR-0024](../_decisions/0024-the-third-copy-of-the-schema-is-checked-not-generated.md), and
+[`spec.md`](spec.md) I17), which is what keeps the rules where a hand edit lands: `saison_teams` and
+`saison_spieler` have write payloads but no stored-document model, and Compass is reachable whatever the
+API offers. The database user's `collMod` requirement is [`spec.md`](spec.md) §4.
 
-**It also crashes if the database's own constraints cannot be applied**, which happens in the same
-place immediately after the ping. `core/constraints.py` declares a `$jsonSchema` validator for each of
-the nine collections and four unique indexes, and reapplies all of them on every boot
-([ADR-0027](../_decisions/0027-the-database-enforces-its-own-invariants.md)) — so the cluster can never
-hold a set this repository does not describe, and a constraint survives a restore. Every collection now
-has endpoints that write it
-([ADR-0034](../_decisions/0034-the-write-path-is-resource-first-in-a-second-router.md)), but the rules
-stay where the hand-edit lands: `saison_teams` and `saison_spieler` have no Pydantic model at all, and
-Compass remains reachable whatever the API offers.
-
-Two things about that module are easy to get wrong:
-
-- **The validators are a hand-written third copy of the schema, and that is deliberate**
-  ([ADR-0031](../_decisions/0031-the-third-copy-of-the-schema-is-checked-not-generated.md)). Generating
-  them from the Pydantic models types every ObjectId reference as a string, because `CustomObjectId`
-  emits a bare `{"type": "string"}` in JSON mode (BE-6) — which would bless the exact defect the
-  validators exist to refuse. A default-tier test compares the two copies field-by-field instead, so a
-  model changed without its validator fails `./scripts/verify.sh` naming the field.
-- **The database user needs `collMod`**, a `dbAdmin` action that `readWrite` and
-  `readWriteAnyDatabase` do not carry — though both do carry `createIndex`, so the indexes build and
-  the validators do not. Run `python -m app.core.constraints --check` to see the answer, along with
-  every document the validators would reject and every key group that would stop an index building. It
-  writes nothing, and it is what to run before deploying a change to that file.
-
-All raw database access goes through six helpers in `core/crud.py`. One of them carries a trap worth
-knowing before you read any write code: **`patch_one_in_db` returns the document as it was _before_ the
-update** — its `return_document` defaults to `ReturnDocument.BEFORE`. The venue, referee and team
-patches pass `ReturnDocument.AFTER` explicitly, because they fan the new values out into every match
-embedding them; a caller that forgets would fan out the values it just replaced.
-
-**`patch_spiel_data` is the one caller that wants the default, and says so.** It reads `saison_id` off
-the returned pre-image to scope the bracket it then resolves
-([ADR-0042](../_decisions/0042-a-result-entry-resolves-the-whole-bracket.md)), which is safe there and
-only there: `saison_id` is on no payload, so the `$set` it just performed cannot have changed it.
+**Shared database access goes through the helpers in `core/crud.py`**; a handler needing a
+session-scoped or projected read calls Motor directly. The one helper carrying a trap is
+`patch_one_in_db`, whose `return_document` defaults to `ReturnDocument.BEFORE` —
+[`spec.md`](spec.md) I2 states what depends on that and which handlers override it.
 
 ## Time
 
@@ -113,51 +83,25 @@ format is not negotiable.
 
 Every failure is a `BaseAPIException` carrying an `error_code` alongside a message
 (`REQ-AUTH-002`, `DB-CONN-001`, `DB-COMMON-001`), so a log line names a specific failure rather than a
-status class. Four subclasses exist — authorization (401), database unavailable (503, with
-`Retry-After`), document not found (404) and document conflict (409) — and the handlers in
-`app/core/exception_handlers.py` carry codes of their own for the failures no subclass raises. The
-full table, and the rule that every failure response is `{error_code, correlation_id}`, is
-[`docs/logging.md`](../logging.md).
+status class. The subclasses, the handlers in `app/core/exception_handlers.py` that carry codes of their
+own, the full table, and the rule that every failure response is `{error_code, correlation_id}` are
+[`docs/logging/error-codes.md`](../logging/error-codes.md).
 
 ## Testing
 
-`fl_backend/tests/` runs in **two tiers** since
-[ADR-0030](../_decisions/0030-a-real-mongod-behind-a-deselected-marker.md).
+`fl_backend/tests/` runs in **two tiers**
+([ADR-0023](../_decisions/0023-a-real-mongod-behind-a-deselected-marker.md)): a default tier that needs no
+database, and a `db` tier carrying `@pytest.mark.db`, deselected by default, that runs against a real
+`mongod`. What each tier executes is [`spec.md`](spec.md) §1.6, and what the suite reaches only
+indirectly is [`spec.md`](spec.md) §4.
 
-The **default tier** is **972 cases** under parametrisation and finishes in a few seconds. It tests
-**schema constraints** — that the models reject what they should — plus every `find_*_refusal` in
-`domain.py :: RULES`, the rules encoded in `build_team_pipeline`, and the three declarations read as
-data: the database constraints, the collection names
-([ADR-0068](../_decisions/0068-one-declaration-of-the-collection-names.md)) and the domain model
-([ADR-0066](../_decisions/0066-the-domain-model-is-declared-and-conformance-checked.md)). It needs no
-running server, no database and no Docker.
-
-The **`db` tier** is **72 cases** carrying `@pytest.mark.db`, deselected by default and run with
-`pytest -m db`. They start a real `mongod` and execute two things the default tier can only describe:
-the league-table pipeline against a seeded corpus, because a pipeline is a dict MongoDB runs; and the
-`$jsonSchema` validators, because `required` inside a nullable sub-schema, and `bsonType: "int"` faced
-with a `80.0`, both behave in ways worth measuring rather than assuming.
-
-Tests live in a separate `tests/` tree rather than beside the code, unlike the frontend. That is
-Python's convention and it has a reason: a `tests` package inside `app/` would be importable as
-`app.tests` and would ship with the application. `--import-mode=importlib` is what additionally lets
-`tests/` work without `__init__.py` files and lets two test modules share a basename.
-
-That focus is the point: the frontend mirrors roughly forty backend validation constraints in Zod
-rather than enforcing them itself, and those constraints had no regression net until these tests
-existed. The frontend's toolchain runs nothing against the backend, so `scripts/verify.sh` runs
-ruff and pytest as a separate step.
-
-**What is still uncovered: `core/crud.py`, and the handler bodies that orchestrate it.** Authorization
-is no longer among them — `tests/api/test_admin_guard.py` walks `app.openapi()["paths"]` and fails if a
-write endpoint loses its guard — and neither is the refusal logic every write performs, which is pure
-and so is covered without a server. What remains is the code between those two. That boundary belongs to
-the planned backend audit, which wants one strategy across those layers — and which now inherits the
-`mongod` fixture rather than having to invent one.
-See [`../../fl_backend/tests/README.md`](../../fl_backend/tests/README.md).
+The frontend mirrors the backend's validation constraints in Zod rather than enforcing them itself, so
+this suite is the only regression net under them. The frontend's toolchain runs nothing against the
+backend, which is why `scripts/verify.sh` runs ruff and pytest as a separate step.
 
 ## Read next
 
-- [`spec.md`](spec.md) — endpoint inventory, contracts, invariants
+- [`spec.md`](spec.md) — the endpoint inventory, the contracts and the invariants
 - [`../glossary.md`](../glossary.md) — the German domain vocabulary
 - [`../frontend/overview.md`](../frontend/overview.md) — the only client
+- [`../ops/overview.md`](../ops/overview.md) — the container this runs in

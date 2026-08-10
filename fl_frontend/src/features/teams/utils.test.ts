@@ -3,7 +3,7 @@
  *
  * `computeQualifyingTeamIds` and `computePlatzByTeamId` have to agree with a rule that lives in
  * another language: the backend passes over the same two kinds of team when it seeds a bracket
- * slot (`_may_hold_a_platz`, ADR-0043), and nothing in either toolchain notices the sides
+ * slot (`_may_hold_a_platz`, ADR-0035), and nothing in either toolchain notices the sides
  * drifting apart. A marked row the bracket does not advance is a confidently wrong public page.
  */
 
@@ -21,7 +21,7 @@ const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart
  * One row of a standing, reduced to the three fields this derivation reads.
  *
  * The record's contents do not reach the subject here: a team is walked past because
- * `disqualifikation` is non-null, never because of what it says (ADR-0059).
+ * `disqualifikation` is non-null, never because of what it says (ADR-0047).
  */
 const row = (seed: number, { gespielt = 3, disqualified = false } = {}) =>
   ({
@@ -62,8 +62,8 @@ describe("computeQualifyingTeamIds", () => {
 });
 
 describe("computePlatzByTeamId", () => {
-  // The defect this replaced: a raw row index printed "2" on the disqualified row and "3" on the team
-  // the bracket's derived label calls "2. der Gruppe A".
+  // A raw row index prints "2" on the disqualified row and "3" on the team the bracket's derived
+  // label calls "2. der Gruppe A", so the count has to walk past a disqualification.
   it("numbers past a disqualified row, matching the backend's platz", () => {
     const platz = computePlatzByTeamId([row(1), row(2, { disqualified: true }), row(3)]);
 

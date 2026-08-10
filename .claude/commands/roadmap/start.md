@@ -1,145 +1,162 @@
 ---
-description: Work one open item to a conclusion — /roadmap:start <ID>, e.g. /roadmap:start F4
+description: Work one open item to a conclusion — /roadmap:start <ID>
 ---
 
-Work the open item named by the arguments: `$ARGUMENTS` (one item ID — e.g. `F4`, `DB-1`, `LOG-1`).
+Work the item named by the arguments to a conclusion: `$ARGUMENTS`
 
-**One item per session, and this command never starts a second one.** The tiers in
-`docs/roadmap/open-items.md` are an ordering, not a batch: tier 1 alone is M + M + XL. A session
-that opens three items builds the later fixes on decisions the earlier ones have not made yet.
+The **first token** is the item ID, taken from the index table in `docs/_roadmap/open-items.md`.
+Anything after it is context carried forward by the session that unblocked this item — sort it in
+step 1 before acting on any of it.
+
+**One item per session, and this command never starts another.** The tiers in
+`docs/_roadmap/open-items.md` are an ordering, not a batch: a session that opens several items builds
+the later fixes on decisions the earlier ones have not taken yet.
+
+## Preconditions
+
+Read `docs/_roadmap/open-items.md`, `docs/_roadmap/closed-items.md` and `docs/_roadmap/protocol.md` in
+full, find the entry, and work down this table. **The first row that matches decides.**
+
+| The item                                                            | Do                                                                                                                                |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Is in neither roadmap file                                          | **Stop.** List the ids from the index table                                                                                       |
+| Is a row in `docs/_roadmap/closed-items.md`                         | **Stop.** Report the row and its `Closed in` commit — that commit's body is the record. A regression opens a new id, not this one |
+| Carries `Status: Closed`                                            | The closing commit already landed. Run **only** the removal commit — step 5's commit 2, then step 6                               |
+| Carries `Status: Standing`                                          | **Stop.** Report the entry's own trigger and ask whether it has fired                                                             |
+| Carries `Status: Blocked`, or a `Depends on` naming a present entry | **Ask before starting.** If the blocker was decided out of band, ask for that decision — it is input to this item                 |
+| Has a `Path` line naming an audit pass that owns it                 | **Ask** whether this session does the work, or the pass does                                                                      |
+
+**Before the first write:** the working tree is clean, `main` is up to date with `origin/main`, and
+you are on a branch named for the change (CLAUDE.md §2).
 
 ## Steps
 
-1. **Resolve the item.** The item ID is the **first token** of the arguments; anything after it is
-   carried-forward context from the previous session — what this item depends on and cannot read,
-   because the entry that held it has been deleted.
+1. **Sort the carried-forward context, and say back which sentence is which.**
 
-   **Two kinds of sentence are in there and they get different treatment. Sort them before acting on
-   either, and say back which is which.**
+   | Kind                          | Looks like                                                                        | Treatment                                                                                                                       |
+   | ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+   | **A decision**                | "The first knockout round is always group-seeded"                                 | Fact. Nobody here can re-derive it and no file records it — restate it and build on it                                          |
+   | **A description of the tree** | "The backend is green", "one file is the only compile blocker", "closed in <sha>" | Claim. It was true when written and the tree has moved since. **Check the branch, whether it compiles, and every SHA it names** |
 
-   - **A decision is fact.** "The owner ruled that the first knockout round is always group-seeded."
-     Nobody in this session can re-derive it and no file records it. Take it, restate it, build on it.
-   - **A description of the tree is a claim.** "The backend is done and green", "one file is the only
-     compile blocker", "closed in `abc1234`". Each was true when it was written, and the tree has
-     moved since — a handover sits in someone's clipboard while other work merges. **Check the branch,
-     whether it compiles, and any SHA it names before building on any of it**, and report what you
-     found. A correction here costs one command; the same correction after the work is built on it
-     costs the work.
+   A correction here costs one command; the same correction after the work is built on it costs the
+   work.
 
-   Read `docs/roadmap/open-items.md` in full and find the entry whose ID matches. If the ID does not
-   exist, check `docs/roadmap/closed-items.md` before saying so — a closed id is not a typo, and the
-   answer is "that was closed in `<sha>`, here is what it produced" rather than a list. Otherwise list
-   the IDs from the index table and stop.
+2. **Decide the mode and say which one you are in before doing anything else.** Read down; the first
+   row that matches the entry decides. An entry matching more than one row runs them in that order,
+   and **never slides from one mode into the next without checking in** — the checkpoint is the point.
 
-2. **Check the path.** The entry's **Path** line names what it depends on. If a blocker is still in
-   the file, say so and ask whether to proceed anyway — the owner may have decided it out of band,
-   in which case ask for the decision before starting, because it is input to this item.
+   | #   | The entry                                                                        | Mode          | Ends with                                              |
+   | --- | -------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------ |
+   | 1   | Names something it did not verify, or tells you to check something before acting | **Verify**    | A finding reported. **No fix.**                        |
+   | 2   | Asks for recommendations rather than a change                                    | **Review**    | Recommendations; the owner decides                     |
+   | 3   | Lists options, or says to present options or consult a source                    | **Consult**   | Options presented, owner picks, **then** you implement |
+   | 4   | Carries `Status: Decided`, or describes work whose shape is agreed               | **Implement** | Code, verified, committed, pushed                      |
 
-3. **Decide the mode from the entry, and say which one you are in** before doing anything else:
+3. **Put what the entry says you need to the owner first**, before the work rather than after it — a
+   resource to be provided, a convention to check before anything changes, options to choose
+   between, a standing question to raise.
 
-   | Mode          | Looks like                                             | Ends with                                              |
-   | ------------- | ------------------------------------------------------ | ------------------------------------------------------ |
-   | **Verify**    | The entry states it is unverified, or gives a "check"  | A finding reported to the owner. **No fix yet.**       |
-   | **Review**    | The entry asks for recommendations, not a change       | Recommendations, then the owner decides                |
-   | **Consult**   | The entry says to present options or check a source    | Options presented, owner picks, **then** you implement |
-   | **Implement** | The entry describes work whose shape is already agreed | Code, verified, committed, pushed                      |
+4. **Do the work**, following `docs/_git/spec.md` end to end: commit with a real body per
+   `docs/_git/templates.md`, `./scripts/verify.sh` at the scope the change earns, then
+   `gh pr create --draft` and hand over its link. Never `gh pr ready`, never `gh pr merge`. Report
+   the gate's actual exit code.
 
-   An entry can be two modes in sequence (verify → implement). Do **not** slide from one into the
-   next without checking in — the checkpoint is the point.
+   Read `docs/_auditing/lessons.md` before verifying anything at runtime, and before closing out
+   against the gate.
 
-4. **Ask for what the entry says you need.** Entries name their own dependencies on the owner —
-   a resource to be provided, a convention to be checked before anything changes, options to choose
-   between, a standing question to raise. Read the entry for these and put them **at the start**, not
-   after the work is done.
+   **If the work proves larger than the entry describes, stop and say so** rather than shipping a
+   reduced version of it under the entry's name.
 
-5. **Do the work**, following the whole cycle in `docs/workflows/README.md` — branch first (a hook
-   enforces it), commit with a real body, `./scripts/verify.sh` before pushing, hand over the PR
-   link, title and body. Never open or merge the PR.
-
-6. **Conclude the item, which means removing it — in TWO commits, never one.** An item that is done
-   is not open, so the entry leaves `docs/roadmap/open-items.md`; git history keeps the analysis, and
-   a one-line row in `docs/roadmap/closed-items.md` keeps the pointer to it. Deleting an entry is not
-   optional cleanup, and leaving it is how the file stops being trustworthy.
-
-   **The two-commit protocol is mandatory.** Full rationale:
-   [Closing an entry](../../../docs/roadmap/README.md#closing-an-entry-two-commits-not-one). Both
-   commits go in **one pull request**.
+5. **Conclude the item in two commits, never one** —
+   [Closing an entry](../../../docs/_roadmap/protocol.md#3-closing-an-entry-two-commits-not-one).
+   Both go in **one pull request**.
 
    **Commit 1 — the closing commit.** The work itself, plus:
 
-   - **Write the ADR if a decision was taken**, per `docs/_standard/chapters/4-decisions.md`. A decision that
-     exists only in a commit body is one nobody will find. Add its row to `docs/_decisions/README.md`.
-   - **Search the whole repo for the ID**, not just `open-items.md`: the spec sheets, the glossary,
-     the audit prompts and module headers all reference these IDs (`docs/backend/spec.md` cites F4 as
-     invariant I1, for instance). Update every reference here — CLAUDE.md's same-commit rule requires it.
-   - In `open-items.md`, set the entry's **`Status` to `Closed`** in the "path at a glance" table and
-     add a short block to the entry naming what concluded it: the ADR numbers, and where each finding
-     that was _not_ a decision was rehomed. **Leave the entry in place.**
+   - **An ADR for every decision taken**, per `docs/_standard/chapters/4-decisions.md`, with its row
+     added to `docs/_decisions/README.md`. A decision recorded only in a commit body is one nobody
+     finds.
+   - **Every reference to the ID updated**, which CLAUDE.md's same-commit rule requires.
+     `git grep -n "<ID>"` enumerates them. They live in the `## 4. Known-open` table of a surface
+     spec sheet (its `#` column), in an audit pass prompt under `docs/_auditing/prompts/`, in ADR
+     bodies, and in source comments. A comment keeps the constraint and cites the ADR — INC-6 bans
+     the roadmap id there.
+   - In `docs/_roadmap/open-items.md`: set the entry's `Status` to **Closed** in the index table and
+     in the entry itself, and add a short block naming what concluded it — the ADR numbers, and
+     where each finding that was _not_ a decision was rehomed. **The entry stays.**
 
-   **Commit 2 — the removal commit.** Touches `open-items.md` and `closed-items.md`, nothing else:
+   **Commit 2 — the removal commit.** `docs/_roadmap/open-items.md` and
+   `docs/_roadmap/closed-items.md`, nothing else:
 
-   - **Delete the entry** and its heading.
-   - **Delete its row** from the table, and **renumber** the rows below it. The ranks are positional,
-     so a stale number is worse than none.
-   - **Add one row to `docs/roadmap/closed-items.md`** — the next permanent `#`, the id, one past-tense
-     line, surfaces, effort and what it depended on, and **commit 1's short SHA linked to GitHub** in
-     the `Closed in` column. Never copy the entry's reasoning across: the row is a pointer and the
-     commit body is the record. Add a bullet under _What each one produced_ only if it left an ADR or
-     opened a new entry. The closed file's numbers are permanent — never renumber them.
-   - **Insert any new entries** the work produced, with their own `Status`.
-   - **Fix every `Path` line that named it.** An entry that said "blocked by F4" must not still say
-     so once F4 is gone — replace it with the decision F4 reached, stated as a fact.
-   - **Re-derive the `Status` of EVERY row in the table, not just the ones you worked on.** Statuses are interdependent: `Blocked` is a claim about another entry, so removing
-     one or landing a decision silently changes rows nobody edited. Walk the whole table. The
-     derivation, first match wins: concluded but still present → `Closed`; anything in its
-     `Depends on` still in the file → `Blocked`; a caution or a recorded trigger → `Standing`; an ADR
-     settles it and only the work remains → `Decided`; otherwise → `Open`. Read `Status` and
-     `Depends on` together — a row where they disagree is the bug this catches.
-   - **The commit body names commit 1's SHA**, because a commit cannot cite its own hash and commit 1
-     is the one worth pointing at.
+   - **Delete the entry and its heading**, and delete its row from the index table.
+   - **Renumber the index table and every `### <rank> ·` heading together**, and rewrite each tier's
+     opening paragraph to describe the entries actually in it (`docs/_roadmap/protocol.md` §2).
+   - **Delete an emptied tier's section and its row in the file's navigation table.**
+   - **Add one row to `docs/_roadmap/closed-items.md`**: the id, one past-tense line describing what
+     the item was, surfaces, effort, what it depended on, and commit 1's short SHA linked to GitHub
+     in `Closed in`. Never copy the entry's reasoning across — the row is a pointer and the commit
+     body is the record. Those rows carry no numbering; the ID is the identity.
+   - **Insert any new entries the work produced**, each with its own `Status`.
+   - **Fix every `Path` line that named the ID**, replacing the reference with the decision the item
+     reached, stated as a fact.
+   - **Re-derive the `Status` of EVERY row**, by `docs/_roadmap/protocol.md` §4 — first match wins.
+     Read each row's `Status` and `Depends on` together: a row where they disagree is what this
+     catches, and removing an entry silently changes rows nobody edited.
+   - **Correct the `Depends on` column and the sentence under the table** that states what that
+     column currently holds.
+   - **The commit body names commit 1's SHA**, because a commit cannot cite its own hash.
 
-   **`Closed` must never survive past commit 2.** An entry marked finished while still ranked in the
-   table is worse than either state alone.
+   An item that ends **partly** done is not closed: rewrite the entry to describe what is left and
+   what was decided, leave its `Status` at `Open` or `Decided`, make one commit, and say plainly in
+   the handover that the entry stayed.
 
-   If the item ends **partly** done, do not close it. Rewrite the entry to describe what is left and
-   what was decided, leave its status `Open` or `Decided`, make one commit, and say plainly in the
-   handover that it stayed.
+6. **Verify the close before handing over.** Every one of these holds:
+
+   | Check                                                       | How                                                                                                          |
+   | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+   | `Closed` survives nowhere                                   | `git grep -n "Closed" -- docs/_roadmap/open-items.md` returns only the status-vocabulary row that defines it |
+   | The ID has left the open file                               | `git grep -n "<ID>" -- docs/_roadmap/open-items.md` returns nothing                                          |
+   | The ID has exactly one closed row                           | `git grep -n "<ID>" -- docs/_roadmap/closed-items.md`                                                        |
+   | Ranks run from 1 with no gap, each heading matching its row | Read the index table against the `### <rank> ·` headings                                                     |
+   | Commit 2 names commit 1                                     | `git log -2`                                                                                                 |
+   | No reference to the ID is stale                             | `git grep -n "<ID>"` — every remaining hit is deliberate                                                     |
 
 7. **Hand over.** State the mode you were in, what was concluded, whether the entry was deleted or
    rewritten, and which other entries' `Path` lines changed.
 
-   Then, if this item unblocks another, **give the owner the next session's prompt as one
-   copy-pasteable block, and it MUST open with the command line** — the owner pastes it whole
-   into a fresh session rather than composing anything:
+   Then, if this item unblocks another, give the next session's prompt as **one copy-pasteable block
+   opening with the command line** — written against the repository as it stands **after** the
+   removal commit, because the entry carrying the reasoning is gone by then:
 
    ```
    /roadmap:start <next-ID>
 
-   Carried from the <this-ID> session: <the decision, as fact — plus anything the next
-   session needs and cannot read, because the entry that held it no longer exists>.
+   Decisions carried from <this-ID> — facts, do not re-derive:
+   - <the decision>
+
+   Descriptions carried from <this-ID> — claims, check each before building on it:
+   - <the claim>, checked by <how>
+
+   <this-ID> does not achieve <the gap>. <entry-ID> closes it.
+
+   Preconditions no session performs:
+   - <the step>, checked by <how>
    ```
 
-   Writing only prose here breaks the chain: the next session has no access to this one, and the
-   entry it would have read has just been deleted. If nothing is unblocked, say which items are now
-   at the top of the file instead.
+   Every block after the decisions is one a session that did good work still leaves out:
 
-   **Write the block against the repository as it will be after the removal commit**, not as you read
-   it at the start — the entry carrying the reasoning is gone by then. Stating the decisions is the
-   part every handover already gets right. Three more belong in it, and they are the ones a session
-   that did good work still leaves out:
-
-   - **What this item does NOT achieve, and which entry closes that gap.** An item finishes its own
-     scope while the larger goal stays out of reach more often than not, and a block listing only what
+   - **What this item does NOT achieve, and which entry closes that gap.** A block listing only what
      the next item needs reads as though the next item were the last one.
    - **Every precondition no session performs** — a production data change, a value set by hand, a
-     setting in someone's dashboard. These are the only steps that can be skipped indefinitely,
-     because no session's definition of done contains them and the gate cannot see them. Name each one
-     and how to check whether it has happened.
-   - **Which of your own sentences are descriptions rather than decisions**, flagged as such. Step 1
-     asks the next session to sort them; you know which is which and it does not.
+     setting in a dashboard. No session's definition of done contains them and the gate cannot see
+     them, so they can be skipped indefinitely. Name each and how to check whether it has happened.
+   - **Which of your own sentences are descriptions rather than decisions.** Step 1 asks the next
+     session to sort them; you know which is which and it does not.
+
+   If nothing is unblocked, say which entries now sit at the top of the file instead.
 
 ## Scope
 
-Anything outside the named item is out of scope. If you find something else, use the roadmap's own
-rule (`docs/roadmap/README.md`): small and you are there anyway — just do it; a question with real
-trade-offs — add an entry; decided but not scheduled — tell the owner to open an issue.
+Anything outside the named item is out of scope. Something else found on the way: small and you are
+there anyway — just do it; a question with real trade-offs — add an entry; decided but not
+scheduled — tell the owner to open an issue.

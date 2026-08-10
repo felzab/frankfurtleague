@@ -5,9 +5,9 @@ Only `vorname` is required — everything else may be null while a squad entry i
 filled in. Mirrored by `FLSpielerSchema` in the frontend.
 
 Invariants:
-- `position` and `stufe` are closed sets (ADR-0061); the `saison_spieler` validator refuses others.
+- `position` and `stufe` are closed sets (ADR-0048); the `saison_spieler` validator refuses others.
 - `nummer` is a string and stays free text — not unique within a squad, worn rather than counted.
-- The person and the squad row retire independently (ADR-0032).
+- The person and the squad row retire independently (ADR-0025).
 """
 
 from typing import Literal
@@ -20,29 +20,26 @@ from app.shared.schemas.responses import BaseAPIResponse
 FLSpielerSortOptions = Literal["vorname", "nachname", "stufe", "nummer", "position"]
 
 # The four positions, in the order a squad sheet lists them -- goalkeeper first, then out from the
-# goal. `sort_by="position"` sorts the STRING and so orders them alphabetically; that is the ordering
-# every public squad list has always had, and it is not this tuple's job to change it.
+# goal. `sort_by="position"` sorts the string, so every public squad list is alphabetical instead;
+# changing that is not this tuple's job.
 FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 
 # The Hessen Oberstufe, both phases. E2 holds no row today and is still offered: the phases run in
 # sequence, so a set stopping at what the current season happens to contain would refuse a legitimate
-# entry the moment the year turns (ADR-0061).
+# entry the moment the year turns (ADR-0048).
 FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
-# A PERSON's name: letters and the three separators a real one uses. Unicode letters rather than
-# `[A-Za-z]`, because half the league's squads would fail an ASCII rule -- `Körner` and `El Damarawy`
-# are both live. Digits and every other symbol are out, which is what stops a note being typed into a
-# name field: the six `(C)` captain markers got there exactly that way, and `is_captain` is where
-# that fact belongs now.
-#
-# On the WRITE payloads ONLY, never on `FLSpieler`. A read model that refused a stored name would
-# 500 the whole response for one bad row rather than showing it -- the failure `GET /spieler`
-# demonstrated twice while this branch was being built.
+# A person's name: Unicode letters and the separators a real one uses, because an ASCII rule would
+# refuse `Körner` and `El Damarawy`. Digits and every other symbol are out, which stops a note being
+# typed into a name field.
+
+# On the write payloads only, never on `FLSpieler`: a read model refusing a stored name 500s the whole
+# response for one bad row.
 PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
 
 class FLSpieler(BaseModel):
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")  # So the _id field can be accesed through
+    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
     # A player must at least have a first name; everything else may be absent while a squad entry
     # is still being filled in. Mirrored by FLSpielerSchema in the frontend.
@@ -58,7 +55,7 @@ class FLSpieler(BaseModel):
     team_id: CustomObjectId
     # The day this PERSON left the league, or null. Distinct from the squad row's own
     # `inactive_since`: a player who left one team's squad has a retired junction row and is very much
-    # still a player (ADR-0032).
+    # still a player (ADR-0025).
     inactive_since: CustomOptionalDateString
 
 
@@ -71,7 +68,7 @@ class FLSpielerFilterParams(BaseModel):
     team_id: CustomObjectId | None = None
     saison_id: str | None = None
     is_nachgetragen: bool | None = None
-    # Closed since ADR-0061, so a misspelled year now comes back 422 rather than as an empty squad.
+    # Closed since ADR-0048, so a misspelled year now comes back 422 rather than as an empty squad.
     stufe: FLSpielerStufe | None = None
     include_inactive: bool = False
 
@@ -94,7 +91,7 @@ class FLPatchSpielerPayload(BaseModel):
     """
     Replaces the person's names WHOLESALE.
 
-    Every field is required with no default (ADR-0059's rule, which the team junction states for the
+    Every field is required with no default (ADR-0047's rule, which the team junction states for the
     same reason). The handler `$set`s this model's dump. A field with a default would therefore let a form that
     forgot it write that default over a stored value -- silently, because nothing distinguishes
     "omitted" from "deliberately cleared" once the dump is built. An omitted `nachname` is a 422.
@@ -182,7 +179,7 @@ class FLSpielerMembership(BaseModel):
 
     Carries `inactive_since`, which the team junction's equivalent does not and cannot: a squad row
     really is retired when a player leaves a team mid-season, while a team never leaves a season at
-    all (ADR-0033). The admin list badges a retired row in place and offers the reactivate beside it.
+    all (ADR-0026). The admin list badges a retired row in place and offers the reactivate beside it.
     """
 
     saison_id: str
@@ -199,7 +196,7 @@ class FLSpielerWithMemberships(BaseModel):
     """
     The person as stored, plus every squad row they hold -- the admin list's one read.
 
-    A DIFFERENT question from `FLSpieler`, not a projection of it (ADR-0034). `FLSpieler` is one
+    A DIFFERENT question from `FLSpieler`, not a projection of it (ADR-0027). `FLSpieler` is one
     player FLATTENED against one season, which is why it carries a `team_id` and no `saison_id`: the
     read that produces it unwinds the junction, so a player in two seasons comes back as two
     indistinguishable rows and a player in none fails validation on the `team_id` they have not got.
@@ -212,7 +209,7 @@ class FLSpielerWithMemberships(BaseModel):
     vorname: str = Field(min_length=1)
     nachname: str | None
     # The day the PERSON left the league. A squad row's own retirement is on the membership above,
-    # and the two are independent (ADR-0032).
+    # and the two are independent (ADR-0025).
     inactive_since: CustomOptionalDateString
     memberships: list[FLSpielerMembership]
 

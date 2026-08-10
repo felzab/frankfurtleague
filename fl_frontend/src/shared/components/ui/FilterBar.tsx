@@ -61,9 +61,9 @@ export function FilterBar<TItem>({
   );
 
   return (
-    // A column of two rows rather than one wrapping row (decided 2026-08-08). Wrapping meant seven active
-    // filters pushed the list itself down the page by three rows of chips; scrolling them sideways keeps the
-    // control one row tall whatever is selected, and puts the reset where it does not compete with a chip.
+    // A column of two rows rather than one wrapping row (decided 2026-08-08): wrapping pushes the
+    // list down the page by a row of chips per overflow, while scrolling them sideways keeps the
+    // control one row tall whatever is selected.
     <div className="flex w-full flex-col gap-2">
       <div className="flex w-full flex-row items-center gap-2">
         <Popover>
@@ -166,10 +166,9 @@ export function FilterBar<TItem>({
                                 // A selected option stays enabled whatever its count — disabling it would make
                                 // it impossible to deselect, which is the one state this rule must not create.
                                 isDisabled={count === 0 && !isPicked}
-                                // The VALUE carries the emphasis and its count carries the brand (decided
-                                // 2026-08-08): full-strength text for an option that would match something,
-                                // muted for one that would match nothing. `data-disabled:opacity-40` used to be
-                                // the only signal, which dimmed the whole row including its count.
+                                // The value carries the emphasis and its count carries the brand
+                                // (decided 2026-08-08): full-strength text for an option that would
+                                // match something, muted for one that would match nothing.
                                 className={`fluid-sm hover:bg-muted hover:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg px-3 py-2 font-bold transition-colors ${
                                   count === 0 ? "text-foreground-muted" : "text-foreground"
                                 }`}>
@@ -210,11 +209,9 @@ export function FilterBar<TItem>({
             className="min-w-0 flex-1">
             <div className="flex flex-row items-center gap-2">
               {chips.map(({ facet, value, label }) => (
-                // Value, a straight divider, then the x (decided 2026-08-08). The divider is its OWN
+                // Value, a straight divider, then the x (decided 2026-08-08). The divider is its own
                 // element rather than a border on the button: HeroUI's Button brings a radius and its
-                // own box, so a `border-l` there rendered kinked and the x rode off-centre. A 1px span
-                // cannot be anything but straight, and `w-7 justify-center p-0` centres the x by
-                // construction instead of by the button's padding happening to balance.
+                // own box, so a `border-l` there renders kinked and the x rides off-centre.
                 <span
                   key={`${facet.param}:${value}`}
                   // `h-10`, the trigger's own height (decided 2026-08-08): the chips and the button sit

@@ -27,13 +27,11 @@ const TEAM_CHIP_SKELETON_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36", "w-24
 export function AboutView() {
   return (
     <div className={`${PAGE_RISE} relative flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
-      {/** Headline */}
       <div className="flex flex-col items-center text-center">
         <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">About Frankfurt-League</h1>
         <p className="fluid-sm text-field-fg/80 mt-2 font-medium">Alles auf dem Platz – von Schülern, für Schüler.</p>
       </div>
 
-      {/** Section 1: Unser Ziel */}
       <section className="max-w-meta flex w-full flex-col gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-3">
           <StarFill className="size-6 drop-shadow lg:size-7" />
@@ -49,14 +47,12 @@ export function AboutView() {
         </div>
       </section>
 
-      {/** Section 2: Das Regelwerk */}
       <section className="max-w-meta flex w-full flex-col gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-3">
           <Book className="size-6 drop-shadow lg:size-7" />
           <h2 className="fluid-lg font-extrabold tracking-wide uppercase">Das Regelwerk (FAQ)</h2>
         </div>
 
-        {/** Q/A */}
         <Accordion className="flex flex-col gap-y-3">
           {QA_QUESTIONS.map((item) => (
             <Accordion.Item
@@ -86,7 +82,6 @@ export function AboutView() {
         </Accordion>
       </section>
 
-      {/** Section 3: Active schools */}
       <section className="max-w-meta w-full">
         <Card className="soccer-field-card-bg soccer-field-card-border rounded-2xl border shadow-xl">
           <Card.Header className="flex items-center px-6 pt-6 pb-2">

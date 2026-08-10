@@ -1,5 +1,17 @@
 "use client";
 
+/**
+ * SAISONS · the two field primitives both season forms render
+ *
+ * The create form is a dialog and the editor is a page, so they cannot share a whole form — but a
+ * season has dates and counters, and writing either control out twice is how a picker and a stepper
+ * end up with different popovers, different bounds and different empty-value handling in one app.
+ *
+ * **`label` is a slot rather than a string, and that is what lets one control serve both surfaces.**
+ * The dialog passes a plain `<Label>`; the editor passes a `SaisonFieldLabel`, which reads the
+ * draft-status context to render its own change marker and carries the `feld-` anchor a rail row
+ * links to.
+ */
 import { Calendar, DateField, DatePicker, FieldError, NumberField } from "@heroui/react";
 
 import {
@@ -16,21 +28,8 @@ import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";
 
 /**
- * SAISONS · the two field primitives both season forms render
- *
- * The create form is a dialog and the editor is a page, so they cannot share a whole form — but a season
- * has two dates and five counters, and writing either control out twice is how a picker and a stepper
- * end up with different popovers, different bounds and different empty-value handling in the same app.
- *
- * **`label` is a slot rather than a string, and that is what lets one control serve both surfaces.** The
- * dialog passes a plain `<Label>`; the editor passes a `SaisonFieldLabel`, which reads the draft-status
- * context to render its own change marker and carries the `feld-` anchor a rail row links to. Neither
- * control knows which it got.
- */
-
-/**
- * One date, as the app's one date picker: the composition is `FormDisqualifikationSection`'s, which is
- * the only other place a `DatePicker` is fully spelled out.
+ * One date, as the app's one date picker: the composition matches `FormDisqualifikationSection` and
+ * `FormDateTimeSection`, the other places a `DatePicker` is fully spelled out.
  */
 export function SaisonDateField({
   name,
@@ -57,8 +56,8 @@ export function SaisonDateField({
    * calendar and refused by the field, so the illegal value is UNPICKABLE rather than reported after the
    * fact — which is the strongest form of refusing before the request (decided 2026-08-08).
    *
-   * Used by the matchday form for its season's span (`REQ-DATE-002`). The season editor's own dates take
-   * neither bound: a season is the outermost container and has nothing to sit inside.
+   * The matchday form bounds by its season's span (`REQ-DATE-002`); the season editor bounds by its
+   * live matchdays' span (`REQ-DATE-004`, `FormZeitraumSection`'s `spieltagBound`).
    */
   minValue?: CalendarDate;
   maxValue?: CalendarDate;

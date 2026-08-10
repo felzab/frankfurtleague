@@ -2,8 +2,8 @@
 SHARED · response envelope
 
 `BaseAPIResponse` is the base every response model extends. `acknowledged` is the one field every
-endpoint returns, so a client can tell a successful empty result from a failure without inspecting the
-status code.
+response model carries, so a client can tell a successful empty result from a failure without
+inspecting the status code.
 """
 
 from typing import Literal

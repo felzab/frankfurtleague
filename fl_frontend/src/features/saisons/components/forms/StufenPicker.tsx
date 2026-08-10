@@ -19,7 +19,7 @@ import type { Key } from "@heroui/react";
  * not. `ThemeSwitch` is the same control in single-selection mode, which is where this pattern comes
  * from in this app.
  *
- * A picked control, so the caller judges it on CHANGE rather than on blur (ADR-0050): a selection is
+ * A picked control, so the caller judges it on CHANGE rather than on blur (ADR-0040): a selection is
  * complete the moment it is made.
  *
  * **The message is a plain paragraph rather than a `FieldError`, because this is not a field.** A

@@ -23,7 +23,6 @@ export function runWithRequestScope<T>(scope: RequestScope, fn: () => Promise<T>
   return storage.run(scope, fn);
 }
 
-/** The current request's correlation id, or `undefined` outside any seeded scope. */
 export function getRequestCorrelationId(): string | undefined {
   return storage.getStore()?.correlationId;
 }

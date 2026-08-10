@@ -46,8 +46,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   const [, startReactivating] = useTransition();
 
   // The selector's season rides along on every row link, so the editor and the public page open on
-  // the season this list is showing. Reading it here is safe: the parent view already subscribes
-  // this tree to the router (see the memo note), so no new re-render class is introduced.
+  // the season this list is showing. Reading it here is safe: the parent view already subscribes this
+  // tree to the router.
   const searchParams = useSearchParams();
   const selectedFromUrl = searchParams.get("saison_id");
   const saisonQuery = selectedFromUrl ? `?saison_id=${encodeURIComponent(selectedFromUrl)}` : "";

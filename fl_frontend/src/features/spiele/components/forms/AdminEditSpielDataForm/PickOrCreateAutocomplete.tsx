@@ -24,7 +24,7 @@ import type { ReactNode } from "react";
  * a `panelRef` walking `querySelectorAll("input, select, textarea")` and calling `checkValidity()` on
  * every control, plus a key handler intercepting Enter so it could never reach the outer form. A modal
  * portals to `document.body`, so it is outside that `<form>` in the DOM, and `EntityForm`'s own
- * `<Form>` does the validation those two were imitating (ADR-0050).
+ * `<Form>` does the validation those two were imitating (ADR-0040).
  *
  * **A record created here is selected immediately.** The section exists to attach one to the match, and
  * reporting "angelegt" while leaving the picker empty is how a match got saved with no referee. `items`

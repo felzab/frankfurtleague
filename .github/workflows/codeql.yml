@@ -1,25 +1,17 @@
 name: codeql
 
-# Static analysis for the two first-party languages. Advanced setup rather than GitHub's default
-# setup, deliberately: default setup configures itself invisibly in repository settings, and this
-# repository already treats invisible configuration as a defect worth documenting. Here the query
-# suite, the schedule and the trigger set are version-controlled and reviewable like everything else.
+# Static analysis for the two first-party languages, as advanced setup rather than GitHub's default
+# setup: default setup configures itself invisibly in repository settings, whereas the query suite,
+# the schedule and the trigger set below are version-controlled and reviewable like everything else.
 #
-# TRIGGERS. A pull request runs analysis only when first-party code changed at all (the `paths`
-# filter), and then only for the language whose tree changed (the `changes` job) -- a docs-only PR
-# runs nothing, a backend-only PR analyses Python alone. A push to main always analyses both, so
-# the Security tab tracks every main commit; the weekly schedule picks up newly published queries
-# against code that has not changed. CodeQL is deliberately NOT a required check, so a skipped
-# analysis blocks nothing.
-#
-# WHAT THIS DOES NOT COVER, so nobody mistakes a green run for an audit: CodeQL finds
-# pattern-matchable vulnerability classes -- injection, XSS, path traversal, unsafe deserialization.
-# It has no opinion about business logic. It cannot see an authorization gap that is a valid program
-# doing the wrong thing. Those belong to the audit programme in docs/_auditing/.
-#
-# Dependencies are NOT installed for either language. CodeQL analyses source for JavaScript/
-# TypeScript and Python, so `build-mode: none` is correct and a pnpm/uv install step would only add
-# minutes. Do not "fix" this by adding one.
+# Invariants:
+# - A pull request analyses the language whose tree changed; a push to main analyses both.
+# - Neither language installs dependencies -- CodeQL reads source, so `build-mode: none` is the
+#   whole build and an install step buys minutes of runtime and nothing else.
+# - CodeQL catches pattern-matchable classes alone. An authorization gap is a valid program doing
+#   the wrong thing, and belongs to the audit programme (docs/_auditing/).
+# - Whether this workflow is required is a ruleset setting, outside the repository
+#   (docs/_git/spec.md).
 
 on:
   pull_request:
@@ -92,13 +84,11 @@ jobs:
       - name: Initialise CodeQL
         uses: github/codeql-action/init@v4.37.4
         with:
-          # Covers fl_frontend.
           languages: javascript-typescript
           build-mode: none
-          # The default suite is deliberate. `security-extended` adds queries and false positives in
-          # roughly equal measure, and this codebase has already been through a manual security pass
-          # -- so start quiet and escalate on evidence, which is the same rule the audit method uses.
-          # To escalate: add `queries: security-extended` here.
+          # The default suite is deliberate: `security-extended` adds queries and false positives in
+          # roughly equal measure, so start quiet and escalate on evidence. To escalate, add
+          # `queries: security-extended` here.
       - name: Analyse
         uses: github/codeql-action/analyze@v4.37.4
 
@@ -114,7 +104,6 @@ jobs:
       - name: Initialise CodeQL
         uses: github/codeql-action/init@v4.37.4
         with:
-          # Covers fl_backend.
           languages: python
           build-mode: none
           # Same reasoning as the JavaScript job: default suite, escalate on evidence.

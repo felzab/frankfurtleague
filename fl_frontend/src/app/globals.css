@@ -1,10 +1,10 @@
 /* HeroUI is imported component-by-component rather than as `@import "@heroui/styles"`. That entry
    pulls in every component the package ships, and **Tailwind does not tree-shake CSS imported from a
    dependency**, so anything listed lands on the critical path of every page whether or not this app
-   renders it (ADR-0019).
+   renders it (ADR-0013).
 
    **THERE ARE TWO OF THESE LISTS.** This one loads on every route; `app/admin/admin.css` loads only
-   under `/admin` and holds the components no public route can reach (ADR-0023). Adding a component
+   under `/admin` and holds the components no public route can reach (ADR-0016). Adding a component
    means deciding which file it belongs in, and **checking both** — a component listed in neither
    renders unstyled, and one listed in both is shipped to visitors who never see it.
 
@@ -178,17 +178,16 @@
        the feedback accents above fits -- these exist so SaisonPhaseChip stops reaching into the raw
        palette. Values are Tailwind's sky/blue/indigo/purple/rose 700 verbatim, and each is used both
        as the label colour and as a /10 tint behind it. Blue sits between sky and indigo on the hue
-       wheel, which is where `achtelfinale` sits in the sequence (ADR-0065). */
+       wheel, which is where `achtelfinale` sits in the sequence (ADR-0052). */
     --accent-phase-gruppenphase: oklch(50% 0.134 242.749);
     --accent-phase-achtelfinale: oklch(48.8% 0.243 264.376);
     --accent-phase-viertelfinale: oklch(45.7% 0.24 277.023);
     --accent-phase-halbfinale: oklch(49.6% 0.265 301.924);
     --accent-phase-finale: oklch(51.4% 0.222 16.935);
 
-    /* The soccer-field motif on /about, /team and /kontakt. Those three pages stay green in both
-       themes -- that is the design, not an oversight -- but until these tokens existed the decision
-       was spread across 40 `text-white` / `bg-emerald-*` literals in four files, so the token layer
-       had no reach into three of the nine public routes. Now it is these four lines.
+    /* The soccer-field motif on the `(meta)` pages, which stay green in both themes -- that is the
+       design, not an oversight. Declared as tokens so the decision is these lines rather than a
+       scatter of `text-white` / `bg-emerald-*` literals the token layer cannot reach.
        --field-base/--field-card are Tailwind's emerald 700/800 verbatim. */
     --field-base: oklch(50.8% 0.118 165.612);
     --field-card: oklch(43.2% 0.095 166.913);
@@ -333,7 +332,7 @@
    * `text-brand` is a colour. A size it does not recognise falls into the COLOUR group, where it
    * competes with the real colour class beside it and one of the two is dropped. Every HeroUI
    * component that accepts a `className` runs it through its own tailwind-variants instance, so this
-   * happens inside the library, where no configuration of ours reaches (ADR-0025).
+   * happens inside the library, where no configuration of ours reaches (ADR-0018).
    *
    * These tokens therefore generate no utility at all; the `fluid-*` utilities further down read
    * them. `fluid-xxs` matches no tailwind-merge group in any instance — a class a library cannot
@@ -393,7 +392,7 @@
   --height-modal: 90dvh;
   --width-sidemenu: 310px;
   --width-sidemenu-collapsed: 72px;
-  /* One hover magnitude for the whole app. It was three: [1.02] x27, [1.04] x1, 105 x1. */
+  /* One hover magnitude for the whole app: spelled per call site, the app grows several. */
   --scale-hover: 1.02;
 
   /* The content loader's dots. Tailwind's `animate-bounce` is 1s at translateY(-25%) -- on a 10px
@@ -598,7 +597,6 @@ html:has([data-app-shell]) {
 [data-slot="date-input-group"],
 [data-slot="autocomplete-trigger"],
 [data-slot="select-trigger"],
-[data-slot="combo-box-input-group"],
 /* The one member matched by CLASS: HeroUI's TextArea root (v3.2.3, `textarea.js`) carries no
    data-slot, only the `textarea` class, and react-aria supplies the same data-* focus states the
    slots above key on. Re-check the class name on a HeroUI upgrade. */
@@ -682,11 +680,10 @@ html:has([data-app-shell]) {
 }
 
 /* A PICKER's trigger keeps the brand border only while its popover is open — never from focus alone.
-   The same rule the season selector opted into by hand with `data-border-on-open`, now the default
-   for every Select and Autocomplete, because the problem was never that selector's: react-aria
-   restores focus to the trigger when the popover dismisses, and it does so AFTER the exit animation,
-   so no blur scheduled at close time beats it. The trigger the user had just clicked away from kept
-   a brand border until something else took focus, on every picker in the app (decided 2026-08-07).
+   The default for every Select and Autocomplete, because the cause is react-aria's and not any one
+   control's: it restores focus to the trigger when the popover dismisses, and it does so AFTER the
+   exit animation, so no blur scheduled at close time beats it. Keyed on focus, the trigger a user
+   has just clicked away from holds a brand border until something else takes it.
 
    The focus arms in the block above are skipped for these two slots rather than the whole rule: the
    `aria-expanded` arms still apply, so an open picker still reads as active, and skipping the focus
@@ -744,14 +741,13 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
 /* Collection options: NO focus highlight at all (decided 2026-07-31, superseding a neutral
    fill and, before that, a brand one).
 
-   The highlight was correct in principle — react-aria moves the focused key onto the first match as
-   you type in a combobox so Enter can pick it, and that needs a visible state — but not achievable
+   A highlight is right in principle — react-aria moves the focused key onto the first match as you
+   type in a combobox so Enter can pick it, and that needs a visible state — but it is not achievable
    here. react-aria's `isFocusVisible` is a GLOBAL interaction-modality flag, not per-element state:
-   whether a freshly opened dropdown paints its selected row depends on whether the user's last
-   interaction anywhere on the page was a key press. It appeared and disappeared at random
-   on the season selector across three review rounds. The browser's own `:focus-visible` uses a very
-   similar heuristic, so it is not a fix, and inside a combobox popover focus never leaves the search
-   input, so the browser cannot see the option at all.
+   whether a freshly opened dropdown paints its selected row depends on whether the last interaction
+   anywhere on the page was a key press, so the highlight appears and vanishes at random. The
+   browser's own `:focus-visible` uses a very similar heuristic, so it is not a fix, and inside a
+   combobox popover focus never leaves the search input, so the browser cannot see the option.
 
    What is left: each call site's own `hover:` background, and the checkmark indicator that marks the
    selection. Both are stable and neither depends on modality.
@@ -761,13 +757,12 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    is open. Revisit if a reliable per-element signal appears — do NOT reintroduce a rule keyed off
    `data-focus-visible`, which is what this block exists to prevent.
 
-   Removing the repository's own highlight was only half the job, and the other half went unnoticed
-   until a white ring was reported on the first search result. HeroUI's `list-box-item.css`
+   The repository's own highlight is only half of it. HeroUI's `list-box-item.css`
    applies `status-focused` on `[data-focus-visible]`, which resolves to
    `ring-2 ring-focus ring-offset-0 ring-offset-background` with `--ring-offset-width: 2px` — and this
    app maps `--focus` to `--fg-base`, so the composite is a 2px `--bg-base` halo inside a 2px
    near-black (light) or pure-white (dark) ring. It fires on the same global modality flag described
-   above, so it appeared and vanished at random on exactly the element that must not draw the eye.
+   above, so it appears and vanishes at random on exactly the element that must not draw the eye.
 
    Suppressed UNCONDITIONALLY, with no state selector at all. That is the distinction the prohibition
    above is drawing: this rule keys off nothing, so it cannot flicker — it removes a highlight rather
@@ -798,20 +793,19 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    and the keyboard indicator at once.
 
    A LIST-BOX item keys on `data-focus-visible`, and the difference is not cosmetic. A `Select` focuses
-   its SELECTED option the moment the popover opens, whatever opened it, so `data-focused` painted a
-   fill on one row before anybody had pressed a key — read as "these items have a background" rather
-   than as "you are here" (decided 2026-08-07). `data-focus-visible` is react-aria's keyboard-modality
-   flag, so the fill now appears when a key actually moves the selection, which is the WCAG 2.4.7 case
-   this rule exists for. What a pointer user gets instead is the call site's own `hover:` pair — see
+   its SELECTED option the moment the popover opens, whatever opened it, so `data-focused` paints a
+   fill on one row before anybody presses a key — read as "these items have a background" rather than
+   as "you are here". `data-focus-visible` is react-aria's keyboard-modality flag, so the fill appears
+   when a key actually moves the selection, which is the WCAG 2.4.7 case this rule exists for. What a pointer user gets instead is the call site's own `hover:` pair — see
    `SaisonSelector`, which tints the row and turns its text brand. */
 [data-slot="list-box-item"][data-focus-visible="true"],
 [data-slot="menu-item"][data-focused="true"] {
   background-color: var(--bg-muted);
 }
 
-/* Number fields carry no vertical padding, anywhere (decided 2026-08-06). The group is a fixed
-   height with a centred grid, so padding on the input only fights it — and it was the reason a number
-   field and the autocomplete beside it did not line up. */
+/* Number fields carry no vertical padding, anywhere. The group is a fixed height with a centred
+   grid, so padding on the input only fights it and a number field stops lining up with the
+   autocomplete beside it. */
 [data-slot="number-field-input"] {
   padding-block: 0;
 }
@@ -914,7 +908,7 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
    *
    * `AppToaster` supplies `Toast.Provider`'s `children` render function, so the tile, the text
    * hierarchy, the action button and the close button are ordinary TSX carrying ordinary utility
-   * classes (ADR-0053). What is left below is the part that has no element in that file to hang a
+   * classes (ADR-0043). What is left below is the part that has no element in that file to hang a
    * class on: HeroUI writes the shell's own `class`, and the close button's visibility has to stay
    * keyed on an attribute only the library sets.
    *
@@ -938,9 +932,9 @@ form:not([data-required-marks="on"]) [data-required="true"] > .label::after {
     @apply items-start gap-2.5 overflow-hidden whitespace-normal;
   }
 
-  /* Severity is the border and the timer bar, and with the icon tile gone (decided 2026-08-06) the
-     border is the one mark a settled toast carries. `/60` rather than the `/30` it ran at beside a
-     tinted tile: it is now doing that work alone and has to read at a glance. */
+  /* Severity is the border and the timer bar, so the border is the one mark a settled toast
+     carries (ADR-0043). `/60` rather than a lighter tint: it does that work alone and has to read
+     at a glance. */
   .toast--accent {
     @apply border-info/60;
   }

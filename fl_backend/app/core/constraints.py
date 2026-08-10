@@ -1,22 +1,22 @@
 """
 CORE · database constraints
 
-The nine `$jsonSchema` validators and the four unique indexes the database enforces on itself,
-applied on every boot (ADR-0027); `--check` reports violations and the cross-document rules
-without writing anything. Declared here rather than clicked into Atlas, so they are versioned and
-restored with the cluster. The database user needs `collMod`, which `readWrite` does not carry —
-the wrong user builds every index, attaches no validator, and startup then refuses.
+The `$jsonSchema` validators and the unique indexes the database enforces on itself, applied on
+every boot (ADR-0020); `--check` reports violations and the cross-document rules without writing
+anything. Declared here rather than clicked into Atlas, so they are versioned and restored with
+the cluster. The database user needs `collMod`, which `readWrite` does not carry — the wrong user
+fails the first one and startup refuses before anything is applied.
 
 Invariants:
-- Validators assert types, required fields and enums — never ranges, patterns or lengths (ADR-0027).
-- They are hand-written, never generated from the models (ADR-0031).
+- Validators assert types, required fields and enums — never ranges, patterns or lengths (ADR-0020).
+- They are hand-written, never generated from the models (ADR-0024).
 - `additionalProperties` is never `false`, or every field addition is a deploy-ordering problem.
 - Applying is idempotent, nothing is ever removed automatically, and a startup failure is fatal.
 - Run `--check` before deploying a change here — a unique index cannot build over violating data.
 
 See:
 - docs/backend/spec.md — invariants I15–I17
-- docs/workflows/README.md — how a data change is ordered against a deploy
+- docs/_git/spec.md — how a data change is ordered against a deploy
 """
 
 import argparse
@@ -30,63 +30,53 @@ from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
 
-# `collMod` against a collection that does not exist. Handled rather than re-raised in two places, for
-# two different reasons: a fresh database has no collections and creating them with the validator
-# already attached reaches the same end state, and the privilege probe below uses this code as its
-# "yes".
+# `collMod` against a collection that does not exist. Handled rather than re-raised: creating a fresh
+# collection with the validator already attached reaches the same end state, and the privilege probe
+# below reads this code as its "yes".
 NAMESPACE_NOT_FOUND = 26
 
 # "You are authenticated and may not do this", and "we do not know who you are", as mongod spells them.
 UNAUTHORIZED = 13
 AUTHENTICATION_FAILED = 18
 
-# Atlas does NOT use those codes. It funnels refusals of both kinds through one generic `AtlasError`,
-# code 8000 -- measured on 2026-08-02, where a rejected password and a missing `collMod` grant came back
-# with the identical code and completely different messages. So the message is the only discriminator
-# that works on both a self-managed mongod and Atlas, and matching on the code alone reports a missing
-# privilege as a bad password and sends the reader to fix the wrong thing.
+# Atlas funnels both kinds through one generic `AtlasError`, code 8000 (measured 2026-08-02), so the
+# MESSAGE is the only discriminator working on both a self-managed mongod and Atlas. The code alone
+# reports a missing privilege as a bad password.
 AUTHENTICATION_PHRASES = ("authentication failed", "bad auth")
 AUTHORIZATION_PHRASES = ("not allowed to do action", "not authorized on")
 
 # "This index is not there", which is how the privilege probe below learns it got past authorization.
 INDEX_NOT_FOUND = 27
 
-# The probe's fallback namespace, for a database with none of the nine collections yet. Deliberately
-# NOT `__`-prefixed: Atlas reserves that prefix, and a custom role granting collMod over "all
-# collections" does not reach a reserved name -- so a `__` target reports DENIED to a user who holds
-# the grant, which is the one answer this probe must never give.
+# The probe's fallback namespace, for a database holding none of the collections yet. NOT
+# `__`-prefixed: Atlas reserves that prefix and a collMod grant over "all collections" misses it, so
+# a `__` target reports DENIED to a user who holds the grant.
 ABSENT_COLLECTION_NAME = "fl_constraints_probe"
 
 # An index name chosen to be absent. `collMod` is authorised before its arguments are resolved, so
-# asking to hide an index that does not exist reaches the authorization check and then stops -- the
-# probe's whole trick, and the reason `--check` writes nothing.
+# asking to hide a missing index reaches the authorization check and stops -- the probe's whole
+# trick, and why `--check` writes nothing.
 ABSENT_INDEX_NAME = "fl_constraints_probe_index"
 
 _STRING_OR_NULL = ["string", "null"]
 _INT_OR_NULL = ["int", "null"]
 
-# Soft deletion, on the six collections that have one. A `YYYY-MM-DD` string naming the day the row was
-# retired, or null while it is live -- one field rather than a boolean beside a date, because the pair
-# can contradict itself and no validator here could catch that (ADR-0032). The DATE is what makes a
-# scheduled purge possible; the boolean alone could only say "eventually" (open item BE-12).
+# Soft deletion, wherever a collection has it: the day the row was retired, or null while it is live.
+# One field rather than a boolean beside a date, because the pair can contradict itself and no
+# validator here could catch that (ADR-0025).
 _INACTIVE_SINCE = {"bsonType": _STRING_OR_NULL}
 
-# The enumerations that are already closed sets in Python. Spelled out rather than derived from the
-# `Literal`s: importing the models here would make this module depend on every API slice, and the
-# values are stored strings whose spelling is the contract.
-#
-# What keeps each copy in step is `test_every_validator_enum_matches_its_literal`, which imports both
-# sides and compares them member by member -- the field-name drift check two doors down does NOT reach
-# enum values, so a renamed member would otherwise be caught by nothing until a live write was refused.
+# Spelled out rather than derived from the `Literal`s, which would make this module depend on every
+# API slice. `test_every_validator_enum_matches_its_literal` keeps the copies in step; the field-name
+# drift check beside it does not reach enum values.
 _SAISON_PHASEN = ["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
 _SAISON_STATUS = ["past", "active", "future"]
 _GRUPPEN = ["A", "B", "C", "D"]
-# The two ways a bracket slot is fed, and the two outcomes a match-fed one can name.
 _QUELLE_TYPES = ["gruppe", "spiel"]
 _QUELLE_AUSGAENGE = ["sieger", "verlierer"]
-# A squad row's position and school level (ADR-0061). Both are NULLABLE -- a squad is filled in over
-# time and an unanswered field is null rather than a placeholder string -- so `None` is a member of
-# each list, which is what lets the `enum` keyword stand beside a nullable `bsonType`.
+# A squad row's position and school level (ADR-0048). Both NULLABLE -- an unanswered field is null,
+# not a placeholder -- so `None` is a member of each list, which is what lets `enum` stand beside a
+# nullable `bsonType`.
 _POSITIONEN = ["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 _STUFEN = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 
@@ -126,14 +116,13 @@ _KONTAKT = _object(
 )
 
 _DISQUALIFIKATION = _object(
-    # Null for every team still competing, which is all sixteen of them. The absence of the record is
-    # what "not disqualified" means -- there is no boolean beside it, here or on the model, because the
-    # two could disagree and nothing available could refuse that (ADR-0059, and ADR-0032 before it).
+    # Null for every team still competing: the absence of the record is what "not disqualified" means.
+    # No boolean sits beside it, here or on the model, because the two could disagree and nothing
+    # available could refuse that (ADR-0047).
     nullable=True,
-    # Both keys, because a record missing either is not half a disqualification -- it is one that cannot
-    # be rendered. `grund` carries `min_length=1` in `FLDisqualifikation` and no length is repeated
-    # here: an empty reason is a wrong value rather than a structurally broken document, which is the
-    # line ADR-0027 draws and `test_no_validator_constrains_a_range_or_a_format` enforces.
+    # Both keys, because a record missing either is not half a disqualification but one that cannot be
+    # rendered. `grund`'s `min_length=1` is not repeated: an empty reason is a wrong value rather than a
+    # broken document, which is the line ADR-0020 draws.
     required=("grund", "datum"),
     properties={
         "grund": {"bsonType": "string"},
@@ -145,13 +134,11 @@ _DISQUALIFIKATION = _object(
 
 _SPIEL_QUELLE = _object(
     # Null on every group-phase fixture, and on any slot an admin has taken manual charge of by clearing
-    # it -- which is the only manual-override mechanism there is (ADR-0042).
+    # it -- which is the only manual-override mechanism there is (ADR-0034).
     nullable=True,
-    # `type` alone, because the other four keys belong to one variant each and `$jsonSchema` cannot make
-    # a field required only when a sibling holds a particular value. That conditional rule is Pydantic's
-    # discriminated union, and this validator deliberately stops at the boundary ADR-0027 draws: BSON
-    # types, presence and enums. What it still catches is the failure that would be silent -- a `platz`
-    # stored as the string "2", or a `type` nobody in the code has heard of.
+    # `type` alone: the remaining keys belong to one variant each, and `$jsonSchema` cannot require a
+    # field only when a sibling holds a value. That rule is Pydantic's; what stays here is the silent
+    # failure -- a `platz` stored as "2".
     required=("type",),
     properties={
         "type": {"bsonType": "string", "enum": _QUELLE_TYPES},
@@ -165,15 +152,11 @@ _SPIEL_QUELLE = _object(
 )
 
 _SPIEL_ELFMETERSCHIESSEN = _object(
-    # Null on every fixture that did not finish level, which is almost all of them (ADR-0044).
+    # Null on every fixture that did not finish level, which is almost all of them (ADR-0036).
     nullable=True,
-    # Both counts required, and both typed -- unlike `_SPIEL_QUELLE` above, which can only require its
-    # discriminator. There are no variants here, so this validator covers the whole object: a shoot-out
-    # stored as the string "4" is refused by the database rather than surfacing as a failed read.
-    #
-    # What it deliberately does NOT say is that the two must differ. That is a cross-field rule, which
-    # `$jsonSchema` cannot express and ADR-0027 keeps out of these validators; it lives on
-    # `FLSpielElfmeterschiessen` instead, where a level shoot-out fails loudly on the next read.
+    # Both counts required and typed -- no variants here, so a shoot-out stored as "4" is refused by the
+    # database. That the two must DIFFER is a cross-field rule `$jsonSchema` cannot express, so it lives
+    # on `FLSpielElfmeterschiessen` (ADR-0020).
     required=("team1", "team2"),
     properties={
         "team1": {"bsonType": "int"},
@@ -182,14 +165,14 @@ _SPIEL_ELFMETERSCHIESSEN = _object(
 )
 
 _SPIEL_TEAM_FIELD = _object(
-    # Nullable: a playoff slot the group phase has not filled yet has no occupant, and the fixture says
-    # so rather than pointing at a stand-in team (ADR-0042). Where that occupant will come from is
-    # `teamN_quelle` on the match, which is a sibling of this field and never a key inside it.
+    # Nullable: an unfilled playoff slot has no occupant and the fixture says so rather than pointing at
+    # a stand-in (ADR-0034). Where the occupant comes from is `teamN_quelle`, a sibling of this field
+    # and never a key inside it.
     nullable=True,
     required=("team_id", "name", "tore", "shorthand"),
     properties={
         "team_id": {"bsonType": "objectId"},
-        # A display copy of `teams.name`, which `PATCH /teams/{team_id}` fans out into (ADR-0028, rule 3).
+        # A display copy of `teams.name`, which `PATCH /teams/{team_id}` fans out into (ADR-0021, rule 3).
         "name": {"bsonType": "string"},
         "tore": {"bsonType": _INT_OR_NULL},
         "shorthand": {"bsonType": "string"},
@@ -203,10 +186,9 @@ _SPIEL_ORT_FIELD = _object(
         "spielort_id": {"bsonType": "objectId"},
         "name": {"bsonType": "string"},
         "maps_link": {"bsonType": "string"},
-        # The one line here that catches a defect already in the data rather than a hypothetical one.
-        # The same rent is stored as an int by the admin form and as a double when typed in by hand;
-        # every double value is integral, so Pydantic accepts them all and nothing has ever looked
-        # wrong. "int" refuses the next one.
+        # The one line catching a defect already in the data. The admin form stores this rent as an int
+        # and a hand edit as a double; every stored double is integral, so Pydantic accepts them all and
+        # nothing looks wrong. "int" refuses the next one.
         "mietpreis": {"bsonType": "int"},
     },
 )
@@ -227,17 +209,16 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             required=("_id", "start_date", "end_date", "status", "rules"),
             properties={
-                # FLSaison.id is exactly four characters, and this deliberately does not say so.
-                # ADR-0027 scopes these validators to types, presence and enums -- and a five-character
-                # id fails FLSaison on the next read of the current season, which is loud and immediate.
-                # The defects a validator is here for are the ones nothing announces.
+                # `FLSaison.id`'s length is deliberately not repeated (ADR-0020): a wrong-length id
+                # fails `FLSaison` on the next read of the current season, loudly. What a validator is
+                # here for is the defect nothing announces.
                 "_id": {"bsonType": "string"},
                 "start_date": {"bsonType": "string"},
                 "end_date": {"bsonType": "string"},
                 "status": {"bsonType": "string", "enum": _SAISON_STATUS},
                 # Exactly one season is `active`, and no validator can express that. `PATCH
                 # /admin/activate_saison` is the only path to the value and enforces it in one
-                # transaction (ADR-0033); nothing else may write `status` at all.
+                # transaction (ADR-0026); nothing else may write `status` at all.
                 "rules": _object(
                     required=(
                         "win_points",
@@ -250,21 +231,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                     properties={
                         "win_points": {"bsonType": "int"},
                         "draw_points": {"bsonType": "int"},
-                        # How many teams per group reach the knockout round (ADR-0043). Required
-                        # here as well as in `FLSaisonRules`, because a season missing it seeds no
-                        # bracket and marks no qualifying place -- and `--check` is what reports
-                        # which documents still lack it before the value can be relied on.
+                        # How many teams per group reach the knockout round (ADR-0035). Required
+                        # here too, because a season missing it seeds no bracket; `--check` reports
+                        # a document still lacking it.
                         "qualifiers_per_group": {"bsonType": "int"},
                         # The season's capacity, read by the junction write's refusals
                         # (REQ-ENTER-001..003). Required for the same reason as the line above, and
                         # `--check` again reports the documents still lacking the keys.
                         "number_of_groups": {"bsonType": "int"},
                         "teams_per_group": {"bsonType": "int"},
-                        # Which school levels this season's squads may hold -- a subset of the
-                        # league's own set, which `saison_spieler.stufe` is held to (ADR-0061). The
-                        # ITEMS are enumerated, so a season cannot offer a level the league lacks;
-                        # `minItems` is `FLSaisonRules`'s, because a length is a range and ADR-0027
-                        # leaves ranges to Pydantic.
+                        # A subset of the league's own set, which `saison_spieler.stufe` is held to
+                        # (ADR-0048). The ITEMS are enumerated, so a season cannot offer a level the
+                        # league lacks; `minItems` is a range and stays Pydantic's.
                         "erlaubte_stufen": {"bsonType": "array", "items": {"bsonType": "string", "enum": _STUFEN}},
                     },
                 ),
@@ -275,7 +253,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
         "$jsonSchema": _object(
             # `gruppe`, `disqualifikation` and `statistik` are absent because a team document does not
             # carry them: the first two are season-scoped and live on `saison_teams`, and the third is
-            # derived from `spiele` on every read and stored nowhere (ADR-0026).
+            # derived from `spiele` on every read and stored nowhere (ADR-0019).
             required=("_id", "name", "shorthand", "description", "full_name", "website_url", "address", "inactive_since"),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -285,27 +263,18 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "full_name": {"bsonType": "string"},
                 "website_url": {"bsonType": "string"},
                 "address": _ADDRESS,
-                # A retired club, not a club out of one season -- that is `saison_teams`, and it has no
-                # equivalent because a team never leaves a season except by disqualification (ADR-0033).
-                # `uniq_shorthand` keeps indexing a retired club, so its two letters stay reserved.
+                # A retired club, not a club out of one season -- `saison_teams` has no equivalent
+                # because a team never leaves a season except by disqualification (ADR-0026).
+                # `uniq_shorthand` keeps indexing it, so its two letters stay reserved.
                 "inactive_since": _INACTIVE_SINCE,
             },
         )
     },
     Collection.SAISON_TEAMS: {
         "$jsonSchema": _object(
-            # Transcribed from the documents, not from a model: this junction is the one collection
-            # with no Pydantic model of the ROW. The four fields are what the team pipeline reads, and
-            # no row here carries `statistik`: the seven figures are derived from the matches on every
-            # read and stored nowhere (ADR-0026). One sub-document is an exception and is transcribed
-            # from a model like every other collection here -- `_DISQUALIFIKATION` mirrors
-            # `FLDisqualifikation`, and the drift check covers it through `FLTeam`, which embeds it.
-            #
-            # There is no `inactive_since` either, and that is the deliberate part. Once a season's
-            # squads are settled a team never leaves it; the only way out is disqualification, which is
-            # the field below (ADR-0033). So no row here is ever retired, `uniq_saison_id_team_id` is
-            # never held by a dead one, and a create here can never collide with a row an admin cannot
-            # see -- which is the case `saison_spieler` has to offer a reactivate endpoint for.
+            # Transcribed from the documents, not a model: this junction has no Pydantic model of the
+            # ROW, carries no `statistik` (ADR-0019), and carries no `inactive_since` -- a team never
+            # leaves a season, so no row here is ever retired (ADR-0026).
             required=("_id", "saison_id", "team_id", "gruppe", "disqualifikation"),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -313,8 +282,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "team_id": {"bsonType": "objectId"},
                 "gruppe": {"bsonType": "string", "enum": _GRUPPEN},
                 # The reason a team is out of this season and the day it took effect, or null while it
-                # competes (ADR-0059). Required, so a row that has never carried the key is rejected --
-                # which is why the runbook in that ADR seeds it BEFORE the deploy that attaches this.
+                # competes (ADR-0047). Required, so a row missing the key is rejected -- which is why
+                # that ADR's runbook seeds it BEFORE this deploy.
                 "disqualifikation": _DISQUALIFIKATION,
             },
         )
@@ -352,25 +321,24 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "spieler_id": {"bsonType": "objectId"},
                 "saison_id": {"bsonType": "string"},
-                # The field that motivated ADR-0027. Two rows hold the team's `full_name` as a string
+                # The field that motivated ADR-0020. Two rows hold the team's `full_name` as a string
                 # instead of this reference: unique, well-formed, and wrong.
                 "team_id": {"bsonType": "objectId"},
                 "is_nachgetragen": {"bsonType": "bool"},
-                # The squad's captain for this season. On the JUNCTION rather than the person: it is a
-                # role within one team for one season. Not unique by any rule the database can express
-                # -- a co-captaincy is a real arrangement, and no validator sees two documents (I16).
+                # On the JUNCTION rather than the person: a role within one team for one season. Not
+                # unique by any rule the database can express -- a co-captaincy is real, and no
+                # validator sees two documents (`docs/backend/spec.md :: I16`).
                 "is_captain": {"bsonType": "bool"},
-                # Closed sets, both nullable while a squad entry is still being filled in (ADR-0061).
+                # Closed sets, both nullable while a squad entry is still being filled in (ADR-0048).
                 # This validator is what makes the sets true of the DATA rather than only of the write
                 # path: squads are also hand-edited in MongoDB, where no Pydantic model runs.
                 "stufe": {"bsonType": _STRING_OR_NULL, "enum": [*_STUFEN, None]},
                 "position": {"bsonType": _STRING_OR_NULL, "enum": [*_POSITIONEN, None]},
                 # A STRING, not an int. Squad numbers are worn, not counted.
                 "nummer": {"bsonType": _STRING_OR_NULL},
-                # This row is retired, and `uniq_spieler_id_saison_id` keeps indexing it -- so a second
-                # create for the same player and season is a DUPLICATE KEY, answered 409. Creating
-                # never revives (ADR-0032): `POST .../saisons/{saison_id}/reactivate` is the way back,
-                # and it preserves the number, position and stufe the retired row still carries.
+                # `uniq_spieler_id_saison_id` keeps indexing a retired row, so a second create for the
+                # same player and season is a DUPLICATE KEY answered 409. Creating never revives
+                # (ADR-0025); the reactivate endpoint is the way back.
                 "inactive_since": _INACTIVE_SINCE,
             },
         )
@@ -399,11 +367,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "team1": _SPIEL_TEAM_FIELD,
                 "team2": _SPIEL_TEAM_FIELD,
-                # Where each side comes from, or null for a fixture whose sides were never drawn from
-                # anywhere -- every group-phase match, and every slot an admin has taken manual charge
-                # of. Nothing here pairs it with the team field beside it: all four combinations are
-                # legitimate (ADR-0042), and a cross-field rule is outside what these validators may
-                # assert anyway (ADR-0027).
+                # Where each side comes from, or null for a fixture drawn from nowhere -- every
+                # group-phase match, and every slot taken into manual charge. Nothing pairs it with the
+                # team field beside it: every combination is legitimate (ADR-0034).
                 "team1_quelle": _SPIEL_QUELLE,
                 "team2_quelle": _SPIEL_QUELLE,
                 "datum": {"bsonType": _STRING_OR_NULL},
@@ -414,7 +380,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # `ergebnis` is caught on read; a `42` where a string belongs is not.
                 "ergebnis": {"bsonType": _STRING_OR_NULL},
                 # How a knockout that finished level was settled, and a scoreline of its own rather
-                # than a third number inside `ergebnis` (ADR-0044). Required as a KEY on every match,
+                # than a third number inside `ergebnis` (ADR-0036). Required as a KEY on every match,
                 # like the two `quelle` fields: null is the answer for all of them but a handful.
                 "elfmeterschiessen": _SPIEL_ELFMETERSCHIESSEN,
                 "spieltag_id": {"bsonType": "objectId"},
@@ -422,11 +388,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "is_canceled": {"bsonType": "bool"},
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
-                # An optional free-text note. A property but NOT a required key, unlike
-                # `elfmeterschiessen`: a missing key and a stored null both mean "no note", nothing
-                # consumes the difference, and requiring the key would put a backfill of every live
-                # document behind a field that is decoration. `FLSpiel.notiz` defaults for the same
-                # reason.
+                # A property but NOT a required key, unlike `elfmeterschiessen`: a missing key and a
+                # stored null both mean "no note", so requiring it would put a backfill of every live
+                # document behind decoration. `FLSpiel.notiz` defaults for the same reason.
                 "notiz": {"bsonType": _STRING_OR_NULL},
             },
         )
@@ -438,12 +402,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "beginn": {"bsonType": "string"},
                 "ende": {"bsonType": "string"},
-                # NEITHER a position NOR a match count is stored here, and both absences are decisions.
-                # The position is `saison_phase` in bracket order, then `beginn`, then `_id` (ADR-0064);
-                # the match count follows from the season's `rules` and this matchday's phase, because a
-                # single round robin per group determines it exactly (ADR-0065). `FLSpieltag` serves
-                # `anzahl_spiele` as a derived field, which is why `MIRRORED_MODELS` lists it as
-                # not-stored -- the same shape `statistik` has on a team.
+                # NEITHER a position NOR a match count is stored, and both absences are decisions: the
+                # position is derived (ADR-0051) and the count follows from the season's `rules`
+                # (ADR-0052), which is why `MIRRORED_MODELS` lists `anzahl_spiele` as not-stored.
                 "saison_phase": {"bsonType": "string", "enum": _SAISON_PHASEN},
                 "saison_id": {"bsonType": "string"},
                 # Retiring a matchday does not touch the matches pointing at it: `spiele.spieltag_id`
@@ -497,7 +458,7 @@ class UniqueIndex:
 
 # The four rules that are true in the data and were enforced by nobody. Indexes for query performance
 # are deliberately absent: the whole database is about 130 KB, so one would be theatre with a
-# maintenance cost (ADR-0027).
+# maintenance cost (ADR-0020).
 UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(Collection.SAISON_TEAMS, "uniq_saison_id_team_id", ("saison_id", "team_id"), "one junction row per team per season"),
     UniqueIndex(Collection.SAISON_SPIELER, "uniq_spieler_id_saison_id", ("spieler_id", "saison_id"), "one junction row per player per season"),
@@ -539,8 +500,8 @@ async def apply_constraints(db: AsyncIOMotorDatabase) -> ConstraintSummary:
 
     Safe on every boot: `collMod` overwrites the validator with the declared one, and `create_index` is
     a no-op for an index that already matches. Raises on the FIRST failure with the collection named --
-    there is no partial-success path, because a database enforcing eight of nine validators looks
-    exactly like one enforcing all nine.
+    there is no partial-success path, because a database enforcing all but one validator looks exactly
+    like one enforcing every validator.
     """
     for collection_name, validator in COLLECTION_VALIDATORS.items():
         await _apply_validator(db, collection_name, validator)
@@ -634,7 +595,7 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
     """
     Count the stored groups of documents each cross-document rule is broken by, writing nothing.
 
-    **These rules are enforced by the write path and by nothing in the database** (ADR-0052), which is
+    **These rules are enforced by the write path and by nothing in the database** (ADR-0042), which is
     why they are reported here rather than declared above. Neither mechanism this module applies can
     express one: a `$jsonSchema` validator sees exactly one document, and a unique index reads one key
     per document, while the team a fixture fields sits in EITHER of two embedded fields -- so a club in
@@ -646,8 +607,8 @@ async def report_relations(db: AsyncIOMotorDatabase) -> list[RelationReport]:
     """
 
     # A team plays at most one match per Spieltag. Both sides are unwound into one stream first, so a
-    # club fielded in `team1` of Spiel 12 and in `team2` of Spiel 13 of the same Spieltag is one group
-    # of two -- the shape the collision actually takes, and the one a per-field grouping would miss.
+    # club fielded in `team1` of one fixture and `team2` of another is one group of two -- the shape a
+    # per-field grouping would miss.
     both_sides = [{"$ifNull": ["$team1.team_id", None]}, {"$ifNull": ["$team2.team_id", None]}]
     spieltag_occupancy: list[Mapping[str, Any]] = [
         {"$project": {"spiel_nr": 1, "spieltag_id": 1, "sides": both_sides}},
@@ -833,9 +794,9 @@ def diagnose_failure(failure: OperationFailure) -> str:
     return f"  The database refused the command ({named}): {message}"
 
 
-# The CLI below writes to stdout, which the service itself never does (see core/logging.py). The
-# one-document-per-line contract is a property of the RUNNING SERVICE's log stream; this is an operator
-# tool that produces a report for a person and never runs inside a request.
+# The CLI below writes to stdout, which the service itself never does (`app/core/logging.py`):
+# one-document-per-line is a property of the RUNNING SERVICE's stream, and this is an operator tool
+# that never runs inside a request.
 async def _run(check: bool) -> int:
     # Imported here, not at module scope: app.core.config builds the settings object on import and
     # refuses without a complete environment, while the tests import this module with no .env at all.
@@ -855,9 +816,9 @@ async def _run(check: bool) -> int:
 
         print(f"Database '{get_config().db_base_name}', checked against {len(COLLECTION_VALIDATORS)} validators. Nothing is written.\n")
 
-        # Printed before the privileges, because a correct role attached to the wrong user produces
-        # exactly the same refusals as a role that does not work -- and only this line separates them.
-        # The username is not a secret; the password it pairs with is never read, printed or logged.
+        # Printed before the privileges: a correct role attached to the wrong user produces exactly the
+        # refusals a broken role does, and only this line separates them. The username is not a secret,
+        # and its password is never read or printed.
         identity, roles = await report_identity(database)
         print(f"  Authenticated as: {identity}")
         print(f"  Roles the server sees: {', '.join(roles) or '(none)'}\n")
@@ -892,10 +853,9 @@ async def _run(check: bool) -> int:
                 blocking += duplicate.groups
                 print(f"          first offenders: {duplicate.examples}")
 
-        # Counted into `blocking` exactly as the two above are: the rule is enforced by the write path
-        # rather than by the database (ADR-0052), so an offender does not stop a validator or an index
-        # from being applied -- but it does stop the enforcement from being turned on, which is the
-        # decision this command is run to inform.
+        # Counted into `blocking` like the rest: the write path enforces this rule rather than the
+        # database (ADR-0042), so an offender blocks no validator or index -- but it does block turning
+        # the enforcement on, which is what this command informs.
         print("\n  Cross-document rules — relations no validator and no index can express")
         for relation in await report_relations(database):
             marker = "ok " if relation.groups == 0 else "FAIL"
@@ -920,7 +880,7 @@ async def _run(check: bool) -> int:
 def _main() -> int:
     parser = argparse.ArgumentParser(
         prog="python -m app.core.constraints",
-        description="Report or apply the database constraints declared in this module (ADR-0027).",
+        description="Report or apply the database constraints declared in this module (ADR-0020).",
     )
     parser.add_argument("--check", action="store_true", help="report violations and the collMod privilege; writes nothing")
     parser.add_argument("--apply", action="store_true", help="apply every validator and unique index, exactly as startup does")

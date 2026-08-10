@@ -16,9 +16,9 @@ import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The team editor (ADR-0050, adopted by FB-3). One team per URL; WHICH season's membership the
- * editor addresses is the sidemenu selector's `?saison_id=` (decided 2026-08-07) — switching the
- * selector switches what the Saison panel shows and writes.
+ * The team editor (ADR-0040). One team per URL; WHICH season's membership the editor addresses is
+ * the sidemenu selector's `?saison_id=` (decided 2026-08-07) — switching the selector switches
+ * what the Saison panel shows and writes.
  *
  * No `generateMetadata` and no `generateStaticParams`, for the reasons the match editor records.
  * **The page itself resolves NOTHING** — every await happens inside the `Suspense` boundary, which

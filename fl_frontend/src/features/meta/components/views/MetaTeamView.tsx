@@ -12,7 +12,6 @@ import { GROUPED_MEMBERS, TAG_TITLES } from "../../constants";
 export function MetaTeamView() {
   return (
     <div className={`${PAGE_RISE} max-w-meta flex w-full flex-col items-center gap-y-4 text-left sm:gap-y-8`}>
-      {/** Headline */}
       <div className="flex flex-col items-center px-2 text-center">
         <h1 className="fluid-2xl lg:fluid-3xl text-field-fg font-black tracking-tight uppercase drop-shadow-md">Frankfurt-League Team</h1>
         <p className="fluid-sm sm:fluid-sm text-field-fg/80 mt-2 font-medium">Wer das Event möglich macht.</p>
@@ -20,7 +19,6 @@ export function MetaTeamView() {
 
       <div className="soccer-field-separator w-full" />
 
-      {/** Section 1: Intro */}
       <section className="flex w-full flex-col gap-y-3 sm:gap-y-4">
         <div className="text-field-fg flex flex-row items-center gap-x-2 sm:gap-x-3">
           <Persons className="size-5 drop-shadow sm:size-6" />
@@ -37,7 +35,6 @@ export function MetaTeamView() {
 
       <div className="soccer-field-separator w-full" />
 
-      {/** Section 2: Grouped Members */}
       <div className="flex w-full flex-col items-center gap-y-12">
         {/* typedObjectEntries keeps `tag` as the literal union, so TAG_TITLES is a checked lookup
             and needs no `|| tag` fallback. */}

@@ -5,14 +5,14 @@
  *
  * The app's toast region, mounted once in `RootProviders` above the router so a toast survives
  * the navigation that raised it; `shared/utils/appToast.ts` owns what one says and for how long.
- * In `core` because `RootProviders` mounts it and `core` may not import `shared` (ADR-0012).
+ * In `core` because `RootProviders` mounts it and `core` may not import `shared` (ADR-0008).
  * The markup is ours through `Toast.Provider`'s children render function — ordinary TSX the
- * toolchain reads — rather than CSS overrides against vendored selectors (ADR-0053).
+ * toolchain reads — rather than CSS overrides against vendored selectors (ADR-0043).
  *
  * Invariants:
- * - The CSS surface is exactly the two `globals.css` rules ADR-0053 names, written against
+ * - The CSS surface is exactly the two `globals.css` rules ADR-0043 names, written against
  *   HeroUI 3.2.3.
- * - One stylesheet serves both surfaces (ADR-0023) — `admin.css` must not gain a second copy.
+ * - One stylesheet serves both surfaces (ADR-0016) — `admin.css` must not gain a second copy.
  */
 import { tv } from "tailwind-variants";
 
@@ -103,10 +103,9 @@ export function AppToaster() {
                 <Toast.ActionButton
                   {...actionProps}
                   variant="primary"
-                  // The site's affirmative treatment, at the compact end of the scale. A toast has one
-                  // action and it is always the way out of what the toast just reported, so it takes
-                  // the brand fill every other affirmative control takes — never a severity colour,
-                  // which would read as "this button is the danger".
+                  // The site's affirmative treatment, at the compact end of the scale. A toast's one
+                  // action is always the way out of what it reported, so it takes the brand fill —
+                  // never a severity colour, which would read as "this button is the danger".
                   className="bg-brand-solid text-brand-solid-foreground fluid-xs hover:bg-brand-solid/90 mt-1 h-8 rounded-lg px-3.5 font-semibold transition-colors">
                   {actionProps.children}
                 </Toast.ActionButton>

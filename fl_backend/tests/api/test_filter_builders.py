@@ -4,7 +4,7 @@ API · the filter builders, plus the matchday order — the pure half of each `s
 An ordering is pure in exactly the way a filter builder is: a list in, a list out, no collection
 and no await, so it belongs here rather than in a file of its own. Anything asserting that the
 routers apply these correctly needs an HTTP client and a database, which this suite deliberately
-does not have — see `tests/README.md`.
+does not have — see `docs/backend/spec.md`.
 """
 
 from bson import ObjectId
@@ -20,10 +20,9 @@ TODAY = "2026-07-31"
 
 
 class TestSaisonsFilter:
-    # The defect this file was created for: the builder's `include={...}` named a key no field has,
-    # so pydantic matched nothing, the filter was dropped without any error, and every request to
-    # /saisons was answered unfiltered. `include` names are strings and nothing checks them, which is
-    # why the first test below asserts the property rather than one particular term.
+    # The defect: an `include={...}` naming a key no field has matches nothing, so the filter is
+    # dropped with no error and every request is answered unfiltered. `include` names are strings and
+    # nothing checks them, so the first test asserts the property.
     def test_every_included_name_is_a_real_field(self):
         """
         The class of bug, not one instance of it: a name in `include` that no field carries.
@@ -43,7 +42,7 @@ class TestSaisonsFilter:
         assert build_saisons_filter(filters=filters) == {"status": "active"}
 
     def test_a_season_id_is_not_a_filter_term(self):
-        """One season by its id is an identity served by `GET /saisons/{saison_id}`, never a list filter (ADR-0034)."""
+        """One season by its id is an identity served by `GET /saisons/{saison_id}`, never a list filter (ADR-0027)."""
         filters = FLSaisonsFilterOptions.model_validate({"saison_id": "2526", "status": "past"})
 
         assert build_saisons_filter(filters=filters) == {"status": "past"}
@@ -57,9 +56,9 @@ class TestSaisonsFilter:
 
 
 class TestSpieleFilter:
-    # The router resolves an omitted `saison_id` to the current season, so by the time the
-    # builder runs the field is always set. Both spellings are asserted because the builder is
-    # reachable with either.
+    # The router resolves an omitted `saison_id` to the current season, so the field is always set by
+    # the time the builder runs. Both spellings are asserted anyway; only a test reaches the unset
+    # one.
     def test_passes_saison_id_through_under_its_own_name(self):
         """`saison_id` is a real field on the document here, so it needs no alias — unlike on `saisons`."""
         filters = FLSpieleFilterParams.model_validate({"saison_id": "2526"})
@@ -81,7 +80,7 @@ class TestSpieleFilter:
     def test_status_maps_to_a_date_comparison_against_today(self):
         """All three date branches at once.
 
-        `ausstehend` is `$gte` — it INCLUDES today, as intent rather than accident (ADR-0072):
+        `ausstehend` is `$gte` — it INCLUDES today, as intent rather than accident (ADR-0058):
         the landing page's upcoming list must show today's fixtures, so a tightening to `$gt`
         is the regression this assertion exists to refuse.
         """
@@ -93,9 +92,9 @@ class TestSpieleFilter:
         assert ausstehend["datum"] == {"$gte": TODAY}
         assert heute["datum"] == TODAY
 
-    # The id reaches the query as a real `ObjectId`, not the string it arrived as — `team_id` is a
-    # `CustomObjectId`, so validation coerces it. Asserted explicitly because a Mongo filter holding
-    # the *string* would match nothing and return an empty list rather than an error.
+    # The id reaches the query as a real `ObjectId`, not the string it arrived as -- `team_id` is a
+    # `CustomObjectId`, so validation coerces it. Asserted explicitly because a filter holding the
+    # string matches nothing and returns an empty list.
     def test_team_id_matches_either_side_of_the_fixture_as_an_objectid(self):
         """Both sides via `$or`, and as a real ObjectId — a string here would match nothing and return empty."""
         filters = FLSpieleFilterParams.model_validate({"team_id": "6890a1b2c3d4e5f607182930"})
@@ -128,10 +127,10 @@ class TestSpieltageFilter:
 
 class TestSpieltageOrder:
     """
-    The derived order, which is also what the displayed name is composed from (ADR-0064).
+    The derived order, which is also what the displayed name is composed from (ADR-0051).
 
-    These are the tests a stored position never had: with the value written by hand there was nothing to
-    assert but its type, and every ordering defect it permitted was invisible to the suite.
+    A stored position offers nothing to assert but its type, so every ordering defect it permits is
+    invisible to a suite (ADR-0051). A derived one is assertable, which is what these cases do.
 
     Each matchday is identified by its `_id` rather than by a name, because a matchday carries no name --
     the id is both the final tie-break and the only stable handle a test has on one.
@@ -205,7 +204,7 @@ class TestSpieltageOrder:
 
         Without a final tie-break two calls can disagree, and the public Spielplan's tabs then move between
         reloads. The tie-break is the id rather than a name for two reasons: a matchday has none, and the
-        name a reader sees is composed FROM this order, so using it here would be circular (ADR-0064).
+        name a reader sees is composed FROM this order, so using it here would be circular (ADR-0051).
         """
         same_day = [
             self._spieltag(oid=self.B, phase="gruppenphase", beginn="2026-03-07"),

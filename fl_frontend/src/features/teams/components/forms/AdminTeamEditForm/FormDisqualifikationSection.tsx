@@ -27,7 +27,7 @@ import type { CalendarDate } from "@internationalized/date";
  *
  * The record travels whole: the payload requires `disqualifikation` with no default, so lifting one
  * sends the explicit `null` and a form that forgot the field would be a 422, never a team quietly
- * reinstated (ADR-0059). The switch only edits the DRAFT — nothing happens until the page's save.
+ * reinstated (ADR-0047). The switch only edits the DRAFT — nothing happens until the page's save.
  */
 export function FormDisqualifikationSection({
   isDisqualified,

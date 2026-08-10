@@ -8,7 +8,7 @@
  * Invariants:
  * - `path` is the payload's dotted path AND the input `name`, `FieldErrors` key and anchor id.
  * - Every editable field has a row in `FIELD_DESCRIPTORS`; a field with no row is invisible.
- * - `status` is not a descriptor and cannot become one — the rollover is a control (ADR-0033).
+ * - `status` is not a descriptor and cannot become one — the rollover is a control (ADR-0026).
  * - `id` is not one either: every `saison_id` in the database references it, so it never moves.
  */
 
@@ -17,16 +17,13 @@ import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SaisonDraftFields } from "./types";
 
-/** The panel a field renders in — the change list's section heading. */
 export type FLSaisonFieldGroup = "Zeitraum" | "Regeln";
 
-/** What the page knows about one editable field right now. */
 export type FLSaisonFieldStatus = {
   path: string;
   label: string;
   group: FLSaisonFieldGroup;
   isChanged: boolean;
-  /** The schema's message for this field, or `null`. */
   error: string | null;
   storedText: string | null;
   draftText: string | null;

@@ -95,9 +95,9 @@ describe("joinCollections — duplicate left ids", () => {
   ];
   const right = [{ spieltag_id: "st1", n: 1 }];
 
-  // Without .slice() every row sharing an id receives the SAME array instance, so an in-place sort
-  // or push in one consumer silently reorders another's list. This is the test that fails if the
-  // .slice() is removed -- the original fixtures all use distinct ids, so nothing caught it.
+  // Without .slice() every row sharing an id receives the same array instance, so an in-place sort or
+  // push in one consumer silently reorders another's list. The other fixtures use distinct ids, so
+  // this is the only case that catches it.
   it("gives each row its own array instance", () => {
     const [a, b] = joinCollections({ left, right, leftIdKey: "id", rightIdKey: "spieltag_id", targetKey: "items" });
 

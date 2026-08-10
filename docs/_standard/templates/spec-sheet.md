@@ -12,11 +12,20 @@ Rules: ../chapters/3-corpus.md — the spine is OUT-4.
 **Verified against:** `<sha>`, \<yyyy-mm-dd\>\
 **Scope:** \<the directories and files this covers\>
 
-## 1. \<Contract section\>
+| Section               | Answers                                                  |
+| --------------------- | -------------------------------------------------------- |
+| 1. Contract           | What this surface exposes, and on what terms             |
+| 2. Invariants         | What must stay true, what enforces it, and how it breaks |
+| 3. Violation → remedy | The symptom is here; what caused it and what fixes it    |
+| 4. Known-open         | What is accepted as missing, and what owns it            |
+
+## 1. Contract
 
 \<What this surface exposes — endpoints, parameters, exports, configuration — as tables, not
-prose. Add as many numbered contract sections as the surface needs; the three fixed sections below
-continue the numbering.\>
+prose. Add as many `1.<n>` subsections as the surface needs: the contract grows, and the three
+fixed sections keep their numbers so a citation of section 3 means the same thing in every sheet.\>
+
+### 1.1 \<Contract section\>
 
 | Name     | Type     | Default     | Notes                                              |
 | -------- | -------- | ----------- | -------------------------------------------------- |

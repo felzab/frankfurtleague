@@ -17,15 +17,15 @@ import type { FLSpielerStufe } from "@/features/spieler/schemas";
  * any of them.
  *
  * **Three of them are read on paths that do not look like a form.** `win_points` and `draw_points` score
- * the league table on every read rather than being stored (ADR-0026), so a change here moves every
+ * the league table on every read rather than being stored (ADR-0019), so a change here moves every
  * standing for this season the moment it saves and there is nothing to migrate.
  * `qualifiers_per_group` decides how many of each group reach the first knockout round, which is what the
- * seeding walk reads (ADR-0043). `number_of_groups` and `teams_per_group` bound what a club may be
+ * seeding walk reads (ADR-0035). `number_of_groups` and `teams_per_group` bound what a club may be
  * entered into, and the junction write refuses an entry outside them.
  *
  * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No validator
  * holds `saison_spieler.stufe` against a season's list, deliberately: a row's level is held to the
- * league's closed set (ADR-0061), so narrowing a season cannot retroactively invalidate the squads of a
+ * league's closed set (ADR-0048), so narrowing a season cannot retroactively invalidate the squads of a
  * season already played.
  */
 export function FormRegelnSection({
@@ -40,7 +40,7 @@ export function FormRegelnSection({
   rules: FLSaisonRules;
   onRulesChange: (next: FLSaisonRules) => void;
   onFieldLeft: (paths: readonly string[]) => void;
-  /** Separate from `onRulesChange`, because a picked control is judged on change (ADR-0050). */
+  /** Separate from `onRulesChange`, because a picked control is judged on change (ADR-0040). */
   onStufenChange: (next: FLSpielerStufe[]) => void;
   stufenError?: string;
   /** Whether this season is the one currently being played, which is what makes a rules edit visible. */

@@ -2,13 +2,13 @@
  * APP · the squad edit's undo
  *
  * Puts a player's names, their selected season's squad row, or both back the way they were — one
- * of the admin mutations that are route handlers rather than server actions (ADR-0062, the E592
+ * of the admin mutations that are route handlers rather than server actions (ADR-0049, the E592
  * diagnosis). Revert to a server action when E592 is fixed upstream.
  *
  * Invariants:
  * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.
  * - It guards itself: `proxy.ts` matches `/admin/:path*` only, so the session check is the control.
- * - The client holds both payloads — no admin write is recorded anywhere (roadmap BE-15).
+ * - The client holds both payloads — no admin write is recorded anywhere.
  * - The person half restores first, mirroring the save; a partial failure reports without invalidating.
  * - One tag, unlike the club undo's four: nothing under `spiele` or `teams` reads a squad row.
  */
@@ -36,7 +36,7 @@ const UndoRequestSchema = z
   });
 
 export async function POST(request: NextRequest) {
-  // Same-origin only, matching the other two undos and `api/client-error`: every browser sends this
+  // Same-origin only, matching the other undos and `api/client-error`: every browser sends this
   // on a fetch, and the session check below is what actually authorizes the write.
   const secFetchSite = request.headers.get("sec-fetch-site");
   if (secFetchSite !== null && secFetchSite !== "same-origin") {
@@ -78,9 +78,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Guarded, which the save does not need to be — see the match undo: every write above is already
-    // committed, so an invalidation that throws must not turn a restore that HAPPENED into a
-    // reported failure. `{ expire: 0 }` because the admin is about to look at what they restored.
+    // Guarded, unlike the save: every write above is already committed, so an invalidation that throws
+    // must not turn a restore that happened into a reported failure. `{ expire: 0 }` because the admin
+    // is about to look at what they restored.
     try {
       revalidateTag("spieler", { expire: 0 });
     } catch (invalidationError) {

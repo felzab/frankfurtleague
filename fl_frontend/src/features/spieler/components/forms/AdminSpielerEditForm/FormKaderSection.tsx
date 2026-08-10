@@ -89,9 +89,8 @@ export function FormKaderSection({
   const [isEntering, startEntering] = useTransition();
 
   // The browser's half of `REQ-SQUAD-002`, judged on every keystroke rather than on blur: unlike the
-  // field's own bounds this is a fact about the SQUAD, so the answer can change when the team picker
-  // moves and the number does not. An absent `takenNummern` means the caller did not supply the squad,
-  // and nothing is refused on it — see the field on `SpielerTeamOption`.
+  // field's own bounds this is a fact about the squad, so the answer changes when the team picker
+  // moves and the number does not.
   const nummerIsTaken = isSquadNummerTaken({
     proposed: nummer,
     stored: storedNummer,

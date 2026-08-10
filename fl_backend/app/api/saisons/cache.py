@@ -4,15 +4,15 @@ SAISONS · the in-process season cache
 Season documents, cached in this process and dropped by the season write path as it saves.
 ADR-0002 made the current-season lookup the hot path of almost every read, while the answer
 changes twice a year at most; the TTL only bounds the one write nothing observes — a hand edit in
-Compass — and keeps ADR-0035's property true through this layer too.
+Compass — and keeps ADR-0028's property true through this layer too.
 
 Invariants:
 - Only found documents are stored: a miss keeps raising 404 from a fresh read, never a cached one.
 - Every read returns a deep copy — the stored document is shared by every future hit.
-- One process, one cache: a second uvicorn worker changes that arithmetic (ADR-0070).
+- One process, one cache: a second uvicorn worker changes that arithmetic (ADR-0056).
 
 See:
-- ADR-0070 — the season document is cached in process
+- ADR-0056 — the season document is cached in process
 - app/api/saisons/crud.py — the resolution point this cache sits behind
 """
 
@@ -21,7 +21,7 @@ from copy import deepcopy
 from typing import Any, Final
 
 # Ten minutes. Generous against a document that changes twice a year, and small against the day the
-# frontend's own reference caches already tolerate for the same hand-edit case (ADR-0035).
+# frontend's own reference caches already tolerate for the same hand-edit case (ADR-0028).
 SAISON_CACHE_TTL_SECONDS: Final = 600.0
 
 # The key for "whichever season is active". A season id is exactly four characters, so this can

@@ -40,7 +40,7 @@ const modalShell = tv({
     size: {
       form: { dialog: "max-h-modal max-w-2xl", body: "flex-1 scrollbar-gutter-stable overflow-y-auto" },
       /* `max-w-sm`, one step under the old `max-w-md`: a confirmation carries one sentence and two
-         buttons, and the wider box read as an empty form (sixth review). Both confirmation
+         buttons, and the wider box read as an empty form. Both confirmation
          dialogs share the size, so the delete and the discard stay one family. */
       confirm: { dialog: "max-w-sm", header: "pt-2", body: "pb-2" },
     },

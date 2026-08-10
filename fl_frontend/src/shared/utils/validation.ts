@@ -2,9 +2,10 @@
  * SHARED · server validation errors
  *
  * The one adapter between a Zod failure in a server action and the per-field messages react-aria
- * renders. The contract it rests on — that a field's `name` prop equals its dotted path in the
- * payload — is what lets the two halves meet without a translation table, and it is stated on
- * `FieldErrors` below.
+ * renders.
+ *
+ * Invariants:
+ * - A field's `name` prop equals its dotted path in the payload.
  */
 
 import type { ZodError } from "zod";

@@ -10,13 +10,13 @@
  * - Every action runs inside `runAdminMutation` — a 409 must reach the form, not the error page.
  * - Every action begins with `getAdminSession()` and CHECKS the result.
  * - Base tags only: a season IS the season, so no granular tag names anything (ADR-0001).
- * - `status` reaches no payload — `activateSaisonAction` calls the one endpoint that may (ADR-0033).
+ * - `status` reaches no payload — `activateSaisonAction` calls the one endpoint that may (ADR-0026).
  * - The rollover invalidates four resources: an omitted `saison_id` means the current season
  *   (ADR-0002), so promoting changes `/spiele`, `/spieltage` and `/teams` too.
- * - A rules edit invalidates `teams` as well — the table is scored from `rules` on read (ADR-0026).
+ * - A rules edit invalidates `teams` as well — the table is scored from `rules` on read (ADR-0019).
  *
  * See:
- * - docs/frontend/spec.md — section 3, the action inventory
+ * - docs/frontend/spec.md — section 1.3, the action inventory
  */
 import { updateTag } from "next/cache";
 
@@ -50,15 +50,16 @@ const SAISON_ID_TAKEN = "Diese Saison-ID ist bereits vergeben. Wähle eine ander
  * - **A FORM message** (`error`) is about data this form does not show, so the remedy is elsewhere: TWO
  *   sentences, the first stating what is true and the second naming the action, imperative.
  *
- * No em dashes, no parentheses, no error codes. The code travels in the log line (docs/logging.md); this
+ * No em dashes, no parentheses, no error codes. The code travels in the log line (docs/logging/error-codes.md); this
  * is the half a person reads.
  */
 
 /**
- * The rules edit's seven refusals (`REQ-RULES-001..007`), or `null` when the 409 is none of them.
+ * The rules edit's refusals (`REQ-RULES-001..007` and `REQ-DATE-004`), or `null` when the 409 is
+ * none of them.
  *
- * Five land on a field and three do not: the freeze is about the whole season, and the matchday overflow
- * and the span shrink are about documents this form does not show.
+ * Most land on a field; the freeze, the matchday overflow and the span shrink do not, because the
+ * freeze is about the whole season and the other two are about documents this form does not show.
  */
 function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
@@ -100,7 +101,7 @@ function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?: FieldE
  * What a season's own reads depend on, plus the league table.
  *
  * `teams` rather than `saisons` alone: `GET /teams` reads the season document on every call to score
- * the derived table from `rules.win_points` and `draw_points` (ADR-0026), so an edit to those two
+ * the derived table from `rules.win_points` and `draw_points` (ADR-0019), so an edit to those two
  * changes every standing on the next read. The dates travel on the same payload, so this is
  * unconditional rather than a comparison against what moved -- a wrong "nothing changed" here serves a
  * stale table for a day.
@@ -138,11 +139,9 @@ export async function postSaisonAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // TWO different 409s reach this call, and the code is what separates them. `REQ-RULES-001` refuses
-    // a bracket the phase set cannot hold (ADR-0065) and is checked FIRST, because the fallback below
-    // has no code to inspect: a duplicate id arrives from the unique index, so it is the 409 that is
-    // left once the named refusals are ruled out. Both land as form errors -- each is about what was
-    // submitted, and the admin fixes it in the dialog that is still open.
+    // Two different 409s reach this call and the code separates them: `REQ-RULES-001` refuses a
+    // bracket the phase set cannot hold (ADR-0052) and is checked first, because a duplicate id
+    // arrives from the unique index with no code to inspect.
     let postOperation;
     try {
       postOperation = await postSaison(validated.data);
@@ -159,7 +158,7 @@ export async function postSaisonAction(
       return { success: false, error: "Beim Anlegen der neuen Saison ist ein unerwarteter Fehler aufgetreten" };
     }
 
-    // A created season is always `future` and never `active` (ADR-0033), so nothing that resolves the
+    // A created season is always `future` and never `active` (ADR-0026), so nothing that resolves the
     // current season is affected -- the season list is.
     updateTag("saisons");
 
@@ -189,7 +188,7 @@ export async function patchSaisonAction(rawPayload: FLPatchSaisonPayload): Promi
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // All five rules refusals are reachable here (ADR-0065), and each has to reach the editor rather
+    // All five rules refusals are reachable here (ADR-0052), and each has to reach the editor rather
     // than the error page -- the panel the admin is looking at is where the wrong value still sits.
     let patchOperation;
     try {
@@ -240,9 +239,9 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The rollover is refused while the OUTGOING season still has unplayed fixtures
-    // (`REQ-ACTIVATE-001`). The panel already disables the button in that case and lists them, so this is
-    // the stale-page path: the answer has to name what to do rather than be a bare failure.
+    // The rollover is refused while the outgoing season still has unplayed fixtures
+    // (`REQ-ACTIVATE-001`). The panel already disables the button and lists them, so this is the
+    // stale-page path: the answer has to name what to do rather than be a bare failure.
     let activateOperation;
     try {
       activateOperation = await activateSaison(validated.data);
@@ -262,9 +261,9 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
 
     invalidateRollover();
 
-    // `deactivated` is normally 1. Zero means this season already held `active`, which is a no-op
-    // worth naming rather than reporting as a rollover that did nothing; more than one means the
-    // database had drifted into a state nothing can express and this call repaired it (ADR-0027).
+    // `deactivated` is normally 1. Zero means this season already held `active`, a no-op worth
+    // naming; more than one means the database had drifted into a state nothing can express and this
+    // call repaired it (ADR-0020).
     const demoted = activateOperation.deactivated;
     const message =
       demoted === 0
