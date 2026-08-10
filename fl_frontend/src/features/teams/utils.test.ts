@@ -119,23 +119,35 @@ const fixture = ({
 const verlaufOf = (spiele: FLSpiel[], teamId = SUBJECT) => computeSaisonVerlauf({ spiele, teamId });
 
 describe("computeSaisonVerlauf", () => {
-  // Failing a group is evidenced only by an absent knockout fixture, which is also what an undrawn
-  // bracket looks like — and a placing may be acted on only once no result can change it (ADR-0035).
-  it("says nothing at all about a team that has only group fixtures", () => {
-    assert.deepEqual(verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "gruppenphase", ergebnis: "0:4" })]), []);
+  // Elimination and an undrawn bracket look identical from here, so `out` would tell a team it is
+  // eliminated while its bracket is being drawn — a state waiting fixes (ADR-0039).
+  it("claims no outcome for a group phase the team has not visibly come through", () => {
+    const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "gruppenphase", ergebnis: "0:4" })]);
+
+    assert.deepEqual(verlauf, [{ phase: "gruppenphase", outcome: "unknown" }]);
   });
 
   it("says nothing about a team with no fixtures at all", () => {
     assert.deepEqual(verlaufOf([]), []);
   });
 
-  it("reports the group phase only once a knockout fixture fields the team", () => {
+  it("reports the group phase as come through once a knockout fixture fields the team", () => {
     const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "viertelfinale" })]);
 
     assert.deepEqual(verlauf, [
       { phase: "gruppenphase", outcome: "advanced" },
       { phase: "viertelfinale", outcome: "pending" },
     ]);
+  });
+
+  // The group phase has exactly two readings and a third would have to come from somewhere this
+  // function cannot see, so the whole set is asserted rather than one case at a time.
+  it("resolves the group phase to come-through or nothing, whatever its fixtures did", () => {
+    const groupOutcomes = new Set(
+      [null, "0:4", "2:2"].map((ergebnis) => verlaufOf([fixture({ phase: "gruppenphase", ergebnis })])[0]?.outcome),
+    );
+
+    assert.deepEqual(groupOutcomes, new Set(["unknown"]));
   });
 
   it("orders the rounds as a season plays them, not as the fixtures arrive", () => {

@@ -8,7 +8,7 @@
  *
  * Invariants:
  * - No chip says a team went out of the group phase: that state and an undrawn bracket look the same
- *   from here, and a placing may be acted on only once no result can change it (ADR-0035).
+ *   from here, so the group's chip is either come-through or muted with no outcome word (ADR-0039).
  * - A round that finished level claims no winner unless a later round fields the team, because the
  *   bracket is the only reader that takes one from a shoot-out (ADR-0036).
  */
@@ -37,6 +37,9 @@ const OUTCOME_TINTS: Record<SaisonPhaseOutcome, string> = {
   out: "bg-danger/15 text-danger-strong",
   pending: "bg-info/15 text-info-strong",
   level: "bg-warning/15 text-warning-strong",
+  // The pairing the timeline's `?` dot uses for a fixture it cannot read, so grey means "nothing is
+  // claimed" on both halves of this page rather than in a treatment invented here.
+  unknown: "bg-muted text-foreground-muted",
 };
 
 /**
@@ -58,6 +61,10 @@ const outcomeLabel = ({ phase, outcome }: SaisonPhaseVerlauf): string => {
       return `Steht im ${round}`;
     case "level":
       return `${round} unentschieden`;
+    // The round's name and no verb: every other case ends in a word about how the round went, and
+    // this one has none to give (ADR-0039).
+    case "unknown":
+      return round;
   }
 };
 
@@ -69,11 +76,12 @@ export function TeamSaisonVerlauf({ teamSpiele, teamId }: { teamSpiele: FLSpiel[
       <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonverlauf</h2>
 
       {verlauf.length === 0 ? (
-        // Describes what the section holds and promises nothing: a disqualified team renders its
-        // note directly above this, and a past season reached by `?saison_id=` has no future left.
+        // Reached only where the team has no fixture at all, since the group phase always yields a
+        // chip. It promises nothing: a disqualified team renders its note directly above this, and a
+        // past season reached by `?saison_id=` has no future left.
         <EmptyState
           title="Für dieses Team ist keine Runde vermerkt."
-          hint="Diese Übersicht zeigt jede Runde, die das Team überstanden hat oder in der es ausgeschieden ist."
+          hint="Diese Übersicht zeigt jede Runde, in der dieses Team ein Spiel hat."
         />
       ) : (
         <ul className="flex flex-row flex-wrap items-center gap-2">

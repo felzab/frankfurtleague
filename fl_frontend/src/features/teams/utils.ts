@@ -124,7 +124,14 @@ export type SaisonPhaseOutcome =
   /** Its fixture carries no result yet. */
   | "pending"
   /** Its fixture finished level and no later round fields the team, so nobody here may name a winner. */
-  | "level";
+  | "level"
+  /**
+   * The round happened and nothing here can say how it went. **Only the group phase reaches this, and
+   * it must never acquire an outcome word.** Passing a group is evidenced by a knockout fixture and
+   * failing one only by the absence of that fixture — which an undrawn bracket looks exactly like, so
+   * reading the absence as elimination would report a state that waiting fixes (ADR-0039).
+   */
+  | "unknown";
 
 export type SaisonPhaseVerlauf = {
   phase: FLSaisonPhase;
@@ -141,10 +148,9 @@ export type SaisonPhaseVerlauf = {
  * Invariants:
  * - Only a round the team has a fixture in produces an entry, so a season that plays no
  *   `achtelfinale` yields none rather than one saying the team failed to reach it.
- * - Going out of the GROUP phase is never reported: passing it is evidenced by a knockout fixture,
- *   while failing it is evidenced only by absence, which is also what a bracket nobody has drawn yet
- *   looks like — and a placing may be acted on only once no remaining result can change it
- *   (ADR-0035). This page fetches no standing and cannot tell the two apart.
+ * - The group phase resolves to `advanced` or `unknown` and to nothing else. Absence of a knockout
+ *   fixture is not elimination, and reading it as one would report a state that waiting fixes
+ *   (ADR-0039) — an empty public page is honest where a wrong one is not (ADR-0035).
  */
 export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSpiel[]; teamId: string }): SaisonPhaseVerlauf[] => {
   const byPhase = new Map<FLSaisonPhase, FLSpiel[]>();
@@ -171,7 +177,9 @@ export const computeSaisonVerlauf = ({ spiele, teamId }: { spiele: readonly FLSp
     const advanced = PHASE_RANK[phase] < deepestRank;
 
     if (phase === "gruppenphase") {
-      if (advanced) verlauf.push({ phase, outcome: "advanced" });
+      // Two readings and never a third: a knockout fixture is evidence the group was come through,
+      // and its absence is evidence of nothing at all (ADR-0039).
+      verlauf.push({ phase, outcome: advanced ? "advanced" : "unknown" });
       continue;
     }
 
