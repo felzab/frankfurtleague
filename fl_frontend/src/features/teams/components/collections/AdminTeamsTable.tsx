@@ -39,7 +39,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
 }: {
   teamsQuery: string;
   filteredTeams: AdminTeamRow[];
-  /** Decides the status column's wording: a past season reads Abgeschlossen, a planned one Ausstehend. */
+  /** Decides the status column's wording: Laufend, Abgeschlossen or Geplant, the season's own three. */
   selectedSaisonStatus: "past" | "active" | "future";
   setDeletingTeam: (team: AdminTeamRow) => void;
 }) {
@@ -73,9 +73,11 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
       {team.selected?.disqualifikation != null && <span className={`${LABEL_BADGE} bg-danger/15 text-danger-strong`}>Disqualifiziert</span>}
       {team.inactive_since === null && team.selected !== null && team.selected.disqualifikation === null && (
         <>
-          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Aktiv</span>}
+          {/* The season's own three words, for the reason `AdminSpielerTable` states: „Aktiv“ is the
+              filter's word for „nicht stillgelegt“, a different fact about a different subject. */}
+          {selectedSaisonStatus === "active" && <span className={`${LABEL_BADGE} bg-success/15 text-success-strong`}>Laufend</span>}
           {selectedSaisonStatus === "past" && <span className={`${LABEL_BADGE} bg-muted text-foreground-muted`}>Abgeschlossen</span>}
-          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Ausstehend</span>}
+          {selectedSaisonStatus === "future" && <span className={`${LABEL_BADGE} bg-info/15 text-info-strong`}>Geplant</span>}
         </>
       )}
     </div>
