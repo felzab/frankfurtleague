@@ -657,9 +657,13 @@ def anchors_of(target: Path) -> frozenset[str] | None:
 def is_gitignored(token: str) -> bool:
     """A gitignored path is named deliberately and is absent by design (docs/audit/ is the case).
 
+    Asked twice, because a directory-only pattern matches a bare name only while the directory is
+    there: on a clean checkout the directory is gone, the bare name stops matching, and the
+    reference reads as dead everywhere but the machine that has it.
+
     Only a clean exit says ignored, so a git that cannot answer leaves the finding standing.
     """
-    return git_status("check-ignore", "-q", token) == 0
+    return git_status("check-ignore", "-q", token) == 0 or git_status("check-ignore", "-q", f"{token}/") == 0
 
 
 def adr_numbers() -> set[str]:
