@@ -9,7 +9,8 @@ written, so it is deliberately not restated here.
 Invariants:
 - Fenced code blocks are stripped first; placeholder text (< > { } * ? … or NNNN) is skipped.
 - Comments are scanned exactly like documentation, never the code around them — a source file's
-  by INC-6, an ops file's by COR-6, which binds every written artifact.
+  by INC-6, an ops file's by COR-6, which binds every written artifact. Python and JSON are parsed;
+  TypeScript and the `#` formats read a line, so there a marker in a literal keeps its line.
 - Some checks read the branch rather than the tree: stamp freshness, branch impact (CUR-4),
   history phrases, counts, and the comment-length bound.
 - Material means more than comments, decided by `check_scope.is_comment_only` — one classifier, two gates.
@@ -25,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+import tokenize
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path, PurePosixPath
@@ -48,10 +50,13 @@ TEMPLATE_EXEMPT_CHECKS: Final[frozenset[str]] = frozenset({"stamp-format", "path
 
 # The comment-bearing source suffixes the gate scans (INC-6).
 SOURCE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".sh")
+# What the C-style line reader takes: JavaScript shares TypeScript's syntax exactly. JSON is NOT
+# here — it is scanned rather than read a line at a time, for the reason `_jsonc_comments` gives.
+CSTYLE_SUFFIXES: Final[tuple[str, ...]] = (".ts", ".tsx", ".js", ".mjs", ".cjs")
 
-# The ops files, whose comments COR-6 binds as it binds a spec sheet's prose, although chapter 2's
-# Applies-to does not reach them. Each takes `#` comments, so the shell reader covers all of them.
-OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml")
+# The ops and configuration files, whose comments COR-6 binds as it binds a spec sheet's prose,
+# although chapter 2's Applies-to does not reach them.
+OPS_SUFFIXES: Final[tuple[str, ...]] = (".conf", ".yml", ".yaml", ".toml", ".json")
 # Spelled in full: a Dockerfile carries no suffix for a pattern to match on.
 OPS_FILENAMES: Final[tuple[str, ...]] = ("Dockerfile",)
 SCANNED_SUFFIXES: Final[tuple[str, ...]] = SOURCE_SUFFIXES + OPS_SUFFIXES
@@ -105,6 +110,11 @@ ADR_RE: Final = re.compile(r"\bADR-(\d{4})\b")
 # no longer exists pass, since the file it names is still there. A title is CommonMark's; an empty
 # target is an in-page link.
 LINK_RE: Final = re.compile(r"""(?<!!)\[[^\]]*\]\(([^)\s#]*)(#[^)\s]*)?(?:[ \t]+"[^"\n]*"|[ \t]+'[^'\n]*')?\)""")
+# What GitHub's slugger keeps of a heading: a link renders as its text alone, and anything that is
+# not a word character, a space or a hyphen is dropped. An underscore and a letter outside ASCII
+# are word characters and survive.
+INLINE_LINK_RE: Final = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+SLUG_DROP_RE: Final = re.compile(r"[^\w\- ]")
 # A citation is a single backticked run containing exactly one " :: ". The separator is what marks it
 # as checkable rather than prose (COR-6).
 CITATION_RE: Final = re.compile(r"`([^`\n]+? :: [^`\n]+?)`")
@@ -131,6 +141,10 @@ STAMP_REQUIRED_GLOBS: Final[tuple[str, ...]] = (
 # all share. The label is bounded because a bold sentence ending in a colon is prose, and holding
 # prose to a layout rule gets a check ignored.
 METADATA_LINE_RE: Final = re.compile(r"^\*\*([A-Z][A-Za-z ]{0,30}):\*\*(?:\s|$)")
+# COR-8's break is a line ending; written as the characters `\` and `n` it leaves two entries on one
+# physical line. Each half then reads well formed — the first needs no break, and the second's `**`
+# reads to the stamp check as a wildcard.
+METADATA_JOIN_RE: Final = re.compile(r"\\n\s*\*\*([A-Z][A-Za-z ]{0,30}):\*\*")
 
 # A rule id resolves to a rule heading in the standard's chapters or it dangles. Two segments and a
 # short number, so the backend's three-segment error codes (REQ-VAL-001) can never collide.
@@ -233,13 +247,17 @@ INVARIANT_ROW_RE: Final = re.compile(r"^[ \t]*\|\s*(I\d{1,3}[a-z]?)\s*\|", re.MU
 INVARIANT_CITE_RE: Final = re.compile(r"(?<![A-Za-z0-9])(I\d{1,3}[a-z]?)(?![A-Za-z0-9])")
 SURFACE_WORDS: Final = re.compile(r"\b(backend|frontend|ops|logging|_git)\b|spec\.md", re.IGNORECASE)
 
-# COR-6 bans a line-number citation: it is wrong after any edit above it, and nothing detects that.
-# The 2-to-5-LETTER extension keeps a contrast ratio (4.5:1) and a version (22.1.0) out, the false
-# positive that would get the check switched off.
-LINE_CITATION_RE: Final = re.compile(r"`([^`\n]*\.[A-Za-z]{2,5}:\d+(?:-\d+)?)`")
-# The same citation with no backticks, which is how it usually reaches a comment. The leading guard
-# is what holds a URL's host and port out: that shape is identical once the scheme is off the line.
-BARE_LINE_CITATION_RE: Final = re.compile(r"(?<![/`\w])([\w.-]*[\w-]\.[A-Za-z]{2,5}:\d+(?:-\d+)?)\b")
+# COR-6 bans a line-number citation, and nothing but its form detects one. Closed to the TEXT
+# suffixes this repository holds, so `example.com:443` stays prose; one added to the tree and not
+# here escapes both patterns silently.
+CITABLE_SUFFIXES: Final[tuple[str, ...]] = (".md", ".css", ".svg", ".lock", *SCANNED_SUFFIXES)
+# Longest first, so the alternation cannot stop at `.ts` inside `.tsx` and leave the colon unmatched.
+_CITABLE_SUFFIX_RE: Final = "|".join(re.escape(suffix) for suffix in sorted(set(CITABLE_SUFFIXES), key=len, reverse=True))
+LINE_CITATION_RE: Final = re.compile(rf"`([^`\n]*(?:{_CITABLE_SUFFIX_RE}):\d+(?:-\d+)?)`")
+# The same citation with no backticks, which is how a comment usually carries one. The directory run
+# sits inside the capture: the guard rejects a start after `/` or `.`, which holds a URL out and
+# would hold a path out with it.
+BARE_LINE_CITATION_RE: Final = re.compile(rf"(?<![/`\w.])((?:[\w.-]+/)*[\w.-]*[\w-](?:{_CITABLE_SUFFIX_RE}):\d+(?:-\d+)?)\b")
 
 # INC-6's banned comment citations. An audit id and a ledger row fail: both name a document
 # `/audit:finish` deletes. A roadmap id and a review round are reported -- the id resolves, and
@@ -354,6 +372,7 @@ CHECKS: Final[dict[str, frozenset[Severity]]] = {
     "anchor": frozenset({"fail"}),
     "bare-path": frozenset({"fail"}),
     "branch-impact": frozenset({"fail"}),
+    "branch-scope": frozenset({"report"}),
     "check-registry": frozenset({"fail"}),
     "citation": frozenset({"fail"}),
     "comment-citation": frozenset({"fail", "report"}),
@@ -448,7 +467,9 @@ def git(*args: str) -> str | None:
         )
     except OSError:
         return None
-    return done.stdout.strip() if done.returncode == 0 else None
+    # Only the trailing newline comes off. `strip` would also eat a leading space, and the first
+    # path of a `ls-files -z` listing is the one place a leading space is data rather than layout.
+    return done.stdout.rstrip() if done.returncode == 0 else None
 
 
 def git_status(*args: str) -> int | None:
@@ -479,15 +500,44 @@ def _read_text(path: Path) -> tuple[str | None, str]:
 
 @cache
 def _tree_index() -> dict[str, tuple[Path, ...]]:
-    """Every file in the tree, indexed by name, sorted, with the skipped directories pruned.
+    """Every tracked file, indexed by name, sorted, with the skipped directories pruned.
 
-    One walk answers every bare-filename lookup, where `rglob` re-walks the whole tree for each one.
-    `normcase` keys it, so a lookup matches exactly what the filesystem itself would match.
+    Tracked rather than walked, because a clean clone is the referee: a build directory, a cache or
+    a worktree nested inside the tree makes a bare-filename lookup ambiguous on the machine holding
+    it and unique everywhere else. This is one of the two filters a bare name passes; `_resolve`
+    applies them, and CUR-5 states what they add up to.
+
+    `normcase` keys it, so a lookup matches exactly what the filesystem itself would match. The
+    listing is NUL-separated: git quotes and escapes a path outside ASCII in its default output.
     """
+    listing = git("ls-files", "-z")
+    if listing is None:
+        return _walked_index()
+    index: dict[str, list[Path]] = {}
+    for entry in listing.split("\0"):
+        if not entry:
+            continue
+        path = REPO_ROOT / entry
+        if not _skipped(path):
+            index.setdefault(os.path.normcase(path.name), []).append(path)
+    return {name: tuple(sorted(paths)) for name, paths in index.items()}
+
+
+def _walked_index() -> dict[str, tuple[Path, ...]]:
+    """The same index where git could not answer it, pruned as close to git's answer as a walk gets.
+
+    The control directory goes by name: it holds no citable file, and check-ignore does not call it
+    ignored. Everything else git would exclude needs git, so a tree it cannot read at all keeps its
+    generated files here -- asked once rather than per directory, which would cost two spawns each.
+    """
+    ignorable = git_status("rev-parse", "--is-inside-work-tree") == 0
     index: dict[str, list[Path]] = {}
     for root, directories, names in os.walk(REPO_ROOT):
         parent = Path(root)
-        directories[:] = [name for name in directories if not _skipped(parent / name)]
+        kept = [name for name in directories if name != ".git" and not _skipped(parent / name)]
+        if ignorable:
+            kept = [name for name in kept if not is_gitignored((parent / name).relative_to(REPO_ROOT).as_posix())]
+        directories[:] = kept
         for name in names:
             index.setdefault(os.path.normcase(name), []).append(parent / name)
     return {name: tuple(sorted(paths)) for name, paths in index.items()}
@@ -516,6 +566,10 @@ def _shell_comments(text: str) -> str:
     expansions (`${name#prefix}`, `$#`) and in colour escapes, and a claim is never made from
     inside one. A `#` opening a line, or one after whitespace, is the only shape kept -- a shebang
     is neither documentation nor a claim, so it drops out with the rest.
+
+    Line-grain, and the surface that leaves is a quoted value carrying ` #`: `other: "a # b"` in a
+    `.conf`, `.toml` or `.yaml` file keeps ` # b"`. Exact scanning would need a parser per format,
+    where the shapes those three actually hold are a comment on its own line or after a value.
     """
     keep: list[str] = []
     for line in text.split("\n"):
@@ -528,61 +582,164 @@ def _shell_comments(text: str) -> str:
     return "\n".join(keep)
 
 
-def comments_only(text: str, suffix: str) -> str:
-    """Everything outside a comment blanked out, with the line count preserved.
+def _marker_lines(text: str) -> str:
+    """Every line carrying a `#` or a triple quote, blocks tracked across lines, line count kept.
 
-    A path or an ADR number inside executable code is a string the program uses, not a claim made to
-    a reader, so only comments are scanned. Block comments and docstrings are tracked across lines.
-    A `//` inside a URL is harmless: link checking skips http and https regardless.
+    Wider than a comment on purpose: it is what the Python reader falls back to on source the
+    tokenizer refuses, and a file that does not parse still holds comments a reader reads. Reading
+    none of them would be indistinguishable from reading a file with none.
     """
     triple_double = '"""'
     triple_single = "'''"
-    # JavaScript shares TypeScript's comment syntax exactly, so it takes the same branch. Adding a
-    # suffix to SOURCE_SUFFIXES without adding it here would parse it as Python and silently find
-    # no comments at all.
-    is_ts = suffix in (".ts", ".tsx", ".js", ".mjs", ".cjs")
-    if suffix == ".sh":
-        return _shell_comments(text)
     keep: list[str] = []
     in_block = False
-
     for line in text.split("\n"):
+        quotes = line.count(triple_double) + line.count(triple_single)
         if in_block:
             keep.append(line)
-            if is_ts:
-                if "*/" in line:
-                    in_block = False
-            elif (line.count(triple_double) + line.count(triple_single)) % 2 == 1:
+            if quotes % 2 == 1:
                 in_block = False
             continue
-
-        if is_ts:
-            if "/*" in line and "*/" not in line:
-                in_block = True
-                keep.append(line)
-            else:
-                keep.append(line if ("/*" in line or "//" in line) else "")
-            continue
-
-        quotes = line.count(triple_double) + line.count(triple_single)
         stripped = line.lstrip()
         if stripped.startswith((triple_double, triple_single)) and quotes % 2 == 1:
             in_block = True
             keep.append(line)
         else:
             keep.append(line if ("#" in line or quotes) else "")
+    return "\n".join(keep)
 
+
+def _place(buffer: list[str], start: tuple[int, int], text: str) -> None:
+    """One token's text back at the line and column it occupies in the file it came from.
+
+    The column is held because every finding quotes its line and several report a number, so a
+    token moved to column zero would report a page the reader cannot find by looking.
+    """
+    row, column = start
+    for offset, piece in enumerate(text.split("\n")):
+        line = buffer[row - 1 + offset]
+        buffer[row - 1 + offset] = (line.ljust(column) if offset == 0 else line) + piece
+
+
+def _python_comments(text: str) -> str:
+    """Python comments and docstrings, at their own lines and columns, with everything else blank.
+
+    Tokenized rather than scanned for a marker: a `#` inside a string literal opens no comment, and
+    the code line holding one is not a claim made to a reader. A docstring stays — INC-4 makes it
+    documentation, and this gate's own citations are written in one — and it is a string standing
+    alone as a whole statement, which is what tells it apart from a string the program uses.
+
+    Three docstring shapes fall outside that test and are not scanned: one sharing its line with the
+    `def` that owns it, one after a semicolon, and two adjacent strings relying on implicit
+    concatenation, which arrive as two tokens and satisfy the test neither singly nor together. No
+    tracked file writes any of them; a file that did would lose its docstring from the scan silently.
+    """
+    lines = text.split("\n")
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except tokenize.TokenError, SyntaxError, ValueError:
+        return _marker_lines(text)
+
+    # A comment and a blank line can sit anywhere without ending a statement, so both come out
+    # before a string's neighbours are read; what remains around one is the statement it sits in.
+    structural = [token for token in tokens if token.type not in (tokenize.COMMENT, tokenize.NL)]
+    docstrings: set[tuple[int, int]] = set()
+    for index, token in enumerate(structural):
+        opens = index == 0 or structural[index - 1].type in (tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT)
+        closes = index + 1 < len(structural) and structural[index + 1].type == tokenize.NEWLINE
+        if token.type == tokenize.STRING and opens and closes:
+            docstrings.add(token.start)
+
+    keep = [""] * len(lines)
+    for token in tokens:
+        if token.type == tokenize.COMMENT or (token.type == tokenize.STRING and token.start in docstrings):
+            _place(keep, token.start, token.string)
+    return "\n".join(keep)
+
+
+def _jsonc_comments(text: str) -> str:
+    """JSONC comments only, line count and column preserved.
+
+    Scanned character by character rather than by line, because JSON configuration is written in
+    globs and URLs and both carry a marker INSIDE a string value: read by line, `"Read(./certs/**)"`
+    opens a block comment that runs until whatever value happens to hold the next `*/`, and a
+    permission glob is scanned as prose. JSON's string grammar is a quote and a backslash escape and
+    nothing else, which is what makes an exact scan this short — TypeScript, whose literals nest and
+    interpolate, is why the other branch stays line-grain.
+    """
+    keep = [""] * len(text.split("\n"))
+    row, column, index = 1, 0, 0
+    in_string = False
+    while index < len(text):
+        char = text[index]
+        if char == "\n":
+            row, column, index = row + 1, 0, index + 1
+        elif in_string:
+            # A backslash consumes what follows it, so an escaped quote never closes the string.
+            step = 2 if char == "\\" else 1
+            in_string = char != '"'
+            column, index = column + step, index + step
+        elif char == '"':
+            in_string, column, index = True, column + 1, index + 1
+        elif text.startswith(("//", "/*"), index):
+            block = text[index + 1] == "*"
+            end = text.find("*/" if block else "\n", index + 2)
+            end = len(text) if end == -1 else end + (2 if block else 0)
+            comment = text[index:end]
+            _place(keep, (row, column), comment)
+            row += comment.count("\n")
+            column = len(comment) - comment.rfind("\n") - 1 if "\n" in comment else column + len(comment)
+            index = end
+        else:
+            column, index = column + 1, index + 1
+    return "\n".join(keep)
+
+
+def comments_only(text: str, suffix: str) -> str:
+    """Everything outside a comment blanked out, with the line count preserved.
+
+    A path or an ADR number inside executable code is a string the program uses, not a claim made to
+    a reader, so only comments are scanned. A `//` inside a URL is harmless: link checking skips
+    http and https regardless.
+
+    Two of the four readers are exact and two are not. Python is tokenized and JSON is scanned, so
+    a marker inside a literal reaches nothing. TypeScript is read a line at a time, so a line whose
+    CODE holds a marker is kept whole: closing that costs a node launch per file —
+    `scripts/ts_normalize.mjs` is the only parser here that reads TypeScript — to remove a false
+    positive that is loud when it fires. The `#` reader takes the rest, and `_shell_comments` states
+    the surface it keeps: a quoted ` #` in a `.conf`, `.toml` or `.yaml` value is kept with it.
+    """
+    if suffix == ".sh":
+        return _shell_comments(text)
+    if suffix == ".json":
+        return _jsonc_comments(text)
+    if suffix not in CSTYLE_SUFFIXES:
+        return _python_comments(text)
+
+    keep: list[str] = []
+    in_block = False
+    for line in text.split("\n"):
+        if in_block:
+            keep.append(line)
+            if "*/" in line:
+                in_block = False
+        elif "/*" in line and "*/" not in line:
+            in_block = True
+            keep.append(line)
+        else:
+            keep.append(line if ("/*" in line or "//" in line) else "")
     return "\n".join(keep)
 
 
 def comment_style(path: Path) -> str:
     """The suffix `comments_only` dispatches on, for a file whose own suffix it does not know.
 
-    An ops file is read with the shell reader: `#` is the comment marker in all of them, and a
-    Dockerfile has no suffix at all, so dispatching on `path.suffix` would send it to the Python
-    branch and find nothing.
+    Each format is read by the reader that knows it: `#` for nginx, YAML, TOML and a Dockerfile —
+    which carries no suffix at all for `path.suffix` to dispatch on, and is why the `#` reader is
+    the default rather than a case — and the JSONC scanner for the JSON this repository writes its
+    tool configuration in.
     """
-    return path.suffix if path.suffix in SOURCE_SUFFIXES else ".sh"
+    return path.suffix if path.suffix in SOURCE_SUFFIXES or path.suffix == ".json" else ".sh"
 
 
 @cache
@@ -592,13 +749,16 @@ def tracked_files() -> tuple[Path, ...]:
     The leading `*` on a whole filename is what carries it past the repository root: an unanchored
     `Dockerfile` pathspec matches the root one alone, and this repository's sit a level down. It
     widens the pattern to anything ENDING in the name, so the name is re-checked below.
+
+    NUL-separated for the reason `_tree_index` is: git quotes and octal-escapes a path outside ASCII
+    in its default output, and a quoted spelling fails `is_file` and drops out of the corpus silently.
     """
     patterns = ("*.md", *(f"*{suffix}" for suffix in SCANNED_SUFFIXES), *(f"*{name}" for name in OPS_FILENAMES))
-    listing = git("ls-files", *patterns)
+    listing = git("ls-files", "-z", *patterns)
     if listing is None:
         candidates = [path for paths in _tree_index().values() for path in paths]
     else:
-        candidates = [REPO_ROOT / line for line in listing.split("\n") if line]
+        candidates = [REPO_ROOT / entry for entry in listing.split("\0") if entry]
     suffixes = {".md", *SCANNED_SUFFIXES}
     return tuple(sorted({p for p in candidates if p.is_file() and not _skipped(p) and (p.suffix in suffixes or p.name in OPS_FILENAMES)}))
 
@@ -617,13 +777,16 @@ def atx_heading(line: str, level: int | None = None) -> str | None:
 
 
 def heading_anchors(body: str) -> set[str]:
-    """The fragment ids a markdown renderer derives from this file's headings.
+    """The fragment ids GitHub derives from this file's headings, a repeat's `-N` suffix included.
 
-    Lowercase, drop everything that is not alphanumeric / space / hyphen, then spaces to hyphens.
-    An em dash therefore vanishes and leaves the two spaces around it as two hyphens, which is why
-    `### OUT-2 — The folder layout` yields `out-2--the-folder-layout`.
+    GitHub's own slugger, because the fragment a reader writes is copied off the rendered page: a
+    slug spelled any other way fails a link that works there and passes one that is dead. Lowercase,
+    drop what is neither a word character nor a space or a hyphen, spaces to hyphens, then number a
+    repeat `-1` upward. An em dash therefore vanishes and leaves the two spaces around it as two
+    hyphens, which is why `### OUT-2 — The folder layout` yields `out-2--the-folder-layout`.
     """
     anchors: set[str] = set()
+    occurrences: dict[str, int] = {}
     fenced = False
     for line in body.split("\n"):
         # `strip_fences` runs first for every caller; `FENCE_RE` keeps this reading the same shape
@@ -633,10 +796,17 @@ def heading_anchors(body: str) -> set[str]:
             continue
         if fenced or (text := atx_heading(line)) is None:
             continue
-        text = re.sub(r"[`*_\[\]()]", "", text)
-        slug = re.sub(r"[^a-z0-9 -]", "", text.lower()).replace(" ", "-")
-        if slug:
-            anchors.add(slug)
+        slug = SLUG_DROP_RE.sub("", INLINE_LINK_RE.sub(r"\1", text).lower()).replace(" ", "-")
+        if not slug:
+            continue
+        # github-slugger's own counting: the suffix is taken from the ORIGINAL slug's tally, so a
+        # third `## Setup` yields `setup-2` rather than colliding with the second's `setup-1`.
+        original = slug
+        while slug in occurrences:
+            occurrences[original] += 1
+            slug = f"{original}-{occurrences[original]}"
+        occurrences[slug] = 0
+        anchors.add(slug)
     return anchors
 
 
@@ -746,8 +916,10 @@ def invariant_ids() -> dict[str, list[str]]:
 def _resolve(file_part: str) -> list[Path]:
     """A citation may give a repo path, a package-relative one, or an unambiguous bare filename.
 
-    A bare name is answered from the tree index, and the cap therefore falls on the first few by
-    path rather than on whatever order a directory walk happened to produce.
+    The path as written answers first, so a name spelled the way a repository-root file is spelled
+    resolves to that file; then the package roots `repo_path` tries; then, for a name carrying no
+    directory at all, the tracked index with the templates taken out of it (CUR-5). The cap falls on
+    the first few by path rather than on the order the listing arrived in, the index being sorted.
     """
     direct = REPO_ROOT / file_part
     if direct.is_file():
@@ -1148,6 +1320,10 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
     Every entry but the last carries one, which is what renders them one per line instead of
     flowing into a paragraph; the last carries none, having nothing below it to separate from.
 
+    Two entries sharing one physical line are caught here too, because the break that should have
+    parted them is this rule's. Neither half is malformed on its own, which is why the stamp's own
+    shape check cannot see it: a joined stamp is a complete entry followed by a complete entry.
+
     ADRs are excluded because `adr-meta` holds their metadata block to this same rule already, and
     one defect reported twice reads as a check that cries wolf.
     """
@@ -1166,6 +1342,14 @@ def check_metadata_breaks(rel: str, body: str) -> list[Finding]:
             if match := METADATA_LINE_RE.match(lines[index]):
                 names.append(match.group(1))
                 ends.append(index)
+                # Backticked spans come out first: a rule quoting a label to name it, as chapter 0
+                # does, is a mention rather than a second entry.
+                if joined := METADATA_JOIN_RE.search(BACKTICK_SPAN_RE.sub("", lines[index])):
+                    detail = (
+                        f"the {match.group(1)} line at line {index + 1} runs into {joined.group(1)} on one physical line"
+                        " -- COR-8's break is a line ending, written here as the characters \\n"
+                    )
+                    found.append(Finding("fail", "metadata-break", rel, detail))
             elif names:
                 ends[-1] = index
             index += 1
@@ -1385,6 +1569,18 @@ def check_stamp_missing() -> list[Finding]:
     return found
 
 
+def _branch_scope_skipped(checks: str, missing: str) -> Finding:
+    """The advisory a branch-scoped check emits where git cannot answer the input it reads.
+
+    Reported rather than failed: a clone with no base ref -- a fork, a tarball, a checkout trimmed
+    to a depth short of the fork -- is a shape rather than a page's defect, and failing one would be
+    wrong. Never silent, though, which is what the same file already says about a tree-scoped input:
+    a check that says nothing is indistinguishable from a clean one, and this one stays quiet
+    forever once the input goes missing.
+    """
+    return Finding("report", "branch-scope", "(branch diff)", f"{checks} did not run: git could not {missing}")
+
+
 def check_stamp_freshness(base: str) -> list[Finding]:
     """A stamped page changed on this branch must also change its stamp (CUR-4).
 
@@ -1397,7 +1593,7 @@ def check_stamp_freshness(base: str) -> list[Finding]:
     # comparing committed state would let the edit through on the run that could still have caught it.
     fork = git("merge-base", base, "HEAD")
     if fork is None:
-        return []
+        return [_branch_scope_skipped("stamp freshness (CUR-4)", f"resolve a merge base between {base} and HEAD")]
     changed = git("diff", "--name-only", fork, "--", "*.md")
     if not changed:
         return []
@@ -1494,7 +1690,7 @@ def check_branch_impact(base: str) -> list[Finding]:
     """
     fork = check_scope.resolve_base(base)
     if fork is None:
-        return []
+        return [_branch_scope_skipped("branch impact (CUR-4)", f"resolve {base} to a commit this branch forked from")]
     changed = set(check_scope.changed_files(fork))
     if not changed:
         return []
@@ -2202,17 +2398,23 @@ def _fork(base: str) -> str:
 
 
 @cache
-def _added_by_file(fork: str) -> dict[str, list[tuple[int, str]]]:
+def _added_by_file(fork: str) -> dict[str, list[tuple[int, str]]] | None:
     """Per file, every line this branch adds, as its number in the working tree and its text.
 
     One diff, walked once: asking git per file both spends a process each time and answers a
     renamed file differently, since a lone pathspec leaves git nothing to detect the rename against.
 
     Against the working tree rather than HEAD, because the gate runs before the commit exists.
+
+    None where git refused the diff, which is the opposite answer to an empty one: no added line
+    anywhere is a clean branch, while a refused diff is every added-line check passing unread.
     """
+    diff = git("diff", "-U0", fork)
+    if diff is None:
+        return None
     added: dict[str, list[tuple[int, str]]] = {}
     rel, number = "", 0
-    for line in (git("diff", "-U0", fork) or "").split("\n"):
+    for line in diff.split("\n"):
         if line.startswith("+++ "):
             rel, number = line[6:].strip() if line.startswith("+++ b/") else "", 0
         elif match := HUNK_HEADER_RE.match(line):
@@ -2235,7 +2437,7 @@ def branch_additions(base: str) -> dict[str, list[str]]:
     a reader sees as a comment, and a string that starts with one is rare enough to read past.
     """
     additions: dict[str, list[str]] = {}
-    for rel, lines in _added_by_file(_fork(base)).items():
+    for rel, lines in (_added_by_file(_fork(base)) or {}).items():
         if not (rel.endswith(SCANNED_SUFFIXES) or rel.endswith((".md", *OPS_FILENAMES))):
             continue
         for _, raw in lines:
@@ -2267,11 +2469,22 @@ def check_counts(additions: dict[str, list[str]]) -> list[Finding]:
     return found
 
 
+def check_branch_diff(base: str) -> list[Finding]:
+    """The advisory covering every check that reads the branch's added lines.
+
+    One advisory for the four of them, because they read one diff through `_added_by_file` and
+    therefore degrade together: reported separately it would be the same sentence four times.
+    """
+    if _added_by_file(_fork(base)) is not None:
+        return []
+    return [_branch_scope_skipped("history, counts, added comment citations and comment length", "read this branch's diff")]
+
+
 def check_comment_bounds(base: str) -> list[Finding]:
     """INC-9's bounds, over the comment blocks this branch wrote."""
     fork = _fork(base)
     changed = git("diff", "--name-only", fork) or ""
-    added = _added_by_file(fork)
+    added = _added_by_file(fork) or {}
     found: list[Finding] = []
     for rel in sorted({line.strip() for line in changed.split("\n") if line.strip()}):
         path = REPO_ROOT / rel
@@ -2325,6 +2538,7 @@ def main() -> int:
     findings.extend(check_stamp_missing())
     findings.extend(check_stamp_freshness(base))
     findings.extend(check_branch_impact(base))
+    findings.extend(check_branch_diff(base))
     findings.extend(check_adr_meta())
     findings.extend(check_adr_index())
     findings.extend(check_roadmap())
