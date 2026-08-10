@@ -280,69 +280,69 @@ weighed it: the ADR carries the alternatives that were rejected and what they we
 decision nobody ratified. Each row is one never-clause; the argument lives in `docs/_decisions/`.
 **Correct this list, never the ADR.**
 
-| ADR  | Never                                                                    |
-| ---- | ------------------------------------------------------------------------ |
-| 0001 | Add a granular cache tag with no `updateTag`; make base tags conditional |
-| 0002 | Give `saison_id` a Pydantic field default                                |
-| 0003 | Add a barrel file, an unrequired default export, a second nesting level  |
-| 0004 | Move the Spiel write path to `admin`; let its form read `useAdmin()`     |
-| 0005 | Merge the three `SpielCard` variants                                     |
-| 0006 | Remove an `await connection()` before a page fetch                       |
-| 0007 | Add a second direct `MongoClient`                                        |
-| 0008 | Scope a cross-feature import lint to anything but `core` and `shared`    |
-| 0009 | Cache an admin-scoped API read                                           |
-| 0010 | Remove `checkIsReady`, `getSystemInfo`, or the system key                |
-| 0011 | Disable `react/no-danger`; add a second CSP                              |
-| 0012 | Merge the two images into one package; make either package private       |
-| 0013 | Import HeroUI's CSS as one entry point, or out of HeroUI's order         |
-| 0014 | Enable the React Compiler                                                |
-| 0015 | Disable origin compression; precompress brotli at build time             |
-| 0016 | Pick `admin.css` membership by folder name, not the import graph         |
-| 0017 | Send `immutable` for a URL with no content hash                          |
-| 0018 | Write `text-fluid-*` — the scale is `fluid-sm`                           |
-| 0019 | Store or cache team statistics; hardcode 3/1/0; read `is_canceled`       |
-| 0020 | Swallow a failed validator or index; widen one past types and enums      |
-| 0021 | Treat `mietpreis` / `payment` as stale copies of the defaults            |
-| 0022 | Move the league table's default scope off `gruppenphase`                 |
-| 0023 | Move db-marked tests out of the gate                                     |
-| 0024 | Generate the `$jsonSchema` validators from the models                    |
-| 0025 | Make `inactive_since` a boolean; revive a retired row by creating it     |
-| 0026 | Write `status` outside the activate endpoint; DELETE a season row        |
-| 0027 | Move a guard onto an endpoint; merge the two routers; delete `GET /{id}` |
-| 0028 | Re-add a reference-data invalidation endpoint; fault sub-24h staleness   |
-| 0029 | Index a branch's commits in a pull request body                          |
-| 0030 | Let the comment classifier shrink a CI job; suppress the images refusal  |
-| 0031 | Pin `type=gha`'s version; share one cache scope; re-add `actions/cache`  |
-| 0032 | Let nginx pass a client's correlation id; log outside the envelope       |
-| 0033 | Generate the Zod mirror from OpenAPI; compare past the wire contract     |
-| 0034 | Store the bracket's German label; flag an override beside `quelle`       |
-| 0035 | Recurse the tiebreak chain; seed a placing the group can still change    |
-| 0036 | Put the shoot-out in `ergebnis`; store its winner; let the table read it |
-| 0037 | Add a POST or a DELETE to `/spiele`                                      |
-| 0038 | Offer in the form wiring the write path refuses                          |
-| 0039 | Store a bracket fault; report a merely undecided placing                 |
-| 0040 | Judge a typed field between keystrokes; return the editor to a dialog    |
-| 0041 | Guess a voided result rather than dry-running it; scope the undo offer   |
-| 0042 | Refuse a manual pick as unqualified; field a team twice in a Spieltag    |
-| 0043 | Style a toast from CSS past the two rules; call `toast` at a call site   |
-| 0044 | Hide a triage tab on a zero count; order sections off the label table    |
-| 0045 | Write from `/admin/finalrunden`; render its wiring as cards              |
-| 0046 | Give a shell page a second `h1`; make a sidemenu `hint` optional         |
-| 0047 | Add a disqualification boolean beside the record                         |
-| 0048 | Widen `position` or `stufe` past their `Literal`s; drop `E2`             |
-| 0049 | Route-handle an undo outside a page-owned editor; revert before E592     |
-| 0050 | Add a reorder endpoint for `spieltage`; move the rollover off its page   |
-| 0051 | Store a `Spieltag`'s position or name; serve its label from the API      |
-| 0052 | Store `anzahl_spiele`; hardcode the qualifier cap                        |
-| 0053 | Import `app/core/domain.py` from `app/`; generate it; enforce it         |
-| 0054 | Spell a collection name as a literal; enumerate the field names too      |
-| 0055 | Fetch the season list when `?saison_id=` is absent; drop either half     |
-| 0056 | Cache a season projection; remove its write-path drop or its TTL         |
-| 0057 | Answer 422 for a malformed path id, or 404 for a query one               |
-| 0058 | Make `ausstehend` a partition, or `computeSpielStatus` a filter          |
-| 0059 | Count a stamp-only markdown delta as material to `branch-impact`         |
-| 0060 | Compare the branch guard's paths as text; allow a target it cannot place |
-| 0061 | Add a `callbackUrl` to the sign-in redirect without the allowlist first  |
+| ADR  | Never                                                                          |
+| ---- | ------------------------------------------------------------------------------ |
+| 0001 | Add a granular cache tag with no `updateTag`; make base tags conditional       |
+| 0002 | Give `saison_id` a Pydantic field default                                      |
+| 0003 | Add a barrel file, an unrequired default export, a second nesting level        |
+| 0004 | Move the Spiel write path to `admin`; let its form read `useAdmin()`           |
+| 0005 | Merge the three `SpielCard` variants                                           |
+| 0006 | Remove an `await connection()` before a page fetch                             |
+| 0007 | Add a second direct `MongoClient`                                              |
+| 0008 | Scope a cross-feature import lint to anything but `core` and `shared`          |
+| 0009 | Cache an admin-scoped API read                                                 |
+| 0010 | Remove `checkIsReady`, `getSystemInfo`, or the system key                      |
+| 0011 | Disable `react/no-danger`; add a second CSP                                    |
+| 0012 | Merge the two images into one package; make either package private             |
+| 0013 | Import HeroUI's CSS as one entry point, or out of HeroUI's order               |
+| 0014 | Enable the React Compiler                                                      |
+| 0015 | Disable origin compression; precompress brotli at build time                   |
+| 0016 | Pick `admin.css` membership by folder name, not the import graph               |
+| 0017 | Send `immutable` for a URL with no content hash                                |
+| 0018 | Write `text-fluid-*` — the scale is `fluid-sm`                                 |
+| 0019 | Store or cache team statistics; hardcode 3/1/0; score or sort on `is_canceled` |
+| 0020 | Swallow a failed validator or index; widen one past types and enums            |
+| 0021 | Treat `mietpreis` / `payment` as stale copies of the defaults                  |
+| 0022 | Move the league table's default scope off `gruppenphase`                       |
+| 0023 | Move db-marked tests out of the gate                                           |
+| 0024 | Generate the `$jsonSchema` validators from the models                          |
+| 0025 | Make `inactive_since` a boolean; revive a retired row by creating it           |
+| 0026 | Write `status` outside the activate endpoint; DELETE a season row              |
+| 0027 | Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`       |
+| 0028 | Re-add a reference-data invalidation endpoint; fault sub-24h staleness         |
+| 0029 | Index a branch's commits in a pull request body                                |
+| 0030 | Let the comment classifier shrink a CI job; suppress the images refusal        |
+| 0031 | Pin `type=gha`'s version; share one cache scope; re-add `actions/cache`        |
+| 0032 | Let nginx pass a client's correlation id; log outside the envelope             |
+| 0033 | Generate the Zod mirror from OpenAPI; compare past the wire contract           |
+| 0034 | Store the bracket's German label; flag an override beside `quelle`             |
+| 0035 | Recurse the tiebreak chain; seed a placing the group can still change          |
+| 0036 | Put the shoot-out in `ergebnis`; store its winner; let the table read it       |
+| 0037 | Add a POST or a DELETE to `/spiele`                                            |
+| 0038 | Offer in the form wiring the write path refuses                                |
+| 0039 | Store a bracket fault; report a merely undecided placing                       |
+| 0040 | Judge a typed field between keystrokes; return the editor to a dialog          |
+| 0041 | Guess a voided result rather than dry-running it; scope the undo offer         |
+| 0042 | Refuse a manual pick as unqualified; field a team twice in a Spieltag          |
+| 0043 | Style a toast from CSS past the two rules; call `toast` at a call site         |
+| 0044 | Hide a triage tab on a zero count; order sections off the label table          |
+| 0045 | Write from `/admin/finalrunden`; render its wiring as cards                    |
+| 0046 | Give a shell page a second `h1`; make a sidemenu `hint` optional               |
+| 0047 | Add a disqualification boolean beside the record                               |
+| 0048 | Widen `position` or `stufe` past their `Literal`s; drop `E2`                   |
+| 0049 | Route-handle an undo outside a page-owned editor; revert before E592           |
+| 0050 | Add a reorder endpoint for `spieltage`; move the rollover off its page         |
+| 0051 | Store a `Spieltag`'s position or name; serve its label from the API            |
+| 0052 | Store `anzahl_spiele`; hardcode the qualifier cap                              |
+| 0053 | Import `app/core/domain.py` from `app/`; generate it; enforce it               |
+| 0054 | Spell a collection name as a literal; enumerate the field names too            |
+| 0055 | Fetch the season list when `?saison_id=` is absent; drop either half           |
+| 0056 | Cache a season projection; remove its write-path drop or its TTL               |
+| 0057 | Answer 422 for a malformed path id, or 404 for a query one                     |
+| 0058 | Make `ausstehend` a partition, or `computeSpielStatus` a filter                |
+| 0059 | Count a stamp-only markdown delta as material to `branch-impact`               |
+| 0060 | Compare the branch guard's paths as text; allow a target it cannot place       |
+| 0061 | Add a `callbackUrl` to the sign-in redirect without the allowlist first        |
 
 ## 8. Documentation
 

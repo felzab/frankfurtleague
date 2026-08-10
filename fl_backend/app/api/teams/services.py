@@ -8,7 +8,7 @@ remaining result can change (ADR-0035) — pure throughout. A team document is s
 that season's `spiele` on every read — caching or storing it is ADR-0019 reversed.
 
 Invariants:
-- A match counts exactly when it carries an `ergebnis` — forfeits count; `is_canceled` reaches `build_ausfall_lookup_stage` alone.
+- A match counts exactly when it carries an `ergebnis` — forfeits count; no stage deriving a scored figure reads `is_canceled`.
 - `elfmeterschiessen` is not consulted either: penalties are a draw for every figure here (ADR-0036).
 - `statistik_scope` picks the matches and defaults to the Gruppenphase (ADR-0022).
 - The pipeline takes an `FLSaisonRules` — points come from the season's own rules (ADR-0019).
@@ -47,9 +47,9 @@ def _fixtures_of_this_team(saison_id: str, scope: FLTeamStatistikScope) -> dict[
     """
     The season's fixtures this team appears on either side of, narrowed to the requested scope.
 
-    Shared by the two `$lookup` stages below so the scope rule (ADR-0022) has one implementation:
-    both counts have to answer for the same set of matches, and two hand-written `$match` documents
-    are two places for a phase filter to be forgotten. What each lookup adds is its own counting rule.
+    Shared by the `$lookup` stages below so the scope rule (ADR-0022) has one implementation: every
+    figure derived per team has to answer for the same set of matches, and a hand-written `$match` per
+    stage is another place for a phase filter to be forgotten. What each lookup adds is its own rule.
     """
 
     return {
@@ -67,8 +67,9 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
     The `$lookup` deriving one team's seven statistics from the season's matches (ADR-0019).
 
     A match counts exactly when it carries an `ergebnis`. `is_canceled` is deliberately not consulted:
-    a cancelled match with a result is a forfeit, and a forfeit counts. The flag decides one thing in
-    this module, and it is `build_ausfall_lookup_stage`'s count, which reaches no figure derived here.
+    a cancelled match with a result is a forfeit, and a forfeit counts. Within the aggregation the flag
+    decides `build_ausfall_lookup_stage`'s count and nothing else; the certainty walk further down this
+    module reads it in Python, for the different question of which fixtures are still to come (ADR-0035).
 
     **`elfmeterschiessen` is not consulted either, and that is the same kind of deliberate omission.** A
     knockout settled on penalties is a DRAW here -- one point each, one entry in `unentschieden`, and
@@ -161,6 +162,14 @@ def build_ausfall_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> M
     a different fact, no document records it, and how many a season should hold follows from the
     season's own rules instead (ADR-0052) — so this count can never speak for one.
 
+    **One shape falls between the two `$match` clauses and is counted by neither**: a cancellation
+    carrying an `ergebnis` whose goal counts are null. The counting lookup drops it on the null goals,
+    and this one drops it on the non-null `ergebnis`. `apply_payload_to_spiel` composes `ergebnis` from
+    the goal counts, so the API cannot produce it; a hand-edited or legacy document can, and the seeded
+    corpus holds one deliberately. The fixture is then absent from every figure rather than wrong in
+    one, which is why it is recorded here and not repaired: widening either clause to claim it would
+    make that clause guess which of the two facts the half-written document meant.
+
     `scope` narrows the matches exactly as it does for the figures beside them (ADR-0022).
     """
 
@@ -172,9 +181,9 @@ def build_ausfall_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> M
                 {
                     "$match": {
                         **_fixtures_of_this_team(saison_id, scope),
-                        # `is_canceled` is read HERE and nowhere else. ADR-0019 keeps it out of the
-                        # counting rule, and this does not reopen that: what it feeds is a count of
-                        # its own that reaches neither `punkte` nor any figure the table sorts on.
+                        # The one aggregation stage reading `is_canceled`. ADR-0019 keeps it out of
+                        # the counting rule, and this does not reopen that: what it feeds is a count
+                        # of its own, reaching neither `punkte` nor any figure the table sorts on.
                         "is_canceled": True,
                         # The other half of the same decision: cancelled AND carrying a result is a
                         # forfeit, which was played and is counted by the lookup above.

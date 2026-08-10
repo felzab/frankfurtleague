@@ -65,7 +65,7 @@ def rows(
 
 
 def table(league: SeededLeague, **kwargs: Any) -> dict[str, dict[str, int]]:
-    """The seven statistics per team name, which is what nearly every assertion here is about."""
+    """The derived statistics per team name, which is what nearly every assertion here is about."""
     return {row["name"]: row["statistik"] for row in rows(league, **kwargs)}
 
 

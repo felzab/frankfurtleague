@@ -100,8 +100,8 @@ def test_counts_only_the_gruppenphase_unless_asked_otherwise():
     """
     The default scope, and it is the decision rather than a convenience (ADR-0022).
 
-    Both scopes return the same seven fields, so a caller that forgets the parameter gets a plausible
-    table either way — which is why the safe value has to be the one you get by saying nothing.
+    Both scopes return the same fields, so a caller that forgets the parameter gets a plausible table
+    either way — which is why the safe value has to be the one you get by saying nothing.
     """
     match_stage = statistik_stage(build())["pipeline"][0]["$match"]
 
