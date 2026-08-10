@@ -1,4 +1,5 @@
 import { card } from "./card";
+import { ROW_ACTION_SIZE } from "./rowActionSize";
 import { skeletonBlock } from "./skeleton";
 
 /** Header cells are label-width, body cells are content-width — enough variation to read as a table. */
@@ -7,8 +8,8 @@ const BODY_CELL_WIDTHS = ["w-40", "w-36", "w-44", "w-28"];
 
 /**
  * The targets an admin row ends in. How many there are decides only the cluster's width, and a
- * resource carrying fewer loses nothing by it; how tall each one is `RowActions` decides, and that
- * is what a row is tall.
+ * resource carrying fewer loses nothing by it; how tall each one is comes from `ROW_ACTION_SIZE`,
+ * which `RowActions` reads too, and that is what a row is tall.
  */
 const ROW_ACTION_SLOTS = [0, 1, 2, 3];
 
@@ -63,7 +64,7 @@ export function AdminCrudFallback() {
               {ROW_ACTION_SLOTS.map((slot) => (
                 <span
                   key={slot}
-                  className={`${skeletonBlock()} size-10 rounded-xl`}
+                  className={`${skeletonBlock()} ${ROW_ACTION_SIZE} rounded-xl`}
                 />
               ))}
             </div>
@@ -98,13 +99,13 @@ export function AdminCrudFallback() {
                   &nbsp;
                 </span>
               ))}
-              {/* The actions cluster is what a row is as tall as: the cells' `py-4` around a target
-                  `RowActions` sizes, which outgrows any text in the row by half again. */}
+              {/* The actions cluster is what a row is as tall as: the cells' `py-4` around
+                  `ROW_ACTION_SIZE`, which outgrows any text in the row by half again. */}
               <div className="ml-auto flex shrink-0 flex-row items-center gap-2">
                 {ROW_ACTION_SLOTS.map((slot) => (
                   <span
                     key={slot}
-                    className={`${skeletonBlock()} size-10 rounded-xl`}
+                    className={`${skeletonBlock()} ${ROW_ACTION_SIZE} rounded-xl`}
                   />
                 ))}
               </div>

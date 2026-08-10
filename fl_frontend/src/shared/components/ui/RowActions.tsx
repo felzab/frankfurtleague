@@ -7,6 +7,7 @@ import { ArrowRotateLeft, Copy, Pencil, TrashBin } from "@gravity-ui/icons";
 import { Button } from "@heroui/react";
 
 import { IconTooltip } from "./IconTooltip";
+import { ROW_ACTION_SIZE } from "./rowActionSize";
 
 import type { ReactNode } from "react";
 
@@ -30,11 +31,9 @@ import type { ReactNode } from "react";
  * actions take the matching base-layer outline, both in `var(--focus)` — a per-site ring here is
  * what made the row actions look different from everything else.
  */
-const ACTION_CLASS =
-  "text-foreground-muted hover:bg-muted/40 hover:text-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors";
+const ACTION_CLASS = `text-foreground-muted hover:bg-muted/40 hover:text-brand flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
-const DANGER_CLASS =
-  "text-foreground-muted hover:bg-danger/10 hover:text-danger flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors";
+const DANGER_CLASS = `text-foreground-muted hover:bg-danger/10 hover:text-danger flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
 export function RowActionLink({
   href,
