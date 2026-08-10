@@ -33,10 +33,10 @@ export function ThemeSwitch({ compact = false }: { compact?: boolean }) {
 
   const selected = resolvedTheme === "dark" ? "dark" : "light";
 
-  // `compact` is the menu-row height (decided 2026-08-08): inside the sidemenu's options menu a
-  // taller control makes the Modus row outgrow the Abmelden row beside it, and a row's height comes
-  // from the menu, not from whichever control it holds.
-  const buttonSize = compact ? "h-7" : "h-8 w-8 sm:h-9 sm:w-9";
+  // `compact` is what leaves the Modus row exactly as tall as the Abmelden row below it (decided
+  // 2026-08-10): `.menu-item` floors a row at 36px and spends 12 of them on its own padding, so 24px
+  // is the tallest control that floor still absorbs.
+  const buttonSize = compact ? "h-6" : "h-8 w-8 sm:h-9 sm:w-9";
 
   return (
     <ToggleButtonGroup
