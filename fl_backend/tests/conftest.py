@@ -136,6 +136,7 @@ def statistik() -> PayloadFactory:
             "tore_geschossen": 7,
             "tore_kassiert": 4,
             "punkte": 6,
+            "anzahl_ausgefallene_spiele": 1,
         }
     )
 

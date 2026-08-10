@@ -153,6 +153,59 @@ def test_goals_are_oriented_towards_each_team(league: SeededLeague):
     assert (figures["Bock"]["tore_geschossen"], figures["Bock"]["tore_kassiert"]) == (2, 3)
 
 
+class TestACancellationThatWasNeverPlayed:
+    """
+    The count that explains a short match tally, executed — and what it must leave alone.
+
+    Every case here is about a fixture with `is_canceled` set and no `ergebnis`. Bock's cancelled
+    match carries a result and belongs to the forfeit rule above; these do not, and the two must not
+    reach the same figure.
+    """
+
+    def test_it_is_counted_for_both_teams(self, league: SeededLeague):
+        """The `$expr` reaches either side, exactly as the counting lookup's does — a slot-one-only match would show 1 and 0."""
+        figures = table(league)
+
+        assert figures["Helmholtz"]["anzahl_ausgefallene_spiele"] == 1
+        assert figures["Ohne"]["anzahl_ausgefallene_spiele"] == 1
+
+    def test_it_moves_none_of_the_figures_the_table_is_built_from(self, league: SeededLeague):
+        """
+        ADR-0019 unreversed, made observable: the figures read what they did before the cancellations existed.
+
+        Asserted as the whole set rather than on `anzahl_gespielte_spiele` alone. A cancellation has no
+        goal counts, so an accumulator that admitted it would land in `unentschieden` — `$eq: [null,
+        null]` is true — and the match count would stay right while the standing quietly moved.
+        """
+        helmholtz = table(league)["Helmholtz"]
+
+        assert {field: helmholtz[field] for field in FLTeamStatistik.model_fields if field != "anzahl_ausgefallene_spiele"} == {
+            "anzahl_gespielte_spiele": 3,
+            "siege": 1,
+            "unentschieden": 1,
+            "niederlagen": 1,
+            "tore_geschossen": 5,
+            "tore_kassiert": 7,
+            "punkte": 4,
+        }
+
+    def test_a_forfeit_is_not_one_of_them(self, league: SeededLeague):
+        """Bock's cancelled match carries a result, so it counts as played and this figure must not see it."""
+        bock = table(league)["Bock"]
+
+        assert bock["anzahl_gespielte_spiele"] == 2
+        assert bock["anzahl_ausgefallene_spiele"] == 0
+
+    def test_the_scope_narrows_it_like_every_figure_beside_it(self, league: SeededLeague):
+        """Helmholtz's second cancellation is a Halbfinale, so the league table must not count it and a team's own page must."""
+        assert table(league)["Helmholtz"]["anzahl_ausgefallene_spiele"] == 1
+        assert table(league, scope="gesamt")["Helmholtz"]["anzahl_ausgefallene_spiele"] == 2
+
+    def test_a_team_with_no_cancellation_reads_zero(self, league: SeededLeague):
+        """The absence has to be a number rather than a missing key, or the badge's own guard never fires."""
+        assert table(league)["Lessing"]["anzahl_ausgefallene_spiele"] == 0
+
+
 def test_wins_draws_and_losses_partition_the_matches(league: SeededLeague):
     """Every counted match lands in exactly one of the three buckets, for every team."""
     for name, figures in table(league, scope="gesamt").items():
@@ -172,17 +225,18 @@ def test_a_defeat_is_worth_nothing(league: SeededLeague):
     assert table(league)["Bock"]["punkte"] == STANDARD_RULES.win_points
 
 
-def test_a_team_with_no_counting_match_is_served_seven_zeroes(league: SeededLeague):
+def test_a_team_with_no_counting_match_is_served_zeroes(league: SeededLeague):
     """
     `$group` emits nothing at all for an empty input, so this is the `$ifNull` fallback and not a sum.
 
     Asserted field by field against the model: a fallback missing one key fails response validation
-    rather than returning a wrong number, which is a much less obvious failure.
+    rather than returning a wrong number, which is a much less obvious failure. Ohne's cancellation is
+    the exception and is checked above — it is merged over the fallback rather than grouped with it.
     """
     ohne = table(league)["Ohne"]
 
     assert set(ohne) == set(FLTeamStatistik.model_fields)
-    assert set(ohne.values()) == {0}
+    assert set(value for field, value in ohne.items() if field != "anzahl_ausgefallene_spiele") == {0}
 
 
 def test_a_team_with_no_junction_row_disappears(league: SeededLeague):

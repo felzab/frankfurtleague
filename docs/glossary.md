@@ -1,7 +1,6 @@
 # Glossary
 
-**Verified against:** `7555ecd`, 2026-08-09\
-**Purpose:** the German domain vocabulary — one entry per term, each giving what it is, where it lives, what catches people, and where the argument is written down.
+**Verified against:** `84d43da`, 2026-08-10\n**Purpose:** the German domain vocabulary — one entry per term, each giving what it is, where it lives, what catches people, and where the argument is written down.
 
 The vocabulary appears verbatim in collection names, schema fields, API parameters and URLs.
 Translating it in your head is fine; translating it in code is not.
@@ -126,7 +125,7 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 **Is:** a boolean on the match saying the fixture was called off.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: FLSpiel`.\
-**Trap:** it is not a delete of any kind — the match keeps its row, its `spiel_nr` and its place in the bracket — and a cancelled match that carries a result still counts in the table, because the derivation deliberately does not consult this field.\
+**Trap:** it is not a delete of any kind — the match keeps its row, its `spiel_nr` and its place in the bracket — and a cancelled match that carries a result still counts in the table, because the derivation of the figures the table is scored and sorted on deliberately does not consult this field; the one figure it does decide is `anzahl_ausgefallene_spiele`, which counts a cancellation carrying no result.\
 **See:** [ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md), [ADR-0037](_decisions/0037-a-seasons-fixtures-are-created-once.md).
 
 ### `Quelle` — where a side of a fixture comes from
@@ -180,9 +179,9 @@ season-independent · `"playoffs"` is not a stored value · a cancelled match wi
 
 ### `Statistik` — the derived league-table figures
 
-**Is:** matches played, wins, losses, draws, goals scored, goals conceded and points, computed per team and per season from the `spiele` documents on every read.\
+**Is:** matches played, wins, losses, draws, goals scored, goals conceded, points, and a count of the fixtures called off and never played — computed per team and per season from the `spiele` documents on every read.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTeamStatistik`, built by `fl_backend/app/api/teams/services.py :: build_team_pipeline`.\
-**Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and which of the two tables you get is `statistik_scope`, whose default is the narrow `gruppenphase` one.\
+**Trap:** nothing stores it, so there is no field to update and nothing to back-fill; a match counts exactly when it carries an `ergebnis`, points come from the season's `rules` rather than a hardcoded 3/1/0, and which of the two tables you get is `statistik_scope`, whose default is the narrow `gruppenphase` one. `anzahl_ausgefallene_spiele` is the one figure `is_canceled` decides, it excludes a forfeit, and it reaches no other figure — a fixture merely not played yet is not in it and is not stored anywhere.\
 **See:** [ADR-0019](_decisions/0019-team-statistics-are-derived-from-spiele.md), [ADR-0022](_decisions/0022-the-league-table-counts-the-gruppenphase.md), backend spec I1c.
 
 ### `Mietpreis` — rental price

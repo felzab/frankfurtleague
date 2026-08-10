@@ -4,10 +4,10 @@ TESTS · the seeded league the team and spiele pipeline suites read
 `build_team_pipeline` and `build_spiele_pipeline` are dicts MongoDB executes: the schema suites
 prove a dict says the right thing, and only a database proves the right thing comes back — so
 everything here is behind the `db` marker (ADR-0023), and the `mongod` container is a session
-fixture in `tests/conftest.py` because the constraint suite wants the same one. Five teams and
-nine matches, sized so the expected figures can be worked out on paper — each row makes exactly
-one pipeline invariant observable, its purpose commented beside it below, and the hand-derived
-figures sit above `league`.
+fixture in `tests/conftest.py` because the constraint suite wants the same one. A short list of
+teams and matches, sized so the expected figures can be worked out on paper — each row makes
+exactly one pipeline invariant observable, its purpose commented beside it below, and the
+hand-derived figures sit above `league`.
 
 Invariants:
 - The corpus is never "cleaned up" to match production: several rows are deliberately impossible.
@@ -126,6 +126,9 @@ def league(mongo_database: Database) -> SeededLeague:
 
     Helmholtz reading 3 against 4 is the cheapest proof the scope filters at all -- the same
     divergence ADR-0022 measured against the live database.
+
+    Called off and never played, which moves none of the figures above: Helmholtz 1 under
+    `gruppenphase` and 2 under `gesamt`, Ohne 1 under both, Bock 0 and 1, Lessing 0 and 0.
     """
     for collection in ("teams", "saison_teams", "spiele"):
         mongo_database.drop_collection(collection)
@@ -186,6 +189,11 @@ def league(mongo_database: Database) -> SeededLeague:
             # A bracket slot the group phase has not filled (ADR-0034). Carries no result, so it counts
             # towards nothing here and exists only so the spiele join is proved against a null side.
             _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
+            # Called off and never played. Helmholtz has counting matches and Ohne has none, so the
+            # one row proves the cancellation count on both sides of the `$group`/fallback split.
+            _spiel(10, "gruppenphase", "Helmholtz", "Ohne", None, None, ergebnis=None, is_canceled=True),
+            # The same, one phase later, so the cancellation count can be shown to obey the scope.
+            _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, is_canceled=True),
         ]
     )
 

@@ -7,6 +7,7 @@ import { Badge, Table } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { typedObjectEntries } from "@/shared/utils/type";
 
@@ -14,6 +15,41 @@ import { computePlatzByTeamId, computeQualifyingTeamIds } from "../../utils";
 import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 
 import type { FLGruppen } from "../../schemas";
+
+/**
+ * Why this row's match count is short of its group's, beside the count itself.
+ *
+ * `InfoHint` and not `IconTooltip`, for the reason stated on
+ * `fl_frontend/src/shared/components/ui/InfoHint.tsx` — this table is read on a phone, and its
+ * `aria-label` is what a screen reader hears in place of the glyph.
+ *
+ * Red because the app already means "abgesagt" by it — the value
+ * `fl_frontend/src/features/spiele/components/ui/SpielStatusChip.tsx` gives that status, so a card
+ * and this badge say the same thing in the same colour.
+ */
+function AusgefalleneSpieleHint({ anzahl }: { anzahl: number }) {
+  return (
+    <InfoHint
+      label={anzahl === 1 ? "1 ausgefallenes Spiel" : `${anzahl} ausgefallene Spiele`}
+      trigger={<span className="fluid-xxs bg-danger/10 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">+{anzahl}</span>}>
+      <p>
+        <strong>Ausgefallene Spiele</strong>
+      </p>
+      <p>
+        {anzahl === 1
+          ? "Ein Spiel dieses Teams wurde abgesagt und nie gespielt."
+          : `${anzahl} Spiele dieses Teams wurden abgesagt und nie gespielt.`}
+      </p>
+      {/* The forfeit rule, in the one place a reader meets it: a cancelled match CAN carry a result,
+          and then it counts everywhere (ADR-0019). Without this sentence the badge reads as "every
+          cancellation is missing from the table", which is the wrong half of the rule. */}
+      <p>
+        Abgesagte Spiele ohne Wertung zählen in dieser Tabelle nirgends mit — auch nicht als Niederlage. Wurde ein abgesagtes Spiel gewertet,
+        zählt es ganz normal.
+      </p>
+    </InfoHint>
+  );
+}
 
 export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppenData: FLGruppen; qualifiersPerGroup: number }) {
   if (typedObjectEntries(gruppenData).length === 0) {
@@ -137,7 +173,14 @@ export function SaisontabelleView({ gruppenData, qualifiersPerGroup }: { gruppen
                       </Table.Cell>
 
                       <Table.Cell className="text-foreground-muted px-1 py-4 text-center font-medium lg:px-2">
-                        {teamData.statistik.anzahl_gespielte_spiele}
+                        {/* A flex row rather than two inline nodes: the cell is centred, and a badge
+                            sitting on the text baseline would drag the number off that centre. */}
+                        <span className="inline-flex items-center justify-center gap-x-1">
+                          {teamData.statistik.anzahl_gespielte_spiele}
+                          {teamData.statistik.anzahl_ausgefallene_spiele > 0 && (
+                            <AusgefalleneSpieleHint anzahl={teamData.statistik.anzahl_ausgefallene_spiele} />
+                          )}
+                        </span>
                       </Table.Cell>
 
                       {/** `-strong`, not the plain accents: these are 13.9px text on a table row, and the
