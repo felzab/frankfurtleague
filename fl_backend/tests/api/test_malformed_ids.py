@@ -7,7 +7,9 @@ the `objectid` convertor decides whether a route matches at all, and `CustomObje
 value while FastAPI is still assembling the call.
 
 Invariants:
-- No database answers here. A client is attached so the dependency resolves, and nothing listens on it.
+- No `mongod` is needed. A client is attached so the dependency resolves, and nothing answers it.
+- A well-formed id is asserted to fail AT the database, which is what makes each refusal above mean
+  something: a control asserting only "not 404" would pass on any failure at all.
 
 See:
 - docs/backend/spec.md — the failure contract this split sits beside
@@ -30,13 +32,16 @@ HEX_ID = "6890a1b2c3d4e5f607182930"
 # before the character class is reached, so this is the one that tests the class.
 NON_HEX_ID = "z" * 24
 
-# Port 1, not the configured URI: nothing must answer here. Against a real mongod on the default
-# port the well-formed path control would meet a genuine 404 for a document that does not exist,
-# and fail for a reason that has nothing to do with routing.
+# Not the configured URI: 27017 is where a developer plausibly runs a real `mongod`, and the
+# controls below would then be answered 404 for a document that merely does not exist.
 UNANSWERED_URI = "mongodb://localhost:1"
 
+# What a request answers once it gets past routing and validation to an unreachable database.
+# Naming it is the point: `!=` on 404 or 422 passes on any failure, the harness's own included.
+UNREACHED_DATABASE = "DB-FAIL-001"
 
-@pytest.fixture(scope="module")
+
+@pytest.fixture
 def client() -> Iterator[TestClient]:
     """
     A client whose database dependency resolves, and whose database does not answer.
@@ -46,9 +51,11 @@ def client() -> Iterator[TestClient]:
     under test. The lifespan is not run: it reads the settings singleton rather than the injected
     config, so it would build a client against whatever `.env` happens to hold.
 
-    Reaching the unanswered server is deliberate — it is what makes the well-formed controls below
-    mean something, because a status that is neither 404 nor 422 is only informative if the request
-    actually got that far.
+    Per test, and that is load-bearing rather than tidiness. `TestClient` runs each request on a fresh
+    event loop while Motor binds to the first loop it sees, so one client shared across a module lets
+    only its first database-reaching request reach the database — every later one dies inside the
+    harness with `SRV-FAIL-001` in a hundredth of the time, and a control that merely refuses 404 or
+    422 cannot tell the two apart.
     """
     app = create_app(build_test_config())
     app.state.db_client = AsyncIOMotorClient(host=UNANSWERED_URI, serverSelectionTimeoutMS=100)
@@ -58,21 +65,27 @@ def client() -> Iterator[TestClient]:
         app.state.db_client.close()
 
 
-@pytest.mark.parametrize("spiel_id", ["not-an-id", NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"])
+MALFORMED_IDS = ["not-an-id", NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
+
+
+@pytest.mark.parametrize("spiel_id", MALFORMED_IDS)
 def test_a_malformed_path_id_is_a_404(client: TestClient, spiel_id: str):
     """Nonsense, 24 non-hex characters, one hex character short and one too many — none of them address anything."""
     assert client.get(f"/api/v0/spiele/{spiel_id}", headers=AUTH).status_code == 404
 
 
-def test_a_well_formed_path_id_is_not_a_404(client: TestClient):
-    """The control: 24 hex characters match the route, so the request gets past routing to the database."""
-    assert client.get(f"/api/v0/spiele/{HEX_ID}", headers=AUTH).status_code != 404
+def test_a_well_formed_path_id_reaches_the_database(client: TestClient):
+    """The control: 24 hex characters match the route, so the failure moves off routing and onto the database."""
+    response = client.get(f"/api/v0/spiele/{HEX_ID}", headers=AUTH)
+
+    assert response.status_code == 500
+    assert response.json()["error_code"] == UNREACHED_DATABASE
 
 
-# No `db` marker: nothing here reaches a database, because 422 arrives ahead of any query. With
-# no client attached the same request answers 503 instead, which is what
-# `fl_backend/tests/api/test_error_responses.py` records.
-@pytest.mark.parametrize("team_id", ["not-an-id", NON_HEX_ID, HEX_ID[:-1]])
+# No `db` marker: no `mongod` is needed. Every refusal is decided before a query, and each control
+# is answered by an unreachable database, not by what it holds. With none attached these 503 --
+# `fl_backend/tests/api/test_error_responses.py`.
+@pytest.mark.parametrize("team_id", MALFORMED_IDS)
 def test_a_malformed_query_id_is_a_422(client: TestClient, team_id: str):
     """The same values in the other spelling, where no convertor stands in front of them and the filter model refuses each."""
     response = client.get("/api/v0/spieler", params={"team_id": team_id}, headers=AUTH)
@@ -81,6 +94,9 @@ def test_a_malformed_query_id_is_a_422(client: TestClient, team_id: str):
     assert response.json()["error_code"] == "REQ-VAL-001"
 
 
-def test_a_well_formed_query_id_is_not_a_422(client: TestClient):
-    """The control: the same parameter carrying a real id is validated, and the request fails further in."""
-    assert client.get("/api/v0/spieler", params={"team_id": HEX_ID}, headers=AUTH).status_code != 422
+def test_a_well_formed_query_id_reaches_the_database(client: TestClient):
+    """The control: the same parameter carrying a real id is validated, and the request fails at the database instead."""
+    response = client.get("/api/v0/spieler", params={"team_id": HEX_ID}, headers=AUTH)
+
+    assert response.status_code == 500
+    assert response.json()["error_code"] == UNREACHED_DATABASE
