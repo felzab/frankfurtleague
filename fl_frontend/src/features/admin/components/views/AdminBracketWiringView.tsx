@@ -229,7 +229,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                     .map((spiel) => (
                       <Table.Row
                         key={spiel.id}
-                        className="border-border hover:bg-muted/40 border-b transition-colors last:border-0">
+                        className="border-border border-b last:border-0">
                         {/* The match number, which is what a `spiel` reference names — so the column
                             an admin reads a "Sieger 25." against is the column they look 25 up in
                             (ADR-0034). */}
