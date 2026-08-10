@@ -143,7 +143,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
       <div className="max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8">
         <EmptyState
           title="Noch keine Finalrunden"
-          hint="Sobald die Spieltage der KO.-Runde angelegt sind, steht hier ihre Verweisstruktur."
+          hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier ihre Verweisstruktur."
         />
       </div>
     );
