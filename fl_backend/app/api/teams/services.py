@@ -257,7 +257,7 @@ def build_team_pipeline(filters: FLTeamsFilterParams, rules: FLSaisonRules, team
     pipeline.append(build_ausfall_lookup_stage(saison_id=filters.saison_id, scope=filters.statistik_scope))
 
     # One projection, because there is one team shape. Never branch a reduced variant off it: measured
-    # 2026-08-02, the trim is 26 KiB and no query work at all -- both lookups run either way
+    # 2026-08-02, the trim is 26 KiB and no query work at all -- every lookup runs either way
     # (ADR-0027).
     pipeline.append(
         {
