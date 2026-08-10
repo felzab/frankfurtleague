@@ -61,7 +61,7 @@ chosen by feel.
 | #   | ID     | Item                                                    | Surfaces    | Effort | Status   | Depends on |
 | --- | ------ | ------------------------------------------------------- | ----------- | ------ | -------- | ---------- |
 | 1   | FB-16  | Nothing announces that a season rollover is due         | BE, Ops     | M      | Open     | —          |
-| 2   | FB-7   | Cancelled matches are invisible in the games count      | FE, BE      | M      | Open     | —          |
+| 2   | FB-7   | Cancelled matches are invisible in the games count      | FE, BE      | M      | Closed   | —          |
 | 3   | FE-1   | A fixture carries one date, not a play window           | FE, BE      | XL     | Open     | —          |
 | 4   | OPS-11 | The compose guard cannot tell an invocation from a name | Ops         | S      | Open     | —          |
 | 5   | OPS-10 | The comment-only classifier costs a process per file    | Ops         | S      | Open     | —          |
@@ -151,10 +151,30 @@ defensible mid-season move.
 
 ### 2 · FB-7 — Cancelled matches are invisible in the Saisontabelle's games count
 
-**Status:** Open\
+**Status:** Closed\
 **Surfaces:** FE, BE\
 **Effort:** M\
 **Path:** Batched with FE-1 — one schema, mirror and form pass, landing on the edit page.
+
+**Closed 2026-08-10.** `FLTeamStatistik` carries `anzahl_ausgefallene_spiele`, a per-team,
+per-season count of the fixtures called off and never played. It is derived by a `$lookup` of its
+own, so the lookup deriving the scoring figures beside it still never reads `is_canceled`
+([ADR-0019](../_decisions/0019-team-statistics-are-derived-from-spiele.md)), and it obeys
+`statistik_scope` like every figure beside it
+([ADR-0022](../_decisions/0022-the-league-table-counts-the-gruppenphase.md)). The Saisontabelle
+renders it beside the games count with the explanation behind it (`94dcdca`).
+
+**The verification this entry demanded first is answered by the design rather than by a
+measurement.** The count sees a cancellation carrying no result and nothing else, so the badge
+cannot say "abgesagt" about a fixture that has simply not been played — and how many fixtures a
+season should hold is derived from the season's own rules and is nowhere in the figure
+([ADR-0052](../_decisions/0052-a-seasons-schedule-is-derived-from-its-rules.md)). What the live data
+holds therefore decides only whether the badge renders, never whether it is right.
+
+**Rehomed: nothing.** That `is_canceled` conflates a forfeit with a match that did not happen stays
+deliberate, recorded in ADR-0019 and in `docs/glossary.md`; this change depends on that encoding
+rather than reopening it. FE-1 keeps the schema batching named on its own `Path` line — the mirror
+and published-document pass that batching existed for ran here.
 
 **A team showing fewer games than its group's fixtures should say why** (my item, 2026-08-04). The
 sketch is `Spiele: 2 +1` in contrasting colours, with a tooltip on hover for a pointer and on tap for
