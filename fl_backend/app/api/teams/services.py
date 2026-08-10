@@ -153,22 +153,13 @@ def build_ausfall_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> M
     """
     The `$lookup` counting the fixtures this team never got to play — called off, and no result.
 
-    **A stage of its own rather than a second accumulator inside the counting `$lookup`.** That lookup
-    selects on `ergebnis` alone and must keep doing so (ADR-0019); widening its `$match` to admit a
-    result-less document would put every figure it derives behind a `$cond`, and `$eq: [null, null]`
-    is true — so an unguarded draw counter would score a cancellation as a draw and stay green.
+    **A stage of its own rather than a second accumulator inside the counting `$lookup`, and merging
+    the two is ADR-0063 reversed.** That decision carries why, what one lookup would cost, and the
+    shape that falls between the two `$match` clauses and is counted by neither.
 
     Only a fixture that EXISTS and was called off is counted here. A fixture nobody has played yet is
     a different fact, no document records it, and how many a season should hold follows from the
     season's own rules instead (ADR-0052) — so this count can never speak for one.
-
-    **One shape falls between the two `$match` clauses and is counted by neither**: a cancellation
-    carrying an `ergebnis` whose goal counts are null. The counting lookup drops it on the null goals,
-    and this one drops it on the non-null `ergebnis`. `apply_payload_to_spiel` composes `ergebnis` from
-    the goal counts, so the API cannot produce it; a hand-edited or legacy document can, and the seeded
-    corpus holds one deliberately. The fixture is then absent from every figure rather than wrong in
-    one, which is why it is recorded here and not repaired: widening either clause to claim it would
-    make that clause guess which of the two facts the half-written document meant.
 
     `scope` narrows the matches exactly as it does for the figures beside them (ADR-0022).
     """
