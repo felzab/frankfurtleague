@@ -19,8 +19,10 @@ permissions:
 
 concurrency:
   group: verify-${{ github.ref }}
-  # Supersede an in-flight run on a PR, but never on main: a main run is the record of whether that
-  # commit is deployable, and cancelling it leaves that question unanswered.
+  # Supersede an in-flight run on a PR, but never on main: a main run answers whether the tree is
+  # deployable, and cancelling one leaves that question open. It is not a result per commit — a
+  # concurrency group holds a single pending run, so three merges in quick succession replace the
+  # middle one's queued run with the newest before it ever starts.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -39,7 +41,7 @@ jobs:
       images: ${{ steps.map.outputs.images }}
       format: ${{ steps.map.outputs.format }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
@@ -61,14 +63,23 @@ jobs:
             ./scripts/ci_scopes.sh --all >> "$GITHUB_OUTPUT"
           fi
 
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - name: Create the backend virtualenv
+        # The commit check below runs on the interpreter fl_backend pins, never on whichever Python
+        # the runner image happens to ship: one floor for every caller, so a check cannot pass here
+        # and fail on a development machine over a language version. Warm, this costs a few seconds.
+        working-directory: fl_backend
+        run: uv sync --dev
+
       # Commit messages are checked here, not in the docs job: they are the one thing with no path,
       # so a frontend-only pull request would skip the docs scope and merge unchecked.
-      # `check_commits.py` stays stdlib-only, so the runner's own python suffices.
       - name: Check the branch's commit messages
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: python3 scripts/check_commits.py --base "origin/${BASE_REF}"
+        run: fl_backend/.venv/bin/python scripts/check_commits.py --base "origin/${BASE_REF}"
 
   scripts:
     needs: changes
@@ -76,10 +87,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - name: Create the backend virtualenv
@@ -92,21 +103,10 @@ jobs:
         # exists, which is slow and needs the daemon. The runner image normally ships one, so this
         # installs only where it is genuinely missing.
         run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
-      - uses: pnpm/action-setup@v6.0.9
-        with:
-          # Same single-source rule as the format and frontend jobs.
-          package_json_file: fl_frontend/package.json
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: 26
-          cache: pnpm
-          cache-dependency-path: fl_frontend/pnpm-lock.yaml
-      - name: Install frontend dependencies
-        # Only typescript is wanted, and a pnpm install is the only way to get it at the pinned
-        # version. Without it the comment classifier's TypeScript half — the delicate one, and why
-        # ADR-0030 uses a parser rather than a regex — is exercised nowhere.
-        working-directory: fl_frontend
-        run: pnpm install --frozen-lockfile
+      # Only typescript is wanted here, and a pnpm install is the only way to get it at the pinned
+      # version. Without it the comment classifier's TypeScript half — the delicate one, and why
+      # ADR-0030 uses a parser rather than a regex — is exercised nowhere.
+      - uses: ./.github/actions/frontend-toolchain
       - name: Run the scripts scope
         run: ./scripts/verify.sh --scripts
 
@@ -116,34 +116,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           # Full history: the documentation gate verifies `Verified against` stamps as ancestors
           # and diffs stamped pages against the merge base, neither of which a shallow clone can do.
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - name: Create the backend virtualenv
         # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
         working-directory: fl_backend
         run: uv sync --dev
-      - uses: pnpm/action-setup@v6.0.9
-        with:
-          # Same single-source rule as the format and frontend jobs.
-          package_json_file: fl_frontend/package.json
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: 26
-          cache: pnpm
-          cache-dependency-path: fl_frontend/pnpm-lock.yaml
-      - name: Install frontend dependencies
-        # branch-impact classifies a changed .ts file through `scripts/check_scope.py`, whose
-        # TypeScript half needs `scripts/ts_normalize.mjs`. Without it the answer degrades to
-        # "code", and the branch is asked for restamps it does not owe (CUR-4).
-        working-directory: fl_frontend
-        run: pnpm install --frozen-lockfile
+      # branch-impact classifies a changed .ts file through `scripts/check_scope.py`, whose
+      # TypeScript half needs `scripts/ts_normalize.mjs`. Without the installed tree the answer
+      # degrades to "code", and the branch is asked for restamps it does not owe (CUR-4).
+      - uses: ./.github/actions/frontend-toolchain
       - name: Run the docs scope
         run: ./scripts/verify.sh --docs
 
@@ -156,23 +145,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.0.9
-        with:
-          # Read from `packageManager` in fl_frontend/package.json. The image pins the same version
-          # independently at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`, and nothing compares the
-          # two — bump both.
-          package_json_file: fl_frontend/package.json
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: 26
-          cache: pnpm
-          cache-dependency-path: fl_frontend/pnpm-lock.yaml
-      - name: Install frontend dependencies
-        working-directory: fl_frontend
-        run: pnpm install --frozen-lockfile
+      # prettier and its plugins are dependencies of fl_frontend, so the check needs that install
+      # even though what it reads is mostly outside it.
+      - uses: ./.github/actions/frontend-toolchain
       - name: Check formatting
         working-directory: fl_frontend
         run: pnpm format:check
@@ -183,10 +161,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - name: Create the backend virtualenv
@@ -204,10 +182,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
       - name: Create the backend virtualenv
@@ -237,21 +215,11 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
 
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.0.9
-        with:
-          # Same single-source rule as the format job.
-          package_json_file: fl_frontend/package.json
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: 26
-          cache: pnpm
-          cache-dependency-path: fl_frontend/pnpm-lock.yaml
-      - name: Install frontend dependencies
-        working-directory: fl_frontend
-        run: pnpm install --frozen-lockfile
+      # The scope builds the application, so the installed tree is the job.
+      - uses: ./.github/actions/frontend-toolchain
       - name: Run the frontend scope
         run: ./scripts/verify.sh --frontend
       - name: Fail if the gate reformatted anything
@@ -272,9 +240,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - name: Create the backend virtualenv
+        # `any_python` falls back to the runner's python3, which is under the checkers' floor on
+        # this image, and the ops scope degrades "could not run" to a skip — so without this venv
+        # the job is green having never compared the compose files.
+        working-directory: fl_backend
+        run: uv sync --dev
       - name: Run the ops scope
         run: ./scripts/verify.sh --ops
 
@@ -287,7 +264,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # buildx talks to the Actions cache service itself (ADR-0031), so there is no actions/cache
@@ -322,6 +299,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # First, so it prints whether or not the verdict below refuses. A green `verify` says nothing
+      # about which scopes ran, and a mapping that turned every scope off looks identical to a
+      # change that genuinely touched nothing — this is where the difference is readable.
+      - name: Report each scope's result
+        # This job IS the required status check, so nothing diagnostic in it may decide a merge. The
+        # verdict is the step below and only that step; a report that cannot format its own output
+        # is annotated in the run and changes no outcome.
+        continue-on-error: true
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          printf '%s' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
       - name: Fail if any scope job failed or was cancelled
         # A skipped job is a pass here: path filtering skipped it on purpose. Pure expressions, no
         # shell parsing of the needs context.
@@ -329,5 +318,3 @@ jobs:
         run: |
           echo "::error::A scope job failed -- its own log has the findings."
           exit 1
-      - name: Report
-        run: echo "every scope that ran is green"

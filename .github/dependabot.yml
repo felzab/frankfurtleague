@@ -8,16 +8,29 @@ version: 2
 # pull request, because those are the ones that need a changelog read.
 #
 # Invariants:
-# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule.
+# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule — for
+#   every ecosystem below except `github-actions`. GitHub raises no alert for an action pinned to a
+#   commit SHA, and every `uses:` naming a repository is pinned that way, so for actions the
+#   monthly run below IS the coverage: a fix arrives on this schedule rather than on the day it is
+#   disclosed. Why that trade is worth taking belongs to `docs/_git/spec.md`, Repository settings.
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
+# - No ecosystem below can read a version written inside a shell script or a Python string, so the
+#   shellcheck and actionlint images in `scripts/selfcheck.sh` and the mongo image in
+#   `fl_backend/tests/conftest.py` are maintained by hand at the lines that hold them.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------
 
   # The highest-value ecosystem here and the cheapest to review: few dependencies, small diffs, and
   # an outdated action is a supply-chain exposure that nothing else in the repo would surface.
+
+  # Two locations, because `/` is not the repository for this ecosystem: it means the root
+  # `action.yml` plus `.github/workflows/`, and reaches no composite action. The second entry is a
+  # glob over `.github/actions`, so a local action added later is watched without a config edit.
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: monthly
     commit-message:
@@ -68,9 +81,10 @@ updates:
 
   # --- Base images ----------------------------------------------------------------------------
 
-  # Both Dockerfiles pin their base image. A Dockerfile change triggers the `images` CI job on the
-  # pull request itself (.github/workflows/verify.yml), so a base-image bump proves both images
-  # build before it merges.
+  # Both Dockerfiles pin their base image, and the backend's `FROM ghcr.io/astral-sh/uv ... AS uv`
+  # stage is a second image in the same file for the same reason. A Dockerfile change triggers the
+  # `images` CI job on the pull request itself (.github/workflows/verify.yml), so a base-image bump
+  # proves both images build before it merges.
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:
@@ -84,3 +98,26 @@ updates:
       interval: monthly
     commit-message:
       prefix: "Backend image"
+
+  # --- Stack images ---------------------------------------------------------------------------
+
+  # A separate ecosystem from `docker`, which reads Dockerfiles and Kubernetes manifests and would
+  # not open either compose file. This one reads `services.*.image` in both root compose files, so
+  # the image the stacks put in front of the application is watched like any other dependency.
+
+  # An image whose tag carries no version yields nothing here -- there is no comparison to make --
+  # so a floating tag is a silent opt-out rather than an update nobody sees.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "Ops"
+    ignore:
+      # This repository's own published images. `scripts/publish.sh` moves those tags, and a bot
+      # proposing to bump either would be proposing a deploy.
+
+      # Written WITHOUT the `ghcr.io/` the compose files spell, and that is not a typo: a
+      # dependency's name in this ecosystem is the image path alone, because the registry is parsed
+      # into a separate field. A name carrying the registry matches nothing and says nothing.
+      - dependency-name: felzab/frankfurtleague-*
