@@ -79,10 +79,10 @@ only means something inside a cache scope. Each seeds the request's correlation 
 `"use cache"` read cannot ([`docs/logging/spec.md`](../logging/spec.md#11-the-correlation-id)).
 
 **The cost is one backend request per call site, not per page load.** `apiClient` bounds every call
-with an `AbortController` timeout signal, and that signal opts the call out of Next's `fetch`
-memoization, so a page reading the same data from more than one boundary pays for each. `/admin/spieler`
-is that page: its create modal and its list each read the memberships, and a single page view
-produces a backend line for every one of those reads.
+with an `AbortController` timeout signal, and Next's `fetch` memoization opts out the moment a signal
+is present, so a page reading the same data from more than one boundary pays for each. A create modal
+beside its own list is the shape that does it, in `/admin/teams` as in `/admin/spieler`: a single page
+view produces a backend line for every one of those reads.
 
 **`getSpiel` is `GET /spiele/{spiel_id}` and carries the base tag ALONE.** The match editor is addressed
 by match id with no season in the URL
