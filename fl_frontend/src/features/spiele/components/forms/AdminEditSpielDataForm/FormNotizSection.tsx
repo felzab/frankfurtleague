@@ -1,4 +1,8 @@
-import { FieldError, TextArea, TextField } from "@heroui/react";
+import { useRef } from "react";
+
+import { Xmark } from "@gravity-ui/icons";
+
+import { Button, FieldError, TextArea, TextField } from "@heroui/react";
 
 import { FIELD_ERROR } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -30,6 +34,12 @@ export function FormNotizSection({
 }) {
   const styles = formPanel();
   const status = useFieldStatus("notiz");
+  const notizRef = useRef<HTMLTextAreaElement>(null);
+
+  // Whitespace counts as empty, exactly as the `notiz` descriptor in
+  // `fl_frontend/src/features/spiele/draftStatus.ts` reads it -- otherwise the button offers to remove
+  // a note the change list already reports as absent.
+  const hasNotiz = notiz !== null && notiz.trim() !== "";
 
   return (
     <section className={styles.root()}>
@@ -59,12 +69,35 @@ export function FormNotizSection({
           isInvalid={status?.error ? true : undefined}>
           <FieldLabel path="notiz">Notiz zum Spiel</FieldLabel>
           <TextArea
+            ref={notizRef}
             fullWidth
             placeholder="Öffentlich sichtbare Anmerkung zum Spiel"
             className="border-border bg-surface text-foreground fluid-sm min-h-24 rounded-lg border px-3 py-2 transition-colors outline-none"
           />
           <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
         </TextField>
+
+        {/* No confirmation, here or anywhere on this page: the fifteen-second undo after a save is the
+            offer, and the two are alternatives (ADR-0041). Labelled rather than a bare X, which reads
+            unambiguously only inside a field group. */}
+        {hasNotiz && (
+          <Button
+            type="button"
+            variant="ghost"
+            onPress={() => {
+              onNotizChange(null);
+              // Before React unmounts this button with the value it just cleared, or focus falls to
+              // <body> and the next Tab restarts at the top of the page.
+              notizRef.current?.focus();
+            }}
+            className="border-border text-foreground-muted hover:border-danger/40 hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-1.5 self-start rounded-lg border px-2.5 font-bold transition-colors">
+            <Xmark
+              aria-hidden="true"
+              className="size-3.5 shrink-0"
+            />
+            Notiz entfernen
+          </Button>
+        )}
       </div>
     </section>
   );

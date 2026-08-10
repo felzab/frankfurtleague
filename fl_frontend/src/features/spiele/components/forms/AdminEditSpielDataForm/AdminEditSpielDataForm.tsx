@@ -489,6 +489,7 @@ export function AdminEditSpielDataForm({
     setTeam1Quelle(spielData.team1_quelle);
     setTeam2Quelle(spielData.team2_quelle);
     setElfmeterschiessen(spielData.elfmeterschiessen);
+    setNotiz(spielData.notiz);
     setErgebnisCanBeEdited(false);
 
     setFieldErrors({});
