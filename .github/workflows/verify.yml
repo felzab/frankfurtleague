@@ -92,7 +92,7 @@ jobs:
         # exists, which is slow and needs the daemon. The runner image normally ships one, so this
         # installs only where it is genuinely missing.
         run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@v6.0.10
         with:
           # Same single-source rule as the format and frontend jobs.
           package_json_file: fl_frontend/package.json
@@ -129,7 +129,7 @@ jobs:
         # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
         working-directory: fl_backend
         run: uv sync --dev
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@v6.0.10
         with:
           # Same single-source rule as the format and frontend jobs.
           package_json_file: fl_frontend/package.json
@@ -159,7 +159,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@v6.0.10
         with:
           # Read from `packageManager` in fl_frontend/package.json. The image pins the same version
           # independently at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`, and nothing compares the
@@ -240,7 +240,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@v6.0.10
         with:
           # Same single-source rule as the format job.
           package_json_file: fl_frontend/package.json
