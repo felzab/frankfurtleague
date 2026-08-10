@@ -21,7 +21,11 @@ from app.api.spiele.schemas import FLSaisonPhase
 # which of it a season runs, and cannot name a level the league lacks (ADR-0048). Acyclic -- the
 # spieler slice imports nothing from here.
 from app.api.spieler.schemas import FLSpielerStufe
-from app.shared.schemas.custom import CustomDateString, refuse_reversed_span
+
+# The closed group set, imported rather than restated, for the reason the two above are. Acyclic -- the
+# teams slice's MODELS import nothing but `app.shared`; it is `teams/services.py` that reads this file.
+from app.api.teams.schemas import FLGruppenNames
+from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonStatus = Literal["past", "active", "future"]
@@ -126,6 +130,35 @@ class FLPatchSaisonPayload(BaseModel):
         refuse_reversed_span(start=self.start_date, end=self.end_date, start_label="dem Startdatum", end_label="Das Enddatum")
 
         return self
+
+
+class FLSwapGruppenPayload(BaseModel):
+    """
+    The two clubs a group swap exchanges. Symmetric -- neither side is the one being moved.
+
+    **Neither side carries a `gruppe`, and that absence is the design** (ADR-0062). The groups being
+    exchanged are what the two `saison_teams` rows already hold, so reading them from the payload would
+    let a form built against a season that has since moved write a group nobody is standing in. The
+    season is in the path, because a swap belongs to the season (ADR-0057).
+    """
+
+    team1_id: CustomObjectId
+    team2_id: CustomObjectId
+
+
+class FLSwapGruppenResponse(BaseAPIResponse):
+    """
+    Both junction rows as the swap left them: each club, and the group it now holds.
+
+    Flat rather than two nested sides, because there is nothing else on a junction row this write
+    touches -- `disqualifikation` is `PATCH /teams/{team_id}/saisons/{saison_id}`'s and is not read here.
+    """
+
+    saison_id: str
+    team1_id: CustomObjectId
+    team1_gruppe: FLGruppenNames
+    team2_id: CustomObjectId
+    team2_gruppe: FLGruppenNames
 
 
 class FLSaisonsListResponse(BaseAPIResponse):

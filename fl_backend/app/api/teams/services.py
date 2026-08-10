@@ -741,6 +741,71 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
+# A group SWAP: two clubs exchanging groups inside one season (ADR-0062). Beside the entry codes rather
+# than among them, because a swap is neither an entry nor the move `REQ-ENTER-004` locks -- each group
+# keeps its size and every drawn fixture keeps its opponents, which is exactly what makes it defensible
+# where a move is not.
+
+# The two ids do not name two clubs of this season standing in different groups. One club named twice, a
+# club holding no junction row, and two clubs of one group are the three shapes, and the remedy is the
+# same for all three: the control offers only pairs that ARE a swap, so a request carrying one is stale
+# or racing another admin.
+SWAP_NOT_A_SWAP = "REQ-SWAP-001"
+
+# The knockout rounds have started, so the standings these groups produce have already been consumed by
+# the seeding (ADR-0035). Exchanging the groups behind a played bracket rewrites what its slots meant.
+SWAP_KNOCKOUT_STARTED = "REQ-SWAP-002"
+
+
+def find_gruppe_swap_refusal(
+    *,
+    is_same_team: bool,
+    team1_gruppe: str | None,
+    team2_gruppe: str | None,
+    played_knockout_fixtures: int,
+) -> tuple[str, str] | None:
+    """
+    Why exchanging these two clubs' groups must be refused, as `(error_code, detail)` -- or `None`.
+
+    Each `gruppe` is what that club's `saison_teams` row holds for the season, and `None` means the club
+    holds no row in it at all. `played_knockout_fixtures` counts the season's fixtures outside the group
+    phase already carrying an `ergebnis`; one is enough, because a single played knockout match is a slot
+    the standings have already filled.
+
+    **The pairing is judged before the window**, and the order is the argument: two ids that are not two
+    clubs of this season in different groups describe no swap at all, so whether a swap would still be
+    defensible is a question they never reach.
+
+    Deliberately silent about `ENTRY_GRUPPE_LOCKED`, which refuses a MOVE for a club whose fixtures are
+    drawn. That lock's own message names this operation as the defensible one, so a swap neither routes
+    through it nor relaxes it (ADR-0062).
+    """
+
+    if is_same_team:
+        return (SWAP_NOT_A_SWAP, "both ids name one club; a swap exchanges two of them")
+
+    missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
+    if missing:
+        return (
+            SWAP_NOT_A_SWAP,
+            f"no saison_teams row for {' and '.join(missing)}; a swap exchanges two clubs that are both entered in the season",
+        )
+
+    if team1_gruppe == team2_gruppe:
+        return (SWAP_NOT_A_SWAP, f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups")
+
+    if played_knockout_fixtures > 0:
+        subject = (
+            "1 knockout fixture already carries"
+            if played_knockout_fixtures == 1
+            else f"{played_knockout_fixtures} knockout fixtures already carry"
+        )
+
+        return (SWAP_KNOCKOUT_STARTED, f"{subject} a result; the bracket has been seeded from these groups")
+
+    return None
+
+
 # A club still entered in a season that is running or planned: retiring it pulls it out of every picker
 # while its fixtures are played or drawn -- the state the soft delete exists to prevent, reached through
 # the soft delete itself (ADR-0026).

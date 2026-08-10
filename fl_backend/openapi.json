@@ -2803,6 +2803,61 @@
         }
       }
     },
+    "/api/v0/saisons/{saison_id}/gruppen/swap": {
+      "post": {
+        "summary": "Exchange two teams' groups",
+        "description": "Exchange the groups of two clubs entered in this season, as one write.\n\n**The one mid-season group change that is defensible** (ADR-0062). A group decides which table counts\na club's results and which bracket slot its placing seeds (ADR-0035), so moving a single club\nfalsifies both; two clubs exchanging keeps each group's size and leaves every drawn fixture facing\nthe opponents it was drawn against.\n\n**On the season rather than on the club** (ADR-0027's grain): `PATCH /teams/{team_id}/saisons/{saison_id}`\naddresses one junction row, so a swap done there is two requests with a window between them in which\none group is a club short and the other a club over — and a failure after the first leaves the season\nin that state with nothing to say so. Both rows are written in **one transaction**, so the season\nnever holds half a swap.\n\n**Refused with a 409 unless the two ids name two clubs of this season standing in different groups**\n(`REQ-SWAP-001`). One club named twice, a club with no junction row, and two clubs of one group all\ndescribe something that is not a swap. The control offers only pairs that are one, so a request\ncarrying any of them is stale or racing another admin, and reloading is the way past it.\n\n**Refused with a 409 of its own once the knockout rounds have begun** (`REQ-SWAP-002`) — any fixture\noutside the Gruppenphase carrying an `ergebnis`. By then the standings have been consumed by the\nseeding, so exchanging the groups behind a played bracket rewrites what its slots meant. That is a\nrefusal and not a warning: there is no reading of it under which the swap is still defensible.\n\n**`REQ-ENTER-004`'s lock is deliberately not consulted.** It refuses a MOVE for a club whose fixtures\nare drawn, and its own message names a swap as the case that would be defensible — so this operation\nexists beside that lock rather than relaxing it. `disqualifikation` is untouched here: a swap changes\nwhere a club plays and nothing about whether it may.",
+        "operationId": "swap_gruppen_api_v0_saisons__saison_id__gruppen_swap_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "saison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Saison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLSwapGruppenPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLSwapGruppenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v0/spielorte/{spielort_id}/reactivate": {
       "post": {
         "summary": "Bring a deactivated Spielort back",
@@ -6002,6 +6057,80 @@
           "spieltag"
         ],
         "title": "FLSpieltageSingleResponse"
+      },
+      "FLSwapGruppenPayload": {
+        "properties": {
+          "team1_id": {
+            "type": "string",
+            "title": "Team1 Id"
+          },
+          "team2_id": {
+            "type": "string",
+            "title": "Team2 Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "team1_id",
+          "team2_id"
+        ],
+        "title": "FLSwapGruppenPayload",
+        "description": "The two clubs a group swap exchanges. Symmetric -- neither side is the one being moved.\n\n**Neither side carries a `gruppe`, and that absence is the design** (ADR-0062). The groups being\nexchanged are what the two `saison_teams` rows already hold, so reading them from the payload would\nlet a form built against a season that has since moved write a group nobody is standing in. The\nseason is in the path, because a swap belongs to the season (ADR-0057)."
+      },
+      "FLSwapGruppenResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "saison_id": {
+            "type": "string",
+            "title": "Saison Id"
+          },
+          "team1_id": {
+            "type": "string",
+            "title": "Team1 Id"
+          },
+          "team1_gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Team1 Gruppe"
+          },
+          "team2_id": {
+            "type": "string",
+            "title": "Team2 Id"
+          },
+          "team2_gruppe": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Team2 Gruppe"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saison_id",
+          "team1_id",
+          "team1_gruppe",
+          "team2_id",
+          "team2_gruppe"
+        ],
+        "title": "FLSwapGruppenResponse",
+        "description": "Both junction rows as the swap left them: each club, and the group it now holds.\n\nFlat rather than two nested sides, because there is nothing else on a junction row this write\ntouches -- `disqualifikation` is `PATCH /teams/{team_id}/saisons/{saison_id}`'s and is not read here."
       },
       "FLTeam": {
         "properties": {
