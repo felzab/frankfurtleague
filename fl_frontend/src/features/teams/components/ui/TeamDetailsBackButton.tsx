@@ -21,7 +21,10 @@ export function TeamDetailsBackButton() {
       onPress={() => {
         router.back();
       }}
-      className="bg-surface border-border text-foreground hover:bg-muted fluid-xs flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+      // `-mb-3` against the page's `gap-y-8`: a control that leaves the page sits closer to what it
+      // leaves than two sections of the page sit to each other, which is the spacing this had before
+      // it moved into a component of its own.
+      className="bg-surface border-border text-foreground hover:bg-muted fluid-xs -mb-3 flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
       <ArrowUturnCwLeft className="h-4 w-4 shrink-0" />
       <span>Zurück</span>
     </Button>

@@ -15,6 +15,15 @@
  * word inside another control, where a chip's weight would compete with what it annotates.
  */
 
+/**
+ * The radius every pill in the app carries, the two recipes below and the HeroUI chips alike.
+ *
+ * **On a `Chip` it overrides `rounded-2xl` from `.chip`**, and a utility beats the component layer, so
+ * no `!` is needed. Declared here rather than spelled at each chip, where the same sentence about the
+ * same override had been copied out per call site — which is how the next chip comes to disagree.
+ */
+export const PILL_RADIUS = "rounded-md";
+
 /** A number in a pill — a section's count. `min-w-6` so single digits are not ovals. */
 export const COUNT_BADGE = "fluid-xxs inline-flex min-w-6 items-center justify-center rounded-md px-1.5 py-0.5 font-extrabold";
 

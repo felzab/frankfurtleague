@@ -16,6 +16,7 @@
 import { Chip } from "@heroui/react";
 
 import { PHASE_LABELS } from "@/features/saisons/constants";
+import { PILL_RADIUS } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 import { computeSaisonVerlauf } from "../../utils";
@@ -68,19 +69,19 @@ export function TeamSaisonVerlauf({ teamSpiele, teamId }: { teamSpiele: FLSpiel[
       <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonverlauf</h2>
 
       {verlauf.length === 0 ? (
+        // Describes what the section holds and promises nothing: a disqualified team renders its
+        // note directly above this, and a past season reached by `?saison_id=` has no future left.
         <EmptyState
-          title="Noch keine entschiedene Runde."
-          hint="Sobald dieses Team eine Runde übersteht oder darin ausscheidet, steht sie hier."
+          title="Für dieses Team ist keine Runde vermerkt."
+          hint="Diese Übersicht zeigt jede Runde, die das Team überstanden hat oder in der es ausgeschieden ist."
         />
       ) : (
         <ul className="flex flex-row flex-wrap items-center gap-2">
           {verlauf.map((phaseVerlauf) => (
             <li key={phaseVerlauf.phase}>
-              {/* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip`: one radius for every pill
-                  in the app. A utility beats the component layer, so no `!` is needed. */}
               <Chip
                 size="sm"
-                className={`fluid-xxs rounded-md border-none px-2 py-1 font-bold ${OUTCOME_TINTS[phaseVerlauf.outcome]}`}>
+                className={`${PILL_RADIUS} fluid-xxs border-none px-2 py-1 font-bold ${OUTCOME_TINTS[phaseVerlauf.outcome]}`}>
                 {outcomeLabel(phaseVerlauf)}
               </Chip>
             </li>
