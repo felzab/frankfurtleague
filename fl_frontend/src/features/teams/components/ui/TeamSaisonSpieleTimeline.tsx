@@ -46,7 +46,7 @@ export function TeamSaisonSpieleTimeline({ teamSpiele, teamId, today }: { teamSp
 
   return (
     <section className="flex size-full flex-col gap-y-6">
-      <h3 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonspiele</h3>
+      <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonspiele</h2>
 
       {/* Without this the empty case renders the dashed rail with no items -- a bare vertical line
           under the heading. */}

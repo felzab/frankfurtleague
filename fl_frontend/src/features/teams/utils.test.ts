@@ -116,60 +116,82 @@ const fixture = ({
     team2: { team_id: gast },
   }) as FLSpiel;
 
+const verlaufOf = (spiele: FLSpiel[], teamId = SUBJECT) => computeSaisonVerlauf({ spiele, teamId });
+
 describe("computeSaisonVerlauf", () => {
-  it("answers null for a team whose season never left the group phase", () => {
-    assert.equal(computeSaisonVerlauf({ spiele: [fixture({ phase: "gruppenphase", ergebnis: "3:1" })], teamId: SUBJECT }), null);
+  // Failing a group is evidenced only by an absent knockout fixture, which is also what an undrawn
+  // bracket looks like — and a placing may be acted on only once no result can change it (ADR-0035).
+  it("says nothing at all about a team that has only group fixtures", () => {
+    assert.deepEqual(verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "gruppenphase", ergebnis: "0:4" })]), []);
   });
 
-  it("answers null for a team with no fixtures at all", () => {
-    assert.equal(computeSaisonVerlauf({ spiele: [], teamId: SUBJECT }), null);
+  it("says nothing about a team with no fixtures at all", () => {
+    assert.deepEqual(verlaufOf([]), []);
   });
 
-  it("takes the furthest round rather than the last fixture in the array", () => {
-    // Deliberately out of bracket order: the fixtures arrive sorted by date on the page, and a
-    // rescheduled semi-final played before a quarter-final would otherwise decide the answer.
-    const verlauf = computeSaisonVerlauf({
-      spiele: [fixture({ phase: "halbfinale", ergebnis: "0:2" }), fixture({ phase: "viertelfinale", ergebnis: "3:1" })],
-      teamId: SUBJECT,
-    });
+  it("reports the group phase only once a knockout fixture fields the team", () => {
+    const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "3:1" }), fixture({ phase: "viertelfinale" })]);
 
-    assert.deepEqual(verlauf, { deepestPhase: "halbfinale", outcome: "L" });
+    assert.deepEqual(verlauf, [
+      { phase: "gruppenphase", outcome: "advanced" },
+      { phase: "viertelfinale", outcome: "pending" },
+    ]);
   });
 
-  it("reads the result from the team's own side of the fixture", () => {
-    const verlauf = computeSaisonVerlauf({
-      spiele: [fixture({ phase: "finale", ergebnis: "0:2", heim: OPPONENT, gast: SUBJECT })],
-      teamId: SUBJECT,
-    });
+  it("orders the rounds as a season plays them, not as the fixtures arrive", () => {
+    // The page sorts its fixtures by date, and a rescheduled semi-final played before a
+    // quarter-final would otherwise put the two rounds in the wrong order on screen.
+    const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "0:2" }), fixture({ phase: "viertelfinale", ergebnis: "3:1" })]);
 
-    assert.deepEqual(verlauf, { deepestPhase: "finale", outcome: "W" });
+    assert.deepEqual(verlauf, [
+      { phase: "viertelfinale", outcome: "won" },
+      { phase: "halbfinale", outcome: "out" },
+    ]);
   });
 
-  it("reports the round with no outcome while it is unplayed", () => {
-    const verlauf = computeSaisonVerlauf({ spiele: [fixture({ phase: "finale" })], teamId: SUBJECT });
-
-    assert.deepEqual(verlauf, { deepestPhase: "finale", outcome: null });
+  it("reads each round's result from the team's own side of the fixture", () => {
+    assert.deepEqual(verlaufOf([fixture({ phase: "finale", ergebnis: "0:2", heim: OPPONENT, gast: SUBJECT })]), [
+      { phase: "finale", outcome: "won" },
+    ]);
   });
 
-  // A knockout finishing level is a draw to every reader but the bracket (ADR-0036), so the page has
-  // no winner to name — and inventing one from the shoot-out is exactly what that decision refuses.
-  it("claims neither a win nor a loss for a round that finished level", () => {
-    const verlauf = computeSaisonVerlauf({ spiele: [fixture({ phase: "halbfinale", ergebnis: "2:2" })], teamId: SUBJECT });
+  // A knockout finishing level is a draw to every reader but the bracket (ADR-0036), so with nothing
+  // downstream the page has no winner to name — and taking one from the shoot-out is what that
+  // decision refuses.
+  it("claims no winner for a round that finished level and led nowhere yet", () => {
+    assert.deepEqual(verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" })]), [{ phase: "halbfinale", outcome: "level" }]);
+  });
 
-    assert.deepEqual(verlauf, { deepestPhase: "halbfinale", outcome: null });
+  // The one case the shoot-out would otherwise have to be read for: the tie broke somehow, and the
+  // evidence that it broke this team's way is where the team is standing now, not how it broke.
+  it("reports a level round as come through when a later round fields the team", () => {
+    const verlauf = verlaufOf([fixture({ phase: "halbfinale", ergebnis: "2:2" }), fixture({ phase: "finale" })]);
+
+    assert.deepEqual(verlauf, [
+      { phase: "halbfinale", outcome: "advanced" },
+      { phase: "finale", outcome: "pending" },
+    ]);
+  });
+
+  // Trap in the other direction: a round the season does not play must produce no chip rather than
+  // one saying the team failed to reach it.
+  it("produces no entry for a round the team has no fixture in", () => {
+    const verlauf = verlaufOf([fixture({ phase: "gruppenphase", ergebnis: "1:0" }), fixture({ phase: "halbfinale", ergebnis: "1:0" })]);
+
+    assert.deepEqual(verlauf, [
+      { phase: "gruppenphase", outcome: "advanced" },
+      { phase: "halbfinale", outcome: "won" },
+    ]);
   });
 
   // The fetch filters on both sides, so this shape cannot arrive today — the guard is what keeps a
   // later caller passing the whole season's fixtures from being told the team reached the final.
   it("ignores a knockout fixture the team does not occupy", () => {
-    const verlauf = computeSaisonVerlauf({
-      spiele: [
-        fixture({ phase: "viertelfinale", ergebnis: "1:0" }),
-        fixture({ phase: "finale", ergebnis: "4:0", heim: OPPONENT, gast: TEAM_ID(3) }),
-      ],
-      teamId: SUBJECT,
-    });
+    const verlauf = verlaufOf([
+      fixture({ phase: "viertelfinale", ergebnis: "1:0" }),
+      fixture({ phase: "finale", ergebnis: "4:0", heim: OPPONENT, gast: TEAM_ID(3) }),
+    ]);
 
-    assert.deepEqual(verlauf, { deepestPhase: "viertelfinale", outcome: "W" });
+    assert.deepEqual(verlauf, [{ phase: "viertelfinale", outcome: "won" }]);
   });
 });
