@@ -45,9 +45,18 @@ function normalize(path) {
     true,
     path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
+  // `parseDiagnostics` is internal: it is absent from the installed typescript.d.ts, so an upgrade
+  // that renames or drops it would take this guard with it and no type error anywhere would say so.
+  // Its absence is refused rather than optional-chained past.
+  if (!Array.isArray(source.parseDiagnostics)) {
+    throw new Error(
+      `${path}: this typescript no longer exposes parseDiagnostics, so a damaged parse tree cannot be detected`,
+    );
+  }
   // A version that does not parse cleanly may lose content in the printed form, which would make
-  // two different files compare equal. Refuse rather than answer from a damaged tree.
-  if (source.parseDiagnostics?.length) {
+  // two different files compare equal — a comment-only verdict on a real change, the one direction
+  // ADR-0030 exists to make impossible. Refuse rather than answer from a damaged tree.
+  if (source.parseDiagnostics.length) {
     throw new Error(`${path} does not parse cleanly`);
   }
   return printer.printFile(source);
