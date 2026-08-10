@@ -30,6 +30,11 @@ HEX_ID = "6890a1b2c3d4e5f607182930"
 # before the character class is reached, so this is the one that tests the class.
 NON_HEX_ID = "z" * 24
 
+# Port 1, not the configured URI: nothing must answer here. Against a real mongod on the default
+# port the well-formed path control would meet a genuine 404 for a document that does not exist,
+# and fail for a reason that has nothing to do with routing.
+UNANSWERED_URI = "mongodb://localhost:1"
+
 
 @pytest.fixture(scope="module")
 def client() -> Iterator[TestClient]:
@@ -45,9 +50,8 @@ def client() -> Iterator[TestClient]:
     mean something, because a status that is neither 404 nor 422 is only informative if the request
     actually got that far.
     """
-    config = build_test_config()
-    app = create_app(config)
-    app.state.db_client = AsyncIOMotorClient(host=config.mongodb_uri.get_secret_value(), serverSelectionTimeoutMS=100)
+    app = create_app(build_test_config())
+    app.state.db_client = AsyncIOMotorClient(host=UNANSWERED_URI, serverSelectionTimeoutMS=100)
     try:
         yield TestClient(app, raise_server_exceptions=False)
     finally:
