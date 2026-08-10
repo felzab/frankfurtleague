@@ -7,6 +7,7 @@
  * chronologically. That is a property of the id format, not a coincidence.
  */
 
+import type { FLGruppenNames } from "../teams/schemas";
 import type { FLSaisonRules, FLSaisonStatus } from "./schemas";
 
 export type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
@@ -76,4 +77,29 @@ export type SaisonRolloverContext = {
   outgoingSaisonId: string | null;
   /** Every unfinished match of the OUTGOING season. Empty when there is nothing to warn about. */
   offeneSpiele: SaisonOffeneSpiel[];
+};
+
+/**
+ * One club the swap control can pick, as it stands in THIS season.
+ *
+ * Deliberately not the whole `FLTeam`: the control needs a name to show and a group to pair on, and the
+ * derived `statistik` behind every team read is a table it never draws.
+ */
+export type SaisonSwapTeam = {
+  id: string;
+  name: string;
+  gruppe: FLGruppenNames;
+};
+
+/**
+ * What the group swap control knows about the season it is standing on (ADR-0062).
+ *
+ * `playedKnockoutSpiele` is the endpoint's own window rule, counted for the page: any fixture outside
+ * the Gruppenphase carrying a result closes the swap for good, because the bracket was seeded from
+ * these groups. Non-zero is what turns the control into an explanation.
+ */
+export type SaisonGruppenSwapContext = {
+  /** Every club entered in this season, retired ones included, ordered by name. */
+  teams: SaisonSwapTeam[];
+  playedKnockoutSpiele: number;
 };

@@ -7,10 +7,11 @@ import { getSaisons } from "@/features/saisons/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
 import { getSpiele } from "@/features/spiele/queries";
 import { getSpieltage } from "@/features/spieltage/queries";
+import { getTeams } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import type { SaisonOffeneSpiel, SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext } from "@/features/saisons/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
@@ -51,11 +52,19 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
 
   // Retired matchdays included, for the reason the list page states: a retired matchday still holds
   // matches, so a season with one is not a season without a schedule.
-  const [spieltageRes, outgoingSpieleRes] = await Promise.all([
+  const [spieltageRes, outgoingSpieleRes, teamsRes, playoffSpieleRes] = await Promise.all([
     getSpieltage({ saison_id: saison.id, include_inactive: true }),
     // Only fetched where there is something to warn about. A season that is already active has no
     // rollover to present, and one with no incumbent has no outgoing fixtures to check.
     outgoingSaisonId === null || saison.status === "active" ? Promise.resolve(null) : getSpiele({ saison_id: outgoingSaisonId }),
+    // This season's clubs, for the swap control. `include_inactive` because this is an admin picker
+    // and a retired club can still hold a junction row in a season that has been played (ADR-0025) —
+    // hiding it would make a swap the endpoint accepts look impossible.
+    getTeams({ saison_id: saison.id, include_inactive: true }),
+    // `playoffs` is the query alias for "not gruppenphase" and is exactly the set `REQ-SWAP-002`
+    // counts, so the page asks the endpoint's own question rather than fetching a whole season to
+    // filter it here.
+    getSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
   ]);
 
   /**
@@ -84,6 +93,23 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     .sort((left, right) => left.spielNr - right.spielNr);
 
   const rollover: SaisonRolloverContext = { outgoingSaisonId, offeneSpiele };
+
+  /**
+   * What the group swap control stands on (ADR-0062).
+   *
+   * **The two definitions here have to agree with the endpoint's**, exactly as `offeneSpiele` agrees
+   * with `unplayed_spiel_nrs` above. The club list is the season's junction rows, which the strict join
+   * makes `GET /teams?saison_id=` — a club with no row is absent from it and is precisely the club the
+   * write path refuses. The knockout count is a fixture outside the Gruppenphase carrying an `ergebnis`,
+   * which is `find_gruppe_swap_refusal`'s own test.
+   *
+   * The grouped shape is never requested, so the narrowing below is a type guard rather than a branch
+   * anything reaches.
+   */
+  const swap: SaisonGruppenSwapContext = {
+    teams: teamsRes.format === "list" ? teamsRes.teams.map((team) => ({ id: team.id, name: team.name, gruppe: team.gruppe })) : [],
+    playedKnockoutSpiele: playoffSpieleRes.spiele.filter((spiel) => spiel.ergebnis !== null).length,
+  };
 
   // The inner bound on the season's own dates (`REQ-DATE-004`): the start may not move past the first
   // live matchday's beginn, the end not before the last one's ende.
@@ -114,6 +140,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
         rules: saison.rules,
       }}
       rollover={rollover}
+      swap={swap}
       spieltageCount={spieltageRes.spieltage.length}
       spieltagBound={spieltagBound}
     />

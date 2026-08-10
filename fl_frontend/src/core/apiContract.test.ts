@@ -162,6 +162,9 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
   FLPatchSpielerPayload: ["id"],
   FLPatchSaisonPayload: ["id"],
   FLPatchSpieltagPayload: ["id"],
+  // The season a swap belongs to is the resource being acted on, so it is the path; the two clubs are
+  // the body. The control still has to know which season it is writing, hence the field here.
+  FLSwapGruppenPayload: ["saison_id"],
   // The junction row is addressed by its natural key, so BOTH ids live in the request URI.
   FLPostSaisonTeamPayload: ["team_id"],
   FLPatchSaisonTeamPayload: ["team_id", "saison_id"],
@@ -346,7 +349,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 84;
+const EXPECTED_PAIRS = 86;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

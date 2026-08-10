@@ -14,7 +14,7 @@ import { PAGE_RISE } from "@/shared/components/ui/motion";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSaisonStatus } from "@/features/saisons/schemas";
-import type { SaisonDraftFields, SaisonRolloverContext } from "@/features/saisons/types";
+import type { SaisonDraftFields, SaisonGruppenSwapContext, SaisonRolloverContext } from "@/features/saisons/types";
 
 /** The season's own state, said in one badge — `FormKaderSection`'s badge over a season's status. */
 function SaisonStatusBadge({ status }: { status: FLSaisonStatus }) {
@@ -36,11 +36,14 @@ function SaisonStatusBadge({ status }: { status: FLSaisonStatus }) {
 export function AdminSaisonEditView({
   saison,
   rollover,
+  swap,
   spieltageCount,
   spieltagBound,
 }: {
   saison: { id: string; status: FLSaisonStatus } & SaisonDraftFields;
   rollover: SaisonRolloverContext;
+  /** This season's clubs and their groups, plus the knockout count that closes the swap (ADR-0062). */
+  swap: SaisonGruppenSwapContext;
   /** The span the live matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound?: { startMax: string; endMin: string };
   /** How many matchdays this season has, so the link to them says whether there is anything there. */
@@ -56,6 +59,7 @@ export function AdminSaisonEditView({
       <AdminSaisonEditForm
         saison={saison}
         rollover={rollover}
+        swap={swap}
         spieltagBound={spieltagBound}
         registerRequestLeave={(requestLeave) => {
           requestLeaveRef.current = requestLeave;

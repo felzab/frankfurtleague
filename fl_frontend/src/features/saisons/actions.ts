@@ -25,8 +25,8 @@ import { APIBadStatusError } from "@/core/errors";
 import { runAdminMutation, VALIDATION_FAILED } from "@/shared/utils/adminMutation";
 import { toFieldErrors } from "@/shared/utils/validation";
 
-import { activateSaison, patchSaison, postSaison } from "./mutations";
-import { FLActivateSaisonPayloadSchema, FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema } from "./schemas";
+import { activateSaison, patchSaison, postSaison, swapGruppen } from "./mutations";
+import { FLActivateSaisonPayloadSchema, FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema, FLSwapGruppenPayloadSchema } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
@@ -35,6 +35,8 @@ import type {
   FLPatchSaisonPayload,
   FLPatchSaisonResponse,
   FLPostSaisonPayload,
+  FLSwapGruppenPayload,
+  FLSwapGruppenResponse,
 } from "./schemas";
 
 // `saisons._id` is the document key, so a reused id is refused by the index rather than silently
@@ -273,5 +275,73 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
           : `Saison ${validated.data.id} ist jetzt aktiv. ${String(demoted)} vorher aktive Saisons wurden abgeschlossen.`;
 
     return { success: true, saison: activateOperation, message };
+  });
+}
+
+/**
+ * The group swap. Two clubs exchange groups; the backend writes both junction rows in one transaction.
+ *
+ * **`spiele` is deliberately not invalidated.** No fixture document changes and no fixture RESPONSE
+ * changes either: `GET /spiele` joins a side's `disqualifikation` from the junction and never its
+ * `gruppe` (ADR-0021 rule 4). The standings do change, which is what the two `teams` tags below are for.
+ */
+export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<{
+  success: boolean;
+  swap?: FLSwapGruppenResponse;
+  message?: string;
+  error?: string;
+  fieldErrors?: FieldErrors;
+}> {
+  return runAdminMutation("swapGruppenAction", async () => {
+    if (!(await getAdminSession())) {
+      return { success: false, error: "Access Denied: Admin privileges missing" };
+    }
+
+    const validated = FLSwapGruppenPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    // Both refusals are reachable, and the panel already prevents both — so each of these is the stale
+    // or raced page, and the message has to say what to do rather than only what went wrong.
+    let swapOperation;
+    try {
+      swapOperation = await swapGruppen(validated.data);
+    } catch (error) {
+      if (error instanceof APIBadStatusError && error.statusCode === 409) {
+        if (error.serverErrorCode === "REQ-SWAP-002") {
+          return {
+            success: false,
+            error:
+              "Die KO.-Runde dieser Saison hat schon ein Ergebnis, deshalb lässt sich keine Gruppe mehr tauschen. " +
+              "Die Setzung ist aus diesen Gruppen entstanden und würde sonst etwas anderes bedeuten.",
+          };
+        }
+        if (error.serverErrorCode === "REQ-SWAP-001") {
+          return {
+            success: false,
+            error: "Die beiden Mannschaften stehen nicht mehr in zwei verschiedenen Gruppen dieser Saison. Lade die Seite neu.",
+          };
+        }
+      }
+      throw error;
+    }
+
+    if (!swapOperation.acknowledged) {
+      return { success: false, error: "Beim Tausch der Gruppen ist ein unerwarteter Fehler aufgetreten" };
+    }
+
+    // Both layers for this season (ADR-0001): the base tag serves every read that named no season, and
+    // the granular one the reads that named this one. A group decides which table counts a club's
+    // results, so every standing of the season answers differently from here on.
+    updateTag("teams");
+    updateTag(`teams:saison_id:${validated.data.saison_id}`);
+
+    return {
+      success: true,
+      swap: swapOperation,
+      message: `Die beiden Mannschaften stehen jetzt in Gruppe ${swapOperation.team1_gruppe} und Gruppe ${swapOperation.team2_gruppe}.`,
+    };
   });
 }

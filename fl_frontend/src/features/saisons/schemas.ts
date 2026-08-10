@@ -15,7 +15,10 @@ import z from "zod";
 
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLSpielerStufeSchema } from "@/features/spieler/schemas";
-import { CustomDateStringSchema } from "@/shared/schemas";
+// The closed group set, imported rather than restated, exactly as `erlaubte_stufen` imports the level
+// set above. Acyclic — the teams slice's schemas import nothing but `@/shared`.
+import { FLGruppenNamesSchema } from "@/features/teams/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
 export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error: "FLSaisonStatus is invalid" });
 export type FLSaisonStatus = z.infer<typeof FLSaisonStatusSchema>;
@@ -194,6 +197,23 @@ export const FLActivateSaisonPayloadSchema = z.object({
 });
 export type FLActivateSaisonPayload = z.infer<typeof FLActivateSaisonPayloadSchema>;
 
+/**
+ * The group swap's argument: the season in the path, and the two clubs exchanging groups.
+ *
+ * **Neither side carries a group** (ADR-0062). What is exchanged is what the two junction rows already
+ * hold, and the backend reads them inside the transaction — so a form built against a season that has
+ * since moved cannot write a group nobody is standing in.
+ *
+ * `saison_id` rides here because the control has to know which season it is writing; on the wire it is
+ * the path, which is why the contract suite lists it as a frontend-only field.
+ */
+export const FLSwapGruppenPayloadSchema = z.object({
+  saison_id: z.string().length(4),
+  team1_id: CustomObjectIdStringSchema,
+  team2_id: CustomObjectIdStringSchema,
+});
+export type FLSwapGruppenPayload = z.infer<typeof FLSwapGruppenPayloadSchema>;
+
 export const FLPostSaisonResponseSchema = BaseAPIResponseSchema.extend({
   created_id: z.string(),
 });
@@ -216,3 +236,18 @@ export const FLActivateSaisonResponseSchema = BaseAPIResponseSchema.extend({
   deactivated: z.int().nonnegative(),
 });
 export type FLActivateSaisonResponse = z.infer<typeof FLActivateSaisonResponseSchema>;
+
+/**
+ * The swap's answer: both junction rows as it left them.
+ *
+ * The backend builds this object from the stored rows and then writes FROM it, so the two groups here
+ * are what landed rather than what was intended — which is what lets the toast name them (ADR-0062).
+ */
+export const FLSwapGruppenResponseSchema = BaseAPIResponseSchema.extend({
+  saison_id: z.string().length(4),
+  team1_id: CustomObjectIdStringSchema,
+  team1_gruppe: FLGruppenNamesSchema,
+  team2_id: CustomObjectIdStringSchema,
+  team2_gruppe: FLGruppenNamesSchema,
+});
+export type FLSwapGruppenResponse = z.infer<typeof FLSwapGruppenResponseSchema>;
