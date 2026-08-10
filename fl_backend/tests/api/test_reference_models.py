@@ -127,12 +127,12 @@ class TestSpieler:
         """The other four are nullable, because squads are filled in over time. Consumers must handle every one."""
         assert getattr(FLSpieler.model_validate(spieler(**{field: None})), field) is None
 
-    # ADR-0061 closed both sets. Nullable is not the same as open: a missing answer is null, and a
+    # ADR-0048 closed both sets. Nullable is not the same as open: a missing answer is null, and a
     # value outside the set is a document nothing may store.
     @pytest.mark.parametrize(
         ("field", "value"),
         [
-            # The two spellings the live data had split into, and which the runbook normalised away.
+            # Two spellings of one position -- the split ADR-0048 closes by making the set closed.
             ("position", "Sturm"),
             ("position", "TW"),
             # A placeholder somebody typed where null already meant the same thing.
@@ -143,7 +143,7 @@ class TestSpieler:
         ],
     )
     def test_rejects_a_position_or_stufe_outside_its_closed_set(self, spieler, field, value):
-        """A second spelling of a position the league already has is the failure mode ADR-0061 closes."""
+        """A second spelling of a position the league already has is the failure mode ADR-0048 closes."""
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(spieler(**{field: value}))
 
@@ -162,7 +162,7 @@ class TestSpieltag:
         A matchday has no name field, and the absence is asserted rather than left to be noticed.
 
         The name a reader sees is composed from `saison_phase` and the matchday's position in its phase
-        (ADR-0064): a group matchday is its ordinal, a knockout matchday is its round. Both are already
+        (ADR-0051): a group matchday is its ordinal, a knockout matchday is its round. Both are already
         derivable, so a stored name would be a second statement of the same fact -- and it was one nothing
         held consistent, since two matchdays could share a name and a name could contradict its phase.
         """
@@ -173,7 +173,7 @@ class TestSpieltag:
         """
         A count below zero is not a count, and it is the only value this field refuses.
 
-        The bound is `ge=0` because the count is derived from the season's rules (ADR-0065), and zero is
+        The bound is `ge=0` because the count is derived from the season's rules (ADR-0052), and zero is
         a real answer there — which the test below pins.
         """
         with pytest.raises(ValidationError):
@@ -183,7 +183,7 @@ class TestSpieltag:
         """
         Zero is the honest answer for a phase this season's bracket does not reach.
 
-        `anzahl_spiele` is derived from the season's rules and this matchday's phase (ADR-0065). A season
+        `anzahl_spiele` is derived from the season's rules and this matchday's phase (ADR-0052). A season
         sending eight teams into the bracket plays no round of sixteen, so a matchday claiming to be one
         expects no matches — and the admin list showing `0 / 0` is exactly the report that says so.
         """
@@ -191,7 +191,7 @@ class TestSpieltag:
 
     def test_carries_no_stored_position(self, spieltag):
         """
-        A matchday's place in its season is derived, so the model holds no field for one (ADR-0064).
+        A matchday's place in its season is derived, so the model holds no field for one (ADR-0051).
 
         Asserted rather than left to absence: a stored position is the shape this model is most likely to
         grow back, and it would silently become a second answer to a question `order_spieltage` already
@@ -238,7 +238,7 @@ class TestSaison:
 
         assert FLSaison.model_validate(saison(rules=rules)).rules.draw_points == 0
 
-    # `erlaubte_stufen` names WHICH of the league's levels this season runs (ADR-0061). It is a
+    # `erlaubte_stufen` names WHICH of the league's levels this season runs (ADR-0048). It is a
     # subset of the vocabulary, never a redefinition of it, and never empty.
     def test_rejects_a_stufe_the_league_does_not_have(self, saison):
         """
@@ -268,13 +268,13 @@ class TestSaison:
         assert_rejects(FLSaison, saison(rules=rules), "erlaubte_stufen")
 
     def test_rejects_a_season_advancing_nobody(self, saison):
-        """A group nobody comes out of is not a group phase, so the count is `gt=0` (ADR-0043)."""
+        """A group nobody comes out of is not a group phase, so the count is `gt=0` (ADR-0035)."""
         with pytest.raises(ValidationError):
             FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_group": 0}))
 
-    # No Pydantic default, deliberately: a season that has never carried the key would otherwise read as
-    # though it had, and the number seeding the bracket would be a constant chosen in the model file --
-    # which is what ADR-0026 refused for 3/1/0. A missing one fails loudly on the next read instead.
+    # No Pydantic default, deliberately: a season that never carried the key would read as though it
+    # had, and the number seeding the bracket would be a constant in the model file -- what ADR-0019
+    # refused for 3/1/0.
     def test_rejects_rules_with_no_qualifier_count(self, saison):
         """Required, so a season predating the field is refused rather than silently given a number."""
         with pytest.raises(ValidationError):

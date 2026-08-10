@@ -1,8 +1,9 @@
 """
 CORE · database access helpers
 
-Every raw MongoDB call goes through one of these six functions — nothing else calls Motor
-directly, which keeps session and transaction handling in one place.
+Every document write goes through one of these functions, which is what keeps session and
+transaction handling in one place. A read they cannot express — a count, or a `find_one` that needs
+the caller's session, which `pull_one_from_db` does not take — calls Motor in the handler instead.
 
 Invariants:
 - `patch_one_in_db` returns the document as it was before the update (`ReturnDocument.BEFORE`).
@@ -87,15 +88,7 @@ async def aggregate_many_from_db(
     session: AsyncIOMotorClientSession | None = None,
     length: int = 1024,
 ) -> list[Mapping[str, Any]]:
-    """
-    Executes a MongoDB aggregation pipeline to retrieve multiple documents.
-
-    Note: Sorting and limiting should generally be handled as `$sort` and `$limit`
-    stages within the pipeline itself. The `length` parameter serves as a safety
-    cap for the Motor cursor iteration.
-    """
+    """`length` is the driver-level safety cap on cursor iteration; sorting and limiting belong in the pipeline."""
     cursor = collection.aggregate(pipeline, session=session)
 
-    # Passing length=None instructs Motor to fetch all documents yielded by the pipeline.
-    # If your pipeline lacks a $limit stage, you can enforce a driver-level cap here.
     return await cursor.to_list(length=length)

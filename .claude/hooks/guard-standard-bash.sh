@@ -60,10 +60,9 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 });
 ' 2>/dev/null)" || ask
 
-# Write shapes, copied from guard-branch-bash.sh — see the header for why the copy is deliberate.
-# Matched against a SPACE-PREFIXED copy so a verb at the very start of the command is caught: the
-# pattern for `rm` has to be " rm " to avoid matching inside a word, and `rm docs/x` has no leading
-# space of its own.
+# Write shapes, copied from guard-branch-bash.sh — the header says why the copy is deliberate.
+# Matched against a space-prefixed copy so a verb at position 0 is still caught: ` rm ` avoids
+# matching inside a word, and `rm docs/x` has no leading space.
 padded=" $cmd"
 writes=0
 case "$padded" in
@@ -87,10 +86,10 @@ case "$cmd" in
     ;;
 esac
 
-# Does any path-like candidate in the command land inside docs/_standard once canonicalised?
-# The `$1` is a node replacement pattern and the quote characters are spelled by code (\x22 \x27
-# \x60) precisely so the shell single-quoting around this script survives — nothing is meant to
-# expand.
+# Does any path-like candidate land inside docs/_standard once canonicalised? The `$1` is a node
+# replacement pattern, and the quotes are spelled as escapes (\x22 \x27 \x60) so the surrounding
+# single-quoting survives — nothing is meant to expand.
+
 # shellcheck disable=SC2016
 decision="$(printf '%s' "$cmd" | REPO_ROOT="$repo_root" node -e '
 const path = require("path");

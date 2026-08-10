@@ -7,8 +7,8 @@
  * season's structure; `spiele` and `spieltage` both import it, so there is one definition and the
  * three cannot drift.
  *
- * Note the phase enum has exactly four values. `"playoffs"` is NOT one of them — it is a query-only
- * alias the backend compiles to "not gruppenphase", and it never appears on a document.
+ * Note `"playoffs"` is NOT in the phase enum — it is a query-only alias the backend compiles to
+ * "not gruppenphase", and it never appears on a document.
  */
 
 import z from "zod";
@@ -28,7 +28,7 @@ export const FLSaisonPhaseSchema = z.enum(["gruppenphase", "achtelfinale", "vier
  *
  * Mirrors `MAX_QUALIFIERS` in `fl_backend/app/api/spiele/schemas.py`, and derived from the same STRUCTURE
  * rather than copied as a number -- the knockout rounds are every phase but the group phase, so adding a
- * round of 32 to the enum above raises this at both ends at once (ADR-0065). A hardcoded 16 would compile,
+ * round of 32 to the enum above raises this at both ends at once (ADR-0052). A hardcoded 16 would compile,
  * pass, and refuse the seasons the new round was added for.
  *
  * Read off the schema's own members rather than `SAISON_PHASE_OPTIONS`, which would make this module import
@@ -43,27 +43,25 @@ export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
  *
  * **The messages are German because the season editor binds this schema.** Every field here is a
  * control on `/admin/saisons/[saison_id]`, judged in the browser with the same schema the action
- * parses (ADR-0050), so a bound that fails has to say why in the language of the surface. The
- * apiContract suite compares the wire contract and deliberately not the messages (ADR-0040), so
+ * parses (ADR-0040), so a bound that fails has to say why in the language of the surface. The
+ * apiContract suite compares the wire contract and deliberately not the messages (ADR-0033), so
  * these are the frontend's alone.
  */
 export const FLSaisonRulesSchema = z.object({
   win_points: z.int().positive({ error: "Ein Sieg bringt mindestens 1 Punkt." }),
   draw_points: z.int().nonnegative({ error: "Ein Unentschieden bringt 0 oder mehr Punkte." }),
-  // How many of each group's teams reach the first knockout round (ADR-0043). Required, with no
+  // How many of each group's teams reach the first knockout round (ADR-0035). Required, with no
   // default on either side: a season that has never carried it must fail loudly rather than seed a
   // bracket from a number nobody chose.
   qualifiers_per_group: z.int().positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
-  // The season's capacity (decided 2026-08-07): it runs the first `number_of_groups` of the closed
-  // A-D set — the `.max(4)` — and each group takes `teams_per_group` rows. Required for the same
-  // reason as the line above; the junction write refuses an entry outside these bounds
-  // (REQ-ENTER-001..003).
+  // The season's capacity: it runs the first `number_of_groups` of the closed A-D set -- the
+  // `.max(4)` -- and each group takes `teams_per_group` rows. Required, like the line above, and the
+  // junction write refuses an entry outside these bounds.
   number_of_groups: z.int().positive({ error: "Eine Saison braucht mindestens 1 Gruppe." }).max(4, { error: "Es gibt höchstens 4 Gruppen." }),
   teams_per_group: z.int().positive({ error: "Eine Gruppe nimmt mindestens 1 Team auf." }),
-  // Which school levels this season's squads may hold (decided 2026-08-07). A SUBSET of the league's
-  // own closed set (ADR-0061) — the season picks from the vocabulary rather than redefining it — and
-  // never empty, because a season offering no level makes every squad entry unfillable. Required
-  // with no default, for the same reason the two above are.
+  // Which school levels this season's squads may hold: a SUBSET of the league's closed set
+  // (ADR-0048), so a season picks from the vocabulary rather than redefining it, and never empty --
+  // a season offering no level makes every squad entry unfillable.
   erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Wähle mindestens eine Stufe aus." }),
 });
 export type FLSaisonRules = z.infer<typeof FLSaisonRulesSchema>;
@@ -71,7 +69,7 @@ export type FLSaisonRules = z.infer<typeof FLSaisonRulesSchema>;
 /**
  * One phase the season plays: how many matchdays it takes, and how many matches each of those holds.
  *
- * **Mirrored rather than recomputed here** (ADR-0065). The arithmetic has a case a hand-written copy gets
+ * **Mirrored rather than recomputed here** (ADR-0052). The arithmetic has a case a hand-written copy gets
  * wrong — a group with an odd number of teams needs an extra round, because one team sits out each round
  * — and a copy that undercounts REFUSES a phase the endpoint accepts. The backend derives it from the
  * season's `rules` and serves it, so there is one answer.
@@ -87,17 +85,16 @@ export const FLSaisonPhaseScheduleSchema = z.object({
 export type FLSaisonPhaseSchedule = z.infer<typeof FLSaisonPhaseScheduleSchema>;
 
 export const FLSaisonSchema = z.object({
-  // Exactly 4, mirroring the backend's FLSaison.id. FLSpielSchema.saison_id and
-  // FLSpieltagSchema.saison_id both require .length(4), and `resolveSaisonId` validates a `?saison_id=`
-  // against this list before any query sees it (ADR-0069) -- so an unbounded id here would let
-  // SaisonSelector offer, and the resolver accept, a season the backend cannot hold.
+  // Exactly 4, mirroring the backend's `FLSaison.id`, as every `saison_id` schema does.
+  // `resolveSaisonId` validates `?saison_id=` against this list (ADR-0055), so an unbounded id lets
+  // the selector offer a season the backend cannot hold.
   id: z.string().length(4),
 
   start_date: CustomDateStringSchema,
   end_date: CustomDateStringSchema,
   status: FLSaisonStatusSchema,
   rules: FLSaisonRulesSchema,
-  // Derived from `rules` and stored on no document (ADR-0065), the same way a matchday's
+  // Derived from `rules` and stored on no document (ADR-0052), the same way a matchday's
   // `anzahl_spiele` is -- this is the whole season, one entry per phase it plays.
   schedule: z.array(FLSaisonPhaseScheduleSchema),
 });
@@ -115,22 +112,17 @@ export const FLSaisonsSingleResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSchema>;
 
-// ── The write path ───────────────────────────────────────────────────────────────────────────────────
-
 /**
- * `status` is on NO payload below, and that is the load-bearing absence (ADR-0033):
+ * `status` is on NO payload below, and that is the load-bearing absence (ADR-0026):
  * `POST /saisons/{saison_id}/activate` is the only code path in the system that writes it, and it
  * demotes the incumbent in the same transaction. A create always lands `future`.
  *
  * German messages throughout, because these schemas bind the admin form's inputs directly and the
  * browser renders whichever one a value fails.
  */
-// Mirrors the model validator on both season payloads. The message goes on `end_date`, because that is
-// the field a person changes to fix it: a season starting later than it ends is almost always a
-// mistyped end, and react-aria renders a server or client message under the input whose path it names.
 /**
  * The two rules the SEASON'S RULES have to satisfy on their own, mirroring `find_rules_refusal`'s first
- * two checks (`REQ-RULES-007` and `REQ-RULES-001`, ADR-0065).
+ * two checks (`REQ-RULES-007` and `REQ-RULES-001`, ADR-0052).
  *
  * **Here rather than only at the endpoint because the page holds everything they need** -- both are pure
  * arithmetic over two fields of this payload, so refusing in the browser costs nothing and the admin never
@@ -159,6 +151,8 @@ const hasPlayableBracket = (rules: { number_of_groups: number; qualifiers_per_gr
   return qualifiers >= 2 && qualifiers <= MAX_QUALIFIERS && isPowerOfTwo(qualifiers);
 };
 
+// Mirrors the model validator on both season payloads. The message goes on `end_date`, the field a
+// person changes to fix it: react-aria renders a message under the input whose path it names.
 const endsAfterItStarts = {
   error: "Das Enddatum darf nicht vor dem Startdatum liegen.",
   path: ["end_date"],
@@ -166,10 +160,9 @@ const endsAfterItStarts = {
 
 export const FLPostSaisonPayloadSchema = z
   .object({
-    // CHOSEN rather than generated, unlike every other create in the app: `saisons._id` IS the
-    // four-character string every `saison_id` in the database references, so a fifth character breaks
-    // every match and matchday that will point at this season. Digits and a slash is what a season id
-    // looks like here ("2526"), and the length is what the backend enforces.
+    // CHOSEN rather than generated, unlike every other create: `saisons._id` IS the string every
+    // `saison_id` references, so a fifth character breaks every match and matchday pointing at this
+    // season. Digits and a slash is what one looks like ("2526").
     id: z.string().length(4, { error: "Die Saison-ID besteht aus genau 4 Zeichen, z. B. 2526." }),
 
     start_date: CustomDateStringSchema,

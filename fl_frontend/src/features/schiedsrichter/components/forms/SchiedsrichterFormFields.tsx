@@ -28,7 +28,6 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
 }) {
   return (
     <>
-      {/* 1. Name */}
       <TextField
         isRequired
         name="name"
@@ -45,7 +44,6 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
       </TextField>
 
-      {/* 2. Schule / Verein */}
       <TextField
         name="schule"
         value={draft.schule ?? ""}
@@ -59,7 +57,6 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         <FieldError className={FIELD_ERROR}>{errors?.["schule"]}</FieldError>
       </TextField>
 
-      {/* 3. E-Mail */}
       <TextField
         type="email"
         name="kontakt.email"
@@ -74,7 +71,6 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         <FieldError className={FIELD_ERROR}>{errors?.["kontakt.email"]}</FieldError>
       </TextField>
 
-      {/* 4. Telefon */}
       <TextField
         type="tel"
         name="kontakt.telefon"
@@ -89,7 +85,6 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
         <FieldError className={FIELD_ERROR}>{errors?.["kontakt.telefon"]}</FieldError>
       </TextField>
 
-      {/* 5. Standard Honorar */}
       <NumberField
         minValue={0}
         isRequired

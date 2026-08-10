@@ -94,7 +94,6 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
 
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 pb-12`}>
-      {/* Back Navigation Button */}
       <Button
         onPress={() => {
           router.back();
@@ -104,7 +103,6 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
         <span>Zurück</span>
       </Button>
 
-      {/* Header Info Card */}
       <div className={`${card()} flex w-full flex-col gap-y-1.5 p-4`}>
         <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h2>
 
@@ -137,7 +135,6 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
         )}
       </div>
 
-      {/* Saison Stats Section */}
       <div className="flex flex-col gap-y-4">
         <div className="flex flex-col gap-y-1">
           <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
@@ -181,7 +178,6 @@ export function TeamDetailsView({ teamData, teamSpiele, today }: { teamData: FLT
         </div>
       </div>
 
-      {/* Games Timeline */}
       <div className="mt-4 size-full">
         <h2 className="fluid-lg text-foreground mb-6 font-extrabold tracking-tight">Saisonspiele</h2>
         <SaisonSpieleTimeline

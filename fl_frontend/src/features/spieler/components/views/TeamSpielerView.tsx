@@ -27,7 +27,6 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
 
   return (
     <div className={`${PAGE_RISE} flex w-full flex-col`}>
-      {/* Back Navigation Button */}
       <Button
         onPress={() => {
           router.back();
@@ -37,7 +36,6 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
         <span>Zurück</span>
       </Button>
 
-      {/* Header Container */}
       <div className={`${card()} mb-2 flex w-full flex-col items-center p-4 sm:p-6`}>
         <div className="flex w-full flex-row items-center justify-between">
           <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamName} - Kader</h2>
@@ -49,7 +47,6 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
         </div>
       </div>
 
-      {/* Table Container */}
       <div className={`${card()} w-full overflow-x-auto p-4 sm:p-6`}>
         <Table
           variant="secondary"
@@ -76,7 +73,6 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                 <Table.Row
                   key={spielerData.id}
                   className="border-border border-b last:border-0">
-                  {/* NAME */}
                   <Table.Cell className="px-1 py-4 lg:px-4">
                     <div className="flex items-center gap-x-3">
                       <Avatar
@@ -95,17 +91,14 @@ export function TeamSpielerView({ teamName, teamSpieler }: { teamName: string; t
                     </div>
                   </Table.Cell>
 
-                  {/* NUMMER */}
                   <Table.Cell className="fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-mono font-medium lg:px-4">
                     {spielerData.nummer || "-"}
                   </Table.Cell>
 
-                  {/* STUFE */}
                   <Table.Cell className="fluid-xs text-foreground-muted w-1 px-1 py-4 text-center font-medium lg:px-4">
                     {spielerData.stufe || "-"}
                   </Table.Cell>
 
-                  {/* POSITION */}
                   <Table.Cell className="w-1 px-1 py-4 whitespace-nowrap lg:px-4">
                     <div className="flex justify-end">
                       {/* Blue, from this app's `info` pair rather than a HeroUI colour prop — the

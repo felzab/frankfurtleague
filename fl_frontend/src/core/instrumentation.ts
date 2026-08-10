@@ -50,9 +50,9 @@ export async function onRequestError(err: Error, request: unknown, context: Next
   const webErr = err as WebError;
   const cause = webErr.cause || {};
 
-  // Two ids, doing different jobs: `correlation_id` names the page request that failed (nginx's
-  // edge line carries the same one), `fetch_correlation_id` names the outbound API call whose error
-  // this is -- distinct whenever the fetch ran as a cache fill (docs/logging.md).
+  // Two ids doing different jobs: `correlation_id` names the page request that failed, the one
+  // nginx's edge line carries; `fetch_correlation_id` names the outbound call, distinct whenever the
+  // fetch ran as a cache fill (docs/logging/spec.md).
   const requestId = correlationIdOf((request ?? {}) as NextRequestInfo);
   const fetchId = cause.correlationId || webErr.correlationId;
 

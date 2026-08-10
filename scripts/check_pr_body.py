@@ -1,16 +1,20 @@
 """
 SCRIPTS · the pull request body gate
 
-Reads one body on stdin or from a file and holds it to ADR-0036 and the form in
-docs/workflows/message-templates.md. A body is not in the repository and does not exist before
+Reads one body on stdin or from a file and holds it to ADR-0029 and the form in
+docs/_git/templates.md. A body is not in the repository and does not exist before
 the pull request does, so this cannot run in verify.sh — .github/workflows/pr-body.yml is the
 one place it is addressable, and it listens for `edited` so a corrected body turns green without
-a push. What fails and what merely reports is the table in message-templates.md.
+a push.
 
 Invariants:
+- A section is matched by name, bold optional: the merged corpus writes a bare `Verified.`, and
+  failing it would be the check that cries wolf (CUR-5). `Reviewer's first look` is in the set
+  because it is a heading of the same form — a body line opening with it ends the summary.
 - Verified is the one section never legitimately dropped; the other three headings are unchecked.
-- Three or more list items carrying commit hashes fail — the commit index ADR-0036 refuses.
-- The summary fails past 500 words and reports past 200, the same split check_commits.py uses.
+- Three or more consecutive list items carrying commit hashes fail — the index ADR-0029 refuses.
+- The summary has a reported target and a hard maximum, the report-then-fail shape check_commits.py
+  uses; the numbers are at `SUMMARY_TARGET` and `SUMMARY_MAX`.
 - Dependabot bodies are skipped entirely — the bot writes its own.
 """
 
@@ -28,24 +32,19 @@ SUMMARY_MAX: Final = 500  # failed: past any reading of it
 
 BOT_AUTHORS: Final[frozenset[str]] = frozenset({"dependabot[bot]", "dependabot-preview[bot]"})
 
-# Verbatim fragments of .github/PULL_REQUEST_TEMPLATE.md. Their presence means the template was
-# submitted rather than filled in, which is the one failure a reader cannot mistake for a style.
+# Verbatim fragments of the form in `docs/_git/templates.md :: Pull requests`: their presence means
+# it was pasted rather than filled in. Reword one and this refusal stops firing, which
+# `check_docs.py :: check_template_fragments` catches.
 TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
     "One orientation sentence, for a multi-commit PR only",
     "What the branch achieves as a whole, at a level the individual commits do not",
-    "The form lives in docs/workflows/message-templates.md",
+    "Anything where a person chose between real options, with the reasoning",
     "The `./scripts/verify.sh` invocation — its scopes and its exit code",
 )
 
-# The form's sections, anchored by name rather than by typography. Bold is OPTIONAL on purpose: the
-# template writes `**Verified.**` while most of the merged corpus writes a bare `Verified.`, and the
-# difference is two asterisks rather than anything a reader loses. Requiring the bold form failed 27
-# of 44 merged bodies including several of the best — a check that cries wolf gets suppressed
-# (docs/_standard/chapters/5-currency.md), and what the form asks for is that the section be there at all.
-#
-# Named alternation rather than a general "bolded phrase" pattern: a paragraph opening "Rankings.
-# Twenty-eight entries ..." is prose, and a looser rule would read it as a heading and cut the
-# measured summary short — silently, and in the direction that hides a finding.
+# Named alternation rather than a general "bolded phrase" pattern: the looser rule reads a
+# paragraph opening "Rankings. Twenty-eight entries ..." as a heading, cutting the measured
+# summary short in silence. Bold is optional; the header says why.
 SECTION_LEAD: Final = re.compile(
     r"^\**(?:Verified|Decisions taken|Left undone|Governed by|Reviewer'?s first look)\b",
     re.MULTILINE | re.IGNORECASE,
@@ -53,7 +52,6 @@ SECTION_LEAD: Final = re.compile(
 
 VERIFIED_HEADING: Final = re.compile(r"^\**Verified\b", re.MULTILINE | re.IGNORECASE)
 
-# A list item carrying a commit hash: "- abc1234 ...", "* `abc1234` — ...", "1. abc1234 ...".
 COMMIT_LIST_ITEM: Final = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+`?[0-9a-f]{7,40}`?\b")
 
 
@@ -103,7 +101,7 @@ def check_body(body: str, author: str = "") -> list[Finding]:
         findings.append(
             Finding(
                 "fail",
-                f"{run} consecutive list items carry a commit hash -- a body summarises the branch, it never indexes its commits (ADR-0036)",
+                f"{run} consecutive list items carry a commit hash -- a body summarises the branch, it never indexes its commits (ADR-0029)",
             )
         )
 
@@ -121,7 +119,7 @@ def check_body(body: str, author: str = "") -> list[Finding]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Pull request body gate (ADR-0036).")
+    parser = argparse.ArgumentParser(description="Pull request body gate (ADR-0029).")
     parser.add_argument("body", help="path to a file holding the body, or - for stdin")
     parser.add_argument("--author", default="", help="the pull request author's login; bots are skipped")
     args = parser.parse_args()
@@ -138,7 +136,7 @@ def main() -> int:
         print(f"  report  {finding.detail}", file=sys.stderr)
 
     if failures:
-        print("\n  The form is docs/workflows/message-templates.md, Pull requests.", file=sys.stderr)
+        print("\n  The form is docs/_git/templates.md, Pull requests.", file=sys.stderr)
         print("  Edit the body in place -- `gh pr edit <n> --body-file <path>` keeps the number and the URL.\n", file=sys.stderr)
         return 1
 

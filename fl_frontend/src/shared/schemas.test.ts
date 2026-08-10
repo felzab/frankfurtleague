@@ -113,8 +113,8 @@ describe("CustomTimeStringSchema", () => {
     }
   });
 
-  // The gap this closed: z.iso.time() accepted both of these, the backend's CustomTimeString does
-  // not, so the admin form could submit a value the API answered with a 422.
+  // `z.iso.time()` accepts both of these and the backend's `CustomTimeString` does not, so a
+  // looser schema here lets the admin form submit a value the API answers with a 422.
   it("rejects a time without seconds, which the backend rejects too", () => {
     assert.equal(CustomTimeStringSchema.safeParse("14:30").success, false);
   });

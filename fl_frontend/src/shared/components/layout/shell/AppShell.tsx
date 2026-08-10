@@ -23,14 +23,6 @@ import type React from "react";
  *
  * `children` is the route's own content and stays server-rendered: passing it through a client
  * component does not make it one.
- *
- * ```
- * ┌─────────────────────────────────────────┐
- * │ AppTopBar        (h-(--navbar-height))  │  ← spans the viewport
- * ├───────────┬─────────────────────────────┤
- * │ Sidemenu  │ main#main-content           │  ← the row that scrolls
- * └───────────┴─────────────────────────────┘
- * ```
  */
 export function AppShell<TIcon extends string>({
   structure,
@@ -83,8 +75,8 @@ export function AppShell<TIcon extends string>({
 
   return (
     /* `data-app-shell` is read by one rule in `globals.css`, which releases the viewport's reserved
-       scrollbar gutter on these routes. See the note there — the marker is on the root rather than on
-       <html> because a nested layout cannot style the document element. */
+       scrollbar gutter on these routes. The marker is on the root because a nested layout cannot
+       style the document element. */
     <div
       data-app-shell
       className="flex h-dvh w-full flex-col">

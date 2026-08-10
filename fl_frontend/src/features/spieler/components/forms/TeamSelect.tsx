@@ -11,7 +11,7 @@ import type { Key } from "@heroui/react";
 /**
  * The team picker, shared by the create form and the squad editor.
  *
- * A picked control, judged on CHANGE (ADR-0050). It offers **the selected season's teams**, which is
+ * A picked control, judged on CHANGE (ADR-0040). It offers **the selected season's teams**, which is
  * what makes a transfer a two-click operation and what stops a player being put in a team that is not
  * in that season at all.
  *
@@ -54,8 +54,8 @@ export function TeamSelect({
   };
 
   // The id resolved to what the admin picked. A team the season does not offer still renders as
-  // something rather than as the placeholder — it is a real state (the player is in a team outside
-  // this season), and showing the trigger empty would read as "no team" instead.
+  // itself rather than as the placeholder — it is a real state, and an empty trigger would read as
+  // "no team" instead.
   const selected = teams.find((team) => team.teamId === value);
 
   return (

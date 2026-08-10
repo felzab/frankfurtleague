@@ -12,7 +12,7 @@ import { spieltagLabels } from "../../utils";
 import type { FLSpielplan } from "../../schemas";
 
 export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpielplan; today: string }) {
-  // Every matchday's label in one pass (ADR-0064). The list arrives in the backend's derived order, which
+  // Every matchday's label in one pass (ADR-0051). The list arrives in the backend's derived order, which
   // is what the ordinal counts over -- so nothing here may re-sort it.
   const labels = spieltagLabels(spielplanData?.spieltage ?? []);
   // Without this the empty case renders a bordered, empty 44px tab bar and no panels.
@@ -28,16 +28,9 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
   }
 
   return (
-    // `flex-1` and `flex-col` so the panel takes its height from its content rather than from a
-    // fixed value, which is what stops the page jumping between Spieltage of different sizes.
-    // The arrival animation lives here rather than on each panel: this element mounts once
-    // per page visit and never again on a tab press, so the rise plays exactly when it should — the
-    // page settling into place — and cannot be replayed or interrupted by switching Spieltag.
-    // Note this is an ancestor of the `sticky` tab bar below. That is safe: a transformed ancestor
-    // redefines the containing block for `position: fixed`, not for `position: sticky`, which resolves
-    // against its nearest scrollport (`<main>`, further up and untransformed). And the animation only
-    // ever runs at mount, when the scroller is still at the top and nothing is stuck yet — measured
-    // at rest, the root's `transform` is `none` with zero live animations.
+    // Height from the content, so the page does not jump between Spieltage of
+    // different sizes. The arrival animation is here rather than per panel: this
+    // mounts once per visit. `sticky` below resolves against its scrollport, not this.
     <Tabs className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
       {/* The sticky bar is an ordinary element and `Tabs.ListContainer` sits inside it holding only the
           track, which is what its chevron buttons position against — see the fuller note in
@@ -56,7 +49,6 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
               outgrow the rail, which is what the overflow detection reads. */}
           <Tabs.ListContainer className="max-w-full min-w-0 bg-transparent [&>div]:max-w-full [&>div]:min-w-0 [&>div]:[--scroll-shadow-size:24px]!">
             <Tabs.List className={`${TAB_TRACK} flex w-max min-w-fit flex-row items-center gap-1 p-1.5 shadow-sm`}>
-              {/** Tab options */}
               {spielplanData?.spieltage.map((spieltagData) => {
                 return (
                   <Tabs.Tab
@@ -76,7 +68,6 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
         </div>
       </div>
 
-      {/** A panel is generated for each game-day */}
       {spielplanData?.spieltage.map((spieltagData) => (
         <Tabs.Panel
           key={spieltagData.id}
@@ -99,7 +90,6 @@ export function SpielplanView({ spielplanData, today }: { spielplanData: FLSpiel
           <div
             role="list"
             className={`${CARDS_CASCADE} grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3`}>
-            {/* Using spread operator to safely sort without mutating the original array in Strict Mode */}
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}
               today={today}

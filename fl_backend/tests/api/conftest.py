@@ -1,9 +1,9 @@
 """
-TESTS · the seeded league every executing pipeline test reads
+TESTS · the seeded league the team and spiele pipeline suites read
 
 `build_team_pipeline` and `build_spiele_pipeline` are dicts MongoDB executes: the schema suites
 prove a dict says the right thing, and only a database proves the right thing comes back — so
-everything here is behind the `db` marker (ADR-0030), and the `mongod` container is a session
+everything here is behind the `db` marker (ADR-0023), and the `mongod` container is a session
 fixture in `tests/conftest.py` because the constraint suite wants the same one. Five teams and
 nine matches, sized so the expected figures can be worked out on paper — each row makes exactly
 one pipeline invariant observable, its purpose commented beside it below, and the hand-derived
@@ -42,9 +42,9 @@ TEAM_OIDS = {
     "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
 }
 
-# Lessing's disqualification, the one in the seed. A dict rather than a model so the seed stays a
-# description of DOCUMENTS: a fixture built through Pydantic could not express a row the validator
-# rejects, which is half of what this database tier exists to test.
+# Lessing's disqualification, the one in the seed. A dict rather than a model, so the seed stays a
+# description of documents: a fixture built through Pydantic could not express a row the validator
+# rejects.
 DISQUALIFIKATION = {"grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
 
@@ -72,9 +72,9 @@ def _team(name: str, shorthand: str) -> dict[str, Any]:
             "stadtteil": "Ostend",
             "stadt": "Frankfurt am Main",
         },
-        # A club still in the league (ADR-0032). Present rather than omitted on purpose: Mongo matches
-        # a missing field against `None`, so a seed without it passes the base filter and then fails
-        # response validation -- which reads as a projection bug rather than as a seeding one.
+        # A club still in the league (ADR-0025). Present rather than omitted: Mongo matches a missing
+        # field against `None`, so a seed without it passes the base filter and then fails response
+        # validation -- which reads as a projection bug.
         "inactive_since": None,
     }
 
@@ -99,7 +99,7 @@ def _spiel(
     `team1.tore` / `team2.tore` filters exist to survive.
 
     A team name of `None` is a bracket slot whose occupant is not decided yet, which is a legal and
-    permanent-by-default state (ADR-0042) and the one the spiele pipeline's join has to survive.
+    permanent-by-default state (ADR-0034) and the one the spiele pipeline's join has to survive.
     """
     return {
         "spiel_nr": nr,
@@ -112,15 +112,21 @@ def _spiel(
     }
 
 
-# The figures every test asserts against, derived by hand from the seeded matches:
-#   gruppenphase   Helmholtz 3 matches 1/1/1  5:7  4 pts   Bock 2  1/0/1  2:3  3 pts
-#                  Lessing   3 matches 1/1/1  6:3  4 pts   Ohne 0  0/0/0  0:0  0 pts
-#   gesamt         Helmholtz 4 matches 2/1/1 10:7  7 pts   Bock 3  1/0/2  2:8  3 pts
-# Helmholtz reading 3 against 4 is the cheapest proof the scope filters at all — the same
-# divergence ADR-0029 measured against the live database.
 @pytest.fixture(scope="session")
 def league(mongo_database: Database) -> SeededLeague:
-    """The corpus described beside `TEAM_OIDS` and the rows below, inserted once."""
+    """The corpus described beside `TEAM_OIDS` and the rows below, inserted once.
+
+    The figures every test asserts against, derived by hand from the seeded matches:
+
+    ======================================================================================
+    gruppenphase   Helmholtz 3 matches 1/1/1  5:7  4 pts   Bock 2  1/0/1  2:3  3 pts
+                   Lessing   3 matches 1/1/1  6:3  4 pts   Ohne 0  0/0/0  0:0  0 pts
+    gesamt         Helmholtz 4 matches 2/1/1 10:7  7 pts   Bock 3  1/0/2  2:8  3 pts
+    ======================================================================================
+
+    Helmholtz reading 3 against 4 is the cheapest proof the scope filters at all -- the same
+    divergence ADR-0022 measured against the live database.
+    """
     for collection in ("teams", "saison_teams", "spiele"):
         mongo_database.drop_collection(collection)
 
@@ -177,7 +183,7 @@ def league(mongo_database: Database) -> SeededLeague:
             # point of the spiele suite, though: both its sides are teams whose 2026 junction rows say
             # something the 2025 fixture must not pick up.
             _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
-            # A bracket slot the group phase has not filled (ADR-0042). Carries no result, so it counts
+            # A bracket slot the group phase has not filled (ADR-0034). Carries no result, so it counts
             # towards nothing here and exists only so the spiele join is proved against a null side.
             _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
         ]

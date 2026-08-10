@@ -14,7 +14,7 @@ import type { SaisonOffeneSpiel, SaisonRolloverContext } from "@/features/saison
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The season editor (ADR-0050, adopted by FB-6). One season per URL.
+ * The season editor (ADR-0040). One season per URL.
  *
  * **The season is the SEGMENT here, not the sidemenu selector's `?saison_id=`.** That is the opposite of
  * the club and player editors, and it follows from what the page edits: those two edit a season-scoped
@@ -65,7 +65,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
    * **"Unfinished" is `ergebnis === null && !is_canceled`, and it mirrors `unplayed_spiel_nrs` exactly.**
    * Cancelling is the route past the refusal, so a cancelled fixture is settled: it is what turns a match
    * nobody will ever play into a decision somebody recorded. A cancelled match that DOES carry a result
-   * is a forfeit and counts for the table (ADR-0026), so it is settled either way.
+   * is a forfeit and counts for the table (ADR-0019), so it is settled either way.
    *
    * The two definitions have to agree. If this list is empty while the endpoint refuses, the page shows a
    * live rollover button that always fails; if it is longer, the page blocks a rollover that would work.
@@ -76,21 +76,20 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       id: spiel.id,
       spielNr: spiel.spiel_nr,
       datum: spiel.datum,
-      // A knockout slot the group phase has not filled yet has no team on that side, which is a normal
-      // state rather than missing data — so the shared slot placeholder stands in and the row still
-      // reads. The provenance label is deliberately not resolved here: this list exists to be recognised
-      // and clicked, and the fixture's own page is where its wiring belongs.
+      // A knockout slot the group phase has not filled has no team on that side — a normal state, so
+      // the shared slot placeholder stands in. The provenance label is not resolved here: the
+      // fixture's own page is where its wiring belongs.
       paarung: `${spiel.team1?.name ?? PLACEHOLDER.slot} – ${spiel.team2?.name ?? PLACEHOLDER.slot}`,
     }))
     .sort((left, right) => left.spielNr - right.spielNr);
 
   const rollover: SaisonRolloverContext = { outgoingSaisonId, offeneSpiele };
 
-  // The INNER bound on the season's own dates (`REQ-DATE-004`): the start may not move past the first
-  // live matchday's beginn, the end not before the last one's ende. Retired matchdays do not bind —
-  // retiring is how a mis-dated one leaves the schedule, so it must not block the repair of the dates
-  // it was retired over. `undefined` while the season has no live matchday, which leaves both pickers
-  // unbounded exactly as a fresh season should be.
+  // The inner bound on the season's own dates (`REQ-DATE-004`): the start may not move past the first
+  // live matchday's beginn, the end not before the last one's ende.
+
+  // Retired matchdays do not bind — retiring is how a mis-dated one leaves the schedule. `undefined`
+  // while the season has no live matchday, which leaves both pickers unbounded.
   const liveBeginne = spieltageRes.spieltage.filter((spieltag) => spieltag.inactive_since === null).map((spieltag) => spieltag.beginn);
   const liveEnden = spieltageRes.spieltage.filter((spieltag) => spieltag.inactive_since === null).map((spieltag) => spieltag.ende);
   const spieltagBound =

@@ -13,7 +13,7 @@ import type { FLCreateTeamFormPayload, FLDisqualifikation, FLGruppenNames, FLPat
 export type FLTeamsSortingOptions = "name";
 
 /**
- * Which matches the derived statistics count (ADR-0029).
+ * Which matches the derived statistics count (ADR-0022).
  *
  * Omitting it is `"gruppenphase"`, the league table — the backend defaults it there rather than to
  * every phase, because both scopes return the same fields and a forgotten parameter must not produce
@@ -21,15 +21,15 @@ export type FLTeamsSortingOptions = "name";
  */
 export type FLTeamStatistikScope = "gruppenphase" | "gesamt";
 
-/** What narrows the LIST. One team by its id is an identity — `getTeam(id)` — not a filter (ADR-0034). */
+/** What narrows the LIST. One team by its id is an identity — `getTeam(id)` — not a filter (ADR-0027). */
 export type FLTeamsFilterParams = {
   saison_id?: string;
   gruppe?: string;
   // A question about the junction, not a field on it: the row stores a `disqualifikation` record and
-  // no boolean, and the backend translates this into a null test (ADR-0059).
+  // no boolean, and the backend translates this into a null test (ADR-0047).
   is_disqualified?: boolean;
   in_gruppen?: boolean;
-  // Retired clubs are excluded unless an admin picker asks for them (ADR-0032).
+  // Retired clubs are excluded unless an admin picker asks for them (ADR-0025).
   include_inactive?: boolean;
   statistik_scope?: FLTeamStatistikScope;
 
@@ -98,7 +98,7 @@ export type TeamCreateSaisonOption = {
  * One row of the admin club list: EVERY club across every season, carrying the selected season's
  * junction data where the club is entered there (decided 2026-08-07 — the list is club-centric, the
  * season columns follow the sidemenu selector). Assembled by the page from the per-season reads,
- * because the API's team reads are strictly season-scoped (I11).
+ * because the API's team reads are strictly season-scoped (backend spec I11).
  */
 export type AdminTeamRow = {
   id: string;

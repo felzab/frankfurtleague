@@ -40,7 +40,7 @@ Particularly welcome:
 - **Anything requiring physical access** to the server, or a compromised admin device.
 - **`'unsafe-inline'` in the Content-Security-Policy.** This is a known, deliberate trade-off with a
   documented compensating control — see
-  [ADR-0016](docs/_decisions/0016-single-enforced-csp.md). A demonstrated injection that the policy
+  [ADR-0011](docs/_decisions/0011-single-enforced-csp.md). A demonstrated injection that the policy
   fails to stop is very much in scope; the directive by itself is not.
 
 ## Please do not

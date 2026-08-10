@@ -9,7 +9,7 @@ Invariants:
 - The `Retry-After` and `WWW-Authenticate` headers on the two carrier exceptions are contract.
 
 See:
-- docs/logging.md — the error-code table and the failure-body contract
+- docs/logging/error-codes.md — the error-code table and the failure-body contract
 """
 
 from typing import Any, Mapping, Optional
@@ -81,8 +81,8 @@ class DocumentConflictException(BaseAPIException):
     still referenced is the shape that belongs here.
 
     A unique index refusing a write does NOT come through here. `pymongo` raises `DuplicateKeyError`
-    before any handler code runs, and `duplicate_key_exception_handler` maps that to the same 409 with
-    the same code -- the index name is worth logging and this class could not carry it.
+    before any handler code runs, and `duplicate_key_exception_handler` maps every one of those to a
+    409 under the fixed code `DB-COMMON-002`, where this class carries the rule's own code.
 
     Kept distinct from `DocumentNotFoundException` deliberately. Both are "the database said no", and a
     caller retrying a 404 is confused while a caller retrying a 409 is wrong.

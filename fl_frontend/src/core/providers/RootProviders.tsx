@@ -15,10 +15,9 @@ export function RootProviders({ children }: AppProvidersProps) {
   const router = useRouter();
 
   return (
-    // RouterProvider teaches react-aria's `href` props (the topnav Dropdown.Items are the app's
-    // only consumers) to navigate through Next's client router. Without it, react-aria falls back
-    // to native <a> navigation -- a full page reload on every menu link, which is why the dropdown
-    // felt far slower than the footer's <Link>s.
+    // RouterProvider teaches react-aria's `href` props -- the topnav Dropdown.Items are the only
+    // consumers -- to navigate through Next's client router. Without it react-aria falls back to
+    // native <a> navigation, a full page reload on every menu link.
     <RouterProvider navigate={(href) => router.push(href)}>
       <ThemeProvider
         enableSystem={true}

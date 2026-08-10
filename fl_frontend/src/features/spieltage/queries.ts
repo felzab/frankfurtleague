@@ -3,8 +3,8 @@
  *
  * Invariants:
  * - Base tag only, cleared by `actions.ts` on every write — nothing narrower describes one (ADR-0001).
- * - A Compass edit is served stale until the daily cacheLife expires (ADR-0035).
- * - Matchdays arrive in played order (ADR-0064); no consumer re-sorts, and the bracket depends on it.
+ * - A Compass edit is served stale until the daily cacheLife expires (ADR-0028).
+ * - Matchdays arrive in played order (ADR-0051); no consumer re-sorts, and the bracket depends on it.
  * - Omitting `saison_id` yields the current season — the backend resolves it.
  *
  * See:

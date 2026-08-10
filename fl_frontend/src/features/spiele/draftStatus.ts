@@ -61,7 +61,7 @@ export type FLSpielDraftFields = {
  *
  * `ergebnis` is derived here the way the backend derives it — a scoreline only when both counts are
  * present — because the stored string belongs to the stored goals and contradicts the draft the moment
- * either is edited. The shoot-out follows ADR-0044: kept only on a knockout fixture that finished level,
+ * either is edited. The shoot-out follows ADR-0036: kept only on a knockout fixture that finished level,
  * discarded anywhere else, exactly as the write path discards it, so the preview cannot promise
  * something the save throws away.
  *
@@ -109,7 +109,7 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
 export type FLSpielFieldGroup = "Ansetzung" | "Begegnung" | "Ergebnis" | "Notiz" | "Absage";
 
 /**
- * How urgently an expected field is waited on. The split is deliberate (fourth review): a fixture
+ * How urgently an expected field is waited on. The split is deliberate: a fixture
  * cannot HAPPEN without a date, a time, an occupied slot or — once played — a result, while a venue
  * and a referee are organisational and merely recommended. Marker colours and the open-items badges
  * both read this, so the yellow marker beside a field and the badge counting it can never disagree.
@@ -119,25 +119,18 @@ export type FLExpectedSeverity = "required" | "recommended";
 const severityFor = (category: ActionRequiredCategory): FLExpectedSeverity =>
   category === "ort_missing" || category === "schiedsrichter_missing" ? "recommended" : "required";
 
-/** What the page knows about one editable field right now. */
 export type FLSpielFieldStatus = {
   /** Dotted payload path; also the input's `name`, the `FieldErrors` key and the anchor id. */
   path: string;
   /** German, sentence case. Used in the change list and the open-items list, not as the field's label. */
   label: string;
-  /** The panel the field renders in — the change list's section heading. */
   group: FLSpielFieldGroup;
-  /** The draft differs from what is stored. */
   isChanged: boolean;
   /** Empty, and an action-required category says somebody is waiting on it. */
   isExpected: boolean;
-  /** How urgently, when `isExpected`; `null` otherwise. */
   expectedSeverity: FLExpectedSeverity | null;
-  /** The schema's message for this field, or `null`. */
   error: string | null;
-  /** How the stored value reads, or `null` when it was empty. */
   storedText: string | null;
-  /** How the draft value reads, or `null` when it is empty. */
   draftText: string | null;
 };
 
@@ -234,8 +227,8 @@ const sameCount = (a: number | null, b: number | null): boolean => {
  *
  * **`besetzung_missing` marks the SOURCE, not the occupant**, and that is the whole reason
  * `isEmpty` exists. A knockout side with a source and no team yet is correct — the resolution fills it
- * (ADR-0042) — so a marker on `teamN.team_id` would nag on every unplayed semi-final in the season. The
- * category's own rule is "no team AND no source", which is exactly the predicate below, and ADR-0046
+ * (ADR-0034) — so a marker on `teamN.team_id` would nag on every unplayed semi-final in the season. The
+ * category's own rule is "no team AND no source", which is exactly the predicate below, and ADR-0038
  * makes the source the question you answer first, so the marker sits on the control you would use.
  *
  * **`ergebnis_pending` marks BOTH goal fields.** A result needs both counts and each is separately
@@ -392,7 +385,7 @@ const FIELD_DESCRIPTORS: readonly ErasedFieldDescriptor[] = [
     read: (source) => source.is_canceled,
     // Both states have a word. `null` for the going-ahead state made a withdrawn absage read as an
     // emptied value — "entfernt", in the danger grade — when what happened is the fixture going
-    // back on (fifth review).
+    // back on.
     format: (value: boolean) => (value ? "Abgesagt" : "Angesetzt"),
   }),
 ];
@@ -426,8 +419,8 @@ export function deriveSpielDraftStatus({
     const isEmptyNow = descriptor.isEmpty ? descriptor.isEmpty(draft) : draftText === null;
 
     // The first path carrying a message wins, matching `FieldError`'s one line per input. Mapped to
-    // the messages before searching, so the result is the message rather than a key that has to be
-    // looked up again — `FieldErrors` is a `Record`, so a second lookup reads as possibly undefined.
+    // the messages before searching, so the result is the message rather than a key needing a second
+    // `Record` lookup that reads as possibly undefined.
     const error =
       (descriptor.errorPaths ?? [descriptor.path]).map((path) => fieldErrors[path]).find((message) => message !== undefined) ?? null;
 

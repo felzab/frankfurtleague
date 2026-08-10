@@ -38,7 +38,7 @@ export function AddressFields({
   errors?: FieldErrors;
   /**
    * Called with a field's dotted payload path when the user leaves it, for a caller on a page that
-   * judges a typed field on blur (ADR-0050). The dialog callers pass nothing and judge on submit.
+   * judges a typed field on blur (ADR-0040). The dialog callers pass nothing and judge on submit.
    */
   onFieldLeft?: (paths: readonly string[]) => void;
   /**

@@ -31,15 +31,15 @@ import type { ReactNode } from "react";
 import type { SaisonRailBanner } from "./SaisonRail";
 
 /**
- * How long the undo offer stands after a save (ADR-0051's window, ADR-0062's transport). There is no
- * confirmation dialog on the SAVE for the same reason as the other three editors: confirmation and undo
+ * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). There is no
+ * confirmation dialog on the SAVE for the same reason as the other editors: confirmation and undo
  * are alternatives, and undo is the one that helps the admin who was not paying attention. The rollover
  * is the exception and carries its own confirmation — see `FormRolloverSection` for why.
  */
 const UNDO_TIMEOUT_MS = 15000;
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0062: an undo
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049: an undo
  * belongs to a page-owned editor, and nothing else becomes a route handler): by the time the offer is
  * pressed this component is unmounted and the browser is on another route, and a server action
  * dispatched from there trips Next's E592 invariant and is truncated mid-response.
@@ -63,14 +63,14 @@ async function postSaisonUndo(payload: FLPatchSaisonPayload): Promise<{ success:
 
 /**
  * The season editor's form: two panels, the rollover control, a sticky summary rail, and one derivation
- * behind all of it — the match editor's shape (ADR-0050) over a season. Every field is controlled,
+ * behind all of it — the match editor's shape (ADR-0040) over a season. Every field is controlled,
  * judged when it is left with the same schema the action parses, and marked in place when its draft
  * differs from stored.
  *
  * **One save bar over ONE endpoint**, unlike the club and squad editors: `PATCH /saisons/{saison_id}`
  * replaces the dates and the whole `rules` object in a single write, so there is no partial-failure
  * state to report. What this page has instead of a second endpoint is a second KIND of write — the
- * rollover, which is a control rather than a field and never touches the draft (ADR-0033).
+ * rollover, which is a control rather than a field and never touches the draft (ADR-0026).
  *
  * **`status` reaches nothing here by construction.** It is on no payload, has no descriptor row, and no
  * state atom below holds it.
@@ -92,10 +92,9 @@ export function AdminSaisonEditForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // The two dates are `CalendarDate` in state and strings on the wire — the picker's own shape, and
-  // `parseDate` accepts exactly the `YYYY-MM-DD` the API sends. Both are required on the payload, so
-  // there is no null to represent; a picker cleared to null is held as null and the schema is what
-  // reports it.
+  // The two dates are `CalendarDate` in state and strings on the wire — `parseDate` accepts exactly
+  // the `YYYY-MM-DD` the API sends. Both are required on the payload, so a picker cleared to null is
+  // held as null and the schema is what reports it.
   const [startDate, setStartDate] = useState<CalendarDate | null>(() => parseDate(saison.start_date));
   const [endDate, setEndDate] = useState<CalendarDate | null>(() => parseDate(saison.end_date));
   const [rules, setRules] = useState<FLSaisonRules>(saison.rules);
@@ -201,7 +200,7 @@ export function AdminSaisonEditForm({
     });
   }
   // The one edit on this page whose effect is retroactive and invisible at the field: the league table
-  // is scored on every read rather than stored (ADR-0026), so the numbers move without a migration and
+  // is scored on every read rather than stored (ADR-0019), so the numbers move without a migration and
   // without anything announcing that they did.
   if (isChanged("rules.win_points") || isChanged("rules.draw_points")) {
     banners.push({
@@ -275,7 +274,7 @@ export function AdminSaisonEditForm({
   const handleFormSubmit = () => {
     startTransition(async () => {
       // Built BEFORE the write, from this render's props: they still carry what was stored, and the
-      // toast that offers the undo outlives this page (ADR-0051, ADR-0062).
+      // toast that offers the undo outlives this page (ADR-0041, ADR-0049).
       const undoPayload: FLPatchSaisonPayload = {
         id: saison.id,
         start_date: saison.start_date,
@@ -309,7 +308,7 @@ export function AdminSaisonEditForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back (ADR-0051's window over ADR-0062's
+   * The undo toast: fifteen seconds to take the save back (ADR-0041's window over ADR-0049's
    * transport). The pitfalls the match editor documents all apply and are all mirrored here: the toast
    * outlives this component, so the press runs in a detached closure — `router.refresh()` is what
    * re-renders a screen the action's own revalidation can no longer reach (the router instance is a

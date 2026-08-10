@@ -2,8 +2,8 @@
 TEMPLATE — copy the matching block to the top of a source file; delete this block.
 Rules: ../chapters/2-in-code.md
   - A directive ("use server", "use client") stays the file's first line, above the header.
-  - In Python the docstring is the first statement, above the imports — below them it is silently
-    a dead string expression. Title line first, then a blank line (ruff D205).
+  - In Python the docstring is the first statement, above the imports (INC-7). Title line first,
+    then a blank line (ruff D205).
   - Hard cap 20 lines including delimiters. Only an ADR that exists may be cited.
 -->
 

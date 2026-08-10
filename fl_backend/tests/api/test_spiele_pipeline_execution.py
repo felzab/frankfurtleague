@@ -1,14 +1,14 @@
 """
-SPIELE · `build_spiele_pipeline` executed by a real MongoDB (ADR-0030)
+SPIELE · `build_spiele_pipeline` executed by a real MongoDB (ADR-0023)
 
 The same split as the team pipeline's two suites: `test_spiele.py` asserts what the models
 accept and this asserts what MongoDB computes — only a database proves a `$lookup` correlates on
 the right keys and a null side survives it. What is proved is one rule with four edges: a side
 carries the `disqualifikation` of the junction row for its own team and THIS fixture's season
-(ADR-0028, ADR-0059), and the 2025 fixture is the sharpest edge, because every wrong join key
+(ADR-0021, ADR-0047), and the 2025 fixture is the sharpest edge, because every wrong join key
 passes the 2026 cases and fails that one.
 
-Every test is marked `db` and deselected by default: `cd fl_backend && uv run pytest -m db`.
+Every test is marked `db` and deselected by default (`fl_backend/tests/README.md`).
 The corpus and its reasoning are documented in `conftest.py`; this module asserts against them.
 """
 
@@ -40,7 +40,7 @@ class TestTheJoinedDisqualification:
         assert spiel(league, 3)["team2"]["disqualifikation"] == DISQUALIFIKATION
 
     def test_a_competing_side_carries_null(self, league: SeededLeague) -> None:
-        """`null` is what "not disqualified" means, and there is no boolean anywhere (ADR-0059)."""
+        """`null` is what "not disqualified" means, and there is no boolean anywhere (ADR-0047)."""
 
         assert spiel(league, 3)["team1"]["disqualifikation"] is None
 
@@ -92,7 +92,7 @@ class TestWhatTheMergeMustNotBreak:
         A bracket slot with no occupant is `None`, never an object carrying only a disqualification.
 
         `FLSpielJoined.team1` is nullable and every card reads `team?.name ?? formatQuelle(...)`, so an
-        empty object here would render as a resolved side with a blank name (ADR-0042).
+        empty object here would render as a resolved side with a blank name (ADR-0034).
         """
 
         assert spiel(league, 9)["team1"] is None

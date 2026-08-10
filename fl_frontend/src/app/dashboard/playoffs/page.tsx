@@ -32,10 +32,9 @@ export default async function Page(props: NextPageProps) {
     getSpieltage({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
     getSpiele({ saison_phase: "playoffs", saison_id: specifiedSaisonId }),
   ]);
-  // Parsed, not cast -- the same guarantee /dashboard/spielplan already takes on the identical
-  // join. The type system cannot know the joined rows still satisfy FLSpieltagWithSpiele after a
-  // schema change upstream; without this the mismatch would surface as
-  // `playoffsSpieltag.spiele.map of undefined` inside a client component instead.
+  // Parsed, not cast — the type system cannot know the joined rows still satisfy
+  // FLSpieltagWithSpiele after an upstream schema change, and the mismatch would otherwise surface as
+  // `playoffsSpieltag.spiele.map of undefined` inside a client component.
   const playoffsSpieltage = z.array(FLSpieltagWithSpieleSchema).parse(
     joinCollections({
       left: spieltageRes.spieltage,

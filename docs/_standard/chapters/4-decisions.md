@@ -1,6 +1,6 @@
 # Decisions
 
-**Verified against:** `5d70e9f`, 2026-08-09\
+**Verified against:** `7555ecd`, 2026-08-10\
 **Applies to:** `docs/_decisions/` — every ADR, and the index beside them.
 
 | ID    | Rule                 |
@@ -18,11 +18,15 @@
 ### DEC-1 — The trigger test
 
 **Rule:** write an ADR exactly when both halves hold — someone would reasonably propose the
-opposite, and the argument would have to be re-derived to refuse them. Three things fail the test:
+opposite, and the argument would have to be re-derived to refuse them. These fail the test:
 
 - how-to content
 - anything with no rejected alternative
 - anything readable off the code in ten seconds
+- a bug fix — it restores behaviour that was already decided, and the decision it restores is
+  either written down already or was never one
+- filling a gap nobody argues for — the first way of doing something that was absent beat no
+  alternative anyone would press, so there is no refusal for a future reader to re-derive
 
 **Why:** a log padded with non-decisions stops being worth reading, and the value of an ADR is the
 part that left no trace in the source — why not the other thing.
@@ -69,15 +73,20 @@ reading is in force.
 ### DEC-4 — Immutability
 
 **Rule:** an accepted ADR's reasoning is never edited — a wrong rationale is a new ADR that
-supersedes it. The one editing class allowed is mechanical: a typo, or a reference repair the gate
-demands because a path or identifier the text names stopped resolving. Context is the one section
+supersedes it. Two editing classes are allowed. The first is mechanical: a typo, or a reference
+repair the gate demands because a path or identifier the text names stopped resolving. The second
+is a rewrite that is certainly warranted and has been explicitly approved, and it is allowed only
+once the approval and its date stand in the Exceptions field below. Context is the one section
 written in the past tense (COR-3 lists the full exemption set); Decision and Consequences are
 present tense, aimed at the reader about to break the rule.
 
 **Why:** the log is trustworthy precisely because what it records cannot quietly change under its
-readers.
+readers, so the only route to a rewrite is one that leaves its own record on this rule.
 
-**Exceptions:** the mechanical class above, and the two-line edit of DEC-6.
+**Exceptions:** the mechanical class above; the two-line edit of DEC-6; the concision rewrite of
+every ADR (approved 2026-08-09); the compaction of the numbering to a contiguous `0001`–`0059`
+(approved 2026-08-09); and ADR-0012's Consequences pointer, rewritten because dissolving
+`docs/ops/runbooks.md`'s duplicated half collapsed the claim it made (approved 2026-08-10).
 
 **Enforced by:** unenforced — review judgment.
 
@@ -87,13 +96,16 @@ readers.
 
 **Rule:** sequential, zero-padded, never reused: `docs/_decisions/<NNNN>-<short-slug>.md`. The
 number is the permanent identity code cites; the slug is for humans and may be adjusted. A retired
-number is a permanent gap, mapped in the Retired numbers table of `docs/_decisions/README.md` —
-never filled, never renumbered around.
+number is a permanent gap, recorded in a Retired numbers table in `docs/_decisions/README.md` —
+never filled, never renumbered around, except under DEC-4's approval clause, on the same terms:
+certainly warranted, explicitly approved, and recorded with its date in the Exceptions field below
+before the renumbering starts.
 
 **Why:** comments cite the number, so identity has to survive every reorganisation; a reused
 number makes an old citation silently point at a different decision.
 
-**Exceptions:** —
+**Exceptions:** the compaction of the numbering to a contiguous `0001`–`0059` (approved
+2026-08-09).
 
 **Enforced by:** gate check `adr-meta` (the H1 must match the filename); the gaps are the index's
 job (DEC-7).
@@ -119,8 +131,8 @@ the new one sees what it replaced; neither has to guess which is current.
 ### DEC-7 — The index
 
 **Rule:** `docs/_decisions/README.md` carries one row per ADR — number, title, surface, status,
-date — appended when the ADR is written, plus the Retired numbers table mapping every permanent
-gap to where its content lives. It asserts no counts.
+date — appended when the ADR is written. A retired number adds a Retired numbers table mapping
+the gap to where its content lives. It asserts no counts.
 
 **Why:** the index is the per-surface and per-status view the flat folder deliberately does not
 give, and a count is the fact that goes wrong first (COR-4).

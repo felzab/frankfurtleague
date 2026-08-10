@@ -25,9 +25,11 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
 # No repository here means the target cannot be inside docs/_standard of this one.
 [ -n "$repo_root" ] || exit 0
 
-# Containment on CANONICAL paths, for guard-branch.sh's reasons: `./` segments, `..` re-entry,
-# doubled separators and Windows device prefixes all name the same file while sharing no useful
-# prefix with the literal folder path. The backticks in the embedded comments are Markdown.
+# Containment on canonical paths, for `.claude/hooks/guard-branch.sh`'s reasons: `./` segments, `..`
+# re-entry, doubled separators and Windows device prefixes all name the same file while sharing no
+# useful prefix with the literal folder path.
+
+# The backticks in the embedded comments are Markdown.
 # shellcheck disable=SC2016
 decision="$(REPO_ROOT="$repo_root" node -e '
 const path = require("path");

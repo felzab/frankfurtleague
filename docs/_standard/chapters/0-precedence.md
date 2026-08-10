@@ -1,13 +1,15 @@
 # Precedence
 
-**Verified against:** `09f903d`, 2026-08-08\
-**Applies to:** any disagreement between two written sources, and the placement of every new rule.
+**Verified against:** `7555ecd`, 2026-08-10\
+**Applies to:** any disagreement between two written sources, and the placement and shape of every
+rule in this standard.
 
 | ID    | Rule                                  |
 | ----- | ------------------------------------- |
 | PRE-1 | The ladder                            |
 | PRE-2 | Correct the summary, never the source |
 | PRE-3 | One home per rule                     |
+| PRE-4 | The anatomy of a rule                 |
 
 ---
 
@@ -57,5 +59,31 @@ that goes stale.
 **Exceptions:** —
 
 **Enforced by:** `/docs:audit` (the duplication read).
+
+**Example:** —
+
+### PRE-4 — The anatomy of a rule
+
+**Rule:** a rule here is `### <ID> — <the rule as a claim>` followed by `**Rule:**`, `**Why:**`,
+`**Exceptions:**`, `**Enforced by:**` and `**Example:**` in that order, a row in its chapter's
+table, and one line in [`rules-index.md`](../rules-index.md). `Enforced by` names only checks
+`check_docs.py :: CHECKS` declares, or says plainly that the rule is unenforced and rests on review
+judgment; a field naming a command rather than a check says which read of that command covers it,
+and one naming a linter names the selection that covers it. A rule and the check it claims land in
+the same commit, and the check is proven against a constructed violation before it is claimed — one
+that parses a document is proven against that document in its real position on the page, never
+against an example of its shape.
+
+**Why:** the enforcement field is the line a reader trusts without checking, so a claim that
+overstates the gate is worse than an unenforced rule: it reads as covered, and nobody looks again. A
+check proven only against an example of the shape it parses passes on the example and misreads every
+real page — an indented table, a heading that is not at column zero, a second table on the same page.
+
+**Exceptions:** —
+
+**Enforced by:** gate checks `enforced-by`, which resolves every backticked check name a field
+carries; `rule-id`, which resolves every cited id to exactly one heading; `rule-shape`, which holds
+the heading, the five fields in order and the chapter row; and `rule-index`, which holds the one
+index line. Proving a new check is review judgment.
 
 **Example:** —

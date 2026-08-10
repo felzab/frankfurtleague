@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * SPIELE · the timeline match card
+ *
+ * One chip and full team names, for the dashed vertical timeline a team's page renders its fixtures
+ * in. That rail is narrower than any card grid and narrowest on a phone, which is what every wrapping
+ * rule below is about.
+ *
+ * Invariants:
+ * - Never merged with `SpielCard` or `SpielCardUltraCompact`; only their shared derivation is
+ *   extracted (ADR-0005).
+ */
 import { CircleExclamation } from "@gravity-ui/icons";
 
 import { Button, Card } from "@heroui/react";
@@ -72,7 +83,7 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
           {/* `-strong` for the same reason as in the other two cards: this is text, not a fill, and the
               plain accents are too light to carry it on a light surface. */}
           {/* A second line under the score rather than part of it, for the reason the other two cards
-              give: the fixture is a draw everywhere but the bracket (ADR-0044). */}
+              give: the fixture is a draw everywhere but the bracket (ADR-0036). */}
           <span
             className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${spielData.ergebnis !== null ? "text-success-strong" : "text-danger-strong"}`}>
             {spielErgebnis}

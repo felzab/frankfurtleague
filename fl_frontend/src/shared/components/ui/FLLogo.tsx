@@ -5,7 +5,7 @@ import { useId } from "react";
  *
  * **Generated - do not edit by hand.** Run `pnpm brand` from `fl_frontend/`; that script owns the
  * geometry and emits this file alongside the icons, so the header mark and the app icons cannot drift
- * apart. They already did once, by 47px, when these coordinates were transcribed by hand.
+ * apart.
  *
  * This is the full mark - offset shadow, outline and print erosion - matching `apple-icon.png`, the
  * manifest icons and the Open Graph card. **Only the favicon is clean**, because at 16px the outline
@@ -14,14 +14,11 @@ import { useId } from "react";
  *
  * The letters are rectangles rather than `<text>`: the same drawing has to rasterise identically in
  * the browser and in librsvg when the PNGs are built, and librsvg has no Impact.
- *
- * The previous mark was a sphere panelled with stars - UEFA's Champions League device. Replaced on
- * instruction, 2026-08-01.
  */
 export function FLLogo({ className = "size-8" }: { className?: string }) {
-  // The filter id must be unique per instance: up to four logos share a page, duplicate ids are
-  // invalid, and `url(#…)` resolves to the first match - so every later logo would silently borrow
-  // the first one's filter.
+  // The filter id must be unique per instance: more than one logo can share a page, duplicate ids
+  // are invalid, and `url(#…)` resolves to the first match - so every later logo would silently
+  // borrow the first one's filter.
   const filterId = useId();
 
   return (

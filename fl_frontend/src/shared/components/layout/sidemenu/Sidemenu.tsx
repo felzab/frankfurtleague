@@ -41,7 +41,7 @@ export function Sidemenu<TIcon extends string>({
   linkPrefix: string;
   saisonMetadataDisplay: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
-  /** Forwarded to the footer's options menu; the bar carries the same control (ADR-0058). */
+  /** Forwarded to the footer's options menu; the bar carries the same control (ADR-0046). */
   onSignOut?: () => Promise<FormState>;
   pathname: string;
   isMobileOpen: boolean;
@@ -64,34 +64,9 @@ export function Sidemenu<TIcon extends string>({
   };
 
   return (
-    /* `fixed` and full height: below `lg` the drawer OVERLAYS the bar rather than opening beneath it,
-       which is why it carries its own close control (`SidemenuDrawerHeader`) — the bar's toggle is
-       behind it while it is open. On `lg` it becomes an ordinary flex item again.
-
-       **`lg:h-auto` is not tidying, it is what stops the whole page scrolling.** `h-dvh` is right for
-       the overlay, which starts at the top of the viewport; the desktop rail starts BELOW the 54px
-       bar, so the same height overshoots the row by exactly the bar and pushes the document 54px past
-       the viewport. Left at `h-dvh` the sidemenu and the content scroll together, which is the one
-       thing this shell exists to prevent — the rail must take its height from the row, and the row
-       takes its own from what is left under the bar.
-
-       `invisible` is load-bearing while the drawer is closed. `translate-x` alone moves the panel
-       off-screen but removes it from neither the tab order nor the accessibility tree, so a phone
-       user tabbing the page falls into a dozen controls sitting 310px off the left edge with focus
-       invisible. `invisible` takes the subtree out of both, and `lg:visible` restores it for the
-       desktop rail, which is this same element above `lg`.
-
-       Visibility rather than `inert`, which would need the breakpoint duplicated in JS as a
-       matchMedia string. It also survives before hydration, and it does not cut the slide-out short:
-       CSS Transitions interpolate `visibility` discretely, holding the visible end for the whole
-       duration, so the panel stays on screen until the slide finishes.
-
-       **The transition names `translate`, not `transform`, and that is what makes the drawer slide
-       at all.** Tailwind v4 emits `-translate-x-full` as the standalone `translate` property rather
-       than as a `transform` function — measured here as `translate: -100%` with `transform: none` —
-       so a transition list naming `transform` interpolates a property that never changes and the
-       panel jumps between its two positions instead of moving. The same is true of `scale-*`, which
-       is why `OptionsMenu` cancels a press effect with `transform-none` rather than `scale-100`. */
+    /* Each of these fails silently if changed: `lg:h-auto`, or the page scrolls as
+       one; `invisible`, or the closed drawer stays in the tab order; `translate` in
+       the transition list, which is the property Tailwind v4 actually animates. */
     <aside
       id="app-sidemenu"
       className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,translate,visibility] duration-300 ease-in-out lg:visible lg:h-auto ${

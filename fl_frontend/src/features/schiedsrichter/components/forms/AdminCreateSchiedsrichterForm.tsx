@@ -56,7 +56,7 @@ export function AdminCreateSchiedsrichterForm({
             schule: draft.schule,
             kontakt,
             default_payment: draft.default_payment,
-            // Just created, so current — and `null` is what current means (ADR-0032).
+            // Just created, so current — and `null` is what current means (ADR-0025).
             inactive_since: null,
           });
         }

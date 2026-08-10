@@ -18,7 +18,6 @@ export function SpielerDraftStatusProvider({ status, children }: { status: FLSpi
   return <SpielerDraftStatusContext.Provider value={status}>{children}</SpielerDraftStatusContext.Provider>;
 }
 
-/** The whole picture, for the rail and the action bar. */
 export function useSpielerDraftStatus(): FLSpielerDraftStatus {
   const status = useContext(SpielerDraftStatusContext);
   if (status === undefined) {
@@ -27,7 +26,6 @@ export function useSpielerDraftStatus(): FLSpielerDraftStatus {
   return status;
 }
 
-/** One field's status by its payload path; `undefined` for a path with no descriptor. */
 export function useSpielerFieldStatus(path: string): FLSpielerFieldStatus | undefined {
   return useSpielerDraftStatus().byPath.get(path);
 }

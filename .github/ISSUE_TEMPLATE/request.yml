@@ -8,9 +8,12 @@ body:
     attributes:
       value: |
         If the idea needs analysis before anyone can decide on it, it belongs in
-        [docs/roadmap/open-items.md](https://github.com/felzab/frankfurtleague/blob/main/docs/roadmap/open-items.md)
+        [docs/_roadmap/open-items.md](https://github.com/felzab/frankfurtleague/blob/main/docs/_roadmap/open-items.md)
         rather than here — that is where undecided questions keep their reasoning. Use this form for
         something concrete enough to act on.
+
+        Keep the title in the shape `Area: what should be possible` — for example
+        `Spielplan: filter the fixture list by team`.
 
   - type: textarea
     id: problem

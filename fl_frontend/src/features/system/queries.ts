@@ -6,7 +6,7 @@
  *
  * Invariants:
  * - Each call's `authType` matches the backend guard: `is_live` is the unauthenticated healthcheck.
- * - `checkIsReady` and `getSystemInfo` are kept uncalled (ADR-0014); if ever removed, remove the
+ * - `checkIsReady` and `getSystemInfo` are kept uncalled (ADR-0010); if ever removed, remove the
  *   system-key environment declaration WITH them.
  */
 

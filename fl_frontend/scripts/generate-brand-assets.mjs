@@ -4,14 +4,14 @@
  *   node scripts/generate-brand-assets.mjs        (from fl_frontend/)
  *
  * Committed rather than run once and thrown away, because the mark is parameterised: the erosion is
- * three numbers in `EROSION`, and the owner will want to move them. Regenerating must not mean
- * reconstructing this file from a screenshot.
+ * three numbers in `EROSION`, and moving them must not mean reconstructing this file from a
+ * screenshot.
  *
  * ── Two renderings of one mark ────────────────────────────────────────────────
  * DISPLAY  — outline + erosion + speed bars. Everything rendered above ~64px.
  * CLEAN    — neither outline nor erosion. The favicon, `icon.svg` and the `FLLogo` component.
  * Below about 32px the outline doubles every edge into noise and the speckle just reads as dirt, so
- * the small sizes get a mark that is the same shape without the print texture. Owner decision.
+ * the small sizes get a mark that is the same shape without the print texture.
  *
  * ── Why the letters are rectangles ────────────────────────────────────────────
  * F and L are drawn as geometry, never as <text>. An icon containing text renders differently on
@@ -36,7 +36,7 @@ const MAROON = "#82181a"; // --accent-brand-solid
 const MAROON_DEEP = "#4d0e10"; // the offset-shadow tone from the Instagram set
 const WHITE = "#ffffff";
 
-/** Erosion strength — owner picked level 2 of the three that were shown. */
+/** Erosion strength — a deliberate aesthetic choice; move the three numbers together. */
 const EROSION = { grain: 0.2, cut: "44 -34", disp: 4 };
 
 /**
@@ -188,19 +188,15 @@ for (const size of [16, 32, 48]) frames.push({ size, data: await png(Buffer.from
 writeFileSync(join(APP, "favicon.ico"), ico(frames));
 
 writeFileSync(join(APP, "apple-icon.png"), await png(displaySvg, 180));
-// Two purposes, two images. A `maskable` icon is full-bleed and expects the OS to crop it; an `any`
-// icon is shown exactly as given. Declaring only maskable — which the manifest used to — means the
-// platforms that honour `any` display the padded, full-bleed artwork, so the mark looks shrunken and
-// its corners square.
+// One icon set is full-bleed for the OS to crop, the other is shown as supplied. Why each purpose is
+// declared is written where the `purpose` fields are, at `fl_frontend/src/app/manifest.ts :: manifest`.
 writeFileSync(join(PUBLIC, "manifest", "manifest-192.png"), await png(maskableSvg, 192));
 writeFileSync(join(PUBLIC, "manifest", "manifest-512.png"), await png(maskableSvg, 512));
 writeFileSync(join(PUBLIC, "manifest", "icon-192.png"), await png(displaySvg, 192));
 writeFileSync(join(PUBLIC, "manifest", "icon-512.png"), await png(displaySvg, 512));
-// `flatten` drops the alpha channel this SVG does not use. The artwork is a full-bleed MAROON
-// rectangle, so every pixel is already opaque -- but rasterising an SVG yields RGBA regardless, and
-// some link-preview renderers still mishandle a transparent PNG. Since the alpha carries nothing,
-// removing it costs nothing and takes a class of "the preview is blank" report off the table.
-// Only this asset is flattened: the icons genuinely need their transparency.
+// `flatten` drops an alpha channel this artwork does not use — a full-bleed rectangle rasterises to
+// RGBA regardless, and some link-preview renderers mishandle a transparent PNG. Only this asset is
+// flattened; the icons need their transparency.
 writeFileSync(
   join(PUBLIC, "opengraph", "opengraph.png"),
   await sharp(Buffer.from(openGraph()), { density: 192 })
@@ -211,14 +207,13 @@ writeFileSync(
 );
 
 // ─── The React component ──────────────────────────────────────────────────────
+
 // Emitted from the same geometry rather than transcribed. Hand-copying these coordinates once put
 // the header mark 47px away from the icons — invisible in isolation, obvious side by side.
-//
-// This emits the DISPLAY rendering: outline, erosion and speed bars, the same mark the app icons
-// carry. Only the favicon is clean. An earlier pass shipped the clean mark here too, on the theory
-// that erosion is noise below ~32px — but the header renders at 32-34 CSS px, which is 64-68 device
-// pixels on any modern screen, and the texture resolves perfectly well at that density. The brand
-// should look like the brand in the header. Owner correction, 2026-08-01.
+
+// This emits the display rendering: outline, erosion and speed bars, the same mark the app icons
+// carry. Only the favicon is clean — the header renders at 32-34 CSS px, and the texture resolves
+// well at that density.
 function flLogoComponent() {
   const rects = (dx, dy, fill, indent, filter) => {
     const h = H;
@@ -253,7 +248,7 @@ function flLogoComponent() {
  *
  * **Generated - do not edit by hand.** Run ${BT}pnpm brand${BT} from ${BT}fl_frontend/${BT}; that script owns the
  * geometry and emits this file alongside the icons, so the header mark and the app icons cannot drift
- * apart. They already did once, by 47px, when these coordinates were transcribed by hand.
+ * apart.
  *
  * This is the full mark - offset shadow, outline and print erosion - matching ${BT}apple-icon.png${BT}, the
  * manifest icons and the Open Graph card. **Only the favicon is clean**, because at 16px the outline
@@ -262,14 +257,11 @@ function flLogoComponent() {
  *
  * The letters are rectangles rather than ${BT}<text>${BT}: the same drawing has to rasterise identically in
  * the browser and in librsvg when the PNGs are built, and librsvg has no Impact.
- *
- * The previous mark was a sphere panelled with stars - UEFA's Champions League device. Replaced on
- * the owner's instruction (2026-08-01).
  */
 export function FLLogo({ className = "size-8" }: { className?: string }) {
-  // The filter id must be unique per instance: up to four logos share a page, duplicate ids are
-  // invalid, and ${BT}url(#…)${BT} resolves to the first match - so every later logo would silently borrow
-  // the first one's filter.
+  // The filter id must be unique per instance: more than one logo can share a page, duplicate ids
+  // are invalid, and ${BT}url(#…)${BT} resolves to the first match - so every later logo would silently
+  // borrow the first one's filter.
   const filterId = useId();
 
   return (

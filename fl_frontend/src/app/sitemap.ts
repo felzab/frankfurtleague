@@ -1,19 +1,15 @@
 /**
  * APP · sitemap
  *
- * Lists only public, crawlable routes. Admin and dashboard routes are deliberately absent.
- *
- * `lastModified` is a FIXED date, bumped by hand when page content actually changes. Calling
- * `new Date()` here is a dynamic read that made this the one dynamic route in the app — and an
- * always-now timestamp tells a crawler nothing, since it can never mean "unchanged".
+ * Lists only public, crawlable routes. Admin routes and `/signin` are deliberately absent, each for
+ * the reason recorded at the foot of the list below.
  */
 
 import type { MetadataRoute } from "next";
 
-// Evaluated once at module load, not per request. `new Date()` here is a dynamic read under
-// cacheComponents, which is what made /sitemap.xml the one dynamic page route -- and an
-// always-now lastModified tells a crawler nothing, since it can never mean "unchanged".
-// Bump this when the corresponding page content actually changes.
+// Evaluated once at module load: `new Date()` here is a dynamic read under cacheComponents, which
+// makes /sitemap.xml a dynamic route — and an always-now lastModified tells a crawler nothing. Bump
+// it by hand when the page content changes.
 const CONTENT_LAST_MODIFIED = new Date("2026-07-01");
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -80,9 +76,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.4,
     },
-    // /admin is deliberately absent: robots.ts:12 disallows it, next.config.ts redirects it, and
-    // proxy.ts bounces anonymous visitors to /signin -- it can never yield an indexable page.
-    // /signin is absent for the neighbouring reason: it is `robots: { index: false }`, and a sitemap
-    // entry for a noindex URL only spends crawl budget.
+    // /admin and /signin are deliberately absent: `fl_frontend/src/app/robots.ts :: robots` disallows
+    // the first and noindexes the second, so neither can yield an indexable page and an entry would
+    // only spend crawl budget.
   ];
 }

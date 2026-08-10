@@ -8,7 +8,7 @@ declaration cover the system, does it name real things, and is it still a declar
 Invariants:
 - Every collection sits in exactly one aggregate; every `REQ-*` code appears, none is invented.
 - Every field path, `implemented_by` and `tested_by` resolves against the real code.
-- No application module imports it — an imported declaration is the engine ADR-0066 rejected.
+- No application module imports it — an imported declaration is the engine ADR-0053 rejected.
 """
 
 import ast
@@ -33,9 +33,8 @@ from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENF
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
 
-# The READ model of each collection that has one. `saison_teams` and `saison_spieler` are absent because
-# neither has a model of the ROW -- their fields are declared only by their `$jsonSchema`, which is why
-# field resolution below consults both sources rather than either alone.
+# The read model of each collection that has one. `saison_teams` and `saison_spieler` are absent
+# because neither has a model of the row -- their fields are declared only by their `$jsonSchema`.
 ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SAISONS: FLSaison,
     Collection.SPIELTAGE: FLSpieltag,
@@ -46,10 +45,9 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.SCHIEDSRICHTER: FLSchiedsrichter,
 }
 
-# Codes that are NOT domain rules and therefore have no row in `RULES`. Each is a property of the
-# transport rather than of the league: who you are, whether the body parses, whether an id is an ObjectId.
-# They live in `app/core/`, which is what the coverage test below keys on -- so this set is a statement
-# about a boundary rather than an exception list that grows.
+# Codes that are not domain rules and so have no row in `RULES`. Each is a property of the transport
+# rather than of the league, and they live in `app/core/`, which is what the coverage test keys on --
+# a boundary rather than an exception list.
 PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ-AUTH-004", "REQ-VAL-001", "REQ-OID-001"})
 
 _CODE_PATTERN = "REQ-"
@@ -114,11 +112,6 @@ def _import_symbol(dotted: str) -> Any:
     return getattr(module, symbol)
 
 
-# =====================================================================================================
-# DOES IT COVER THE SYSTEM
-# =====================================================================================================
-
-
 def test_every_collection_belongs_to_exactly_one_aggregate():
     """
     A collection in two aggregates has two consistency boundaries, which is not a boundary.
@@ -171,11 +164,11 @@ def test_the_protocol_codes_are_the_ones_outside_the_api_layer():
 
 def test_every_collection_is_declared_once():
     """
-    The nine names agree across the three places that need them, which is what `Collection` exists for.
+    The names agree across every place that needs them, which is what `Collection` exists for.
 
-    They were written out separately in `db.py`'s accessors, in `constraints.py`'s validator keys and in
-    this model's tables, with nothing holding the three equal -- so a tenth collection could reach one and
-    not the others. Iterating the enum is the check a `Literal` could not have carried without `get_args`.
+    Written out separately in `db.py`'s accessors, in `constraints.py`'s validator keys and in this
+    model's tables, nothing would hold the three equal and a new collection could reach one and not the
+    others. Iterating the enum is the check a `Literal` could not carry without `get_args`.
     """
 
     declared = {collection.value for collection in Collection}
@@ -197,8 +190,7 @@ def test_every_declared_value_is_used():
     A vocabulary member no row uses is either a gap in the model or a word that should not be there.
 
     `UNUSED_ACTIONS` is the exception list and it is asserted to be EXACT, not a floor: adding a member
-    without using it fails here, and using one that is listed as unused fails here too. That is the check
-    the enum exists for -- iterating the members is what a `Literal` could not do without `get_args`.
+    without using it fails here, and using one that is listed as unused fails here too.
     """
 
     used_actions = {reference.on_target_change for reference in REFERENCES} | {reference.on_target_removed for reference in REFERENCES}
@@ -209,12 +201,14 @@ def test_every_declared_value_is_used():
 
 
 def test_no_rule_code_is_declared_twice():
+    """A code reused for a second rule makes a refusal on the wire ambiguous to the client mapping it."""
     codes = [rule.code for rule in RULES]
 
     assert len(codes) == len(set(codes))
 
 
 def test_every_rule_names_a_declared_aggregate():
+    """A rule whose aggregate is a typo would sit in the table looking scoped to nothing."""
     names = {aggregate.name for aggregate in AGGREGATES}
 
     for rule in RULES:
@@ -229,13 +223,9 @@ def test_no_field_policy_is_declared_twice():
     assert len(keys) == len(set(keys))
 
 
-# =====================================================================================================
-# DOES IT NAME REAL THINGS
-# =====================================================================================================
-
-
 @pytest.mark.parametrize("reference", REFERENCES, ids=lambda reference: f"{reference.source}->{reference.target}:{reference.fields[0]}")
 def test_every_reference_names_real_collections_and_real_fields(reference):
+    """Both ends resolve, so a renamed collection or field cannot leave a reference pointing at nothing."""
     assert reference.source in COLLECTION_VALIDATORS
     assert reference.target in COLLECTION_VALIDATORS
 
@@ -245,6 +235,7 @@ def test_every_reference_names_real_collections_and_real_fields(reference):
 
 @pytest.mark.parametrize("policy", FIELD_POLICIES, ids=lambda policy: f"{policy.collection}.{policy.field}")
 def test_every_field_policy_names_a_real_field(policy):
+    """A policy for a field neither the model nor the validator declares documents a rule about nothing."""
     assert policy.collection in COLLECTION_VALIDATORS
     assert _resolves(policy.collection, policy.field), f"{policy.collection}.{policy.field} is on neither the model nor the validator"
 
@@ -274,11 +265,13 @@ def test_a_derived_field_is_on_no_document(policy):
     "policy", [policy for policy in FIELD_POLICIES if policy.enforced_by], ids=lambda policy: f"{policy.collection}.{policy.field}"
 )
 def test_every_named_enforcer_resolves(policy):
+    """A dotted path that fails to import is a policy claiming an enforcement nothing provides."""
     assert callable(_import_symbol(policy.enforced_by))
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
 def test_every_rule_is_implemented_by_a_callable(rule):
+    """A rule whose `implemented_by` does not resolve is a refusal nothing in the code performs."""
     assert callable(_import_symbol(rule.implemented_by))
 
 
@@ -321,17 +314,12 @@ def test_every_declaration_carries_its_reason():
         assert entry.reason.strip(), f"'{entry.subject}' is unenforced and states no reason"
 
 
-# =====================================================================================================
-# IS IT STILL A DECLARATION
-# =====================================================================================================
-
-
 def test_no_application_module_imports_the_domain_model():
     """
     The invariant that keeps this a declaration.
 
     A production caller reading these tables turns them into an engine every write must remember to
-    consult -- which is bypassable, and is the design ADR-0066 rejected in favour of the refusal living
+    consult -- which is bypassable, and is the design ADR-0053 rejected in favour of the refusal living
     at the endpoint that owns the write. Tests and documentation may read it; nothing under `app/` may.
     """
 

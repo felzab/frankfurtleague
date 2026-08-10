@@ -16,9 +16,9 @@ import type { SpielerSaisonMembership, SpielerTeamOption } from "@/features/spie
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The squad editor (ADR-0050, adopted by FB-3). One player per URL; WHICH season's squad row the
- * editor addresses is the sidemenu selector's `?saison_id=` — switching the selector switches what
- * the Kader panel shows and writes, exactly as it does on the club editor.
+ * The squad editor (ADR-0040). One player per URL; WHICH season's squad row the editor addresses
+ * is the sidemenu selector's `?saison_id=` — switching the selector switches what the Kader panel
+ * shows and writes, exactly as it does on the club editor.
  *
  * No `generateMetadata` and no `generateStaticParams`, for the reasons the match editor records.
  * **The page itself resolves NOTHING** — every await happens inside the `Suspense` boundary, which
@@ -85,9 +85,9 @@ async function AdminSpielerEditContent({
           },
   };
 
-  // Which shirts are already worn in each team this season, from the read above — so the form can refuse
-  // `REQ-SQUAD-002` before the request rather than explain a 409 after it. The edited player's own rows
-  // are excluded, because resubmitting their stored number is not a collision.
+  // Which shirts are already worn in each team this season, so the form can refuse `REQ-SQUAD-002`
+  // before the request rather than explain a 409 after it. The edited player's own rows are excluded:
+  // resubmitting a stored number is not a collision.
   const takenNummern = collectTakenSquadNummern({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
 
   // What the team picker may offer: the selected season's own teams. A transfer is only meaningful

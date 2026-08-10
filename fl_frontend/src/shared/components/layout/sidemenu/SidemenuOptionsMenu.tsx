@@ -17,7 +17,7 @@ import type { FormState } from "@/shared/types/types";
 /**
  * The sidemenu's options menu, opening upward from the footer.
  *
- * The shell's bar offers the same two controls inline (ADR-0058); this is a second placement, and the
+ * The shell's bar offers the same two controls inline (ADR-0046); this is a second placement, and the
  * sign-out's behaviour is `useSignOut`'s so the two cannot come to mean different things. **The
  * appearance is not shared, deliberately**: a full-width row in a 220px menu and a compact button on
  * a 54px bar are different shapes for the same action, and forcing one component to be both is what
@@ -75,11 +75,9 @@ export function SidemenuOptionsMenu({
       <Dropdown.Popover
         offset={8}
         placement={isDesktopCollapsed ? "right bottom" : "top"}
-        /* Below `lg` the menu takes the viewport less a 1rem margin each side (my call), rather than
-           matching the 310px drawer it opens from — which left both rows cramped around a segmented
-           control. The popover is portalled, so overhanging the drawer costs nothing; react-aria keeps
-           it on screen. From `lg` it matches the footer's content box again, which is what stops it
-           spilling into the content area beside a permanent rail. */
+        /* Below `lg` the menu takes the viewport less a 1rem margin rather than matching
+           the drawer, which cramps both rows. It is portalled, so overhanging costs
+           nothing; from `lg` it matches the footer's content box. */
         className={`min-w-[250px] rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-[calc(var(--width-sidemenu)-1.5rem)]"}`}>
         <Dropdown.Menu aria-label="Seitenmenü-Optionen">
           <Dropdown.Section aria-label="Einstellungen">
@@ -133,7 +131,8 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
   const [wasOpen, setWasOpen] = useState(isMenuOpen);
 
   // Adjusted during render rather than in an effect — React's documented pattern for resetting state
-  // when something changes, and the one `react-hooks/set-state-in-effect` exists to push you toward.
+  // when something changes, and the one `react-hooks/set-state-in-effect` pushes you toward.
+
   // It also covers both directions at once, which an `onOpenChange` handler would not:
   // `useNavigationClosedOverlay` closes the menu on a route change by setting its own state, so that
   // path never reaches the handler.
@@ -148,25 +147,14 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
       textValue={isConfirming ? "Abmelden?" : "Abmelden"}
       data-signout-control="true"
       isDisabled={isSigningOut}
-      /* Without this the first press dismisses the menu and the second never happens — the escape
-         hatch that makes an in-place confirm possible at all. Escaping stays deliberately easy:
-         closing the menu, pressing Escape or clicking away all reset it, per the reset above. */
+      /* Without this the first press dismisses the menu and the second never happens, which is what
+         makes an in-place confirm possible. Escaping stays easy: closing, Escape and clicking away
+         all reset it, per the reset above. */
       shouldCloseOnSelect={false}
       onAction={press}
-      /* **One red at rest, one red when armed, and nothing in between** (my call). The fill does not
-         brighten on approach: a hover step on the one destructive command in the menu made the row
-         look like it was reacting when nothing had happened yet, and the state that matters — armed
-         or not — was then competing with it. Both are `!`, because `globals.css`'s unlayered
-         `data-focused` fill would otherwise paint grey straight over either.
-
-         **`data-focused`, and important, or the row goes grey under the pointer.** `globals.css`
-         paints `--bg-muted` on `[data-slot="menu-item"][data-focused="true"]` to give a keyboard user
-         an indicator inside an open menu, and a menu moves focus with the pointer: react-aria's
-         `useMenuItem` hook calls `setFocusedKey` from its own hover-start handler, so hovering this
-         row sets `data-focused` as well. That rule is UNLAYERED and a Tailwind utility is not, which
-         decides a tie the two selectors would otherwise draw on specificity, so a plain
-         `data-hovered:` class loses and the danger tint is overpainted. `!` wins it back, because an
-         important declaration outranks a normal one whatever the layer. */
+      /* **One red at rest, one when armed, nothing between**: a hover step competes with
+         the state that matters. **`data-focused`, and important**, because an unlayered
+         muted fill in `globals.css` otherwise paints grey over both. */
       className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
         isConfirming ? "bg-danger/20!" : "bg-danger/10!"
       }`}>

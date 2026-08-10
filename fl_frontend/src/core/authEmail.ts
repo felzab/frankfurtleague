@@ -4,7 +4,7 @@
  * The one place to edit what admins receive. Auth.js ships an English default template on a
  * German-only site, so `core/auth.ts` passes `sendVerificationRequest` to the Resend provider,
  * replacing it with `buildMagicLinkEmail`. It lives in `core/` because `core/auth.ts` consumes
- * it and `core` may not import from `features` (ADR-0012).
+ * it and `core` may not import from `features` (ADR-0008).
  *
  * Invariants:
  * - Layout stays table-free, inline-styled HTML — Gmail strips `<style>`, and Tailwind does not
@@ -81,7 +81,6 @@ function renderText(url: string): string {
   ].join("\n");
 }
 
-/** Builds the whole message. Called by `core/auth.ts`'s `sendVerificationRequest`. */
 export function buildMagicLinkEmail(url: string): MagicLinkEmail {
   return {
     subject: `Anmeldelink für ${BRAND_NAME}`,

@@ -1,22 +1,23 @@
 # Core rules
 
-**Verified against:** `6b65889`, 2026-08-09\
+**Verified against:** `7555ecd`, 2026-08-10\
 **Applies to:** every written artifact — module headers, symbol docs, inline comments, `docs/`
 pages, ADRs, prompts, command files, commit messages and pull request bodies.
 
-| ID     | Rule                                    |
-| ------ | --------------------------------------- |
-| COR-1  | Write for a reader with no context      |
-| COR-2  | Say it once                             |
-| COR-3  | Name only what exists                   |
-| COR-4  | Ban the facts that rot fastest          |
-| COR-5  | Concise by selection                    |
-| COR-6  | Anchor every citation                   |
-| COR-7  | Purpose first, and the index navigates  |
-| COR-8  | Structure for scanning                  |
-| COR-9  | State doubt                             |
-| COR-10 | Generic examples in normative documents |
-| COR-11 | The voice is the owner's                |
+| ID     | Rule                                     |
+| ------ | ---------------------------------------- |
+| COR-1  | Write for a reader with no context       |
+| COR-2  | Say it once                              |
+| COR-3  | Name only what exists                    |
+| COR-4  | Ban the facts that rot fastest           |
+| COR-5  | Concise by selection, and earn the space |
+| COR-6  | Anchor every citation                    |
+| COR-7  | Purpose first, and the index navigates   |
+| COR-8  | Structure for scanning                   |
+| COR-9  | State doubt                              |
+| COR-10 | Generic examples in normative documents  |
+| COR-11 | The voice is mine                        |
+| COR-12 | A defined shape is never widened         |
 
 ---
 
@@ -49,10 +50,17 @@ belongs:
 - what a surface is for — its overview
 - a rule every session must follow — CLAUDE.md, pointing at the source
 
+A second mention exists only where a reader standing there needs the claim, and takes PRE-3's form:
+the claim briefly, plus the citation. Where nobody standing there needs it, the copy is deleted with
+nothing left in its place — converting it into a pointer removes the drift and keeps the line.
+
 **Why:** a fact stated twice eventually disagrees with itself, and the copy nobody revisits is the
 one that goes stale.
 
-**Exceptions:** —
+**Exceptions:** one duplicate survives — the one a reader cannot reach by citation at all, because
+something other than a reader consumes it at a fixed location. A path a platform serves, and a
+template a fresh session copies before it could open the source, are both this. Convenience is never
+the reason, and neither is the copy being short.
 
 **Enforced by:** `/docs:audit` (the duplication read).
 
@@ -71,8 +79,11 @@ history, and stays.
 reader has no way to tell the two apart without checking.
 
 **Exceptions:** a closed list — an ADR's Context, an ADR's `Superseded by` line,
-`docs/roadmap/closed-items.md`, and the final reports in `docs/_auditing/reports/`. Each is a
-record whose subject is what happened, and only within that job.
+`docs/_roadmap/closed-items.md`, and the final reports in `docs/_auditing/reports/`. Each is a
+record whose subject is what happened, and only within that job. A filed report is closed at its
+filing: it states the commit it was written against, so a template or a numbering that arrives
+afterwards never reaches back into it. What a reader would act on today — a pointer into another
+document — is not shape, and stays subject to this rule.
 
 **Enforced by:** gate check `history` (reported over the branch diff — the hits must be read), and
 `/docs:audit`.
@@ -82,35 +93,64 @@ lookups run either way (ADR-<NNNN>)" — the constraint, never the story of a re
 
 ### COR-4 — Ban the facts that rot fastest
 
-**Rule:** three kinds of claim are never written as facts about now:
+**Rule:** four kinds of claim are never written as facts about now:
 
 - a count — derive it at read time or omit it; write one only when it is the point of the
   sentence, and then with the date it was measured
+- an enumeration or an ordinal — `the four <thing>s`, `the fourth declaration over <Base>`,
+  `both consumers` — name what selects the set instead: `every <thing>`, `each declaration over
+  <Base>`. A sentence carrying a member count has to be edited every time the set grows, and
+  nothing makes that happen
 - a tool's current configuration — cite the config file rather than restating it
 - a line number — anchor the citation instead (COR-6)
 
+What this bans is a count of something outside the sentence that states it. A set the same sentence
+closes is definition rather than a claim about the repository: naming both of two bounds beside the
+two bounds cannot come apart, because nothing can add a third without rewriting the sentence that
+counted them.
+
 **Why:** each goes wrong at some point after it is written, nothing detects the moment, and a
-reader who catches one stops trusting the page.
+reader who catches one stops trusting the page. Enumerations are the worst of the four because
+they read as precision: this corpus had accumulated over three hundred (measured 2026-08-09),
+including two comments claiming the same ordinal over one base component.
 
 **Exceptions:** —
 
-**Enforced by:** gate check `line-citation` for the line-number half; `/docs:audit` for the rest.
+**Enforced by:** gate check `line-citation` for the line-number half; gate check `counts`, which
+reports cardinal and ordinal words in a branch's changed prose and comments — a list to read, not
+a failure; `/docs:audit` for the rest.
 
 **Example:** —
 
-### COR-5 — Concise by selection
+### COR-5 — Concise by selection, and earn the space
 
-**Rule:** cut whole sentences that carry no instruction — preamble, restatement, closing
-summaries, justification for a decision already taken. Never compress the sentences that remain:
-spell terms out and keep the words that make a sentence readable. When in doubt, delete.
+**Rule:** cut whole sentences that carry no instruction — preamble, restatement, closing summaries,
+justification for a decision already taken. Never compress the sentences that remain: spell terms
+out and keep the words that make a sentence readable. When in doubt, delete.
 
-**Why:** length is not the constraint — readability is, and a small accurate corpus is one that
-can actually be kept true.
+A remark a competent reader of this repository already knows, or that the code beside it already
+states, is deleted rather than shortened — a shortened one keeps the whole cost of being read and
+loses the evidence that it was worth cutting.
+
+What earns the space is judged differently by artifact:
+
+- a page is opened deliberately, by someone who wants it, so it earns its place by being worth
+  opening once. Maintenance and repository health count, and process documentation qualifies. Length
+  is never the finding: no page is deleted for being long
+- a comment is read by everyone who touches that line, whether they need it or not, so it earns its
+  place only by carrying what the source cannot (INC-1)
+
+This rule is a guide, not a threshold. Nothing can decide mechanically whether a sentence earns the
+space it takes.
+
+**Why:** length is not the constraint — readability is, and a small accurate corpus is one that can
+actually be kept true. A page that is true, well shaped and correctly cited can still be worth
+nothing to anyone, and no other rule here would say so.
 
 **Exceptions:** never cut a caveat that changes what someone would do, the failure mode behind a
 rule, or the reason a constraint exists.
 
-**Enforced by:** unenforced — review judgment.
+**Enforced by:** unenforced — review judgment, and `/docs:audit`, where a deletion is proposed.
 
 **Example:** —
 
@@ -137,13 +177,22 @@ appear in it.
 ### COR-7 — Purpose first, and the index navigates
 
 **Rule:** the first lines of a document state what question it answers. A chapter of this standard
-navigates by its rule-index table; any other page longer than about a hundred lines carries a
-table of its sections against the question each answers.
+navigates by its rule-index table; any other **reference** longer than about a hundred lines — a
+page consulted at a point rather than read through — carries a table of its sections against the
+question each answers.
 
 **Why:** a page whose purpose has to be inferred gets read in full by people who did not need it,
-and prose alone does not let a reader skip.
+and prose alone does not let a reader skip. A page meant to be read through has nowhere to skip
+to, so a table over it is furniture.
 
-**Exceptions:** —
+**Exceptions:** each of these is read straight through rather than consulted at a point:
+
+- an ADR, whose four fixed H2s are its navigation — a table over `Context / Decision /
+Consequences / Alternatives considered` says only what DEC-2 already fixes
+- a command file under `.claude/`, which is a script for one run
+- a pass prompt under `docs/_auditing/prompts/`, which carries one lens and is read in order. A
+  reference that happens to live beside the prompts — the shared protocol every pass reads
+  alongside its own — is not a prompt and stays in scope.
 
 **Enforced by:** `/docs:audit` (the shape read).
 
@@ -161,14 +210,17 @@ and prose alone does not let a reader skip.
 - headings state the rule, not the topic
 - no nesting past three levels — deeper means the document needs splitting
 - metadata lines — a stamp, a Scope line, an ADR's six fields — each end with a hard break (a
-  trailing backslash), so they render one per line rather than flowing into a paragraph
+  trailing backslash) when another metadata line follows, so they render one per line rather than
+  flowing into a paragraph; the last line of a block carries none, having nothing to separate from
 
 **Why:** a human reader wins on structure and an assistant wins on precision, and this shape gives
 both — a clear heading with an unambiguous rule under it.
 
 **Exceptions:** —
 
-**Enforced by:** `/docs:audit` (the shape read).
+**Enforced by:** gate check `metadata-break` for the hard breaks, in both directions — a metadata
+line missing one where another follows, and one carrying one where nothing follows. The rest is
+`/docs:audit` (the shape read).
 
 **Example:** "Name only what exists" is a heading; "Naming" is a topic.
 
@@ -206,18 +258,47 @@ restamp; a real example ties a normative page to that code's churn.
 **Example:** `<slice>/queries.ts :: <fn>` here; the same citation with real names in a surface
 spec sheet.
 
-### COR-11 — The voice is the owner's
+### COR-11 — The voice is mine
 
-**Rule:** the words "the owner" appear nowhere in `docs/`. Documentation speaks in the owner's own
-voice — first person where a person acts, neutral imperative everywhere else. Files under
-`.claude/` are exempt: they are instructions to the assistant and name the owner as a third party
-by design.
+**Rule:** the words "the owner" appear in no tracked file outside `.claude/` — a `docs/` page, an
+ADR, a commit message and a source comment alike, a comment being documentation. Everything so
+written speaks in my own voice: first person where a person acts, neutral imperative everywhere
+else. Files under `.claude/` are exempt, because they instruct the assistant and naming me as a
+third party is what makes them unambiguous.
 
-**Why:** `docs/` is the maintainer documenting their own project, and a third-person "the owner"
-reads as a second author who does not exist.
+**Why:** this repository is me documenting my own project, and a third-person label for its author
+reads as a second author who does not exist. The scope is every tracked file because a comment is
+read as widely as a page, and a rule bounded by one directory leaves the rest unbound.
 
-**Exceptions:** `.claude/`, the whole tree.
+**Exceptions:** `.claude/`, the whole tree. Quoting the phrase to name what is banned — as this
+rule does — is a mention, not a use.
 
-**Enforced by:** `/docs:audit` (the cold read).
+**Enforced by:** gate check `owner-voice`, which reads a quoted or backticked occurrence as the
+mention it is; `/docs:audit` for the third-person constructions that avoid the phrase.
 
 **Example:** "Marking ready and merging are mine alone" — never "are the owner's".
+
+### COR-12 — A defined shape is never widened
+
+**Rule:** a file whose kind has a template or a defined structure never deviates from it. Never once,
+never for one file, and never by approval. Where a file does not fit, **the file changes**: the
+content that does not fit moves to a page whose shape holds it, or it goes.
+
+The shapes are fixed by a README's rule (OUT-3), a spec sheet's (OUT-4), an overview's (OUT-5), a
+glossary entry's (OUT-6), a module header's (INC-2), an ADR's (DEC-2) and a rule's own (PRE-4). A
+template under [`templates/`](../templates/) instantiates the shape its rule fixes; where the two
+disagree, the rule decides (PRE-2). Where a rule requires something its template does not carry,
+nothing instantiates that requirement, and the two are brought back into line in the same commit.
+
+**Why:** the file that will not fit is almost always the one carrying content in the wrong place, and
+the widening is the cheaper repair every single time it is offered. Taken twice, the shape
+instantiates nothing and every page becomes its own shape — the state the templates exist to end.
+
+**Exceptions:** —
+
+**Enforced by:** gate check `readme-cap` for a README's line cap; gate checks `spec-spine`,
+`invariant-row`, `overview-spine`, `glossary-entry`, `module-header` and `adr-meta` for the shapes
+they each hold. A README's remaining shape and a rule's own are review judgment, as is whether a
+deviation was repaired by moving the content or by widening the shape: both leave a green gate.
+
+**Example:** —

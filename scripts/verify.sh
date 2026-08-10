@@ -1,55 +1,21 @@
 #!/usr/bin/env bash
 #
-# scripts/verify.sh — the pre-merge gate: everything, or exactly the surfaces a change touched.
-# TARGET PLATFORM: any. Every check is read-only with one exception: the frontend scope runs
-# prettier in write mode as its first command, so a run may leave formatting changes for you to
-# commit. Every later check then measures the formatted tree rather than one that is still moving.
+# SCRIPTS · the pre-merge gate — everything, or exactly the surfaces a change touched.
 #
-# NOTE: do not name any other tool's flags in this header. Check 8 of selfcheck.sh treats every
-# double-dashed word in this comment block as a documented flag of THIS script, and fails when the
-# case statement below has no match for it.
+# Read-only but for the frontend scope, which runs prettier in write mode first, so a run can leave
+# formatting to commit and every later check measures a tree that has stopped moving. Before any
+# scope runs, `scripts/check_scope.py` refuses a run narrower than the branch's diff (ADR-0030).
+# Never name another tool's flag in this block: `scripts/selfcheck.sh` reads every double-dashed
+# word here as a flag this script must accept.
 #
-# THE SCOPES, in the order they run (cheapest to fail first — the backend tier runs in seconds,
-# a next build in minutes, an image build in more):
-#   scripts    selfcheck.sh, then ruff over scripts/*.py — the scripts themselves (instant;
-#              the ruff step needs the backend venv)
-#   docs       check_docs.py — citations, links and stamps, then check_commits.py — the branch's
-#              commit messages, which are documentation here (instant; needs the backend venv)
-#   backend    ruff, pyright and the default pytest tier. No Docker
-#   frontend   prettier, tsc, eslint, next build, unit tests, then the dependency audit
-#   ops        both compose files parse, and nginx accepts prod.conf. Needs Docker
-#   db         the db-marked pytest tier against a real mongod (ADR-0030). Needs Docker
-#   images     both docker builds plus the instrumentation.js presence check. Needs Docker
-#
-# The two Docker scopes stay last even though the db tier is quick when warm: everything before
-# them runs daemon-free, which keeps the no-Docker form a strict prefix of the full gate.
-#
-# Before all of them runs one check that is not a scope: check_scope.py compares the scopes named
-# below against what the branch actually changed, refuses a run whose diff touches a packaging path
-# with more than comments while the images scope stays off, and reports every other surface the run
-# leaves unproven (ADR-0037). It is skipped in CI, which maps its own scopes from the paths.
-#
-# Each scope's reasoning — why it exists and what only it can catch — is in scripts/README.md.
-#
-# Tool output is captured and shown only when a step fails, so a green run reads as one line per
-# step. Streaming everything back is one flag away.
-#
-# USAGE:
-#   ./scripts/verify.sh              everything — the full gate. The image builds take minutes
-#   ./scripts/verify.sh --quick      everything that runs without Docker: no db tier, no images.
-#                                    NOT sufficient before a merge if you touched
-#                                    fl_frontend/src/core/config.ts, src/core/auth.ts,
-#                                    src/instrumentation.ts, next.config.ts, a lockfile or a
-#                                    Dockerfile
-#   ./scripts/verify.sh --scripts    one scope. Scope flags combine freely — for example
-#   ./scripts/verify.sh --docs       a documentation-only change needs only this one, and
-#   ./scripts/verify.sh --backend    a backend change pairs this
-#   ./scripts/verify.sh --db         with this, its Docker-backed test tier
-#   ./scripts/verify.sh --frontend
-#   ./scripts/verify.sh --ops
-#   ./scripts/verify.sh --images
-#   ./scripts/verify.sh --verbose    stream every tool's own output instead of capturing it
+#   ./scripts/verify.sh                   every scope — the full gate; the image builds take minutes
+#   ./scripts/verify.sh --scripts --docs --backend --frontend --ops --db --images
+#   ./scripts/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
+#   ./scripts/verify.sh --verbose         stream each tool's own output instead of capturing it
 #   ./scripts/verify.sh --help
+#
+# See:
+# - docs/ops/spec.md — the scope table, what each scope needs, and the cheapest-to-fail order
 
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
@@ -73,7 +39,6 @@ for arg in "$@"; do
   esac
 done
 
-# No scope named means every scope: the bare invocation stays the full gate.
 if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_OPS || RUN_DB || RUN_IMAGES) )); then
   RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
@@ -102,15 +67,14 @@ if (( RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_DB )); then
 fi
 
 # --- scope -------------------------------------------------------------------------------------------
-# Before any scope runs, because refusing an undersized run in two seconds is the whole point: the
-# same refusal after a next build has already cost the minutes it exists to save. The scope flags are
-# chosen by whoever types them and nothing else reads the diff back, so this is where the rule that a
-# comment-only edit is a documentation change stops depending on memory (ADR-0037).
-#
-# Skipped in CI, where the scopes are separate jobs an aggregate check combines and the mapping is
-# derived from the paths rather than typed. There is no single invocation there for the question to
-# be about, and verify.sh --docs in the docs job would fail for a missing images scope another job
-# is running concurrently.
+
+# Before any scope runs, because refusing an undersized run in two seconds is the point: the same
+# refusal after a next build has already cost the minutes it exists to save. This is where ADR-0030
+# stops depending on memory.
+
+# Skipped in CI, where the scopes are separate jobs and the mapping is derived from paths rather than
+# typed: there is no single invocation for the question to be about, and `--docs` would fail for a
+# missing images scope another job is running.
 if [[ -n "${CI:-}" ]]; then
   skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
 else
@@ -138,6 +102,7 @@ else
 fi
 
 # --- scripts ---------------------------------------------------------------------------------------
+
 # First because it is instant and because a broken script would make everything below it unreliable.
 # See selfcheck.sh for the class of bug bash -n cannot see.
 if (( RUN_SCRIPTS )); then
@@ -145,23 +110,17 @@ if (( RUN_SCRIPTS )); then
   quietly bash scripts/selfcheck.sh || die "scripts/selfcheck.sh failed — its findings are above."
   ok "scripts are internally consistent"
 
-  # Nothing linted the gate's own python until scripts/ruff.toml existed. ruff resolves its config
-  # by walking up from the file it is checking, so fl_backend/pyproject.toml governed the backend
-  # and nothing else, and these two files fell back to ruff's defaults — which is how an editor came
-  # to report a finding this gate could not produce. That file points ruff back at the one config.
   step "scripts · ruff  (lint, and format in check mode)"
   ( quietly "$PY" -m ruff check scripts && quietly "$PY" -m ruff format --check scripts ) \
     || die "ruff failed in scripts/. Fix with:  fl_backend/.venv/Scripts/python -m ruff format scripts"
   ok "the gate's own python is clean"
 
-  # And the TYPES, for the same reason the ruff step above exists. `[tool.pyright]` in
-  # fl_backend/pyproject.toml declares include = ["app", "tests"], so it governs the backend and nothing
-  # else -- these four files were linted and type-checked by nobody. They are what the gate is BUILT from:
-  # a type error in check_scope.py is a gate that reports the wrong scope, and a wrong scope is the one
-  # failure this whole script exists to prevent (ADR-0037).
-  #
-  # Run from inside scripts/, because that is where pyright finds scripts/pyrightconfig.json. `$PY` is an
-  # absolute path from `venv_python`, so the `cd` does not disturb it.
+  # The types, for the reason `scripts/pyrightconfig.json` records: the gate is built from this
+  # python, and a type error in `scripts/check_scope.py` is a gate that reports the wrong scope
+  # (ADR-0030).
+
+  # Run from inside scripts/, because that is where pyright finds its config. `$PY` is an absolute
+  # path from `venv_python`, so the `cd` does not disturb it.
   step "scripts · pyright"
   ( cd "${REPO_ROOT}/scripts" && quietly "$PY" -m pyright ) || die "pyright found type errors in scripts/.
 These are the same errors Pylance shows in the editor."
@@ -169,26 +128,26 @@ These are the same errors Pylance shows in the editor."
 fi
 
 # --- docs ------------------------------------------------------------------------------------------
-# A dangling ADR number, a dead link and a citation whose anchor has gone are all invisible to every
-# other check here, and all three read to a future reader as though they still mean something. The
-# standard's other currency defences depend on somebody remembering; this one does not (CUR-5).
+
+# A dangling ADR number, a dead link and a citation whose anchor has gone are invisible to every
+# other check here, and each still reads as though it means something. The standard's other currency
+# defences depend on memory; this one does not (CUR-5).
 if (( RUN_DOCS )); then
   step "docs · citations, links and stamps"
   quietly "$PY" scripts/check_docs.py || die "The documentation gate failed. Each finding above names its file
 and what no longer resolves. Rules: docs/_standard/chapters/5-currency.md"
   ok "documentation references resolve"
 
-  # Commit messages are checked in the docs scope, not a scope of their own, because in this
-  # repository they ARE documentation — merges are never squashed so that they survive — and because
-  # every gate combination CLAUDE.md prescribes already includes --docs. A --commits flag would be a
-  # flag nobody remembers to pass on the change that needed it.
+  # Commit messages ride in this scope rather than one of their own; the argument is in
+  # `scripts/check_commits.py`'s own header.
   step "docs · commit messages on this branch"
   quietly "$PY" scripts/check_commits.py || die "The commit message gate failed. Each finding above names the
-commit and what is wrong with it. The form is docs/workflows/message-templates.md."
+commit and what is wrong with it. The form is docs/_git/templates.md."
   ok "commit messages follow the convention"
 fi
 
 # --- backend ---------------------------------------------------------------------------------------
+
 # Before the frontend deliberately: this tier finishes in seconds while a next build takes minutes,
 # and cheapest-to-fail-first is the ordering rule of this gate.
 if (( RUN_BACKEND )); then
@@ -197,10 +156,9 @@ if (( RUN_BACKEND )); then
     || die "ruff failed in fl_backend. Fix with:  cd fl_backend && .venv/Scripts/python -m ruff format app tests"
   ok "ruff clean"
 
-  # ruff does not check types and pytest only runs what it executes, so without this the gate was
-  # green while Pylance showed errors in the editor -- and five reached main that way. Same checker,
-  # same config: [tool.pyright] in fl_backend/pyproject.toml points at the venv, without which
-  # pyright resolves no third-party import and reports over a hundred phantom errors.
+  # ruff checks no types and pytest runs only what it executes, so without this the gate goes green
+  # while Pylance shows errors in the editor. [tool.pyright] in fl_backend/pyproject.toml points at
+  # the venv, without which no third-party import resolves.
   step "backend · pyright"
   ( cd fl_backend && quietly "$PY" -m pyright ) || die "pyright found type errors in fl_backend.
 These are the same errors Pylance shows in the editor."
@@ -260,10 +218,9 @@ if (( RUN_OPS )); then
   ok "both compose files parse"
 
   step "ops · nginx accepts prod.conf"
-  # `nginx -t` loads the certificates and resolves every proxy_pass host, so the check supplies a
-  # throwaway self-signed pair and loopback entries for the two upstream names. The temp dir sits
-  # under the repo root because MSYS rewrites /tmp in mount paths (scripts/README.md, Windows) —
-  # the same reason both commands carry MSYS_NO_PATHCONV.
+  # `nginx -t` loads the certificates and resolves every proxy_pass host, so this supplies a
+  # throwaway self-signed pair and loopback entries. The temp dir sits under the repo root because
+  # MSYS rewrites a POSIX-looking path (`scripts/README.md`).
   rm -rf "${REPO_ROOT}/.tmp-nginx-check"
   mkdir -p "${REPO_ROOT}/.tmp-nginx-check"
   # Relative output paths, because a Windows openssl cannot open an MSYS-style absolute path; the
@@ -281,9 +238,10 @@ if (( RUN_OPS )); then
 fi
 
 # --- db --------------------------------------------------------------------------------------------
-# The other test tier, split from the default one because it needs the Docker daemon that --quick
-# exists to avoid. Locally this was the gap: `pytest -m db` ran only in CI, so a change that broke
-# the pipeline against a real mongod passed every local gate (ADR-0030).
+
+# The other test tier, split from the default one because it needs the Docker daemon `--quick` exists
+# to avoid. Without it `pytest -m db` runs only in CI, so a change breaking the pipeline against a
+# real mongod passes every local gate (ADR-0023).
 if (( RUN_DB )); then
   step "db · pytest -m db, against a real mongod"
   ( cd fl_backend && quietly "$PY" -m pytest -m db ) || die "fl_backend db-tier tests failed.
@@ -292,21 +250,18 @@ testcontainers starts and removes mongo:8 itself; a failure here is the code, no
 fi
 
 # --- images ----------------------------------------------------------------------------------------
-# The EXIT trap above reclaims the throwaway image tags on every exit path — without it, a failed
-# gate leaves both tags behind, where the next run moves them onto fresh images and orphans the old
-# ones as untagged 369 MB layers that nothing but `docker image prune` ever reclaims.
+
+# The EXIT trap above reclaims the throwaway image tags on every exit path. Without it a failed gate
+# leaves both behind, and the next run moves them onto fresh images, orphaning untagged layers only
+# `docker image prune` reclaims.
 if (( RUN_IMAGES )); then
-  # CI sets VERIFY_IMAGES_CACHE=gha to carry layers across runs through the Actions cache service
-  # (ADR-0038). verify.yml pairs it with a docker-container builder, because the default docker
-  # driver cannot export a cache at all. Unset — the local case — it is a plain docker build against
-  # the daemon's own layer cache, which is already warm and needs no export.
-  #
-  # The guard below buys a better failure, not a failure that would otherwise be missed. buildx's
-  # `ignore-error` defaults to false, so a backend that cannot authenticate does fail the build — but
-  # the cache export runs AFTER every layer is built, so the cost is the whole build followed by a
-  # message about a missing token rather than the missing step that should have provided it. Checking
-  # first costs nothing and names the cause. Only variable names are read or printed here; the
-  # token's value is never echoed.
+  # CI sets VERIFY_IMAGES_CACHE=gha to carry layers between runs (ADR-0031), paired with a
+  # docker-container builder because the default driver cannot export a cache. Unset, this is a plain
+  # build against the daemon's own warm layer cache.
+
+  # The guard below buys a better failure: the cache export runs after every layer is built, so an
+  # unauthenticated backend costs the whole build before it names a missing token. Only names are
+  # read or printed here; the token's value is never echoed.
   if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" && -z "${ACTIONS_RUNTIME_TOKEN:-}" ]]; then
     die "VERIFY_IMAGES_CACHE=gha, but ACTIONS_RUNTIME_TOKEN is not set, so the type=gha backend
 cannot authenticate and buildx would fail the cache export after building everything.
@@ -317,10 +272,11 @@ this step in the job."
   build_image() {
     local name="$1" dockerfile="$2" context="$3"
     if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" ]]; then
-      # scope keeps the two images' caches apart; without it the second build evicts the first's
+      # `scope` keeps the two images' caches apart; without it the second build evicts the first's
       # entries, because a scope is one cache key and buildx overwrites rather than merges.
-      # `version` is deliberately not pinned: buildx picks the live cache service from
-      # ACTIONS_CACHE_SERVICE_V2, and naming the retired one silently disables the cache.
+
+      # `version` is deliberately unpinned: buildx picks the live cache service from
+      # ACTIONS_CACHE_SERVICE_V2, and naming a retired one silently disables the cache (ADR-0031).
       quietly docker buildx build --load \
         --cache-from "type=gha,scope=${name}" \
         --cache-to "type=gha,scope=${name},mode=max" \

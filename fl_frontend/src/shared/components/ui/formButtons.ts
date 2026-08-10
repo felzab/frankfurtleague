@@ -19,10 +19,8 @@ import { tv } from "tailwind-variants";
 
 /**
  * The CTA family — `<Link>`s and one-off buttons OUTSIDE forms: the landing-page hero, the
- * error/404 panels, dashboard not-found. Deliberately a separate recipe from `formButton` (decided
- * 2026-07-31): restyling forms must never silently restyle the marketing pages, and the
- * form base's disabled styling is dead weight on a link. One recipe is what keeps the nine call
- * sites agreeing on height and hover feedback.
+ * error/404 panels, dashboard not-found. The form base's disabled styling is dead weight on a link,
+ * and one recipe is what keeps every call site agreeing on height and hover feedback.
  */
 export const ctaButton = tv({
   base: "fluid-sm hover:scale-hover flex h-12 items-center justify-center rounded-xl px-6 font-bold transition-[scale,background-color,border-color] duration-200 active:scale-95",
@@ -43,11 +41,9 @@ export const formButton = tv({
     intent: {
       submit: "bg-brand-solid text-brand-solid-foreground tracking-wide",
       cancel: "border-border text-foreground border bg-transparent",
-      // `-solid` + its paired foreground, the same pairing every other opaque feedback fill uses.
-      // `bg-danger` is a tint colour: under `text-foreground` it measured 4.10:1 in the light theme
-      // and 3.76:1 in the dark one, because `--fg-base` flips between themes while the fill does not.
-      // This pair holds one value in both themes and measures 6.47:1 (decided 2026-08-01, closing the
-      // decision this line was waiting on).
+      // `-solid` plus its paired foreground, the pairing every opaque feedback fill uses. `bg-danger`
+      // is a tint: under `text-foreground` it measures 4.10:1 light and 3.76:1 dark, while this pair
+      // measures 6.47:1 in both (decided 2026-08-01).
       destructive: "bg-danger-solid text-danger-solid-foreground shadow-danger/25 tracking-wide shadow-lg",
       /** The "Neuen X anlegen" page-header buttons. The height MIRRORS `SearchBar`'s group
        * (`h-12 lg:h-15`) at every breakpoint — the two share the CRUD header row, and one growing

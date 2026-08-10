@@ -2,15 +2,12 @@
 SAISONS · the schedule a season's rules imply
 
 Pure arithmetic over `FLSaisonRules`: how many matchdays the competition has, which phase each is
-in, and how many matches each holds. It exists because `anzahl_spiele` was a stored count of
-something fully determined by the rules, and nothing reconciled the two (ADR-0065).
+in, and how many matches each holds. `anzahl_spiele` is never stored: the rules determine it fully,
+and a stored copy is one nothing reconciles (ADR-0052).
 
 Invariants:
-- The group phase count is a round-robin schedule — n-1 rounds for even n, n for odd, no division.
 - A bye is modelled, never refused (decided 2026-08-07): an odd group is a withdrawal, not an error.
-- The qualifiers must be a power of two; the ceiling is what the phase set holds (ADR-0065).
-- Knockout rounds are the last k of `KNOCKOUT_PHASES`, so adding a phase renames no round below it.
-- Every count is derived and stored nowhere, computed per read like ADR-0026's league table.
+- The qualifiers must be a power of two; the ceiling is what the phase set holds (ADR-0052).
 
 See:
 - docs/domain.md — the derived-versus-stored rule this module is the largest instance of
@@ -115,7 +112,6 @@ def schedule_for(rules: FLSaisonRules) -> tuple[PhaseSchedule, ...]:
 
     remaining = qualifier_count(rules)
     for phase in knockout_phases_for(remaining):
-        # Each round halves the field, so its match count is half of what entered it.
         schedule.append(PhaseSchedule(phase=phase, matchdays=1, matches_per_matchday=remaining // 2))
         remaining //= 2
 
@@ -126,7 +122,7 @@ def expected_matches(rules: FLSaisonRules, phase: FLSaisonPhase) -> int:
     """
     How many matches one matchday of this phase should hold.
 
-    This is what `spieltage.anzahl_spiele` reports (ADR-0065). Zero for a knockout round this season's
+    This is what `spieltage.anzahl_spiele` reports (ADR-0052). Zero for a knockout round this season's
     bracket does not reach, which is the honest answer: a season sending eight teams into the bracket
     plays no round of sixteen, so a matchday claiming to be one is a matchday in a phase nobody runs.
     """

@@ -9,8 +9,7 @@ import { card } from "@/shared/components/ui/card";
 import type { ReactNode } from "react";
 
 /**
- * One collapsible card in a page-owned form's summary rail — the match editor's and the team
- * editor's both.
+ * One collapsible card in a page-owned form's summary rail.
  *
  * **Collapsible because the rail is above the form on a phone.** On desktop the rail sits in its own
  * sticky column and costs nothing; below `xl` it is in flow between the header and the first field, so

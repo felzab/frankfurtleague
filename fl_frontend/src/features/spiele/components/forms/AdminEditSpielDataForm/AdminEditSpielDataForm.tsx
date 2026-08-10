@@ -48,12 +48,10 @@ import type { ReactNode } from "react";
 import type { RailBanner } from "./DraftRail";
 
 /**
- * How long the undo offer stands after a save that destroyed something (ADR-0051).
+ * How long the undo offer stands after a save that destroyed something (ADR-0041).
  *
  * Long enough to read the sentence naming what went and decide; short enough that the offer is gone
- * before the page's copy of the season is stale enough for the replay to be refused. There is no
- * confirmation dialog anywhere on this page — confirmation and undo are alternatives, and a dialog
- * that fires on every save is one an admin stops reading by the second week.
+ * before the page's copy of the season is stale enough for the replay to be refused.
  */
 const UNDO_TIMEOUT_MS = 15000;
 
@@ -62,7 +60,7 @@ const joinGerman = (spielNummern: readonly number[]): string =>
   new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(spielNummern.map(String));
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0062).
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049).
  *
  * By the time the offer is pressed this component is unmounted and the browser is on another route,
  * and a server action dispatched from there makes Next re-render the editor segment it still holds in
@@ -98,7 +96,7 @@ async function postSpielUndo(
  *
  * The lookup lists arrive as props rather than from `useAdmin()`. They are only ever available on
  * admin routes, but reading the context here would make `spiele` depend on `admin` — the exact
- * direction the write path was moved out of `admin` to avoid (ADR-0005). The aggregator supplies them
+ * direction the write path was moved out of `admin` to avoid (ADR-0004). The aggregator supplies them
  * instead, which is what an aggregator slice is for.
  *
  * **Every field is controlled, date and time included.** The draft has to be complete between
@@ -163,9 +161,8 @@ export function AdminEditSpielDataForm({
   const [ortPayload, setOrtPayload] = useState<FLSpielOrtFieldDraft | null>(spielData.ort);
   const [schiedsrichterPayload, setSchiedsrichterPayload] = useState<FLSpielSchiedsrichterFieldDraft | null>(spielData.schiedsrichter);
 
-  // Held as the calendar types the pickers speak, converted at the payload boundary below. The stored
-  // strings are already exactly what `parseDate` / `parseTime` accept, and a `null` is a fixture whose
-  // date or kick-off has not been set — which is a legitimate state, not an empty field to nag about.
+  // Held as the calendar types the pickers speak, converted at the payload boundary below. A `null`
+  // is a fixture whose date or kick-off is unset -- a legitimate state, not a field to nag about.
   const [datum, setDatum] = useState<CalendarDate | null>(spielData.datum ? parseDate(spielData.datum) : null);
   const [uhrzeit, setUhrzeit] = useState<Time | null>(spielData.uhrzeit ? parseTime(spielData.uhrzeit) : null);
 
@@ -173,17 +170,17 @@ export function AdminEditSpielDataForm({
   const [team2Payload, setTeam2Payload] = useState<FLSpielTeamField | null>(spielData.team2);
 
   // Held beside the team rather than inside it: provenance survives the slot being filled, so the two
-  // move independently (ADR-0042).
+  // move independently (ADR-0034).
   const [team1Quelle, setTeam1Quelle] = useState<FLSpielQuelle | null>(spielData.team1_quelle);
   const [team2Quelle, setTeam2Quelle] = useState<FLSpielQuelle | null>(spielData.team2_quelle);
 
   // A draft, so an emptied count is `null` rather than `0` — a side genuinely can miss every kick, so
-  // the two must not be the same value (ADR-0044).
+  // the two must not be the same value (ADR-0036).
   const [elfmeterschiessen, setElfmeterschiessen] = useState<FLSpielElfmeterschiessenDraft | null>(spielData.elfmeterschiessen);
 
   const [notiz, setNotiz] = useState<string | null>(spielData.notiz);
 
-  // ALWAYS closed on open (seventh review, overruling the opened-when-played variant): the
+  // ALWAYS closed on open: the
   // deliberate flip is the guard, on every fixture alike, so a stray keystroke can neither invent a
   // 0:0 nor silently rewrite a recorded result.
   const [ergebnisCanBeEdited, setErgebnisCanBeEdited] = useState(false);
@@ -193,12 +190,8 @@ export function AdminEditSpielDataForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
 
-  // Latched when a confirmed discard leaves the page, and it UNMOUNTS the dialog rather than closing
-  // it. Closing animates: `isOpen={false}` keeps the overlay mounted through its exit transition, and
-  // `router.back()` in the same tick froze the tree mid-exit — the App Router keeps the tree alive for
-  // back/forward, so returning to the fixture resumed a half-finished exit animation and the dialog
-  // flashed back in over a page whose draft was already gone. Unmounted, there is nothing to resume.
-  // `requestLeave` resets it, so the dialog still opens on the next visit's own unsaved changes.
+  // Latched by a confirmed discard, and it UNMOUNTS the dialog rather than closing it: closing
+  // animates, and `router.back()` in the same tick freezes that exit on a tree the App Router keeps.
   const [hasLeftViaDiscard, setHasLeftViaDiscard] = useState(false);
 
   // See the note in `EntityForm`: catches a rejection on a payload path that has no input.
@@ -213,7 +206,7 @@ export function AdminEditSpielDataForm({
   );
 
   // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the message the
-  // server would have produced (ADR-0050).
+  // server would have produced (ADR-0040).
   const { validatePaths, clearVerdicts, mergedWith } = useDraftValidation(FLPatchSpielDataPayloadSchema);
 
   const draft: FLSpielDraftFields = {
@@ -233,38 +226,27 @@ export function AdminEditSpielDataForm({
   };
 
   // An empty picker is a legitimate answer, and it is how a bracket slot the group phase has not
-  // filled yet is recorded (ADR-0042) — so both sides submit as they stand, `null` included.
+  // filled yet is recorded (ADR-0034) — so both sides submit as they stand, `null` included.
   const buildPayload = (): FLPatchSpielDataPayload => ({ ...draft, spiel_id: spielData.id }) as FLPatchSpielDataPayload;
 
-  // The fixture as it will stand once saved. Built once and read three times — the preview renders it,
-  // the categorisation asks it what is still outstanding, and the knockout-cancellation warning asks
-  // whether the admin is about to call off a bracket fixture.
+  // The fixture as it will stand once saved. Built once and read by the preview, the categorisation
+  // and the knockout-cancellation warning, so the three cannot disagree.
   const previewSpiel = applyDraftToSpiel(spielData, draft);
 
   const fieldErrors = mergedWith(serverFieldErrors);
   const status = deriveSpielDraftStatus({ stored: spielData, draft, expectedCategories: categorize(previewSpiel), fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
-  // `hasSaved` exists to keep the guard quiet during the save's own navigation, where the draft
-  // still differs from the `spielData` this render was given. Its job ends the moment the
-  // revalidated fixture arrives and the two agree — left latched, every LATER edit on a restored
-  // tree read as not-dirty and both guards were bypassed, which is the "sometimes the discard
-  // dialog does not appear" caught in review: it never appeared again after a save. A render-phase
-  // adjustment rather than an effect: React restarts this component's render before committing, so
-  // no frame ever shows the stale latch.
+  // Keeps the guard quiet during the save's own navigation, where the draft still
+  // differs from this render's props. Left latched, a later edit on a restored tree
+  // reads as not-dirty and passes both guards.
   if (hasSaved && !status.isDirty) setHasSaved(false);
 
   useUnsavedChangesWarning(isDirty);
 
-  // Ctrl+S / Cmd+S submits the form — the shortcut every editor an admin also uses has taught their
-  // hands, intercepted so the browser's "save this page as HTML" dialog cannot appear over a form.
-  // `requestSubmit`, not a handler call: it runs the same native validation and `action` path as the
-  // Speichern button, so the shortcut cannot become a second submit route that drifts. Read through a
-  // ref for the same reason `useUnsavedChangesWarning` reads one — re-listening on every keystroke
-  // that flips a flag is churn on a global listener.
-  // `isDirty` is in here for the same reason the Speichern button carries it: the shortcut and the
-  // button are two routes to one submit, and a shortcut that saved a clean draft while the button was
-  // disabled would be two answers to whether there is anything to save.
+  // Ctrl+S submits, intercepted so the browser's save-page dialog cannot open over a form.
+  // `requestSubmit` rather than a handler call, and `isDirty` as the Speichern button carries it:
+  // two routes to one submit must not answer differently.
   const canSubmitRef = useRef(true);
   useEffect(() => {
     canSubmitRef.current = !isPending && !isConfirmingDiscard && isDirty;
@@ -281,9 +263,9 @@ export function AdminEditSpielDataForm({
     return () => window.removeEventListener("keydown", handleSaveShortcut);
   }, [formRef]);
 
-  // The fixtures whose occupants this one's result decides (ADR-0051). Read off the STORED sides: what
+  // The fixtures whose occupants this one's result decides (ADR-0041). Read off the STORED sides: what
   // is already wired is what a save resolves, and a group is a property of the clubs in the fixture
-  // rather than of the fixture document (ADR-0028).
+  // rather than of the fixture document (ADR-0021).
   const dependentSpiele = useMemo(() => {
     const gruppen = [spielData.team1, spielData.team2]
       .map((side) => teams.find((team) => team.id === side?.team_id)?.gruppe)
@@ -292,22 +274,19 @@ export function AdminEditSpielDataForm({
     return listDependentSpiele(saisonSpiele, spielData, gruppen);
   }, [saisonSpiele, spielData, teams]);
 
-  // Every team the bracket already fields — the client's proxy for "qualified for the knockout
-  // stage" (see `collectKnockoutTeamIds`). Read by the pickers for their warning chip, by the inline
-  // callout under a manual side, and by the rail banner below, so the three surfaces cannot disagree.
+  // Every team the bracket already fields -- the client's proxy for "qualified for the knockout
+  // stage" (see `collectKnockoutTeamIds`). One derivation, so its readers cannot disagree.
   const knockoutTeamIds = useMemo(() => collectKnockoutTeamIds(saisonSpiele, spielData.id), [saisonSpiele, spielData.id]);
 
-  // Which fixture of the same Spieltag already fields each team. A team plays once per matchday, so a
-  // pick that would field it twice is disabled in the list with the occupying fixture named — and the
-  // server refuses the same shape (ADR-0052). Held HERE rather than in the matchup panel, because the
-  // save's refusal has to land on the side this map would have disabled: one derivation, two readers.
+  // Which fixture of the same Spieltag already fields each team (ADR-0042). Held here rather than in
+  // the matchup panel, because the save's refusal lands on the side this map disables.
   const spieltagOccupancy = useMemo(
     () => collectSpieltagTeamOccupancy(saisonSpiele, { id: spielData.id, spieltag_id: spielData.spieltag_id }),
     [saisonSpiele, spielData.id, spielData.spieltag_id],
   );
 
   /**
-   * What saving right now would destroy, asked live and answered by the write path itself (ADR-0051).
+   * What saving right now would destroy, asked live and answered by the write path itself (ADR-0041).
    *
    * Keyed on the fields that can move a bracket occupant and on nothing else: a venue or a kick-off
    * time cannot void a result anywhere, so keying on the whole draft would be a request per keystroke
@@ -369,9 +348,9 @@ export function AdminEditSpielDataForm({
     });
   }
 
-  // A cancelled fixture with a DECIDED score is legal — a Wertung is entered exactly like this, and
-  // the table counts it (ADR-0026) — but it is also the shape a mistaken cancellation takes, so it
-  // gets a warning rather than silence or a refusal (eighth review).
+  // A cancelled fixture with a DECIDED score is legal -- a Wertung is entered exactly like this and
+  // the table counts it (ADR-0019) -- but it is also the shape a mistaken cancellation takes, so it
+  // gets a warning rather than silence or a refusal.
   const tore1 = team1Payload?.tore ?? null;
   const tore2 = team2Payload?.tore ?? null;
   const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
@@ -385,7 +364,7 @@ export function AdminEditSpielDataForm({
   }
 
   /**
-   * The void warning, and it names fixtures rather than possibilities (ADR-0051).
+   * The void warning, and it names fixtures rather than possibilities (ADR-0041).
    *
    * The preview ran the actual resolution against this draft, so every number here is a fixture whose
    * stored result **this save deletes** — not one that could lose it under some other edit. That is
@@ -453,14 +432,8 @@ export function AdminEditSpielDataForm({
    * somewhere to go back to".
    */
   const leavePage = () => {
-    // Blur first, and this is a correctness fix rather than tidiness. react-aria drives the brand
-    // border on a field group from its OWN state — `data-focused` / `data-focus-within`, matched by
-    // the unlayered rule in `globals.css` — and it clears that state when it sees a blur. Navigating
-    // away while a field still holds focus means the blur never happens, and the App Router keeps
-    // this tree alive for back and forward, so the attribute survives with it: reopening the same
-    // fixture restored a field still marked focused and painted it brand, on a page nobody had
-    // touched yet. Blurring here is the origin of that state rather than the place it showed up, so
-    // the CSS rule stays exactly as it is.
+    // Blur first, and it is correctness rather than tidiness: react-aria clears `data-focused` on a
+    // blur, and navigating away with a field focused leaves it set on a tree the router keeps.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
     if (window.history.length > 1) router.back();
@@ -534,9 +507,8 @@ export function AdminEditSpielDataForm({
       const res = await patchAdminSpielDataAction(buildPayload(), spielData.saison_id);
 
       if (!res.success) {
-        // An occupant refusal names a rule, and the FORM is what knows which side broke it: the code
-        // is the only channel a failure body has (ADR-0052), and the predicates below are the same
-        // ones the pickers already use for their chips. A field error rather than a toast, so the
+        // An occupant refusal names a rule and the FORM knows which side broke it -- the code is the
+        // only channel a failure body has (ADR-0042). A field error rather than a toast, so the
         // message lands on the control the admin has to change.
         const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
         const fieldErrorsFromServer = { ...(res.fieldErrors ?? {}), ...occupantErrors };
@@ -555,28 +527,21 @@ export function AdminEditSpielDataForm({
       clearVerdicts();
       setHasSaved(true);
 
-      // The fixtures this save rewrote, which the client can put back for as long as it still holds
-      // their previous state — nothing on the server does (ADR-0051). Built BEFORE leaving, because
-      // `spielData` and `saisonSpiele` are this render's props and the toast outlives the page.
-      //
-      // **Offered on EVERY save, not only a destructive one** (decided 2026-08-06). Scoping it to
-      // saves that voided a result answered "what did this destroy" and left "I did not mean to save
-      // that" with no answer at all — which is the more common mistake and the one an admin notices
-      // one second too late. It costs nothing extra: with no other fixture affected the replay is the
-      // edited fixture's own pre-edit payload, which is exactly what taking the edit back means.
+      // The fixtures this save rewrote, put back from state only the client holds (ADR-0041). Built
+      // BEFORE leaving: these are this render's props and the toast outlives the page. Offered on
+      // EVERY save -- "I did not mean to save that" is the commoner mistake.
       const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
       offerUndo(buildUndoPayloads(spielData, saisonSpiele, affected), res.message, affected.length > 0);
 
-      // AFTER the undo payloads are built, which read `spielData` rather than these atoms, so the
-      // order costs the offer nothing. See `resetDraftToStored`: leaving with the typed values still
-      // in state is what let a save-then-undo reopen on values the fixture no longer holds.
+      // AFTER the undo payloads are built, which read `spielData` rather than these atoms. See
+      // `resetDraftToStored`: leaving typed values in state reopens a save-then-undo on stale ones.
       resetDraftToStored();
       leavePage();
     });
   };
 
   /**
-   * The undo toast: fifteen seconds to take a save back (ADR-0051).
+   * The undo toast: fifteen seconds to take a save back (ADR-0041).
    *
    * **There is no confirmation dialog anywhere on this page, and this is why.** Confirmation and undo
    * are alternatives, not companions: a dialog interrupts every save to ask about a case that is
@@ -619,18 +584,14 @@ export function AdminEditSpielDataForm({
         onPress: () => {
           appToast.clear();
 
-          // Stands until the replay answers — a batch is one request per fixture and the press has to
-          // look like it did something immediately. `appToast.pending` is what makes that true: it
-          // passes `timeout: 0`, and HeroUI applies its own four-second default to any toast that
-          // does not, so simply omitting the option used to retire this spinner while the requests
-          // were still in flight. Closed by its own key rather than with `clear()`, which would also
-          // take down any toast this page did not raise.
+          // Stands until the replay answers, which `appToast.pending`'s `timeout: 0` is what buys --
+          // HeroUI's own default would retire the spinner mid-flight. Closed by its key, never
+          // `clear()`, which takes other toasts down with it.
           const pendingKey = appToast.pending("Änderung wird zurückgenommen...");
 
-          // The TWO-ARGUMENT form, and that is the fix rather than a style choice. A trailing
-          // `.catch` also catches anything the SUCCESS handler throws, so a restore that had already
-          // committed reported itself as "could not be sent" — the transport blamed for a failure
-          // downstream of it. A rejection handler passed here runs only for the request.
+          // The TWO-ARGUMENT form, not a style choice: a trailing `.catch` also catches what the
+          // SUCCESS handler throws, so a committed restore reports itself as "could not be sent".
+          // A rejection handler passed here runs for the request alone.
           void postSpielUndo(payloads, spielData.saison_id).then(
             (result) => {
               appToast.close(pendingKey);
@@ -643,10 +604,9 @@ export function AdminEditSpielDataForm({
               // nothing below can change that.
               appToast.success("Änderung zurückgenommen", { description: result.message });
 
-              // Best-effort, and deliberately not allowed to fail the undo. This closure's component
-              // is unmounted, so the router's revalidation of the action never reaches the view and
-              // this is what re-renders it — but a refresh that cannot run costs a stale screen until
-              // the next navigation, never the restore itself.
+              // Best-effort, and never allowed to fail the undo. This closure's component is
+              // unmounted, so this is what re-renders the view -- but a refresh that cannot run
+              // costs a stale screen until the next navigation, never the restore.
               try {
                 router.refresh();
               } catch (refreshError) {
@@ -657,20 +617,9 @@ export function AdminEditSpielDataForm({
               appToast.close(pendingKey);
               console.warn("Undo dispatch failed", dispatchError);
 
-              // **The raw error stays in the description, and this is the one place in the app that
-              // does it** (ADR-0053, which reviewed and kept it).
-              //
-              // `actionError.ts` maps every failure to generic German because the specific diagnosis
-              // belongs to the server log — that is its docblock's own reasoning, and it holds
-              // wherever a server log exists. Here one does not: the dispatch itself failed in the
-              // browser, so nothing was ever written server-side and the only other copy is a devtools
-              // console nobody has open. Generic German would delete the diagnosis rather than
-              // relocate it.
-              //
-              // The two conditions that make it safe are both properties of this call site rather
-              // than of toasts in general: the surface is admin-only, and the string is a client-side
-              // transport error, which carries no record data. A failure that reached the server is
-              // NOT this case and must stay generic.
+              // **The raw error stays in the description, and this is the one place that does it**
+              // (ADR-0043). The dispatch failed in the browser, so no server log holds the
+              // diagnosis. A failure that REACHED the server stays generic.
               appToast.danger("Rücknahme konnte nicht gesendet werden", {
                 description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
                 // Stated rather than derived, and for a reason no formula covers: this string is the
@@ -689,7 +638,7 @@ export function AdminEditSpielDataForm({
    * Which field an occupant refusal belongs to, decided from the payload this form just submitted.
    *
    * The backend answers one code per RULE, because "team1 is disqualified" and "team2 is disqualified"
-   * are one failure mode and the code table's own rule is one code per mode (`docs/logging.md`). The
+   * are one failure mode and the code table's own rule is one code per mode (`docs/logging/error-codes.md`). The
    * side is the client's to work out, and it can: the predicates below are exactly the ones
    * `FormTeamPicker` already evaluates to disable a team and put a chip on it, over the same data.
    *
@@ -725,7 +674,7 @@ export function AdminEditSpielDataForm({
 
   return (
     <DraftStatusProvider status={status}>
-      {/* The shell (eighth review): the inner container scrolls the page — header, panels,
+      {/* The shell: the inner container scrolls the page — header, panels,
           rail — and the action bar is its STATIC sibling below, outside the scroll content, where
           nothing (overscroll bounce, the mobile URL bar, page-end spacing) can move it. `main`
           never scrolls on this route, because this form fills it exactly. */}

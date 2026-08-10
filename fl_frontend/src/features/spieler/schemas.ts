@@ -2,14 +2,14 @@
  * SPIELER · models
  *
  * Mirrors `fl_backend/app/api/spieler/schemas.py`, no generation step; the contract test checks
- * the wire half (ADR-0040).
+ * the wire half (ADR-0033).
  *
  * Invariants:
  * - Only `vorname` is mandatory — the nullability is real: a null once threw on a valid response.
  * - `nummer` is a string and stays free text — worn rather than counted, not unique in a squad.
- * - `position` and `stufe` are closed sets (ADR-0061) — outside values are malformed responses.
- * - `FLSpieler` flattens one season; the admin surfaces read `FLSpielerWithMemberships` (ADR-0034).
- * - The person and the squad row retire independently (ADR-0032).
+ * - `position` and `stufe` are closed sets (ADR-0048) — outside values are malformed responses.
+ * - `FLSpieler` flattens one season; the admin surfaces read `FLSpielerWithMemberships` (ADR-0027).
+ * - The person and the squad row retire independently (ADR-0025).
  */
 
 import z from "zod";
@@ -24,13 +24,13 @@ import { CustomDateStringSchema, CustomObjectIdStringSchema, PersonNameSchema } 
 export const FLSpielerPositionSchema = z.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"], { error: "Bitte wähle eine Position." });
 export type FLSpielerPosition = z.infer<typeof FLSpielerPositionSchema>;
 
-/** Mirrors `FLSpielerStufe` — the Hessen Oberstufe, both phases (ADR-0061). */
+/** Mirrors `FLSpielerStufe` — the Hessen Oberstufe, both phases (ADR-0048). */
 export const FLSpielerStufeSchema = z.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"], { error: "Bitte wähle eine Stufe." });
 export type FLSpielerStufe = z.infer<typeof FLSpielerStufeSchema>;
 
-// Mirrors the backend FLSpieler. Only vorname is mandatory; the rest may legitimately be absent
-// for a player whose squad entry has not been filled in yet. The backend already declared these
-// nullable — the frontend did not, so a null would have thrown APIMalformedDataError.
+// Mirrors the backend FLSpieler. Only vorname is mandatory; the rest may legitimately be absent for
+// a player whose squad entry is unfilled. This mirror must be exactly as nullable as the backend
+// model, or a null throws APIMalformedDataError.
 export const FLSpielerSchema = z.object({
   id: CustomObjectIdStringSchema,
   vorname: z.string(),
@@ -41,7 +41,7 @@ export const FLSpielerSchema = z.object({
   is_nachgetragen: z.boolean(),
   is_captain: z.boolean(),
   team_id: CustomObjectIdStringSchema,
-  // The day this player left the club, null while they are on a squad (ADR-0032). Declared because
+  // The day this player left the club, null while they are on a squad (ADR-0025). Declared because
   // the backend sends it: zod's default strip mode discards an undeclared field with no error.
   inactive_since: CustomDateStringSchema.nullable(),
 });
@@ -52,13 +52,11 @@ export const FLSpielerListResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSpielerListResponse = z.infer<typeof FLSpielerListResponseSchema>;
 
-// ── The admin read (FB-3) ────────────────────────────────────────────────────────────────────────────
-
 /**
  * Mirrors `FLSpielerMembership` — one squad row as seen from its player.
  *
  * Carries `inactive_since`, which the team junction's equivalent does not: a squad row really is
- * retired when a player leaves a team mid-season, while a team never leaves a season (ADR-0033).
+ * retired when a player leaves a team mid-season, while a team never leaves a season (ADR-0026).
  */
 export const FLSpielerMembershipSchema = z.object({
   saison_id: z.string(),
@@ -76,7 +74,7 @@ export type FLSpielerMembership = z.infer<typeof FLSpielerMembershipSchema>;
  * Mirrors `FLSpielerWithMemberships` — the person as stored, plus every squad row they hold.
  *
  * The admin list's one read, and a different question from `FLSpieler` rather than a projection of
- * it (ADR-0034): that shape is flattened against one season, so it cannot report a player in two and
+ * it (ADR-0027): that shape is flattened against one season, so it cannot report a player in two and
  * cannot represent a player in none.
  */
 export const FLSpielerWithMembershipsSchema = z.object({
@@ -93,8 +91,6 @@ export const FLSpielerMembershipsResponseSchema = BaseAPIResponseSchema.extend({
   spieler: z.array(FLSpielerWithMembershipsSchema),
 });
 export type FLSpielerMembershipsResponse = z.infer<typeof FLSpielerMembershipsResponseSchema>;
-
-// ── The write path (FB-3) ────────────────────────────────────────────────────────────────────────────
 
 /**
  * The person's own fields, shared by create and patch — `PATCH /spieler/{spieler_id}` replaces them
@@ -143,14 +139,13 @@ export type FLReactivateSpielerPayload = z.infer<typeof FLReactivateSpielerPaylo
  * A literal mirror of the backend model, transforms included — which is to say none. `nummer` is
  * nullable here and the empty-to-null normalisation happens at the FORM boundary, the same place
  * `nachname` is normalised: a schema that rewrote its input would make `z.infer` disagree with what
- * the form holds, and `apiContract.test.ts` compares this shape to the published document (ADR-0040).
+ * the form holds, and `apiContract.test.ts` compares this shape to the published document (ADR-0033).
  */
 const saisonSpielerPayloadFields = {
   team_id: CustomObjectIdStringSchema,
-  // Digits only, at most four. A squad number is free text on the wire — it is worn rather than
-  // counted, and stays a string (ADR-0061) — but "free text" was never meant to admit a name: the
-  // one row that read `NaN` got there exactly that way. The message is German like every other
-  // payload message in the app, because the ACTION is what reports it and it lands on the field.
+  // Digits only, at most four. A squad number is free text on the wire — worn rather than counted,
+  // and stays a string (ADR-0048) — but free text was never meant to admit a name. The message is
+  // German because the action reports it on the field.
   nummer: z
     .string()
     .regex(/^\d{1,4}$/, { error: "Die Nummer besteht aus 1 bis 4 Ziffern." })
@@ -191,16 +186,14 @@ export type FLSaisonSpielerKeyPayload = z.infer<typeof FLSaisonSpielerKeyPayload
 /**
  * What one form submits to create a player AND put them in a squad, which the action splits into two
  * requests (`POST /spieler`, then `POST /spieler/{id}/saisons`). One form on purpose: every squad
- * read is season-scoped with a strict junction join (I11), so a player created without a junction
- * row would be invisible to every surface that could give them one.
+ * read is season-scoped with a strict junction join (backend spec I11), so a player created without
+ * a junction row is invisible to every surface that could give them one.
  */
 export const FLCreateSpielerFormPayloadSchema = z.object({
   ...spielerPayloadFields,
-  // Required HERE and nullable everywhere else (decided 2026-08-07). The column stays nullable and
-  // the patch payload still accepts null, because squads imported before this form existed hold
-  // surnameless rows and the league is not going to invent names for them — but a player entered
-  // through this form always has one. The browser refuses the empty field first; this is the guard
-  // behind it, for a submit that never went through the form.
+  // Required here and nullable everywhere else (decided 2026-08-07): the column and the patch payload
+  // still accept null, because imported squads hold surnameless rows, but a player entered through
+  // this form always has one.
   nachname: PersonNameSchema,
   saison_id: z.string().length(4, { error: "Bitte wähle eine Saison." }),
   ...saisonSpielerPayloadFields,

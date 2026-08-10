@@ -33,7 +33,6 @@ export function SpielCardSkeleton() {
     <div
       aria-hidden="true"
       className={`${card()} relative flex h-auto w-full flex-col items-center justify-between gap-x-4 gap-y-6 px-4 py-3 lg:px-5 lg:py-4`}>
-      {/* Row 1 — the date/time stack and the two icon buttons. */}
       <div className="flex w-full flex-row items-center justify-between">
         {/* No `gap-*`: the real stack has none, and 4px here is 4px of layout shift. The two lines
             become one bar centred over them, rather than two bars stacked. */}

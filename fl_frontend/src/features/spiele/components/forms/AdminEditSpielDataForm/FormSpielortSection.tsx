@@ -18,7 +18,7 @@ import type { FLSpielort } from "@/features/spielorte/schemas";
  * The price is subordinate to the choice rather than its peer — it is a property *of* the venue — so the
  * two sit in a 2fr/1fr grid instead of a 50/50 one. It is prefilled from the venue's own
  * `default_mietpreis` and then editable, because what a fixture actually cost is a property of the
- * fixture (ADR-0028).
+ * fixture (ADR-0021).
  */
 export function FormSpielortSection({
   spielorte,
@@ -32,8 +32,8 @@ export function FormSpielortSection({
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   // The picker hands over the resolved record. Looking it up here against `spielorte` would miss a
-  // Spielort just created in the modal, which lives only in the picker's own list until the next server
-  // render — the lookup silently failed and the "und zugewiesen" toast was a lie.
+  // Spielort just created in the modal, which lives only in the picker's own list until the next
+  // server render — a silent failure behind a success toast.
   const handleOrtChange = (resolvedOrt: FLSpielort | null) => {
     onOrtChange(
       resolvedOrt
@@ -48,8 +48,8 @@ export function FormSpielortSection({
   };
 
   // NaN is an emptied field, not a zero price — see the note on `FormSchiedsrichterSection`.
-  // `Math.round`, because a decimal is typable (the field carries no `step`) and the payload wants
-  // an integer: rounding at entry beats a schema rejection for the one shape a price actually takes.
+  // `Math.round`, because a decimal is typable (the field carries no `step`) and the payload wants an
+  // integer: rounding at entry beats a schema rejection.
   const handleMietpreisChange = (newPrice: number) => {
     if (ortPayload) {
       onOrtChange({ ...ortPayload, mietpreis: isNaN(newPrice) ? null : Math.round(newPrice) });
@@ -88,7 +88,6 @@ export function FormSpielortSection({
         )}
       />
 
-      {/** Mietpreis */}
       <NumberField
         minValue={0}
         name="ort.mietpreis"

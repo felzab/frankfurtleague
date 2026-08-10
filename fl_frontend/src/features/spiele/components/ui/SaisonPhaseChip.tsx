@@ -4,11 +4,9 @@ import { PHASE_LABELS } from "@/features/saisons/constants";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
-// See SpielStatusChip for why all three maps live at module scope. This one mattered more: the icon
-// map allocates five <svg> elements and would rebuild all of them on every render to use one.
-// The tint is the label colour at 10%, not 15%: one token has to serve both roles here, and at /15
-// the deeper tint pulled `gruppenphase` and `finale` to 4.39:1 and 4.46:1 in the light theme —
-// below AA, and below what the two-value raw-palette version managed. /10 restores 4.72 and 4.87.
+// Module scope, for the reason `SpielStatusChip` gives: the icon map allocates an
+// `<svg>` per phase and rebuilds all of them per render to read one. The tint is the
+// label colour at /10 -- at /15 it drops phases below AA in the light theme.
 const PHASE_CLASSES: Record<FLSaisonPhase, string> = {
   gruppenphase: "bg-phase-gruppenphase/10 text-phase-gruppenphase",
   achtelfinale: "bg-phase-achtelfinale/10 text-phase-achtelfinale",
@@ -58,9 +56,8 @@ const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {
       />
     </svg>
   ),
-  // Four pair-brackets narrowing to one line, against `viertelfinale`'s two below. A thinner stroke
-  // because eight entry arms in a 24-unit box cannot carry 2: what has to survive at 14px is the
-  // SILHOUETTE — a busy left edge collapsing to a single output — and the German label sits beside it.
+  // A thinner stroke, because this many entry arms in a 24-unit box cannot carry 2: what survives at
+  // 14px is the SILHOUETTE, a busy left edge collapsing to one output.
   achtelfinale: (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -147,9 +144,8 @@ export function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase })
   return (
     <Chip
       size="sm"
-      /* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip` (decided 2026-08-07) — one radius for
-         every pill in the app, matching `SpielStatusChip` beside it and the badge recipes in
-         `shared/components/ui/badges.ts`. A utility beats the component layer, so no `!` is needed. */
+      /* `rounded-md` overrides HeroUI's `rounded-2xl` on `.chip`: one radius for every pill in the
+         app. A utility beats the component layer, so no `!` is needed. */
       className={`rounded-md border-none px-1.5 py-0.5 ${PHASE_CLASSES[saisonPhase]}`}>
       <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
         {PHASE_ICONS[saisonPhase]}

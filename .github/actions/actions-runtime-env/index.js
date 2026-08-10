@@ -1,37 +1,22 @@
-// .github/actions/actions-runtime-env/index.js — expose the Actions cache credentials to `run:` steps.
-//
-// WHY THIS EXISTS -------------------------------------------------------------------------------
-//
-// buildx's type=gha cache backend authenticates to the Actions cache service with ACTIONS_RUNTIME_TOKEN
-// and ACTIONS_RESULTS_URL. The runner injects those into the environment of JAVASCRIPT ACTIONS ONLY,
-// never into a `run:` step — so `docker buildx build --cache-to type=gha` from a shell script cannot
-// see them. Docker's own documentation says as much: "If you invoke the docker buildx command manually
-// from an inline step, then the variables must be manually exposed."
-//
-// This is a JavaScript action, so it can read them, and it writes them to $GITHUB_ENV where every later
-// step in the job can. That is the whole of it.
-//
-// WHY LOCAL RATHER THAN THE ACTION DOCKER POINTS AT ----------------------------------------------
-//
-// Docker recommends crazy-max/ghaction-github-runtime, which does exactly this. A local action was
-// chosen instead because this repository allowlists third-party actions one at a time and pins each to
-// an exact version, precisely to bound supply-chain surface (docs/workflows/README.md, Actions). Fifteen
-// dependency-free lines in-tree are strictly less surface than a fourth third-party action, and they
-// need no allowlist entry. ADR-0038 records the decision and what it costs.
-//
-// SECURITY --------------------------------------------------------------------------------------
-//
-// ACTIONS_RUNTIME_TOKEN is a credential. It is masked before it is exported, so the runner redacts it
-// from every subsequent log line, and nothing here prints a value — only names. The mask is what makes
-// exporting it safe; do not remove it.
+/**
+ * CI · expose the Actions cache credentials to `run:` steps.
+ *
+ * The runner injects ACTIONS_RUNTIME_TOKEN and ACTIONS_RESULTS_URL — what buildx's type=gha cache
+ * authenticates with — into JavaScript actions alone, never into a `run:` step, so this action reads
+ * them and writes them to $GITHUB_ENV. Dependency-free and in-tree, it is less surface than a third
+ * party one and needs no allowlist entry (ADR-0031, `docs/_git/spec.md`).
+ *
+ * Invariants:
+ * - The token is masked before it is exported; the mask is what makes exporting it safe.
+ * - Nothing here prints a value — only names.
+ */
 
 const { appendFileSync } = require("node:fs");
 const { randomUUID } = require("node:crypto");
 
-// ACTIONS_RESULTS_URL is the v2 cache service; ACTIONS_CACHE_URL was v1. ACTIONS_CACHE_SERVICE_V2 is
-// what buildx reads to decide between them, so it is forwarded rather than the version being pinned
-// here — the runner is the authority on which service is live, and hardcoding the wrong one silently
-// disables the cache.
+// ACTIONS_CACHE_SERVICE_V2 is forwarded, never pinned here: buildx reads it to choose between the
+// v1 endpoint (ACTIONS_CACHE_URL) and the v2 one (ACTIONS_RESULTS_URL), and hardcoding the wrong
+// choice disables the cache silently (ADR-0031).
 const NAMES = [
   "ACTIONS_RUNTIME_TOKEN",
   "ACTIONS_RESULTS_URL",

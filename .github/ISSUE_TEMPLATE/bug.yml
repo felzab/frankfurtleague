@@ -46,6 +46,7 @@ body:
     id: where
     attributes:
       label: Where
+      description: If the problem is specific to one season, say which in the steps above.
       options:
         - Public pages
         - Dashboard

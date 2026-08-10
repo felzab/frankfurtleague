@@ -30,15 +30,13 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
 
 // serverStatusSlot is injected by the composition root rather than imported, so this generic layout
 // primitive keeps zero feature dependencies. Same technique as Sidemenu's saisonMetadataDisplay.
-// Not async: it awaits nothing, so the `async` only produced a promise for React to unwrap. Tested
-// as a candidate cause of the PPR resume failure and it is NOT the cause — the
-// aborts are unchanged either way. Kept because an async function with no await is still wrong.
+
+// Not async: it awaits nothing, so `async` would only produce a promise for React to unwrap. It is
+// not the PPR resume failure's cause — the aborts are unchanged either way.
 export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNode }) {
   return (
     <footer className="max-w-page mx-auto flex h-full w-full flex-col justify-between px-4 pt-2 pb-6 sm:px-6">
-      {/* Main Footer Grid */}
       <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-4">
-        {/* Brand & Mission Column */}
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
           <BrandLink />
           <p className="fluid-xs text-foreground-muted max-w-sm">
@@ -46,7 +44,6 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
           </p>
         </div>
 
-        {/* Navigation Column */}
         <div className="flex flex-col gap-y-3">
           <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Navigation</h3>
           <nav className="flex flex-col gap-y-2">
@@ -71,11 +68,9 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
           </nav>
         </div>
 
-        {/* Socials Column */}
         <div className="flex flex-col gap-y-3">
           <h3 className="fluid-xs text-foreground font-semibold tracking-wider uppercase">Socials</h3>
           <div className="flex flex-wrap items-center gap-4">
-            {/* Threads */}
             <Link
               href="https://www.threads.com/@frankfurt.league"
               prefetch={false}
@@ -101,7 +96,6 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
               />
             </Link>
 
-            {/* GitHub */}
             <Link
               href="https://github.com/felzab/frankfurtleague"
               prefetch={false}
@@ -115,7 +109,6 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
               />
             </Link>
 
-            {/* Instagram */}
             <Link
               href="https://www.instagram.com/frankfurt.league/"
               prefetch={false}
@@ -129,7 +122,6 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
               />
             </Link>
 
-            {/* WhatsApp */}
             <Link
               href="https://whatsapp.com"
               prefetch={false}

@@ -6,8 +6,8 @@ contains what sits inside it — a season its matchdays, a matchday its fixtures
 existed a fixture could be dated in a month its matchday did not cover.
 
 A postponed match prolongs the matchday, deliberately without exception: the span describes when
-the fixtures are played rather than planning when they must be. Asserted on the code, never the
-message.
+the fixtures are played rather than planning when they must be. Identity is asserted on the code;
+a message is asserted only where it must name something.
 """
 
 from typing import Literal

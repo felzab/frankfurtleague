@@ -5,8 +5,8 @@
  * addresses and external URLs.
  *
  * Invariants:
- * - Each mirrors a backend constraint in `app/shared/schemas/custom.py` — looser here makes the
- *   client-side message a lie about what is allowed.
+ * - Each mirrors a backend constraint in `fl_backend/app/shared/schemas/custom.py` — looser here
+ *   makes the client-side message a lie about what is allowed.
  * - External URLs are scheme-restricted: a bare URL check accepts `javascript:`, an XSS sink.
  * - Error messages are German and user-facing — these back admin form fields directly.
  */
@@ -21,9 +21,9 @@ export const CustomDateStringSchema = z.iso.date({ error: "Bitte gib ein gültig
  * `HH:MM:SS`, seconds required.
  *
  * Not `z.iso.time()`, which also accepts `"14:30"` and `"14:30:00.5"`. The backend's
- * `CustomTimeString` requires seconds and rejects a fractional part, so the looser schema let the
- * looser schema would let the admin form submit a value the API answers with a 422, and would make
- * the error message here a lie about what it accepts.
+ * `CustomTimeString` requires seconds and rejects a fractional part, so the looser schema would let
+ * the admin form submit a value the API answers with a 422, and would make the error message here a
+ * lie about what it accepts.
  */
 export const CustomTimeStringSchema = z
   .string()
@@ -39,8 +39,8 @@ export const CustomObjectIdStringSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 
  *
  * Never use bare `z.url()` for that. It checks that a string *parses* as a URL, not what scheme it
  * uses, so `javascript:alert(1)`, `data:text/html,...` and `vbscript:x` all pass it — and React
- * renders such an href without complaint. That was a live stored-XSS sink on the public team pages
- * (audit R3b §S8.1). `hostname` additionally rejects scheme-only junk like `https://ok`.
+ * renders such an href without complaint, which makes a bare `z.url()` a stored-XSS sink on any page
+ * that links out. `hostname` additionally rejects scheme-only junk like `https://ok`.
  *
  * Bare `z.url()` remains correct for values that are never rendered as a link, such as server
  * configuration in `src/core/config.ts`.
@@ -59,13 +59,13 @@ export const ExternalUrlSchema = z.url({
  * Letters are matched by Unicode property, not `[A-Za-z]` — half this league's squads would fail an
  * ASCII rule, and the live data already holds `Körner`, `El Damarawy` and `Anouar`. Space, hyphen and
  * apostrophe are in because a double-barrelled or particled name is not a defect; digits and every
- * other symbol are out, which is what stops a note being typed into a name field. The six `(C)`
- * captain markers got there exactly that way (ADR-0061's sibling problem, fixed by `is_captain`).
+ * other symbol are out, which is what stops a note being typed into a name field — a `(C)` captain
+ * marker inside a name field is the shape `is_captain` exists to hold instead (ADR-0048's sibling
+ * problem).
  *
- * **On the WRITE path only.** A read model that refused a stored name would 500 the whole response
- * for one bad row rather than showing it — the failure mode `GET /spieler` demonstrated twice this
- * session. Every one of the 362 live names satisfies this, so it costs nothing today; the point is
- * what it refuses tomorrow.
+ * **On the WRITE path only.** A read model that refuses a stored name 500s the whole response for
+ * one bad row rather than showing it: one name the rule cannot accept takes the squad list down for
+ * every reader. What this schema is for is what it refuses on the way in.
  */
 export const PersonNameSchema = z
   .string()
@@ -75,8 +75,8 @@ export const PersonNameSchema = z
 export const FLAddressSchema = z.object({
   strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
   // `*` not `+`, so "optional" is expressed by the pattern rather than by a union. A union whose
-  // branches both fail can surface a BRANCH's message instead of its own, which is how this field
-  // ended up showing zod's raw "Invalid string: must match pattern ..." to an admin.
+  // branches both fail can surface a BRANCH's message instead of its own, which puts zod's raw
+  // "Invalid string: must match pattern..." in front of an admin.
   hausnummer: z.string().regex(/^[\d\-abcABC]*$/, {
     error: "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.",
   }),
@@ -89,7 +89,7 @@ export type FLAddress = z.infer<typeof FLAddressSchema>;
 export const FLKontaktSchema = z.object({
   // Both fields are optional, so each is "a valid value OR blank" -- a union. The message has to sit
   // on the union: with `.or()` the branch messages are unreachable and zod falls back to its own
-  // English "Invalid input", which is what these two fields were showing.
+  // English "Invalid input".
   telefon: z
     .union([z.string().regex(PHONE_REGEX), z.string().trim().length(0)], {
       error: "Bitte gib eine gültige Telefonnummer ein.",

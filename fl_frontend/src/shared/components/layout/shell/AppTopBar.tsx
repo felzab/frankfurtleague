@@ -46,9 +46,9 @@ export function AppTopBar({
   /** Forwarded to the options menu; only the admin shell supplies one. */
   onSignOut?: () => Promise<FormState>;
 }) {
-  // The `lg:` width only: below `lg` this block is the hamburger and sizes to it, while the rail is a
-  // full-width drawer. Hoisted out of the class template because the Tailwind lint cannot read a class
-  // string through an index expression — it reads `collapsed` / `expanded` as class names.
+  // The `lg:` width only: below `lg` this block is the hamburger and sizes to it. Hoisted out of the
+  // class template because the Tailwind lint cannot read a class string through an index expression
+  // -- it reads `collapsed` / `expanded` as class names.
   const railWidth = RAIL_WIDTH_LG[isDesktopCollapsed ? "collapsed" : "expanded"];
 
   return (

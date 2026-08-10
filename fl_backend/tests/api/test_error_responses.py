@@ -6,8 +6,8 @@ exception's own, and every request produces exactly one access line.
 
 Driven through TestClient without the lifespan, deliberately: a plain client never opens the
 database, so the first guarded read raises a real `DB-CONN-001` instead of a hand-mocked
-exception. That handler once logged seven of the eight documented codes as a fallback string
-(`docs/roadmap/closed-items.md`, LOG-1), which is the regression this file pins.
+exception. A getattr fallback there logs every code as one fixed string, which is the regression
+this file pins (`docs/logging/error-codes.md`).
 """
 
 import logging

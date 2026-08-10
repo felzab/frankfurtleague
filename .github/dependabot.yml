@@ -2,21 +2,18 @@ version: 2
 
 # Dependency version updates for a single-maintainer repository.
 #
-# The governing constraint is noise, not coverage. Ungrouped weekly updates across four ecosystems
-# would open dozens of pull requests a month, each triggering the full `verify` gate, and the
-# realistic outcome is that none of them get read. So: monthly, grouped into one PR per ecosystem
-# for minor and patch bumps, with majors left as individual PRs because those are the ones that
-# actually need a human to look at a changelog.
+# The governing constraint is noise, not coverage: ungrouped weekly updates across the ecosystems
+# below would open dozens of pull requests a month, each triggering the full `verify` gate, and none
+# would be read. Monthly and grouped per ecosystem for minor and patch bumps; a major stays its own
+# pull request, because those are the ones that need a changelog read.
 #
-# SECURITY updates are a separate mechanism and are NOT configured here -- they come from Dependabot
-# alerts (Settings -> Advanced Security), ignore this schedule, and open PRs as soon as an advisory
-# lands. Enable them there; this file only governs routine version updates.
-#
-# Commit messages follow the repository convention documented in docs/workflows/ -- `Scope: what
-# changed` -- so each ecosystem sets a prefix rather than taking Dependabot's default "Bump ...".
+# Invariants:
+# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule.
+# - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------
+
   # The highest-value ecosystem here and the cheapest to review: few dependencies, small diffs, and
   # an outdated action is a supply-chain exposure that nothing else in the repo would surface.
   - package-ecosystem: github-actions
@@ -31,9 +28,10 @@ updates:
         update-types: ["minor", "patch"]
 
   # --- Frontend (pnpm) ------------------------------------------------------------------------
+
   # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
-  # and are deliberately not managed here -- bumping the package manager is a decision, not a
-  # routine update.
+  # and are deliberately unmanaged -- bumping the package manager is a decision, not a routine
+  # update.
   - package-ecosystem: npm
     directory: /fl_frontend
     schedule:
@@ -47,9 +45,10 @@ updates:
         update-types: ["minor", "patch"]
 
   # --- Backend (uv) ---------------------------------------------------------------------------
-  # Requires Dependabot's uv support, which reads uv.lock. If the first run reports the ecosystem
-  # as unsupported, check the log under Insights -> Dependency graph -> Dependabot before assuming
-  # the paths are wrong.
+
+  # Requires Dependabot's uv support, which reads uv.lock. Where a run reports the ecosystem as
+  # unsupported, read the log under Insights -> Dependency graph -> Dependabot before assuming the
+  # paths are wrong.
   - package-ecosystem: uv
     directory: /fl_backend
     schedule:
@@ -62,19 +61,13 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # pydantic-core is NOT an ordinary dependency: each pydantic release pins it with an exact
-      # `==`, so its version is owned by pydantic and cannot move independently. It is declared in
-      # pyproject.toml because app/shared/schemas/custom.py imports it directly (CoreSchema,
-      # core_schema), which is correct -- but that declaration made Dependabot treat it as
-      # updatable, and every attempt failed with an unsatisfiable resolution ("your project depends
-      # on pydantic>=2.13.4 and pydantic-core==2.47.0"). It would have failed on every run forever.
-      #
-      # Ignoring it loses nothing: pydantic-core still moves, it just moves when pydantic does,
-      # through pydantic's own pin. Do not remove this entry without also removing the direct
-      # dependency -- and do not remove the direct dependency while the import exists.
+      # pydantic pins pydantic-core exactly, so every update attempt here resolves unsatisfiably;
+      # ignoring it loses nothing, because pydantic's own pin still moves it. The entry stands while
+      # `fl_backend/app/shared/schemas/custom.py` imports pydantic_core.
       - dependency-name: pydantic-core
 
   # --- Base images ----------------------------------------------------------------------------
+
   # Both Dockerfiles pin their base image. A Dockerfile change triggers the `images` CI job on the
   # pull request itself (.github/workflows/verify.yml), so a base-image bump proves both images
   # build before it merges.

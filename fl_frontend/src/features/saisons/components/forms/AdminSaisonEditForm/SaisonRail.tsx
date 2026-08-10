@@ -31,7 +31,7 @@ export function SaisonRail({ banners }: { banners: readonly SaisonRailBanner[] }
   };
   const bannerCount = banners.length;
 
-  // Controlled exactly as the other two editors' cards are: shut when the last banner clears, open
+  // Controlled exactly as the other editors' cards are: shut when the last banner clears, open
   // when one arrives; in between the state is the admin's own toggle.
   const [hinweiseOpen, setHinweiseOpen] = useState(
     () => bannerCount > 0 || (typeof window !== "undefined" && window.matchMedia("(min-width: 80rem)").matches),

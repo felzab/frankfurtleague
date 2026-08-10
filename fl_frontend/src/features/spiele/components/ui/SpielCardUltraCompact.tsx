@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * SPIELE · the bracket match card
+ *
+ * No chips, and team shorthands in place of names, for the playoff bracket's round columns. The
+ * column caps the card's width whatever the fixture reads, and the whole card is a press target, so
+ * the pieces that open something of their own have to be lifted clear of it.
+ *
+ * Invariants:
+ * - Never merged with `SpielCard` or `SpielCardCompact`; only their shared derivation is extracted
+ *   (ADR-0005).
+ */
 import { Card } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
@@ -40,7 +51,6 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
           className="absolute inset-0 z-10 cursor-pointer rounded-2xl"
         />
 
-        {/** Game Metadata */}
         <div className="flex h-full w-fit flex-col items-start">
           <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
           <span className="fluid-xs text-foreground-muted font-medium">{spielUhrzeit}</span>
@@ -66,7 +76,7 @@ export function SpielCardUltraCompact({ spielData, onPress }: { spielData: FLSpi
           {/* The result in the status chips' tint formula -- the reference chip look.
               This is the bracket's card, so it is the one that most often carries a shoot-out: the
               line below it names how a level knockout was settled WITHOUT changing the score, which
-              stays the draw the Saisontabelle counts (ADR-0044). It sits inside the `auto` track, so
+              stays the draw the Saisontabelle counts (ADR-0036). It sits inside the `auto` track, so
               the two `1fr` team tracks keep their widths. */}
           <span
             className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${

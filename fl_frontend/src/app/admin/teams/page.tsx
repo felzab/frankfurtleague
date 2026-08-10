@@ -15,10 +15,9 @@ import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 import type { AdminTeamRow, TeamCreateSaisonOption } from "@/features/teams/types";
 import type { NextPageProps } from "@/shared/types/types";
 
-// Not async, so the chrome never waits on the team list — the pattern of the two sibling pages.
-// The create modal needs the season list (one form creates the club AND enters it into a season),
-// so it gets its own boundary instead of making the whole page async. `connection()` sits with each
-// fetch it guards — ADR-0009 requires only that nothing fetches at build time.
+// Not async, so the chrome never waits on the team list
+// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). The create modal needs the season list —
+// one form creates the club and enters it into a season — so it gets its own boundary.
 export default function AdminTeamsPage(props: NextPageProps) {
   return (
     <AdminCrudShell

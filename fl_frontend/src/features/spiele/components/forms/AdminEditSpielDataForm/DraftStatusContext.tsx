@@ -25,7 +25,6 @@ export function DraftStatusProvider({ status, children }: { status: FLSpielDraft
   return <DraftStatusContext.Provider value={status}>{children}</DraftStatusContext.Provider>;
 }
 
-/** The whole picture, for the rail and the action bar. */
 export function useDraftStatus(): FLSpielDraftStatus {
   const status = useContext(DraftStatusContext);
   if (status === undefined) {

@@ -9,10 +9,9 @@ import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-// Not async, so the chrome never waits on the referee list. Passing the page title to a client
-// element built after `await getSchiedsrichter()` would put a static heading behind a FastAPI
-// round-trip. `connection()` sits down in SchiedsrichterTable with the fetch it guards — ADR-0009
-// requires only that nothing fetches at build time.
+// Not async, so the chrome never waits on the referee list
+// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). Passing the page title to a client element
+// built after `await getSchiedsrichter()` would put a static heading behind a round-trip.
 export default function AdminSchiedsrichterPage() {
   return (
     <AdminCrudShell

@@ -15,7 +15,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/cor
 import type { FormState } from "@/shared/types/types";
 
 /**
- * The three occupant refusals the match write path answers, and what each means in German (ADR-0052).
+ * The three occupant refusals the match write path answers, and what each means in German (ADR-0042).
  *
  * These are the exception to this module's "deliberately generic" rule, and the reason is that they
  * are the only failures here an admin can fix from the form they are already looking at: pick a
@@ -34,23 +34,22 @@ const OCCUPANT_REFUSALS: Record<string, string> = {
 export function toActionErrorResult(error: unknown): NonNullable<FormState> {
   if (error instanceof APIBadStatusError) {
     if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-001") {
-      // The write path refused bracket wiring the season cannot hold (ADR-0046). The form does not
-      // offer these shapes, so the request was built against a season that has moved — a second
-      // tab, another admin, or a resolution that ran since the page loaded. Reloading is the fix.
+      // The write path refused bracket wiring the season cannot hold (ADR-0038). The form does not
+      // offer these shapes, so the request was built against a season that has moved. Reloading is
+      // the fix.
       return {
         success: false,
         error: "Die Änderung passt nicht mehr zum aktuellen Turnierbaum, denn die Saison wurde inzwischen geändert. Lade die Seite neu.",
       };
     }
     if (error.statusCode === 409 && error.serverErrorCode !== undefined && error.serverErrorCode in OCCUPANT_REFUSALS) {
-      // A team the season cannot hold in the fixture the payload puts it in (ADR-0052). Unlike the
-      // wiring refusal above, reloading fixes none of these: the season has not moved, it says
-      // something about the team that the edit contradicts. The code rides back out so the form can
-      // put the message on the side that caused it -- the code is the only channel a failure body has.
+      // A team the season cannot hold in the fixture the payload puts it in (ADR-0042). Unlike the
+      // wiring refusal above, reloading fixes none of these. The code rides back out so the form can
+      // put the message on the side that caused it.
       return { success: false, error: OCCUPANT_REFUSALS[error.serverErrorCode], errorCode: error.serverErrorCode };
     }
     if (error.statusCode === 409) {
-      // The ordinary outcome of a create hitting a unique index (DB-COMMON-002, ADR-0032): the
+      // The ordinary outcome of a create hitting a unique index (DB-COMMON-002, ADR-0025): the
       // record conflicts with one that exists -- possibly a retired row keeping its slot.
       return { success: false, error: "Der Eintrag steht im Konflikt mit einem bereits vorhandenen Datensatz." };
     }

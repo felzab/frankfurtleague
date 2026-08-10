@@ -30,7 +30,7 @@ function SaisonStatusBadge({ status }: { status: FLSaisonStatus }) {
  *
  * **The header carries no control.** On the club and player editors it owns the retirement, because a
  * person or a club can be retired; a season cannot be — one that is over is `past`, and the only thing
- * that writes `status` is the rollover, which is a whole panel rather than a button (ADR-0033). So the
+ * that writes `status` is the rollover, which is a whole panel rather than a button (ADR-0026). So the
  * header states the season and links to its matchdays, and every write on this page is below it.
  */
 export function AdminSaisonEditView({

@@ -1,17 +1,14 @@
 """
 APP · the process entry point
 
-The one module that builds an application at import time, which is what `fastapi run app/asgi.py` in
+The one module that builds an application at import time, which is what `uvicorn app.asgi:app` in
 the Dockerfile loads.
 
-Separate from `app/main.py` on purpose. A module-level `app = create_app()` reads the environment as an
-import side effect, so putting it in `main.py` would mean that importing the factory -- or anything
-that imports it -- required a fully populated `.env`. The test suite hit exactly that: it failed during
-COLLECTION, naming eight missing settings, on a test that would then have been deselected.
-
-Splitting the composition root out is the fix. `app/main.py` exports `create_app()` and touches no
-environment; this file is the single place where "build the real app from the real environment" is
-stated, and nothing imports it but the server.
+Separate from `app/main.py` on purpose: a module-level `app = create_app()` reads the environment as
+an import side effect, so holding it here is what lets the factory -- and everything that imports it
+-- be imported without a fully populated `.env`, a requirement that surfaces at test COLLECTION,
+naming missing settings rather than anything to do with the test. `app/main.py` exports `create_app()`
+and touches no environment, and nothing imports this file but the server.
 """
 
 from fastapi import FastAPI

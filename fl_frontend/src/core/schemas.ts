@@ -21,7 +21,7 @@ import z from "zod";
  *
  * Mirrors `BaseAPIResponse` in `fl_backend/app/shared/schemas/responses.py`, which declares
  * `acknowledged: Literal[0, 1] = 1` and nothing else. Failure bodies are a different shape entirely
- * — `{error_code, correlation_id}` (docs/logging.md) — and never reach a schema: `apiClient` throws
+ * — `{error_code, correlation_id}` (docs/logging/error-codes.md) — and never reach a schema: `apiClient` throws
  * on any non-2xx before validation. On a success response the correlation id travels as the
  * `X-Correlation-ID` header, not in the body.
  */

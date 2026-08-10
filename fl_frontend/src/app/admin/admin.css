@@ -1,14 +1,13 @@
 /* ADMIN · the component styles only /admin renders
-   ────────────────────────────────────────────────────────────────────────────────────────────────
-   Imported by `app/admin/layout.tsx`, which is what keeps it out of every public route's stylesheet.
-   Together these are ~87 KB uncompressed — a quarter of a public page's stylesheet, for a date
-   picker no public page shows.
 
-   **A component belongs here only if NO public route can reach it.** That was established by walking
-   the import graph from every route entry, following dynamic imports, not by reading the folder
-   names: `Select` and `ListBox` look admin-shaped and are reached by public pages, and `CloseButton`
-   is imported only by an admin form but may be composed by the public `SpielDetailsModal`, so all
-   three stay in `globals.css`.
+   Imported by `app/admin/layout.tsx`, which is what keeps this block out of every public route's
+   stylesheet — a material share of it, for a date picker no public page shows (ADR-0016).
+
+   **A component belongs here only if NO public route can reach it.** Establish that by walking the
+   import graph from every route entry and following the dynamic imports, never by reading folder
+   names: `Select` and `ListBox` look admin-shaped and are reached by public pages, and
+   `CloseButton` is imported only by an admin form but may be composed by the public
+   `SpielDetailsModal`, so all three stay in `globals.css`.
 
    Order is HeroUI's own, as in globals.css. `@reference` gives `@apply` inside these files the theme
    without emitting it twice — several of them use it, and without this the build fails. */
@@ -18,7 +17,7 @@
 /* Forms */
 @import "@heroui/styles/components/number-field.css" layer(components);
 /* The description editors (create dialog and edit modal) — admin-only, so it stays out of
-   globals.css (ADR-0023). Position matches @heroui/styles/dist/components/index.css: after
+   globals.css (ADR-0016). Position matches @heroui/styles/dist/components/index.css: after
    number-field, before the calendar block. */
 @import "@heroui/styles/components/textarea.css" layer(components);
 
@@ -30,6 +29,7 @@
 @import "@heroui/styles/components/date-input-group.css" layer(components);
 @import "@heroui/styles/components/date-picker.css" layer(components);
 
-/* Pickers */
-@import "@heroui/styles/components/combo-box.css" layer(components);
+/* Pickers. A HeroUI component's stylesheet is imported here in the change that first renders that
+   component on an admin route, at the position it holds in HeroUI's own index (ADR-0013). The
+   checklist is `docs/frontend/spec.md` §1.11. */
 @import "@heroui/styles/components/autocomplete.css" layer(components);

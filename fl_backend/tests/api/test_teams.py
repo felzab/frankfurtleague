@@ -13,10 +13,11 @@ from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam, FLTeamRecord, FLTeamsGroupedResponse
 from app.api.teams.services import build_gruppen
 
-# Ordinary scoring. Every case below is decided on points or goals, so the head-to-head criterion these
-# rules also feed is exercised in `test_standings.py` rather than here.
-# The levels the seeded season offers. Its own name so the rule lines stay readable, and typed as
-# the Literal list `FLSaisonRules` declares -- a bare list of `str` is invariant against it.
+# Ordinary scoring. Every case below is decided on points or goals, so the head-to-head criterion
+# these rules also feed is exercised in `test_standings.py` rather than here.
+
+# The levels the seeded season offers, typed as the Literal list `FLSaisonRules` declares -- a bare
+# list of `str` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 RULES = FLSaisonRules(win_points=3, draw_points=1, qualifiers_per_group=2, number_of_groups=4, teams_per_group=4, erlaubte_stufen=STUFEN)
@@ -41,8 +42,8 @@ def test_rejects_an_empty_required_name(team, field):
 
 
 # `description` is the counterpart to the required fields above: genuinely optional prose, so "" is
-# legal. The pair is tested together because the two must not agree about emptiness -- one rejects it
-# and one accepts it, and a change that aligns them silently breaks whichever side it moves.
+# legal. Tested together because the two must not agree about emptiness -- a change aligning them
+# silently breaks whichever side it moves.
 def test_accepts_an_empty_description(team):
     """`description` is optional prose, so "" is legal -- unlike the required fields tested above."""
     assert FLTeam.model_validate(team(description="")).description == ""
@@ -118,9 +119,9 @@ class TestFLGruppen:
         assert sorted(grouped.root) == ["A", "B", "C", "D"]
         assert all(members == [] for members in grouped.root.values())
 
-    # The tests above read `.root`. What actually broke /dashboard/saisontabelle was the SERIALISED
-    # body -- the frontend's FLGruppenSchema parses the response, not the Python object -- so this
-    # pins the wire shape end to end, through the response model the route really returns.
+    # The tests above read `.root`. The frontend's FLGruppenSchema parses the response body, not the
+    # Python object, so this pins the wire shape end to end, through the response model the route
+    # returns.
     def test_the_serialised_response_body_carries_all_four_groups(self, team):
         """The WIRE shape, not the Python object — the frontend parses the response, which is what broke."""
         response = FLTeamsGroupedResponse(
@@ -138,9 +139,9 @@ class TestFLGruppen:
         # standing using another season's number.
         assert body["qualifiers_per_group"] == 2
 
-    # Distinct ids, because these are distinct clubs. `uniq_saison_id_team_id` gives a team exactly one
-    # junction row per season, so the pipeline yields each club once and the standing addresses them by
-    # id -- three "different" teams sharing one id is a state the database cannot hold.
+    # Distinct ids, because these are distinct clubs. `uniq_saison_id_team_id` gives a team one
+    # junction row per season, so the standing addresses clubs by id -- three "different" teams
+    # sharing one is a state the database cannot hold.
     def test_sorts_each_group_by_points_then_goal_difference(self, team, statistik):
         """Three distinct point totals order correctly, highest first."""
         weak = FLTeam.model_validate(team(_id=TEAM_ID.format(1), name="Weak", statistik=statistik(punkte=1)))
@@ -164,15 +165,13 @@ class TestFLGruppen:
 
         assert [t.name for t in grouped.root["A"]] == ["Better", "Worse"]
 
-    # Validation already rejects these, so reaching the guard requires model_construct, which skips
-    # validation. The guard must FAIL LOUDLY: never route an unrecognised group into a catch-all
-    # bucket, because the frontend discards one silently and the team vanishes from the league table
-    # with nothing reported anywhere.
-    #
-    # "X" is the case that matters, and it is why the guard must not test `not team.gruppe`: that
-    # catches "" and None but lets any other value through to a bare KeyError -- an unhandled 500
-    # rather than the
-    # deliberate error. Parametrised so neither branch can regress unnoticed.
+    # Validation already rejects these, so reaching the guard needs `model_construct`. The guard must
+    # fail loudly: an unrecognised group routed into a catch-all is discarded by the frontend, and the
+    # team vanishes from the league table.
+
+    # "X" is why the guard must not test `not team.gruppe`: that catches "" and None but lets any
+    # other value through to a bare KeyError -- an unhandled 500 rather than the deliberate error.
+    # Parametrised so neither branch can regress unnoticed.
     @pytest.mark.parametrize("gruppe", ["", "X", "a", " ", "AB"])
     def test_refuses_a_team_it_cannot_place(self, team, gruppe):
         """Fails loudly rather than dropping the team. `"X"` is the case a falsy check let through to a bare KeyError."""
@@ -214,7 +213,7 @@ class TestFLTeamRecord:
             FLTeam.model_validate(stored)
 
     def test_carries_the_retirement_date(self, team):
-        """`inactive_since` is what a soft delete writes, so the model a delete echoes has to carry it (ADR-0032)."""
+        """`inactive_since` is what a soft delete writes, so the model a delete echoes has to carry it (ADR-0025)."""
         assert FLTeamRecord.model_validate(team(inactive_since="2026-03-01")).inactive_since == "2026-03-01"
 
     def test_shares_the_name_constraint(self, team, assert_rejects):

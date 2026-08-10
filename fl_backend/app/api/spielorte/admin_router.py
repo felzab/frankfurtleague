@@ -2,13 +2,13 @@
 SPIELORTE · write endpoints
 
 Venues. Every mutation sits beside the reads for its resource, in a second router guarded at
-router level by `verify_access_admin` (ADR-0034).
+router level by `verify_access_admin` (ADR-0027).
 
 Invariants:
 - `maps_link` is derived server-side and on no payload — a search string, never rendered as an href.
 - `default_mietpreis` carries no default: the patch writes the payload back wholesale.
 - A rename fans out into every match embedding the venue.
-- Deletion is soft — matches embed a copy and reference it by id (ADR-0032).
+- Deletion is soft — matches embed a copy and reference it by id (ADR-0025).
 """
 
 from typing import Annotated
@@ -122,11 +122,8 @@ async def delete_spielort(
     Matches embed a copy of the venue, so a hard delete would orphan every historical match that used
     it. Returns the updated document rather than a bare acknowledgement.
 
-    **It is refused while an unplayed fixture is still booked here** (`REQ-RETIRE-003`, decided
-    2026-08-08). Retiring the venue takes it out of every picker while matches are still scheduled at it,
-    which is the state this soft delete exists to prevent, reached through the soft delete itself — the
-    reasoning `REQ-RETIRE-001` already applies to a club. A PLAYED fixture never blocks: its `ort` is an
-    embedded record of where the match was held, so the venue document has nothing left to supply.
+    **It is refused while an unplayed fixture is still booked here** (`REQ-RETIRE-003`), for the reason
+    `fl_backend/app/api/spielorte/services.py :: VENUE_STILL_BOOKED` states in full.
     """
 
     # Unplayed means no result and not cancelled, which is `unplayed_spiel_nrs`'s definition -- the two

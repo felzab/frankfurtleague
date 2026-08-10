@@ -8,10 +8,10 @@ Invariants:
 - Omitting `saison_id` means the current season, resolved in the handler (ADR-0002).
 - `saison_phase="playoffs"` is a query-only alias for `!= "gruppenphase"`, never a stored value.
 - Both reads run `build_spiele_pipeline` — a plain `find` misses the joined `disqualifikation`
-  and returns a shape `FLSpielJoined` refuses loudly (ADR-0028).
+  and returns a shape `FLSpielJoined` refuses loudly (ADR-0021).
 
 See:
-- docs/backend/spec.md — section 2, the full parameter contract
+- docs/backend/spec.md — section 1.2, the full parameter contract
 """
 
 from fastapi import APIRouter, Depends
@@ -63,10 +63,9 @@ async def get_spiele(
     db_filter = build_spiele_filter(filters=filters, today=today)
     db_sort = build_spiele_sort(sort_by=filters.sort_by, order=filters.order)
 
-    # An AGGREGATION rather than a find, and this is the endpoint that pays for it: the one `$lookup`
-    # joins each side's disqualification from `saison_teams` so a DQ badge renders on the card without
-    # a second request. Chosen over embedding the state and fanning it out, because it changes during
-    # a season and a stale badge is a visibly wrong answer on a public page (ADR-0028, rule 4).
+    # An aggregation rather than a find: the one `$lookup` joins each side's disqualification from
+    # `saison_teams`, so a badge renders without a second request. Embedding it instead would go stale
+    # mid-season on a public page (ADR-0021, rule 4).
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(db_filter=db_filter, sort_by=db_sort, limit=filters.limit),
@@ -86,9 +85,9 @@ async def get_spiel(spiel_id: CustomRouteObjectId, spiele_collection: SpieleColl
     `spiel_status` is a property of a query rather than of a match.
     """
 
-    # The same pipeline the list runs, over a filter selecting one document -- so this route and the
-    # list cannot disagree about what a match looks like. The 404 is raised here rather than by
-    # `pull_one_from_db`, because an aggregation returning nothing is an empty list, not a `None`.
+    # The same pipeline the list runs, over a filter selecting one document, so the two cannot disagree
+    # about what a match looks like. The 404 is raised here because an aggregation returning nothing is
+    # an empty list, not a `None`.
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
         pipeline=build_spiele_pipeline(db_filter={"_id": spiel_id}),

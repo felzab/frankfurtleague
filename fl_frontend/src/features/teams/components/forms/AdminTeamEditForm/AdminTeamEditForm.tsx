@@ -34,7 +34,7 @@ import type { ReactNode } from "react";
 import type { TeamRailBanner } from "./TeamRail";
 
 /**
- * How long the undo offer stands after a save (ADR-0051's window, ADR-0062's transport). There is no
+ * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). There is no
  * confirmation dialog on this page for the same reason as the match editor: confirmation and undo
  * are alternatives, and undo is the one that helps the admin who was not paying attention.
  */
@@ -47,7 +47,7 @@ type TeamUndoPayloads = {
 };
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0062): by the
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049): by the
  * time the offer is pressed this component is unmounted and the browser is on another route, and a
  * server action dispatched from there trips Next's E592 invariant and is truncated mid-response.
  * **Revert this to a server action once E592 is fixed upstream**; the ADR names that condition.
@@ -77,7 +77,7 @@ function describeFanOut(count: number): string {
 
 /**
  * The club editor's form: four panels, a sticky summary rail, and one derivation behind both — the
- * match editor's shape (ADR-0050) over a club (decided 2026-08-07: "a more minimal version of the
+ * match editor's shape (ADR-0040) over a club (decided 2026-08-07: "a more minimal version of the
  * Spieldaten editor"). Every field is controlled, judged when it is left with the same schemas the
  * actions parse, and marked in place when its draft differs from what is stored.
  *
@@ -311,8 +311,8 @@ export function AdminTeamEditForm({
     startTransition(async () => {
       const collectedErrors: FieldErrors = {};
       // Only what the admin cannot see from the form itself earns a sentence (decided 2026-08-07):
-      // the fan-out only when the name or Kürzel actually moved, the disqualification only when the
-      // record itself changed. An untouched half contributes nothing to the toast.
+      // the fan-out only when the name or Kürzel moved, the disqualification only when the record
+      // changed.
       const renameTouched = isChanged("name") || isChanged("shorthand");
       const disqualifikationTouched = isChanged("disqualifikation");
       const consequenceNotes: string[] = [];
@@ -367,7 +367,7 @@ export function AdminTeamEditForm({
 
       // The halves the save wrote, holding their pre-save values — `team` and `storedMembership`
       // are this render's props, so they still carry what was stored before the write. Built BEFORE
-      // leaving, because the toast outlives the page (ADR-0051, ADR-0062).
+      // leaving, because the toast outlives the page (ADR-0041, ADR-0049).
       const undoPayloads: TeamUndoPayloads = {
         ...(clubDirty
           ? {
@@ -394,7 +394,7 @@ export function AdminTeamEditForm({
           : {}),
       };
       // A lifted disqualification is the one thing this save can destroy that nothing else holds a
-      // copy of (ADR-0059), so that grade is a warning; an ordinary save is a success that happens
+      // copy of (ADR-0047), so that grade is a warning; an ordinary save is a success that happens
       // to be reversible.
       const destroyedSomething = disqualifikationTouched && draftDisqualifikation === null && storedMembership?.disqualifikation != null;
       offerUndo(undoPayloads, consequenceNotes.join(" ") || undefined, destroyedSomething);
@@ -408,7 +408,7 @@ export function AdminTeamEditForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back (ADR-0051's window over ADR-0062's
+   * The undo toast: fifteen seconds to take the save back (ADR-0041's window over ADR-0049's
    * transport). The pitfalls the match editor documents all apply and are all mirrored here: the
    * toast outlives this component, so the press runs in a detached closure — `router.refresh()` is
    * what re-renders a screen the action's own revalidation can no longer reach (the router instance
@@ -418,7 +418,7 @@ export function AdminTeamEditForm({
    * timeout inherits a four-second default that would retire it mid-flight.
    *
    * One deliberate difference from the match editor: a dispatch failure here reports generic German
-   * plus a console line, not the raw error text — ADR-0053 reviewed and kept the raw detail for
+   * plus a console line, not the raw error text — ADR-0043 reviewed and kept the raw detail for
    * exactly one call site, and this is not it.
    */
   const offerUndo = (payloads: TeamUndoPayloads, message?: string, destroyedSomething = false) => {
@@ -520,7 +520,7 @@ export function AdminTeamEditForm({
                     onIsDisqualifiedChange={(next) => {
                       setIsDisqualified(next);
                       // Seeded with today — the common case for "took effect"; the lift stays a
-                      // draft state until the save sends the explicit null (ADR-0059).
+                      // draft state until the save sends the explicit null (ADR-0047).
                       if (next && datum === null) setDatum(parseDate(today));
                     }}
                     storedRecord={storedMembership.disqualifikation}

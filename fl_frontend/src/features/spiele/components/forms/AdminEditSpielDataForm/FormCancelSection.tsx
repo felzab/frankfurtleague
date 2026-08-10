@@ -15,10 +15,10 @@ import type { FLSpiel } from "@/features/spiele/schemas";
  *
  * **A cancelled match is not a match with no result.** The flag and the `ergebnis` are independent: a
  * fixture awarded without being played carries both, and that is what makes it count in the league table
- * (ADR-0026). Nothing here clears the result.
+ * (ADR-0019). Nothing here clears the result.
  *
  * The hint that used to sit under the switch is gone: the callout below says the same thing and more, and
- * a hint earns its place only by saying something the others do not (ADR-0050).
+ * a hint earns its place only by saying something the others do not (ADR-0040).
  */
 export function FormCancelSection({
   spielData,
@@ -43,8 +43,8 @@ export function FormCancelSection({
   const isBeingCalledOff = spielIsCanceled && !spielData.is_canceled;
 
   // A knockout fixture that feeds later rounds: calling it off leaves every slot wired to its outcome
-  // with nothing to resolve from, which is a broken bracket rather than a quiet absence. The group
-  // phase is exempt — the table simply ignores a cancelled fixture (ADR-0026).
+  // with nothing to resolve from. The group phase is exempt — the table ignores a cancelled fixture
+  // (ADR-0019).
   const breaksBracket = isBeingCalledOff && spielData.saison_phase !== "gruppenphase" && dependentSpiele.length > 0;
   const dependentNummern = new Intl.ListFormat("de-DE", { style: "long", type: "conjunction" }).format(
     dependentSpiele.map((spiel) => String(spiel.spiel_nr)),
@@ -100,7 +100,7 @@ export function FormCancelSection({
         )}
 
         {/* The knockout-specific consequence, separate from the general one because it is the costlier
-            half and a single long callout is a callout that gets skipped (ADR-0050). Not announced: the
+            half and a single long callout is a callout that gets skipped (ADR-0040). Not announced: the
             general callout above already interrupts, and two alerts for one switch flip is a scolding. */}
         {breaksBracket && (
           <Callout

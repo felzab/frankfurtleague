@@ -11,7 +11,7 @@ import type { FormState } from "@/shared/types/types";
  * The sign-out's behaviour, without its appearance.
  *
  * **Two surfaces offer this control** — inline at the end of the shell's bar, and as a row in the
- * sidemenu footer's options menu (ADR-0058) — and they look nothing alike: one is a compact button on
+ * sidemenu footer's options menu (ADR-0046) — and they look nothing alike: one is a compact button on
  * a 54px bar, the other a full-width row in a 220px menu. What must NOT differ is what pressing
  * either one does, so the arming, the transition, the toast and the navigation live here and each
  * surface supplies only its own markup.
@@ -26,13 +26,9 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
   const [isConfirming, setIsConfirming] = useState(false);
   const router = useRouter();
 
-  // The armed state must survive nothing but a second press on the control itself. `onBlur` covers
-  // a keyboard user; on iOS a tap on non-interactive content moves focus NOWHERE, so the armed
-  // button sat there until it was pressed again (decided 2026-08-07). A capture-phase outside press
-  // is the reliable disarm — `pointerdown` AND `touchstart`, because a touch that becomes a scroll
-  // can end in `pointercancel` on some mobile engines while `touchstart` has already fired, and the
-  // armed control was seen surviving exactly such taps. Double-firing is harmless: the
-  // second call sets state that is already false.
+  // The armed state survives nothing but a second press on the control. On iOS a tap
+  // on non-interactive content moves focus NOWHERE, so a capture-phase outside press
+  // is the reliable disarm -- `pointerdown` AND `touchstart`, since a scroll cancels.
   useEffect(() => {
     if (!isConfirming) return;
 
@@ -49,10 +45,9 @@ export function useSignOut(onSignOut: () => Promise<FormState>) {
     };
   }, [isConfirming]);
 
-  // The action returns rather than redirecting, so the navigation happens here — see the note on
-  // `signOutAction`. The toast is fired BEFORE navigating: `Toast.Provider` is mounted once above the
-  // router in `RootProviders`, so it survives the transition, whereas a toast queued after `push()`
-  // races the caller's unmount and was simply never seen.
+  // The action returns rather than redirecting, so the navigation happens here.
+  // The toast fires BEFORE navigating: `Toast.Provider` sits above the router in
+  // `RootProviders`, and one queued after `push()` races the caller's unmount.
   const signOutNow = () => {
     startSignOut(async () => {
       try {

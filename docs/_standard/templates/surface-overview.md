@@ -1,10 +1,9 @@
 <!--
 TEMPLATE — copy to docs/<surface>/overview.md; delete this block.
 Rules: ../chapters/3-corpus.md — the spine is OUT-5.
-  - Around 120 lines, treated as a ceiling: an overview that is growing has started explaining
-    mechanisms, and mechanisms belong in the spec sheet.
-  - The relative links under "Read next" resolve from docs/<surface>/, not from this folder —
-    the gate skips templates for exactly this reason.
+  - Around 120 lines, treated as a ceiling (OUT-5).
+  - The relative links under "Read next" resolve from docs/<surface>/, not from this folder,
+    which is why the gate holds a template to every check but those that read a path.
 -->
 
 # \<Surface\> — overview

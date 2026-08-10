@@ -20,7 +20,7 @@ import type { AdminSaisonRow } from "../../types";
  *
  * **No delete control and no retire control, on any row.** A season is never deleted — that would orphan
  * every spiel, spieltag and junction row carrying its id, none of which cascades — and it is not
- * retirable either: one that is over is `past`, which is what "gone" means here (ADR-0033). So the row's
+ * retirable either: one that is over is `past`, which is what "gone" means here (ADR-0026). So the row's
  * actions are all reads and one edit link, and the seasons page is the one admin table with three
  * columns of facts and nothing destructive in it.
  *
@@ -36,9 +36,10 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
 }) {
   // One source for both layouts: the `md+` table's cells and the phone cards render these, so the two
   // presentations cannot disagree about a season's state.
-  // `h-7` on the status badge AND on the id chip beside it (decided 2026-08-08): LABEL_BADGE sizes
-  // itself by padding and the id chip by its own, so the two sat at different heights in one row.
-  // One fixed height, stated at both call sites, is what keeps them level.
+
+  // `h-7` on the status badge and on the id chip beside it (decided 2026-08-08): LABEL_BADGE sizes
+  // itself by padding and the id chip by its own, so one fixed height at both call sites is what
+  // keeps them level.
   const renderStatusBadge = (saison: AdminSaisonRow) => {
     if (saison.status === "active") return <span className={`${LABEL_BADGE} bg-success/15 text-success-strong h-7 px-2`}>Laufend</span>;
     if (saison.status === "future") return <span className={`${LABEL_BADGE} bg-info/15 text-info-strong h-7 px-2`}>Geplant</span>;
@@ -59,7 +60,6 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
     </span>
   );
 
-  /** The three numbers that say whether a season is set up, in one line. */
   const renderAufbau = (saison: AdminSaisonRow) => (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span className="fluid-xs text-foreground-muted font-medium">

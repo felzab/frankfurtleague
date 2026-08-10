@@ -4,7 +4,7 @@
  * A badge is either a number or a word, and there are exactly two recipes so that every badge in the
  * app is one of them. The match editor had grown at least three — counts with `rounded-lg px-2.5
  * shadow-sm`, an uppercase tracked "NICHT GESPEICHERT" chip, and the list chips — and the
- * drift was called out (fourth review of ADR-0050's page): the uppercase one was the least readable,
+ * drift was called out: the uppercase one was the least readable,
  * and three shapes for one idea read as three ideas.
  *
  * **Colours stay the caller's, because colour is the meaning; shape is shared.** A count tinted

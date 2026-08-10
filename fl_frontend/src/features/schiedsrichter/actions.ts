@@ -12,7 +12,7 @@
  * - Delete is a soft delete server-side.
  *
  * See:
- * - docs/frontend/spec.md — section 3, the action inventory
+ * - docs/frontend/spec.md — section 1.3, the action inventory
  */
 import { updateTag } from "next/cache";
 
@@ -111,7 +111,6 @@ export async function patchSchiedsrichterAction(
   });
 }
 
-// This is a soft delete
 export async function deleteSchiedsrichterAction(
   rawPayload: FLDeleteSchiedsrichterPayload,
 ): Promise<{ success: boolean; updated_document?: FLSchiedsrichter; message?: string; error?: string; fieldErrors?: FieldErrors }> {

@@ -15,7 +15,7 @@ const SEARCH_KEYS = ["name", "full_name", "shorthand"] as const;
  *
  * The items are club-centric rows spanning every season, with the selected season's junction data
  * beside them. `renderEditModal` is deliberately not passed: the club form edits on a page at
- * `/admin/teams/[team_id]` (ADR-0050), so the table's pencil is a `<Link>` and the shared view
+ * `/admin/teams/[team_id]` (ADR-0040), so the table's pencil is a `<Link>` and the shared view
  * renders no edit overlay.
  */
 export function AdminTeamsView({ teams, selectedSaisonStatus }: { teams: AdminTeamRow[]; selectedSaisonStatus: "past" | "active" | "future" }) {

@@ -18,7 +18,6 @@ export function TeamDraftStatusProvider({ status, children }: { status: FLTeamDr
   return <TeamDraftStatusContext.Provider value={status}>{children}</TeamDraftStatusContext.Provider>;
 }
 
-/** The whole picture, for the rail and the action bar. */
 export function useTeamDraftStatus(): FLTeamDraftStatus {
   const status = useContext(TeamDraftStatusContext);
   if (status === undefined) {
@@ -27,7 +26,6 @@ export function useTeamDraftStatus(): FLTeamDraftStatus {
   return status;
 }
 
-/** One field's status by its payload path; `undefined` for a path with no descriptor. */
 export function useTeamFieldStatus(path: string): FLTeamFieldStatus | undefined {
   return useTeamDraftStatus().byPath.get(path);
 }

@@ -21,7 +21,7 @@ import type { NextPageProps } from "@/shared/types/types";
  * Parse, not cast. `NextPageProps<{ team_id: string }>` already makes the value a `string` at the
  * type level, but nothing checks what is actually in the URL, and the value is forwarded to the
  * backend under the base API key. An arbitrarily long segment would otherwise become a backend
- * request plus a distinct `use cache` entry per variant (R3b §S8.2).
+ * request plus a distinct `use cache` entry per variant.
  *
  * Unlike `resolveSaisonId`, a bad value cannot degrade to a default — there is no sensible fallback
  * team — so this ends the render instead.

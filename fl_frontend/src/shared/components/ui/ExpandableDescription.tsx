@@ -11,10 +11,10 @@ export function ExpandableDescription({ text }: { text: string }) {
     return <p className="fluid-xs text-foreground mt-2 font-medium text-pretty">{text}</p>;
   }
 
+  // A pointer convenience over a control already fully keyboard-accessible: the <button> below
+  // toggles both directions, so collapsing by clicking the text adds no capability a keyboard user
+  // lacks. A role would invent a second control for the same action.
   return (
-    // A pointer convenience layered over a control that is already fully keyboard-accessible: the
-    // <button> below toggles both directions, so collapsing by clicking the text adds no capability
-    // a keyboard user lacks. Giving this a role would invent a second control for the same action.
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="mt-2"

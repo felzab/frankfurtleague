@@ -44,7 +44,7 @@ export const FLSpielortSchema = z.object({
   name: z.string().nonempty(),
   maps_link: z.string().nonempty(),
   default_mietpreis: z.int().nonnegative(),
-  // The day the venue was retired, null while it is in use (ADR-0032). Deactivation goes through
+  // The day the venue was retired, null while it is in use (ADR-0025). Deactivation goes through
   // DELETE, so it is on no payload.
   inactive_since: CustomDateStringSchema.nullable(),
 });

@@ -12,13 +12,13 @@ import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
  *
  * A resolved side is its own text behind a `TeamPopoverMenu`. A side whose occupant the group phase
  * has not produced yet renders its derived source label — "Sieger 25.", "1. der Gruppe A" — as plain text and mounts no
- * popover at all: there is no team page and no squad to link to (ADR-0042).
+ * popover at all: there is no team page and no squad to link to (ADR-0034).
  *
  * **This is the one place the three cards get their DQ badge**, because it is the one place they mount
  * the popover. The side arrives carrying its season's `disqualifikation`, joined onto the match by the
- * backend rather than fetched here (ADR-0028, rule 4), so the badge costs this component no request.
+ * backend rather than fetched here (ADR-0021, rule 4), so the badge costs this component no request.
  *
- * **The three `SpielCard` variants stay separate** (ADR-0007) and pass their own `text` and layout
+ * **The three `SpielCard` variants stay separate** (ADR-0005) and pass their own `text` and layout
  * classes. What is shared here is the branch whose copies would each be a crash rather than a
  * cosmetic difference if one drifted — dereferencing a side that is `null`.
  * `fl_frontend/src/features/spiele/components/modals/SpielDetailsModal.tsx :: TeamNameLine` makes the

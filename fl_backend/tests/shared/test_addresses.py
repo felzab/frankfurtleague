@@ -1,4 +1,4 @@
-"""SHARED · FLAddress — the constraints moved here from the frontend's FLAddressSchema."""
+"""SHARED · FLAddress — the constraints the frontend's FLAddressSchema mirrors."""
 
 import pytest
 from pydantic import ValidationError

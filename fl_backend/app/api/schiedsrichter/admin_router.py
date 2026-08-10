@@ -2,12 +2,12 @@
 SCHIEDSRICHTER · write endpoints
 
 Referees. Every mutation sits beside the reads for its resource, in a second router guarded at
-router level by `verify_access_admin` (ADR-0034) — never move the guard onto an endpoint.
+router level by `verify_access_admin` (ADR-0027) — never move the guard onto an endpoint.
 
 Invariants:
-- A rename fans out only the name: `payment` on a match records what was agreed for that match.
+- A rename fans out only the name (`patch_schiedsrichter`, which states why).
 - `default_payment` carries no default — the patch writes the payload back wholesale.
-- Deletion is soft: matches embed a copy of the referee and reference them by id (ADR-0032).
+- Deletion is soft: matches embed a copy of the referee and reference them by id (ADR-0025).
 - `kontakt` is personal data: the shape must be present, never filled in.
 """
 

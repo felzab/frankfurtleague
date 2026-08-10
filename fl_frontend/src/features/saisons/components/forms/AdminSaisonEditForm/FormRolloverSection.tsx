@@ -27,12 +27,11 @@ const LISTED_OFFENE_SPIELE = 8;
  * The rollover: one button on `POST /saisons/{saison_id}/activate`, which promotes this season and
  * demotes the incumbent in one transaction on the backend.
  *
- * **The all-games-finished precondition lives HERE and nowhere else.**
- * [ADR-0033](../../../../../../../docs/_decisions/0033-one-active-season-and-one-path-to-it.md)
- * rejected a backend guard deliberately: an early rollover is a legitimate decision, and the one case
- * where somebody genuinely needs to activate a season is when the data is *not* in the state a rule
- * would assume. So this panel shows what is incomplete in the OUTGOING season and lets the operator
- * proceed anyway — the list is information, never a gate.
+ * **The endpoint refuses a rollover while the outgoing season has unplayed fixtures**
+ * (`REQ-ACTIVATE-001`), and it is the authority. This panel names what is incomplete in the OUTGOING
+ * season and disables the control, so the refusal is visible before the request rather than as a
+ * 409 afterwards — see `fl_frontend/src/features/saisons/actions.ts :: activateSaisonAction` for
+ * what happens when the picture changes under the page.
  *
  * **A control rather than a field.** It writes the moment it is pressed and never joins the save bar,
  * the same shape the retire and reactivate controls take on the club and player editors. `status` is on

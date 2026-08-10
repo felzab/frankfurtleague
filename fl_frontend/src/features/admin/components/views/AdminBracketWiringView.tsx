@@ -21,7 +21,7 @@ import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
  *
  * **Four rather than three, because the two kinds of source are the distinction worth seeing.** A
  * bracket is seeded from the standings in its first knockout round and fed by earlier matches in
- * every round after it (ADR-0042), so a group chip standing in a semi-final is visible as wrong from
+ * every round after it (ADR-0034), so a group chip standing in a semi-final is visible as wrong from
  * across the room — which is exactly the review this page exists for, and exactly what a single
  * "has a source" colour would hide.
  *
@@ -68,17 +68,16 @@ const HERKUNFT_CHIPS = {
 function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: FLSpielQuelle | null }) {
   const herkunft = deriveSlotHerkunft(team, quelle);
 
-  /* `deriveSlotHerkunft` decides WHICH of the three states this side is in, and it is the one
-     declaration of that — the triage list's `besetzung_missing` category reads the same function. The
-     `quelle !== null` test below is the same question again only because TypeScript needs it to read
-     `.type`, and what it adds is the variant, which is a colour decision rather than a state. */
+  /* `deriveSlotHerkunft` decides which state this side is in, and is the one
+     declaration of that -- the triage list reads the same function. The
+     `quelle !== null` test below exists so TypeScript can read `.type`. */
   let label: string;
   let chip: string;
 
   if (quelle !== null) {
-    // `formatQuelle` answers `null` only for a source whose number is still unpicked, which is a
-    // draft state `FLSpielQuelleSchema` rejects — no stored fixture reaches this fallback. It keeps
-    // the chip total rather than rendering an empty pill if one ever did.
+    // `formatQuelle` answers `null` only for a source whose number is unpicked,
+    // a draft state `FLSpielQuelleSchema` rejects, so no stored fixture reaches
+    // this fallback. It keeps the chip total if one ever did.
     label = formatQuelle(quelle) ?? "Herkunft unlesbar";
     chip = HERKUNFT_CHIPS[quelle.type];
   } else if (herkunft === "offen") {
@@ -94,7 +93,7 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
       <span className={`${LABEL_BADGE} ${chip} max-w-full whitespace-normal`}>{label}</span>
 
       {/* The occupant, in the two spellings every card uses: the club's own name, or the shared
-          placeholder for a side nobody stands in yet (ADR-0042). `break-words` and not `truncate` — a
+          placeholder for a side nobody stands in yet (ADR-0034). `break-words` and not `truncate` — a
           review surface that hides half a club's name is one an admin cannot finish, and the row is
           free to grow. */}
       {team === null ? (
@@ -108,9 +107,9 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
 
 /**
  * A season's bracket wiring, round by round — the draw as one surface, so it can be reviewed before
- * it is played (ADR-0057).
+ * it is played (ADR-0045).
  *
- * **`teamN_quelle` is the only record of the bracket's edges (ADR-0042) and no surface showed it.**
+ * **`teamN_quelle` is the only record of the bracket's edges (ADR-0034) and no surface showed it.**
  * The public bracket orders its rounds by the wiring and so draws its connecting lines correctly, but
  * it writes a slot's source out only while that slot is unresolved — so a played-out bracket states
  * the topology and none of the provenance, and checking a draw meant opening each fixture's editor
@@ -119,22 +118,22 @@ function SlotWiring({ team, quelle }: { team: FLSpielTeamField | null; quelle: F
  * **It is a preview, not a form**, which is the shape established competition software settles a draw
  * review into: the organiser reads the whole stage as it would stand, and the fixtures are edited
  * where they are already edited. Every row therefore links into `/admin/spiele/[spiel_id]`
- * (ADR-0050) rather than carrying a control of its own — one save path, and no second write surface
- * to keep in step with the refusals the endpoint makes (ADR-0046).
+ * (ADR-0040) rather than carrying a control of its own — one save path, and no second write surface
+ * to keep in step with the refusals the endpoint makes (ADR-0038).
  *
  * **The Gruppenphase is absent by construction, not filtered out for tidiness.** A group fixture's
  * sides are drawn by the schedule and the mechanism a `quelle` names does not exist in that phase, so
  * the write path refuses wiring on one — there is nothing about it this page could show.
  *
  * **It does not report bracket faults.** Those are derived per request over whole seasons by the
- * admin route (ADR-0047) and already have a durable home in the triage list; what no fault list can
+ * admin route (ADR-0039) and already have a durable home in the triage list; what no fault list can
  * give is this — a legal feeder picked on the wrong side is not a contradiction, and only reading the
  * draw finds it.
  */
 export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiele[] }) {
-  // Every round's label in one pass (ADR-0064). `rounds` arrives in the played order here -- this view
-  // deliberately does NOT apply `orderRoundsByWiring`, which is the point it makes below -- so the
-  // ordinal counts the matchday's place in its phase, which is what the label means.
+  // Every round's label in one pass (ADR-0051). `rounds` arrives in played
+  // order -- this view deliberately does NOT apply `orderRoundsByWiring` -- so
+  // the ordinal counts the matchday's place in its phase.
   const labels = spieltagLabels(rounds);
 
   // The expected state for most of a season, exactly as on the public bracket: the playoff Spieltage
@@ -151,13 +150,9 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
   }
 
   return (
-    /* `AdminCrudShell`'s page frame, so a fourth admin route does not introduce a fourth set of
-       paddings — deliberately not that component, which is a CRUD shell and would owe this page a
-       create trigger it has no business having. `px-3` below `sm` rather than its `p-6`, for the
-       reason `SaisontabelleView` uses the same: 24px of page gutter is 24px a table row does not get,
-       and this page's rows are the widest thing in the app at a phone width. The rise goes on the
-       container rather than on each panel — a short stack of full-width tables staggering in reads as
-       the page assembling itself rather than arriving. */
+    /* `AdminCrudShell`'s page frame rather than the component, which would owe
+       this page a create trigger. `px-3` below `sm` for the reason
+       `SaisontabelleView` uses it: page gutter is width a table row loses. */
     <div className={`${PAGE_RISE} max-w-page mx-auto flex w-full flex-col gap-6 px-3 py-4 sm:p-8`}>
       {rounds.map((round) => (
         <div
@@ -226,8 +221,8 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                 </Table.Header>
 
                 {/* No `renderEmptyState`, and the branch above is why. It is a render prop, which a
-                    Server Component may not pass to a Client Component (spec I13) — taking it would
-                    make this whole view a client boundary for a case a conditional already covers. */}
+                    Server Component may not pass to a Client Component (frontend spec I13) — taking
+                    it would make this a client boundary for a case a conditional already covers. */}
                 <Table.Body>
                   {[...round.spiele]
                     .sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)
@@ -237,7 +232,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                         className="border-border hover:bg-muted/40 border-b transition-colors last:border-0">
                         {/* The match number, which is what a `spiel` reference names — so the column
                             an admin reads a "Sieger 25." against is the column they look 25 up in
-                            (ADR-0042). */}
+                            (ADR-0034). */}
                         <Table.Cell className="fluid-sm py-4 pl-3 font-bold whitespace-nowrap lg:pl-4">{spiel.spiel_nr}</Table.Cell>
 
                         {/* The pair, in the same grid the header labels sit in — single-track on a
@@ -264,7 +259,7 @@ export function AdminBracketWiringView({ rounds }: { rounds: FLSpieltagWithSpiel
                               Ended right, the button's edge is exactly `pr-3` from the cell's, which
                               is the number's own inset on the far side of the row. */}
                           <div className="flex justify-end">
-                            {/* The match card's edit control, class for class (ADR-0056): the brand
+                            {/* The match card's edit control, class for class (ADR-0044): the brand
                                 fill wherever `adminEditHref` is passed, so the one thing an admin
                                 presses looks the same on every admin surface. A `<Link>` and not a
                                 button, so Next prefetches on approach and middle-click still opens a

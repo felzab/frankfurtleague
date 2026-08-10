@@ -22,7 +22,7 @@ import { AdminProvider } from "./AdminContextProvider";
  * (ADR-0002).
  *
  * The season's matches ride along for the same reason the teams do: the source of a bracket slot is
- * picked from the season's legal feeder matches, never typed as a number (ADR-0046), and the edit
+ * picked from the season's legal feeder matches, never typed as a number (ADR-0038), and the edit
  * dialog holds one match, not its season. `getSpiele` is the same cached query the admin list itself
  * renders from, so the editor offers exactly what is on screen.
  */

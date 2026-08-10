@@ -7,7 +7,7 @@ import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 
 /**
- * Retires a matchday. The write is SOFT — it stamps `inactive_since` and the document stays (ADR-0032).
+ * Retires a matchday. The write is SOFT — it stamps `inactive_since` and the document stays (ADR-0025).
  *
  * **The consequence line says what actually happens to the fixtures, which is not "nothing".** They are
  * untouched in the database and `GET /spiele` still returns them, but the public Spielplan builds itself

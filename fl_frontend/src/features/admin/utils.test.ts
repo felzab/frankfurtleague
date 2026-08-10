@@ -105,7 +105,7 @@ describe("categorizeActionRequired", () => {
   });
 
   // The FB-12 shape: a knockout side with no team and no source is maintained by nobody, so it must
-  // surface here BEFORE the fixture's date makes it an overdue result (ADR-0046).
+  // surface here BEFORE the fixture's date makes it an overdue result (ADR-0038).
   it("flags a knockout side with no team and no source as besetzung_missing", () => {
     const result = categorizeActionRequired([makeSpiel({ saison_phase: "halbfinale", team1: null, team1_quelle: null })], TODAY);
     assert.equal(result.besetzung_missing.length, 1);
@@ -136,8 +136,8 @@ describe("categorizeActionRequired", () => {
     assert.deepEqual(result.besetzung_missing, []);
   });
 
-  // The FB-13 shape: membership comes from the backend's derivation (ADR-0047), so these cases are
-  // about the join, not about any predicate — there is no predicate here to get wrong.
+  // The bracket-fault shape: membership comes from the backend's derivation (ADR-0039), so these
+  // cases are about the join, not about any predicate — there is no predicate here to get wrong.
   it("flags a match named by a bracket fault", () => {
     const result = categorizeActionRequired([makeSpiel()], TODAY, [{ reason: "same_team", spiel_id: makeSpiel().id, spiel_nr: 1 }]);
     assert.equal(result.bracket_fault.length, 1);

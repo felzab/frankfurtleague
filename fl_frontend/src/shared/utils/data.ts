@@ -28,13 +28,11 @@ export function joinCollections<
   rightIdKey: J;
   targetKey: TKey;
 }): (Omit<L, TKey> & { [P in TKey]: R[] })[] {
-  // We constrain the ID type to be a valid Map key (string | number | symbol)
   type IdType = L[K] & (string | number | symbol);
 
   const map = new Map<IdType, R[]>();
 
   for (const item of right) {
-    // We cast to IdType because we are certain of the relationship
     const key = item[rightIdKey] as IdType;
 
     if (!map.has(key)) {

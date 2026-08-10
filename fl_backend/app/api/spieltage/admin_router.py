@@ -2,13 +2,13 @@
 SPIELTAGE · write endpoints
 
 Matchdays: named blocks of fixtures inside a season. Guarded at router level by
-`verify_access_admin` (ADR-0034).
+`verify_access_admin` (ADR-0027).
 
 Invariants:
-- No payload carries a position and none may gain one — a matchday's place is derived (ADR-0064).
+- No payload carries a position and none may gain one — a matchday's place is derived (ADR-0051).
 - Deletion is soft: `spiele.spieltag_id` points here and nothing cascades.
 - Soft is not harmless — `REQ-RETIRE-002` refuses retiring a matchday holding a played match.
-- `anzahl_spiele` is derived (ADR-0065); `REQ-SPIELTAG-002` refuses a phase too small for its fixtures.
+- `anzahl_spiele` is derived (ADR-0052); `REQ-SPIELTAG-002` refuses a phase too small for its fixtures.
 """
 
 from typing import Annotated
@@ -57,8 +57,8 @@ async def post_spieltag(
 
     Where it sits in the season follows from what it is: the phase in bracket order, then `beginn`. So a
     matchday created out of sequence is not a matchday in the wrong place — it is one whose phase or date
-    is wrong, and correcting either moves it (ADR-0064). Its NAME follows from the same two facts, which is
-    why the payload carries none (ADR-0064).
+    is wrong, and correcting either moves it (ADR-0051). Its NAME follows from the same two facts, which is
+    why the payload carries none (ADR-0051).
 
     **Two refusals.** A season whose knockout phase is already under way takes no new matchdays at all
     (`REQ-SPIELTAG-003`, decided 2026-08-08) — "under way" meaning its earliest non-group matchday begins
@@ -69,12 +69,12 @@ async def post_spieltag(
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": spieltag_data.saison_id})
 
     # The window first: a season whose bracket is already under way takes no new matchdays
-    # (`REQ-SPIELTAG-003`). Before the span check, because it is a fact about the season rather than about
-    # this payload -- there is no point correcting dates for a matchday that may not be created at all.
-    #
-    # The earliest non-group matchday's `beginn`, retired ones INCLUDED: a retired knockout matchday is
-    # still a date the bracket was scheduled to start on, and hiding it from a list does not un-start the
-    # phase.
+    # (`REQ-SPIELTAG-003`). Before the span check, because it is a fact about the season rather than
+    # about this payload.
+
+    # The earliest non-group matchday's `beginn`, retired ones included: a retired knockout matchday is
+    # still a date the bracket was scheduled to start on, and hiding it from a list does not un-start
+    # the phase.
     earliest_knockout = await spieltage_collection.find_one(
         {"saison_id": spieltag_data.saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
         {"beginn": 1},
@@ -127,7 +127,7 @@ async def patch_spieltag(
     matchday is picked up by every consumer on the next read.
 
     **The phase is refused if the matchday already holds more fixtures than it accounts for**
-    (`REQ-SPIELTAG-002`, ADR-0065). A single round robin per group fixes that number, so moving a matchday
+    (`REQ-SPIELTAG-002`, ADR-0052). A single round robin per group fixes that number, so moving a matchday
     of eight group fixtures into a Finale would leave seven of them with nowhere to be played. The other
     direction -- fewer fixtures than expected -- is left alone, because that is every season part-way
     through being set up.
@@ -135,9 +135,9 @@ async def patch_spieltag(
 
     stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
-    # The season's rules decide what the PROPOSED phase accounts for, so the refusal needs both. A
-    # matchday whose season document is missing is left to the write below: 404 on the matchday is the
-    # honest answer, and inventing an expected count from a default nobody chose is not (ADR-0043).
+    # The season's rules decide what the proposed phase accounts for, so the refusal needs both. A
+    # matchday whose season document is missing is left to the write below: inventing an expected
+    # count from a default nobody chose is not honest (ADR-0035).
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]})
     attached = await spiele_collection.count_documents({"spieltag_id": spieltag_id})
     refusal = find_spieltag_phase_refusal(

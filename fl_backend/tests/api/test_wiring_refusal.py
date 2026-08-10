@@ -1,5 +1,5 @@
 """
-SPIELE · which bracket edits the season cannot hold (ADR-0046)
+SPIELE · which bracket edits the season cannot hold (ADR-0038)
 
 `find_wiring_refusal` is pure, so every case runs in the default tier. The rules are
 contradictions rather than preferences — wiring on a group fixture, a source the season cannot
@@ -122,7 +122,7 @@ class TestLegalEdits:
         assert refusal_for(season, 30, team1_quelle=verlierer(25)) is None
 
     def test_taking_manual_charge_keeps_the_occupant(self, season, spiel_team_field):
-        """Clearing the source while a team stands is ADR-0042's manual-override route and stays open."""
+        """Clearing the source while a team stands is ADR-0034's manual-override route and stays open."""
         occupied = [doc if doc["spiel_nr"] != 29 else {**doc, "team1": spiel_team_field()} for doc in season]
         assert refusal_for(occupied, 29, team1=spiel_team_field(), team1_quelle=None) is None
 
@@ -160,7 +160,7 @@ class TestPhaseRules:
         assert "Gruppenphase" in (refusal_for(season, 1, team1=None, team1_quelle=sieger(2)) or "")
 
     def test_a_dangling_match_number_is_refused(self, season):
-        """The typo ADR-0042 could only contain after the fact is refused at the door instead."""
+        """The typo ADR-0034 could only contain after the fact is refused at the door instead."""
         assert "no such match" in (refusal_for(season, 30, team1_quelle=sieger(27)) or "")
 
     def test_a_group_match_never_feeds_a_slot(self, season):

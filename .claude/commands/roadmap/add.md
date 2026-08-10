@@ -2,124 +2,140 @@
 description: Add described items to the roadmap and re-rank the file — /roadmap:add, one `*` bullet per item
 ---
 
-Add the items described in the arguments to `docs/roadmap/open-items.md`, then re-rank the whole
+Add the items described in the arguments to `docs/_roadmap/open-items.md`, then re-rank the whole
 file: `$ARGUMENTS`
 
-**Each top-level `*` bullet is exactly one item.** Never merge two bullets into one entry and never
-split one bullet into two without asking. A bullet is a description, not the entry — the entry is
-what you write after you have read the code it touches.
+**Each top-level `*` bullet is exactly one item.** Never merge two bullets into one entry, and never
+split one bullet without asking. A bullet is a description; the entry is what you write after
+reading the code it names.
 
-This command adds and re-ranks. **It never closes, deletes or implements anything** — that is
-`/roadmap:start <ID>`, and it is a different session.
+This command adds and re-ranks. It closes, deletes and implements nothing — that is
+`/roadmap:start <ID>`, in its own session.
+
+**Before the first write** — step 6 is where it starts — the working tree is clean, `main` is up to
+date with `origin/main`, and you are on a branch named for the change (CLAUDE.md §2).
 
 ## Steps
 
-1. **Read the rules before writing a line.** `docs/roadmap/README.md` in full — the issue boundary,
-   the ranking rubric, the status derivation — and `docs/roadmap/open-items.md` in full, which is
-   also the shape every new entry must match. Then `docs/_standard/chapters/1-core.md`: an entry is
-   documentation and carries COR-1, COR-3, COR-6 and COR-9 like anything else.
+1. **Read all of these before writing a line.**
 
-2. **Triage each bullet, and say the result back before writing.** Three outcomes:
+   | Read                                | For                                                                             |
+   | ----------------------------------- | ------------------------------------------------------------------------------- |
+   | `docs/_roadmap/protocol.md`         | The ranking rubric (§1), the tiers (§2), the status derivation (§4)             |
+   | `docs/_roadmap/README.md`           | What belongs on the roadmap, and what belongs in an ADR or a spec sheet instead |
+   | `docs/_roadmap/open-items.md`       | Every open entry, and the shape "What every entry carries" fixes                |
+   | `docs/_roadmap/closed-items.md`     | The retired ids, and the numbers already spent                                  |
+   | `docs/_standard/chapters/1-core.md` | An entry is documentation: COR-1, COR-3, COR-4, COR-6 and COR-9 bind it         |
+   | `docs/_auditing/lessons.md`         | How a claim is verified before it is written down                               |
 
-   | The bullet is                                      | Do                                                                                          |
-   | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-   | Already covered by an entry in the file            | **Amend that entry**, do not open a second one. Say which entry and what you added to it    |
-   | Small, decided, and doable in the session at hand  | Say so. The roadmap's own rule is "just do it" — an entry for a five-minute fix is ceremony |
-   | A question with trade-offs, or owner-directed work | Open an entry                                                                               |
+2. **Triage every bullet and say each outcome back before writing anything.**
 
-   Check `docs/roadmap/closed-items.md` too: a bullet describing something already closed is either a
-   regression, which gets a **new** id, or a misunderstanding, which gets an answer instead of an entry.
+   | The bullet                                            | Outcome                                                                      |
+   | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+   | Is already covered by an open entry                   | **Amend that entry.** Name it and name what you added; open no further entry |
+   | Is small, decided, and doable in the session at hand  | Say so and do it. Open no entry for it                                       |
+   | Matches a row in `docs/_roadmap/closed-items.md`      | A regression takes a **new** id; a misunderstanding takes an answer          |
+   | Is a question with trade-offs, or owner-directed work | Open an entry                                                                |
 
-3. **Research each item before writing its entry. This is the step that gives the file its value.**
-   An entry that only restates the bullet in nicer words is worth nothing — the file exists so that a
-   decision is taken with the analysis already in hand. For each item, establish and write down:
+   **Check before step 3:** every bullet has exactly one outcome named.
 
-   - **What it actually touches**, cited the way COR-6 requires — `` `<file> :: <symbol>` `` or a file
-     plus a short quoted fragment. Never a line number.
-   - **What is already decided about it.** Search `docs/_decisions/`. An ADR that settles half the
-     question turns an open argument into a scoped piece of work, and citing it is what stops the
-     next session re-litigating it.
-   - **Who consumes it** — the other entries, endpoints, components or collections that would have to
-     change with it, and which of them are already in this file.
-   - **What makes it non-trivial**, stated plainly. If it is genuinely trivial, say that instead.
-   - **What you could not verify** (COR-9). A named gap is useful; a confident guess is a defect with a
-     long half-life.
+3. **Research each item, then write its entry.** Never restate a bullet in nicer words. For each
+   item, establish and write down:
 
-   **Never invent analysis.** Where a bullet is too thin to research — it names no surface, or the
-   thing it describes cannot be found — that is a question for the owner, not a gap to fill with
-   plausible prose.
+   - **What it touches**, cited as COR-6 requires — `` `<path> :: <symbol>` `` or a repository path.
+   - **What is already decided.** Search `docs/_decisions/` and cite the ADR by number.
+   - **Who consumes it** — the entries, endpoints, components and collections that would change with
+     it, and which of those are already in the file.
+   - **What makes it non-trivial.** If it is trivial, say so and return to step 2.
+   - **What you could not verify** (COR-9).
 
-4. **Ask everything at once, before writing.** Collect the questions from steps 2 and 3 and put them
-   as **one batch** with a recommendation each. Only ask what changes the entry: a different answer
-   must produce a different entry, or it is not a question worth the owner's time.
+   **Never invent analysis.** A bullet naming no surface, or naming something that cannot be found,
+   is a question for the owner rather than a gap to fill with plausible prose.
 
-5. **Assign an id.** Take the prefix from the ids already in use, reading both roadmap files for what
-   each one means: surface-scoped prefixes for surface work, and a named prefix of its own for a
-   programme that belongs to no single surface. Invent a new prefix only for that last case, and say
-   that you did.
+4. **Put every question from steps 2 and 3 to the owner as one batch, before writing**, each with a
+   recommendation. Ask only what changes an entry: where every answer produces the same entry, do
+   not ask.
 
-   **The number is one past the highest that prefix has ever used, counting closed ids.** Ids are
-   never reused — `closed-items.md` states this and its log is half the evidence.
+5. **Assign an id.**
 
-6. **Write the entry in the file's own shape**, which you read in step 1: a `### <rank> · <ID> — <title>`
-   heading, a bold lead sentence naming what the item is, the analysis, and a **`Path:`** line saying
-   what it blocks and what blocks it. Give it `Surfaces`, an `Effort` from the file's own S/M/L/XL
-   scale, and a `Status` derived by the README's derivation — never chosen by feel.
+   - Take the prefix from the ids in use across the roadmap files. A programme belonging to no
+     single surface earns a new prefix — say when you invent one.
+   - **The number is one past the highest that prefix has ever carried**, retired ids and recorded
+     gaps included. An id is never reused (`docs/_roadmap/protocol.md :: The closed row`).
+   - **Check:** `git grep -n "<ID>"` returns nothing for the id you are about to assign.
 
-   Optimise the owner's description into the entry; do not transcribe it. Where the description
-   carries an instruction — consult me first, check this against a source, record this reminder —
-   that instruction is part of the entry and must survive into it, because the session that works the
-   item will have only the entry.
+6. **Write each entry in the shape `docs/_roadmap/open-items.md` fixes** under "What every entry
+   carries" — the heading, one metadata line per field in this order, then the analysis:
 
-7. **Re-rank the entire file**, by the rubric in `docs/roadmap/README.md`. Not "insert the new
-   entries somewhere": every rank is re-derived, because a new entry can change what an old one is
-   worth waiting for.
+   ```
+   ### <rank> · <ID> — <the problem, never the solution>
+
+   **Status:** <derived by docs/_roadmap/protocol.md §4>\
+   **Surfaces:** <FE, BE, DB, Ops — in that order, only those it touches>\
+   **Effort:** <S | M | L | XL>\
+   **Path:** <what it blocks, and what blocks it>
+
+   <the analysis from step 3, opening with a bold sentence naming what the item is>
+   ```
+
+   - **A field with nothing to say holds an em dash**, never an absent line.
+   - Every metadata line but the last ends in a backslash (COR-8).
+   - Add the row to "The path at a glance": rank, ID, the heading's problem in short form, surfaces,
+     effort, status, and `Depends on` — an entry id, or an em dash.
+   - Optimise the owner's description into the entry rather than transcribing it. An instruction
+     inside the description — consult me first, check this against a source, record this reminder —
+     survives into the entry: the session that works the item reads only the entry.
+
+7. **Re-rank the whole file** by `docs/_roadmap/protocol.md` §1, re-deriving every rank rather than
+   inserting the new entries into the order that exists.
 
    - Renumber the index table **and** every `### <rank> ·` heading, and keep them in step.
-   - Move entries between tiers where the rubric says so, and **rewrite each tier's opening
-     paragraph** to describe the entries actually in it.
-   - **Re-derive every row's `Status`**, not only the new ones. `Blocked` is a claim about another
-     row, so an added entry can change rows nobody edited.
-   - Fix every `Path` line the new entries affect, in both directions: what they block, and what
+   - Move entries between tiers where the rubric says so, and rewrite each tier's opening paragraph
+     to describe the entries actually in it (`docs/_roadmap/protocol.md` §2).
+   - Add a tier section and its row in the file's navigation table when a tier gains an entry, and
+     delete the section and the row when a tier empties.
+   - **Re-derive every row's `Status`** by §4, not only the new rows. `Blocked` is a claim about
+     another row, so an added entry changes rows nobody edited.
+   - Fix every `Path` line the new entries affect, in each direction: what they block, and what
      blocks them.
-   - **Say out loud which existing entries moved and why**, naming the test from the rubric that
-     moved each one. A re-rank nobody can audit is a re-rank the owner has to redo.
+   - Set `Depends on` on every row a new entry blocks, and correct the sentence under the table that
+     states what that column currently holds.
 
-8. **Update everything else that indexes these entries**, because CLAUDE.md's same-commit rule
-   requires it. Search the repository for the ids and for the tables that list them — each surface
-   spec sheet carries a `Known-open` section, and the audit prompts seed checks from these entries.
-   Add the new item wherever its kind is listed; leave the rest alone.
+   **Report every entry that moved**, one line each: `<ID>: <old rank> → <new rank>, test <n>`.
 
-9. **Re-read every entry against the code before you ship it.** Researching and writing in one pass
-   is how a claim gets written from a grep that was half-read, and an entry states its evidence
-   confidently enough that nobody checks it again for months.
+8. **Add the new ids wherever the repository indexes them**, per CLAUDE.md's same-commit rule:
 
-   **The gate proves that a citation resolves. Only a reader proves that it supports the claim.** So
-   re-open each file an entry cites and check the things that are wrong most often:
+   - The `## 4. Known-open` table of the spec sheet for each surface the entry names. That table's
+     `#` column is where a roadmap id lives in `docs/`.
+   - The audit pass prompt under `docs/_auditing/prompts/` that owns the check, where the entry's
+     `Path` line names a pass. The reference is mutual: the prompt names the id, and the entry's
+     `Path` line names the prompt.
+   - **Never a source comment.** INC-6 bans a roadmap id there — a comment states the constraint and
+     cites the ADR.
 
-   - **Every count**, re-derived rather than remembered — "three files", "seven occurrences".
-   - **Every _every_, _only_ and _never_.** A component shared by "every" caller usually has an
-     exception, and the exception is the interesting half of the finding.
-   - **Every claim about a framework** rather than about this repository. If the repo states it in a
-     comment, cite that comment; if nothing states it, mark the claim unverified (COR-9).
-   - **Every structural promise**: the index table and the `### <rank> ·` headings agree, rank by
-     rank, and no id appears twice.
+   Leave every other reference alone.
 
-   Correct what is wrong, and **say in the handover what this step caught** — a step that never
-   reports anything is a step nobody is really running.
+9. **Re-open every file an entry cites and check that it supports the claim.** The gate proves that
+   a citation resolves; only a reader proves that it says what the entry says it says.
 
-10. **Restamp every stamped page this change touched**, not only `docs/roadmap/open-items.md`, per
-    `docs/_standard/chapters/5-currency.md`. Step 8 routinely edits spec sheets, and each carries its own
-    `Verified against` line. Editing a stamped page without moving its stamp fails the gate; moving a
-    stamp without re-reading the page falsifies a record the gate treats as true.
+   - **Every count**, re-derived and carrying the date it was measured (COR-4).
+   - **Every _every_, _only_ and _never_.** The exception is usually the interesting half.
+   - **Every claim about a framework** rather than about this repository: cite the repository's own
+     comment, or mark the claim unverified (COR-9).
+   - **The structure**: the index table and the `### <rank> ·` headings agree rank by rank, ranks run
+     from 1 with no gap, and no id appears twice.
 
-11. **Ship it as one commit**, following `docs/workflows/README.md` — branch before the first write,
-    `pnpm format` from `fl_frontend/`, then `./scripts/verify.sh --docs`. That stays the scope even
-    when step 8 sends you into a source file, because a comment-only edit is a documentation change
-    whatever file holds it. Then push and hand over the pull request link, title and body. Report the
-    gate's actual exit code. The two-commit protocol belongs to closing an item and does not apply
-    here.
+   Correct what is wrong, and report what this step caught.
 
-12. **Hand over.** The new ids and where each ranked, the entries that moved and the test that moved
-    them, the questions the owner answered and how each shaped an entry, what step 9 caught, and
-    anything you could not verify. If a new entry now blocks or unblocks an existing one, say which.
+10. **Restamp every stamped page this change touched**, in CUR-3's shape and only after re-reading
+    it — `docs/_standard/chapters/5-currency.md`. Step 8 edits spec sheets, and each carries a stamp.
+
+11. **Ship it as one commit**, per `docs/_git/spec.md`: `pnpm format` from `fl_frontend/`, then
+    `./scripts/verify.sh --docs`. Report the actual exit code. Push, open the pull request as a
+    draft, and print its link. Commit message shape: `docs/_git/templates.md`.
+
+    The two-commit protocol belongs to closing an item and does not apply here.
+
+12. **Hand over:** the new ids and where each ranked · every entry that moved and the test that moved
+    it · the questions answered and how each shaped an entry · what step 9 caught · what you could
+    not verify · which entries the new ones block or unblock.

@@ -2,15 +2,15 @@
 SAISONS · read endpoints
 
 Writing them is `admin_router.py`, a separate module so the two authorization levels never share
-a file (ADR-0034).
+a file (ADR-0027).
 
 Invariants:
 - `/current` is declared before `/{saison_id}` and must stay there — matching is declaration order.
 - A season id is exactly 4 characters, matching every `saison_id` that references one.
-- `rules.win_points` / `draw_points` score every derived league table on read (ADR-0026).
+- `rules.win_points` / `draw_points` score every derived league table on read (ADR-0019).
 
 See:
-- docs/frontend/spec.md — section 5, how a direct edit here reaches the frontend cache
+- docs/frontend/spec.md — section 1.5, how a direct edit here reaches the frontend cache
 """
 
 from fastapi import APIRouter, Depends
@@ -76,10 +76,9 @@ async def get_current_saison(
     return FLSaisonsSingleResponse(saison=saison)
 
 
-# Declared after `/current`, and that is not cosmetic: routes match in declaration order, so with these
-# swapped "current" is captured as a saison id and the endpoint most of the site depends on 404s. The
-# `objectid` convertor that protects the other resources cannot help here -- a season id is a
-# four-character string, not an ObjectId, so the parameter genuinely could match "current".
+# Declared after `/current`: routes match in declaration order, so swapped, "current" is captured as a
+# saison id. The `objectid` convertor cannot help -- a season id is a four-character string, so the
+# parameter genuinely could match it.
 @router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
     """

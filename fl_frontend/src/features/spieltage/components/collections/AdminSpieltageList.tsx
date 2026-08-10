@@ -21,12 +21,12 @@ import type { AdminSpieltagRow } from "../../types";
 /**
  * The season's matchdays, sectioned by phase and in the order they are played.
  *
- * **Not a table, and not the public Spielplan's tab strip either** (decided 2026-08-07, ADR-0063). The
+ * **Not a table, and not the public Spielplan's tab strip either** (decided 2026-08-07, ADR-0050). The
  * Spielplan shows one matchday at a time because a reader's question is what is being played on it; the
  * admin's questions are comparisons BETWEEN matchdays — are the phases right, does the expected fixture
  * count match what is attached — and a strip showing one matchday hides both.
  *
- * **The order arrives already correct and this list does not re-sort it** (ADR-0064). It is derived on the
+ * **The order arrives already correct and this list does not re-sort it** (ADR-0051). It is derived on the
  * backend from `saison_phase` in bracket order, then `beginn`, then `name`, so there is no stored position
  * to render, no collision to detect and no reordering control to offer. What the row shows instead is an
  * `ordinal` — its 1-based place within its phase section, assigned by the page from the order it received.
@@ -34,7 +34,7 @@ import type { AdminSpieltagRow } from "../../types";
  * where the row actually is.
  *
  * **`spieleAngelegt` against `anzahl_spiele` is the one fact only this surface can catch.** The expected
- * count follows from the season's rules and this matchday's phase (ADR-0065); the attached count is how
+ * count follows from the season's rules and this matchday's phase (ADR-0052); the attached count is how
  * many fixtures carry its id. Nothing refuses a disagreement, because a season being set up passes through
  * every intermediate count on the way — so showing the two together is what makes the gap visible without
  * making the intermediate states illegal.
@@ -74,11 +74,10 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
   };
 
   // Grouped by phase in the competition's own order. A phase with no matchday is skipped rather than
-  // rendered empty: a season part-way through its setup has no Finale yet, and an empty heading would read
-  // as something missing rather than as something not reached.
-  //
-  // No sort inside a section — the rows arrive in the played order and re-sorting here would be a second
-  // answer to a question the backend already answered (ADR-0064).
+  // rendered empty: an empty heading reads as something missing rather than something not reached.
+
+  // No sort inside a section — the rows arrive in the played order, and re-sorting here would be a
+  // second answer to a question the backend already answered (ADR-0051).
   const byPhase = new Map<FLSaisonPhase, AdminSpieltagRow[]>();
   for (const spieltag of filteredSpieltage) {
     const section = byPhase.get(spieltag.saison_phase);
@@ -162,7 +161,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
           className="flex w-full flex-col gap-3">
           {/* The phase's own chip as the section heading, so the admin list and every match card name a
               phase with the same word and the same colour. `h2` because the page's title is the shell
-              bar's (ADR-0058). */}
+              bar's (ADR-0046). */}
           <h2 className="flex flex-row items-center gap-x-3">
             <SaisonPhaseChip saisonPhase={phase} />
             <span className="fluid-xs text-foreground-muted font-medium">

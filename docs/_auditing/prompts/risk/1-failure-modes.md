@@ -1,16 +1,11 @@
 # Risk pass 1 — failure modes and audit coverage
 
-Paste into a fresh session (or run via `/audit:pass risk 1`).
-
-**Run this pass FIRST**, before any surface pass in the programme. Its register tells the later
-passes what they are responsible for covering, and it is the only pass that starts from consequences
-rather than from a part of the stack.
-
----
-
-Audit pass 1 of 1 on failure modes. Lens: WHAT WOULD ACTUALLY HURT — enumerate the outcomes this
+Audit pass `risk 1` on failure modes. Lens: WHAT WOULD ACTUALLY HURT — enumerate the outcomes this
 system must not produce, trace each to the paths that could produce it, and establish whether any
-pass in this programme is going to look there.
+pass in this programme is going to look there. **A lens shaped like the stack finds defects shaped
+like the stack**, and every other pass in a programme is named after a part of the stack; this pass
+supplies the consequence axis, so severity across the programme means something and a hazard nobody's
+lens covers is visible as a gap rather than as silence.
 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass.
 
@@ -25,12 +20,12 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 MODE — decide by looking, and state which you are in, in both files' headers:
 
 - **`docs/audit/register.md` does not exist → CREATE.** Build it from scratch by running every check
-  below. Put the severity column to me for confirmation before finishing.
+  below.
 - **It exists → REFRESH.** Do not rebuild it. Read it first, then: re-verify each existing row
   against the current code and mark it `holds` / `changed` / `gone`; add hazards the code has grown
   since; and re-run check 3 from scratch, because the coverage map is per-programme and the passes
-  differ. **Keep every severity I have confirmed** — a confirmed severity changes only when
-  I change it, and a row you believe is now mis-rated is a question, not an edit.
+  differ. **Keep every severity I have confirmed** — a confirmed severity changes only when I change
+  it, and a row you believe is now mis-rated is a question, not an edit.
 
   Report the refresh honestly: how many rows held, how many changed, how many are new. If a large
   share changed, say so — that is a signal about the system, not noise.
@@ -44,22 +39,15 @@ DELIVERABLE: the failure-mode register (check 2) and the coverage map (check 3) 
 and are the pass's whole point. Every later pass in this programme reads its own rows from them and
 must state, in its verdict, whether it covered each.
 
-WHY THIS PASS EXISTS: every other pass is named after a part of the stack — caching, styling,
-schemas, nginx. A lens shaped like the stack finds defects shaped like the stack, and **nothing in
-that set asks what would actually hurt.** A defect can be technically minor and consequentially
-severe, or technically alarming and harmless. This pass supplies the consequence axis, so severity
-across the programme means something and so a hazard nobody's lens happens to cover is visible as a
-gap rather than as silence.
-
 SCOPE: the whole system, whichever surface this programme is auditing. A hazard outside this
 programme's surface is still registered — it is filed as a roadmap item rather than a ledger row
 (check 4), so it is not lost between programmes.
 
 CONTEXT — derive, do not assume. Establish before enumerating anything: what this system is for and
 who uses it (`docs/README.md`, `docs/glossary.md`); what data it holds and which of it is personal;
-what is published to the public internet versus what sits behind authentication; what a wrong
-answer would look like to a reader who trusts the site. Read `docs/_decisions/` for the invariants
-already ratified — a hazard an ADR has already accepted is a recorded risk, not a finding.
+what is published to the public internet versus what sits behind authentication; what a wrong answer
+would look like to a reader who trusts the site. Read `docs/_decisions/` for the invariants already
+ratified — a hazard an ADR has already accepted is a recorded risk, not a finding.
 
 THE CHECKS, in priority order:
 
@@ -102,26 +90,26 @@ THE CHECKS, in priority order:
    cheapest fix — an extra check appended to a named pass, or a hazard that needs its own
    investigation — and say which.
 
-4. **OUT-OF-SURFACE HAZARDS.** Register rows whose mechanism lives outside the surface this
-   programme audits. List them separately with the owning surface named. These do not become ledger
-   rows; they go to `docs/roadmap/open-items.md` so the next programme on that surface inherits them.
+4. **OUT-OF-SURFACE HAZARDS.** Register rows whose mechanism lives outside the surface this programme
+   audits. List them separately with the owning surface named. These do not become ledger rows; they
+   go to `docs/_roadmap/open-items.md` so the next programme on that surface inherits them.
 
 5. **CONTROL DURABILITY** — also written to `docs/audit/register.md`. For every register row whose
-   "existing control" is not `nothing`: is that
-   control enforced automatically, or does it depend on someone remembering? An invariant held only
-   by convention is a control with no owner. Report the inventory: control | enforced by | what
-   silently disables it. **A control that can be removed without anything failing is the same as no
-   control**, and this is where an audit finds the ones already half-removed.
+   existing control is not `nothing`: is that control enforced automatically, or does it depend on
+   someone remembering? An invariant held only by convention is a control with no owner. Report the
+   inventory: control | enforced by | what silently disables it. **A control that can be removed
+   without anything failing is the same as no control**, and this is where an audit finds the ones
+   already half-removed.
 
-6. **RECOVERY POSTURE.** For the highest-consequence rows: if this happened at 02:00 on a Sunday,
+6. **RECOVERY POSTURE.** For every row rated CRITICAL or HIGH: if this happened at 02:00 on a Sunday,
    what would make it visible, what would make it stop, and what would restore correct state? Name
    the actual mechanism or state plainly that there is none. Recovery gaps are findings — an
    unrecoverable low-probability failure outranks a recoverable likely one.
 
-CROSS-SURFACE QUESTIONS: which outcomes actually matter, and how bad each would be, is my
-judgment and not derivable from code. **Present the register's severity column to me as one
-batch for confirmation**, since every later pass inherits it. Where you had to assume, say so on the
-row.
+CROSS-SURFACE QUESTIONS: which outcomes actually matter, and how bad each would be, is my judgment
+and not derivable from code. **Present the register's severity column to me as one batch for
+confirmation before finishing**, since every later pass inherits it. Where you had to assume, say so
+on the row.
 
 BOUNDARIES — not this pass: finding the defects themselves. This pass establishes what to look for
 and who is looking; the surface passes do the looking. Do not report a code-level defect here beyond

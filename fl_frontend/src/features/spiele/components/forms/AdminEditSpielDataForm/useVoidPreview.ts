@@ -4,7 +4,7 @@
  * SPIELE · what saving this draft would destroy, asked live
  *
  * Debounced `dry_run=true` against the write path, which applies the payload in memory and
- * resolves the bracket without writing (ADR-0051) — the warning names exactly the fixtures a
+ * resolves the bracket without writing (ADR-0041) — the warning names exactly the fixtures a
  * save would take a stored result from, not the fixtures that merely could lose one.
  *
  * Invariants:
@@ -20,9 +20,9 @@ import type { FLPatchSpielDataPayload } from "@/features/spiele/schemas";
 
 /** The `spiel_nr` of every other fixture a save would rewrite, split by what it would cost them. */
 export type VoidPreview = {
-  /** Fixtures whose stored result the bracket resolution would clear (ADR-0051). */
+  /** Fixtures whose stored result the bracket resolution would clear (ADR-0041). */
   voided: readonly number[];
-  /** Fixtures a team would be released from, because it is being fielded on their Spieltag (ADR-0052). */
+  /** Fixtures a team would be released from, because it is being fielded on their Spieltag (ADR-0042). */
   released: readonly number[];
 };
 
@@ -73,9 +73,9 @@ export function useVoidPreview({
   useEffect(() => {
     if (!isEnabled) return;
 
-    // Flipped by the cleanup, and checked after the await. `AbortController` would cancel the fetch
-    // but not the server action's own round trip, and this is the part that matters: whatever comes
-    // back for a draft that has already changed must not reach the screen.
+    // Flipped by the cleanup and checked after the await. `AbortController` would cancel the fetch
+    // but not the server action's own round trip, and whatever comes back for a draft that has
+    // already changed must not reach the screen.
     let isCurrent = true;
 
     const timer = setTimeout(async () => {
@@ -91,8 +91,7 @@ export function useVoidPreview({
     };
   }, [previewKey, isEnabled]);
 
-  // Derived at render rather than cleared in an effect: `isEnabled` and `previewKey` are both computed
-  // from the draft, so a state write here would be React re-deriving what it already knows — and the
-  // cascading render it costs is what `react-hooks/set-state-in-effect` exists to catch.
+  // Derived at render rather than cleared in an effect: `isEnabled` and `previewKey` are both
+  // computed from the draft, so a state write here would be React re-deriving what it already knows.
   return isEnabled && answered?.key === previewKey ? answered.preview : null;
 }

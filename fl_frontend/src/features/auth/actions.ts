@@ -28,10 +28,9 @@ const SignInPayloadSchema = z.object({
   email: z.email("Gib eine gültige E-Mail-Adresse ein."),
 });
 
-// Deliberately identical whether or not the address is on the admin allowlist. This action is
-// public and unauthenticated, so a distinguishable "not authorized" response is a membership oracle
-// for ALLOWED_ADMIN_EMAILS -- and the address is the only thing an attacker needs to enumerate.
-// `submittedEmail` is the caller's own input echoed back, which reveals nothing.
+// Deliberately identical whether or not the address is on the admin allowlist: this action is
+// public, so a distinguishable "not authorized" response is a membership oracle for
+// ALLOWED_ADMIN_EMAILS. `submittedEmail` is the caller's own input, echoed.
 const neutralResult = (submittedEmail: string): FormState => ({
   success: true,
   message: "Falls diese Adresse freigegeben ist, ist ein Anmeldelink unterwegs.",
@@ -65,19 +64,9 @@ export async function handleSignIn(prevState: FormState | undefined, formData: F
   }
 
   try {
-    // `redirect: false` is the other half of NEUTRAL_RESULT, and the neutral response is decorative
-    // without it. Under the default, an allowlisted address ends in `redirect()` to
-    // /api/auth/verify-request while a rejected one falls into the AccessDenied branch below and
-    // stays put -- so the browser NAVIGATING was itself the membership oracle this action exists to
-    // close, readable by anyone watching the address bar. `redirect: false` makes `signIn` return
-    // the URL as a string instead (next-auth `lib/actions.js`), which is discarded here: both paths
-    // now end on /signin with the same message, and the caller renders the confirmation itself.
-    // The verification email is still sent -- that happens inside `Auth()`, before this returns.
-    // Both options, and they do different jobs: `redirectTo` becomes Auth.js's `callbackUrl`, i.e.
-    // where the magic LINK lands the user once the token is verified (without it the callback falls
-    // back to the Referer, which is /signin — so clicking the link dropped admins back on the sign-in
-    // page). `redirect: false` only stops THIS action from navigating the browser now. next-auth
-    // destructures the two separately, so they do not conflict.
+    // `redirect: false` is the other half of `neutralResult`: by default an allowlisted
+    // address navigates and a rejected one does not, so navigating IS the oracle.
+    // `redirectTo` is separate -- where the magic link lands after verification.
     await signIn("resend", { email: validated.data.email, redirectTo: "/admin", redirect: false });
 
     return settleAfterFloor(startedAt, neutralResult(validated.data.email));

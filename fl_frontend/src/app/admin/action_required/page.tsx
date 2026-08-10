@@ -10,7 +10,7 @@ export default async function AdminOverviewPage() {
 
   return (
     // No lookup lists, for the same reason `/admin/spielsuche` needs none: the cards link into the
-    // editor's own route, which loads them for the season it is editing (ADR-0050).
+    // editor's own route, which loads them for the season it is editing (ADR-0040).
     <AdminSpieleActionRequiredView
       overviewSpiele={adminRes.spiele}
       bracketFaults={adminRes.bracket_faults}

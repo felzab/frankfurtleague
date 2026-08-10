@@ -33,11 +33,11 @@ const ELFMETER_PATHS = ["elfmeterschiessen.team1", "elfmeterschiessen.team2"] as
  *
  * **A result needs both sides.** `PATCH /spiele/{spiel_id}` derives `ergebnis` from the two goal counts
  * and reads through an absent side as no goals at all, so a fixture with an unresolved slot can never
- * carry one (ADR-0042). The toggle says so rather than accepting scores the write path would discard.
+ * carry one (ADR-0034). The toggle says so rather than accepting scores the write path would discard.
  *
  * **The shoot-out appears only on a KNOCKOUT fixture that finished level**, which is the only shape it
  * can describe — the write path discards a record stored against any other, so offering the fields
- * elsewhere would take input the save then threw away (ADR-0044). A group-phase draw is a final result
+ * elsewhere would take input the save then threw away (ADR-0036). A group-phase draw is a final result
  * worth a point to each side, so it never appears there however the goals end up. Its counts are not
  * goals: they decide which side the bracket advances and leave the league table's draw untouched.
  *
@@ -115,15 +115,15 @@ export function FormErgebnisSection({
     onElfmeterschiessenChange({ team1: null, team2: null, ...elfmeterschiessen, [slot]: isNaN(val) ? null : val });
   };
 
-  // Team, then provenance, then the shared placeholder — the fall-through every card uses (ADR-0042).
+  // Team, then provenance, then the shared placeholder — the fall-through every card uses (ADR-0034).
   const team1Name = team1Payload?.name || formatQuelle(team1Quelle) || PLACEHOLDER.slot;
   const team2Name = team2Payload?.name || formatQuelle(team2Quelle) || PLACEHOLDER.slot;
   const team1Tore = team1Payload?.tore ?? NaN;
   const team2Tore = team2Payload?.tore ?? NaN;
 
-  // Announced below, because the shoot-out is what decides which side the bracket advances — and an
-  // admin who has just typed two numbers should read the consequence rather than infer it. `null` while
-  // either count is empty or the two are equal: a level shoot-out names nobody and the schema refuses it.
+  // Announced below, because the shoot-out decides which side the bracket advances and an admin who
+  // has just typed two numbers should read the consequence. `null` while either count is empty or the
+  // two are equal: a level shoot-out names nobody.
   const elfmeterSiegerName =
     elfmeterschiessen === null || elfmeterschiessen.team1 === null || elfmeterschiessen.team2 === null
       ? null
@@ -156,7 +156,6 @@ export function FormErgebnisSection({
       </div>
 
       <div className={styles.body()}>
-        {/** Switch to enter Ergebnis */}
         {/* Named by its own visible content — an `aria-label` would override the visible text with a
             copy of itself. */}
         <div className="flex w-full flex-col gap-y-1.5">
@@ -175,7 +174,7 @@ export function FormErgebnisSection({
           {/* Outside the `Switch`, which renders a `<label>`: as a child, this paragraph toggled the
               switch on any click. Only the disabled state keeps a sentence — it explains a control
               that refuses input, which has to be answered in place; what switching off does moved to
-              the panel's InfoHint (ADR-0050). */}
+              the panel's InfoHint (ADR-0040). */}
           {!bothSidesResolved && (
             <p
               id="ergebnis-eintragen-hint"
@@ -216,7 +215,6 @@ export function FormErgebnisSection({
           ))}
         </div>
 
-        {/** Elfmeterschießen — only on a fixture that finished level */}
         {isLevelKnockout && (
           <div className="flex w-full flex-col gap-y-4">
             <Separator className="bg-border" />

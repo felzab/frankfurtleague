@@ -25,8 +25,8 @@ const EMPTY_DRAFT_BASE = {
 /**
  * Creates the club AND enters it into a season, in one submit.
  *
- * One form on purpose: every team read is season-scoped with a strict junction join (I11), so a club
- * created without a junction row would be invisible to the very list this form sits on.
+ * One form on purpose: every team read is season-scoped with a strict junction join (backend spec
+ * I11), so a club created without a junction row is invisible to the very list this form sits on.
  *
  * **Only planned seasons are offered** (decided 2026-08-07): a season's field is settled before it
  * starts, so the picker holds `saisonOptions` — the `future` seasons, each with its groups' fill

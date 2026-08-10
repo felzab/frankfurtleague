@@ -7,7 +7,7 @@ certs/
 
 # Docker Desktop on Windows creates these when a bind-mount path is mangled by
 # Git Bash MSYS path conversion (":" separators become ";C:\..."). Empty and useless.
-# Prevent them by running docker/compose from PowerShell, per CLAUDE.md §5.
+# Prevent them by prefixing a hand-typed bind mount with MSYS_NO_PATHCONV=1, per CLAUDE.md §5.
 *;C
 *;C/
 
@@ -24,5 +24,8 @@ __pycache__/
 # Audit working documents (pass reports, remediation ledger, wave reports). Local-only by design:
 # the repo is public, and committing them would publish unfixed findings while they are being
 # remediated. The permanent record of a finished programme lives in docs/_auditing/reports/.
-# This is the one ignored path that is NOT secret material -- CLAUDE.md §3 names the exception.
+# Ignored but not secret material -- CLAUDE.md §1 carves this path out, and .vscode/ with it.
 docs/audit/
+
+# Editor settings -- personal preference, and nothing in the toolchain reads them.
+.vscode/

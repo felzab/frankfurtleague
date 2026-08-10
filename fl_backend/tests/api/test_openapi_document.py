@@ -2,7 +2,7 @@
 API · the committed OpenAPI document is the one this service publishes
 
 `fl_backend/openapi.json` is what the frontend's contract test compares its Zod mirror against
-(ADR-0040), so this suite is what keeps it fresh: change a Pydantic model without regenerating,
+(ADR-0033), so this suite is what keeps it fresh: change a Pydantic model without regenerating,
 and the gate fails here naming the component that moved. It runs in the default tier —
 `create_app(build_test_config())` needs no server, no database and no `.env`.
 
@@ -19,7 +19,7 @@ REGENERATE = "cd fl_backend && python -m tests.openapi_document --write"
 
 
 def summarize_drift(committed: dict, built: dict) -> str:
-    """Name what moved, so the failure is actionable without diffing an 88 KB document by eye."""
+    """Name what moved, so the failure is actionable without diffing the whole document by eye."""
     lines: list[str] = []
 
     for section in ("paths", "components"):

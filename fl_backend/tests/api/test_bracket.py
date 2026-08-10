@@ -4,7 +4,7 @@ SPIELE · resolving a season's bracket slots from the references its fixtures ca
 `resolve_bracket` is the whole of auto-advance's logic and it is pure, so every case runs in the
 default tier with no container — the walks that matter (a bracket nobody has propagated, a
 corrected quarter-final reaching the final) are proven here rather than against a database
-(ADR-0042).
+(ADR-0034).
 
 Ids are a fixed prefix plus the match or team number, so a failing case names the fixture it came
 from; both prefixes are 20 hex characters and the suffix is decimal, so every result is a valid
@@ -149,7 +149,7 @@ class TestResolveBracket:
 
         The semi-final gains the team that actually won, and loses the 2:0 with it — those goals were
         scored by a side no longer in the fixture, and leaving them would credit the incoming team with
-        a win it never played, straight into the derived league table (ADR-0026). The semi-final then
+        a win it never played, straight into the derived league table (ADR-0019). The semi-final then
         has no winner, so the final's slot empties too.
         """
 
@@ -246,7 +246,7 @@ class TestResolveBracket:
         A level knockout has no winner until something records how it was settled.
 
         The goals cannot decide it and nothing else in the fixture claims to, so the slot it feeds stays
-        empty rather than being handed a guess (ADR-0044).
+        empty rather than being handed a guess (ADR-0036).
         """
 
         spiele = [
@@ -257,7 +257,7 @@ class TestResolveBracket:
         assert resolved(spiele) == {}
 
     def test_a_shootout_decides_a_level_knockout(self, fixture_at: FixtureFactory, side: SideFactory):
-        """The fixture FB-8 exists for: level on goals, settled on penalties, and the bracket moves on."""
+        """The fixture a shoot-out exists for: level on goals, settled on penalties, and the bracket moves on (ADR-0036)."""
 
         spiele = [
             fixture_at(25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}),
@@ -287,7 +287,7 @@ class TestResolveBracket:
 
         An end-to-end case rather than one more branch of `_outcome_of`, because a slot a drawn knockout
         leaves empty empties everything downstream of it in turn, and that is the failure this field
-        exists to remove (ADR-0044).
+        exists to remove (ADR-0036).
         """
 
         spiele = [
@@ -303,7 +303,7 @@ class TestResolveBracket:
         A shoot-out on a fixture one side won on goals is a contradiction, and the goals win it.
 
         `patch_spiel_data` discards the record on that shape, so this is reachable only by a hand edit —
-        and no `$jsonSchema` validator may hold a cross-field rule to refuse it (ADR-0027). Reading the
+        and no `$jsonSchema` validator may hold a cross-field rule to refuse it (ADR-0020). Reading the
         shoot-out here would advance Team 2 out of a match Team 1 won 3:1.
         """
 
@@ -338,7 +338,7 @@ class TestResolveBracket:
         The same conjunction the league table counts on still governs: no `ergebnis`, no winner.
 
         A shoot-out recorded against a match that was never played is another hand-edited shape, and
-        advancing from it would put the bracket ahead of a result the table does not count (ADR-0026).
+        advancing from it would put the bracket ahead of a result the table does not count (ADR-0019).
         """
 
         spiele = [
@@ -362,7 +362,7 @@ class TestResolveBracket:
 
     def test_a_cancelled_match_with_a_result_still_advances_its_winner(self, fixture_at: FixtureFactory, side: SideFactory):
         """
-        A cancelled match carrying a result is a forfeit, and it counts (ADR-0026, invariant I1a).
+        A cancelled match carrying a result is a forfeit, and it counts (ADR-0019, invariant I1a).
 
         `is_canceled` is not consulted anywhere in the resolution. Consulting it would put advancement
         and the league table at odds about the same match.
@@ -380,7 +380,7 @@ class TestResolveBracket:
         The same conjunction the league table counts on, for a shape only a hand edit produces.
 
         Matches are still created in Compass, and no `$jsonSchema` validator may hold a cross-field rule
-        (ADR-0027) — so goals with no `ergebnis` is reachable, and advancing a winner from a match the
+        (ADR-0020) — so goals with no `ergebnis` is reachable, and advancing a winner from a match the
         table does not count would make the two derivations disagree.
         """
 
@@ -482,7 +482,7 @@ class TestResolveBracket:
         Two sources naming the same match and the same outcome would put one team on both sides.
 
         Nothing downstream would refuse it — a `$jsonSchema` validator may carry no cross-field rule
-        (ADR-0027) — so the resolution writes nothing at all and the fixture reports as unmoved.
+        (ADR-0020) — so the resolution writes nothing at all and the fixture reports as unmoved.
         """
 
         spiele = [
@@ -586,7 +586,7 @@ class TestResolveBracket:
         """
         The occupant is compared by id alone, so a stale display copy is not an advancement.
 
-        `name` and `shorthand` are maintained by `PATCH /teams/{team_id}`'s fan-out (ADR-0028, rule 3).
+        `name` and `shorthand` are maintained by `PATCH /teams/{team_id}`'s fan-out (ADR-0021, rule 3).
         Comparing them here would make result entry a second, partial rename fan-out covering only the
         matches a reference happens to point at.
         """
@@ -604,7 +604,7 @@ class TestResolveBracket:
 
 class TestNamingWhatWasVoided:
     """
-    Which advancements destroyed a stored result, and which merely filled a slot (ADR-0051).
+    Which advancements destroyed a stored result, and which merely filled a slot (ADR-0041).
 
     The distinction is the whole point: both write the same fields, and a report that named only the
     fixtures would describe an admin's deleted scoreline in the same words as an empty semi-final
@@ -645,10 +645,10 @@ class TestNamingWhatWasVoided:
 
     def test_a_shoot_out_is_named_beside_the_goals_it_settled(self, fixture_at: FixtureFactory, side: SideFactory):
         """
-        The shoot-out goes with the result (spec I25b), so it is the other half of what was lost.
+        The shoot-out goes with the result (`docs/backend/spec.md :: I25b`), so it is the other half of what was lost.
 
         Reported separately rather than folded into the scoreline, for the reason it is stored
-        separately: `2:2` and `4:3 i. E.` are two scorelines about one fixture (ADR-0044).
+        separately: `2:2` and `4:3 i. E.` are two scorelines about one fixture (ADR-0036).
         """
 
         spiele = [
@@ -672,8 +672,8 @@ class TestNamingWhatWasVoided:
         """
         Deleting a quarter-final's result empties the semi-final below it, result included.
 
-        The advancement reports no occupant at all, which is a state the old bare list could not
-        distinguish from a slot that filled — and this is the one where something was destroyed.
+        The advancement reports no occupant at all, which a bare fixture list cannot distinguish from a
+        slot that filled — and this is the one where something was destroyed.
         """
 
         spiele = [
@@ -688,7 +688,7 @@ class TestNamingWhatWasVoided:
 
 class TestReportingAFault:
     """
-    The three shapes the resolution used to contain in silence, now reported as well (ADR-0047).
+    A fault shape is reported as well as contained (ADR-0039).
 
     Containment and reporting are separate properties, so every case here pairs its fault assertion with
     `resolved(...) == {}`: a fault that started moving a slot would be a regression the fault list itself
@@ -750,7 +750,7 @@ class TestReportingAFault:
         The one fault of the five the write path cannot refuse, so the report is all there is.
 
         `find_wiring_refusal` keys a source by its identity and refuses a hand-set team only on a side a
-        source maintains (ADR-0046) — so a manual side holding the club that then wins the match feeding
+        source maintains (ADR-0038) — so a manual side holding the club that then wins the match feeding
         the other side passes every rule, legally, and produces a fixture nobody can play.
         """
 

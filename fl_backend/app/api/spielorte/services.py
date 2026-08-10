@@ -21,24 +21,20 @@ def build_spielorte_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
 def build_spielorte_filter(filters: FLSpielorteFilterParams) -> dict[str, Any]:
     query: dict[str, Any] = {}
 
-    # Matching null rather than testing for absence: `inactive_since` is a REQUIRED field carrying
-    # null while the venue is live (ADR-0032), so `{"inactive_since": None}` is an equality test. It
-    # would also match a document missing the key entirely, which the validator does not permit.
+    # Matching null rather than testing absence: `inactive_since` is required and carries null while
+    # the venue is live (ADR-0025), so this is an equality test. It would also match a document missing
+    # the key, which the validator forbids.
     if not filters.include_inactive:
         query["inactive_since"] = None
 
     return query
 
 
-# =====================================================================================================
-# RETIRING IT
-# =====================================================================================================
-# The venue is still booked for a fixture nobody has played (decided 2026-08-08). Retiring it takes it out
-# of every picker while matches are still scheduled there, which is the state the soft delete exists to
-# prevent, reached through the soft delete itself -- exactly the reasoning behind `REQ-RETIRE-001` for a
-# club, which this endpoint had no equivalent of.
-#
-# A PLAYED fixture never blocks. Its `ort` is an embedded record of where the match was held (ADR-0028
+# The venue is still booked for a fixture nobody has played (decided 2026-08-08). Retiring it takes it
+# out of every picker while matches are still scheduled there -- the state the soft delete exists to
+# prevent, reached through the soft delete itself.
+
+# A played fixture never blocks: its `ort` is an embedded record of where the match was held (ADR-0021
 # rule 2), so the venue document has nothing left to supply.
 VENUE_STILL_BOOKED = "REQ-RETIRE-003"
 

@@ -21,9 +21,9 @@ import type { ActionRequiredCategory } from "@/features/spiele/types";
  * The whole body of `/admin/spiele/[spiel_id]` — what the fixture is, then the form that edits it.
  *
  * **In `admin` rather than in `spiele`, and it reads `useAdmin()` so the form never has to.** The four
- * lookup lists are the aggregator's to gather (ADR-0012); `AdminEditSpielDataForm` takes them as props
+ * lookup lists are the aggregator's to gather (ADR-0008); `AdminEditSpielDataForm` takes them as props
  * because a `spiele` component reading the admin context would make the write path depend on `admin`,
- * which is the direction ADR-0005 moved it out of. This view is the bridge, and it is the only consumer
+ * which is the direction ADR-0004 moved it out of. This view is the bridge, and it is the only consumer
  * of that context.
  *
  * **It also computes which action-required categories this fixture falls into**, by calling the same
@@ -55,7 +55,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
    * four "fehlt" categories, so "Offene Angaben" empties in real time instead of at the next load.
    *
    * `bracketFaults` is deliberately not passed: a fault is a backend derivation over a whole season
-   * (ADR-0047) and this route reads one match, so re-deriving it here would be a second copy of a rule
+   * (ADR-0039) and this route reads one match, so re-deriving it here would be a second copy of a rule
    * that exists to have only one.
    */
   const categorize = (spiel: FLSpielWithStoredSides): ReadonlySet<ActionRequiredCategory> =>
@@ -66,10 +66,9 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpiel; t
     );
 
   return (
-    // Fills `main` exactly, and owns no padding: the form inside is the page's shell — an inner
-    // container scrolls the header and panels, and the action bar stays pinned below it, outside
-    // the scroll content, where nothing can move it (eighth review). The page paddings and
-    // the `max-w-page` cap live in the form's scroll container.
+    // Fills `main` exactly and owns no padding: the form inside is the page's shell — an inner
+    // container scrolls the header and panels, and the action bar stays pinned below it, outside the
+    // scroll content.
     <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminEditSpielDataForm
         spielData={spielData}

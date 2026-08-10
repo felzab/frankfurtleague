@@ -4,7 +4,7 @@ CORE · the domain model, as a declaration
 What the entities are, which form one consistency boundary, what happens to a reference when its
 target changes, and when each field may be written. Everything here is data — no evaluator, and
 nothing calls it at request time: enforcement stays at the write endpoints, and this is the model
-stated once for a conformance test to compare against the code (ADR-0066).
+stated once for a conformance test to compare against the code (ADR-0053).
 
 Invariants:
 - No application code imports this module — only the conformance test and the documentation read it.
@@ -14,7 +14,7 @@ Invariants:
 
 See:
 - docs/domain.md — the reader's version of everything below
-- ADR-0066 — the domain model is declared and conformance-checked
+- ADR-0053 — the domain model is declared and conformance-checked
 """
 
 from dataclasses import dataclass
@@ -45,7 +45,6 @@ class Action(StrEnum):
 
     #: The operation is refused while a reference exists, by a `find_*_refusal` at the write.
     RESTRICT = "RESTRICT"
-    #: The change is propagated into the referencing rows.
     CASCADE = "CASCADE"
     #: The reference is emptied and the referencing row survives. Declared vocabulary; see `UNUSED_ACTIONS`.
     SET_NULL = "SET_NULL"
@@ -54,9 +53,8 @@ class Action(StrEnum):
 
 
 class Editability(StrEnum):
-    """When a field may be written. Six answers, and the last three are where the distinctions earn their keep."""
+    """When a field may be written. `COMPOSED`, `DERIVED` and `IMMUTABLE` are where the distinctions earn their keep."""
 
-    #: Writable through a payload whenever the aggregate's state allows it.
     EDITABLE = "EDITABLE"
     #: Writable in some states and refused in others. `condition` says which.
     CONDITIONAL = "CONDITIONAL"
@@ -70,11 +68,9 @@ class Editability(StrEnum):
     IMMUTABLE = "IMMUTABLE"
 
 
-# `SET_NULL` is declared and used by no reference, and that is a statement rather than an oversight: no
-# reference in this system is ever emptied because its target moved. A bracket slot whose feeder cannot be
-# resolved KEEPS its occupant and is reported as a fault (ADR-0047), which is the case that would most
-# obviously have taken the other answer. Keeping the member costs nothing and makes the absence legible;
-# `test_every_declared_value_is_used` holds this list to exactly what is unused.
+# `SET_NULL` is declared and used by no reference -- a statement, not an oversight: no reference here
+# is emptied because its target moved. A bracket slot whose feeder cannot be resolved KEEPS its
+# occupant and is reported as a fault (ADR-0039).
 UNUSED_ACTIONS: frozenset[Action] = frozenset({Action.SET_NULL})
 
 
@@ -118,9 +114,9 @@ class FieldPolicy:
     collection: Collection
     field: str
     editability: Editability
-    #: **WHEN, then WHY.** Opens with the timing word the editability turns on -- "frozen once", "never
-    #: below", "written only by", "computed from", "absent from" -- and the reason follows after a colon or
-    #: a semicolon. Empty only where the field is plainly `EDITABLE`.
+    #: **WHEN, then WHY.** Opens with the timing word the editability turns on -- "frozen once",
+    #: "written only by", "computed from" -- and the reason follows after a colon. Empty only where the
+    #: field is plainly `EDITABLE`.
     condition: str = ""
     #: A dotted path to what enforces it, or "" where the enforcement is an ABSENCE -- no payload carries
     #: the field, which is not a symbol that can be named.
@@ -147,7 +143,11 @@ class Rule:
 
 @dataclass(frozen=True)
 class Unenforced:
-    """A state the system permits on purpose, and what shows it to a person instead."""
+    """
+    A state the system permits on purpose, and what shows it to a person instead.
+
+    Named because an absence looks identical to an omission.
+    """
 
     #: **THE STATE, as a noun phrase.** Not a sentence: it completes "the system permits ...".
     subject: str
@@ -157,20 +157,6 @@ class Unenforced:
     #: The surface reporting the state, or "" where nothing does and nothing needs to.
     surfaced_by: str = ""
 
-
-# =====================================================================================================
-# THE AGGREGATES
-# =====================================================================================================
-#
-# Seven, over nine collections, and the two that surprise a reader are worth stating first.
-#
-# `spiele` is NOT one aggregate per match. Entering a result resolves the season's bracket in the same
-# transaction and rewrites fixtures the request never named (ADR-0042), so the consistency boundary of a
-# match write is every fixture in that season. `PATCH /spiele/{spiel_id}` looks like a single-document
-# write and is a write to the season's fixture set.
-#
-# `teams` is NOT inside `Saison`. A team document is season-independent -- the single most important
-# structural fact in this model -- and what belongs to a season is the junction row.
 
 AGGREGATES: tuple[Aggregate, ...] = (
     Aggregate(
@@ -230,10 +216,6 @@ AGGREGATES: tuple[Aggregate, ...] = (
 )
 
 
-# =====================================================================================================
-# THE REFERENCES
-# =====================================================================================================
-
 REFERENCES: tuple[Reference, ...] = (
     Reference(
         source=Collection.SPIELE,
@@ -254,7 +236,7 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
-            "The name and the maps link fan out; `mietpreis` deliberately does not (ADR-0028 rule 2). It "
+            "The name and the maps link fan out; `mietpreis` deliberately does not (ADR-0021 rule 2). It "
             "records what this fixture cost, so rewriting it would rewrite history."
         ),
     ),
@@ -284,7 +266,7 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.RESTRICT,
         note=(
-            "There is no `DELETE /saisons/{saison_id}` at all: removing a season would orphan this and every other reference to it (ADR-0033)."
+            "There is no `DELETE /saisons/{saison_id}` at all: removing a season would orphan this and every other reference to it (ADR-0026)."
         ),
     ),
     Reference(
@@ -294,8 +276,8 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_change=Action.CASCADE,
         on_target_removed=Action.NO_ACTION,
         note=(
-            "Entering a result re-resolves every slot that match feeds (ADR-0042). A `spiel_nr` the season "
-            "has no match for LEAVES the slot alone and is reported as a bracket fault (ADR-0047) -- "
+            "Entering a result re-resolves every slot that match feeds (ADR-0034). A `spiel_nr` the season "
+            "has no match for LEAVES the slot alone and is reported as a bracket fault (ADR-0039) -- "
             "'nothing to look up' never empties a slot."
         ),
     ),
@@ -327,7 +309,7 @@ REFERENCES: tuple[Reference, ...] = (
         note=(
             "The season's `rules` bound these rows, so narrowing `number_of_groups` or `teams_per_group` "
             "below what they occupy is refused (`REQ-RULES-002`, `REQ-RULES-003`). There is no row delete "
-            "either: a team leaves a season only by disqualification (ADR-0033)."
+            "either: a team leaves a season only by disqualification (ADR-0026)."
         ),
     ),
     Reference(
@@ -338,7 +320,7 @@ REFERENCES: tuple[Reference, ...] = (
         on_target_removed=Action.RESTRICT,
         note=(
             "`erlaubte_stufen` bounds what the squad FORM offers and not what a row holds, so narrowing it "
-            "strands nothing (ADR-0061). No season delete exists."
+            "strands nothing (ADR-0048). No season delete exists."
         ),
     ),
     Reference(
@@ -358,31 +340,34 @@ REFERENCES: tuple[Reference, ...] = (
         target=Collection.SPIELER,
         on_target_change=Action.NO_ACTION,
         on_target_removed=Action.NO_ACTION,
-        note="Retiring the person leaves every squad row intact -- the seasons they played still happened (ADR-0032).",
+        note="Retiring the person leaves every squad row intact -- the seasons they played still happened (ADR-0025).",
     ),
 )
 
 
-# =====================================================================================================
-# WHEN A FIELD MAY BE WRITTEN
-# =====================================================================================================
-
 FIELD_POLICIES: tuple[FieldPolicy, ...] = (
-    # ── Saison ────────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(Collection.SAISONS, "id", Editability.IMMUTABLE, "chosen at create; every `saison_id` in the database references this value"),
     FieldPolicy(
         Collection.SAISONS,
         "status",
         Editability.CONTROL_ONLY,
-        "`POST /saisons/{saison_id}/activate`, which demotes the incumbent in the same transaction (ADR-0033)",
+        "`POST /saisons/{saison_id}/activate`, which demotes the incumbent in the same transaction (ADR-0026)",
         "app.api.saisons.admin_router.activate_saison",
     ),
-    FieldPolicy(Collection.SAISONS, "start_date", Editability.EDITABLE),
+    FieldPolicy(
+        Collection.SAISONS,
+        "start_date",
+        Editability.EDITABLE,
+        "editable even on a finished season, and refused only where the new span would stop covering a live matchday (`REQ-DATE-004`)",
+        "app.api.saisons.services.find_saison_span_refusal",
+    ),
     FieldPolicy(
         Collection.SAISONS,
         "end_date",
         Editability.EDITABLE,
-        "editable even on a finished season -- correcting a mistyped date changes nothing anybody competed for",
+        "editable even on a finished season -- correcting a mistyped date changes nothing anybody competed "
+        "for -- under the same span rule as `start_date`",
+        "app.api.saisons.services.find_saison_span_refusal",
     ),
     FieldPolicy(
         Collection.SAISONS,
@@ -425,9 +410,8 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "rules.erlaubte_stufen",
         Editability.EDITABLE,
         "narrowing is safe at any time, a finished season included: it bounds what a FORM offers and "
-        "never what a stored squad row holds (ADR-0061)",
+        "never what a stored squad row holds (ADR-0048)",
     ),
-    # ── Spieltag ──────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(
         Collection.SPIELTAGE,
         "saison_id",
@@ -438,14 +422,14 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELTAGE,
         "anzahl_spiele",
         Editability.DERIVED,
-        "computed from the season's `rules` and this matchday's phase (ADR-0065)",
+        "computed from the season's `rules` and this matchday's phase (ADR-0052)",
         "app.api.saisons.schedule.expected_matches",
     ),
     FieldPolicy(
         Collection.SAISONS,
         "schedule",
         Editability.DERIVED,
-        "computed from this season's own `rules` (ADR-0065): the whole phase-by-phase shape the matchday "
+        "computed from this season's own `rules` (ADR-0052): the whole phase-by-phase shape the matchday "
         "above reports one entry of. Served so the matchday editor can refuse `REQ-SPIELTAG-002` before "
         "the request, which needs the count for a phase the matchday does not have yet",
         "app.api.saisons.schedule.schedule_for",
@@ -454,10 +438,9 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SPIELTAGE,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /reactivate` clears it (ADR-0032)",
+        "`DELETE` stamps it and `POST /reactivate` clears it (ADR-0025)",
         "app.api.spieltage.admin_router.delete_spieltag",
     ),
-    # ── Team ──────────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(
         Collection.TEAMS,
         "inactive_since",
@@ -466,7 +449,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "app.api.teams.services.find_retire_refusal",
     ),
     FieldPolicy(
-        Collection.TEAMS, "statistik", Editability.DERIVED, "the league table, aggregated from the season's matches on every read (ADR-0026)"
+        Collection.TEAMS, "statistik", Editability.DERIVED, "the league table, aggregated from the season's matches on every read (ADR-0019)"
     ),
     FieldPolicy(
         Collection.TEAMS,
@@ -486,34 +469,32 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         Collection.SAISON_TEAMS,
         "disqualifikation",
         Editability.EDITABLE,
-        "required on the payload with no default, so an omitted one is a 422 rather than a team quietly reinstated (ADR-0059)",
+        "required on the payload with no default, so an omitted one is a 422 rather than a team quietly reinstated (ADR-0047)",
     ),
-    # ── Spieler ───────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(
         Collection.SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
-        "`DELETE` stamps it and `POST /reactivate` clears it; this is the PERSON leaving the league (ADR-0032)",
+        "`DELETE` stamps it and `POST /reactivate` clears it; this is the PERSON leaving the league (ADR-0025)",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
         "inactive_since",
         Editability.CONTROL_ONLY,
         "the SQUAD ROW's own retirement, independent of the person's; creating never revives one, "
-        "which is why 409 is the right answer (ADR-0032)",
+        "which is why 409 is the right answer (ADR-0025)",
     ),
     FieldPolicy(
         Collection.SAISON_SPIELER,
         "stufe",
         Editability.CONDITIONAL,
-        "held to the league's closed set by the validator, and to the season's `erlaubte_stufen` by what the form offers (ADR-0061)",
+        "held to the league's closed set by the validator, and to the season's `erlaubte_stufen` by what the form offers (ADR-0048)",
     ),
-    # ── Spiel ─────────────────────────────────────────────────────────────────────────────────────────
     FieldPolicy(
         Collection.SPIELE,
         "spiel_nr",
         Editability.IMMUTABLE,
-        "a season's fixtures are created once; `/spiele` has no POST and no DELETE (ADR-0045)",
+        "a season's fixtures are created once; `/spiele` has no POST and no DELETE (ADR-0037)",
     ),
     FieldPolicy(Collection.SPIELE, "saison_id", Editability.IMMUTABLE, "for the reason `spiel_nr` is"),
     FieldPolicy(
@@ -541,7 +522,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "team1",
         Editability.CONDITIONAL,
         "a side carrying a `quelle` is maintained by the bracket resolution and is not the admin's to "
-        "set; clearing the `quelle` is how a person takes the slot back (ADR-0042)",
+        "set; clearing the `quelle` is how a person takes the slot back (ADR-0034)",
         "app.api.spiele.services.find_wiring_refusal",
     ),
     FieldPolicy(
@@ -556,7 +537,7 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
         "elfmeterschiessen",
         Editability.CONDITIONAL,
         "discarded unless the goals it accompanies are level and the phase is a knockout, so a "
-        "shoot-out cannot be stored against a fixture one side already won (ADR-0044)",
+        "shoot-out cannot be stored against a fixture one side already won (ADR-0036)",
         "app.api.spiele.services.apply_payload_to_spiel",
     ),
     FieldPolicy(
@@ -576,10 +557,6 @@ FIELD_POLICIES: tuple[FieldPolicy, ...] = (
     ),
 )
 
-
-# =====================================================================================================
-# THE RULES
-# =====================================================================================================
 
 RULES: tuple[Rule, ...] = (
     Rule(
@@ -853,20 +830,12 @@ RULES: tuple[Rule, ...] = (
 )
 
 
-# =====================================================================================================
-# WHAT IS DELIBERATELY NOT ENFORCED
-# =====================================================================================================
-#
-# Named, because an absence looks identical to an omission. Every one of these is a state the system
-# permits -- and mostly reports -- and the reason is always that refusing it would block a legitimate act
-# rather than a mistake.
-
 UNENFORCED: tuple[Unenforced, ...] = (
     Unenforced(
         subject="exactly one season holds `status: active`",
         reason=(
             "No validator sees two documents, and a unique index on `status` would also permit exactly one "
-            "`past` season (ADR-0027). It holds because `activate_saison` is the only writer and does both "
+            "`past` season (ADR-0020). It holds because `activate_saison` is the only writer and does both "
             "halves in one transaction."
         ),
     ),
@@ -874,20 +843,24 @@ UNENFORCED: tuple[Unenforced, ...] = (
         subject="a rollover while the outgoing season still has unplayed matches",
         reason=(
             "An early rollover is a legitimate decision, and the one occasion somebody genuinely needs it "
-            "is when the data is not in the state a rule would have assumed (ADR-0033)."
+            "is when the data is not in the state a rule would have assumed (ADR-0026)."
         ),
         surfaced_by="the Umstellung panel on `/admin/saisons/[saison_id]`, which counts them and activates anyway",
     ),
     Unenforced(
-        subject="a matchday retired while it still holds played matches",
-        reason="Its matches stay fully readable and `spiele.spieltag_id` keeps resolving, so nothing is stranded.",
-        surfaced_by="the retire dialog, which names the count it will leave behind",
+        subject="a matchday retired while it still holds UNPLAYED fixtures",
+        reason=(
+            "Those fixtures leave the public Spielplan with their container, but stay fully readable and "
+            "`spiele.spieltag_id` keeps resolving -- and a matchday created by mistake is exactly the one "
+            "somebody needs to retire. A played one is refused instead (`REQ-RETIRE-002`)."
+        ),
+        surfaced_by="the retire dialog, which names how many fixtures leave the Spielplan with it",
     ),
     Unenforced(
         subject="a matchday whose attached fixtures differ from the count its phase implies",
         reason=(
             "A season being set up passes through that state on the way to being complete, so refusing it "
-            "would block the setup rather than a mistake (ADR-0065)."
+            "would block the setup rather than a mistake (ADR-0052)."
         ),
         surfaced_by="`/admin/spieltage`, which shows attached over expected and tints a mismatch",
     ),
@@ -901,15 +874,13 @@ UNENFORCED: tuple[Unenforced, ...] = (
         reason=(
             "`REQ-ELIGIBILITY-001` covers a team being NEWLY fielded by a request; a slot already holding "
             "a since-disqualified team is reported as a derived fault and never rewritten -- only a person "
-            "chooses between a forfeit and a replacement (ADR-0052)."
+            "chooses between a forfeit and a replacement (ADR-0042)."
         ),
         surfaced_by="`/admin/action_required`, as a derived fault",
     ),
     Unenforced(
         subject="a stored bracket fault",
-        reason=(
-            "All five faults are derived on every admin read and none is stored (ADR-0047). Reporting a shape is never licence to act on it."
-        ),
+        reason=("Every fault is derived on each admin read and none is stored (ADR-0039). Reporting a shape is never licence to act on it."),
         surfaced_by="`/admin/action_required`",
     ),
     Unenforced(

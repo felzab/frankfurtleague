@@ -7,7 +7,7 @@
  *
  * Invariants:
  * - Bounded input: fields are length-capped, unparseable drops with a 4xx, nginx rate-limits the
- *   POSTs (docs/logging.md).
+ *   POSTs (docs/logging/spec.md).
  * - Requests whose `Sec-Fetch-Site` is present and not `same-origin` are refused.
  * - No response body — this route must never become an oracle for anything.
  */

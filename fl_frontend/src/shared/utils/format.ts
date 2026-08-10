@@ -26,7 +26,7 @@ export const PLACEHOLDER = {
   entity: "/",
   /**
    * A fixture side with no occupant and no provenance label either — an opponent nobody has entered
-   * yet. A bracket slot that knows where its team comes from shows that instead (ADR-0042).
+   * yet. A bracket slot that knows where its team comes from shows that instead (ADR-0034).
    */
   slot: "Noch offen",
 } as const;
@@ -71,9 +71,9 @@ export function buildMapsSearchUrl(query: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-// Module-level, constructed once (same pattern as date.ts:12). The timeZone is the load-bearing
-// part: without it the runtime's zone decides, so a server in UTC and a browser west of it
-// disagree about which day a fixture falls on.
+// Module-level, as `fl_frontend/src/shared/utils/date.ts :: formatter` is. `timeZone` is what
+// carries it: without one the runtime's zone decides, so a server in UTC and a browser west of it
+// disagree about the day a fixture falls on.
 const SPIEL_DATE_FORMATTER = new Intl.DateTimeFormat("de-DE", {
   timeZone: "Europe/Berlin",
   day: "2-digit",
@@ -84,9 +84,8 @@ const SPIEL_DATE_FORMATTER = new Intl.DateTimeFormat("de-DE", {
 /** Formats a `YYYY-MM-DD` fixture date as a German calendar date, stable across server and client. */
 export function formatSpielDatum(datum: string | null, fallback: string = PLACEHOLDER.datum): string {
   if (!datum) return fallback;
-  // Midday UTC lands on the same calendar date from UTC-11 to UTC+11, so a consumer that reuses
-  // this instant without a timeZone still cannot shift the day anywhere the app is realistically
-  // read. (12:00Z + 12h is already the next day, so UTC+12 and beyond are not covered -- which is
-  // moot here, because the formatter above pins the zone.)
+  // Midday UTC holds the same calendar date from UTC-11 to UTC+11, so reusing this
+  // instant without a timeZone cannot shift the day anywhere the app is read. The
+  // formatter above pins the zone regardless.
   return SPIEL_DATE_FORMATTER.format(new Date(`${datum}T12:00:00Z`));
 }

@@ -1,13 +1,15 @@
 /**
- * SPIELER · cached reads
+ * SPIELER · the player reads
  *
  * Invariants:
- * - Base tag only — both admin reads span every season, so no granular tag names a save (ADR-0001).
+ * - Base tag only on the cached read — it spans every season, so no granular tag names a save
+ *   (ADR-0001).
+ * - `getSpielerMemberships` is admin-authed and therefore never cached (ADR-0009).
  * - Only `vorname` is guaranteed present; a squad is filled in over time.
  * - `getSpieler` flattens against one season; the admin surfaces read `getSpielerMemberships`.
  *
  * See:
- * - docs/frontend/spec.md — section 5, out-of-band invalidation
+ * - docs/frontend/spec.md — section 1.5, out-of-band invalidation
  */
 
 import { cacheLife, cacheTag } from "next/cache";
@@ -22,8 +24,8 @@ import type { FLSpielerFilterParams } from "./types";
 export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<FLSpielerListResponse> {
   "use cache";
 
-  // Base tag only, and now load-bearing rather than incidental: the admin write surface exists, and
-  // every one of its actions clears this tag, so a squad edit reaches the public squad lists at once.
+  // Base tag only, and load-bearing: every admin spieler action clears this tag, so a squad edit
+  // reaches the public squad lists at once.
   cacheTag("spieler");
   cacheLife("days");
 
@@ -42,14 +44,11 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
  * `FLSpielerSchema` requires and the parse fails for everyone. The endpoint's docstring carries the
  * third reason and the measurements.
  *
- * Cached under the same `spieler` tag as the read above, because every spieler action already
- * invalidates it — the base tag is what makes an admin edit visible here immediately.
+ * **Uncached, and it stays uncached (ADR-0009).** `"use cache"` keys on a function's arguments and
+ * never on caller identity, so a zero-argument admin-authed read cached here is one shared slot
+ * holding data fetched with credentials no later caller presented. It carries no cache tag either:
+ * a tag only means something inside a cache scope.
  */
 export async function getSpielerMemberships(): Promise<FLSpielerMembershipsResponse> {
-  "use cache";
-
-  cacheTag("spieler");
-  cacheLife("days");
-
   return apiClient<FLSpielerMembershipsResponse>("/spieler/memberships", FLSpielerMembershipsResponseSchema, { authType: "admin" });
 }

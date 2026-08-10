@@ -36,16 +36,13 @@ export type FLTeamDraftFields = {
   } | null;
 };
 
-/** The panel a field renders in — the change list's section heading. */
 export type FLTeamFieldGroup = "Team" | "Adresse" | "Saison";
 
-/** What the page knows about one editable field right now. */
 export type FLTeamFieldStatus = {
   path: string;
   label: string;
   group: FLTeamFieldGroup;
   isChanged: boolean;
-  /** The schema's message for this field, or `null`. */
   error: string | null;
   storedText: string | null;
   draftText: string | null;

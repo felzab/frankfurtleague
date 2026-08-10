@@ -1,14 +1,13 @@
 """
 SAISONS · current-season resolution
 
-The single definition of "which season is current": `/saisons/current` and the `saison_id`
-default on `/spiele`, `/spieltage` and `/teams` all route through here, so four endpoints cannot
-answer the question differently.
+Where "which season is current" is decided, once — stated in full at
+`pull_current_saison`, which every endpoint defaulting an omitted `saison_id` routes through.
 
 Invariants:
 - A missing active season raises — degrading to an unfiltered query would mean "every season".
-- `rules` is live: `/teams` scores its derived table with it (ADR-0026), so an edit is behaviour.
-- Misses fetch the full document, never a projection — the cache stores one shape (ADR-0070).
+- `rules` is live: `/teams` scores its derived table with it (ADR-0019), so an edit is behaviour.
+- Misses fetch the full document, never a projection — the cache stores one shape (ADR-0056).
 """
 
 from typing import Any, Mapping
@@ -24,11 +23,11 @@ CURRENT_SAISON_FILTER = {"status": "active"}
 
 async def pull_current_saison(saisons_collection: AsyncIOMotorCollection) -> Mapping[str, Any]:
     """
-    The season marked `active`, from the cache when it holds one (ADR-0070).
+    The season marked `active`, from the cache when it holds one (ADR-0056).
 
-    The single definition of "which season is current". `/saisons/current` and the `saison_id` default
-    on `/spiele`, `/spieltage` and `/teams` all go through this function, so they cannot answer the
-    question differently.
+    The single definition of "which season is current". `/saisons/current`, and every endpoint that
+    defaults an omitted `saison_id` (ADR-0002), goes through this function, so none of them can answer
+    the question differently.
 
     Raises `DocumentNotFoundException` (404) when no season is active rather than degrading to an
     unfiltered query: with the default in place, "no current season" would otherwise mean "every
@@ -37,7 +36,7 @@ async def pull_current_saison(saisons_collection: AsyncIOMotorCollection) -> Map
 
     **Assumes exactly one active season.** Nothing in the schema or an index enforces that today, and
     `find_one` takes whichever document Mongo returns first — so with two, this is arbitrary but at
-    least consistently arbitrary across all four endpoints, which is the point of routing them here.
+    least consistently arbitrary across every caller, which is the point of routing them here.
     """
 
     cached = read_cached_saison(CURRENT_SAISON_CACHE_KEY)
@@ -72,9 +71,8 @@ async def pull_saison_id_and_rules(
     `saison_id=None` means the current season (ADR-0002), so this resolves the default too — `/teams`
     needs both halves and would otherwise read the collection twice for one answer.
 
-    An explicit id naming no season now raises `DocumentNotFoundException` (404). That is a change in
-    kind, not degree: while the table was stored, an unknown season produced an empty list instead,
-    because the strict junction join simply matched nothing.
+    An explicit id naming no season raises `DocumentNotFoundException` (404) rather than answering with
+    an empty list -- an unknown season is a wrong request, not a season with nothing in it.
     """
 
     if saison_id is None:

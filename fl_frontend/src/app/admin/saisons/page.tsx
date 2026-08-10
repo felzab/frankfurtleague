@@ -13,10 +13,9 @@ import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
 import type { AdminSaisonRow } from "@/features/saisons/types";
 
-// Not async, so the chrome never waits on the season list — the pattern of the four sibling pages.
-// The create trigger needs nothing fetched, so unlike the club and player pages it has no boundary of
-// its own. `connection()` sits with each fetch it guards — ADR-0009 requires only that nothing fetches
-// at build time.
+// Not async, so the chrome never waits on the season list
+// (`fl_frontend/src/app/admin/layout.tsx :: AdminLayout`). The create trigger needs nothing fetched,
+// so unlike the club and player pages it has no boundary of its own.
 export default function AdminSaisonsPage() {
   return (
     <AdminCrudShell
@@ -52,9 +51,9 @@ async function SaisonsTable() {
   const [saisonsRes, teamsRes] = await Promise.all([getSaisons(), getTeamMemberships()]);
   const saisons = saisonsRes.saisons;
 
-  // One read per season rather than one read for all of them: `GET /spieltage` narrows by exactly one
+  // One read per season rather than one for all of them: `GET /spieltage` narrows by exactly one
   // season and an omitted `saison_id` means the current one (ADR-0002), so there is no "every season"
-  // call to make. Two or three seasons, each a cached entry with a day's lifetime.
+  // call to make.
   const spieltageBySaison = await Promise.all(
     saisons.map(async (saison) => {
       const res = await getSpieltage({ saison_id: saison.id, include_inactive: true });

@@ -29,8 +29,8 @@ import type { ReactNode } from "react";
 import type { SpielerRailBanner } from "./SpielerRail";
 
 /**
- * How long the undo offer stands after a save (ADR-0051's window, ADR-0062's transport). There is no
- * confirmation dialog on this page for the same reason as the other two editors: confirmation and
+ * How long the undo offer stands after a save (ADR-0041's window, ADR-0049's transport). There is no
+ * confirmation dialog on this page for the same reason as the other editors: confirmation and
  * undo are alternatives, and undo is the one that helps the admin who was not paying attention.
  */
 const UNDO_TIMEOUT_MS = 15000;
@@ -42,7 +42,7 @@ type SpielerUndoPayloads = {
 };
 
 /**
- * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0062: an undo
+ * Sends the undo, and it is a `fetch` rather than a server action for one reason (ADR-0049: an undo
  * belongs to a page-owned editor, and nothing else becomes a route handler): by the time the offer
  * is pressed this component is unmounted and the browser is on another route, and a server action
  * dispatched from there trips Next's E592 invariant and is truncated mid-response.
@@ -66,7 +66,7 @@ async function postSpielerUndo(payloads: SpielerUndoPayloads): Promise<{ success
 
 /**
  * The squad editor's form: two panels, a sticky summary rail, and one derivation behind both — the
- * match editor's shape (ADR-0050) over a player. Every field is controlled, judged when it is left
+ * match editor's shape (ADR-0040) over a player. Every field is controlled, judged when it is left
  * with the same schemas the actions parse, and marked in place when its draft differs from stored.
  *
  * **One save bar over TWO endpoints.** The person's names are `PATCH /spieler/{spieler_id}` and the
@@ -105,8 +105,8 @@ export function AdminSpielerEditForm({
   const [position, setPosition] = useState<FLSpielerPosition | null>(storedMembership?.position ?? null);
   const [stufe, setStufe] = useState<FLSpielerStufe | null>(storedMembership?.stufe ?? null);
   // Read-only on this page (decided 2026-08-07): it records how the entry came about and the create
-  // form derives it. Held in state anyway, because the patch replaces the row wholesale and must send
-  // the stored value back unchanged — dropping it from the payload would clear it.
+  // form derives it. Held in state anyway, because the patch replaces the row wholesale and dropping
+  // it from the payload would clear it.
   const [isNachgetragen, setIsNachgetragen] = useState(storedMembership?.is_nachgetragen ?? false);
   const [isCaptain, setIsCaptain] = useState(storedMembership?.is_captain ?? false);
 
@@ -342,7 +342,7 @@ export function AdminSpielerEditForm({
 
       // The halves the save wrote, holding their pre-save values — `spieler` and `storedMembership`
       // are this render's props, so they still carry what was stored before the write. Built BEFORE
-      // leaving, because the toast outlives the page (ADR-0051, ADR-0062).
+      // leaving, because the toast outlives the page (ADR-0041, ADR-0049).
       const undoPayloads: SpielerUndoPayloads = {
         ...(personDirty ? { person: { id: spieler.id, vorname: spieler.vorname, nachname: spieler.nachname } } : {}),
         ...(saisonDirty && storedMembership !== null
@@ -371,7 +371,7 @@ export function AdminSpielerEditForm({
   };
 
   /**
-   * The undo toast: fifteen seconds to take the save back (ADR-0051's window over ADR-0062's
+   * The undo toast: fifteen seconds to take the save back (ADR-0041's window over ADR-0049's
    * transport). The pitfalls the match editor documents all apply and are all mirrored here: the
    * toast outlives this component, so the press runs in a detached closure — `router.refresh()` is
    * what re-renders a screen the action's own revalidation can no longer reach (the router instance
@@ -382,7 +382,7 @@ export function AdminSpielerEditForm({
    *
    * Always a success rather than a warning, unlike the club editor's: this save destroys nothing
    * without another copy. Every field it writes is a short value the admin can retype, and both
-   * retirements on this surface are soft and reversible by their own endpoints (ADR-0032).
+   * retirements on this surface are soft and reversible by their own endpoints (ADR-0025).
    */
   const offerUndo = (payloads: SpielerUndoPayloads, message?: string) => {
     appToast.success("Änderung gespeichert", {

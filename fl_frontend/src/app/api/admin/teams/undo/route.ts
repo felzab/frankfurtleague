@@ -2,13 +2,13 @@
  * APP · the club edit's undo
  *
  * Puts a club's own fields, its selected season's junction row, or both back the way they were —
- * one of the admin mutations that are route handlers rather than server actions (ADR-0062, the
+ * one of the admin mutations that are route handlers rather than server actions (ADR-0049, the
  * E592 diagnosis). Revert to a server action when E592 is fixed upstream.
  *
  * Invariants:
  * - `revalidateTag`, never `updateTag` — the latter is the server-action form and throws here.
  * - It guards itself: `proxy.ts` matches `/admin/:path*` only, so the session check is the control.
- * - The client holds both payloads — no admin write is recorded anywhere (roadmap BE-15).
+ * - The client holds both payloads — no admin write is recorded anywhere.
  * - The club half restores first, mirroring the save; a partial failure reports without invalidating.
  */
 
@@ -77,9 +77,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Guarded, which the save does not need to be — see the match undo: every write above is already
-    // committed, so an invalidation that throws must not turn a restore that HAPPENED into a
-    // reported failure. `{ expire: 0 }` because the admin is about to look at what they restored.
+    // Guarded, unlike the save: every write above is already committed, so an invalidation that throws
+    // must not turn a restore that happened into a reported failure. `{ expire: 0 }` because the admin
+    // is about to look at what they restored.
     try {
       const tags = new Set(["teams", "spiele"]);
       if (saison !== undefined) {

@@ -14,7 +14,7 @@ import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOv
  *
  * **Every team this mounts for is a real team.** A fixture side with no occupant yet renders its
  * provenance label as plain text and never reaches here, because there is no team page and no squad
- * to link to (ADR-0042) — which is why neither link is conditional.
+ * to link to (ADR-0034) — which is why neither link is conditional.
  */
 export function TeamPopoverMenu({
   teamName,
@@ -44,10 +44,10 @@ export function TeamPopoverMenu({
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
+  // Not a control: it stops the card underneath from also reacting when the trigger is pressed. There
+  // is no action here to give a keyboard equivalent to — `Popover.Trigger` below is the control — so
+  // an interactive role would invent a duplicate.
   return (
-    // Not a control: it stops the card underneath from also reacting when the trigger is pressed.
-    // There is no action here to give a keyboard equivalent to — `Popover.Trigger` below is the
-    // control — and giving this an interactive role would invent a second, duplicate one.
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="contents"
@@ -95,9 +95,7 @@ export function TeamPopoverMenu({
               className="bg-border my-3 h-[1px] w-full"
             />
 
-            {/* Links */}
             <div className="fluid-sm flex size-full flex-col gap-y-1">
-              {/* TEAM-DETAILS */}
               <Link
                 prefetch={false}
                 href={`/dashboard/teams/${teamId}`}
@@ -111,7 +109,6 @@ export function TeamPopoverMenu({
                 <span>Team-Details</span>
               </Link>
 
-              {/* KADER */}
               <Link
                 prefetch={false}
                 href={`/dashboard/spieler/${teamId}`}

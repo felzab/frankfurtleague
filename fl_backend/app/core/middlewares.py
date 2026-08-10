@@ -5,7 +5,7 @@ The correlation-id and access-log middleware registered by `app/main.py`.
 
 Invariants:
 - `X-Correlation-ID` is honoured only when well-formed — a malformed one is attacker-chosen log text.
-- Every request gets exactly one access line, with the correlation id on it; uvicorn's own is off.
+- Every request gets exactly one access line, with the correlation id on it.
 """
 
 import re
@@ -35,14 +35,12 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         correlation_id = resolve_correlation_id(request.headers.get("X-Correlation-ID"))
 
-        # Bind it to the current async context
         token = correlation_id_var.set(correlation_id)
         started = time.perf_counter()
 
         try:
             response = await call_next(request)
 
-            # Return the id to the caller in the response headers
             response.headers["X-Correlation-ID"] = correlation_id
             self._log_access(request, response.status_code, started, correlation_id)
             return response
@@ -52,7 +50,8 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
             self._log_access(request, 500, started, correlation_id)
             raise
         finally:
-            # CRITICAL: Clean up the context var to prevent memory leaks
+            # Reset, or the id stays bound to this worker's context and bleeds onto the log lines of
+            # whichever request the event loop runs next.
             correlation_id_var.reset(token)
 
     @staticmethod

@@ -3,7 +3,7 @@
  *
  * Covers the bracket ordering alone. The case the fixtures reproduce is the 2026 draw as the page
  * received it: quarter-finals sorted by `datum` put matches 25 and 28 on one branch while the
- * semi-final between them named 25 and 27 — the wiring (ADR-0042) and the index-drawn bracket lines
+ * semi-final between them named 25 and 27 — the wiring (ADR-0034) and the index-drawn bracket lines
  * disagreed, and only the lines were wrong.
  */
 
@@ -23,7 +23,7 @@ function makeSpiel(spielNr: number, team1Quelle: FLSpielQuelle | null = null, te
 }
 
 // Keyed on `id` rather than a name: a matchday carries none, and the id is the handle every consumer
-// -- including `spieltagLabels` -- identifies one by (ADR-0064).
+// -- including `spieltagLabels` -- identifies one by (ADR-0051).
 function makeRound(id: string, spiele: FLSpiel[]): FLSpieltagWithSpiele {
   return { id, spiele } as unknown as FLSpieltagWithSpiele;
 }
@@ -66,7 +66,7 @@ describe("orderRoundsByWiring", () => {
   });
 
   // A `gruppe` reference has no earlier match to order, and a dangling `spiel_nr` names none — both
-  // contribute no edge, exactly as the resolution reads them (ADR-0042, ADR-0043).
+  // contribute no edge, exactly as the resolution reads them (ADR-0034, ADR-0035).
   it("ignores gruppe references, nulls and spiel_nrs the previous round does not hold", () => {
     const gruppe: FLSpielQuelle = { type: "gruppe", gruppe: "A", platz: 1 };
     const rounds = orderRoundsByWiring([

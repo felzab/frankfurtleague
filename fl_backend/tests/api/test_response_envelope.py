@@ -45,10 +45,9 @@ def _response_models():
 
 RESPONSE_MODELS = list(_response_models())
 
-# parametrize over an EMPTY list does not fail -- pytest's default empty_parameter_set_mark is
-# "skip", so a rename of the modules above or of the "...Response" convention would turn this whole
-# guarantee into one silent skip, and every response model added afterwards could drop the envelope
-# with the suite green. The floor makes that a hard failure instead.
+# A parametrize over an empty list does not fail -- pytest's `empty_parameter_set_mark` defaults to
+# "skip", so a rename of the modules above would turn this whole guarantee into one silent skip. The
+# floor makes that a hard failure instead.
 MINIMUM_EXPECTED_RESPONSE_MODELS = 20
 assert len(RESPONSE_MODELS) >= MINIMUM_EXPECTED_RESPONSE_MODELS, (
     f"discovered only {len(RESPONSE_MODELS)} response models across {len(RESPONSE_MODULES)} modules; "
@@ -68,10 +67,9 @@ def test_every_response_model_carries_the_envelope(name, model):
     [
         (CheckIsLiveResponse, {"acknowledged": 1, "status": "ok"}),
         (CheckIsReadyResponse, {"acknowledged": 1, "status": "ok"}),
-        # All three lists default empty: a match edit that resolves no bracket slot reports none, which
-        # is the ordinary answer for every group-phase fixture (ADR-0042); a group still being played
-        # reports nothing either, because a placing that is not decided yet is nobody's problem
-        # (ADR-0043); and an edit that displaces no team from its Spieltag releases nothing (ADR-0052).
+        # All three lists default empty: an edit resolving no bracket slot reports none, the ordinary
+        # answer for a group fixture (ADR-0034); an undecided placing is nobody's problem (ADR-0035);
+        # an edit displacing no team releases nothing (ADR-0042).
         (FLPatchSpielDataResponse, {"acknowledged": 1, "advanced_to": [], "released_sides": [], "bracket_faults": []}),
     ],
 )

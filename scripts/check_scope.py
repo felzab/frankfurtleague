@@ -5,10 +5,11 @@ Run by verify.sh as its first step, because the scope flags are chosen by whoeve
 nothing else reads the diff back. The rule held is CLAUDE.md's gate section: the scope covers
 every surface the branch touched, and a comment-only edit is a documentation change whatever
 file holds it. Only a missed images scope refuses; every other gap is reported — the reasoning,
-and why anything a parser cannot prove counts as code, is ADR-0037.
+and why anything a parser cannot prove counts as code, is ADR-0030.
 
 Invariants:
-- The classifier only ever suppresses a complaint, and it removes no CI job.
+- The classifier suppresses the scope complaints and adds the documentation and formatter ones; it
+  removes no CI job.
 - Parsers, never a `#` rule: TypeScript via ts_normalize.mjs, `ast` with docstrings stripped, tomllib.
 - The path mapping is scripts/ci_scopes.sh — the one copy; a second here would drift silently.
 - CI's `backend` means `--backend` plus `--db`; `format` is `--frontend`'s prettier step, or
@@ -29,7 +30,6 @@ from typing import Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent
 
-# A CI scope name, mapped to the verify.sh scopes that stand for it.
 SCOPE_TRANSLATION: Final[dict[str, tuple[str, ...]]] = {
     "scripts": ("scripts",),
     "docs": ("docs",),
@@ -148,7 +148,9 @@ def is_comment_only(base: str, path: str) -> bool:
         return False
     try:
         new = (REPO_ROOT / path).read_text(encoding="utf-8")
-    except OSError:  # deleted, or unreadable
+    # A binary in the diff is not comment-only, and decoding one must not take the scope step down
+    # before any check runs.
+    except OSError, UnicodeDecodeError:
         return False
     return same_but_for_comments(Path(path).suffix, old, new)
 
@@ -161,9 +163,9 @@ def ci_scopes(files: list[str]) -> dict[str, bool] | None:
     bash = shutil.which("bash")
     if bash is None:
         return None
-    # Bytes on purpose: text mode translates "\n" to os.linesep on the way in, so on Windows every
-    # path but the last reaches the shell with a trailing "\r" -- and a CR-suffixed name matches no
-    # exact-name case arm, which turns every scope on via the conservative fallback.
+    # Bytes on purpose: text mode translates "\n" to os.linesep, so on Windows every path but the
+    # last reaches the shell with a trailing "\r" -- and a CR-suffixed name matches no case arm,
+    # turning every scope on through the fallback.
     result = subprocess.run(
         [bash, "scripts/ci_scopes.sh", "--stdin"],
         cwd=REPO_ROOT,
@@ -244,7 +246,7 @@ def check(base: str, ran: set[str]) -> list[Finding]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Is this gate run's scope wide enough for the diff? (ADR-0037)")
+    parser = argparse.ArgumentParser(description="Is this gate run's scope wide enough for the diff? (ADR-0030)")
     parser.add_argument("--ran", default="", help="the verify.sh scopes this run covers, space- or comma-separated")
     parser.add_argument("--base", default="main", help="base ref for the branch range (default: main)")
     parser.add_argument(
@@ -280,7 +282,7 @@ def main() -> int:
             print(f"      report  {finding.detail}")
 
     if failures:
-        print("\n      The rule is CLAUDE.md, The gate. Why images fails where the rest report: ADR-0037.")
+        print("\n      The rule is CLAUDE.md, The gate. Why images fails where the rest report: ADR-0030.")
         return 1
     return 0
 

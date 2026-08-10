@@ -1,13 +1,13 @@
 """
-CORE · the constraints applied by a real MongoDB (ADR-0027, ADR-0030)
+CORE · the constraints applied by a real MongoDB (ADR-0020, ADR-0023)
 
 The sibling `test_constraints.py` asserts what the declarations say; this asserts what the
 engine does with them — `$jsonSchema` semantics are quietly non-obvious (`required` inside a
 nullable sub-schema, `bsonType: "int"` against `80.0`, a missing key indexing as null), so every
 one is asserted rather than assumed. The rejection cases are the defects that motivated the ADR,
-and both are in the live database today.
+measured in the live data when it was written (2026-08-02).
 
-Every test is marked `db` and deselected by default: `cd fl_backend && uv run pytest -m db`.
+Every test is marked `db` and deselected by default (`fl_backend/tests/README.md`).
 """
 
 import asyncio
@@ -64,7 +64,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "qualifiers_per_group": 2,
                 "number_of_groups": 4,
                 "teams_per_group": 4,
-                # Which levels this season offers -- a subset of the league's set (ADR-0061).
+                # Which levels this season offers -- a subset of the league's set (ADR-0048).
                 "erlaubte_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
             },
         },
@@ -88,7 +88,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "is_captain": False,
             "stufe": "Q2",
             # `Angriff`, not `Sturm`: the two named the same position and the set closed on this one
-            # (ADR-0061). A "valid document" spelling it the other way is one the validator refuses.
+            # (ADR-0048). A "valid document" spelling it the other way is one the validator refuses.
             "position": "Angriff",
             "nummer": "10",
             "inactive_since": None,
@@ -103,7 +103,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "ort": {"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
             "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": "A. Referee", "payment": 20},
             "ergebnis": "2:1",
-            # Null on every fixture that did not finish level, which is almost all of them (ADR-0044).
+            # Null on every fixture that did not finish level, which is almost all of them (ADR-0036).
             "elfmeterschiessen": None,
             "spieltag_id": SPIELTAG_OID,
             "spiel_nr": 1,
@@ -113,8 +113,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         "spieltage": {
             "_id": SPIELTAG_OID,
-            # No `name` and no `anzahl_spiele`: the first is composed by the reader (ADR-0064) and the
-            # second is derived from the season's rules (ADR-0065). Neither is on a document, so neither
+            # No `name` and no `anzahl_spiele`: the first is composed by the reader (ADR-0051) and the
+            # second is derived from the season's rules (ADR-0052). Neither is on a document, so neither
             # belongs in one the validator is asked to accept.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
@@ -208,11 +208,11 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
 @pytest.mark.parametrize(
     ("collection", "document", "why"),
     [
-        # The incident that motivated ADR-0027. Two live rows hold the team's full_name here: unique,
-        # well-formed as a string, and wrong — which is why type enforcement was the half that mattered.
+        # The defect that motivated ADR-0020: a team's full_name where a reference belongs -- unique,
+        # well-formed as a string, and wrong, which is why type enforcement is the half that matters.
         ("saison_spieler", valid_document("saison_spieler", team_id="Lessing-Gymnasium"), "a team name where a reference belongs"),
-        # The second finding. Every double in the live data is integral (80.0, 0.0), so Pydantic accepts
-        # them all and nothing looks wrong until something rounds.
+        # An integral double (80.0, 0.0) that Pydantic accepts, so nothing looks wrong until something
+        # rounds -- the second defect ADR-0020 records.
         (
             "spiele",
             valid_document("spiele", ort={**valid_documents()["spiele"]["ort"], "mietpreis": 80.0}),
@@ -228,7 +228,7 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
             "goals as a string",
         ),
         # The shoot-out object has no variants, so unlike `teamN_quelle` the validator covers all of it
-        # (ADR-0044) -- both counts required, both typed.
+        # (ADR-0036) -- both counts required, both typed.
         (
             "spiele",
             valid_document("spiele", ergebnis="2:2", elfmeterschiessen={"team1": "4", "team2": 3}),
@@ -239,9 +239,9 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
             valid_document("spiele", ergebnis="2:2", elfmeterschiessen={"team1": 4}),
             "a shoot-out with only one side",
         ),
-        # `beginn` rather than a count: `anzahl_spiele` left this validator with ADR-0065, so nothing
-        # rejects it any more -- a matchday's expected count is derived on read and is on no document.
-        # A date stored as a number is the same class of defect on a field the validator does constrain.
+        # `beginn` rather than a count: a matchday's expected count is derived on read and is on no
+        # document (ADR-0052), so nothing rejects it. A date stored as a number is the same class of
+        # defect on a field the validator does constrain.
         ("spieltage", valid_document("spieltage", beginn=20260315), "a date stored as a number"),
         ("spieler", valid_document("spieler", vorname=None), "a player with no first name"),
         ("teams", {k: v for k, v in valid_documents()["teams"].items() if k != "full_name"}, "a missing required field"),
@@ -250,6 +250,7 @@ def test_a_conforming_document_is_accepted(mongo_container: Any, collection: str
     ids=lambda value: value if isinstance(value, str) else "",
 )
 def test_a_malformed_document_is_rejected(mongo_container: Any, collection: str, document: dict[str, Any], why: str):
+    """Every case is a defect class the validator must refuse; `why` names the one it guards against."""
     assert insert_outcome(mongo_container, collection, document) == "rejected", f"the validator let through {why}"
 
 
@@ -345,7 +346,7 @@ def test_applying_twice_changes_nothing(mongo_container: Any):
 
 def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_container: Any):
     """
-    The failure mode ADR-0027 accepted, asserted so it stays a failure.
+    The failure mode ADR-0020 accepted, asserted so it stays a failure.
 
     A unique index cannot be built over data that already violates it. The tempting fix — catch it,
     log it, carry on — would leave a database that looks constrained and is not, which is the one
@@ -419,7 +420,7 @@ def test_every_needed_privilege_is_reported_independently(mongo_container: Any):
 
 def test_the_privilege_probe_says_denied_for_a_readwrite_user(mongo_container: Any):
     """
-    The load-bearing claim of ADR-0027's rollout, executed rather than read off a documentation page.
+    The load-bearing claim of ADR-0020's rollout, executed rather than read off a documentation page.
 
     `readWrite` grants `createIndex` but not `collMod`, so a user holding it builds all four indexes
     and attaches no validators — and the application then refuses to start. Everything about the Atlas

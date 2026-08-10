@@ -10,7 +10,7 @@ Invariants:
 - `/is_ready` is the one that pings the database — the liveness/readiness distinction.
 
 See:
-- docs/ops/spec.md — section 1, where the healthcheck path is pinned
+- docs/ops/spec.md — section 1.1, where the healthcheck path is pinned
 """
 
 from typing import Annotated
@@ -25,7 +25,6 @@ from app.core.db import get_database
 from app.core.exceptions import DatabaseUnavailableException
 from app.core.security import verify_access_system
 
-# Router is unprotected by default, to allow for ping endpoint to be publically accesible
 router = APIRouter(prefix=f"/api/v{API_VERSION}/system")
 
 

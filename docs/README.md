@@ -1,173 +1,43 @@
 # Documentation
 
-**Verified against:** `09f903d`, 2026-08-08
+**Verified against:** `7555ecd`, 2026-08-10\
+**Folder purpose:** everything written down about Frankfurt-League — a Next.js frontend, a FastAPI backend, MongoDB, deployed with Docker Compose behind nginx on a single host.
 
-Frankfurt-League is a league website: a Next.js frontend, a FastAPI backend, MongoDB, deployed with
-Docker Compose behind nginx on a single host.
+## Folder overview
 
-This page is the entry point to everything written down about it. **Start with the task table**; the
-rest explains how the documentation is organised and why.
+| Read                                                   | For                                                                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| [`glossary.md`](glossary.md)                           | The German domain vocabulary, and the pitfall in each term                                  |
+| [`domain.md`](domain.md)                               | What depends on what, when a field may be edited, and what is refused                       |
+| [`frontend/overview.md`](frontend/overview.md)         | What the Next.js app is for, and how it is organised                                        |
+| [`frontend/spec.md`](frontend/spec.md)                 | Its exact contract — routes, caching, invariants                                            |
+| [`backend/overview.md`](backend/overview.md)           | What the FastAPI app is for, and how it is organised                                        |
+| [`backend/spec.md`](backend/spec.md)                   | Its exact contract — endpoints, error codes, the test suite                                 |
+| [`ops/overview.md`](ops/overview.md)                   | How the system is built, routed and deployed                                                |
+| [`ops/spec.md`](ops/spec.md)                           | Compose, nginx, the scripts and every gate scope                                            |
+| [`_decisions/`](_decisions/)                           | Why something is built this way, and whether it is deliberate                               |
+| [`_git/`](_git/)                                       | Branching, commits, pull requests, the gate, repository settings                            |
+| [`_git/templates.md`](_git/templates.md)               | Writing a commit message or a pull request body                                             |
+| [`ops/runbooks.md`](ops/runbooks.md)                   | The recurring procedures, and what this repository cannot record about the host             |
+| [`logging/README.md`](logging/README.md)               | Following a request through the logs, and adding an error code                              |
+| [`_roadmap/open-items.md`](_roadmap/open-items.md)     | What is planned, ranked, and what is deliberately not                                       |
+| [`_roadmap/closed-items.md`](_roadmap/closed-items.md) | What happened to an item no longer listed                                                   |
+| [`_standard/`](_standard/)                             | Writing or changing any documentation — the rules and the shapes                            |
+| [`_auditing/`](_auditing/)                             | Running an audit or a remediation programme                                                 |
+| `audit/`                                               | **Gitignored.** Working documents; what lives there is listed in [`_auditing/`](_auditing/) |
 
----
-
-## Start here
-
-| If you want to                                                      | Read                                                               |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Understand a part of the system                                     | the **overview** for that surface                                  |
-| Look up an exact contract, or check whether something is still true | the **spec** for that surface                                      |
-| Know why something is built the way it is                           | [`_decisions/`](_decisions/) — the ADR log                         |
-| Find out whether a rule is deliberate before "fixing" it            | [`_decisions/README.md`](_decisions/README.md), then the ADR       |
-| Branch, commit, open a pull request, or deploy                      | [`workflows/`](workflows/)                                         |
-| Write a commit message, a PR or an issue                            | [`workflows/message-templates.md`](workflows/message-templates.md) |
-| Run a script, publish an image, or roll back                        | [`../scripts/README.md`](../scripts/README.md)                     |
-| Understand the German domain vocabulary                             | [`glossary.md`](glossary.md)                                       |
-| Know what depends on what, or when a field may be edited            | [`domain.md`](domain.md)                                           |
-| Follow a request through the logs, or add an error code             | [`logging.md`](logging.md)                                         |
-| Write or change any documentation                                   | [`_standard/`](_standard/)                                         |
-| Run an audit or remediation programme                               | [`_auditing/`](_auditing/)                                         |
-| See what is planned, and what is deliberately not                   | [`roadmap/open-items.md`](roadmap/open-items.md)                   |
-| Find out what happened to an item no longer listed                  | [`roadmap/closed-items.md`](roadmap/closed-items.md)               |
-
-### Coming back after a while
+## Coming back after a while
 
 Read in this order. About an hour, and it is the shortest path back to changing things confidently.
 
 1. **[`glossary.md`](glossary.md)** — the German vocabulary is load-bearing and some of it is
-   counter-intuitive. Everything else assumes it.
+   counter-intuitive. Everything else assumes this page.
 2. **[`domain.md`](domain.md)** — what the data is, what depends on what, and when each thing may be
-   edited. Two of its seven aggregates are counter-intuitive and both mistakes are expensive.
+   edited. Two of its aggregates are counter-intuitive and both mistakes are expensive.
 3. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
    [ops](ops/overview.md). What each part is, and why it is shaped that way.
 4. **The [ADR index](_decisions/README.md)** — one line per decision. The fastest answer to "why is it
    like this", and the reason you will not re-litigate settled questions.
-5. **[`workflows/`](workflows/)** — how to actually ship a change.
+5. **[`_git/`](_git/)** — how to actually ship a change.
 
 The specs are reference, not reading. Look things up in them; do not read them through.
-
----
-
-## How this documentation is organised
-
-**Three layers, three different update triggers.** That is the whole design — nothing here needs a
-scheduled review, because nothing depends on one.
-
-| Layer          | Answers                                 | Shape                          | Changes when                   |
-| -------------- | --------------------------------------- | ------------------------------ | ------------------------------ |
-| **Overview**   | What is this surface for?               | ~120 lines of prose, read once | A surface's purpose changes    |
-| **Spec sheet** | What is the contract? Is it still true? | Tables, looked up              | A constraint changes           |
-| **ADR**        | Why is it like this? May I change it?   | One decision, argued           | **Never** — superseded instead |
-
-Plus the **glossary** and the **domain model**, which are cross-cutting and belong to no surface. The
-domain model is a fourth shape: a narrative over tables that a test walks, so its claims are checked
-rather than reviewed ([ADR-0066](_decisions/0066-the-domain-model-is-declared-and-conformance-checked.md)).
-
-The rule underneath all of it: **code documents the local and the changeable, `/docs` documents the
-cross-cutting and the decided.** An inline comment says what not to do at the line where doing it is
-tempting; an ADR says why, once, in full; the comment cites the ADR number. Nothing appears twice.
-
-### A worked example
-
-_May I delete the unconditional `updateTag("spiele")`, since the granular tag covers it?_
-
-- The **overview** says the frontend owns all caching because the browser never talks to FastAPI.
-  Context, not an answer.
-- The **spec sheet** gives invariant I2 and how it breaks: the default read path sends no `saison_id`,
-  so those entries carry only base tags. That is the answer — no.
-- The **ADR** says why, what was deleted, and what would have to change for the answer to become yes.
-
----
-
-## Surfaces
-
-A **surface** is one of the three parts a reader goes to as a whole. Three, because that is the
-granularity at which a question has one answer.
-
-| Surface                                        | Is                                   | Overview                         | Spec                     |
-| ---------------------------------------------- | ------------------------------------ | -------------------------------- | ------------------------ |
-| **Frontend** — the Next.js app, `fl_frontend/` | Every page, and all caching          | [overview](frontend/overview.md) | [spec](frontend/spec.md) |
-| **Backend** — the FastAPI app, `fl_backend/`   | The API and every database rule      | [overview](backend/overview.md)  | [spec](backend/spec.md)  |
-| **Ops** — compose, nginx, scripts, Dockerfiles | How it is built, routed and deployed | [overview](ops/overview.md)      | [spec](ops/spec.md)      |
-
-Every spec follows the same spine — numbered contract sections, then **Invariants**, **Violation →
-remedy**, **Known-open** — so moving between them costs nothing. Operational procedure (every script,
-the tag scheme, rollback) lives in [`../scripts/README.md`](../scripts/README.md) and is not
-duplicated here.
-
----
-
-## The rest of `docs/`
-
-| Path                         | Holds                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------- |
-| [`_decisions/`](_decisions/) | The ADR log. Append-only, globally numbered, never rewritten. Start at its index            |
-| [`_standard/`](_standard/)   | How this repository is documented — the principles, the shapes, and how they stay true      |
-| [`_auditing/`](_auditing/)   | How an audit-and-remediation programme is run, plus the permanent reports of completed ones |
-| [`workflows/`](workflows/)   | Branching, commits, pull requests, deployment, and the message templates                    |
-| [`roadmap/`](roadmap/)       | Open items with their analyses, and the closed log naming the commit that closed each       |
-| [`glossary.md`](glossary.md) | The German domain vocabulary                                                                |
-| [`domain.md`](domain.md)     | Aggregates, references, editability and refusals — the model, narrated over checked tables  |
-| [`logging.md`](logging.md)   | The logging and error-handling convention: correlation id, streams, error codes             |
-| `audit/`                     | **Gitignored.** Working documents of a running programme — see below                        |
-
-**The two underscored folders are cross-cutting meta**, which is what the prefix marks: they are about
-the decisions and about the documentation itself, so they sort above the three surfaces and never read
-as a fourth one.
-
-**`audit/` is gitignored and has two tiers.** `audit/programme/` holds a running programme's working
-documents and is deleted when that programme closes; `audit/register.md` is the standing failure-mode
-register and survives every close. Neither is ever committed — this repository is public, and unfixed
-findings must not publish. A finished programme's permanent record is its final report in
-[`_auditing/reports/`](_auditing/reports/); decisions it ratified become ADRs, and anything left open
-moves to the roadmap.
-
----
-
-## Keeping it true
-
-Documentation drifts unless something stops it. Four defences, and only the third is automatic:
-
-1. **Anchored citations.** Every claim cites `<file> :: <symbol>` or an ADR number — never
-   a line number, which is wrong after any edit above it and detected by nothing.
-2. **The same-commit rule.** A change that invalidates a documented claim updates that document **in
-   the same commit**. A commit whose docs contradict its code is incomplete, not a commit with a
-   follow-up.
-3. **The documentation gate**, inside `./scripts/verify.sh`. It fails on a citation that resolves to
-   nothing — a dangling ADR number, a dead link, a broken anchor, a missing path — in `/docs` and
-   inside source comments alike.
-4. **One question before every pull request:** what did this change make untrue?
-
-All four are local to a change, so none of them sees a page that no change touched. `/docs:audit`
-sweeps the whole corpus against the standard when it is run — described in
-[`_auditing/`](_auditing/), because it is an audit rather than a defence.
-
-Pages describing current state carry a **`Verified against`** line naming the commit someone last
-checked them against. ADRs deliberately do not: an ADR is dated to when its decision was taken, so a
-re-check line would imply something that by design never happens.
-
-Full rules and the reasoning: [`_standard/`](_standard/), starting at
-[`rules-index.md`](_standard/rules-index.md).
-
----
-
-## The three things most likely to surprise you
-
-1. **The browser never talks to FastAPI.** Every application read is a server-side fetch from the Next
-   container, which is why all caching lives in the frontend and the backend authenticates with shared
-   API keys rather than user sessions.
-2. **A team document is season-independent.** Group and disqualification live on a separate
-   `saison_teams` junction, joined at read time; the league table is computed from the match documents
-   on every read and stored nowhere. `FLTeam` flattens all three sources together, so it looks like one
-   document and is not.
-3. **`"playoffs"` is not a stored value.** It is a query-only alias for "not gruppenphase".
-
-## What is open
-
-**Everything open lives in [`roadmap/`](roadmap/)** — findings, undecided questions and the ranked
-backlog, each with the full analysis that a decision should be taken with rather than re-derived.
-
-[`open-items.md`](roadmap/open-items.md) is **ranked**: reading it top to bottom gives the suggested
-working order, and [its README](roadmap/README.md#how-the-file-is-ranked) gives the five tests that
-produce that order. Everything that has left it is a row in
-[`closed-items.md`](roadmap/closed-items.md) naming the commit that closed it — look there before
-concluding that an id never existed.

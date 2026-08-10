@@ -10,16 +10,15 @@
 import type { FLSaisonPhase } from "../saisons/schemas";
 import type { FLPostSpieltagPayload } from "./schemas";
 
-// `natural` is the derived order the backend applies and the default: the phase in bracket order, then
-// `beginn`, then `name` (ADR-0064). No caller passes either of the others, and none should have to.
-// `anzahl_spiele` is not sortable, because it is derived on read rather than stored, so no Mongo sort
-// can reach it (ADR-0065).
+// `natural` is the derived order the backend applies and the default: the phase in bracket order,
+// then `beginn`, then `name` (ADR-0051). `anzahl_spiele` is not sortable — derived on read rather
+// than stored, so no Mongo sort can reach it (ADR-0052).
 export type FLSpieltageSortingOptions = "natural" | "beginn" | "ende";
 
 export type FLSpieltageFilterParams = {
   saison_id?: string;
   saison_phase?: "playoffs" | FLSaisonPhase;
-  // Retired matchdays are excluded unless an admin surface asks for them (ADR-0032). The admin list
+  // Retired matchdays are excluded unless an admin surface asks for them (ADR-0025). The admin list
   // is the one caller that does: a retired matchday still holds matches, so hiding it there would
   // hide the reason those matches are where they are.
   include_inactive?: boolean;
@@ -35,7 +34,7 @@ export type FLSpieltageFilterParams = {
  * untouched picker into a field error rather than a type error.
  *
  * The phase is also what decides where the new matchday lands in the list, since the order is derived
- * from it (ADR-0064) — so the one field the form must not guess is the one that positions the row.
+ * from it (ADR-0051) — so the one field the form must not guess is the one that positions the row.
  */
 export type SpieltagCreateDraft = Omit<FLPostSpieltagPayload, "saison_phase"> & {
   saison_phase: FLSaisonPhase | null;
@@ -46,19 +45,19 @@ export type SpieltagCreateDraft = Omit<FLPostSpieltagPayload, "saison_phase"> & 
  *
  * **`spieleAngelegt` is the whole reason this is a list rather than a link into the Spielplan.**
  * `anzahl_spiele` is how many matches this matchday *should* hold, derived from the season's rules
- * (ADR-0065); `spieleAngelegt` is how many actually carry its id. Both are facts about the same
+ * (ADR-0052); `spieleAngelegt` is how many actually carry its id. Both are facts about the same
  * matchday and nothing holds them equal, because a season being set up passes through every
  * intermediate count — so a surface showing the two side by side is the only place the difference is
  * visible.
  *
  * **`ordinal` is presentation and nothing else.** It is the row's 1-based place within its phase
- * section, assigned by the page from the order the API already returned (ADR-0064). Nothing stores it,
+ * section, assigned by the page from the order the API already returned (ADR-0051). Nothing stores it,
  * no payload carries it, and two rows cannot claim the same one — so unlike the position it replaced,
  * there is no state for it to be wrong about.
  */
 export type AdminSpieltagRow = {
   id: string;
-  /** Composed from the phase and `ordinal`, never stored (ADR-0064). See `spieltagLabels`. */
+  /** Composed from the phase and `ordinal`, never stored (ADR-0051). See `spieltagLabels`. */
   label: string;
   beginn: string;
   ende: string;

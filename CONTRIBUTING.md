@@ -12,16 +12,16 @@ replies take a few days.
 - **A suspected vulnerability** — **not** a public issue. Follow [`SECURITY.md`](SECURITY.md), which
   also says what is in and out of scope.
 - **An idea that needs thinking through before anyone can decide on it** — those live in
-  [`docs/roadmap/open-items.md`](docs/roadmap/open-items.md) with their full reasoning, rather than
+  [`docs/_roadmap/open-items.md`](docs/_roadmap/open-items.md) with their full reasoning, rather than
   in the tracker.
 
 ## Changing code
 
 Fork, branch from `main`, open a pull request. Before you do, two things are worth ten minutes:
 
-- [`docs/workflows/`](docs/workflows/) — branching, commits, pull requests, the verification gate
-  and deployment, with the reasoning for each. Its sibling
-  [`message-templates.md`](docs/workflows/message-templates.md) has the copy-paste forms for commit
+- [`docs/_git/`](docs/_git/) — branching, commits, pull requests and the verification gate, with the
+  reasoning for each. Its sibling
+  [`templates.md`](docs/_git/templates.md) has the copy-paste forms for commit
   messages and PR bodies.
 - [`docs/_decisions/`](docs/_decisions/) — the ADRs. Several patterns in this codebase look wrong at
   a glance and are deliberate, each with a recorded argument. If you think one is mistaken, say so

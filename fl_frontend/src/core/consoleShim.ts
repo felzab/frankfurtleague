@@ -5,7 +5,7 @@
  * `core/logging.ts` still lands in the stream as one JSON document per line. The writer this
  * exists for is Next itself: the framework prints every server error as a multi-line `⨯ Error [...]`
  * object dump via `console.error`, before `onRequestError` runs, and those dumps are what made the
- * production stream unparseable (ADR-0039).
+ * production stream unparseable (ADR-0032).
  *
  * Installed by `fl_frontend/src/instrumentation.ts :: register`, in the `json` format only — development output
  * stays untouched. A line that is already a JSON document passes through unchanged, so a dependency

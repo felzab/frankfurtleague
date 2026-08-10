@@ -5,7 +5,7 @@
  * `queries.ts` (ADR-0003).
  *
  * Invariants:
- * - The list is consumed in arrival order — the ranked order also seeds the bracket (ADR-0043).
+ * - The list is consumed in arrival order — the ranked order also seeds the bracket (ADR-0035).
  * - The qualifying marker mirrors `_may_hold_a_platz`, or the page marks one team and the
  *   bracket seeds another.
  */
@@ -21,7 +21,7 @@ import type { GruppeOffer } from "./types";
  *
  * The backend's `offered_gruppen` + `find_entry_refusal` read on the memberships read: the season
  * runs the first `rules.number_of_groups` of the closed set, each taking `rules.teams_per_group`
- * rows, and every junction row counts — a disqualified team never leaves its season (ADR-0033), so
+ * rows, and every junction row counts — a disqualified team never leaves its season (ADR-0026), so
  * its place stays taken. The pickers disable what `POST /teams/{team_id}/saisons` would refuse
  * (REQ-ENTER-002/003), which stays the authoritative check.
  */
@@ -65,7 +65,7 @@ const mayHoldAPlatz = (team: FLTeam): boolean => team.disqualifikation === null 
  *
  * "Currently" is the whole claim. This reads the table as it stands and says nothing about whether the
  * place is safe; the bracket seeds only once no remaining fixture can change it, which is a stricter
- * question and a different function (ADR-0043).
+ * question and a different function (ADR-0035).
  */
 export const computeQualifyingTeamIds = ({
   teams,

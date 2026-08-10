@@ -3,12 +3,12 @@
  *
  * Mirrors `fl_backend/app/api/spieltage/schemas.py`.
  *
- * **A matchday carries no position and no NAME, and no field here holds either** (ADR-0064).
+ * **A matchday carries no position and no NAME, and no field here holds either** (ADR-0051).
  * The order is `saison_phase` in bracket order, then `beginn`, then `_id`, applied by the backend before
  * the response is built — so a list arrives in the order it is played and nothing on this side re-sorts
  * it. The name a reader sees is composed from that order by `spieltagLabel` in `utils.ts`.
  *
- * **`anzahl_spiele` is on the read shape and on neither payload** (ADR-0065). A single round robin per
+ * **`anzahl_spiele` is on the read shape and on neither payload** (ADR-0052). A single round robin per
  * group fixes how many matches a matchday of a given phase holds, so the backend derives it from the
  * season's rules on every read — there is no value here for a form to submit.
  *
@@ -29,13 +29,13 @@ export const FLSpieltagSchema = z.object({
 
   beginn: CustomDateStringSchema,
   ende: CustomDateStringSchema,
-  // Derived from the season's rules and this matchday's phase, stored nowhere (ADR-0065). Zero is a
-  // legitimate answer — a phase this season's bracket does not reach expects no matches — so the bound
-  // is `nonnegative`, matching `Field(ge=0)` on the backend model.
+  // Derived from the season's rules and this matchday's phase, stored nowhere (ADR-0052). Zero is
+  // legitimate — a phase this season's bracket does not reach expects no matches — so the bound is
+  // `nonnegative`, matching `Field(ge=0)` on the backend model.
   anzahl_spiele: z.int().nonnegative(),
   saison_phase: FLSaisonPhaseSchema,
   saison_id: z.string().length(4),
-  // The day this matchday was retired, null while it is played (ADR-0032). Declared because the
+  // The day this matchday was retired, null while it is played (ADR-0025). Declared because the
   // backend sends it: zod's default strip mode discards an undeclared field with no error.
   inactive_since: CustomDateStringSchema.nullable(),
 });
@@ -54,13 +54,11 @@ export const FLSpieltageListResponseSchema = BaseAPIResponseSchema.extend({
 });
 export type FLSpieltageListResponse = z.infer<typeof FLSpieltageListResponseSchema>;
 
-// ── The write path ───────────────────────────────────────────────────────────────────────────────────
-
 /**
  * The fields both write payloads carry. German messages: these bind the matchday form's inputs
- * directly, judged in the browser with the schema the action parses (ADR-0050).
+ * directly, judged in the browser with the schema the action parses (ADR-0040).
  *
- * **No position, no match count and no name, on either payload** (ADR-0064, ADR-0065). Where a
+ * **No position, no match count and no name, on either payload** (ADR-0051, ADR-0052). Where a
  * matchday sits in its season, how many matches it expects and what it is called all follow from its
  * phase, its date and the season's rules — so the fields that decide them are already here, and there is
  * nothing separate to keep in step with them.
@@ -71,9 +69,9 @@ const spieltagPayloadFields = {
   saison_phase: FLSaisonPhaseSchema,
 };
 
-// Mirrors the model validator on both matchday payloads, and it guards the list's ORDER as well as the
-// dates: matchdays sort by `beginn` within a phase (ADR-0064), so a span running backwards is a matchday
-// whose own two dates disagree about where it belongs. The message names `ende`, the field to fix.
+// Mirrors the model validator on both matchday payloads, and guards the list's order as well as the
+// dates: matchdays sort by `beginn` within a phase (ADR-0051). The message names `ende`, the field to
+// fix.
 const endsAfterItBegins = {
   error: "Das Ende darf nicht vor dem Beginn liegen.",
   path: ["ende"],

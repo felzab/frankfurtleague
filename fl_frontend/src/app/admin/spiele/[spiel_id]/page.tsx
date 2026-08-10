@@ -13,7 +13,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**
- * The match editor (ADR-0050). One fixture per URL, so an admin can be sent to the exact thing that
+ * The match editor (ADR-0040). One fixture per URL, so an admin can be sent to the exact thing that
  * needs fixing and can come back to it after a reload.
  *
  * **No `generateMetadata`.** Every `/admin` route is behind `proxy.ts` and the layout's session check,
@@ -59,9 +59,9 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
   await connection();
   const spielId = await resolveSpielId(params);
 
-  // Resolves null for "no such fixture" — the 404 → null conversion lives inside the query, because
-  // a production build redacts an error thrown out of a "use cache" scope and no call site can
-  // recognise it. Everything else still throws, so a backend outage never reads as a missing match.
+  // Resolves null for "no such fixture" — the conversion lives inside the query, because a production
+  // build redacts an error thrown out of a "use cache" scope. Everything else still throws, so an
+  // outage never reads as a missing match.
   const spielRes = await getSpiel(spielId);
 
   if (!spielRes) {
@@ -70,7 +70,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
 
   return (
     // The fixture's OWN season, not the current one: the pickers offer the teams and the legal feeder
-    // matches of the season being edited (ADR-0046), and `/admin/spielsuche?saison_id=` can reach a past
+    // matches of the season being edited (ADR-0038), and `/admin/spielsuche?saison_id=` can reach a past
     // season's fixtures.
     <AdminContextWrapper saison_id={spielRes.spiel.saison_id}>
       {/* Keyed by the fixture's STORED STATE, and it is not decoration. `/admin/spiele/A →

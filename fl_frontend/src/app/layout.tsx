@@ -7,7 +7,6 @@ import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
 
-/** Fonts */
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",

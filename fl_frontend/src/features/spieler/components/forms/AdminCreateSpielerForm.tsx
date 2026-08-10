@@ -29,8 +29,8 @@ const EMPTY_DRAFT_BASE = {
 /**
  * Creates the player AND puts them in a squad, in one submit.
  *
- * One form on purpose: every squad read is season-scoped with a strict junction join (I11), so a
- * player created without a junction row would be invisible to the very list this form sits on.
+ * One form on purpose: every squad read is season-scoped with a strict junction join (backend spec
+ * I11), so a player created without a junction row is invisible to the very list this form sits on.
  *
  * **Running and planned seasons are both offered** (decided 2026-08-07), which is where this differs
  * from the club create. A squad is filled in over time — a player joining mid-season is the normal
@@ -61,9 +61,9 @@ export function AdminCreateSpielerForm({
         const selectedOption = saisonOptions.find((option) => option.saisonId === draft.saison_id) ?? saisonOptions[0];
         const teams = selectedOption?.teams ?? [];
 
-        // `stored` is null: this player has no squad row yet, so every number the form offers is one the
-        // write would introduce (`REQ-SQUAD-002`). It re-answers when the season or the team changes,
-        // because the same shirt is free in one squad and taken in another.
+        // `stored` is null: this player has no squad row yet, so every number the form offers is one
+        // the write would introduce (`REQ-SQUAD-002`). It re-answers when the season or the team
+        // changes, because a shirt free in one squad is taken in another.
         const nummerIsTaken = isSquadNummerTaken({
           proposed: draft.nummer,
           stored: null,

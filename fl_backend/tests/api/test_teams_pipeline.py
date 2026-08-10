@@ -1,5 +1,5 @@
 """
-TEAMS · `build_team_pipeline` — the derived league table (ADR-0026)
+TEAMS · `build_team_pipeline` — the derived league table (ADR-0019)
 
 What is pinned is the set of rules the pipeline encodes: which matches count, which phase they
 come from, where the points come from, and what a team with no matches is served — the parts a
@@ -7,7 +7,7 @@ later edit can get wrong silently. Deliberately structural and without a databas
 stage by name rather than asserting the stage list keeps every harmless refactor green.
 
 `test_teams_pipeline_execution.py` is the other half and does not replace this one: this file
-fails when a rule is DELETED, that one when a rule is present but WRONG (ADR-0030).
+fails when a rule is DELETED, that one when a rule is present but WRONG (ADR-0023).
 """
 
 from typing import Any, Mapping
@@ -20,8 +20,8 @@ from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import AS_NAME, STATISTIK_AS_NAME, build_team_pipeline
 
-# The levels the seeded season offers. Its own name so the rule lines stay readable, and typed as
-# the Literal list `FLSaisonRules` declares -- a bare list of `str` is invariant against it.
+# The levels the seeded season offers, typed as the Literal list `FLSaisonRules` declares -- a bare
+# list of `str` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 
 STANDARD_RULES = FLSaisonRules(
@@ -32,12 +32,13 @@ Pipeline = list[Mapping[str, Any]]
 
 
 # Keyword parameters rather than **kwargs forwarded into the model: the filters a test varies are a
-# closed set of four, and spelling them out is what lets a typo be a type error here instead of a
-# silently ignored key inside Pydantic.
-#
-# `scope` is deliberately NOT defaulted here. It has a default on the model, and that default is
-# itself a decision (ADR-0029) -- restating it in this helper would let the model's change silently
-# while every test kept passing.
+# closed set of four, and spelling them out makes a typo a type error here instead of a silently
+# ignored key inside Pydantic.
+
+
+# `scope` is deliberately not defaulted. It has a default on the model, and that default is itself a
+# decision (ADR-0022) -- restating it here would let the model's default change while every test
+# kept passing.
 def build(
     *,
     rules: FLSaisonRules = STANDARD_RULES,
@@ -83,7 +84,7 @@ def test_requires_a_resolved_saison_id():
 
 
 def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
-    """The counting rule (ADR-0026), and that it is scoped to the requested season rather than all of them."""
+    """The counting rule (ADR-0019), and that it is scoped to the requested season rather than all of them."""
     match_stage = statistik_stage(build())["pipeline"][0]["$match"]
 
     assert match_stage["ergebnis"] == {"$ne": None}
@@ -92,7 +93,7 @@ def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
 
 def test_counts_only_the_gruppenphase_unless_asked_otherwise():
     """
-    The default scope, and it is the decision rather than a convenience (ADR-0029).
+    The default scope, and it is the decision rather than a convenience (ADR-0022).
 
     Both scopes return the same seven fields, so a caller that forgets the parameter gets a plausible
     table either way — which is why the safe value has to be the one you get by saying nothing.
@@ -114,7 +115,7 @@ def test_the_scope_narrows_the_matches_and_nothing_else():
     The two tables are one pipeline.
 
     A scope that changed the projection, the sort or the fallback would make them two, which is the
-    arrangement ADR-0026 exists to avoid.
+    arrangement ADR-0019 exists to avoid.
     """
     gruppenphase, gesamt = build(), build(scope="gesamt")
 
@@ -126,9 +127,9 @@ def test_never_consults_is_canceled():
     """
     The forfeit rule, and the one worth a whole test: a cancelled match WITH a result still counts.
 
-    Three matches in season 2026 are in that state. Adding an `is_canceled` filter looks like an
-    obvious correction and would silently remove them from the table, so this asserts over the entire
-    serialised pipeline rather than one stage — the field must appear nowhere.
+    The live season holds matches in that state (seen 2026-08-09). Adding an `is_canceled` filter looks
+    like an obvious correction and would silently remove them from the table, so this asserts over the
+    entire serialised pipeline rather than one stage — the field must appear nowhere.
     """
     assert "is_canceled" not in repr(build())
 
@@ -158,7 +159,7 @@ def test_serves_a_zeroed_statistik_to_a_team_with_no_counting_match():
 
 
 def test_reads_statistik_from_no_stored_copy():
-    """The junction still supplies gruppe and disqualification; `statistik` no longer comes from it, or from anywhere."""
+    """The junction supplies gruppe and disqualification; `statistik` comes from no stored copy (ADR-0019)."""
     projected = projection(build())
 
     assert projected["statistik"] == {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, {field: 0 for field in FLTeamStatistik.model_fields}]}
@@ -169,7 +170,7 @@ def test_reads_statistik_from_no_stored_copy():
 
 class TestTheDisqualifiedFilterIsTranslated:
     """
-    `is_disqualified` is a QUESTION and the junction stores no boolean to answer it with (ADR-0059).
+    `is_disqualified` is a QUESTION and the junction stores no boolean to answer it with (ADR-0047).
 
     Three cases because the translation has three outcomes and two of them are easy to get wrong: a
     dumped `True` would match nothing at all, and a dumped `False` would match nothing either — both
@@ -190,7 +191,7 @@ class TestTheDisqualifiedFilterIsTranslated:
 
 def test_there_is_exactly_one_team_shape():
     """
-    One projection, whatever the caller asked for (ADR-0034).
+    One projection, whatever the caller asked for (ADR-0027).
 
     Asserted as the FULL key set rather than a spot check: a reduced variant would be added by
     branching here, and a test that only looked for `statistik` would keep passing while a caller

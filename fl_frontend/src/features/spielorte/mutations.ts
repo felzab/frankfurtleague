@@ -6,7 +6,7 @@
  *
  * All three use `authType: "admin"`; the backend's admin router rejects the base key.
  *
- * **The id goes in the PATH and never in the body** (ADR-0034). The payload schemas still carry it,
+ * **The id goes in the PATH and never in the body** (ADR-0027). The payload schemas still carry it,
  * because they back the admin form and the form has to know which venue it is editing — so each
  * mutation below splits it off. A backend payload model that saw an `id` would drop it silently.
  */
@@ -40,7 +40,7 @@ export async function patchSpielort({ id, ...fields }: FLPatchSpielortPayload): 
   });
 }
 
-// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0032).
+// Soft: the backend stamps `inactive_since` and removes nothing (ADR-0025).
 export async function deleteSpielort({ id }: FLDeleteSpielortPayload): Promise<FLDeleteSpielortResponse> {
   return apiClient<FLDeleteSpielortResponse>(`/spielorte/${id}`, FLDeleteSpielortResponseSchema, {
     method: "DELETE",

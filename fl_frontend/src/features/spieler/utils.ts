@@ -53,7 +53,7 @@ export function isSquadNummerTaken({
  *
  * **Retired rows are excluded**, matching the endpoint's `inactive_since: None` filter: a player who left
  * a team mid-season is not still wearing the shirt, and a squad row really does retire — unlike a team's
- * junction, which never leaves a season (ADR-0033).
+ * junction, which never leaves a season (ADR-0026).
  *
  * Built from `GET /spieler/memberships`, which the squad editor already reads for the player it is
  * editing, so the check costs no request of its own.

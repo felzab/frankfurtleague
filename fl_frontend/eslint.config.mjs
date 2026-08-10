@@ -23,7 +23,7 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "off",
 
       // Bans `dangerouslySetInnerHTML`. It is the compensating control for the CSP keeping
-      // 'unsafe-inline' on script-src, so the CSP does not mitigate script injection (ADR-0016).
+      // 'unsafe-inline' on script-src, so the CSP does not mitigate script injection (ADR-0011).
       "react/no-danger": "error",
 
       // Keeps type-only imports out of the runtime graph, so a client component importing a type
@@ -35,7 +35,7 @@ const eslintConfig = defineConfig([
   },
 
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
-  // so a blanket cross-feature ban would flag mostly-correct sites (ADR-0012).
+  // so a blanket cross-feature ban would flag mostly-correct sites (ADR-0008).
   {
     files: ["src/core/**/*.{ts,tsx}"],
     rules: { "no-restricted-imports": ["error", { patterns: [LAYER_BOUNDARY.core] }] },
@@ -58,9 +58,9 @@ const eslintConfig = defineConfig([
       // can — tsc, the Prettier plugin and the browser all accept `bg-surface-muted` in silence.
       "better-tailwindcss/no-unknown-classes": "error",
 
-      // Catches class strings fused by interpolation. Partial cover only: it sees a literal abutting
-      // an interpolation, not two adjacent interpolations. The convention is the real fix — **put the
-      // separating space in the template literal, never at the end of a class string.**
+      // Partial cover: it sees a literal abutting an interpolation, not two adjacent
+      // interpolations. The convention is the real fix — put the separating space in the template
+      // literal, never at the end of a class string.
       "better-tailwindcss/no-concatenated-classes": "error",
     },
   },
