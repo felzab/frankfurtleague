@@ -175,7 +175,7 @@ export const FLSpielSchema = z.object({
   ort: FLSpielOrtFieldSchema.nullable(),
   schiedsrichter: FLSpielSchiedsrichterFieldSchema.nullable(),
 
-  // "Tore:Tore". Not free text -- TeamDetailsView splits it on ":" to derive W/D/L, and a
+  // "Tore:Tore". Not free text -- `computeErgebnisFor` matches this pattern to derive W/D/L, and a
   // malformed "3" silently rendered as a loss for both teams. null means "not played yet".
   ergebnis: z
     .string()

@@ -1,18 +1,21 @@
 /**
- * TEAMS · the qualifying marker and the printed position, tested
+ * TEAMS · the qualifying marker, the printed position and the season's progress, tested
  *
  * `computeQualifyingTeamIds` and `computePlatzByTeamId` have to agree with a rule that lives in
  * another language: the backend passes over the same two kinds of team when it seeds a bracket
  * slot (`_may_hold_a_platz`, ADR-0035), and nothing in either toolchain notices the sides
- * drifting apart. A marked row the bracket does not advance is a confidently wrong public page.
+ * drifting apart. A marked row the bracket does not advance is a confidently wrong public page, and
+ * so is a milestone naming a round the team did not reach.
  */
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { computePlatzByTeamId, computeQualifyingTeamIds } from "./utils.ts";
+import { computePlatzByTeamId, computeQualifyingTeamIds, computeSaisonVerlauf } from "./utils.ts";
 
+import type { FLSaisonPhase } from "../saisons/schemas.ts";
+import type { FLSpiel } from "../spiele/schemas.ts";
 import type { FLTeam } from "./schemas.ts";
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
@@ -88,5 +91,85 @@ describe("computePlatzByTeamId", () => {
     const qualifying = computeQualifyingTeamIds({ teams, qualifiersPerGroup: teams.length });
 
     assert.deepEqual(numbered, qualifying);
+  });
+});
+
+const SUBJECT = TEAM_ID(1);
+const OPPONENT = TEAM_ID(2);
+
+/** One fixture, reduced to the four fields the season's progress is read from. */
+const fixture = ({
+  phase,
+  ergebnis = null,
+  heim = SUBJECT,
+  gast = OPPONENT,
+}: {
+  phase: FLSaisonPhase;
+  ergebnis?: string | null;
+  heim?: string;
+  gast?: string;
+}) =>
+  ({
+    saison_phase: phase,
+    ergebnis,
+    team1: { team_id: heim },
+    team2: { team_id: gast },
+  }) as FLSpiel;
+
+describe("computeSaisonVerlauf", () => {
+  it("answers null for a team whose season never left the group phase", () => {
+    assert.equal(computeSaisonVerlauf({ spiele: [fixture({ phase: "gruppenphase", ergebnis: "3:1" })], teamId: SUBJECT }), null);
+  });
+
+  it("answers null for a team with no fixtures at all", () => {
+    assert.equal(computeSaisonVerlauf({ spiele: [], teamId: SUBJECT }), null);
+  });
+
+  it("takes the furthest round rather than the last fixture in the array", () => {
+    // Deliberately out of bracket order: the fixtures arrive sorted by date on the page, and a
+    // rescheduled semi-final played before a quarter-final would otherwise decide the answer.
+    const verlauf = computeSaisonVerlauf({
+      spiele: [fixture({ phase: "halbfinale", ergebnis: "0:2" }), fixture({ phase: "viertelfinale", ergebnis: "3:1" })],
+      teamId: SUBJECT,
+    });
+
+    assert.deepEqual(verlauf, { deepestPhase: "halbfinale", outcome: "L" });
+  });
+
+  it("reads the result from the team's own side of the fixture", () => {
+    const verlauf = computeSaisonVerlauf({
+      spiele: [fixture({ phase: "finale", ergebnis: "0:2", heim: OPPONENT, gast: SUBJECT })],
+      teamId: SUBJECT,
+    });
+
+    assert.deepEqual(verlauf, { deepestPhase: "finale", outcome: "W" });
+  });
+
+  it("reports the round with no outcome while it is unplayed", () => {
+    const verlauf = computeSaisonVerlauf({ spiele: [fixture({ phase: "finale" })], teamId: SUBJECT });
+
+    assert.deepEqual(verlauf, { deepestPhase: "finale", outcome: null });
+  });
+
+  // A knockout finishing level is a draw to every reader but the bracket (ADR-0036), so the page has
+  // no winner to name — and inventing one from the shoot-out is exactly what that decision refuses.
+  it("claims neither a win nor a loss for a round that finished level", () => {
+    const verlauf = computeSaisonVerlauf({ spiele: [fixture({ phase: "halbfinale", ergebnis: "2:2" })], teamId: SUBJECT });
+
+    assert.deepEqual(verlauf, { deepestPhase: "halbfinale", outcome: null });
+  });
+
+  // The fetch filters on both sides, so this shape cannot arrive today — the guard is what keeps a
+  // later caller passing the whole season's fixtures from being told the team reached the final.
+  it("ignores a knockout fixture the team does not occupy", () => {
+    const verlauf = computeSaisonVerlauf({
+      spiele: [
+        fixture({ phase: "viertelfinale", ergebnis: "1:0" }),
+        fixture({ phase: "finale", ergebnis: "4:0", heim: OPPONENT, gast: TEAM_ID(3) }),
+      ],
+      teamId: SUBJECT,
+    });
+
+    assert.deepEqual(verlauf, { deepestPhase: "viertelfinale", outcome: "W" });
   });
 });
