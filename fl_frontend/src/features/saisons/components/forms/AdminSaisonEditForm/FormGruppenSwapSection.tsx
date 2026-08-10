@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { ArrowRightArrowLeft } from "@gravity-ui/icons";
 
-import { Button, ListBox, Select } from "@heroui/react";
+import { Button, Label, ListBox, Select } from "@heroui/react";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -55,7 +55,9 @@ function SwapTeamSelect({
       onChange={handleChange}
       isDisabled={isDisabled}
       className="w-full">
-      <span className={FIELD_LABEL}>{label}</span>
+      {/* HeroUI's own `Label`, not a bare span: it wires `for`/`id` onto the trigger, which an
+          `aria-label` alone leaves unlabelled for anything reading the DOM rather than the a11y tree. */}
+      <Label className={FIELD_LABEL}>{label}</Label>
       <Select.Trigger className={`${FIELD_TRIGGER} mt-1.5 w-full justify-between`}>
         {/* From the prop rather than `Select.Value`: the collection can lag a render behind and would
             show HeroUI's English placeholder — `GruppeSelect`'s reason, and `SaisonSelector`'s. */}
