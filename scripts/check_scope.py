@@ -12,8 +12,11 @@ Invariants:
   removes no CI job.
 - Parsers, never a `#` rule: TypeScript via ts_normalize.mjs, `ast` with docstrings stripped, tomllib.
 - The path mapping is scripts/ci_scopes.sh — the one copy; a second here would drift silently.
-- CI's `backend` means `--backend` plus `--db`; `format` is `--frontend`'s prettier step, or
-  `pnpm format` from fl_frontend/ when the frontend scope does not run.
+- One vocabulary: that mapping emits a line per verify.sh flag, so a required scope and the flag
+  that proves it are the same word and nothing here translates between them.
+
+See:
+- scripts/checker_kernel.py — git, the base, and the exit code this answers with
 """
 
 from __future__ import annotations
@@ -24,45 +27,26 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+import tomllib
 from pathlib import Path
 from typing import Final
 
-REPO_ROOT: Final = Path(__file__).resolve().parent.parent
+from checker_kernel import DEFAULT_BASE, EXIT_OK, REPO_ROOT, Finding, git, report_findings, resolve_base, run
 
-SCOPE_TRANSLATION: Final[dict[str, tuple[str, ...]]] = {
-    "scripts": ("scripts",),
-    "docs": ("docs",),
-    "backend": ("backend", "db"),
-    "frontend": ("frontend",),
-    "ops": ("ops",),
-    "images": ("images",),
-}
+# In the order verify.sh runs them. The set is `scripts/ci_scopes.sh`'s to change: a scope it emits
+# and this does not is a surface nobody is told about, the one drift a second list can still cause.
+SCOPES: Final[tuple[str, ...]] = ("scripts", "docs", "backend", "format", "frontend", "ops", "db", "images")
 
 # Suffixes a real parser can answer for. Anything absent from here is code.
 PARSEABLE: Final[frozenset[str]] = frozenset({".ts", ".tsx", ".mts", ".cts", ".py", ".toml"})
 
 MAX_NAMED_FILES: Final = 8  # a finding names the files; past this it says "and N more"
 
-
-@dataclass(frozen=True)
-class Finding:
-    severity: str  # "fail" | "report"
-    detail: str
-
-
-def git(*args: str) -> str | None:
-    result = subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return result.stdout if result.returncode == 0 else None
-
-
-def resolve_base(base: str) -> str | None:
-    """The merge base with `base`, so a local main that has moved on does not read as the diff."""
-    for ref in (base, f"origin/{base}"):
-        merge_base = git("merge-base", ref, "HEAD")
-        if merge_base is not None and merge_base.strip():
-            return merge_base.strip()
-    return None
+# Named rather than spelled in the `except` line, so this module PARSES below the floor: the
+# kernel's refusal cannot print from a file that will not compile, and a SyntaxError exits 1 --
+# the code a finding uses.
+CANNOT_PROVE: Final = (SyntaxError, ValueError, RuntimeError, OSError)
+UNREADABLE: Final = (OSError, UnicodeDecodeError)
 
 
 def changed_files(base: str) -> list[str]:
@@ -98,8 +82,6 @@ def python_same(old: str, new: str) -> bool:
 
 
 def toml_same(old: str, new: str) -> bool:
-    import tomllib  # 3.11+; the caller treats an ImportError as "cannot prove it"
-
     return tomllib.loads(old) == tomllib.loads(new)
 
 
@@ -136,9 +118,9 @@ def same_but_for_comments(suffix: str, old: str, new: str) -> bool:
         if suffix == ".toml":
             return toml_same(old, new)
         return typescript_same(suffix, old, new)
-    except SyntaxError, ValueError, ImportError, RuntimeError, OSError:
-        # A version that does not parse, a missing toolchain, a tomllib that is not there: none of
-        # these is proof of anything, so the change counts as code.
+    except CANNOT_PROVE:
+        # A version that does not parse, or a toolchain that is not installed: neither is proof of
+        # anything, so the change counts as code.
         return False
 
 
@@ -150,7 +132,7 @@ def is_comment_only(base: str, path: str) -> bool:
         new = (REPO_ROOT / path).read_text(encoding="utf-8")
     # A binary in the diff is not comment-only, and decoding one must not take the scope step down
     # before any check runs.
-    except OSError, UnicodeDecodeError:
+    except UNREADABLE:
         return False
     return same_but_for_comments(Path(path).suffix, old, new)
 
@@ -202,45 +184,43 @@ def check(base: str, ran: set[str]) -> list[Finding]:
         return []
 
     material = [path for path in files if not is_comment_only(base, path)]
-    comment_only = [path for path in files if path not in set(material)]
+    proven_code = set(material)
+    comment_only = [path for path in files if path not in proven_code]
 
     required = ci_scopes(material)
     if required is None:
         return [Finding("report", "could not run scripts/ci_scopes.sh -- this run was not checked against the diff")]
 
-    # A comment-only edit is still a documentation change, and still passes through prettier.
+    # A comment-only edit is still a documentation change, and a comment is exactly what prettier
+    # reflows, so it still asks for the formatter.
     if comment_only:
         required["docs"] = True
         required["format"] = True
-        print(f"      {len(comment_only)} file(s) changed by comments alone, so they ask only for --docs:")
+        print(f"      {len(comment_only)} file(s) changed by comments alone, so they ask for --docs and --format:")
         print(f"        {named_list(comment_only)}")
 
     findings: list[Finding] = []
 
-    for ci_scope, verify_scopes in SCOPE_TRANSLATION.items():
-        if not required.get(ci_scope):
+    for scope in SCOPES:
+        if not required.get(scope) or scope in ran:
             continue
-        missing = [scope for scope in verify_scopes if scope not in ran]
-        if not missing:
-            continue
-        flags = " ".join(f"--{scope}" for scope in missing)
-        if ci_scope == "images":
+        if scope == "images":
             findings.append(
                 Finding(
                     "fail",
                     "the image build did not run, and these files ask for it with a change\n"
                     "              that is more than comments:\n"
                     f"                {named_list(images_culprits(material))}\n"
-                    f"              Re-run with:  ./scripts/verify.sh {flags}",
+                    f"              Re-run with:  ./scripts/verify.sh --{scope}",
                 )
             )
         else:
-            findings.append(Finding("report", f"the diff asks for {flags}, which did not run"))
+            findings.append(Finding("report", f"the diff asks for --{scope}, which did not run"))
 
-    # `format` has no verify.sh flag of its own: the frontend scope's first step is prettier in write
-    # mode, and without that scope the formatter is the manual step CLAUDE.md names.
-    if required.get("format") and "frontend" not in ran:
-        findings.append(Finding("report", "the diff asks for the formatter:  cd fl_frontend && pnpm format  -- then commit what it rewrites"))
+    # The drift the header names, made visible: a scope the mapping grows and this list does not
+    # would otherwise be read past in silence.
+    if unknown := sorted(set(required) - set(SCOPES)):
+        findings.append(Finding("report", f"ci_scopes.sh emits {', '.join(unknown)}, which this check does not know -- add it to SCOPES"))
 
     return findings
 
@@ -248,7 +228,6 @@ def check(base: str, ran: set[str]) -> list[Finding]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Is this gate run's scope wide enough for the diff? (ADR-0030)")
     parser.add_argument("--ran", default="", help="the verify.sh scopes this run covers, space- or comma-separated")
-    parser.add_argument("--base", default="main", help="base ref for the branch range (default: main)")
     parser.add_argument(
         "--compare",
         nargs=2,
@@ -261,31 +240,20 @@ def main() -> int:
         old_path, new_path = (Path(p) for p in args.compare)
         same = same_but_for_comments(new_path.suffix, old_path.read_text(encoding="utf-8"), new_path.read_text(encoding="utf-8"))
         print("comment-only" if same else "code")
-        return 0
+        return EXIT_OK
 
     ran = {scope for scope in args.ran.replace(",", " ").split() if scope}
 
-    base = resolve_base(args.base)
+    base = resolve_base()
     if base is None:
-        print(f"      no merge base with {args.base} -- this run was not checked against the diff")
-        return 0
+        print(f"      no merge base with {DEFAULT_BASE} -- this run was not checked against the diff")
+        return EXIT_OK
 
-    findings = check(base, ran)
-    failures = [finding for finding in findings if finding.severity == "fail"]
-
-    # One stream, failures first. verify.sh prints this straight through rather than capturing it,
-    # so interleaving stdout and stderr here would reorder the findings on the terminal.
-    for finding in failures:
-        print(f"      FAIL    {finding.detail}")
-    for finding in findings:
-        if finding.severity != "fail":
-            print(f"      report  {finding.detail}")
-
-    if failures:
+    code = report_findings(check(base, ran))
+    if code != EXIT_OK:
         print("\n      The rule is CLAUDE.md, The gate. Why images fails where the rest report: ADR-0030.")
-        return 1
-    return 0
+    return code
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run(main))
