@@ -1,6 +1,6 @@
 # Open items
 
-**Verified against:** `7555ecd`, 2026-08-09\
+**Verified against:** `84d43da`, 2026-08-10\
 **Purpose:** what is open, ranked — each entry carrying the analysis its decision needs
 
 | Section                                                         | Answers                                                  |
@@ -74,7 +74,7 @@ chosen by feel.
 | 11  | LOG-2  | A cached read's call joins to no render                 | FE, BE, Ops | L      | Open     | —          |
 | 12  | FB-15  | A group move is only defensible as a swap, unoffered    | FE, BE      | M      | Open     | —          |
 | 13  | BE-7   | `typing` imports instead of `collections.abc`           | BE          | —      | Standing | —          |
-| 14  | BE-6   | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Standing | —          |
+| 14  | BE-6   | `CustomObjectId` validates nothing in JSON mode         | BE          | —      | Closed   | —          |
 | 15  | BE-14  | The certainty walk gives up in a group of six or more   | BE          | —      | Standing | —          |
 | 16  | OPS-2  | Nothing validates the contents of a restored `.env`     | Ops         | —      | Standing | —          |
 | 17  | OPS-3  | Crawler policy split between robots.txt and Cloudflare  | Ops         | —      | Standing | —          |
@@ -570,7 +570,7 @@ decision is to enable ruff's `UP` rules and migrate in one pass.
 
 ### 14 · BE-6 — `CustomObjectId` validates nothing in JSON mode
 
-**Status:** Standing\
+**Status:** Closed\
 **Surfaces:** BE\
 **Effort:** —\
 **Path:** Independent — backend audit pass B2's validation-mode check owns it.
@@ -581,6 +581,22 @@ ObjectId while `model_validate` rejects it. Unreachable through FastAPI, which v
 already-parsed dicts — which is precisely why the existing tests certify a guarantee that holds in the
 Python mode alone. If anything ever routes through `model_validate_json`, an arbitrary string reaches
 a Mongo `_id` filter. Found 2026-07-30.
+
+**What concluded it.** The chain the Python union validates through is now named and serves the JSON
+branch as well, so a string is converted and checked whichever mode parsed it. No ADR: a validator
+that failed to validate is a defect, not a position anyone would argue the other side of (DEC-1).
+
+Declaring that chain on the JSON branch broke OpenAPI generation, because serialization mode reads a
+chain's **last** step and a plain validator function has no JSON schema — so
+`__get_pydantic_json_schema__` now states the published contract (ADR-0033) instead of leaving it to
+be read off a shape chosen for validation. The bare `str_schema()` had been doubling as that
+declaration, which is why nothing pointed at the missing check. A `return_schema` on the serializer
+was measured and rejected: it warns on every `keep_oid` dump.
+
+Rehomed rather than left as prose: `fl_backend/tests/shared/test_custom.py` runs each malformed id
+through `model_validate_json` too, which is the coverage whose absence let this stand; and
+[ADR-0057](../_decisions/0057-a-path-identifies-a-query-validates.md)'s split, found untested while
+proving the status codes had not moved, is pinned by `fl_backend/tests/api/test_malformed_ids.py`.
 
 ### 15 · BE-14 — The certainty walk gives up in a group of six or more
 

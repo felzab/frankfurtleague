@@ -5,7 +5,10 @@ The date test is the one that matters: `DATE_REGEX` alone accepts 2026-02-31, be
 cannot know how many days a month has, so a real calendar check sits behind it.
 """
 
+import json
+
 import pytest
+from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
 from app.shared.schemas.custom import CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString
@@ -133,13 +136,24 @@ def test_accepts_internationalised_domains(value):
 
 
 def test_object_id_round_trips_as_a_24_hex_string():
-    """Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects."""
+    """Serialises back to the 24-hex string the frontend's CustomObjectIdStringSchema expects, parsed either way."""
     parsed = _ObjectId.model_validate({"value": "6890a1b2c3d4e5f607182930"})
     assert str(parsed.value) == "6890a1b2c3d4e5f607182930"
 
+    # The isinstance is the assertion: a json branch that only declared the value a string would
+    # leave `value` a `str` here, and every comparison against a stored `_id` would silently miss.
+    from_json = _ObjectId.model_validate_json('{"value": "6890a1b2c3d4e5f607182930"}')
+    assert isinstance(from_json.value, ObjectId)
+    assert from_json.value == parsed.value
 
-@pytest.mark.parametrize("value", ["not-an-objectid", "6890a1b2c3d4e5f60718293", ""])
+
+@pytest.mark.parametrize("value", ["not-an-objectid", "6890a1b2c3d4e5f60718293", "zzzzzzzzzzzzzzzzzzzzzzzz", ""])
 def test_rejects_malformed_object_ids(value):
-    """Non-hex, one character short, and empty."""
+    """Non-hex, one character short, 24 non-hex characters, and empty — refused from a dict and from JSON alike."""
     with pytest.raises(ValidationError):
         _ObjectId.model_validate({"value": value})
+
+    # FastAPI hands validation an already-parsed dict, so nothing routed reaches this call. The
+    # guarantee is the type's, not the framework's, and the json mode is where it went unproven.
+    with pytest.raises(ValidationError):
+        _ObjectId.model_validate_json(json.dumps({"value": value}))
