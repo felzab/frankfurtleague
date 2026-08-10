@@ -16,6 +16,7 @@ import { CircleExclamation } from "@gravity-ui/icons";
 import { Button, Card } from "@heroui/react";
 
 import { card } from "@/shared/components/ui/card";
+import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
@@ -55,16 +56,23 @@ export function SpielCardCompact({ spielData, onOpenInfoModal }: { spielData: FL
 
           {/* The same details-modal affordance SpielCard has, sized to the slimmer row. `shrink-0`
               because a tap target must keep its box whatever the row does around it. */}
+          {/* The tooltip is SpielCard's, for the reason given there. Its trigger `<div>` lands
+              between the row and the button, so the row classes move to the SPAN outside it —
+              `ml-auto` on the button would have nothing left to push against. */}
           {onOpenInfoModal && (
-            <Button
-              isIconOnly
-              aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
-              onPress={onOpenInfoModal}
-              size="sm"
-              variant="tertiary"
-              className="bg-muted text-foreground hover:bg-muted/80 ml-auto h-[32px] w-[32px] shrink-0 self-start p-0 transition-colors duration-200">
-              <CircleExclamation className="m-0 size-4" />
-            </Button>
+            <span className="ml-auto shrink-0 self-start">
+              <IconTooltip label="Spielinfo">
+                <Button
+                  isIconOnly
+                  aria-label={`Spielinfo Spiel Nr.${spielData.spiel_nr}`}
+                  onPress={onOpenInfoModal}
+                  size="sm"
+                  variant="tertiary"
+                  className="bg-muted text-foreground hover:bg-muted/80 h-[32px] w-[32px] p-0 transition-colors duration-200">
+                  <CircleExclamation className="m-0 size-4" />
+                </Button>
+              </IconTooltip>
+            </span>
           )}
         </div>
 
