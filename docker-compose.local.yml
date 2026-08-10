@@ -66,6 +66,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+      # The probe cadence during start_period, so the edit-verify loop waits seconds rather than a
+      # full `interval` for each verdict. Requires Docker Engine 25 or newer.
+      start_interval: 3s
 
   backend:
     build:
@@ -96,9 +99,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+      # Same first-probe reason as the frontend's, and the same engine requirement.
+      start_interval: 3s
 
   nginx:
-    image: nginx:alpine
+    # The same pin as docker-compose.yml, for the same reason: an unpinned tag is a different nginx
+    # per host, and this stack exists to exercise the production one.
+    image: nginx:1.31-alpine
     restart: unless-stopped
     ports:
       - "3000:80"

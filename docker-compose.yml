@@ -61,6 +61,11 @@ services:
       # Next's standalone server needs a moment before it answers; without this the early probes
       # fail and the container is marked unhealthy on a perfectly good start.
       start_period: 20s
+      # The probe cadence DURING start_period. Without it the first probe waits a full `interval`,
+      # so a service that answers in two seconds is not MARKED healthy for thirty -- and nginx,
+      # gated on `service_healthy`, serves 502s for that whole window on every deploy.
+      # Requires Docker Engine 25 or newer on the host, which is where the healthcheck runs.
+      start_interval: 3s
     deploy:
       resources:
         # The frontend renders React on the server, so it is the memory-hungry half. The limit is a
@@ -101,6 +106,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+      # Same first-probe reason as the frontend's, and the same engine requirement.
+      start_interval: 3s
     deploy:
       resources:
         limits:
@@ -110,7 +117,11 @@ services:
           memory: "128M"
 
   nginx:
-    image: nginx:alpine
+    # Pinned to the minor so this proxy and the local one are the same nginx. An unpinned `alpine`
+    # tag is whatever each host happened to pull first -- and nothing here pulls nginx again, so the
+    # component that terminates TLS and owns the security headers drifts per host, silently. Bump
+    # this and docker-compose.local.yml together.
+    image: nginx:1.31-alpine
     restart: unless-stopped
     ports:
       - "80:80" # HTTP, redirected to HTTPS by the server block
