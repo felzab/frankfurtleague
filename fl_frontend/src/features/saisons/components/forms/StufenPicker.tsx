@@ -29,7 +29,8 @@ import type { Key } from "@heroui/react";
  * declaration: near-black measures 1.97:1 on this maroon, where 3:1 is the floor. HeroUI pins the group's
  * ring INSET with a zero offset, so it cannot escape the fill onto the panel and be judged against that
  * instead — recolouring it is the fix that changes no geometry. White on the maroon is 10.02:1, and it is
- * the same value the chip's own text already takes. Nothing else in the app moves off `--focus`.
+ * the same value the chip's own text already takes. No other control substitutes a different focus colour,
+ * and `globals.css` records this departure where `--focus` is declared.
  *
  * Local to this file rather than shared: one call site, and `TAB_ITEM` is where the shared version would
  * belong if a second picker ever wants it.

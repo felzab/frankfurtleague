@@ -127,9 +127,13 @@
     /* Accents & Feedback */
     --accent-brand: #82181a;
 
-    /* THE focus colour, and there is only one (decided 2026-07-31).
-       HeroUI reads --focus for all 47 of its focus rings, and the base-layer rule further down gives
-       plain <a>/<button> an identical outline, so this single line is the whole focus palette.
+    /* THE focus colour, and a single control departs from it (decided 2026-07-31).
+       HeroUI reads --focus for its focus rings, and the base-layer rule further down gives plain
+       <a>/<button> an identical outline. The departure is the Stufen picker's SELECTED chip, whose
+       ring reads --color-brand-solid-foreground because --fg-base is 1.97:1 on that maroon where
+       WCAG 1.4.11 wants 3:1 (`StufenPicker.tsx :: STUFE_CHIP`). That EXTENDS --fg-on-brand's pairing
+       rule, which governs text, to a non-text indicator -- so a control put on --accent-brand-solid
+       needs the same judgement rather than inheriting this line.
        --fg-base, not --accent-brand: it is white in the dark theme -- the chosen look --
        and near-black in the light theme, where white would be invisible on --bg-base. Both read as
        "the standard focus outline", which is the point.
